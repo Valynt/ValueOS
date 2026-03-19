@@ -926,10 +926,9 @@ Field-Level Encryption Keys
 - Pre-activation validation testing
 - Automatic audit logging
 - Admin notifications (for manual steps)
-- Dedicated workflow `.github/workflows/secret-rotation-verification.yml` runs `node scripts/security/verify-secret-rotation.mjs` on a daily schedule and as the production-promotion `secret-rotation-gate` in `.github/workflows/deploy.yml`, failing when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
-- Environment vars/secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ROLE_TO_ASSUME`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`).
-- The authoritative evidence artifact for release sign-off is `secret-rotation-evidence-<environment>-<run_id>`, which contains the machine-readable JSON report and text execution log.
-- Rotation evidence is written under `artifacts/security/secret-rotation/` with a deterministic `<environment>-run-<run-id>-attempt-<attempt>` prefix and uploaded as the `secret-rotation-evidence-<environment>-<run_id>` workflow artifact.
+- CI lane `Verify secret rotation metadata age` in `.github/workflows/ci.yml` runs `node scripts/security/verify-secret-rotation.mjs` and fails when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
+- Workflow secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`).
+- Rotation evidence artifact is written to deterministic path `artifacts/security/rotation/rotation-evidence-latest.json` and uploaded as the `secret-rotation-evidence-<run_id>` workflow artifact.
 
 ### Secure Key Storage
 
@@ -1339,7 +1338,7 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 | **Right to Erasure**                | ✅ Compliant | Account deletion API implemented           |
 | **Right to Portability**            | ✅ Compliant | JSON export of all user data               |
 | **Data Processing Agreement (DPA)** | ✅ Compliant | DPA with Supabase & Together.ai            |
-| **Consent Management**              | ✅ Compliant | Per-user consent checks bind `tenant_id` + canonical `auth_subject` + consent type, and withdrawn records fail closed    |
+| **Consent Management**              | ✅ Compliant | Per-user consent checks require tenant + canonical subject (`auth_subject`) + consent type, enforced through request-scoped Supabase clients with withdrawn consents excluded |
 | **Data Breach Notification**        | ✅ Compliant | Incident response plan documented          |
 | **Privacy by Design**               | ✅ Compliant | Minimal data collection, encrypted storage |
 
@@ -1356,11 +1355,12 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 - Backups: 30 days
 - Analytics: 12 months (anonymized after 6 months)
 
-**Consent Evidence Requirements:**
+**Consent audit evidence (required):**
 
-- Every production consent decision must be attributable to a single authenticated data subject via the canonical `auth_subject` value, not just a tenant-wide flag.
-- Audit evidence for consent-sensitive processing must capture: `tenant_id`, `auth_subject`, `consent_type`, decision outcome, request/correlation ID, evaluation timestamp, and whether the consent was active or withdrawn at check time.
-- Review evidence should demonstrate negative cases as well: a different user in the same tenant, a withdrawn consent record, and a consent record from another tenant must all fail the authorization check.
+- Retain immutable evidence that every protected API decision was evaluated against the authenticated data subject, the tenant boundary, and the requested consent type.
+- Preserve `user_consents` change history for grant and withdrawal events, including the canonical subject identifier (`auth_subject`), tenant identifier, consent type, actor, timestamp, and request/trace correlation IDs.
+- Include privacy evidence artifacts showing negative-path coverage for: a different user in the same tenant, withdrawn consent, and a matching consent in the wrong tenant.
+- Review monthly privacy evidence bundles to confirm consent checks were executed through request-scoped/user-scoped Supabase clients rather than `service_role` access.
 
 ---
 

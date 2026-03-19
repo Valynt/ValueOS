@@ -1,26 +1,22 @@
 import { logger } from "../../lib/logger.js";
-import type { ConsentRegistry, ConsentQuery, ConsentQueryClient } from "../../types/consent";
+import type { ConsentCheckRequest, ConsentRegistry } from "../../types/consent";
 import { settings } from "../config/settings.js";
 
 const CONSENT_TABLE = "user_consents";
-const CANONICAL_SUBJECT_COLUMN = "auth_subject";
-const TENANT_COLUMN = "tenant_id";
+const CONSENT_SUBJECT_COLUMN = "auth_subject";
 
 export function isConsentRegistryConfigured(): boolean {
   return Boolean(settings.VITE_SUPABASE_URL);
 }
 
-export function createConsentRegistry(
-  supabaseFactory: (query: ConsentQuery) => ConsentQueryClient = (query) => query.supabase
-): ConsentRegistry {
+export function createDatabaseConsentRegistry(): ConsentRegistry {
   return {
-    hasConsent: async ({ tenantId, scope, subject, supabase }) => {
-      const client = supabaseFactory({ tenantId, scope, subject, supabase });
-      const { data, error } = await client
+    hasConsent: async ({ tenantId, scope, subject, supabase }: ConsentCheckRequest) => {
+      const { data, error } = await supabase
         .from(CONSENT_TABLE)
         .select("id")
-        .eq(TENANT_COLUMN, tenantId)
-        .eq(CANONICAL_SUBJECT_COLUMN, subject)
+        .eq("tenant_id", tenantId)
+        .eq(CONSENT_SUBJECT_COLUMN, subject)
         .eq("consent_type", scope)
         .is("withdrawn_at", null)
         .limit(1);
@@ -40,5 +36,5 @@ export function createConsentRegistry(
 }
 
 export const consentRegistry: ConsentRegistry | null = isConsentRegistryConfigured()
-  ? createConsentRegistry()
+  ? createDatabaseConsentRegistry()
   : null;
