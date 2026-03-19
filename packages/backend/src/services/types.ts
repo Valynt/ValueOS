@@ -7,3 +7,4 @@ export * from '../types/workflow.js';
 export * from '../types/billing.js';
 export * from '../types/agent.js';
 export type { AuditLogEntry } from '../types/audit.js';
+export type { CanvasComponent } from '../types/index';

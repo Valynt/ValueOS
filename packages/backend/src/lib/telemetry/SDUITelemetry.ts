@@ -23,3 +23,12 @@ export class SDUITelemetry {
 }
 
 export const sduiTelemetry = new SDUITelemetry();
+
+export enum TelemetryEventType {
+  CIRCUIT_BREAKER_TRIPPED = 'circuit_breaker_tripped',
+  RETRY_SUCCESS = 'retry_success',
+  RETRY_FAILED = 'retry_failed',
+  COMPONENT_RENDERED = 'component_rendered',
+  INTENT_RESOLVED = 'intent_resolved',
+  ERROR = 'error',
+}

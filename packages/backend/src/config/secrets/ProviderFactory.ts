@@ -265,3 +265,4 @@ export function createProviderFromEnv(): ISecretProvider {
  * Get singleton provider factory
  */
 export const providerFactory = ProviderFactory.getInstance();
+export const defaultProvider = createProviderFromEnv();

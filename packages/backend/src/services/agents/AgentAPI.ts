@@ -1,6 +1,6 @@
 /**
  * AgentAPI Service
- * 
+ *
  * Wraps HTTP calls to agent endpoints with circuit breaker protection
  * and comprehensive error handling.
  */
@@ -173,7 +173,7 @@ export interface AgentAPIConfig {
  */
 function getDefaultConfig(): Required<AgentAPIConfig> {
   const envConfig = getConfig();
-  
+
   return {
     baseUrl: envConfig.agents.apiUrl,
     timeout: envConfig.agents.timeout,
@@ -187,7 +187,7 @@ function getDefaultConfig(): Required<AgentAPIConfig> {
 
 /**
  * AgentAPI Service Class
- * 
+ *
  * Provides methods for interacting with agent endpoints with
  * circuit breaker protection and error handling.
  */
@@ -220,11 +220,10 @@ export class AgentAPI {
       agentTypes.forEach((agent) => {
         this.circuitBreakers.set(
           agent,
-          new CircuitBreaker(
-            `agent-${agent}`,
-            this.config.failureThreshold,
-            this.config.cooldownPeriod
-          )
+          new CircuitBreaker({
+            failureThreshold: this.config.failureThreshold,
+            cooldownPeriod: this.config.cooldownPeriod,
+          })
         );
       });
     }
@@ -272,13 +271,14 @@ export class AgentAPI {
    */
   private normalizeTokenUsage(tokens?: unknown): { prompt?: number; completion?: number; total?: number } | undefined {
     if (!tokens) return undefined;
+    const t = tokens as Record<string, unknown>;
 
     const clamp = (value: number | undefined, max = 20000) =>
       Math.min(Math.max(Number(value || 0), 0), max);
 
-    const prompt = clamp(tokens.prompt);
-    const completion = clamp(tokens.completion);
-    const total = clamp(tokens.total || prompt + completion);
+    const prompt = clamp(t.prompt as number | undefined);
+    const completion = clamp(t.completion as number | undefined);
+    const total = clamp((t.total as number | undefined) || prompt + completion);
 
     return { prompt, completion, total };
   }
@@ -294,7 +294,7 @@ export class AgentAPI {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-     
+
     const baseFetch = (globalThis.fetch || fetch).bind(globalThis);
 
     try {
@@ -780,7 +780,7 @@ export class AgentAPI {
 
     const lastFailureTime = breaker.getLastFailureTime();
     const lastFailureTs = lastFailureTime ? new Date(lastFailureTime).getTime() : 0;
-    
+
     return {
       state: breaker.canExecute()
         ? 'closed'

@@ -86,3 +86,16 @@ export class FabricMonitor {
 }
 
 export const fabricMonitor = new FabricMonitor();
+
+export interface DLQAlert {
+  queueName: string;
+  messageId: string;
+  errorMessage: string;
+  retryCount: number;
+  timestamp: string;
+  payload?: unknown;
+  streamName?: string;
+  messageCount?: number;
+  lastFailedMessage?: unknown;
+  [key: string]: unknown;
+}

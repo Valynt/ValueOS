@@ -9,8 +9,7 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
-import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import { verifyAuthenticationResponse, type AuthenticationResponseJSON } from "@simplewebauthn/server";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 

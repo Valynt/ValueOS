@@ -13,7 +13,11 @@
 
 import { SDUIPageDefinition } from '@valueos/sdui';
 
-import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
+import { LLMGateway, createLLMGateway as _createLLMGateway } from '../../lib/agent-fabric/LLMGateway';
+
+function createLLMGateway(): LLMGateway {
+  return _createLLMGateway({ provider: 'openai', model: 'gpt-4o-mini' });
+}
 import { logger } from '../../lib/logger.js'
 import { llmConfig } from '../config/llm.js'
 

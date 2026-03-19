@@ -15,6 +15,19 @@ export type WorkflowStageType = "opportunity" | "target" | "realization" | "expa
 
 export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
+export type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
+
+export type CircuitBreakerState = "closed" | "open" | "half_open";
+
+export interface WorkflowAuditLog {
+  id: string;
+  workflow_id: string;
+  stage_id?: string;
+  event: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
 // ============================================================================
 // Retry Configuration
 // ============================================================================

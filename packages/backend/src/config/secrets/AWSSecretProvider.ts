@@ -8,22 +8,20 @@
  * Created: 2024-11-29
  */
 
-import {
-  CreateSecretCommand,
-  GetSecretValueCommand,
-  SecretsManagerClient,
-} from "@aws-sdk/client-secrets-manager";
-
-// Stub commands not available in the installed SDK version
-// We cast through unknown to satisfy the compiler without using `any`.
-const DeleteSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
-const DescribeSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
-const ListSecretsCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
-const PutSecretValueCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
-const RotateSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const awsSdk = require("@aws-sdk/client-secrets-manager") as Record<string, unknown>;
+const CreateSecretCommand = awsSdk.CreateSecretCommand as new (input: Record<string, unknown>) => unknown;
+const DeleteSecretCommand = awsSdk.DeleteSecretCommand as new (input: Record<string, unknown>) => unknown;
+const DescribeSecretCommand = awsSdk.DescribeSecretCommand as new (input: Record<string, unknown>) => unknown;
+const GetSecretValueCommand = awsSdk.GetSecretValueCommand as new (input: Record<string, unknown>) => unknown;
+const ListSecretsCommand = awsSdk.ListSecretsCommand as new (input: Record<string, unknown>) => unknown;
+const PutSecretValueCommand = awsSdk.PutSecretValueCommand as new (input: Record<string, unknown>) => unknown;
+const RotateSecretCommand = awsSdk.RotateSecretCommand as new (input: Record<string, unknown>) => unknown;
+const SecretsManagerClient = awsSdk.SecretsManagerClient as new (config: Record<string, unknown>) => { send: (cmd: unknown) => Promise<unknown> };
+type GetSecretValueCommandOutput = Record<string, unknown>;
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
-import { RedisClientType } from "redis";
+import type { Redis as RedisClientType } from 'ioredis';
 
 import { logger } from "../../lib/logger.js"
 import { getRedisClient } from "../../lib/redisClient";
@@ -55,7 +53,7 @@ import { config } from "./SecretConfig.js"
  * AWS Secrets Manager provider implementation
  */
 export class AWSSecretProvider implements ISecretProvider {
-  private client: SecretsManagerClient;
+  private client: { send: (cmd: unknown) => Promise<unknown> };
   private environment: string;
   private cache: Map<string, { value: SecretValue; expiresAt: number }> =
     new Map();
@@ -257,7 +255,7 @@ export class AWSSecretProvider implements ISecretProvider {
         value: this.encrypt(JSON.stringify(value)),
         expiresAt: Date.now() + this.cacheTTL,
       };
-      await this.redisClient.setEx(
+      await this.redisClient.setex(
         `secret:${cacheKey}`,
         Math.floor(this.cacheTTL / 1000),
         JSON.stringify(cacheData)
@@ -267,6 +265,18 @@ export class AWSSecretProvider implements ISecretProvider {
         "Failed to set secret in Redis cache",
         error instanceof Error ? error : new Error(String(error))
       );
+    }
+  }
+
+  /**
+   * Invalidate a key in the Redis cache
+   */
+  private async invalidateRedisCache(cacheKey: string): Promise<void> {
+    if (!this.redisClient || !this.redisEnabled) return;
+    try {
+      await this.redisClient.del(`secret:${cacheKey}`);
+    } catch (error) {
+      logger.warn('Failed to invalidate Redis cache key', { cacheKey, error: String(error) });
     }
   }
 
@@ -441,7 +451,7 @@ export class AWSSecretProvider implements ISecretProvider {
           tenantId,
           secretKey
         )
-      );
+      ) as GetSecretValueCommandOutput;
 
       if (!response.SecretString) {
         throw new Error("Secret value is empty");
@@ -724,7 +734,7 @@ export class AWSSecretProvider implements ISecretProvider {
           "ListSecrets",
           tenantId
         )
-      );
+      ) as { SecretList?: Array<{ Name?: string }> };
       const secrets = response.SecretList || [];
 
       // Extract secret keys from full paths

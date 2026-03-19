@@ -373,6 +373,37 @@ export class PolicyEngine {
     return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
   }
 
+  /**
+   * Validates agent output against structural truth constraints.
+   * Delegates to the integrity veto service; returns no-veto when none is configured.
+   */
+  async evaluateStructuralTruthVeto(
+    payload: unknown,
+    options: IntegrityCheckOptions,
+  ): Promise<{ vetoed: boolean; metadata?: unknown }> {
+    if (!this.integrityVetoService) {
+      return { vetoed: false };
+    }
+    const result = await this.integrityVetoService.evaluateIntegrityVeto(payload, options);
+    return { vetoed: result.vetoed, metadata: result.metadata };
+  }
+
+  /**
+   * Requests a re-refinement pass from the agent layer.
+   * PolicyEngine does not own agent invocation — callers handle the
+   * `success: false` case by surfacing a user-facing error.
+   */
+  async performReRefine(
+    _agentType: string,
+    _query: string,
+    _context: { userId: string; sessionId: string; organizationId: string; metadata?: Record<string, unknown> },
+    _traceId: string,
+  ): Promise<{ success: boolean; response?: unknown }> {
+    // Re-refinement is orchestrated by the execution runtime, not PolicyEngine.
+    // Return false so callers fall through to their error-handling path.
+    return { success: false };
+  }
+
   // --------------------------------------------------------------------------
   // 5. HITL gating (Sprint 5)
   // --------------------------------------------------------------------------

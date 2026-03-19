@@ -211,9 +211,11 @@ export class IndustryBenchmarkModule extends BaseModule {
     const isOccupation = /^\d{2}-\d{4}$/.test(identifier);
 
     if (isNAICS) {
-      return await this.getIndustryBenchmark(identifier, metric);
+      const data = await this.getIndustryBenchmark(identifier, metric);
+      return { success: true, data };
     } else if (isOccupation) {
-      return await this.getWageData(identifier, options?.metro_area);
+      const data = await this.getWageData(identifier, options?.metro_area);
+      return { success: true, data };
     }
 
     throw new GroundTruthError(
@@ -528,18 +530,24 @@ export class IndustryBenchmarkModule extends BaseModule {
     cacheHit: boolean
   ): FinancialMetric {
     return {
+      type: "metric",
+      tier: "tier2",
+      source: benchmark.source,
+      timestamp: new Date().toISOString(),
+      provenance: {
+        source_type: "benchmark",
+        extraction_method: "api",
+        extracted_at: new Date().toISOString(),
+      },
       metric_name: benchmark.metric_name,
       value: benchmark.value,
       unit: benchmark.unit,
       confidence: 0.85,
-      source_type: "benchmark",
-      extraction_method: "api",
       metadata: {
         naics_code: benchmark.naics_code,
         industry_name: benchmark.industry_name,
         percentile: benchmark.percentile,
         year: benchmark.year,
-        source: benchmark.source,
         cache_hit: cacheHit,
       },
     };
@@ -547,12 +555,19 @@ export class IndustryBenchmarkModule extends BaseModule {
 
   private createMetricFromWageData(wageData: WageData, cacheHit: boolean): FinancialMetric {
     return {
+      type: "metric",
+      tier: "tier2",
+      source: "BLS",
+      timestamp: new Date().toISOString(),
+      provenance: {
+        source_type: "benchmark",
+        extraction_method: "api",
+        extracted_at: new Date().toISOString(),
+      },
       metric_name: "wage_data",
       value: wageData.median_wage,
       unit: "USD",
       confidence: 0.85,
-      source_type: "benchmark",
-      extraction_method: "api",
       metadata: {
         occupation_code: wageData.occupation_code,
         occupation_title: wageData.occupation_title,

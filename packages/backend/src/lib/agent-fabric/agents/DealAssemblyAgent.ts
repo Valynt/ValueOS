@@ -12,17 +12,17 @@
 
 import { z } from "zod";
 
-import { CRMConnector, type CRMFetchResult } from "../../services/deal/CRMConnector";
+import { CRMConnector, type CRMFetchResult } from "../../../services/deal/CRMConnector";
 import { logger } from "../../logger";
 import type {
   AgentConfig,
   AgentOutput,
   LifecycleContext,
-} from "../../types/agent";
+} from "../../../types/agent";
 import { CircuitBreaker } from "../CircuitBreaker";
 import { LLMGateway } from "../LLMGateway";
 import { MemorySystem } from "../MemorySystem";
-import { mcpGroundTruthService } from "../../services/MCPGroundTruthService";
+import { mcpGroundTruthService } from "../../../services/MCPGroundTruthService";
 import { BaseAgent } from "./BaseAgent";
 import {
   ContextExtractionAgent,
@@ -715,7 +715,7 @@ export class DealAssemblyAgent extends BaseAgent {
     return hash.toString(16);
   }
 
-  getCapabilities(): string[] {
+  override getCapabilities(): string[] {
     return [
       "fetch_crm_data",
       "extract_context",

@@ -135,11 +135,13 @@ export interface ABTest {
 }
 
 export class PromptVersionControlService {
-  private supabase: ReturnType<typeof createClient<Database>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private supabase: ReturnType<typeof createClient<any>>;
   private cache: Map<string, PromptVersion> = new Map();
 
   constructor() {
-    this.supabase = createClient<Database>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.supabase = createClient<any>(
       process.env.SUPABASE_URL || '',
       process.env.SUPABASE_KEY || ''
     );
@@ -265,7 +267,7 @@ export class PromptVersionControlService {
     // Deactivate current active version within this tenant
     await this.supabase
       .from('prompt_versions')
-      .update({ status: 'deprecated', deprecated_at: new Date().toISOString() })
+      .update({ status: 'deprecated', deprecated_at: new Date().toISOString() } as Record<string, unknown>)
       .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('status', 'active');
@@ -273,7 +275,7 @@ export class PromptVersionControlService {
     // Activate new version
     const { error } = await this.supabase
       .from('prompt_versions')
-      .update({ status: 'active', activated_at: new Date().toISOString() })
+      .update({ status: 'active', activated_at: new Date().toISOString() } as Record<string, unknown>)
       .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('version', version);
@@ -388,7 +390,7 @@ export class PromptVersionControlService {
   ): Promise<void> {
     const { error } = await this.supabase
       .from('prompt_executions')
-      .update(results)
+      .update(results as Record<string, unknown>)
       .eq('organization_id', organizationId)
       .eq('id', executionId);
 
@@ -413,7 +415,7 @@ export class PromptVersionControlService {
   ): Promise<void> {
     const { error } = await this.supabase
       .from('prompt_executions')
-      .update({ feedback })
+      .update({ feedback } as Record<string, unknown>)
       .eq('organization_id', organizationId)
       .eq('id', executionId);
 

@@ -531,3 +531,16 @@ export function sanitizeObject(obj: unknown, options: SanitizeOptions = {}): unk
 
   return obj;
 }
+
+/** Remove all HTML tags from a string. */
+export function stripHtmlTags(input: string): string {
+  return input.replace(/<[^>]*>/g, "");
+}
+
+/** Remove dangerous HTML attributes (event handlers, javascript: hrefs). */
+export function stripDangerousAttributes(input: string): string {
+  return input
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+on\w+\s*=\s*[^\s>]*/gi, "")
+    .replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"');
+}

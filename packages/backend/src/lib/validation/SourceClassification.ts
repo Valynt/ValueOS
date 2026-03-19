@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getServiceConfigManager } from "../config/ServiceConfigManager.js";
+import { getServiceConfigManager } from "../../config/ServiceConfigManager";
 
 /**
  * Source Classification Enforcement

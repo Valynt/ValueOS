@@ -32,7 +32,7 @@ export class CRMConfigManager {
       this.config = await this.baseConfigManager.loadConfig<MCPCRMServerConfig>("crm", environment);
       logger.info("CRM configuration loaded successfully", {
         environment: environment || process.env.NODE_ENV || "development",
-        providers: this.config.crm.providers.map((p) => p.provider).filter((p) => p.enabled),
+        providers: this.config.crm.providers.filter((p) => p.enabled).map((p) => p.provider),
       });
       return this.config;
     } catch (error) {

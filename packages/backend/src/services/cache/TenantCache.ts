@@ -54,7 +54,7 @@ export class TenantCache {
   async set<T>(key: string, value: T): Promise<void> {
     try {
       const client = await getRedisClient();
-      await client.setEx(key, this.ttlSeconds, JSON.stringify(value));
+      await client.setex(key, this.ttlSeconds, JSON.stringify(value));
     } catch (error) {
       logger.warn('Cache set failed', error as Error, { key });
     }

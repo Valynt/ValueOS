@@ -16,6 +16,7 @@ export type { LifecycleStage } from '@valueos/shared';
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion" | "integrity";
 
 export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "waiting_approval";
+export type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 // ============================================================================
 // Retry Configuration
@@ -68,6 +69,7 @@ export interface WorkflowDAG {
   initial_stage?: string;
   final_stages?: string[];
   exit_stages?: string[];
+  compensation_handler?: string;
   metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;

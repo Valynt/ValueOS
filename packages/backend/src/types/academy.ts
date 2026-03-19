@@ -87,6 +87,39 @@ export interface ResourceArtifact {
   integrityAgentValidated: boolean;
 }
 
+export interface LabSuccessCriterion {
+  id: string;
+  description: string;
+  required?: boolean;
+  weight?: number;
+  evaluationType?: 'llm_judge' | 'keyword_match' | 'manual' | string;
+  keywords?: string[];
+  minScore?: number;
+}
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'multiple_choice' | 'free_text' | 'true_false';
+  options?: string[];
+  correctAnswer?: string | string[];
+  explanation?: string;
+  points?: number;
+}
+
+export interface LabConfiguration {
+  agentType: string;
+  scenario: string;
+  systemPrompt: string;
+  successCriteria: LabSuccessCriterion[];
+  quizQuestions?: QuizQuestion[];
+  maxTurns?: number;
+  maxAttempts?: number;
+  timeoutMinutes?: number;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  [key: string]: unknown;
+}
+
 export const PILLARS: Record<AcademyPillar, { id: AcademyPillar; estimatedHours: number; prerequisites: AcademyPillar[] }> = {
   1: { id: 1, estimatedHours: 10, prerequisites: [] },
   2: { id: 2, estimatedHours: 10, prerequisites: [1] },

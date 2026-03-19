@@ -1,7 +1,7 @@
 import { useDataBindings as useDataBinding } from "@sdui/useDataBinding";
 import { Maximize, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Tree } from "recharts";
+import { Treemap } from "recharts";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -135,11 +135,11 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
           transition: "transform 0.2s ease-out",
         }}
       >
-        <Tree
+        <Treemap
           width={600}
           height={400}
-          data={boundData}
-          nodeContent={renderNode}
+          data={Array.isArray(boundData) ? boundData : [boundData]}
+          content={renderNode}
         />
       </div>
       <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">
