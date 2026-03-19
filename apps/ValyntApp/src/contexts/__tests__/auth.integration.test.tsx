@@ -9,32 +9,69 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/supabase", () => ({
-  supabase: {
-    auth: {
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-      resetPasswordForEmail: vi.fn(),
-      updateUser: vi.fn(),
-      resend: vi.fn(),
-      signInWithOAuth: vi.fn(),
-      onAuthStateChange: vi.fn((handler) => {
-        // Store handler for test-controlled firing
-        (globalThis as Record<string, unknown>).__authStateHandler = handler;
-        return { data: { subscription: { unsubscribe: vi.fn() } } };
-      }),
-    },
-  },
+const {
+  mockSignInWithPassword,
+  mockSignUp,
+  mockSignOut,
+  mockResetPasswordForEmail,
+  mockUpdateUser,
+  mockResend,
+  mockSignInWithOAuth,
+  mockOnAuthStateChange,
+  mockGetStoredSession,
+  mockGetCurrentSession,
+  mockSecureTokenManagerInitialize,
+  mockStoreSession,
+  mockClearSessionStorage,
+} = vi.hoisted(() => ({
+  mockSignInWithPassword: vi.fn(),
+  mockSignUp: vi.fn(),
+  mockSignOut: vi.fn(),
+  mockResetPasswordForEmail: vi.fn(),
+  mockUpdateUser: vi.fn(),
+  mockResend: vi.fn(),
+  mockSignInWithOAuth: vi.fn(),
+  mockOnAuthStateChange: vi.fn((handler) => {
+    (globalThis as Record<string, unknown>).__authStateHandler = handler;
+    return { data: { subscription: { unsubscribe: vi.fn() } } };
+  }),
+  mockGetStoredSession: vi.fn(() => null),
+  mockGetCurrentSession: vi.fn(async () => null),
+  mockSecureTokenManagerInitialize: vi.fn(async () => {}),
+  mockStoreSession: vi.fn(),
+  mockClearSessionStorage: vi.fn(),
 }));
+
+vi.mock("../../lib/supabase", () => {
+  const supabase = {
+    auth: {
+      signInWithPassword: mockSignInWithPassword,
+      signUp: mockSignUp,
+      signOut: mockSignOut,
+      resetPasswordForEmail: mockResetPasswordForEmail,
+      updateUser: mockUpdateUser,
+      resend: mockResend,
+      signInWithOAuth: mockSignInWithOAuth,
+      onAuthStateChange: mockOnAuthStateChange,
+    },
+  };
+
+  return {
+    supabase,
+    createBrowserSupabaseClient: vi.fn(() => supabase),
+    createRequestSupabaseClient: vi.fn(() => supabase),
+    createServerSupabaseClient: vi.fn(() => supabase),
+    getSupabaseClient: vi.fn(() => supabase),
+  };
+});
 
 vi.mock("../../lib/auth/SecureTokenManager", () => ({
   secureTokenManager: {
-    getStoredSession: vi.fn(() => null),
-    getCurrentSession: vi.fn(async () => null),
-    initialize: vi.fn(async () => {}),
-    storeSession: vi.fn(),
-    clearSessionStorage: vi.fn(),
+    getStoredSession: mockGetStoredSession,
+    getCurrentSession: mockGetCurrentSession,
+    initialize: mockSecureTokenManagerInitialize,
+    storeSession: mockStoreSession,
+    clearSessionStorage: mockClearSessionStorage,
   },
 }));
 
@@ -87,10 +124,10 @@ const makeSession = () => ({
 describe("Auth lifecycle integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(secureTokenManager.getStoredSession).mockReturnValue(null);
-    vi.mocked(secureTokenManager.getCurrentSession).mockResolvedValue(null);
-    vi.mocked(secureTokenManager.initialize).mockResolvedValue(undefined);
-    vi.mocked(supabase!.auth.onAuthStateChange).mockImplementation((handler) => {
+    mockGetStoredSession.mockReturnValue(null);
+    mockGetCurrentSession.mockResolvedValue(null);
+    mockSecureTokenManagerInitialize.mockResolvedValue(undefined);
+    mockOnAuthStateChange.mockImplementation((handler) => {
       (globalThis as Record<string, unknown>).__authStateHandler = handler;
       return { data: { subscription: { unsubscribe: vi.fn() } } } as ReturnType<
         typeof supabase.auth.onAuthStateChange
@@ -100,11 +137,11 @@ describe("Auth lifecycle integration", () => {
 
   it("login → isAuthenticated true → logout → isAuthenticated false", async () => {
     const session = makeSession();
-    vi.mocked(supabase!.auth.signInWithPassword).mockResolvedValue({
+    mockSignInWithPassword.mockResolvedValue({
       data: { user: session.user as never, session: session as never },
       error: null,
     });
-    vi.mocked(supabase!.auth.signOut).mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -128,8 +165,8 @@ describe("Auth lifecycle integration", () => {
 
   it("OAuth callback: stored session → onAuthStateChange SIGNED_IN → user state populated", async () => {
     const session = makeSession();
-    vi.mocked(secureTokenManager.getStoredSession).mockReturnValue(session as never);
-    vi.mocked(secureTokenManager.getCurrentSession).mockResolvedValue(session as never);
+    mockGetStoredSession.mockReturnValue(session as never);
+    mockGetCurrentSession.mockResolvedValue(session as never);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -153,9 +190,9 @@ describe("Auth lifecycle integration", () => {
   it("expired session: background check clears optimistic state", async () => {
     const session = makeSession();
     // Optimistic restore succeeds
-    vi.mocked(secureTokenManager.getStoredSession).mockReturnValue(session as never);
+    mockGetStoredSession.mockReturnValue(session as never);
     // Background check fails (token expired remotely)
-    vi.mocked(secureTokenManager.getCurrentSession).mockResolvedValue(null);
+    mockGetCurrentSession.mockResolvedValue(null);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));

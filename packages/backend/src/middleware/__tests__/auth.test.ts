@@ -10,8 +10,10 @@ vi.mock('../../services/auth/AuthService.js', () => ({
 
 vi.mock('@shared/lib/supabase', () => ({
   createRequestSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(),
   getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
+  supabase: null,
 }));
 
 // Prevent real Redis connection attempts in isTokenRevoked
@@ -30,7 +32,7 @@ vi.mock('../../services/AuditLogService.js', () => ({
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
 const { authService } = await import('../../services/auth/AuthService.js');
-const { createRequestSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
+const { createRequestSupabaseClient, createServerSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
   await import('@shared/lib/supabase');
 
 function mockRes() {
@@ -58,6 +60,9 @@ describe('auth middleware', () => {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: null, error: new Error('supabase unavailable') }),
       },
+    });
+    (createServerSupabaseClient as unknown as { mockReturnValue: (_v: unknown) => void }).mockReturnValue({
+      from: vi.fn(),
     });
     (createRequestSupabaseClient as unknown as { mockImplementation: (_fn: () => {}) => void }).mockImplementation(
       (req: any) => {
