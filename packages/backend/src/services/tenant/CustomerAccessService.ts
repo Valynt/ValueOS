@@ -3,6 +3,8 @@
  * Manages secure token-based access for customer portal
  */
 
+import crypto from "crypto";
+
 import { logger } from "../../lib/logger.js"
 import { supabase } from "../../lib/supabase.js"
 import { BaseService } from "../BaseService.js"
@@ -254,7 +256,11 @@ export class CustomerAccessService extends BaseService {
    */
   private buildPortalUrl(token: string): string {
     const baseUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-    return `${baseUrl}/customer/portal?token=${encodeURIComponent(token)}`;
+    return `${baseUrl}/customer/portal#token=${encodeURIComponent(token)}`;
+  }
+
+  private redactRecipient(email: string): string {
+    return `recipient:${crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 12)}`;
   }
 
   /**
@@ -273,12 +279,13 @@ export class CustomerAccessService extends BaseService {
     portalUrl: string
   ): Promise<void> {
     try {
-      logger.info("Sending portal access email", { email, companyName });
+      const recipientId = this.redactRecipient(email);
+
+      logger.info("Sending portal access email", { recipientId, companyName });
 
       logger.info("Portal access email details", {
-        to: email,
+        recipientId,
         subject: `Your ${companyName} Value Realization Portal`,
-        portalUrl,
       });
 
       await emailService.send({

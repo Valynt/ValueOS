@@ -204,7 +204,7 @@ class GuestAccessService {
 
       logger.info("Guest user created", {
         guestUserId: data.id,
-        email: options.email,
+        recipientId: this.redactRecipient(options.email),
         organizationId: options.organizationId,
       });
 
@@ -293,7 +293,7 @@ class GuestAccessService {
 
       if (!result.is_valid) {
         logger.warn("Invalid guest token", {
-          token: token.substring(0, 10) + "...",
+          tokenRef: this.describeToken(token),
           error: result.error_message,
         });
 
@@ -354,7 +354,7 @@ class GuestAccessService {
       if (error) throw error;
 
       logger.info("Guest token revoked", {
-        token: token.substring(0, 10) + "...",
+        tokenRef: this.describeToken(token),
         reason,
       });
 
@@ -533,7 +533,15 @@ class GuestAccessService {
    */
   private generateMagicLink(token: string): string {
     const baseUrl = import.meta.env.VITE_APP_URL || "http://localhost:5173";
-    return `${baseUrl}/guest/access?token=${token}`;
+    return `${baseUrl}/guest/access#token=${encodeURIComponent(token)}`;
+  }
+
+  private describeToken(token: string): string {
+    return `token:${crypto.createHash("sha256").update(token).digest("hex").slice(0, 12)}`;
+  }
+
+  private redactRecipient(email: string): string {
+    return `recipient:${crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 12)}`;
   }
 
   /**
