@@ -1,6 +1,8 @@
 ---
 title: Deployment Runbook
 owner: team-platform
+backstage_owner: team:platform-engineering
+backstage_system: value-engineering-platform
 canonical: ../../DEPLOY.md
 note: "See also ops/STAGING_DEPLOY_CHECKLIST.md for the v1 deploy checklist."
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"

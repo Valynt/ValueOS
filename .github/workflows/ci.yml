@@ -129,6 +129,9 @@ jobs:
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
+      - name: Service catalog metadata guard
+        run: pnpm run check:catalog-metadata
+
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 

@@ -37,5 +37,13 @@ docs/processes/critical-claims-checklist.md @team/security @team/devops
 docs/processes/localization-roadmap.md @team/frontend @team/devops
 docs/security-compliance/ @team/security
 
+# Service catalog ownership mirrors Backstage metadata
+catalog-info.yaml @team/platform-engineering
+docs/observability/incident-oncall-policy.md @team/platform-engineering
+docs/operations/incident-response.md @team/platform-engineering
+docs/operations/on-call-drill-scorecard.md @team/platform-engineering
+docs/operations/runbooks/deployment-runbook.md @team/platform-engineering
+docs/runbooks/deployment-runbook.md @team/platform-engineering
+
 # Default fallback
 * @team/owners
