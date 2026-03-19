@@ -26,6 +26,11 @@ export interface IngestionConfig {
   timeout?: number;
   enableCache?: boolean;
   cacheTTL?: number; // in milliseconds
+  cacheStaleTTL?: number; // in milliseconds
+  cacheTtlTier?: "hot" | "warm" | "cold";
+  cacheScope?: string;
+  tenantId?: string | null;
+  refreshStaleCacheInBackground?: boolean;
 }
 
 export type ESOAdapterType = "sec" | "bls" | "census";
