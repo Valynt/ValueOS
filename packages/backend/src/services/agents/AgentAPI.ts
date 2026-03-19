@@ -168,6 +168,11 @@ export interface AgentAPIConfig {
   headers?: Record<string, string>;
 }
 
+function getRequestPath(url: string): string {
+  const resolvedUrl = new URL(url, 'http://valueos.internal');
+  return `${resolvedUrl.pathname}${resolvedUrl.search}`;
+}
+
 /**
  * Get default configuration from environment
  */
@@ -338,13 +343,18 @@ export class AgentAPI {
 
       // Make HTTP request
       const url = `${this.config.baseUrl}${endpoint}`;
+      const serviceIdentityHeaders = addServiceIdentityHeader({}, {
+        method: 'POST',
+        path: getRequestPath(url),
+        body: sanitizedBody,
+      });
       const response = await this.fetchWithTimeout(
         url,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...addServiceIdentityHeader({}),
+            ...serviceIdentityHeaders,
             ...this.config.headers,
             'x-csrf-token': this.getCsrfToken(),
           },

@@ -2,6 +2,7 @@ import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { addServiceIdentityHeader, serviceIdentityMiddleware } from "../../../middleware/serviceIdentityMiddleware.js";
 import { secretHealthMiddleware, SecretValidator } from "../SecretValidator.js";
 
 const baseEnv = {
@@ -85,29 +86,32 @@ describe("secretHealthMiddleware", () => {
 
   it("rejects unauthorized callers for privileged posture details", async () => {
     vi.stubEnv("SERVICE_IDENTITY_REQUIRED", "true");
+    vi.stubEnv(
+      "SERVICE_IDENTITY_CONFIG_JSON",
+      JSON.stringify({
+        expectedAudience: "valueos-backend",
+        hmacKeys: [{ serviceId: "agent-api", keyId: "k1", secret: "super-secret", audience: "valueos-backend" }],
+      })
+    );
+    vi.stubEnv("SERVICE_IDENTITY_CALLER_ID", "agent-api");
 
     const app = express();
     app.get(
       "/health/secrets",
-      (_req, res, next) => {
-        const authHeader = _req.header("x-service-identity");
-
-        if (authHeader !== "trusted-service") {
-          res.status(401).json({ error: "Service identity verification failed" });
-          return;
-        }
-
-        next();
-      },
+      serviceIdentityMiddleware,
       secretHealthMiddleware({ mode: "privileged" })
     );
 
     const unauthorized = await request(app).get("/health/secrets");
     expect(unauthorized.status).toBe(401);
 
+    const authorizedHeaders = addServiceIdentityHeader({}, {
+      method: "GET",
+      path: "/health/secrets",
+    });
     const authorized = await request(app)
       .get("/health/secrets")
-      .set("x-service-identity", "trusted-service");
+      .set(authorizedHeaders);
 
     expect(authorized.status).toBe(200);
     expect(authorized.body).toHaveProperty("details");
