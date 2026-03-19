@@ -69,10 +69,7 @@ describe('AgentServiceAdapter — missing organizationId throws (Fix 4)', () => 
     vi.mocked(secureLLMComplete).mockResolvedValueOnce({
       content: JSON.stringify({
         opportunities: [],
-        value_drivers: [],
-        discovery_signals: [],
-        confidence: 'low',
-        reasoning: 'test',
+        analysis: 'test analysis',
       }),
     });
 

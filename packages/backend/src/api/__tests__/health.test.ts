@@ -6,7 +6,92 @@
 
 import express from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@shared/lib/health/metrics', () => ({
+  healthMetrics: {
+    recordHealthSnapshot: vi.fn(),
+    getServiceStats: vi.fn(),
+    getHealthHistory: vi.fn(),
+    getHealthTrends: vi.fn(),
+  },
+}));
+
+vi.mock('@shared/lib/health/alerts', () => ({
+  alertManager: {
+    getActiveAlerts: vi.fn(),
+    getAllAlerts: vi.fn(),
+    acknowledgeAlert: vi.fn(),
+  },
+}));
+
+vi.mock('../../middleware/securityHeaders', () => ({
+  securityHeadersMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/serviceIdentityMiddleware', () => ({
+  serviceIdentityMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/rateLimiter', () => ({
+  rateLimiters: {
+    loose: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  },
+}));
+
+vi.mock('../../middleware/requestAuditMiddleware', () => ({
+  requestAuditMiddleware: () => (
+    _req: express.Request,
+    _res: express.Response,
+    next: express.NextFunction,
+  ) => next(),
+}));
+
+vi.mock('../../config/validateEnv.js', () => ({
+  validateEnv: () => ({ warnings: [] }),
+}));
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        limit: vi.fn(async () => ({ error: null })),
+      })),
+    })),
+  })),
+}));
+
+vi.mock('../../lib/redisClient.js', () => ({
+  getRedisClient: vi.fn(() => ({
+    ping: vi.fn().mockResolvedValue('PONG'),
+  })),
+}));
+
+vi.mock('../../observability/dataFreshness.js', () => ({
+  checkAllT1TableFreshness: vi.fn(async () => []),
+}));
+
+vi.mock('../../observability/queueMetrics.js', () => ({
+  getQueueHealth: vi.fn(async (_queue: unknown, queue: string) => ({
+    queue,
+    waiting: 0,
+    active: 0,
+    delayed: 0,
+    failed: 0,
+    stalledCount: 0,
+    lastFailedAt: null,
+  })),
+}));
+
+vi.mock('../../workers/crmWorker.js', () => ({
+  getCrmSyncQueue: vi.fn(() => ({ name: 'crm-sync' })),
+  getCrmWebhookQueue: vi.fn(() => ({ name: 'crm-webhook' })),
+  getPrefetchQueue: vi.fn(() => ({ name: 'crm-prefetch' })),
+}));
+
+vi.mock('../../workers/researchWorker.js', () => ({
+  getResearchQueue: vi.fn(() => ({ name: 'onboarding-research' })),
+}));
 
 import healthRouter from '../health/index.js'
 
@@ -27,7 +112,7 @@ describe('Health Check API', () => {
       expect(response.body).toHaveProperty('status');
       expect(response.body.status).toMatch(/healthy|degraded|unhealthy/);
       expect(response.body).toHaveProperty('timestamp');
-      expect(response.body).toHaveProperty('dependencies');
+      expect(response.body).toHaveProperty('checks');
     });
 
     it('should include all dependency checks', async () => {
@@ -35,15 +120,15 @@ describe('Health Check API', () => {
         .get('/health');
 
       expect([200, 503]).toContain(response.status);
-      const { dependencies } = response.body;
+      const { checks } = response.body;
       
       // Verify all critical dependencies are checked
-      expect(dependencies).toHaveProperty('database');
-      expect(dependencies).toHaveProperty('supabase');
+      expect(checks).toHaveProperty('database');
+      expect(checks).toHaveProperty('supabase');
       
       // Each check should have status and latency
-      expect(dependencies.database).toHaveProperty('status');
-      expect(dependencies.database).toHaveProperty('lastChecked');
+      expect(checks.database).toHaveProperty('status');
+      expect(checks.database).toHaveProperty('lastChecked');
     });
 
     it('should return 503 when critical dependency is down', async () => {
@@ -98,8 +183,8 @@ describe('Health Check API', () => {
         .get('/health/ready');
 
       expect([200, 503]).toContain(response.status);
-      if (response.body.dependencies) {
-        expect(response.body.dependencies).toHaveProperty('database');
+      if (response.body.checks) {
+        expect(response.body.checks).toHaveProperty('database');
       }
     });
   });
@@ -120,10 +205,10 @@ describe('Health Check API', () => {
         .get('/health/dependencies')
         .expect(200);
 
-      expect(response.body).toHaveProperty('dependencies');
-      expect(typeof response.body.dependencies).toBe('object');
-      expect(response.body.dependencies).toHaveProperty('database');
-      expect(response.body.dependencies).toHaveProperty('supabase');
+      expect(response.body).toHaveProperty('checks');
+      expect(typeof response.body.checks).toBe('object');
+      expect(response.body.checks).toHaveProperty('database');
+      expect(response.body.checks).toHaveProperty('supabase');
     });
 
     it('should include latency for each dependency', async () => {
@@ -131,10 +216,10 @@ describe('Health Check API', () => {
         .get('/health/dependencies')
         .expect(200);
 
-      const { dependencies } = response.body;
+      const { checks } = response.body;
       
       // Check each dependency has required properties
-      Object.values(dependencies).forEach((dep: any) => {
+      Object.values(checks).forEach((dep) => {
         expect(dep).toHaveProperty('status');
         expect(dep).toHaveProperty('lastChecked');
         // latency is optional (only present when check succeeds)
