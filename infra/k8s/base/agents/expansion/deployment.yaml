@@ -80,7 +80,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: agent-config
-              key: max-concurrent-requests
+              key: latency-sensitive-max-concurrent-requests
         - name: REQUEST_TIMEOUT_MS
           valueFrom:
             configMapKeyRef:
@@ -110,7 +110,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: agent-config
-              key: db-connection-pool-size
+              key: latency-sensitive-db-connection-pool-size
         - name: DB_CONNECTION_TIMEOUT
           valueFrom:
             configMapKeyRef:

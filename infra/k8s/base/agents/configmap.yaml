@@ -19,8 +19,22 @@ data:
   enable-metrics: "true"
   enable-health-checks: "true"
 
-  # Performance settings
-  max-concurrent-requests: "10"
+  # Workload profiles
+  # Interactive agents keep moderate per-pod fan-out so CPU-bound request paths
+  # stay responsive without forcing every burst into an HPA event.
+  latency-sensitive-max-concurrent-requests: "6"
+  latency-sensitive-db-connection-pool-size: "4"
+
+  # Financial-critical agents run heavier queries and hold DB + LLM state longer,
+  # so each pod stays intentionally narrow and scales through replicas instead.
+  financial-critical-max-concurrent-requests: "4"
+  financial-critical-db-connection-pool-size: "3"
+
+  # Async agents should prefer HPA/KEDA scale-out over oversized in-pod queues.
+  # Keeping pools small prevents connection storms when scale-to-zero classes wake up.
+  low-frequency-async-max-concurrent-requests: "2"
+  low-frequency-async-db-connection-pool-size: "2"
+
   request-timeout-ms: "30000"
 
   # Agent-specific defaults
@@ -30,7 +44,6 @@ data:
   circuit-breaker-recovery-timeout: "60000"
 
   # Database connection settings
-  db-connection-pool-size: "5"
   db-connection-timeout: "10000"
 
   # External service timeouts

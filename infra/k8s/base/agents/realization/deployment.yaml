@@ -116,7 +116,15 @@ spec:
         - name: METRICS_ENABLED
           value: 'true'
         - name: MAX_CONCURRENT_REQUESTS
-          value: '8'
+          valueFrom:
+            configMapKeyRef:
+              name: agent-config
+              key: financial-critical-max-concurrent-requests
+        - name: DB_CONNECTION_POOL_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: agent-config
+              key: financial-critical-db-connection-pool-size
         - name: HOST
           value: 127.0.0.1
         - name: BIND_ADDRESS

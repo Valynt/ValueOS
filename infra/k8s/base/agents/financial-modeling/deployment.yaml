@@ -80,7 +80,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: agent-config
-              key: max-concurrent-requests
+              key: financial-critical-max-concurrent-requests
         - name: REQUEST_TIMEOUT_MS
           valueFrom:
             configMapKeyRef:
@@ -110,7 +110,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: agent-config
-              key: db-connection-pool-size
+              key: financial-critical-db-connection-pool-size
         - name: DB_CONNECTION_TIMEOUT
           valueFrom:
             configMapKeyRef:

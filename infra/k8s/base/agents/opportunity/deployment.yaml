@@ -115,7 +115,15 @@ spec:
             - name: METRICS_ENABLED
               value: "true"
             - name: MAX_CONCURRENT_REQUESTS
-              value: "10"
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-config
+                  key: latency-sensitive-max-concurrent-requests
+            - name: DB_CONNECTION_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-config
+                  key: latency-sensitive-db-connection-pool-size
             - name: HOST
               value: 127.0.0.1
             - name: BIND_ADDRESS
