@@ -484,20 +484,22 @@ export class MultiTenantSecretsManager {
         SecretId: secretPath,
       };
       const Command = GetSecretValueCommand as unknown as {
-        new (input: { SecretId: string }): { SecretId?: string };
-        (input: { SecretId: string }): { SecretId?: string };
+        new (input: { SecretId: string }): unknown;
+        (input: { SecretId: string }): unknown;
       };
-      let command: { SecretId?: string };
+      let command: unknown;
       try {
         command = new Command(commandInput);
       } catch {
         command = Command(commandInput);
       }
-      if (!command || command.SecretId !== secretPath) {
+      if (!command || !(command instanceof GetSecretValueCommand)) {
+        // Fallback for environments/tests where GetSecretValueCommand is mocked
+        // and does not produce a real AWS SDK Command instance.
         command = commandInput;
       }
 
-      const response = await this.client.send(command);
+      const response = await this.client.send(command as any);
 
       if (!response.SecretString) {
         throw new Error('Secret value is empty');
