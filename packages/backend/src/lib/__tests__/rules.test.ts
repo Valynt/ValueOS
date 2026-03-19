@@ -51,7 +51,12 @@ vi.mock('../logger.js', () => ({
   },
 }));
 
-import { enforceRules, enforceRulesDetailed, GovernanceContext } from '../rules.js';
+import {
+  __resetPermissionCacheForTests,
+  enforceRules,
+  enforceRulesDetailed,
+  GovernanceContext,
+} from '../rules.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -174,6 +179,7 @@ function mockDbError(): void {
 describe('enforceRulesDetailed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetPermissionCacheForTests();
   });
 
   // -------------------------------------------------------------------------
@@ -519,6 +525,7 @@ describe('enforceRulesDetailed', () => {
 describe('enforceRules (legacy wrapper)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetPermissionCacheForTests();
   });
 
   function makeRawContext(overrides: Record<string, unknown> = {}): Record<string, unknown> {

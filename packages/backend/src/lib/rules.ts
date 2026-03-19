@@ -35,6 +35,10 @@ const PERMISSION_CACHE_TTL_MS = 30_000;
 const PERMISSION_CACHE_MAX = 2000;
 const permissionCache = new Map<string, CacheEntry>();
 
+export function __resetPermissionCacheForTests(): void {
+  permissionCache.clear();
+}
+
 function getCachedPermissions(userId: string, tenantId: string): string[] | null {
   const key = `${tenantId}:${userId}`;
   const entry = permissionCache.get(key);

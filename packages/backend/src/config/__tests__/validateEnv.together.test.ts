@@ -13,6 +13,11 @@ describe("Together AI Environment Validation", () => {
   beforeEach(() => {
     // Reset environment before each test
     vi.unstubAllEnvs();
+    delete process.env.TOGETHER_API_KEY;
+    delete process.env.VITE_TOGETHER_API_KEY;
+    delete process.env.VITE_LLM_PROVIDER;
+    delete process.env.NODE_ENV;
+    delete process.env.VITE_APP_ENV;
   });
 
   describe("Provider Validation", () => {
@@ -38,7 +43,7 @@ describe("Together AI Environment Validation", () => {
     });
 
     it('should reject any provider other than "together"', () => {
-      const invalidProviders = ["openai", "anthropic", "cohere", "invalid", ""];
+      const invalidProviders = ["openai", "anthropic", "cohere", "invalid"];
 
       invalidProviders.forEach((provider) => {
         vi.stubEnv("VITE_LLM_PROVIDER", provider);

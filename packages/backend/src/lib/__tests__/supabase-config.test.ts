@@ -14,7 +14,9 @@ afterEach(() => {
 describe('supabase runtime config validation', () => {
   it('fails on first client access in production when Supabase secret is missing', async () => {
     process.env.NODE_ENV = 'production';
+    process.env.VALUEOS_TEST_ALLOW_SUPABASE = 'true';
     process.env.SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.SUPABASE_SERVICE_KEY;
 
@@ -27,7 +29,9 @@ describe('supabase runtime config validation', () => {
 
   it('fails on first client access in production when Supabase URL is missing', async () => {
     process.env.NODE_ENV = 'production';
+    process.env.VALUEOS_TEST_ALLOW_SUPABASE = 'true';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     delete process.env.SUPABASE_URL;
     delete process.env.VITE_SUPABASE_URL;
 

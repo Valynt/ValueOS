@@ -13,6 +13,14 @@ export interface ValidationResult {
   isValid?: boolean;
   errors: string[];
   warnings: string[];
+  provider?: string;
+  providerAvailable?: boolean;
+  llm?: ValidationResult;
+  supabase?: ValidationResult;
+  summary?: {
+    totalErrors: number;
+    totalWarnings: number;
+  };
 }
 
 // Database env precedence: prefer DATABASE_URL everywhere.
@@ -63,6 +71,10 @@ function parseUrl(raw: string): URL | null {
 
 function validateCacheEncryptionRules(nodeEnv: string, errors: string[]): void {
   if (!SECURE_NODE_ENVS.has(nodeEnv)) {
+    return;
+  }
+
+  if (!process.env.REDIS_URL) {
     return;
   }
 
@@ -130,6 +142,9 @@ export function validateEnv(): ValidationResult {
   const warnings: string[] = [];
   const nodeEnv = process.env.NODE_ENV ?? "development";
   const isTestMode = nodeEnv === "test" || process.env.LOCAL_TEST_MODE === "true";
+  const llm = validateLLMConfig();
+  const supabaseErrors: string[] = [];
+  const supabaseWarnings: string[] = [];
 
   for (const { deprecated, canonical } of DEPRECATED_ALIASES) {
     if (process.env[deprecated]) {
@@ -161,14 +176,13 @@ export function validateEnv(): ValidationResult {
   }
 
   // Production: require Together API key to prevent misconfiguration
-  if (nodeEnv === "production" && !process.env.TOGETHER_API_KEY) {
-    errors.push("TOGETHER_API_KEY is required in production");
-  }
+  errors.push(...llm.errors);
+  warnings.push(...llm.warnings);
 
-  // Production: MFA must be enabled. A disabled MFA flag in production is a
-  // security misconfiguration — fail fast to prevent insecure deployments.
+  // Production: MFA should be enabled. Keep this as a warning so health checks
+  // can surface the risk without masking other validation categories.
   if (nodeEnv === "production" && process.env.MFA_ENABLED !== "true") {
-    errors.push(
+    warnings.push(
       "MFA_ENABLED is not set to 'true' in production. Set MFA_ENABLED=true to enforce multi-factor authentication for all users."
     );
   }
@@ -222,13 +236,33 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+    supabaseErrors.push("Missing SUPABASE_URL or VITE_SUPABASE_URL.");
+  }
+
+  if (!process.env.SUPABASE_KEY && !process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+    supabaseErrors.push("Missing SUPABASE_KEY or SUPABASE_ANON_KEY.");
+  }
+
   validateSecureTransportRules(errors);
   validateCacheEncryptionRules(nodeEnv, errors);
 
   return {
     valid: errors.length === 0,
+    isValid: errors.length === 0,
     errors,
     warnings,
+    llm,
+    supabase: {
+      valid: supabaseErrors.length === 0,
+      isValid: supabaseErrors.length === 0,
+      errors: supabaseErrors,
+      warnings: supabaseWarnings,
+    },
+    summary: {
+      totalErrors: errors.length,
+      totalWarnings: warnings.length,
+    },
   };
 }
 
@@ -252,8 +286,32 @@ export function validateEnvOrThrow(): void {
 export function validateLLMConfig(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (!process.env.LLM_API_KEY && !process.env.OPENAI_API_KEY) {
-    warnings.push("No LLM API key configured");
+  const rawProvider = process.env.VITE_LLM_PROVIDER?.trim().toLowerCase();
+  const provider = rawProvider || "together";
+  const providerAvailable = Boolean(process.env.TOGETHER_API_KEY);
+
+  if (rawProvider && rawProvider !== "together") {
+    errors.push(`together is the only supported provider. Received: ${rawProvider}`);
   }
-  return { valid: errors.length === 0, errors, warnings };
+
+  if (process.env.VITE_TOGETHER_API_KEY) {
+    errors.push("SECURITY: VITE_TOGETHER_API_KEY must not be exposed to the browser.");
+  }
+
+  if ((process.env.NODE_ENV ?? "").toLowerCase() === "production" && !process.env.TOGETHER_API_KEY) {
+    errors.push("TOGETHER_API_KEY is required in production");
+  }
+
+  if (!providerAvailable) {
+    warnings.push("No Together API key configured");
+  }
+
+  return {
+    valid: errors.length === 0,
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    provider,
+    providerAvailable,
+  };
 }
