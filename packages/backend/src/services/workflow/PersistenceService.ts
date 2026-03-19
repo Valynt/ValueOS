@@ -45,9 +45,14 @@ export class PersistenceService {
   private saveQueue: Map<string, NodeJS.Timeout> = new Map();
   private readonly DEBOUNCE_MS = 2000;
 
-  private assertOrganizationId(organizationId: string, method: string): string {
+  private requireOrganizationId(
+    organizationId: string | undefined,
+    method: string
+  ): string {
     if (!organizationId) {
-      throw new Error(`PersistenceService.${method}: organizationId is required`);
+      throw new Error(
+        `PersistenceService.${method} requires organizationId`
+      );
     }
 
     return organizationId;
@@ -59,7 +64,7 @@ export class PersistenceService {
     client: string,
     userId: string
   ): Promise<BusinessCase | null> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "createBusinessCase"
     );
@@ -101,7 +106,7 @@ export class PersistenceService {
     organizationId: string,
     caseId: string
   ): Promise<BusinessCase | null> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "getBusinessCase"
     );
@@ -118,8 +123,8 @@ export class PersistenceService {
     const { data, error } = await supabase
       .from("business_cases")
       .select("*")
-      .eq("id", caseId)
       .eq("organization_id", scopedOrganizationId)
+      .eq("id", caseId)
       .single();
 
     if (error) {
@@ -138,7 +143,7 @@ export class PersistenceService {
     caseId: string,
     updates: Partial<BusinessCase>
   ): Promise<boolean> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "updateBusinessCase"
     );
@@ -163,11 +168,10 @@ export class PersistenceService {
         organization_id: scopedOrganizationId,
       })
       .eq("id", caseId)
-      .eq("organization_id", scopedOrganizationId)
       .select("id")
       .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error updating business case",
         error instanceof Error ? error : undefined
@@ -184,7 +188,7 @@ export class PersistenceService {
     component: CanvasComponent,
     actor: string = "user"
   ): Promise<string | null> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "saveComponent"
     );
@@ -229,7 +233,7 @@ export class PersistenceService {
     updates: Partial<CanvasComponent>,
     actor: string = "user"
   ): Promise<boolean> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "updateComponent"
     );
@@ -270,7 +274,7 @@ export class PersistenceService {
       .select("id")
       .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error updating component",
         error instanceof Error ? error : undefined
@@ -306,7 +310,7 @@ export class PersistenceService {
     updates: Partial<CanvasComponent>,
     actor: string = "user"
   ): void {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "debouncedUpdateComponent"
     );
@@ -330,7 +334,7 @@ export class PersistenceService {
     componentId: string,
     actor: string = "user"
   ): Promise<boolean> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "deleteComponent"
     );
@@ -343,7 +347,7 @@ export class PersistenceService {
       .select("id")
       .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error deleting component",
         error instanceof Error ? error : undefined
@@ -364,7 +368,7 @@ export class PersistenceService {
     organizationId: string,
     caseId: string
   ): Promise<CanvasComponent[]> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "loadComponents"
     );
@@ -372,8 +376,8 @@ export class PersistenceService {
     const { data, error } = await supabase
       .from("canvas_components")
       .select("*")
-      .eq("case_id", caseId)
       .eq("organization_id", scopedOrganizationId)
+      .eq("case_id", caseId)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -410,7 +414,7 @@ export class PersistenceService {
     actor: string,
     changes: unknown
   ): Promise<void> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "logHistory"
     );
@@ -435,7 +439,7 @@ export class PersistenceService {
     organizationId: string,
     componentId: string
   ): Promise<HistoryEntry[]> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "getComponentHistory"
     );
@@ -443,8 +447,8 @@ export class PersistenceService {
     const { data, error } = await supabase
       .from("component_history")
       .select("*")
-      .eq("component_id", componentId)
       .eq("organization_id", scopedOrganizationId)
+      .eq("component_id", componentId)
       .order("timestamp", { ascending: false });
 
     if (error) {
@@ -463,7 +467,7 @@ export class PersistenceService {
     caseId: string,
     limit: number = 50
   ): Promise<HistoryEntry[]> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "getGlobalHistory"
     );
@@ -507,7 +511,7 @@ export class PersistenceService {
     content: string,
     metadata: Record<string, unknown> = {}
   ): Promise<void> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "logAgentActivity"
     );
@@ -535,7 +539,7 @@ export class PersistenceService {
     caseId: string,
     limit: number = 50
   ): Promise<AgentActivity[]> {
-    const scopedOrganizationId = this.assertOrganizationId(
+    const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
       "getAgentActivities"
     );
@@ -543,8 +547,8 @@ export class PersistenceService {
     const { data, error } = await supabase
       .from("agent_activities")
       .select("*")
-      .eq("case_id", caseId)
       .eq("organization_id", scopedOrganizationId)
+      .eq("case_id", caseId)
       .order("timestamp", { ascending: false })
       .limit(limit);
 
