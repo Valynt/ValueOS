@@ -86,8 +86,34 @@ export class InvoiceMathEngine {
     return InvoiceMathEngine.getInstance().calculateInvoice(input);
   }
 
+  static async verifyCalculation(
+    originalCalculation: InvoiceCalculation,
+    tenantId: string,
+    subscriptionId: string,
+    periodStart: string,
+    periodEnd: string
+  ): Promise<boolean> {
+    return InvoiceMathEngine.getInstance().verifyCalculation(
+      originalCalculation,
+      tenantId,
+      subscriptionId,
+      periodStart,
+      periodEnd
+    );
+  }
+
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
+  }
+
+  // For testing: allow setting a custom instance with mocked dependencies
+  static _setInstanceForTesting(instance: InvoiceMathEngine | null): void {
+    InvoiceMathEngine._instance = instance;
+  }
+
+  // For testing: reset the singleton to force recreation
+  static _resetInstanceForTesting(): void {
+    InvoiceMathEngine._instance = null;
   }
 
   /**

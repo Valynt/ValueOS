@@ -5,42 +5,75 @@
  * multiple times with the same input data, ensuring auditability and consistency.
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
 
 import { InvoiceMathEngine } from '../InvoiceMathEngine.js';
 
 // Mock Supabase for testing
-const mockSupabase = {
-  from: () => ({
-    select: () => ({
-      gte: () => ({
-        lte: () => ({
-          order: () => ({
-            data: [
-              {
-                id: 'ledger-1',
-                tenant_id: 'test-tenant-123',
-                subscription_id: 'sub-123',
-                price_version_id: 'price-123',
-                meter_key: 'ai_tokens',
-                period_start: '2024-01-01T00:00:00Z',
-                period_end: '2024-01-31T23:59:59Z',
-                quantity_used: 1000,
-                quantity_included: 500,
-                quantity_overage: 500,
-                unit_price: 0.01,
-                amount: 5.00,
-                rated_at: '2024-01-31T12:00:00Z',
-                source_aggregate_hash: 'hash123'
-              }
-            ],
-            error: null
-          })
-        })
-      })
-    })
-  })
+const createMockSupabase = () => {
+  const mockFrom = vi.fn((table: string) => {
+    if (table === 'rated_ledger') {
+      return {
+        select: vi.fn(() => ({
+          gte: vi.fn(() => ({
+            lte: vi.fn(() => ({
+              order: vi.fn(() => ({
+                data: [
+                  {
+                    id: 'ledger-1',
+                    tenant_id: 'test-tenant-123',
+                    subscription_id: 'sub-123',
+                    price_version_id: 'price-123',
+                    meter_key: 'ai_tokens',
+                    period_start: '2024-01-01T00:00:00Z',
+                    period_end: '2024-01-31T23:59:59Z',
+                    quantity_used: 1000,
+                    quantity_included: 500,
+                    quantity_overage: 500,
+                    unit_price: 0.01,
+                    amount: 5.00,
+                    rated_at: '2024-01-31T12:00:00Z',
+                    source_aggregate_hash: 'hash123'
+                  }
+                ],
+                error: null
+              }))
+            }))
+          }))
+        }))
+      };
+    }
+    if (table === 'organizations') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn(() => Promise.resolve({
+              data: { settings: { billing_credits: 0, tax_rate: 0 } },
+              error: null
+            }))
+          }))
+        }))
+      };
+    }
+    // Default fallback for any other table
+    return {
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+          order: vi.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
+        insert: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        update: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        delete: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      }))
+    };
+  });
+
+  return {
+    from: mockFrom
+  };
 };
 
 describe('Invoice Reproducibility Verification', () => {
@@ -50,11 +83,16 @@ describe('Invoice Reproducibility Verification', () => {
   const testPeriodEnd = '2024-01-31T23:59:59Z';
 
   beforeEach(() => {
-    // Setup test data
+    // Reset singleton and inject mock
+    InvoiceMathEngine._resetInstanceForTesting();
+    const mockSupabase = createMockSupabase();
+    const engine = new InvoiceMathEngine(mockSupabase as any);
+    InvoiceMathEngine._setInstanceForTesting(engine);
   });
 
   afterEach(() => {
     // Cleanup
+    InvoiceMathEngine._resetInstanceForTesting();
   });
 
   describe('Deterministic Calculation', () => {
@@ -354,7 +392,7 @@ describe('Invoice Reproducibility Verification', () => {
       };
 
       // Run multiple calculations concurrently
-      const promises = Array(10).fill().map(() =>
+      const promises = Array.from({ length: 10 }, () =>
         InvoiceMathEngine.calculateInvoice(input)
       );
 

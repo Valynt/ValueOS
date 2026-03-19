@@ -5,6 +5,8 @@
  * usage metering, and customer billing operations.
  */
 
+import type { BillingMetric as ConfigBillingMetric } from '../config/billing.js';
+
 // ============================================================================
 // Customer Types
 // ============================================================================
@@ -15,11 +17,18 @@ export interface BillingCustomer {
   organization_id: string;
   tenant_id?: string;
   email: string;
+  stripe_customer_email?: string;
   name?: string;
+  organization_name?: string;
   payment_method_id?: string;
   default_payment_method?: string;
   address?: CustomerAddress;
   tax_ids?: TaxId[];
+  status?: string;
+  card_last4?: string;
+  card_brand?: string;
+  payment_method_type?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -45,20 +54,26 @@ export interface TaxId {
 export interface Subscription {
   id: string;
   stripe_subscription_id: string;
-  customer_id: string;
-  organization_id: string;
+  customer_id?: string;
+  billing_customer_id?: string;
+  organization_id?: string;
+  tenant_id?: string;
   status: SubscriptionStatus;
   plan_tier: 'free' | 'standard' | 'enterprise';
+  billing_period?: 'monthly' | 'quarterly' | 'annual';
   current_period_start: string;
   current_period_end: string;
-  cancel_at_period_end: boolean;
+  cancel_at_period_end?: boolean;
   canceled_at?: string;
   trial_start?: string;
   trial_end?: string;
-  items: SubscriptionItem[];
+  items?: SubscriptionItem[];
+  amount?: number;
+  currency?: string;
   metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  version?: number;
 }
 
 export type SubscriptionStatus =
@@ -73,10 +88,19 @@ export type SubscriptionStatus =
 export interface SubscriptionItem {
   id: string;
   subscription_id: string;
+  stripe_subscription_item_id?: string;
   stripe_price_id: string;
-  quantity: number;
+  stripe_product_id?: string;
   metric: string;
-  created_at: string;
+  unit_amount?: number;
+  currency?: string;
+  usage_type?: 'metered' | 'licensed';
+  aggregation?: 'sum' | 'max' | 'last';
+  included_quantity?: number;
+  quantity?: number;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ============================================================================
@@ -85,10 +109,12 @@ export interface SubscriptionItem {
 
 export interface Invoice {
   id: string;
-  stripe_invoice_id: string;
-  customer_id: string;
-  organization_id: string;
+  billing_customer_id?: string;
+  tenant_id?: string;
   subscription_id?: string;
+  stripe_invoice_id: string;
+  stripe_customer_id?: string;
+  invoice_number?: string;
   status: InvoiceStatus;
   amount_due: number;
   amount_paid: number;
@@ -96,15 +122,19 @@ export interface Invoice {
   currency: string;
   description?: string;
   hosted_invoice_url?: string;
-  invoice_pdf?: string;
+  invoice_pdf_url?: string;
   period_start: string;
   period_end: string;
   due_date?: string;
   paid_at?: string;
   line_items: InvoiceLineItem[];
+  subtotal?: number;
+  tax?: number;
+  total?: number;
   metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  version?: number;
 }
 
 export type InvoiceStatus =
@@ -115,7 +145,7 @@ export type InvoiceStatus =
   | 'uncollectible';
 
 export interface InvoiceLineItem {
-  id: string;
+  id?: string;
   description: string;
   amount: number;
   quantity: number;
@@ -124,6 +154,7 @@ export interface InvoiceLineItem {
   period_start: string;
   period_end: string;
   metadata?: Record<string, unknown>;
+  subscription_item_id?: string;
 }
 
 // ============================================================================
@@ -132,31 +163,77 @@ export interface InvoiceLineItem {
 
 export interface UsageRecord {
   id: string;
-  organization_id: string;
-  metric: string;
+  tenant_id?: string;
+  organization_id?: string;
+  metric: ConfigBillingMetric;
   quantity: number;
   timestamp: string;
-  idempotency_key: string;
+  request_id?: string;
+  idempotency_key?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
 }
 
+export interface UsageEvent {
+  id: string;
+  tenant_id?: string;
+  metric: ConfigBillingMetric;
+  amount?: number;
+  request_id: string;
+  metadata?: Record<string, unknown>;
+  processed?: boolean;
+  processed_at?: string;
+  timestamp?: string;
+  created_at?: string;
+}
+
 export interface UsageAggregate {
   id?: string;
-  organization_id: string;
-  metric: string;
-  period_start: string;
-  period_end: string;
-  total_quantity: number;
-  total_amount: number;
-  quota: number;
-  overage: number;
-  is_capped: boolean;
+  tenant_id?: string;
+  subscription_item_id?: string;
+  metric?: ConfigBillingMetric;
+  total_amount?: number;
+  event_count?: number;
+  period_start?: string;
+  period_end?: string;
   submitted_to_stripe?: boolean;
   submitted_at?: string;
   stripe_usage_record_id?: string;
-  subscription_item_id?: string;
   idempotency_key?: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UsageQuota {
+  id?: string;
+  tenant_id?: string;
+  subscription_id?: string;
+  metric?: ConfigBillingMetric;
+  quota_amount?: number;
+  hard_cap?: boolean;
+  current_usage?: number;
+  last_synced_at?: string;
+  period_start?: string;
+  period_end?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UsageAlert {
+  id?: string;
+  tenant_id?: string;
+  metric?: ConfigBillingMetric;
+  threshold_percentage?: number;
+  current_usage?: number;
+  quota_amount?: number;
+  alert_type?: 'warning' | 'critical' | 'exceeded';
+  acknowledged?: boolean;
+  acknowledged_at?: string;
+  acknowledged_by?: string;
+  notification_sent?: boolean;
+  notification_sent_at?: string;
+  created_at?: string;
 }
 
 export interface UsageSummary {
@@ -210,15 +287,17 @@ export interface BillingDetails {
 // ============================================================================
 
 export interface WebhookEvent {
-  id: string;
-  stripe_event_id: string;
-  event_type: string;
-  data: Record<string, unknown>;
-  processed: boolean;
+  id?: string;
+  stripe_event_id?: string;
+  event_type?: string;
+  payload?: Record<string, unknown>;
+  data?: Record<string, unknown>;
+  processed?: boolean;
   processed_at?: string;
-  retry_count: number;
+  retry_count?: number;
   error_message?: string;
-  created_at: string;
+  received_at?: string;
+  created_at?: string;
 }
 
 // ============================================================================
@@ -236,7 +315,7 @@ export interface MeteringSnapshot {
 }
 
 export interface QuotaStatus {
-  metric: string;
+  metric: ConfigBillingMetric;
   current_usage: number;
   quota: number;
   percentage_used: number;
@@ -264,6 +343,8 @@ export interface OverageRates {
   user_seats: number;
 }
 
+// Re-export BillingMetric from config for convenience
+export type BillingMetric = ConfigBillingMetric;
 
 export interface TenantBillingSpendPolicy {
   organization_id: string;
