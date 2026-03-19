@@ -1,5 +1,26 @@
 -- Database Performance Optimization
--- Indexes and optimizations for ValueOS lifecycle operations
+-- Legacy ad hoc inventory for ValueOS database tuning.
+--
+-- 2026-03 canonical review:
+--   * This file is NOT the deployable source of truth for production indexes.
+--   * Canonical, repeatable index creation now lives in versioned migrations under
+--     infra/supabase/supabase/migrations/.
+--   * Review outcome against the active schema:
+--       - opportunity_results / target_results / expansion_results / integrity_results /
+--         realization_results are legacy tables and are not part of the active
+--         Supabase migration chain.
+--       - agent_telemetry_events, agent_execution_traces, and memory_entries are not
+--         active canonical tables; semantic_memory and workflow/audit tables are the
+--         supported hot-path equivalents.
+--       - The workflow_executions active-workset index from this inventory is now
+--         promoted canonically in 20260912010000_hot_path_performance_indexes.sql.
+--       - audit_logs indexes in this file reference non-canonical query shapes
+--         (agent_type / operation_type / session_id,user_id). Canonical audit log
+--         performance indexes now target tenant/resource and organization/action
+--         access paths used by compliance and export services.
+--
+-- Use this file as historical context only. Deploy indexes through the canonical
+-- migration chain and verify them with scripts/ci/check-db-performance-indexes.mjs.
 
 -- Opportunity stage optimizations
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_opportunity_results_user_created

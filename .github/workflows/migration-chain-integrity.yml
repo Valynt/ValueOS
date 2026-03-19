@@ -127,6 +127,9 @@ jobs:
           echo ""
           echo "All migrations applied successfully."
 
+      - name: Verify required performance indexes exist after clean apply
+        run: node scripts/ci/check-db-performance-indexes.mjs --database-url "$DATABASE_URL"
+
       - name: Verify load-bearing tables exist
         # These are the tables that active migrations reference but don't create —
         # they must now exist from the canonical baseline migration.

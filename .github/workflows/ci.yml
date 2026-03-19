@@ -85,6 +85,7 @@ jobs:
           node scripts/ci/check-migration-schema-consistency.mjs
           node scripts/ci/check-migration-rollbacks.mjs
           node scripts/ci/verify-critical-architecture-migrations.mjs
+          node scripts/ci/check-db-performance-indexes.mjs
 
       - name: Workflow DAG acyclicity guard
         run: pnpm run test:workflow-dag-validation

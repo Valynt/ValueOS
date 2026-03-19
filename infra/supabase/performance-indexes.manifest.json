@@ -1,0 +1,117 @@
+{
+  "schema": "public",
+  "description": "Required performance indexes for repeatable ValueOS semantic-memory and transactional hot paths.",
+  "indexes": [
+    {
+      "name": "idx_semantic_memory_embedding_hnsw",
+      "table": "semantic_memory",
+      "query_shape": "organization-scoped ANN vector similarity ordered by embedding distance",
+      "services": [
+        "packages/backend/src/lib/memory/SupabaseVectorStore.ts",
+        "packages/backend/src/lib/memory/SupabaseSemanticStore.ts",
+        "packages/backend/src/services/crm/AgentPrefetchService.ts"
+      ],
+      "introduced_by": "20260322000000_persistent_memory_tables.sql"
+    },
+    {
+      "name": "idx_semantic_memory_metadata_gin",
+      "table": "semantic_memory",
+      "query_shape": "organization-scoped metadata containment and provenance lookups",
+      "services": [
+        "packages/backend/src/services/crm/AgentPrefetchService.ts",
+        "packages/backend/src/lib/memory/SupabaseVectorStore.ts"
+      ],
+      "introduced_by": "20260322000000_persistent_memory_tables.sql"
+    },
+    {
+      "name": "idx_semantic_memory_org_type_created",
+      "table": "semantic_memory",
+      "query_shape": "organization_id = ? [AND type = ?] ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/lib/memory/SupabaseSemanticStore.ts",
+        "packages/backend/src/services/tenant/TenantContextIngestionService.ts"
+      ],
+      "introduced_by": "20260912010000_hot_path_performance_indexes.sql"
+    },
+    {
+      "name": "idx_workflow_executions_org_status",
+      "table": "workflow_executions",
+      "query_shape": "organization_id = ? AND status = ? ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/services/workflow/HumanCheckpointService.ts",
+        "packages/backend/src/services/workflows/WorkflowExecutionStore.ts"
+      ],
+      "introduced_by": "20260331010000_deferred_tables.sql"
+    },
+    {
+      "name": "idx_workflow_executions_org_active_created",
+      "table": "workflow_executions",
+      "query_shape": "organization_id = ? AND status IN (pending,in_progress,waiting_approval) ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/services/workflow/HumanCheckpointService.ts",
+        "packages/backend/src/services/workflow/WorkflowCompensation.ts",
+        "packages/backend/src/services/workflows/WorkflowDAGIntegration.ts"
+      ],
+      "introduced_by": "20260912010000_hot_path_performance_indexes.sql"
+    },
+    {
+      "name": "idx_workflow_execution_logs_org_execution_created",
+      "table": "workflow_execution_logs",
+      "query_shape": "organization_id = ? AND execution_id = ? ORDER BY created_at ASC|DESC",
+      "services": [
+        "packages/backend/src/services/workflows/WorkflowExecutionStore.ts",
+        "packages/backend/src/services/workflow/WorkflowCompensation.ts",
+        "packages/backend/src/runtime/context-store/index.ts"
+      ],
+      "introduced_by": "20260912010000_hot_path_performance_indexes.sql"
+    },
+    {
+      "name": "idx_prompt_executions_tenant_version",
+      "table": "prompt_executions",
+      "query_shape": "tenant_id = ? AND prompt_version_id = ? ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/services/post-v1/PromptVersionControl.ts"
+      ],
+      "introduced_by": "20260331010000_deferred_tables.sql"
+    },
+    {
+      "name": "idx_agent_predictions_org_type_created",
+      "table": "agent_predictions",
+      "query_shape": "organization_id = ? AND agent_type = ? ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/services/reasoning/ConfidenceMonitor.ts",
+        "packages/backend/src/services/billing/MetricsCollector.ts"
+      ],
+      "introduced_by": "20260331010000_deferred_tables.sql"
+    },
+    {
+      "name": "idx_active_sessions_tenant_expires",
+      "table": "active_sessions",
+      "query_shape": "tenant_id = ? ORDER BY expires_at DESC",
+      "services": [
+        "packages/backend/src/services/realtime/PresenceService.ts"
+      ],
+      "introduced_by": "20260331010000_deferred_tables.sql"
+    },
+    {
+      "name": "idx_audit_logs_tenant_resource_timestamp",
+      "table": "audit_logs",
+      "query_shape": "tenant_id = ? AND resource_type = ? AND timestamp BETWEEN ? AND ? ORDER BY timestamp DESC",
+      "services": [
+        "packages/backend/src/services/security/ComplianceEvidenceService.ts",
+        "packages/backend/src/services/security/ComplianceReportGeneratorService.ts"
+      ],
+      "introduced_by": "20260912010000_hot_path_performance_indexes.sql"
+    },
+    {
+      "name": "idx_audit_logs_org_action_created",
+      "table": "audit_logs",
+      "query_shape": "organization_id = ? AND action IN (...) ORDER BY created_at DESC",
+      "services": [
+        "packages/backend/src/services/security/ComplianceControlStatusService.ts",
+        "packages/backend/src/services/security/AuditLogService.ts"
+      ],
+      "introduced_by": "20260912010000_hot_path_performance_indexes.sql"
+    }
+  ]
+}
