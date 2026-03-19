@@ -64,7 +64,13 @@ The `isPrivateIp()` function did not check for:
 The `BLOCKED_IP_RANGES` constant was also defined but never used, with hardcoded string checks used instead.
 
 **Fix applied:** Completely rewrote `isPrivateIp()` and extracted `isPrivateIpv4()`:
-- Added IPv4-mapped IPv6 detection (`::ffff:x.x.x.x`)
+- Added full IPv4-mapped IPv6 detection covering all valid representations:
+  - Dotted-quad form: `::ffff:127.0.0.1`
+  - Hex compact form: `::ffff:7f00:1`
+  - Full expanded form: `0:0:0:0:0:ffff:7f00:1`
+  - Zero-padded form: `0000:0000:0000:0000:0000:ffff:7f00:0001`
+- Added `expandIpv6()` helper to normalize :: shorthand into 8 groups
+- Added `extractIpv4FromMappedIpv6()` to decode the last 32 bits of mapped addresses
 - Added cloud metadata range (`169.254.0.0/16`)
 - Added CGNAT range (`100.64.0.0/10`)
 - Added `0.0.0.0/8` (unspecified)
