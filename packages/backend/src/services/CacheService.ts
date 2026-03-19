@@ -72,6 +72,19 @@ export class CacheService {
     this.store.set(fk, value);
   }
 
+  async delete(key: string): Promise<void> {
+    const fk = this.fullKey(key);
+    this.store.delete(fk);
+
+    if (this.redisClient) {
+      try {
+        await this.redisClient.del(fk);
+      } catch {
+        /* ignore redis delete failures */
+      }
+    }
+  }
+
   async clear(): Promise<void> {
     const prefix = this.tenantPrefix();
     for (const k of this.store.keys()) {
