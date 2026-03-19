@@ -14,6 +14,8 @@ interface CapabilityRequirement {
 export interface FrameworkCapabilityStatus {
   framework: ComplianceFramework;
   supported: boolean;
+  prerequisites_met: boolean;
+  gate_label: "prerequisite_gating";
   missingPrerequisites: string[];
 }
 
@@ -56,7 +58,7 @@ export class UnsupportedComplianceFrameworkError extends Error {
     public readonly unsupportedFrameworks: string[],
     public readonly capabilityStatus: FrameworkCapabilityStatus[],
   ) {
-    super(`Unsupported compliance frameworks requested: ${unsupportedFrameworks.join(", ")}`);
+    super(`Compliance framework prerequisites not met for: ${unsupportedFrameworks.join(", ")}`);
   }
 }
 
@@ -66,9 +68,12 @@ export class ComplianceFrameworkCapabilityGate {
       .filter((requirement) => !isEnabled(process.env[requirement.envVar]))
       .map((requirement) => requirement.description);
 
+    const prerequisitesMet = missingPrerequisites.length === 0;
     return {
       framework: HIPAA_FRAMEWORK,
-      supported: missingPrerequisites.length === 0,
+      supported: prerequisitesMet,
+      prerequisites_met: prerequisitesMet,
+      gate_label: "prerequisite_gating",
       missingPrerequisites,
     };
   }
@@ -81,6 +86,8 @@ export class ComplianceFrameworkCapabilityGate {
     return {
       framework,
       supported: true,
+      prerequisites_met: true,
+      gate_label: "prerequisite_gating",
       missingPrerequisites: [],
     };
   }
