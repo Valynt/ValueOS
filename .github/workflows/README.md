@@ -10,6 +10,7 @@ Automated CI/CD pipelines for ValueCanvas infrastructure deployment and manageme
 ## Overview
 
 This directory contains GitHub Actions workflows that automate:
+
 - ✅ Terraform validation and formatting
 - 📋 Infrastructure planning on pull requests
 - 🚀 Automated staging deployments
@@ -20,7 +21,7 @@ This directory contains GitHub Actions workflows that automate:
 
 ## Canonical CI Entry Point
 
-For application CI, workflows should call the single entry point `pnpm run ci:verify`.
+For application CI, workflows should prefer the single entry point `pnpm run ci:verify`.
 
 ### Governance command contract
 
@@ -28,12 +29,14 @@ The required blocking governance gate is `pnpm run typecheck:signal --verify`. T
 
 `pnpm run ci:verify` is expected to run linting, type checks, governance verification, legacy route checks, tests, workflow governance self-checking, and build steps in a consistent order. Do not downgrade governance enforcement to summary-only telemetry (for example `typecheck:signal:summary`) in protected CI paths.
 
+The protected merge workflow in `ci.yml` currently enforces the direct governance command `pnpm run typecheck:signal --verify`, and separately runs `pnpm run ci:governance:self-check` to ensure the workflow still references one of the documented canonical commands.
+
 To prevent accidental regressions, CI includes `pnpm run ci:governance:self-check`, which validates that:
+
 - if `ci:verify` is present, it still contains `pnpm run typecheck:signal --verify`, and
 - the authoritative protected workflow (`ci.yml`) includes either `pnpm run ci:verify` or the direct governance command.
 
 Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only when present and may be absent without failing the governance self-check.
-
 
 ## Tenant isolation CI policy (fork-safe)
 
@@ -59,10 +62,12 @@ A `skipped` runtime lane on fork PRs is acceptable only when the static fallback
 ### 1. Terraform Validation (`terraform-validate.yml`)
 
 **Triggers:**
+
 - Pull requests affecting `infra/terraform/**` and workflow changes in `.github/workflows/terraform-*.yml`
 - Pushes to `main` or `develop` branches when Terraform files in `infra/terraform/**` change
 
 **Actions:**
+
 - Validates Terraform syntax
 - Checks formatting
 - Validates both staging and production configurations
@@ -76,9 +81,11 @@ Automatically runs on every PR. No manual intervention needed.
 ### 2. Terraform Plan on PR (`terraform-plan-pr.yml`)
 
 **Triggers:**
+
 - Pull requests (`opened`, `synchronize`, `reopened`) affecting `infra/terraform/**`
 
 **Actions:**
+
 - Generates Terraform plans for both staging and production
 - Posts plan summaries as PR comments
 - Updates comments on subsequent pushes
@@ -87,7 +94,8 @@ Automatically runs on every PR. No manual intervention needed.
 Review the plan in PR comments before merging.
 
 **Example Comment:**
-```
+
+````
 ### Terraform Plan - Staging Environment 📋
 
 #### Plan Status: `success`
@@ -102,7 +110,7 @@ Terraform will perform the following actions:
       + instance_type = "t3.medium"
       ...
     }
-```
+````
 
 </details>
 ```
@@ -112,10 +120,12 @@ Terraform will perform the following actions:
 ### 3. Deploy to Staging (`terraform-deploy-staging.yml`)
 
 **Triggers:**
+
 - Push to `develop` branch
 - Manual workflow dispatch
 
 **Actions:**
+
 - Validates configuration
 - Creates Terraform plan
 - Applies changes automatically
@@ -126,17 +136,20 @@ Terraform will perform the following actions:
 **Usage:**
 
 **Automatic:**
+
 ```bash
 git push origin develop
 ```
 
 **Manual:**
+
 1. Go to Actions tab
 2. Select "Deploy to Staging"
 3. Click "Run workflow"
 4. Choose action: `plan` or `apply`
 
 **Required Secrets:**
+
 - `AWS_ROLE_ARN`
 - `DB_PASSWORD`
 - `SUPABASE_URL`
@@ -152,9 +165,11 @@ git push origin develop
 ### 4. Deploy to Production (`terraform-deploy-production.yml`)
 
 **Triggers:**
+
 - Manual workflow dispatch only (no automatic deployments)
 
 **Actions:**
+
 - Validates AWS account
 - Requires confirmation text: "DEPLOY TO PRODUCTION"
 - Creates backup of current state
@@ -177,6 +192,7 @@ git push origin develop
 7. Monitor deployment
 
 **Safety Features:**
+
 - ✅ Confirmation text required
 - ✅ AWS account verification
 - ✅ State backup before changes
@@ -186,6 +202,7 @@ git push origin develop
 - ✅ PagerDuty and Slack alerts
 
 **Required Secrets:**
+
 - `AWS_ROLE_ARN_PROD`
 - `AWS_PROD_ACCOUNT_ID`
 - `PROD_DB_PASSWORD`
@@ -201,6 +218,7 @@ git push origin develop
 - `SLACK_WEBHOOK_URL`
 
 **Required Variables:**
+
 - `PRODUCTION_APPROVERS` - Comma-separated GitHub usernames
 
 ---
@@ -208,12 +226,14 @@ git push origin develop
 ### 5. Security Scanning (`terraform-security-scan.yml`)
 
 **Triggers:**
+
 - Pull requests affecting `infra/terraform/**`
 - Pushes to `main` or `develop` when Terraform files in `infra/terraform/**` change
 - Weekly schedule (`0 0 * * 0`, Sunday at midnight UTC)
 - Manual workflow dispatch
 
 **Actions:**
+
 - Runs tfsec security scanner
 - Runs Checkov policy checker
 - Runs Trivy IaC scanner
@@ -224,16 +244,19 @@ git push origin develop
 **Scanners:**
 
 **tfsec:**
+
 - AWS-specific security checks
 - Detects misconfigurations
 - Checks encryption, access controls, logging
 
 **Checkov:**
+
 - Policy-as-code validation
 - CIS benchmarks
 - Best practices enforcement
 
 **Trivy:**
+
 - Comprehensive IaC scanning
 - Vulnerability detection
 - Compliance checking
@@ -246,10 +269,12 @@ Automatically runs on PRs. Review security findings before merging.
 ### 6. Drift Detection (`terraform-drift-detection.yml`)
 
 **Triggers:**
+
 - Every 6 hours (scheduled)
 - Manual workflow dispatch
 
 **Actions:**
+
 - Compares actual infrastructure with Terraform state
 - Detects manual changes or drift
 - Creates GitHub issues for drift
@@ -257,6 +282,7 @@ Automatically runs on PRs. Review security findings before merging.
 - Auto-closes issues when drift resolved
 
 **Drift Scenarios:**
+
 - Manual changes via AWS Console
 - Auto-scaling events
 - AWS service updates
@@ -265,11 +291,13 @@ Automatically runs on PRs. Review security findings before merging.
 **Response:**
 
 **Staging Drift:**
+
 - GitHub issue created
 - Labeled: `drift-detection`, `staging`
 - Review and remediate
 
 **Production Drift:**
+
 - Critical GitHub issue created
 - PagerDuty alert triggered
 - Slack notification sent
@@ -305,6 +333,7 @@ aws iam create-role \
 ```
 
 **trust-policy.json:**
+
 ```json
 {
   "Version": "2012-10-17",
@@ -333,6 +362,7 @@ aws iam create-role \
 **Repository Settings → Secrets and variables → Actions**
 
 **Staging Secrets:**
+
 ```
 AWS_ROLE_ARN=arn:aws:iam::ACCOUNT_ID:role/GitHubActionsStaging
 DB_PASSWORD=<secure-password>
@@ -346,6 +376,7 @@ ACM_CERTIFICATE_ARN=arn:aws:acm:...
 ```
 
 **Production Secrets:**
+
 ```
 AWS_ROLE_ARN_PROD=arn:aws:iam::ACCOUNT_ID:role/GitHubActionsProduction
 AWS_PROD_ACCOUNT_ID=123456789012
@@ -363,6 +394,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ```
 
 **Variables:**
+
 ```
 PRODUCTION_APPROVERS=user1,user2,user3
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...
@@ -373,10 +405,12 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 **Settings → Environments**
 
 **Create "staging" environment:**
+
 - No protection rules needed
 - Add staging secrets
 
 **Create "production" environment:**
+
 - ✅ Required reviewers: 2+ people
 - ✅ Wait timer: 5 minutes
 - ✅ Deployment branches: `main` only
@@ -452,28 +486,33 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ## Best Practices
 
 ### 1. Always Review Plans
+
 - Never merge without reviewing Terraform plans
 - Check for unexpected resource changes
 - Verify cost implications
 
 ### 2. Test in Staging First
+
 - Deploy to staging before production
 - Run integration tests
 - Verify functionality
 
 ### 3. Production Deployments
+
 - Schedule during maintenance windows
 - Have rollback plan ready
 - Monitor closely after deployment
 - Keep team informed
 
 ### 4. Security
+
 - Rotate secrets regularly
 - Review security scan results
 - Address critical findings immediately
 - Keep Terraform providers updated
 
 ### 5. Drift Management
+
 - Investigate drift causes
 - Document manual changes
 - Update Terraform to match reality
@@ -484,6 +523,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ### Workflow Fails with "AWS credentials not configured"
 
 **Solution:**
+
 1. Verify OIDC provider exists in AWS
 2. Check IAM role trust policy
 3. Verify `AWS_ROLE_ARN` secret is correct
@@ -492,6 +532,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ### Plan Shows Unexpected Changes
 
 **Solution:**
+
 1. Check if manual changes were made
 2. Review recent AWS service updates
 3. Verify Terraform state is current
@@ -500,6 +541,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ### Production Deployment Stuck on Approval
 
 **Solution:**
+
 1. Check GitHub environment settings
 2. Verify approvers are configured
 3. Ensure approvers have repository access
@@ -508,6 +550,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ### Security Scan Fails
 
 **Solution:**
+
 1. Review security findings
 2. Fix critical issues first
 3. Add exceptions for false positives
@@ -541,6 +584,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 ## Support
 
 For issues or questions:
+
 1. Check workflow logs in Actions tab
 2. Review this documentation
 3. Check Terraform documentation
@@ -553,7 +597,6 @@ For issues or questions:
 - [tfsec Documentation](https://aquasecurity.github.io/tfsec/)
 - [Checkov Documentation](https://www.checkov.io/)
 - [AWS OIDC Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
-
 
 ## Supabase Cloud-Only Policy
 

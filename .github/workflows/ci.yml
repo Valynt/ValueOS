@@ -54,6 +54,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Canonical governance gate
+        run: pnpm run typecheck:signal --verify
+
+      - name: Canonical CI workflow self-check
+        run: pnpm run ci:governance:self-check
+
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
@@ -94,7 +100,6 @@ jobs:
 
       - name: OpenAPI structural validation
         run: node scripts/ci/check-openapi-structure.mjs
-
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
@@ -149,7 +154,6 @@ jobs:
 
       - name: CI scanner action version manifest guard
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
-
 
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
@@ -552,7 +556,7 @@ jobs:
           output: trivy-fs.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '1'
+          exit-code: "1"
 
       - name: Trivy container image scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@0.35.0
@@ -563,7 +567,7 @@ jobs:
           output: trivy-image.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '1'
+          exit-code: "1"
 
       - name: Upload Trivy filesystem SARIF
         if: always()
