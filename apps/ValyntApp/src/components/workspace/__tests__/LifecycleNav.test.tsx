@@ -3,19 +3,25 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 
 import { LifecycleNav } from "../LifecycleNav";
 
+const mockNavigate = vi.fn();
+
 // Mock react-router-dom
 vi.mock("react-router-dom", () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
   useParams: () => ({ caseId: "test-case-123" }),
   useLocation: () => ({ pathname: "/workspace/test-case-123/model" }),
 }));
 
 describe("LifecycleNav", () => {
+  beforeEach(() => {
+    mockNavigate.mockReset();
+  });
+
   it("renders all 5 lifecycle stages", () => {
     render(<LifecycleNav />);
 
@@ -49,9 +55,6 @@ describe("LifecycleNav", () => {
   });
 
   it("disables click on locked stages", () => {
-    const navigate = vi.fn();
-    vi.mocked(require("react-router-dom").useNavigate).mockReturnValue(navigate);
-
     render(<LifecycleNav lockedStages={["integrity"]} />);
 
     const integrityButton = screen.getByText("Integrity").closest("button");
@@ -59,18 +62,16 @@ describe("LifecycleNav", () => {
 
     // Locked stages shouldn't navigate
     expect(integrityButton).toHaveAttribute("aria-disabled", "true");
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("navigates when clicking unlocked stage", () => {
-    const navigate = vi.fn();
-    vi.mocked(require("react-router-dom").useNavigate).mockReturnValue(navigate);
-
     render(<LifecycleNav />);
 
     const outputsButton = screen.getByText("Outputs").closest("button");
     fireEvent.click(outputsButton!);
 
-    expect(navigate).toHaveBeenCalledWith("/workspace/test-case-123/outputs");
+    expect(mockNavigate).toHaveBeenCalledWith("/workspace/test-case-123/outputs");
   });
 
   it("displays case status when provided", () => {

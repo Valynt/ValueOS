@@ -10,9 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // vi.hoisted ensures this state is available inside the vi.mock factory below.
 const _db = vi.hoisted(() => ({ processedIds: new Set<string>() }));
 
-vi.mock('../../lib/supabase.js', () => ({
+vi.mock('../../lib/supabase', () => ({
   supabase: {
-    from: vi.fn().mockImplementation(() => ({
+    from: vi.fn().mockImplementation((table: string) => ({
       upsert: vi.fn().mockImplementation((data: Record<string, unknown>) => {
         const eventId = data?.stripe_event_id as string | undefined;
         const isNew = !!eventId && !_db.processedIds.has(eventId);
@@ -35,7 +35,7 @@ vi.mock('../../lib/supabase.js', () => ({
   },
 }));
 
-vi.mock('../../lib/logger.js', () => ({
+vi.mock('../../lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 

@@ -6,7 +6,7 @@ AI-powered value engineering platform for B2B SaaS. ValueOS helps customer succe
 
 pnpm monorepo. Checked-in application workspaces live in `apps/`, while the primary production runtimes are `apps/ValyntApp` for the customer-facing frontend and `packages/backend` for the API.
 
-```
+```text
 apps/
   ValyntApp/        # Customer-facing web application (React + Vite + Tailwind)
   mcp-dashboard/    # Internal MCP observability dashboard workspace
@@ -59,7 +59,7 @@ Additional contributor guidance lives in the repository-root [AGENTS.md](AGENTS.
 
 The recommended development environment runs entirely in Docker containers with full Linux-to-production parity.
 
-**1. Clone and open in container**
+### 1. Clone and open in container
 
 ```bash
 # From WSL2 terminal (Windows) or native terminal (Linux/Mac)
@@ -70,14 +70,14 @@ code .
 # Then: F1 → "Dev Containers: Reopen in Container"
 ```
 
-**2. Set up environment**
+### 2. Set up environment
 
 ```bash
 cp .devcontainer/.env.template .devcontainer/.env
 # Optional: edit .devcontainer/.env to customize ports
 ```
 
-**3. Install dependencies and start**
+### 3. Install dependencies and start
 
 ```bash
 pnpm install
@@ -85,6 +85,7 @@ pnpm run dev        # Starts frontend (5173) and backend (3001)
 ```
 
 The devcontainer provides:
+
 - PostgreSQL 15, Redis 7, Supabase stack (Auth, REST, Realtime, Storage, Studio)
 - Node.js 20, pnpm 10, all build tools
 - MailHog for email testing
@@ -107,6 +108,7 @@ cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
 Fill in credentials from your Supabase dashboard (Project Settings → API). See [ops/env/README.md](ops/env/README.md) for details.
 
 Then start with:
+
 ```bash
 pnpm install
 pnpm run dev:frontend
@@ -118,7 +120,7 @@ pnpm run dev:backend  # In another terminal
 ## Key Commands
 
 | Command | Purpose |
-|---|---|
+| --- | --- |
 | `pnpm run dev` | Start frontend and backend together |
 | `pnpm run dev:frontend` | Start `apps/ValyntApp` (React + Vite) only |
 | `pnpm run dev:backend` | Start `packages/backend` (Express API) only |
@@ -162,6 +164,7 @@ pnpm run test:workflow-dag-validation
 ### Mock Configuration
 
 External APIs are mocked in tests:
+
 - **HubSpot CRM**: `CRMConnector` tests mock HubSpot API responses
 - **SEC EDGAR**: `SECEdgarClient` tests mock filing data
 - **LLM Gateway**: Agent tests use deterministic test fixtures via `secureInvoke` mocking
@@ -169,6 +172,7 @@ External APIs are mocked in tests:
 ### Test Data Factories
 
 Located in `testHelpers.ts`:
+
 ```typescript
 factories.benchmark({ metric_name: "ROI" })
 factories.assumption({ name: "Test Assumption" })
@@ -179,7 +183,7 @@ factories.case({ title: "Test Case" })
 
 ValueOS is a modular monolith deployed to Kubernetes.
 
-```
+```text
 +-----------------------------------------------------------+
 |  apps/ValyntApp  (React + Vite + Tailwind)                |
 |  Customer-facing frontend runtime                         |
@@ -236,7 +240,7 @@ See [docs/security-compliance/](docs/security-compliance/) for the full security
 ## Documentation
 
 | Category | Path | Contents |
-|---|---|---|
+| --- | --- | --- |
 | Getting Started | [docs/getting-started/](docs/getting-started/) | Introduction, quickstart, installation, FAQ |
 | Architecture | [docs/architecture/](docs/architecture/) | System overview, agent design, API design, data layer |
 | Engineering | [docs/engineering/](docs/engineering/) | Code standards, ADRs, database guide, testing |
