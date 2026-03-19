@@ -13,6 +13,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
     fileParallelism: false,
+    setupFiles: ['./src/test/setup.ts'],
     env: {
       // AgentPolicyService defaults to process.cwd()/policies/agents.
       // Tests run from packages/backend, so point explicitly to the repo-root policies.
