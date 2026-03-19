@@ -23,7 +23,7 @@ import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "WebhookService" });
 
-export class WebhookService {
+class WebhookService {
   private stripe: Stripe | null;
 
   /**
@@ -587,6 +587,7 @@ export class WebhookService {
   }
 }
 
+export { WebhookService };
 export const webhookService = new WebhookService();
 /** @deprecated Use named import `webhookService` instead. */
 export default webhookService;

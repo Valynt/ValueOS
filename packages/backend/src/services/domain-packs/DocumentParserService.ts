@@ -47,7 +47,7 @@ export interface ExtractedInsights {
 // Document Parser Service
 // ============================================================================
 
-export class DocumentParserService {
+class DocumentParserService {
   private llm: LLMGateway;
   private functionUrl: string;
 
@@ -386,4 +386,5 @@ Guidelines:
 // Singleton Export
 // ============================================================================
 
+export { DocumentParserService };
 export const documentParserService = new DocumentParserService();
