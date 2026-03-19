@@ -8,12 +8,12 @@
 #   2. Run: bash scripts/sync-tool-versions.sh
 #   3. Rebuild container: Cmd+Shift+P → 'Rebuild Container'
 
-nodejs 20.19.0
+nodejs 20.19.5
 python 3.11.9
 go 1.21.13
 supabase 1.200.3
 terraform 1.9.8
-pnpm 9.15.0
+pnpm 10.4.1
 kubectl 1.28.0
 docker-compose 2.24.5
 

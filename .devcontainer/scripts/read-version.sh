@@ -7,7 +7,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 TOOL_NAME="$1"
-VERSIONS_FILE="${VERSIONS_FILE:-pragmatic-reproducibility/ci/versions.json}"
+VERSIONS_FILE="${VERSIONS_FILE:-.devcontainer/versions.json}"
 
 if [ ! -f "$VERSIONS_FILE" ]; then
   echo "Versions file not found: $VERSIONS_FILE" >&2
