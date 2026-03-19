@@ -51,6 +51,7 @@ Evidence retention should follow the policy baseline used for audit artifacts an
 
 - **Default platform posture**: HIPAA is **not required** for standard ValueOS workloads that exclude protected health information (PHI).
 - **HIPAA-triggering posture**: HIPAA Security Rule controls become **in-scope** when a tenant stores, processes, transmits, or supports workflows containing PHI (for example: patient identifiers, treatment context, claims, or clinical operations data).
+- **Prerequisite gating is not an attestation**: enabling HIPAA prerequisite flags only exposes HIPAA reporting paths; it does **not** by itself prove that HIPAA technical safeguards are configured, validated, or evidenced for a tenant.
 - **Environment scoping**:
   - **Production** handling PHI: in-scope for HIPAA administrative, technical, and physical safeguards.
   - **Staging/non-production**: must use de-identified/synthetic data unless explicitly designated as HIPAA in-scope and covered by equivalent safeguards.
@@ -98,6 +99,8 @@ Reference architecture and environment controls:
 
 ### Compliance Review Cadence and Evidence Checkpoints
 
+- Compliance reports distinguish four separate dimensions for each framework: **declared capability** (prerequisite gate), **configured controls**, **technically validated controls**, and **missing evidence**.
+- A report can still be **failed** when evidence artifacts exist if technical control assertions fail (for example: RLS missing, immutable audit protections incomplete, production MFA not enforced, or service identity not configured).
 - **Monthly**: Access review and audit-log sampling for PHI-enabled tenants.
 - **Quarterly**: HIPAA safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
 - **Annually**: Full policy review, risk assessment refresh, and training attestation.

@@ -7,19 +7,20 @@ import {
   type ComplianceFramework,
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
+import { complianceFrameworkCapabilityGate } from "./ComplianceFrameworkCapabilityGate.js";
 import {
-  complianceFrameworkCapabilityGate,
-  type FrameworkCapabilityStatus,
-} from "./ComplianceFrameworkCapabilityGate.js";
+  complianceControlCheckService,
+  type AutomatedControlCheckResult,
+  type AutomatedControlCheckSnapshot,
+  type ConfiguredControlState,
+  type DeclaredFrameworkCapability,
+} from "./ComplianceControlCheckService.js";
 import {
   complianceControlStatusService,
   type ControlStatusRecord,
 } from "./ComplianceControlStatusService.js";
-import {
-  complianceControlCheckService,
-  type AutomatedControlCheckSnapshot,
-  type AutomatedControlCheckStatus,
-} from "./ComplianceControlCheckService.js";
+
+/* eslint-disable security/detect-object-injection -- Framework/evidence keys are constrained by typed registries. */
 
 interface QueryableClient {
   from(table: string): {
@@ -51,21 +52,13 @@ export interface GenerateComplianceReportInput {
   strict?: boolean;
 }
 
-export interface ConfiguredControlView {
+export interface FrameworkReportBreakdown {
   framework: ComplianceFramework;
-  control_id: string;
-  source: "prerequisite_gate" | "environment" | "runtime";
-  status: "configured" | "missing" | "not_applicable";
-  description: string;
-}
-
-export interface TechnicalValidationView {
-  framework: ComplianceFramework;
-  control_id: string;
-  assertion_id: string;
-  status: AutomatedControlCheckStatus;
-  message: string;
-  checked_at: string;
+  status: "pass" | "fail";
+  declared_capability: DeclaredFrameworkCapability;
+  configured_controls: ConfiguredControlState[];
+  technically_validated_controls: AutomatedControlCheckResult[];
+  missing_evidence: Array<{ framework: ComplianceFramework; control_id: string; missing_types: EvidenceType[] }>;
 }
 
 export interface ComplianceReportOutput {
@@ -75,12 +68,13 @@ export interface ComplianceReportOutput {
   generated_at: string;
   start_at: string;
   end_at: string;
+  status: "pass" | "fail";
   signature: string;
   evidence_manifest_id: string;
-  status: "pass" | "warn" | "fail";
-  declared_capability: FrameworkCapabilityStatus[];
-  configured_controls: ConfiguredControlView[];
-  technically_validated_controls: TechnicalValidationView[];
+  declared_capability: DeclaredFrameworkCapability[];
+  configured_controls: ConfiguredControlState[];
+  technically_validated_controls: AutomatedControlCheckResult[];
+  framework_breakdown: FrameworkReportBreakdown[];
   missing_evidence: Array<{ framework: ComplianceFramework; control_id: string; missing_types: EvidenceType[] }>;
   retention_summary: ReturnType<typeof complianceControlMappingRegistry.getRetentionSummary>;
 }
@@ -89,12 +83,6 @@ export class MissingEvidenceError extends Error {
   constructor(public readonly missingEvidence: ComplianceReportOutput["missing_evidence"]) {
     super("Missing required compliance evidence for one or more controls");
   }
-}
-
-function isEnabled(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
 export class ComplianceReportGeneratorService {
@@ -113,7 +101,7 @@ export class ComplianceReportGeneratorService {
     complianceFrameworkCapabilityGate.assertFrameworksSupported(input.frameworks);
 
     const evidenceBuckets = await this.collectEvidence(input.tenantId, input.startAt, input.endAt);
-    const [controlStatuses, technicalSnapshot] = await Promise.all([
+    const [controlStatuses, controlCheckSnapshot] = await Promise.all([
       this.controlStatusSource.getLatestControlStatus(input.tenantId),
       this.controlCheckSource.runChecksForTenant(input.tenantId, "manual"),
     ]);
@@ -123,48 +111,53 @@ export class ComplianceReportGeneratorService {
       throw new MissingEvidenceError(missingEvidence);
     }
 
+    const declaredCapability = controlCheckSnapshot.declared_capability.filter((status) => input.frameworks.includes(status.framework));
+    const configuredControls = controlCheckSnapshot.configured_controls.filter((control) => input.frameworks.includes(control.framework));
+    const technicallyValidatedControls = controlCheckSnapshot.results.filter(
+      (result) => result.check_kind === "technical_validation" && input.frameworks.includes(result.framework),
+    );
+    const frameworkBreakdown = this.buildFrameworkBreakdown({
+      frameworks: input.frameworks,
+      declaredCapability,
+      configuredControls,
+      technicallyValidatedControls,
+      missingEvidence,
+    });
+
+    const overallStatus = this.computeOverallStatus({
+      missingEvidence,
+      technicallyValidatedControls,
+      controlCheckSnapshot,
+    });
+
     const generatedAt = new Date().toISOString();
-    const declaredCapability = input.frameworks.map((framework) => complianceFrameworkCapabilityGate.getCapabilityStatus(framework));
-    const configuredControls = this.buildConfiguredControls(input.frameworks, declaredCapability, controlStatuses);
-    const technicallyValidatedControls = technicalSnapshot.results
-      .filter((result) => result.check_kind === "technical_validation" && input.frameworks.includes(result.framework))
-      .map((result) => ({
-        framework: result.framework,
-        control_id: result.control_id,
-        assertion_id: result.assertion_id,
-        status: result.status,
-        message: result.message,
-        checked_at: technicalSnapshot.checked_at,
-      }));
-
-    const reportStatus = this.deriveReportStatus(missingEvidence, technicallyValidatedControls, controlStatuses, declaredCapability);
-
     const manifestId = await this.storeManifest({
       tenant_id: input.tenantId,
       generated_at: generatedAt,
       start_at: input.startAt,
       end_at: input.endAt,
       frameworks: input.frameworks,
-      evidence_counts: Object.fromEntries(
-        Object.entries(evidenceBuckets).map(([bucket, rows]) => [bucket, rows.length]),
-      ),
+      status: overallStatus,
       declared_capability: declaredCapability,
       configured_controls: configuredControls,
       technically_validated_controls: technicallyValidatedControls,
+      framework_breakdown: frameworkBreakdown,
+      evidence_counts: Object.fromEntries(
+        Object.entries(evidenceBuckets).map(([bucket, rows]) => [bucket, rows.length]),
+      ),
       missing_evidence: missingEvidence,
-      report_status: reportStatus,
     });
 
     const signature = this.signPayload({
       tenant_id: input.tenantId,
       generated_at: generatedAt,
       frameworks: input.frameworks,
+      status: overallStatus,
       evidence_manifest_id: manifestId,
-      status: reportStatus,
       missing_evidence: missingEvidence,
     });
 
-    const reportId = await this.storeReport({
+    const reportPayload = {
       tenant_id: input.tenantId,
       generated_at: generatedAt,
       start_at: input.startAt,
@@ -172,15 +165,18 @@ export class ComplianceReportGeneratorService {
       frameworks: input.frameworks,
       generated_by: input.generatedBy,
       mode: input.mode,
+      status: overallStatus,
       signature,
       evidence_manifest_id: manifestId,
-      status: reportStatus,
       declared_capability: declaredCapability,
       configured_controls: configuredControls,
       technically_validated_controls: technicallyValidatedControls,
+      framework_breakdown: frameworkBreakdown,
       missing_evidence: missingEvidence,
       retention_summary: complianceControlMappingRegistry.getRetentionSummary(input.frameworks),
-    });
+    };
+
+    const reportId = await this.storeReport(reportPayload);
 
     return {
       report_id: reportId,
@@ -189,12 +185,13 @@ export class ComplianceReportGeneratorService {
       generated_at: generatedAt,
       start_at: input.startAt,
       end_at: input.endAt,
+      status: overallStatus,
       signature,
       evidence_manifest_id: manifestId,
-      status: reportStatus,
       declared_capability: declaredCapability,
       configured_controls: configuredControls,
       technically_validated_controls: technicallyValidatedControls,
+      framework_breakdown: frameworkBreakdown,
       missing_evidence: missingEvidence,
       retention_summary: complianceControlMappingRegistry.getRetentionSummary(input.frameworks),
     };
@@ -264,107 +261,52 @@ export class ComplianceReportGeneratorService {
     return missing;
   }
 
-  private buildConfiguredControls(
-    frameworks: ComplianceFramework[],
-    declaredCapability: FrameworkCapabilityStatus[],
-    controlStatuses: ControlStatusRecord[],
-  ): ConfiguredControlView[] {
-    const controls: ConfiguredControlView[] = [];
-    const nodeEnv = (process.env.NODE_ENV ?? "development").toLowerCase();
-    const encryptionConfigured = Boolean(process.env.APP_ENCRYPTION_KEY ?? process.env.ENCRYPTION_KEY);
-    const mfaConfigured = process.env.MFA_ENABLED === "true";
-    const serviceIdentityConfigured = Boolean(
-      process.env.SERVICE_IDENTITY_CONFIG_JSON ||
-      process.env.SERVICE_IDENTITY_ALLOWED_SPIFFE_IDS ||
-      process.env.SERVICE_IDENTITY_AUDIENCE ||
-      process.env.SERVICE_IDENTITY_REQUIRED === "true"
-    );
-
-    for (const framework of frameworks) {
-      const capability = declaredCapability.find((item) => item.framework === framework);
-      controls.push({
+  private buildFrameworkBreakdown(input: {
+    frameworks: ComplianceFramework[];
+    declaredCapability: DeclaredFrameworkCapability[];
+    configuredControls: ConfiguredControlState[];
+    technicallyValidatedControls: AutomatedControlCheckResult[];
+    missingEvidence: ComplianceReportOutput["missing_evidence"];
+  }): FrameworkReportBreakdown[] {
+    return input.frameworks.map((framework) => {
+      const declaredCapability = input.declaredCapability.find((entry) => entry.framework === framework) ?? {
         framework,
-        control_id: `${framework.toLowerCase()}_declared_capability_gate`,
-        source: "prerequisite_gate",
-        status: capability?.supported ? "configured" : "missing",
-        description: capability?.supported
-          ? "Framework prerequisite gate is satisfied."
-          : `Missing prerequisite controls: ${(capability?.missingPrerequisites ?? []).join(", ") || "unknown"}`,
-      });
+        supported: complianceFrameworkCapabilityGate.getCapabilityStatus(framework).supported,
+        missing_prerequisites: complianceFrameworkCapabilityGate.getCapabilityStatus(framework).missingPrerequisites,
+        gating_label: "prerequisite_gate" as const,
+      };
+      const configuredControls = input.configuredControls.filter((entry) => entry.framework === framework);
+      const technicallyValidatedControls = input.technicallyValidatedControls.filter((entry) => entry.framework === framework);
+      const missingEvidence = input.missingEvidence.filter((entry) => entry.framework === framework);
+      const hasTechnicalFailures = technicallyValidatedControls.some((entry) => entry.status === "fail");
+      const hasMissingEvidence = missingEvidence.length > 0;
 
-      if (framework === "GDPR" || framework === "HIPAA") {
-        controls.push({
-          framework,
-          control_id: `${framework.toLowerCase()}_encryption_required_config`,
-          source: "environment",
-          status: nodeEnv === "production"
-            ? (encryptionConfigured ? "configured" : "missing")
-            : "not_applicable",
-          description: nodeEnv === "production"
-            ? "Production encryption-required configuration."
-            : "Encryption-required production configuration is only enforced in production.",
-        });
-      }
-
-      if (framework === "SOC2" || framework === "HIPAA") {
-        controls.push({
-          framework,
-          control_id: `${framework.toLowerCase()}_mfa_production_enforcement`,
-          source: "environment",
-          status: nodeEnv === "production"
-            ? (mfaConfigured ? "configured" : "missing")
-            : "not_applicable",
-          description: nodeEnv === "production"
-            ? "Production MFA enforcement configuration."
-            : "Production MFA enforcement is only applicable in production.",
-        });
-      }
-
-      if (framework === "SOC2" || framework === "GDPR") {
-        controls.push({
-          framework,
-          control_id: `${framework.toLowerCase()}_service_identity_internal_routes`,
-          source: "runtime",
-          status: serviceIdentityConfigured ? "configured" : "missing",
-          description: "Protected internal routes must have service identity configuration.",
-        });
-      }
-
-      const frameworkStatuses = controlStatuses.filter((status) => status.framework === framework);
-      for (const status of frameworkStatuses) {
-        controls.push({
-          framework,
-          control_id: status.control_id,
-          source: "runtime",
-          status: status.status === "fail" ? "missing" : "configured",
-          description: `Configured runtime control status: ${status.status}.`,
-        });
-      }
-    }
-
-    return controls;
+      return {
+        framework,
+        status: hasTechnicalFailures || hasMissingEvidence ? "fail" : "pass",
+        declared_capability: declaredCapability,
+        configured_controls: configuredControls,
+        technically_validated_controls: technicallyValidatedControls,
+        missing_evidence: missingEvidence,
+      };
+    });
   }
 
-  private deriveReportStatus(
-    missingEvidence: ComplianceReportOutput["missing_evidence"],
-    technicallyValidatedControls: TechnicalValidationView[],
-    controlStatuses: ControlStatusRecord[],
-    declaredCapability: FrameworkCapabilityStatus[],
-  ): ComplianceReportOutput["status"] {
-    if (declaredCapability.some((item) => !item.supported)) {
+  private computeOverallStatus(input: {
+    missingEvidence: ComplianceReportOutput["missing_evidence"];
+    technicallyValidatedControls: AutomatedControlCheckResult[];
+    controlCheckSnapshot: AutomatedControlCheckSnapshot;
+  }): ComplianceReportOutput["status"] {
+    if (input.missingEvidence.length > 0) {
       return "fail";
     }
 
-    if (technicallyValidatedControls.some((control) => control.status === "fail")) {
+    if (input.technicallyValidatedControls.some((control) => control.status === "fail")) {
       return "fail";
     }
 
-    if (controlStatuses.some((control) => control.status === "fail")) {
+    if (input.controlCheckSnapshot.results.some((result) => result.check_kind === "evidence_freshness" && result.status === "fail")) {
       return "fail";
-    }
-
-    if (missingEvidence.length > 0 || controlStatuses.some((control) => control.status === "warn")) {
-      return "warn";
     }
 
     return "pass";
@@ -422,7 +364,7 @@ export class ComplianceReportGeneratorService {
         action: "compliance:report_generated",
         resource_type: "compliance_report",
         resource_id: randomUUID(),
-        status: payload.status === "fail" ? "failed" : "success",
+        status: "success",
         timestamp: payload.generated_at,
         details: {
           immutable: true,
