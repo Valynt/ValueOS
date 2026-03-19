@@ -13,6 +13,8 @@
 import { logger } from "../logger.js";
 import { SupabaseSemanticStore } from "../memory/SupabaseSemanticStore.js";
 
+import type { SemanticStore } from "@valueos/memory";
+
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 import type { Memory, MemoryQuery, MemoryType } from "./MemorySystem.js";
 
@@ -46,10 +48,10 @@ function getCrossWorkspaceAllowlist(): Set<string> {
 }
 
 export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
-  private semanticStore: SupabaseSemanticStore;
+  private semanticStore: Pick<SemanticStore, "insert" | "findByOrganization">;
 
-  constructor() {
-    this.semanticStore = new SupabaseSemanticStore();
+  constructor(semanticStore?: Pick<SemanticStore, "insert" | "findByOrganization">) {
+    this.semanticStore = semanticStore ?? new SupabaseSemanticStore();
   }
 
   async store(memory: Memory): Promise<string> {

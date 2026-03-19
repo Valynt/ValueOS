@@ -16,14 +16,14 @@ import {
 import {
   assertRecordExists,
   cleanupBillingTables,
+  deterministicSupabaseAvailable,
   getTestSupabaseClient,
   seedTestData,
-  supabaseAvailable,
   waitForCondition
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
 
-describe.skipIf(!supabaseAvailable)("Webhook Event Processing E2E Tests", () => {
+describe.skipIf(!deterministicSupabaseAvailable)("Webhook Event Processing E2E Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

@@ -6,6 +6,10 @@
  * Individual tests should still mock these modules for isolation.
  */
 
+import { afterEach, vi } from "vitest";
+
+import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
+
 // Supabase config — only set if not already present
 process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
@@ -17,3 +21,20 @@ process.env.TOGETHER_API_KEY ??= "test-together-key";
 
 // Redis
 process.env.REDIS_URL ??= "redis://localhost:6379";
+
+const originalFetch = globalThis.fetch?.bind(globalThis);
+
+if (originalFetch && !isRealNetworkAllowed()) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const target = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+      assertRealNetworkAllowed(target);
+      return originalFetch(input);
+    }),
+  );
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
