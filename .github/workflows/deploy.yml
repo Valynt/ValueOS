@@ -805,15 +805,13 @@ jobs:
           pnpm --filter @valueos/backend exec vitest run src/config/__tests__/environment.test.ts
           pnpm --filter ./apps/ValyntApp exec vitest run src/config/__tests__/sprint0-feature-flags.test.ts
 
-      - name: Run co-branding asset/render checks (if applicable)
+      - name: Install Playwright browsers for tenant branding verification
         run: |
-          if [ -d "docs/branding-assets" ] && [ "$(find docs/branding-assets -type f | wc -l)" -gt 0 ]; then
-            test -f apps/ValyntApp/src/pages/settings/BrandingPage.tsx
-            test -f apps/ValyntApp/src/components/marketing/Logo.tsx
-            echo "Co-branding assets/configuration detected; basic asset/render checks passed."
-          else
-            echo "No co-branding assets detected; skipping co-branding checks."
-          fi
+          pnpm --filter ./apps/ValyntApp exec playwright install --with-deps chromium
+
+      - name: Run tenant branding render verification
+        run: |
+          node scripts/ci/verify-tenant-branding-render.mjs
 
       - name: Upload pre-production launch gate artifacts
         if: ${{ always() }}
@@ -822,6 +820,10 @@ jobs:
           name: preprod-launch-gate-${{ github.run_id }}
           path: |
             artifacts/i18n/preprod-localization-smoke-${{ github.run_id }}.json
+            artifacts/branding/tenant-branding-preview.png
+            artifacts/branding/tenant-branding-playwright-report.json
+            artifacts/branding/tenant-branding-summary.json
+            artifacts/branding/tenant-branding-summary.md
 
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)

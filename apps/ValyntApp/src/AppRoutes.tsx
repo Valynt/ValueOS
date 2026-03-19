@@ -87,6 +87,11 @@ const MainLayoutSkipLinkHarness = lazy(() =>
     default: m.MainLayoutSkipLinkHarness,
   }))
 );
+const TenantBrandingHarness = lazy(() =>
+  import("./views/testing/TenantBrandingHarness").then((m) => ({
+    default: m.TenantBrandingHarness,
+  }))
+);
 
 const TENANT_SCOPED_PREFIX = "/org";
 
@@ -172,9 +177,15 @@ export function AppRoutes() {
                               ))}
 
                               {import.meta.env.DEV && (
-                                <Route path="/__playwright__/main-layout" element={<MainLayout />}>
-                                  <Route index element={<MainLayoutSkipLinkHarness />} />
-                                </Route>
+                                <>
+                                  <Route path="/__playwright__/main-layout" element={<MainLayout />}>
+                                    <Route index element={<MainLayoutSkipLinkHarness />} />
+                                  </Route>
+                                  <Route
+                                    path="/__playwright__/branding-preview"
+                                    element={<TenantBrandingHarness />}
+                                  />
+                                </>
                               )}
 
                               {/* Root redirect */}

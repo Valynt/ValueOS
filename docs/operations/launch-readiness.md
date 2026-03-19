@@ -78,7 +78,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 ## Go/No-Go Checklist
 
 - [ ] Pre-production launch gate passed in CI (`.github/workflows/deploy.yml` → `preprod-launch-gate` job).
-- [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and co-branding scope.
+- [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and tenant branding render evidence.
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
@@ -125,9 +125,9 @@ Production promotion is blocked unless the **Pre-Production Launch Gate** job su
 3. **Tenant/region feature-toggle validation**
    - Tenant isolation and feature-toggle behavior checks must pass.
    - Owner: **Platform**.
-4. **Co-branding asset/render checks (if applicable)**
-   - If co-branding assets are present for the release, branding asset/render verification must pass.
-   - If no co-branding assets are present, this check is explicitly skipped with a log entry.
+4. **Tenant branding render verification**
+   - The launch gate runs `node scripts/ci/verify-tenant-branding-render.mjs` against `apps/ValyntApp` and fails if tenant logos, favicon assets, or configured brand colors do not render in the expected Organization Settings preview surfaces.
+   - Required release evidence is published as `artifacts/branding/tenant-branding-summary.{json,md}`, `artifacts/branding/tenant-branding-playwright-report.json`, and `artifacts/branding/tenant-branding-preview.png`.
    - Owner: **Design Systems**.
 
 ### Operational ownership and escalation
