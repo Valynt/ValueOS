@@ -103,17 +103,38 @@ const valyntAppConfig = {
     "no-restricted-imports": [
       "error",
       {
+        paths: [
+          { name: "fs", message: "Browser code must not import Node built-ins." },
+          { name: "node:fs", message: "Browser code must not import Node built-ins." },
+          { name: "crypto", message: "Browser code must not import Node built-ins." },
+          { name: "node:crypto", message: "Browser code must not import Node built-ins." },
+          { name: "events", message: "Browser code must not import Node built-ins." },
+          { name: "node:events", message: "Browser code must not import Node built-ins." },
+          { name: "path", message: "Browser code must not import Node built-ins." },
+          { name: "node:path", message: "Browser code must not import Node built-ins." },
+          { name: "node-vault", message: "Browser code must not import server-only secret adapters." },
+          { name: "@aws-sdk/client-secrets-manager", message: "Browser code must not import server-only secret adapters." },
+        ],
         patterns: [
           {
             group: ["@valueos/backend", "@valueos/backend/*"],
             message: "Backend imports forbidden - use HTTP API",
           },
           { group: ["@valueos/shared/lib/logger"], message: "Node-only - use local logger" },
+          { group: ["@/config/secrets/*"], message: "Secret providers are server-only and live in packages/backend/src/config/secrets" },
           {
             group: ["@valueos/shared/lib/redisClient", "@valueos/shared/lib/redisKeys"],
             message: "Node-only",
           },
         ],
+      },
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        object: "process",
+        property: "env",
+        message: "Browser code must use import.meta.env with VITE_-prefixed variables.",
       },
     ],
   },

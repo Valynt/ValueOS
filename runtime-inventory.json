@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "browserRuntimes": [
+    {
+      "workspace": "apps/ValyntApp",
+      "entrypoints": [
+        "apps/ValyntApp/src/main.tsx"
+      ],
+      "sourceRoots": [
+        "apps/ValyntApp/src"
+      ],
+      "pathAliases": {
+        "@/": "apps/ValyntApp/src/",
+        "@shared/": "packages/shared/src/"
+      },
+      "allowedEnvPrefixes": [
+        "VITE_"
+      ],
+      "allowedEnvVars": [
+        "NODE_ENV",
+        "DEV",
+        "MODE",
+        "PROD"
+      ],
+      "forbiddenNodeBuiltins": [
+        "fs",
+        "node:fs",
+        "crypto",
+        "node:crypto",
+        "events",
+        "node:events",
+        "path",
+        "node:path"
+      ],
+      "forbiddenPackages": [
+        "node-vault",
+        "@aws-sdk/client-secrets-manager",
+        "@valueos/backend"
+      ],
+      "forbiddenPathPrefixes": [
+        "packages/backend/src/",
+        "packages/backend/",
+        "apps/ValyntApp/src/config/secrets/"
+      ],
+      "forbiddenPathExact": [
+        "apps/ValyntApp/src/config/settings.ts",
+        "apps/ValyntApp/src/lib/supabase.server.ts",
+        "packages/backend/src/lib/supabase.ts",
+        "packages/backend/src/config/settings.ts"
+      ]
+    }
+  ],
+  "serverRuntimes": [
+    {
+      "workspace": "packages/backend",
+      "sourceRoots": [
+        "packages/backend/src"
+      ],
+      "owns": [
+        "packages/backend/src/config/secrets/",
+        "packages/backend/src/config/settings.ts",
+        "packages/backend/src/lib/supabase.ts"
+      ]
+    }
+  ]
+}

@@ -11,24 +11,23 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { createHash, randomUUID } from 'crypto';
-
+import { createBrowserUuid, createDeterministicHash } from "../../../lib/browserCrypto";
 import { logger } from "../../../lib/logger";
 
 // ============================================================================
 // AUDIT TYPES
 // ============================================================================
 
-export type AuditLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
+export type AuditLevel = "DEBUG" | "INFO" | "WARN" | "ERROR" | "CRITICAL";
 export type AuditCategory =
-  | 'VALIDATION'
-  | 'CALCULATION'
-  | 'DECISION'
-  | 'EVIDENCE'
-  | 'COMPLIANCE'
-  | 'ERROR'
-  | 'PERFORMANCE'
-  | 'SECURITY';
+  | "VALIDATION"
+  | "CALCULATION"
+  | "DECISION"
+  | "EVIDENCE"
+  | "COMPLIANCE"
+  | "ERROR"
+  | "PERFORMANCE"
+  | "SECURITY";
 
 export interface AuditEntry {
   id: string;
@@ -83,8 +82,8 @@ export interface ComplianceReport {
 }
 
 export interface Violation {
-  type: 'MISSING_DATA' | 'LOW_CONFIDENCE' | 'INVALID_CALCULATION' | 'COMPLIANCE_BREACH';
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  type: "MISSING_DATA" | "LOW_CONFIDENCE" | "INVALID_CALCULATION" | "COMPLIANCE_BREACH";
+  severity: "low" | "medium" | "high" | "critical";
   description: string;
   entryId: string;
   timestamp: string;
@@ -101,7 +100,7 @@ export class AuditTrailManager {
   private maxEntries: number = 10000; // Prevent memory overflow
   private enabled: boolean = true;
   private persistentStorage: boolean = false;
-  private storagePath: string = './audit-logs';
+  private storagePath: string = "./audit-logs";
 
   private constructor() {
     // Singleton pattern
@@ -156,10 +155,11 @@ export class AuditTrailManager {
     }
 
     const timestamp = new Date().toISOString();
-    const previousHash = this.entries.length > 0 ? this.entries[this.entries.length - 1].hash : 'GENESIS';
+    const previousHash =
+      this.entries.length > 0 ? this.entries[this.entries.length - 1].hash : "GENESIS";
 
     const auditEntry: AuditEntry = {
-      id: randomUUID(),
+      id: createBrowserUuid(),
       timestamp,
       level: entry.level,
       category: entry.category,
@@ -175,7 +175,7 @@ export class AuditTrailManager {
       correlationId: entry.correlationId,
       metadata: entry.metadata || {},
       previousHash,
-      hash: this.calculateHash({ timestamp, previousHash, ...entry })
+      hash: this.calculateHash({ timestamp, previousHash, ...entry }),
     };
 
     this.entries.push(auditEntry);
@@ -204,50 +204,50 @@ export class AuditTrailManager {
 
     // Time range filter
     if (filter.startTime) {
-      results = results.filter(e => e.timestamp >= filter.startTime);
+      results = results.filter((e) => e.timestamp >= filter.startTime);
     }
     if (filter.endTime) {
-      results = results.filter(e => e.timestamp <= filter.endTime);
+      results = results.filter((e) => e.timestamp <= filter.endTime);
     }
 
     // Level filter
     if (filter.level && filter.level.length > 0) {
-      results = results.filter(e => filter.level!.includes(e.level));
+      results = results.filter((e) => filter.level!.includes(e.level));
     }
 
     // Category filter
     if (filter.category && filter.category.length > 0) {
-      results = results.filter(e => filter.category!.includes(e.category));
+      results = results.filter((e) => filter.category!.includes(e.category));
     }
 
     // Component filter
     if (filter.component && filter.component.length > 0) {
-      results = results.filter(e => filter.component!.includes(e.component));
+      results = results.filter((e) => filter.component!.includes(e.component));
     }
 
     // Operation filter
     if (filter.operation && filter.operation.length > 0) {
-      results = results.filter(e => filter.operation!.includes(e.operation));
+      results = results.filter((e) => filter.operation!.includes(e.operation));
     }
 
     // Correlation ID filter
     if (filter.correlationId) {
-      results = results.filter(e => e.correlationId === filter.correlationId);
+      results = results.filter((e) => e.correlationId === filter.correlationId);
     }
 
     // Session ID filter
     if (filter.sessionId) {
-      results = results.filter(e => e.sessionId === filter.sessionId);
+      results = results.filter((e) => e.sessionId === filter.sessionId);
     }
 
     // User ID filter
     if (filter.userId) {
-      results = results.filter(e => e.userId === filter.userId);
+      results = results.filter((e) => e.userId === filter.userId);
     }
 
     // Confidence filter
     if (filter.minConfidence !== undefined) {
-      results = results.filter(e => e.confidence >= filter.minConfidence);
+      results = results.filter((e) => e.confidence >= filter.minConfidence);
     }
 
     return results;
@@ -263,13 +263,19 @@ export class AuditTrailManager {
       totalEntries: entries.length,
       byLevel: { DEBUG: 0, INFO: 0, WARN: 0, ERROR: 0, CRITICAL: 0 },
       byCategory: {
-        VALIDATION: 0, CALCULATION: 0, DECISION: 0, EVIDENCE: 0,
-        COMPLIANCE: 0, ERROR: 0, PERFORMANCE: 0, SECURITY: 0
+        VALIDATION: 0,
+        CALCULATION: 0,
+        DECISION: 0,
+        EVIDENCE: 0,
+        COMPLIANCE: 0,
+        ERROR: 0,
+        PERFORMANCE: 0,
+        SECURITY: 0,
       },
       byComponent: {},
       averageConfidence: 0,
       complianceScore: 0,
-      errorRate: 0
+      errorRate: 0,
     };
 
     let totalConfidence = 0;
@@ -290,9 +296,9 @@ export class AuditTrailManager {
       totalConfidence += entry.confidence;
 
       // Count errors
-      if (entry.level === 'ERROR' || entry.level === 'CRITICAL') {
+      if (entry.level === "ERROR" || entry.level === "CRITICAL") {
         errorCount++;
-        if (entry.level === 'CRITICAL') criticalCount++;
+        if (entry.level === "CRITICAL") criticalCount++;
       }
     }
 
@@ -303,7 +309,10 @@ export class AuditTrailManager {
     const criticalPenalty = criticalCount * 10;
     const errorPenalty = errorCount * 2;
     const confidenceBonus = stats.averageConfidence * 10;
-    stats.complianceScore = Math.max(0, Math.min(100, 100 - criticalPenalty - errorPenalty + confidenceBonus));
+    stats.complianceScore = Math.max(
+      0,
+      Math.min(100, 100 - criticalPenalty - errorPenalty + confidenceBonus)
+    );
 
     return stats;
   }
@@ -319,41 +328,41 @@ export class AuditTrailManager {
 
     for (const entry of entries) {
       // Check for violations
-      if (entry.confidence < 0.6 && entry.category !== 'ERROR') {
+      if (entry.confidence < 0.6 && entry.category !== "ERROR") {
         violations.push({
-          type: 'LOW_CONFIDENCE',
-          severity: entry.confidence < 0.3 ? 'high' : 'medium',
+          type: "LOW_CONFIDENCE",
+          severity: entry.confidence < 0.3 ? "high" : "medium",
           description: `Low confidence (${entry.confidence.toFixed(2)}) for ${entry.component}:${entry.operation}`,
           entryId: entry.id,
           timestamp: entry.timestamp,
-          mitigation: 'Review calculation methodology and data sources'
+          mitigation: "Review calculation methodology and data sources",
         });
       }
 
-      if (entry.category === 'ERROR' && entry.level === 'CRITICAL') {
+      if (entry.category === "ERROR" && entry.level === "CRITICAL") {
         violations.push({
-          type: 'INVALID_CALCULATION',
-          severity: 'critical',
+          type: "INVALID_CALCULATION",
+          severity: "critical",
           description: `Critical error: ${entry.reasoning}`,
           entryId: entry.id,
           timestamp: entry.timestamp,
-          mitigation: 'Immediate investigation required'
+          mitigation: "Immediate investigation required",
         });
       }
 
-      if (entry.category === 'VALIDATION' && entry.outputs.valid === false) {
+      if (entry.category === "VALIDATION" && entry.outputs.valid === false) {
         violations.push({
-          type: 'MISSING_DATA',
-          severity: 'medium',
-          description: `Validation failed: ${(Array.isArray(entry.outputs.errors) ? entry.outputs.errors : []).join(', ')}`,
+          type: "MISSING_DATA",
+          severity: "medium",
+          description: `Validation failed: ${(Array.isArray(entry.outputs.errors) ? entry.outputs.errors : []).join(", ")}`,
           entryId: entry.id,
           timestamp: entry.timestamp,
-          mitigation: 'Provide missing data or adjust constraints'
+          mitigation: "Provide missing data or adjust constraints",
         });
       }
 
       // Count compliant operations
-      if (entry.level !== 'ERROR' && entry.level !== 'CRITICAL' && entry.confidence >= 0.7) {
+      if (entry.level !== "ERROR" && entry.level !== "CRITICAL" && entry.confidence >= 0.7) {
         compliantOperations++;
       }
     }
@@ -361,20 +370,20 @@ export class AuditTrailManager {
     // Generate recommendations
     const recommendations: string[] = [];
 
-    if (violations.some(v => v.type === 'LOW_CONFIDENCE')) {
-      recommendations.push('Improve data quality and source reliability');
+    if (violations.some((v) => v.type === "LOW_CONFIDENCE")) {
+      recommendations.push("Improve data quality and source reliability");
     }
 
-    if (violations.some(v => v.type === 'INVALID_CALCULATION')) {
-      recommendations.push('Review calculation logic and validation rules');
+    if (violations.some((v) => v.type === "INVALID_CALCULATION")) {
+      recommendations.push("Review calculation logic and validation rules");
     }
 
-    if (violations.some(v => v.type === 'MISSING_DATA')) {
-      recommendations.push('Implement data collection for missing KPIs');
+    if (violations.some((v) => v.type === "MISSING_DATA")) {
+      recommendations.push("Implement data collection for missing KPIs");
     }
 
     if (violations.length === 0) {
-      recommendations.push('All operations compliant - maintain current processes');
+      recommendations.push("All operations compliant - maintain current processes");
     }
 
     // Create signature
@@ -386,7 +395,7 @@ export class AuditTrailManager {
       compliantOperations,
       violations,
       recommendations,
-      signature
+      signature,
     };
   }
 
@@ -422,7 +431,7 @@ export class AuditTrailManager {
         userId: entry.userId,
         sessionId: entry.sessionId,
         correlationId: entry.correlationId,
-        metadata: entry.metadata
+        metadata: entry.metadata,
       });
 
       if (entry.hash !== expectedHash) {
@@ -430,30 +439,39 @@ export class AuditTrailManager {
       }
 
       // Check for tampering indicators
-      if (entry.previousHash === 'GENESIS' && i > 0) {
+      if (entry.previousHash === "GENESIS" && i > 0) {
         issues.push(`Genesis hash found at non-zero index ${i}`);
       }
     }
 
     return {
       valid: issues.length === 0,
-      issues
+      issues,
     };
   }
 
   /**
    * Export audit trail
    */
-  export(format: 'json' | 'csv' | 'xml' = 'json', filter: AuditQuery = {}): string {
+  export(format: "json" | "csv" | "xml" = "json", filter: AuditQuery = {}): string {
     const entries = this.query(filter);
 
-    if (format === 'json') {
+    if (format === "json") {
       return JSON.stringify(entries, null, 2);
     }
 
-    if (format === 'csv') {
-      const headers = ['id', 'timestamp', 'level', 'category', 'component', 'operation', 'confidence', 'reasoning'];
-      const rows = entries.map(e => [
+    if (format === "csv") {
+      const headers = [
+        "id",
+        "timestamp",
+        "level",
+        "category",
+        "component",
+        "operation",
+        "confidence",
+        "reasoning",
+      ];
+      const rows = entries.map((e) => [
         e.id,
         e.timestamp,
         e.level,
@@ -461,13 +479,15 @@ export class AuditTrailManager {
         e.component,
         e.operation,
         e.confidence.toFixed(3),
-        `"${e.reasoning.replace(/"/g, '""')}"`
+        `"${e.reasoning.replace(/"/g, '""')}"`,
       ]);
-      return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     }
 
-    if (format === 'xml') {
-      const xmlEntries = entries.map(e => `
+    if (format === "xml") {
+      const xmlEntries = entries
+        .map(
+          (e) => `
         <entry id="${e.id}" timestamp="${e.timestamp}">
           <level>${e.level}</level>
           <category>${e.category}</category>
@@ -477,11 +497,13 @@ export class AuditTrailManager {
           <reasoning>${this.escapeXml(e.reasoning)}</reasoning>
           <hash>${e.hash}</hash>
         </entry>
-      `).join('');
+      `
+        )
+        .join("");
       return `<audit-trail>${xmlEntries}</audit-trail>`;
     }
 
-    return '';
+    return "";
   }
 
   /**
@@ -495,9 +517,9 @@ export class AuditTrailManager {
     }
 
     const toRemove = this.query(filter);
-    const removeIds = new Set(toRemove.map(e => e.id));
+    const removeIds = new Set(toRemove.map((e) => e.id));
     const beforeCount = this.entries.length;
-    this.entries = this.entries.filter(e => !removeIds.has(e.id));
+    this.entries = this.entries.filter((e) => !removeIds.has(e.id));
     return beforeCount - this.entries.length;
   }
 
@@ -505,7 +527,7 @@ export class AuditTrailManager {
    * Get entry by ID
    */
   getEntry(id: string): AuditEntry | undefined {
-    return this.entries.find(e => e.id === id);
+    return this.entries.find((e) => e.id === id);
   }
 
   /**
@@ -520,23 +542,18 @@ export class AuditTrailManager {
   // ============================================================================
 
   private calculateHash(data: string | Record<string, unknown>): string {
-    const hash = createHash('sha256');
-    if (typeof data === 'string') {
-      hash.update(data);
-    } else {
-      hash.update(JSON.stringify(data));
-    }
-    return hash.digest('hex');
+    const serialized = typeof data === "string" ? data : JSON.stringify(data);
+    return createDeterministicHash(serialized);
   }
 
   private sanitizeData(data: unknown): unknown {
     if (data === null || data === undefined) return {};
 
     // Remove sensitive data
-    const sensitiveKeys = ['password', 'token', 'secret', 'apiKey', 'privateKey'];
+    const sensitiveKeys = ["password", "token", "secret", "apiKey", "privateKey"];
 
     const sanitize = (obj: unknown): unknown => {
-      if (typeof obj !== 'object' || obj === null) return obj;
+      if (typeof obj !== "object" || obj === null) return obj;
 
       if (Array.isArray(obj)) {
         return obj.map(sanitize);
@@ -544,8 +561,8 @@ export class AuditTrailManager {
 
       const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
-        if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
-          result[key] = '***REDACTED***';
+        if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
+          result[key] = "***REDACTED***";
         } else {
           result[key] = sanitize(value);
         }
@@ -556,30 +573,37 @@ export class AuditTrailManager {
     return sanitize(data);
   }
 
-  private createComplianceSignature(startTime: string, endTime: string, violationCount: number): string {
+  private createComplianceSignature(
+    startTime: string,
+    endTime: string,
+    violationCount: number
+  ): string {
     const data = `${startTime}|${endTime}|${violationCount}|${this.entries.length}`;
     return this.calculateHash(data).substring(0, 16);
   }
 
   private escapeXml(text: string): string {
-    return text.replace(/&/g, '&amp;')
-               .replace(/</g, '&lt;')
-               .replace(/>/g, '&gt;')
-               .replace(/"/g, '&quot;')
-               .replace(/'/g, '&#39;');
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   private emitAuditEvent(entry: AuditEntry): void {
     // In a real implementation, this would emit events to listeners
     // For now, we'll just log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      logger.info(`[AUDIT] ${entry.level} ${entry.category} ${entry.component}:${entry.operation} (conf: ${entry.confidence.toFixed(2)})`);
+    if (import.meta.env.DEV) {
+      logger.info(
+        `[AUDIT] ${entry.level} ${entry.category} ${entry.component}:${entry.operation} (conf: ${entry.confidence.toFixed(2)})`
+      );
     }
   }
 
   private ensureStorageDirectory(): void {
-    const fs = require('fs');
-    const path = require('path');
+    const fs = require("fs");
+    const path = require("path");
 
     const dir = path.resolve(this.storagePath);
     if (!fs.existsSync(dir)) {
@@ -590,18 +614,18 @@ export class AuditTrailManager {
   private persistEntry(entry: AuditEntry): void {
     if (!this.persistentStorage) return;
 
-    const fs = require('fs');
-    const path = require('path');
+    const fs = require("fs");
+    const path = require("path");
 
     try {
-      const date = new Date().toISOString().split('T')[0];
+      const date = new Date().toISOString().split("T")[0];
       const filename = `audit-${date}.jsonl`;
       const filepath = path.join(this.storagePath, filename);
 
-      const line = JSON.stringify(entry) + '\n';
+      const line = JSON.stringify(entry) + "\n";
       fs.appendFileSync(filepath, line);
     } catch (error: unknown) {
-      console.error('Failed to persist audit entry:', error);
+      console.error("Failed to persist audit entry:", error);
     }
   }
 }
@@ -638,8 +662,8 @@ export function AuditTrail(
         const confidence = options.confidence ? options.confidence(result) : 1.0;
 
         audit.log({
-          level: options.level || 'INFO',
-          category: options.category || 'CALCULATION',
+          level: options.level || "INFO",
+          category: options.category || "CALCULATION",
           component,
           operation: propertyKey,
           inputs,
@@ -647,7 +671,7 @@ export function AuditTrail(
           confidence,
           reasoning: `Method ${propertyKey} executed successfully in ${duration}ms`,
           evidence: [],
-          metadata: { duration }
+          metadata: { duration },
         });
 
         return result;
@@ -655,16 +679,16 @@ export function AuditTrail(
         const duration = Date.now() - startTime;
 
         audit.log({
-          level: 'ERROR',
-          category: 'ERROR',
+          level: "ERROR",
+          category: "ERROR",
           component,
           operation: propertyKey,
           inputs,
-          outputs: { error: error instanceof Error ? error.message : 'Unknown error' },
+          outputs: { error: error instanceof Error ? error.message : "Unknown error" },
           confidence: 0,
-          reasoning: `Method ${propertyKey} failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          reasoning: `Method ${propertyKey} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
           evidence: [],
-          metadata: { duration, error: String(error) }
+          metadata: { duration, error: String(error) },
         });
 
         throw error;
@@ -697,7 +721,7 @@ export class ComplianceMonitor {
       minConfidence: thresholds?.minConfidence ?? 0.7,
       maxErrorRate: thresholds?.maxErrorRate ?? 0.05,
       maxCriticalCount: thresholds?.maxCriticalCount ?? 0,
-      ...thresholds
+      ...thresholds,
     };
   }
 
@@ -709,21 +733,27 @@ export class ComplianceMonitor {
     const issues: string[] = [];
 
     if (stats.averageConfidence < this.thresholds.minConfidence) {
-      issues.push(`Average confidence (${stats.averageConfidence.toFixed(2)}) below threshold (${this.thresholds.minConfidence})`);
+      issues.push(
+        `Average confidence (${stats.averageConfidence.toFixed(2)}) below threshold (${this.thresholds.minConfidence})`
+      );
     }
 
     if (stats.errorRate > this.thresholds.maxErrorRate) {
-      issues.push(`Error rate (${(stats.errorRate * 100).toFixed(1)}%) exceeds threshold (${(this.thresholds.maxErrorRate * 100).toFixed(1)}%)`);
+      issues.push(
+        `Error rate (${(stats.errorRate * 100).toFixed(1)}%) exceeds threshold (${(this.thresholds.maxErrorRate * 100).toFixed(1)}%)`
+      );
     }
 
     const criticalCount = stats.byLevel.CRITICAL;
     if (criticalCount > this.thresholds.maxCriticalCount) {
-      issues.push(`Critical errors (${criticalCount}) exceed threshold (${this.thresholds.maxCriticalCount})`);
+      issues.push(
+        `Critical errors (${criticalCount}) exceed threshold (${this.thresholds.maxCriticalCount})`
+      );
     }
 
     return {
       compliant: issues.length === 0,
-      issues
+      issues,
     };
   }
 
@@ -733,23 +763,25 @@ export class ComplianceMonitor {
   detectAnomalies(): string[] {
     const anomalies: string[] = [];
     const recentEntries = this.auditManager.query({
-      startTime: new Date(Date.now() - 3600000).toISOString() // Last hour
+      startTime: new Date(Date.now() - 3600000).toISOString(), // Last hour
     });
 
     // Check for sudden spike in errors
-    const errorCount = recentEntries.filter(e => e.level === 'ERROR' || e.level === 'CRITICAL').length;
+    const errorCount = recentEntries.filter(
+      (e) => e.level === "ERROR" || e.level === "CRITICAL"
+    ).length;
     if (errorCount > 10) {
       anomalies.push(`Error spike detected: ${errorCount} errors in last hour`);
     }
 
     // Check for low confidence patterns
-    const lowConfidence = recentEntries.filter(e => e.confidence < 0.5).length;
+    const lowConfidence = recentEntries.filter((e) => e.confidence < 0.5).length;
     if (lowConfidence > 5) {
       anomalies.push(`Low confidence pattern: ${lowConfidence} entries below 0.5`);
     }
 
     // Check for missing evidence
-    const noEvidence = recentEntries.filter(e => e.evidence.length === 0).length;
+    const noEvidence = recentEntries.filter((e) => e.evidence.length === 0).length;
     if (noEvidence > 3) {
       anomalies.push(`Evidence gap: ${noEvidence} entries without supporting evidence`);
     }
@@ -762,7 +794,7 @@ export class ComplianceMonitor {
    */
   getDashboardData(): {
     complianceScore: number;
-    health: 'green' | 'yellow' | 'red';
+    health: "green" | "yellow" | "red";
     stats: AuditStats;
     anomalies: string[];
   } {
@@ -770,15 +802,15 @@ export class ComplianceMonitor {
     const compliance = this.isCompliant();
     const anomalies = this.detectAnomalies();
 
-    let health: 'green' | 'yellow' | 'red' = 'green';
-    if (stats.complianceScore < 70) health = 'red';
-    else if (stats.complianceScore < 85) health = 'yellow';
+    let health: "green" | "yellow" | "red" = "green";
+    if (stats.complianceScore < 70) health = "red";
+    else if (stats.complianceScore < 85) health = "yellow";
 
     return {
       complianceScore: stats.complianceScore,
       health,
       stats,
-      anomalies
+      anomalies,
     };
   }
 }
@@ -792,88 +824,106 @@ export const AuditTrailTools = {
    * Query audit trail
    */
   query_audit_trail: {
-    description: 'Query the audit trail for compliance and analysis',
+    description: "Query the audit trail for compliance and analysis",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        startTime: { type: 'string', format: 'date-time' },
-        endTime: { type: 'string', format: 'date-time' },
-        level: { type: 'array', items: { type: 'string', enum: ['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'] } },
-        category: { type: 'array', items: { type: 'string', enum: ['VALIDATION', 'CALCULATION', 'DECISION', 'EVIDENCE', 'COMPLIANCE', 'ERROR', 'PERFORMANCE', 'SECURITY'] } },
-        component: { type: 'array', items: { type: 'string' } },
-        operation: { type: 'array', items: { type: 'string' } },
-        correlationId: { type: 'string' },
-        sessionId: { type: 'string' },
-        userId: { type: 'string' },
-        minConfidence: { type: 'number', minimum: 0, maximum: 1 }
-      }
-    }
+        startTime: { type: "string", format: "date-time" },
+        endTime: { type: "string", format: "date-time" },
+        level: {
+          type: "array",
+          items: { type: "string", enum: ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"] },
+        },
+        category: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "VALIDATION",
+              "CALCULATION",
+              "DECISION",
+              "EVIDENCE",
+              "COMPLIANCE",
+              "ERROR",
+              "PERFORMANCE",
+              "SECURITY",
+            ],
+          },
+        },
+        component: { type: "array", items: { type: "string" } },
+        operation: { type: "array", items: { type: "string" } },
+        correlationId: { type: "string" },
+        sessionId: { type: "string" },
+        userId: { type: "string" },
+        minConfidence: { type: "number", minimum: 0, maximum: 1 },
+      },
+    },
   },
 
   /**
    * Get audit statistics
    */
   get_audit_stats: {
-    description: 'Get statistics about the audit trail',
+    description: "Get statistics about the audit trail",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        startTime: { type: 'string', format: 'date-time' },
-        endTime: { type: 'string', format: 'date-time' },
-        component: { type: 'array', items: { type: 'string' } }
-      }
-    }
+        startTime: { type: "string", format: "date-time" },
+        endTime: { type: "string", format: "date-time" },
+        component: { type: "array", items: { type: "string" } },
+      },
+    },
   },
 
   /**
    * Generate compliance report
    */
   generate_compliance_report: {
-    description: 'Generate a compliance report for a specific period',
+    description: "Generate a compliance report for a specific period",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        startTime: { type: 'string', format: 'date-time', required: true },
-        endTime: { type: 'string', format: 'date-time', required: true }
+        startTime: { type: "string", format: "date-time", required: true },
+        endTime: { type: "string", format: "date-time", required: true },
       },
-      required: ['startTime', 'endTime']
-    }
+      required: ["startTime", "endTime"],
+    },
   },
 
   /**
    * Verify audit integrity
    */
   verify_audit_integrity: {
-    description: 'Verify the integrity of the audit trail (tamper detection)',
+    description: "Verify the integrity of the audit trail (tamper detection)",
     inputSchema: {
-      type: 'object',
-      properties: {}
-    }
+      type: "object",
+      properties: {},
+    },
   },
 
   /**
    * Export audit trail
    */
   export_audit_trail: {
-    description: 'Export audit trail in various formats',
+    description: "Export audit trail in various formats",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        format: { type: 'string', enum: ['json', 'csv', 'xml'], default: 'json' },
-        startTime: { type: 'string', format: 'date-time' },
-        endTime: { type: 'string', format: 'date-time' }
-      }
-    }
+        format: { type: "string", enum: ["json", "csv", "xml"], default: "json" },
+        startTime: { type: "string", format: "date-time" },
+        endTime: { type: "string", format: "date-time" },
+      },
+    },
   },
 
   /**
    * Get compliance dashboard
    */
   get_compliance_dashboard: {
-    description: 'Get compliance dashboard data',
+    description: "Get compliance dashboard data",
     inputSchema: {
-      type: 'object',
-      properties: {}
-    }
-  }
+      type: "object",
+      properties: {},
+    },
+  },
 };

@@ -1,19 +1,16 @@
 /**
- * Environment Variable Utilities
+ * Browser-only environment utilities for ValyntApp.
  */
 
-const isBrowser = typeof window !== "undefined";
+const viteEnv =
+  (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
 
 export const env = {
-  isDevelopment: isBrowser
-    ? import.meta.env?.DEV === true
-    : process.env.NODE_ENV === "development",
-  isProduction: isBrowser
-    ? import.meta.env?.PROD === true
-    : process.env.NODE_ENV === "production",
-  isTest: process.env.NODE_ENV === "test",
-  isBrowser,
-  isServer: !isBrowser,
+  isDevelopment: viteEnv.DEV === true || viteEnv.MODE === "development",
+  isProduction: viteEnv.PROD === true || viteEnv.MODE === "production",
+  isTest: viteEnv.MODE === "test",
+  isBrowser: true,
+  isServer: false,
 };
 
 export interface GetEnvVarOptions {
@@ -21,26 +18,13 @@ export interface GetEnvVarOptions {
   defaultValue?: string;
 }
 
-export function getEnvVar(
-  key: string,
-  options: GetEnvVarOptions = {},
-): string | undefined {
+export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string | undefined {
   const { required = false, defaultValue } = options;
 
-  let value: string | undefined;
-
-  if (isBrowser) {
-    value = (import.meta.env as Record<string, string>)?.[key];
-  } else {
-    value = process.env[key];
-  }
-
-  if (!value && defaultValue) {
-    value = defaultValue;
-  }
+  const value = viteEnv[key] ?? defaultValue;
 
   if (!value && required) {
-    throw new Error(`Missing required environment variable: ${key}`);
+    throw new Error(`Missing required browser environment variable: ${key}`);
   }
 
   return value;
@@ -53,25 +37,9 @@ export function getSupabaseConfig() {
   };
 }
 
-/**
- * Server-only Supabase config. Returns service_role key from process.env.
- * Never call from browser code.
- */
-export function getSupabaseServerConfig() {
-  if (isBrowser) {
-    throw new Error("getSupabaseServerConfig must not be called in browser context");
-  }
-  return {
-    url: getEnvVar("VITE_SUPABASE_URL") || "",
-    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || "",
-  };
-}
-
 export function getApiBaseUrl(): string {
   return getEnvVar("VITE_API_BASE_URL") || "/api";
 }
 
 /** Test-only: override the env source. No-op in production. */
 export function __setEnvSourceForTests(_source: Record<string, string>): void {}
-
-

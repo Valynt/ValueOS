@@ -862,6 +862,43 @@ const legacyRootDirBan = {
   },
 };
 
+
+const valyntAppBrowserBoundaryOverrides = {
+  files: ["apps/ValyntApp/src/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: [
+          { name: "fs", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "node:fs", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "crypto", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "node:crypto", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "events", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "node:events", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "path", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "node:path", message: "ValyntApp browser code must not import Node built-ins." },
+          { name: "node-vault", message: "ValyntApp browser code must not import server-only secret adapters." },
+          { name: "@aws-sdk/client-secrets-manager", message: "ValyntApp browser code must not import server-only secret adapters." },
+          { name: "@valueos/backend", message: "ValyntApp browser code must not import backend adapters." }
+        ],
+        patterns: [
+          { group: ["@valueos/backend/*", "@backend/*"], message: "ValyntApp browser code must not import backend adapters." },
+          { group: ["@/config/secrets/*"], message: "Secret providers belong in packages/backend/src/config/secrets." }
+        ]
+      }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        object: "process",
+        property: "env",
+        message: "ValyntApp browser code must use import.meta.env with VITE_-prefixed variables."
+      }
+    ]
+  }
+};
+
 // SEC-002: dangerouslySetInnerHTML allowlist.
 // react/no-danger is set to "error" globally. Only the files listed here are
 // permitted to use dangerouslySetInnerHTML. Adding a new file to this list
@@ -913,6 +950,7 @@ export default [
   backendEgressEnforcement,
   frontendFetchEnforcement,
   legacyRootDirBan,
+  valyntAppBrowserBoundaryOverrides,
   dangerouslySetInnerHtmlAllowlist,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],

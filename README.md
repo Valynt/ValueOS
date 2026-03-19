@@ -4,16 +4,15 @@ AI-powered value engineering platform for B2B SaaS. ValueOS helps customer succe
 
 ## Repository Layout
 
-pnpm monorepo. Two runtimes: one frontend, one backend.
+pnpm monorepo. The runtime inventory is defined in [`runtime-inventory.json`](runtime-inventory.json). The core product boundary is now explicit: `apps/ValyntApp/src/**` is browser-only, while privileged Supabase access, secret providers, and Node-only configuration live under `packages/backend/src/**`.
 
 ```
 apps/
-  ValyntApp/        # Web application (React + Vite + Tailwind) — the only frontend runtime
-  VOSAcademy/       # Training and certification portal
-  mcp-dashboard/    # MCP observability dashboard
+  ValyntApp/        # Primary browser runtime (React + Vite + Tailwind)
+  mcp-dashboard/    # Browser runtime for MCP observability workflows
 
 packages/
-  backend/          # API server (Express) — the only backend runtime
+  backend/          # Node.js runtime for API, workers, secrets, and privileged adapters
   shared/           # Canonical domain model (9 Zod-typed domain objects)
   core-services/    # Canonical service implementations (migrated from app-local copies)
   agent-fabric/     # Multi-agent framework primitives
@@ -195,7 +194,8 @@ ValueOS is a modular monolith deployed to Kubernetes.
 +---------------------------------------------------------+
 ```
 
-- **Single runtime rule**: `apps/ValyntApp` is the only frontend. `packages/backend` is the only backend. No other entry points.
+- **Authoritative runtime inventory**: [`runtime-inventory.json`](runtime-inventory.json) defines browser entrypoints, allowed browser env prefixes, and the server-owned modules that must stay in `packages/backend`.
+- **Browser/server split**: `apps/ValyntApp/src/**` is browser-only. Server-owned secrets, privileged Supabase clients, and Node-dependent settings live in `packages/backend/src/config/secrets/`, `packages/backend/src/lib/supabase.ts`, and `packages/backend/src/config/settings.ts`.
 - **Agent routing**: All agent decisions are driven by structured domain state, not keyword matching.
 - **Multi-tenancy**: Shared-schema with `organization_id` / `tenant_id` enforced by Postgres RLS on every table.
 - **LLM safety**: All agent LLM calls go through `BaseAgent.secureInvoke()` — circuit breaker, hallucination detection, Zod validation.

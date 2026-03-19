@@ -4,19 +4,22 @@ _Added per audit recommendation #14: diagrams-as-code for onboarding speed._
 
 ## High-Level Architecture
 
+The authoritative runtime inventory lives in [`runtime-inventory.json`](../../runtime-inventory.json). For the core product, the runtime boundary is: browser-only `apps/ValyntApp/src/**` on one side, and Node-only `packages/backend/src/**` for secrets, privileged Supabase adapters, workers, and server configuration on the other.
+
 ```mermaid
 graph TB
-    subgraph "Frontend"
-        VA[ValyntApp<br/>React + Vite + Tailwind]
-        VOSA[VOSAcademy<br/>Learning App]
-        MCP_DASH[MCP Dashboard]
+    subgraph "Browser Runtimes"
+        VA[ValyntApp<br/>Primary React + Vite app]
+        MCP_DASH[MCP Dashboard<br/>Ops/observability browser UI]
     end
 
-    subgraph "API Layer"
-        EXPRESS[Express.js Server<br/>Port 3001]
+    subgraph "Node.js Runtime"
+        EXPRESS[Express.js Server<br/>packages/backend · Port 3001]
         MW[Middleware Pipeline<br/>Auth / RLS / RBAC / MFA<br/>Rate Limiting / Tenant Context]
         API[REST API<br/>OpenAPI 3.1]
+        SECRETS[Secret Providers + Settings<br/>server-only ownership]
     end
+
 
     subgraph "Agent Fabric"
         direction TB
@@ -67,10 +70,10 @@ graph TB
     end
 
     VA --> API
-    VOSA --> API
     MCP_DASH --> API
 
     API --> MW --> EXPRESS
+    EXPRESS --> SECRETS
 
     EXPRESS --> DR
     DR --> ER

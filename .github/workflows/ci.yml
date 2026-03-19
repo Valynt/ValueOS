@@ -123,6 +123,9 @@ jobs:
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
+      - name: Guard browser runtime boundaries
+        run: pnpm check:browser-runtime-boundaries
+
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
 
