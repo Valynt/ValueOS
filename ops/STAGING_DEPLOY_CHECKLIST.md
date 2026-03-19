@@ -7,7 +7,7 @@ aspirational and not used for v1.
 ## Secret management policy
 
 - [ ] No production-class secrets are stored in `ops/env/.env.staging*`, `.env`, or any host-side flat env file.
-- [ ] Staging secret values live in the managed-secret path and are hydrated at runtime through `packages/backend/src/server.ts` → `initSecrets()` and validated by `packages/backend/src/config/secrets/SecretValidator.ts`.
+- [ ] Staging secret values live in the managed-secret path and are hydrated at runtime through `packages/backend/src/server.ts` → `initSecrets()`. Note: startup-time validation by `packages/backend/src/config/secrets/SecretValidator.ts` currently runs only when `NODE_ENV=production`; for staging, validate secrets via the backend’s secret health-check endpoint/process (for example, a `/health/secrets` check) before promoting a build.
 - [ ] `SECRETS_PROVIDER` is set to the active provider (`aws` or `vault`) in the bootstrap env file or CI runtime.
 - [ ] `SECRETS_TENANT_ID=platform` unless a different tenant scope is explicitly approved.
 
