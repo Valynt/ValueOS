@@ -209,7 +209,7 @@ export class DealAssemblyAgent extends BaseAgent {
         });
 
         try {
-          const { CallAnalysisService } = await import("../../services/CallAnalysisService.js") as {
+          const { CallAnalysisService } = await import("../../../services/CallAnalysisService.js") as {
             CallAnalysisService: { analyzeTranscript: (id: string) => Promise<CallAnalysisResult> };
           };
 
@@ -256,7 +256,7 @@ export class DealAssemblyAgent extends BaseAgent {
         });
 
         try {
-          const { WebScraperService } = await import("../../services/WebScraperService.js") as {
+          const { WebScraperService } = await import("../../../services/WebScraperService.js") as {
             WebScraperService: { scrape: (url: string) => Promise<WebScraperResult> };
           };
 

@@ -2,7 +2,7 @@
 // All functions require tenant_id as first argument
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../types/supabase-generated.js';
+import type { Database } from '../../../types/supabase-generated.js';
 
 // Use generated Supabase types for full type safety
 export type ValueCaseRow = Database['public']['Tables']['value_cases']['Row'];
