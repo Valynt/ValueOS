@@ -19,7 +19,7 @@ This document defines the CI lane model in `.github/workflows/ci.yml`, ownership
 | `critical-workflows-gate` | Claims verification + workflow contract checks for release flows | Backend Agent Platform | Investigate within 2 business hours |
 | `security-gate` | SAST, SCA, secret scanning, SBOM export (required artifact), SARIF upload | Security Engineering | Investigate within 2 business hours |
 | `dast-gate` | OWASP ZAP baseline scan against deterministic staging target with severity threshold enforcement | Security Engineering + Platform | Investigate within 2 business hours |
-| `accessibility-audit` | WCAG 2.2 AA automation + trend gate | Frontend Platform | Investigate within 4 business hours |
+| `accessibility-audit` | WCAG 2.2 AA automation + trend gate, plus shipped-locale (`en`, `es`) localization evidence and pseudo-loc QA artifacts | Frontend Platform | Investigate within 4 business hours |
 
 ## Artifacts and Failure Summaries
 
