@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createUserSupabaseClient } from "../../../lib/supabase.js";
+import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, router } from "../trpc.js";
 
@@ -22,12 +22,12 @@ function getDateRangeCutoff(dateRange: string): Date | null {
   return cutoffDate;
 }
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
+function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsSupabaseClient>; accessToken?: string }) {
   if (ctx.supabase) {
     return ctx.supabase;
   }
   if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
+    return createRequestRlsSupabaseClient(ctx.accessToken);
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createServerSupabaseClient } from './supabase';
+import { createServiceRoleSupabaseClient } from './supabase';
 
 // Mock env vars to allow client creation
 vi.mock('./env', () => ({
@@ -33,7 +33,7 @@ describe('Supabase Client Retry Logic', () => {
     const mockFetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
     global.fetch = mockFetch;
 
-    const supabase = createServerSupabaseClient('service-key');
+    const supabase = createServiceRoleSupabaseClient('service-key');
 
     // Make a request
     // We expect it to fail, but we want to verify the retries happened
@@ -55,7 +55,7 @@ describe('Supabase Client Retry Logic', () => {
 
     global.fetch = mockFetch;
 
-    const supabase = createServerSupabaseClient('service-key');
+    const supabase = createServiceRoleSupabaseClient('service-key');
 
     // We need to mock the response properly for supabase-js to parse it
     // Supabase expects a JSON response usually
@@ -70,7 +70,7 @@ describe('Supabase Client Retry Logic', () => {
     const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Bad Request' }), { status: 400, statusText: 'Bad Request' }));
     global.fetch = mockFetch;
 
-    const supabase = createServerSupabaseClient('service-key');
+    const supabase = createServiceRoleSupabaseClient('service-key');
 
     await supabase.from('test').select('*');
 

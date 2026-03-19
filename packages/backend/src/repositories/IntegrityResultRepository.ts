@@ -7,7 +7,7 @@
 
 import { createLogger } from '@shared/lib/logger';
 
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ service: 'IntegrityResultRepository' });
 
@@ -54,10 +54,10 @@ export interface IntegrityResult extends IntegrityResultPayload {
 // ---------------------------------------------------------------------------
 
 export class IntegrityResultRepository {
-  private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private supabase: ReturnType<typeof createServiceRoleSupabaseClient>;
 
   constructor() {
-    this.supabase = createServerSupabaseClient();
+    this.supabase = createServiceRoleSupabaseClient();
   }
 
   async createResult(

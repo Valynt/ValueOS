@@ -3,13 +3,13 @@
  */
 
 import { logger } from '../lib/logger.js';
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 export class ValueTreeNodeRepository {
-  private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private supabase: ReturnType<typeof createServiceRoleSupabaseClient>;
 
   constructor() {
-    this.supabase = createServerSupabaseClient();
+    this.supabase = createServiceRoleSupabaseClient();
   }
 
   async findById(id: string): Promise<unknown> {

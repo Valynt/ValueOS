@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createUserSupabaseClient } from "../../../lib/supabase.js";
+import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
@@ -35,7 +35,7 @@ interface Progress {
 // ============================================================================
 
 async function getUserProgress(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   userId: string,
   organizationId: string
 ): Promise<Progress[]> {
@@ -65,7 +65,7 @@ async function getUserProgress(
 }
 
 async function getUserPillarProgress(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   userId: string,
   organizationId: string,
   pillarId: number
@@ -104,7 +104,7 @@ async function getUserPillarProgress(
 }
 
 async function upsertProgress(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   progress: {
     userId: string;
     organizationId: string;
