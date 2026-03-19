@@ -57,9 +57,11 @@ export async function assertSafeUrl(input: string): Promise<URL> {
  * IPv4-mapped IPv6 addresses, and IPv6 ULA/loopback/link-local ranges.
  */
 function isPrivateIp(ip: string): boolean {
-  // Handle IPv4-mapped IPv6 addresses (e.g., ::ffff:127.0.0.1)
-  const ipv4MappedMatch = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (ipv4MappedMatch) {
+  // Handle IPv4-mapped IPv6 addresses in any textual form.
+  // Matches both compressed (::ffff:127.0.0.1) and expanded
+  // (0:0:0:0:0:ffff:127.0.0.1) representations.
+  const ipv4MappedMatch = ip.match(/^(?:0*:){0,4}(?:0*:)?(?:0*:ffff|ffff):(\d+\.\d+\.\d+\.\d+)$/i);
+  if (ipv4MappedMatch && ipv4MappedMatch[1]) {
     return isPrivateIpv4(ipv4MappedMatch[1]);
   }
 
@@ -68,16 +70,26 @@ function isPrivateIp(ip: string): boolean {
     return isPrivateIpv4(ip);
   }
 
-  // IPv6 ranges
+  // IPv6 ranges — normalize first to handle equivalent textual forms
+  // (e.g., "0:0:0:0:0:0:0:1" vs "::1", "FE80::1" vs "fe80::1")
   if (ip.includes(":")) {
-    const normalized = ip.toLowerCase();
-    return (
-      normalized === "::1" || // loopback
-      normalized === "::" || // unspecified
-      normalized.startsWith("fc00:") || // unique local (fc00::/7 lower half)
-      normalized.startsWith("fd") || // unique local (fc00::/7 upper half, fd00::/8)
-      normalized.startsWith("fe80:") // link-local
-    );
+    const expanded = expandIpv6(ip.toLowerCase());
+
+    // Loopback (::1)
+    if (expanded === "0000:0000:0000:0000:0000:0000:0000:0001") return true;
+
+    // Unspecified (::)
+    if (expanded === "0000:0000:0000:0000:0000:0000:0000:0000") return true;
+
+    const firstWord = parseInt(expanded.slice(0, 4), 16);
+
+    // Unique Local Address — fc00::/7 (first 7 bits = 1111110x → 0xfc–0xfd)
+    if (firstWord >= 0xfc00 && firstWord <= 0xfdff) return true;
+
+    // Link-local — fe80::/10 (first 10 bits = 1111111010 → 0xfe80–0xfebf)
+    if (firstWord >= 0xfe80 && firstWord <= 0xfebf) return true;
+
+    return false;
   }
 
   return false;
@@ -104,6 +116,34 @@ function isPrivateIpv4(ip: string): boolean {
     (first === 169 && second === 254) || // 169.254.0.0/16 link-local & cloud metadata
     (first === 100 && second >= 64 && second <= 127) // 100.64.0.0/10 CGNAT
   );
+}
+
+/**
+ * Expand an IPv6 address to its full 8-group, zero-padded form.
+ * Handles :: expansion and normalizes each group to 4 hex digits.
+ * Input MUST be lowercase. Returns the canonical expanded form
+ * (e.g., "fe80::1" → "fe80:0000:0000:0000:0000:0000:0000:0001").
+ */
+function expandIpv6(ip: string): string {
+  // Strip zone ID (e.g., %eth0) if present
+  const zoneIdx = ip.indexOf("%");
+  const clean = zoneIdx >= 0 ? ip.slice(0, zoneIdx) : ip;
+
+  let groups: string[];
+
+  if (clean.includes("::")) {
+    const [left, right] = clean.split("::");
+    const leftGroups = left ? left.split(":") : [];
+    const rightGroups = right ? right.split(":") : [];
+    const missing = 8 - leftGroups.length - rightGroups.length;
+    const fill = Array(missing).fill("0000");
+    groups = [...leftGroups, ...fill, ...rightGroups];
+  } else {
+    groups = clean.split(":");
+  }
+
+  // Pad each group to 4 hex digits
+  return groups.map((g) => g.padStart(4, "0")).join(":");
 }
 
 /**
