@@ -628,36 +628,46 @@ jobs:
 
 
   staging-performance-benchmarks:
-    name: Staging Performance Benchmarks
+    name: Staging Performance Benchmarks (${{ matrix.profile }})
     runs-on: ubuntu-latest
     needs: [deploy-staging]
     if: github.event_name != 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [ci-50, ci-200, ci-spike]
     steps:
       - uses: actions/checkout@v6
 
-      - name: Run standardized k6 benchmark suites against staging
+      - name: Run standardized k6 benchmark suite against staging
         env:
           BASE_URL: https://staging.valueos.app
           AUTH_TOKEN: ${{ secrets.STAGING_PERF_AUTH_TOKEN }}
-          VUS: "100"
-          DURATION: "5m"
+          TENANT_ID: ${{ secrets.STAGING_PERF_TENANT_ID }}
+          ONBOARDING_CONTEXT_ID: ${{ secrets.STAGING_PERF_ONBOARDING_CONTEXT_ID }}
+          PROFILE: ${{ matrix.profile }}
+          OUTPUT_PREFIX: benchmark-artifacts/${{ matrix.profile }}/raw
         run: |
           set -euo pipefail
+          mkdir -p "${OUTPUT_PREFIX}"
           docker run --rm \
             -v "$PWD:/work" \
             -w /work \
             -e BASE_URL \
             -e AUTH_TOKEN \
-            -e VUS \
-            -e DURATION \
+            -e TENANT_ID \
+            -e ONBOARDING_CONTEXT_ID \
+            -e PROFILE \
+            -e OUTPUT_PREFIX \
             grafana/k6:0.53.0 run infra/testing/load-test.k6.js
 
       - name: Build benchmark artifact with infra correlation
         env:
+          PROFILE: ${{ matrix.profile }}
           PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
           PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
-          K6_SUMMARY_PATH: load-test-summary.json
-          BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+          K6_SUMMARY_PATH: benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.json
+          BENCHMARK_OUTPUT_DIR: benchmark-artifacts/${{ matrix.profile }}/analyzed
         run: |
           set -euo pipefail
           python3 scripts/perf/analyze-k6-benchmark.py
@@ -665,22 +675,23 @@ jobs:
       - name: Enforce sustained critical route p95 <= 200ms promotion gate
         run: |
           set -euo pipefail
-          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
+          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-summary.json)
           if awk "BEGIN { exit !(${CRITICAL_P95} > 200) }"; then
-            echo "Critical route p95 ${CRITICAL_P95}ms exceeded 200ms sustained threshold. Blocking promotion."
+            echo "Critical route p95 ${CRITICAL_P95}ms exceeded 200ms sustained threshold for profile ${{ matrix.profile }}. Blocking promotion."
             exit 1
           fi
-          echo "Critical route p95 ${CRITICAL_P95}ms is within threshold."
+          echo "Critical route p95 ${CRITICAL_P95}ms is within threshold for profile ${{ matrix.profile }}."
 
       - name: Upload per-commit benchmark artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: staging-benchmark-${{ github.sha }}-${{ github.run_id }}
+          name: staging-benchmark-${{ matrix.profile }}-${{ github.sha }}-${{ github.run_id }}
           path: |
-            load-test-summary.json
-            load-test-results.json
-            benchmark-artifacts/benchmark-summary.json
-            benchmark-artifacts/benchmark-report.md
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.json
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-results.json
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.md
+            benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-summary.json
+            benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-report.md
 
   preprod-slo-guard:
     name: Pre-Prod SLO Guard

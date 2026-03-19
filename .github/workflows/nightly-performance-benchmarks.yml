@@ -1,0 +1,74 @@
+name: Nightly Performance Benchmarks
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-performance-benchmarks:
+    name: Nightly Performance Benchmarks (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [nightly-50, nightly-200, nightly-spike]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run nightly k6 benchmark suite against staging
+        env:
+          BASE_URL: https://staging.valueos.app
+          AUTH_TOKEN: ${{ secrets.STAGING_PERF_AUTH_TOKEN }}
+          TENANT_ID: ${{ secrets.STAGING_PERF_TENANT_ID }}
+          ONBOARDING_CONTEXT_ID: ${{ secrets.STAGING_PERF_ONBOARDING_CONTEXT_ID }}
+          PROFILE: ${{ matrix.profile }}
+          OUTPUT_PREFIX: benchmark-artifacts/${{ matrix.profile }}/raw
+        run: |
+          set -euo pipefail
+          mkdir -p "${OUTPUT_PREFIX}"
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            -e BASE_URL \
+            -e AUTH_TOKEN \
+            -e TENANT_ID \
+            -e ONBOARDING_CONTEXT_ID \
+            -e PROFILE \
+            -e OUTPUT_PREFIX \
+            grafana/k6:0.53.0 run infra/testing/load-test.k6.js
+
+      - name: Build nightly benchmark artifact with infra correlation
+        env:
+          PROFILE: ${{ matrix.profile }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          K6_SUMMARY_PATH: benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.json
+          BENCHMARK_OUTPUT_DIR: benchmark-artifacts/${{ matrix.profile }}/analyzed
+        run: |
+          set -euo pipefail
+          python3 scripts/perf/analyze-k6-benchmark.py
+
+      - name: Enforce nightly critical route p95 <= 200ms guard
+        run: |
+          set -euo pipefail
+          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-summary.json)
+          if awk "BEGIN { exit !(${CRITICAL_P95} > 200) }"; then
+            echo "Nightly critical route p95 ${CRITICAL_P95}ms exceeded 200ms for profile ${{ matrix.profile }}."
+            exit 1
+          fi
+          echo "Nightly critical route p95 ${CRITICAL_P95}ms is within threshold for profile ${{ matrix.profile }}."
+
+      - name: Upload nightly benchmark artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-benchmark-${{ matrix.profile }}-${{ github.run_id }}
+          path: |
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.json
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-results.json
+            benchmark-artifacts/${{ matrix.profile }}/raw/load-test-summary.md
+            benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-summary.json
+            benchmark-artifacts/${{ matrix.profile }}/analyzed/benchmark-report.md
