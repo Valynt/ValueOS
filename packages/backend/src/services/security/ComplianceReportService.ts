@@ -24,7 +24,7 @@ export class ComplianceReportService {
 
   async generateComplianceReport(
     framework: ComplianceFramework,
-    _scope?: ComplianceScope
+    scope?: ComplianceScope
   ): Promise<ComplianceReport> {
     const report: ComplianceReport = {
       id: uuidv4(),

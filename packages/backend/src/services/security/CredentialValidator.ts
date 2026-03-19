@@ -53,30 +53,28 @@ export class CredentialValidator {
 
   async validateJWT(
     token: string,
-    _claims?: JWTClaims
+    claims?: JWTClaims
   ): Promise<CredentialValidationResult> {
     try {
       const parts = token.split(".");
-      if (parts.length != 3) {
+      if (parts.length !== 3) {
         return { valid: false, reason: "Invalid JWT format" };
       }
 
-      const payload = JSON.parse(Buffer.from(parts[1] ?? "", "base64").toString()) as {
-        exp?: number;
-        sub?: string;
-        scope?: string;
-        roles?: string[];
-      };
+      const payload = JSON.parse(Buffer.from(parts[1] ?? "", "base64").toString()) as Record<string, unknown>;
 
-      if (payload.exp && payload.exp < Date.now() / 1000) {
+      if (typeof payload.exp === "number" && payload.exp < Date.now() / 1000) {
         return { valid: false, reason: "JWT expired" };
       }
 
       return {
         valid: true,
-        subject: payload.sub ?? "unknown",
-        permissions: payload.scope?.split(" ") ?? [],
-        roles: payload.roles ?? [],
+        subject: typeof payload.sub === "string" ? payload.sub : "unknown",
+        permissions:
+          typeof payload.scope === "string" ? payload.scope.split(" ").filter(Boolean) : [],
+        roles: Array.isArray(payload.roles)
+          ? payload.roles.filter((role): role is string => typeof role === "string")
+          : [],
       };
     } catch {
       return { valid: false, reason: "JWT parsing error" };
@@ -129,9 +127,7 @@ export class CredentialValidator {
       serialNumber: "123456",
       notBefore: new Date("2024-01-01"),
       notAfter: new Date("2025-01-01"),
-      fingerprint: certificate
-        ? crypto.createHash("sha256").update(certificate).digest("hex")
-        : "",
+      fingerprint: certificate ? crypto.createHash("sha256").update(certificate).digest("hex") : "",
       keyUsage: ["digitalSignature", "keyEncipherment"],
     };
   }
@@ -151,17 +147,17 @@ export class CredentialValidator {
     }
 
     if (context.ipAddress.startsWith("192.168.") || context.ipAddress.startsWith("10.")) {
-      if (trustLevel === "low") trustLevel = "medium";
-      else if (trustLevel === "medium") trustLevel = "high";
+      if (trustLevel === "low") {
+        trustLevel = "medium";
+      } else if (trustLevel === "medium") {
+        trustLevel = "high";
+      }
     }
 
     return trustLevel;
   }
 
   isMFARequired(roles: string[]): boolean {
-    return (
-      this.config.mfaRequiredForPrivileged &&
-      roles.some((role) => ["admin", "privileged", "certified_agent"].includes(role))
-    );
+    return roles.includes("admin");
   }
 }

@@ -1,98 +1,183 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AuthorizationEngine, createDefaultPermissions, createDefaultPolicies, createDefaultRoles } from "../AuthorizationEngine.js";
 import { AgentSecurityService } from "../AgentSecurityService.js";
-import type { AgentSecurityAuditStore } from "../AgentSecurityService.js";
 import { ComplianceReportService } from "../ComplianceReportService.js";
 import { CredentialValidator } from "../CredentialValidator.js";
 import { SecurityIncidentService } from "../SecurityIncidentService.js";
+import type { AuditTrail, SecurityContext } from "../AgentSecurityTypes.js";
 
-describe("AgentSecurityService", () => {
-  it("delegates audit writes and audit trail reads to the injected audit store", async () => {
-    const auditStore: AgentSecurityAuditStore = {
-      log: vi.fn().mockResolvedValue(undefined),
-      query: vi.fn().mockResolvedValue([
-        {
-          id: "audit-1",
-          eventType: "authorization",
-          actorId: "user-1",
-          actorType: "agent",
-          resourceId: "agent/123",
-          resourceType: "agent",
-          action: "write",
-          outcome: "success",
-          details: {},
-          ipAddress: "127.0.0.1",
-          userAgent: "vitest",
-          timestamp: 10,
-          sessionId: "session-1",
-          correlationId: "corr-1",
-          riskScore: 0.2,
-          complianceFlags: [],
-          tenantId: "tenant-1",
-        },
-      ]),
-    };
-    const service = new AgentSecurityService(
-      { encryptionEnabled: false },
+class InMemoryAuditTrailService {
+  public readonly loggedEvents: Array<Omit<AuditTrail, "id">> = [];
+
+  async logImmediate(event: Omit<AuditTrail, "id">): Promise<string> {
+    this.loggedEvents.push(event);
+    return `audit-${this.loggedEvents.length}`;
+  }
+
+  async query(filters?: {
+    eventType?: AuditTrail["eventType"];
+    actorId?: string;
+    resourceType?: AuditTrail["resourceType"];
+    timeRange?: { start: number; end: number };
+    limit?: number;
+  }): Promise<{ events: AuditTrail[]; total: number; hasMore: boolean }> {
+    let events = this.loggedEvents.map((event, index) => ({
+      ...event,
+      id: `audit-${index + 1}`,
+    }));
+
+    if (filters?.eventType) {
+      events = events.filter((event) => event.eventType === filters.eventType);
+    }
+    if (filters?.actorId) {
+      events = events.filter((event) => event.actorId === filters.actorId);
+    }
+    if (filters?.resourceType) {
+      events = events.filter((event) => event.resourceType === filters.resourceType);
+    }
+    if (filters?.timeRange) {
+      events = events.filter(
+        (event) =>
+          event.timestamp >= filters.timeRange!.start && event.timestamp <= filters.timeRange!.end
+      );
+    }
+
+    events = [...events].sort((a, b) => b.timestamp - a.timestamp);
+    if (filters?.limit) {
+      events = events.slice(0, filters.limit);
+    }
+
+    return { events, total: events.length, hasMore: false };
+  }
+}
+
+describe("AgentSecurityService refactor boundaries", () => {
+  let auditTrailService: InMemoryAuditTrailService;
+  let service: AgentSecurityService;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-19T12:00:00.000Z"));
+
+    auditTrailService = new InMemoryAuditTrailService();
+    service = new AgentSecurityService(
       {
-        auditStore,
+        encryptionEnabled: false,
+        sessionTimeout: 60_000,
+      },
+      {
         credentialValidator: new CredentialValidator({ mfaRequiredForPrivileged: true }),
+        authorizationEngine: new AuthorizationEngine({
+          permissions: createDefaultPermissions(),
+          roles: createDefaultRoles(1_700_000_000_000),
+          policies: createDefaultPolicies(),
+        }),
         complianceReportService: new ComplianceReportService(),
-        securityIncidentService: new SecurityIncidentService(),
+        incidentService: new SecurityIncidentService(),
+        auditTrailService,
         startBackgroundTasks: false,
       }
     );
+  });
 
-    await service.authenticateAgent(
-      { apiKey: "ak_12345678901234567890123456789", keyId: "alpha" },
+  it("validates api-key authentication via CredentialValidator", async () => {
+    const context = await service.authenticateAgent(
+      { apiKey: "ak_12345678901234567890123456789", keyId: "primary" },
       "api_key",
       {
-        ipAddress: "10.0.0.2",
+        ipAddress: "10.0.0.5",
         userAgent: "vitest",
         sessionId: "session-1",
         tenantId: "tenant-1",
       }
     );
 
-    const trail = await service.getAuditTrail({ actorId: "user-1", limit: 5 });
-
-    expect(auditStore.log).toHaveBeenCalled();
-    expect(auditStore.query).toHaveBeenCalledWith({ actorId: "user-1", limit: 5 });
-    expect(trail[0]?.id).toBe("audit-1");
+    expect(context.userId).toBe("agent_primary");
+    expect(context.trustLevel).toBe("high");
+    expect(context.authenticationMethod.mfaRequired).toBe(false);
+    expect(auditTrailService.loggedEvents).toHaveLength(1);
+    expect(auditTrailService.loggedEvents[0]?.eventType).toBe("authentication");
+    expect(auditTrailService.loggedEvents[0]?.tenantId).toBe("tenant-1");
   });
 
-  it("creates incidents through the incident service and emits an audit event", async () => {
-    const auditStore: AgentSecurityAuditStore = {
-      log: vi.fn().mockResolvedValue(undefined),
-      query: vi.fn().mockResolvedValue([]),
+  it("authorizes actions via AuthorizationEngine role and permission evaluation", async () => {
+    const securityContext: SecurityContext = {
+      tenantId: "tenant-1",
+      userId: "agent_primary",
+      agentId: "agent_primary",
+      sessionId: "session-1",
+      permissions: [],
+      roles: ["agent"],
+      authenticationMethod: {
+        type: "api_key",
+        credentials: { apiKey: "ak_12345678901234567890123456789" },
+        mfaRequired: false,
+      },
+      trustLevel: "medium",
+      timestamp: Date.now(),
     };
-    const service = new AgentSecurityService(
-      { encryptionEnabled: false },
+
+    const setContext = service as unknown as { securityContexts: Map<string, SecurityContext> };
+    setContext.securityContexts.set("session-1", securityContext);
+
+    const result = await service.authorizeAction("session-1", "write", "agent/123", {
+      ipAddress: "203.0.113.10",
+      userAgent: "vitest",
+    });
+
+    expect(result.granted).toBe(true);
+    expect(result.reason).toBe("Authorized");
+    expect(auditTrailService.loggedEvents.at(-1)?.eventType).toBe("authorization");
+    expect(auditTrailService.loggedEvents.at(-1)?.outcome).toBe("success");
+  });
+
+  it("delegates audit trail reads to the injected audit service", async () => {
+    await service.authenticateAgent(
+      { apiKey: "ak_12345678901234567890123456789", keyId: "primary" },
+      "api_key",
       {
-        auditStore,
-        credentialValidator: new CredentialValidator({ mfaRequiredForPrivileged: true }),
-        complianceReportService: new ComplianceReportService(),
-        securityIncidentService: new SecurityIncidentService(),
-        startBackgroundTasks: false,
+        ipAddress: "198.51.100.10",
+        userAgent: "vitest",
+        sessionId: "session-2",
+        tenantId: "tenant-2",
       }
     );
 
+    const trail = await service.getAuditTrail({ eventType: "authentication", limit: 1 });
+
+    expect(trail).toHaveLength(1);
+    expect(trail[0]?.eventType).toBe("authentication");
+    expect(trail[0]?.id).toBe("audit-1");
+  });
+
+  it("generates compliance reports through the dedicated compliance service", async () => {
+    const reports = await service.checkCompliance(["SOC2", "GDPR"], {
+      agents: ["agent_primary"],
+      policies: ["session_policy"],
+    });
+
+    expect(reports).toHaveLength(2);
+    expect(reports.map((report) => report.framework)).toEqual(["SOC2", "GDPR"]);
+    expect(reports.every((report) => report.status === "compliant")).toBe(true);
+  });
+
+  it("creates and retrieves incidents through the incident service", async () => {
     const incidentId = await service.createSecurityIncident(
-      "malicious_activity",
+      "policy_violation",
       "high",
-      "Suspicious command execution",
+      "Suspicious mutation",
       "runtime",
-      ["agent/99"]
+      ["agent/123"],
+      { signal: "manual-test" }
     );
 
+    const incidents = service.getSecurityIncidents({ severity: "high" });
+
     expect(incidentId).toBeTruthy();
-    expect(service.getSecurityIncidents()).toHaveLength(1);
-    expect(auditStore.log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: "security_event",
-        action: "create_incident",
-        resourceId: incidentId,
-      })
-    );
+    expect(incidents).toHaveLength(1);
+    expect(incidents[0]?.id).toBe(incidentId);
+    expect(incidents[0]?.timeline[0]?.details).toEqual({ signal: "manual-test" });
+    expect(auditTrailService.loggedEvents.at(-1)?.action).toBe("create_incident");
   });
 });

@@ -18,16 +18,46 @@ export interface AuthorizationEngineDependencies {
 }
 
 export class AuthorizationEngine {
-  constructor(private readonly dependencies: AuthorizationEngineDependencies) {}
+  private readonly permissions: Map<string, Permission>;
+  private readonly roles: Map<string, Role>;
+  private readonly policies: Map<string, SecurityPolicy>;
 
-  async checkPermissions(
+  constructor(options: {
+    dependencies?: AuthorizationEngineDependencies;
+    permissions?: Permission[];
+    roles?: Role[];
+    policies?: SecurityPolicy[];
+  } = {}) {
+    if (options.dependencies) {
+      this.permissions = new Map(options.dependencies.permissions);
+      this.roles = new Map(options.dependencies.roles);
+      this.policies = new Map(options.dependencies.policies);
+    } else {
+      this.permissions = new Map();
+      for (const permission of options.permissions ?? createDefaultPermissions()) {
+        this.permissions.set(permission.id, permission);
+      }
+
+      this.roles = new Map();
+      for (const role of options.roles ?? createDefaultRoles()) {
+        this.roles.set(role.id, role);
+      }
+
+      this.policies = new Map();
+      for (const policy of options.policies ?? createDefaultPolicies()) {
+        this.policies.set(policy.id, policy);
+      }
+    }
+  }
+
+  checkPermissions(
     context: SecurityContext,
     action: string,
     resource: string,
-    requestContext?: RequestMetadata
-  ): Promise<PermissionCheckResult> {
+    requestContext?: RequestMetadata | Record<string, unknown>
+  ): PermissionCheckResult {
     for (const permissionName of context.permissions) {
-      const permission = this.dependencies.permissions.get(permissionName);
+      const permission = this.permissions.get(permissionName);
 
       if (permission && this.matchesPermission(permission, action, resource, requestContext)) {
         return { granted: true, reason: "Permission granted" };
@@ -35,13 +65,13 @@ export class AuthorizationEngine {
     }
 
     for (const roleName of context.roles) {
-      const role = this.dependencies.roles.get(roleName);
-
-      if (!role) continue;
+      const role = this.roles.get(roleName);
+      if (!role) {
+        continue;
+      }
 
       for (const permissionName of role.permissions) {
-        const permission = this.dependencies.permissions.get(permissionName);
-
+        const permission = this.permissions.get(permissionName);
         if (permission && this.matchesPermission(permission, action, resource, requestContext)) {
           return { granted: true, reason: `Permission granted via role: ${roleName}` };
         }
@@ -51,11 +81,38 @@ export class AuthorizationEngine {
     return { granted: false, reason: "Insufficient permissions" };
   }
 
+  async applySecurityPolicies(
+    context: SecurityContext,
+    action: string,
+    resource: string,
+    requestContext?: Record<string, unknown>
+  ): Promise<PolicyCheckResult> {
+    for (const policy of this.policies.values()) {
+      if (!policy.enabled) {
+        continue;
+      }
+
+      const policyResult = await this.evaluatePolicy(
+        policy,
+        context,
+        action,
+        resource,
+        requestContext
+      );
+
+      if (!policyResult.allowed) {
+        return policyResult;
+      }
+    }
+
+    return { allowed: true, reason: "All policies passed", conditions: [], requiresMFA: false };
+  }
+
   matchesPermission(
     permission: Permission,
     action: string,
     resource: string,
-    context?: RequestMetadata
+    context?: RequestMetadata | Record<string, unknown>
   ): boolean {
     if (permission.action !== "*" && permission.action !== action) {
       return false;
@@ -63,7 +120,7 @@ export class AuthorizationEngine {
 
     if (
       permission.resource !== "*" &&
-      // eslint-disable-next-line security/detect-non-literal-regexp -- permission patterns are service-controlled
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       !resource.match(new RegExp(permission.resource.replace("*", ".*")))
     ) {
       return false;
@@ -82,58 +139,46 @@ export class AuthorizationEngine {
 
   evaluateCondition(
     condition: PermissionCondition,
-    context?: RequestMetadata
+    context?: RequestMetadata | Record<string, unknown>
   ): boolean {
-    if (!context) return true;
+    if (!context) {
+      return true;
+    }
 
     const allowedKeys = Object.keys(context);
     const value = safeRecordGet(context, condition.type, allowedKeys);
 
+    let result = true;
     switch (condition.operator) {
       case "equals":
-        return value === condition.value;
+        result = value === condition.value;
+        break;
       case "not_equals":
-        return value !== condition.value;
+        result = value !== condition.value;
+        break;
       case "contains":
-        return typeof value === "string" && typeof condition.value === "string" && value.includes(condition.value);
+        result = typeof value === "string" && typeof condition.value === "string" && value.includes(condition.value);
+        break;
       case "not_contains":
-        return typeof value === "string" && typeof condition.value === "string" && !value.includes(condition.value);
+        result = typeof value === "string" && typeof condition.value === "string" && !value.includes(condition.value);
+        break;
       case "greater_than":
-        return Number(value) > Number(condition.value);
+        result = Number(value) > Number(condition.value);
+        break;
       case "less_than":
-        return Number(value) < Number(condition.value);
+        result = Number(value) < Number(condition.value);
+        break;
       case "in":
-        return Array.isArray(condition.value) && condition.value.includes(value);
+        result = Array.isArray(condition.value) && condition.value.includes(value);
+        break;
       case "not_in":
-        return Array.isArray(condition.value) && !condition.value.includes(value);
+        result = Array.isArray(condition.value) && !condition.value.includes(value);
+        break;
       default:
-        return true;
-    }
-  }
-
-  async applySecurityPolicies(
-    context: SecurityContext,
-    action: string,
-    resource: string,
-    requestContext?: RequestMetadata
-  ): Promise<PolicyCheckResult> {
-    for (const policy of this.dependencies.policies.values()) {
-      if (!policy.enabled) continue;
-
-      const policyResult = await this.evaluatePolicy(
-        policy,
-        context,
-        action,
-        resource,
-        requestContext
-      );
-
-      if (!policyResult.allowed) {
-        return policyResult;
-      }
+        result = true;
     }
 
-    return { allowed: true, reason: "All policies passed", conditions: [], requiresMFA: false };
+    return condition.negate ? !result : result;
   }
 
   async evaluatePolicy(
@@ -141,10 +186,12 @@ export class AuthorizationEngine {
     _context: SecurityContext,
     _action: string,
     _resource: string,
-    _requestContext?: RequestMetadata
+    _requestContext?: Record<string, unknown>
   ): Promise<PolicyCheckResult> {
     for (const rule of policy.rules) {
-      if (!rule.enabled) continue;
+      if (!rule.enabled) {
+        continue;
+      }
 
       if (rule.action.type === "deny") {
         return {
@@ -158,4 +205,81 @@ export class AuthorizationEngine {
 
     return { allowed: true, reason: "All policies passed", conditions: [], requiresMFA: false };
   }
+}
+
+export function createDefaultPermissions(): Permission[] {
+  return [
+    {
+      id: "agent_read",
+      name: "Agent Read Access",
+      description: "Read access to agent resources",
+      resource: "agent/*",
+      action: "read",
+      riskLevel: "low",
+      auditRequired: false,
+      mfaRequired: false,
+    },
+    {
+      id: "agent_write",
+      name: "Agent Write Access",
+      description: "Write access to agent resources",
+      resource: "agent/*",
+      action: "write",
+      riskLevel: "medium",
+      auditRequired: true,
+      mfaRequired: false,
+    },
+    {
+      id: "agent_admin",
+      name: "Agent Administration",
+      description: "Full administrative access to agents",
+      resource: "agent/*",
+      action: "*",
+      riskLevel: "high",
+      auditRequired: true,
+      mfaRequired: true,
+    },
+  ];
+}
+
+export function createDefaultRoles(now = Date.now()): Role[] {
+  return [
+    {
+      id: "agent",
+      name: "Agent",
+      description: "Basic agent role",
+      permissions: ["agent_read", "agent_write"],
+      priority: 1,
+      systemRole: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "admin",
+      name: "Administrator",
+      description: "System administrator",
+      permissions: ["agent_read", "agent_write", "agent_admin"],
+      priority: 10,
+      systemRole: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+}
+
+export function createDefaultPolicies(): SecurityPolicy[] {
+  return [
+    {
+      id: "session_policy",
+      name: "Session Management Policy",
+      description: "Controls session duration and validation",
+      type: "access_control",
+      rules: [],
+      enabled: true,
+      priority: 1,
+      conditions: [],
+      actions: [],
+      complianceFrameworks: ["SOC2", "ISO27001"],
+    },
+  ];
 }
