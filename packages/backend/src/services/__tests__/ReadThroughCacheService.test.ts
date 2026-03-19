@@ -1,21 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  mockGet,
+  mockSet,
   mockScan,
   mockMulti,
   readCacheEventsTotalInc,
+  cacheRequestsTotalInc,
+  cacheLoaderDurationObserve,
+  cacheCoalescedWaitersTotalInc,
   unlinkExecResults,
   delExecResults,
 } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockSet: vi.fn(),
   mockScan: vi.fn(),
   mockMulti: vi.fn(),
   readCacheEventsTotalInc: vi.fn(),
+  cacheRequestsTotalInc: vi.fn(),
+  cacheLoaderDurationObserve: vi.fn(),
+  cacheCoalescedWaitersTotalInc: vi.fn(),
   unlinkExecResults: [] as Array<Array<number | null>>,
   delExecResults: [] as Array<Array<number | null>>,
 }));
 
-vi.mock("@shared/lib/redisClient", () => ({
+vi.mock("../../lib/redisClient.js", () => ({
   getRedisClient: vi.fn().mockResolvedValue({
+    get: mockGet,
+    set: mockSet,
     scan: mockScan,
     multi: mockMulti,
   }),
@@ -25,10 +37,23 @@ vi.mock("../../lib/metrics/httpMetrics.js", () => ({
   readCacheEventsTotal: { inc: readCacheEventsTotalInc },
 }));
 
-import { ReadThroughCacheService } from "../ReadThroughCacheService.js";
+vi.mock("../../lib/metrics/cacheMetrics.js", () => ({
+  cacheRequestsTotal: { inc: cacheRequestsTotalInc },
+  cacheLoaderDurationMs: { observe: cacheLoaderDurationObserve },
+  cacheCoalescedWaitersTotal: { inc: cacheCoalescedWaitersTotalInc },
+}));
+
+import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
 
 const TENANT_ID = "tenant-aaaa-0000-0000-000000000001";
 const ENDPOINT = "api-analytics-summary";
+const CACHE_CONFIG = {
+  tenantId: TENANT_ID,
+  endpoint: ENDPOINT,
+  scope: "summary",
+  tier: "warm" as const,
+  keyPayload: { page: 1 },
+};
 
 function createPipeline() {
   const unlink = vi.fn();
@@ -60,6 +85,62 @@ function createPipeline() {
 
   return pipeline;
 }
+
+describe("ReadThroughCacheService.getOrLoad", () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+    mockSet.mockReset();
+    readCacheEventsTotalInc.mockReset();
+    cacheRequestsTotalInc.mockReset();
+    cacheLoaderDurationObserve.mockReset();
+    cacheCoalescedWaitersTotalInc.mockReset();
+  });
+
+  it("returns cached payloads without invoking the loader", async () => {
+    mockGet.mockResolvedValueOnce(JSON.stringify({ value: 42 }));
+    const loader = vi.fn().mockResolvedValue({ value: 99 });
+
+    const result = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
+
+    expect(result).toEqual({ value: 42 });
+    expect(loader).not.toHaveBeenCalled();
+    expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
+      cache_name: `read-through:${ENDPOINT}`,
+      outcome: "hit",
+    });
+  });
+
+  it("coalesces concurrent misses onto a single loader", async () => {
+    let resolveLoader: ((value: { value: number }) => void) | undefined;
+    const loader = vi.fn(
+      () =>
+        new Promise<{ value: number }>((resolve) => {
+          resolveLoader = resolve;
+        })
+    );
+
+    mockGet.mockResolvedValue(null);
+
+    const first = ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
+    const second = ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
+    await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+
+    resolveLoader?.({ value: 7 });
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { value: 7 },
+      { value: 7 },
+    ]);
+    expect(cacheCoalescedWaitersTotalInc).toHaveBeenCalledWith({
+      cache_name: `read-through:${ENDPOINT}`,
+    });
+    expect(mockSet).toHaveBeenCalledTimes(1);
+    expect(cacheLoaderDurationObserve).toHaveBeenCalledWith(
+      { cache_name: `read-through:${ENDPOINT}` },
+      expect.any(Number)
+    );
+  });
+});
 
 describe("ReadThroughCacheService.invalidateEndpoint", () => {
   beforeEach(() => {
