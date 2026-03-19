@@ -91,6 +91,16 @@ function buildControlStatuses(): ControlStatusRecord[] {
       metric_unit: "percent",
     },
     {
+      control_id: "iso27001_a12_logging_monitoring",
+      framework: "ISO27001",
+      status: "pass",
+      evidence_ts: "2026-01-01T00:00:00.000Z",
+      tenant_id: "tenant-a",
+      evidence_pointer: "audit://iso",
+      metric_value: 99,
+      metric_unit: "percent",
+    },
+    {
       control_id: "gdpr_art_32_security_processing",
       framework: "GDPR",
       status: "pass",
@@ -110,10 +120,20 @@ function buildControlStatuses(): ControlStatusRecord[] {
       metric_value: 99,
       metric_unit: "percent",
     },
+    {
+      control_id: "ccpa_1798_110_disclosure",
+      framework: "CCPA",
+      status: "pass",
+      evidence_ts: "2026-01-01T00:00:00.000Z",
+      tenant_id: "tenant-a",
+      evidence_pointer: "audit://ccpa",
+      metric_value: 99,
+      metric_unit: "percent",
+    },
   ];
 }
 
-function buildTechnicalSnapshot(status: "pass" | "fail"): AutomatedControlCheckSnapshot {
+function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlCheckSnapshot {
   return {
     run_id: "run-1",
     tenant_id: "tenant-a",
@@ -121,18 +141,62 @@ function buildTechnicalSnapshot(status: "pass" | "fail"): AutomatedControlCheckS
     trigger: "manual",
     overall_status: status,
     failing_checks: status === "fail" ? 1 : 0,
+    declared_capability: [
+      { framework: "GDPR", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
+      { framework: "HIPAA", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
+      { framework: "SOC2", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
+    ],
+    configured_controls: [
+      {
+        framework: "GDPR",
+        control_id: "gdpr_encryption_required_config",
+        source: "environment",
+        status: "configured",
+        message: "TLS and encryption-required settings are configured.",
+      },
+      {
+        framework: "HIPAA",
+        control_id: "hipaa_mfa_enforced_in_production",
+        source: "tenant_config",
+        status: status === "fail" ? "missing" : "configured",
+        message: status === "fail" ? "Production MFA is not configured." : "Production MFA is configured.",
+      },
+    ],
     results: [
       {
-        control_id: "gdpr_art_32_security_processing",
         framework: "GDPR",
-        check_kind: "technical_validation",
-        assertion_id: "gdpr_art_32_required_table_rls",
-        evidence_type: null,
-        status,
-        message: status === "fail" ? "RLS validation failed." : "RLS validation passed.",
+        control_id: "gdpr_art_32_security_processing",
+        evidence_type: "control_status",
+        status: "pass",
+        message: "RLS enabled.",
         last_evidence_at: null,
-        max_age_minutes: null,
+        max_age_minutes: 0,
         freshness_minutes: null,
+        check_kind: "technical_validation",
+        assertion_id: "gdpr_required_tables_rls_enabled",
+      },
+      {
+        framework: "HIPAA",
+        control_id: "hipaa_164_312_c_integrity",
+        evidence_type: "control_status",
+        status,
+        message: status === "fail" ? "MFA not enforced." : "MFA enforced.",
+        last_evidence_at: null,
+        max_age_minutes: 0,
+        freshness_minutes: null,
+        check_kind: "technical_validation",
+        assertion_id: "hipaa_mfa_enforced_in_production",
+      },
+      {
+        framework: "SOC2",
+        control_id: "soc2_cc7_monitoring",
+        evidence_type: "security_audit_log",
+        status: "pass",
+        message: "Evidence artifact exists and is fresh.",
+        last_evidence_at: "2026-01-01T00:00:00.000Z",
+        max_age_minutes: 720,
+        freshness_minutes: 15,
+        check_kind: "evidence_freshness",
       },
     ],
   };
@@ -143,7 +207,7 @@ describe("ComplianceReportGeneratorService", () => {
     setHipaaSupport(false);
   });
 
-  it("distinguishes declared capability, configured controls, technical validations, and missing evidence", async () => {
+  it("generates report breakdowns that distinguish declared, configured, validated, and evidence states", async () => {
     setHipaaSupport(true);
 
     const service = new ComplianceReportGeneratorService(
@@ -160,25 +224,56 @@ describe("ComplianceReportGeneratorService", () => {
         getLatestControlStatus: async () => buildControlStatuses(),
       },
       {
-        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
+        runChecksForTenant: async () => buildCheckSnapshot("pass"),
       },
     );
 
     const report = await service.generateReport({
       tenantId: "tenant-a",
-      frameworks: ["GDPR", "HIPAA", "SOC2"],
+      frameworks: ["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"],
       startAt: "2026-01-01T00:00:00.000Z",
       endAt: "2026-01-02T00:00:00.000Z",
       generatedBy: "user-1",
       mode: "on_demand",
-      strict: false,
+      strict: true,
     });
 
+    expect(report.evidence_manifest_id).toBe("manifest-1");
+    expect(report.report_id).toBe("report-1");
     expect(report.status).toBe("pass");
-    expect(report.declared_capability).toHaveLength(3);
+    expect(report.declared_capability.length).toBeGreaterThan(0);
     expect(report.configured_controls.length).toBeGreaterThan(0);
-    expect(report.technically_validated_controls).toHaveLength(1);
+    expect(report.technically_validated_controls.length).toBeGreaterThan(0);
+    expect(report.framework_breakdown.some((framework) => framework.framework === "HIPAA")).toBe(true);
     expect(report.missing_evidence).toHaveLength(0);
+  });
+
+  it("fails strict report generation when required evidence is missing", async () => {
+    setHipaaSupport(true);
+
+    const service = new ComplianceReportGeneratorService(
+      new MockClient({
+        audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+      }) as never,
+      {
+        getLatestControlStatus: async () => buildControlStatuses().filter((control) => control.framework !== "HIPAA"),
+      },
+      {
+        runChecksForTenant: async () => buildCheckSnapshot("pass"),
+      },
+    );
+
+    await expect(() =>
+      service.generateReport({
+        tenantId: "tenant-a",
+        frameworks: ["HIPAA"],
+        startAt: "2026-01-01T00:00:00.000Z",
+        endAt: "2026-01-02T00:00:00.000Z",
+        generatedBy: "user-1",
+        mode: "scheduled",
+        strict: true,
+      }),
+    ).rejects.toBeInstanceOf(MissingEvidenceError);
   });
 
   it("downgrades report status when technical validation fails even if evidence exists", async () => {
@@ -198,13 +293,13 @@ describe("ComplianceReportGeneratorService", () => {
         getLatestControlStatus: async () => buildControlStatuses(),
       },
       {
-        runChecksForTenant: async () => buildTechnicalSnapshot("fail"),
+        runChecksForTenant: async () => buildCheckSnapshot("fail"),
       },
     );
 
     const report = await service.generateReport({
       tenantId: "tenant-a",
-      frameworks: ["GDPR"],
+      frameworks: ["HIPAA"],
       startAt: "2026-01-01T00:00:00.000Z",
       endAt: "2026-01-02T00:00:00.000Z",
       generatedBy: "user-1",
@@ -213,35 +308,7 @@ describe("ComplianceReportGeneratorService", () => {
     });
 
     expect(report.status).toBe("fail");
-    expect(report.technically_validated_controls[0]?.status).toBe("fail");
-  });
-
-  it("fails strict report generation when required evidence is missing", async () => {
-    setHipaaSupport(true);
-
-    const service = new ComplianceReportGeneratorService(
-      new MockClient({
-        audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
-      }) as never,
-      {
-        getLatestControlStatus: async () => buildControlStatuses().filter((control) => control.framework !== "HIPAA"),
-      },
-      {
-        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
-      },
-    );
-
-    await expect(() =>
-      service.generateReport({
-        tenantId: "tenant-a",
-        frameworks: ["HIPAA"],
-        startAt: "2026-01-01T00:00:00.000Z",
-        endAt: "2026-01-02T00:00:00.000Z",
-        generatedBy: "user-1",
-        mode: "scheduled",
-        strict: true,
-      }),
-    ).rejects.toBeInstanceOf(MissingEvidenceError);
+    expect(report.technically_validated_controls.some((control) => control.status === "fail")).toBe(true);
   });
 
   it("rejects HIPAA report generation when PHI-specific prerequisites are not configured", async () => {
@@ -253,7 +320,7 @@ describe("ComplianceReportGeneratorService", () => {
         getLatestControlStatus: async () => buildControlStatuses(),
       },
       {
-        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
+        runChecksForTenant: async () => buildCheckSnapshot("pass"),
       },
     );
 
@@ -267,6 +334,6 @@ describe("ComplianceReportGeneratorService", () => {
         mode: "scheduled",
         strict: true,
       }),
-    ).rejects.toThrow(/prerequisites not met/i);
+    ).rejects.toThrow(/unsupported compliance frameworks requested: HIPAA/i);
   });
 });

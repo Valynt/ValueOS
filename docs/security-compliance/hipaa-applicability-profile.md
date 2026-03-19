@@ -4,7 +4,7 @@
 
 ValueOS may process regulated healthcare data for covered-entity and business-associate customers when customer workflows include PHI. HIPAA controls apply for tenants under BAA-backed contracts.
 
-> Important: the HIPAA prerequisite gate only checks whether prerequisite configuration flags are present. It is **not** a claim of audited HIPAA compliance or production readiness by itself.
+HIPAA prerequisite flags and tenant-mode settings are only **entry prerequisites** for HIPAA workflows. They are not, on their own, a claim that the environment already satisfies HIPAA technical safeguards.
 
 ## PHI system inventory (in-scope)
 
@@ -27,21 +27,22 @@ ValueOS may process regulated healthcare data for covered-entity and business-as
 - Audit controls via immutable hash-chained audit logs.
 - Integrity controls via evidence hash chain verification and integrity control status checks.
 - Transmission and storage safeguards from infrastructure encryption standards and secret/key rotation controls.
-- Compliance reports now distinguish declared capability, configured controls, technically validated controls, and missing evidence so customers can see when prerequisites exist without live technical validation.
+- Technical validation now explicitly checks RLS on required tables, immutable audit protections, encryption-required configuration, production MFA enforcement, and service identity for protected internal routes before a report can pass.
 
 ## BAA prerequisites
 
 Before enabling HIPAA mode for a tenant:
 
 1. Executed BAA with covered entity or downstream business associate.
-2. Tenant-specific HIPAA prerequisite gate satisfied in compliance configuration.
+2. Tenant-specific HIPAA mode enabled in compliance configuration.
 3. Security contact and breach notification routing documented.
 4. Log retention window meets 6-year HIPAA evidence expectation.
 5. Subprocessor list reviewed and HIPAA-compatible subprocessors confirmed.
+
+Meeting the prerequisites above allows HIPAA-specific reporting and review to proceed, but a tenant is not represented as technically validated until the automated control checks pass and required evidence is present.
 
 ## Evidence expectations
 
 - Control status snapshots (`compliance_control_status`).
 - Scheduled control-check snapshots + alerts (`compliance_control_audit`).
 - Immutable operational and security audit records (`audit_logs`).
-- Technical validation failures downgrade the report status even when evidence artifacts already exist.

@@ -25,11 +25,11 @@ describe("ComplianceFrameworkCapabilityGate", () => {
     setHipaaSupport(false);
   });
 
-  it("hides HIPAA from supported frameworks until PHI prerequisites are configured", () => {
+  it("keeps HIPAA behind prerequisite gating until PHI prerequisites are configured", () => {
     expect(complianceFrameworkCapabilityGate.getSupportedFrameworks()).not.toContain("HIPAA");
   });
 
-  it("exposes HIPAA only when every PHI prerequisite flag is enabled", () => {
+  it("exposes HIPAA only when every PHI prerequisite gate is satisfied", () => {
     setHipaaSupport(true);
 
     expect(complianceFrameworkCapabilityGate.getSupportedFrameworks()).toContain("HIPAA");

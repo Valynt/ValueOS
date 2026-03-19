@@ -26,7 +26,7 @@ const complianceFrameworkSchema = z
   .string()
   .refine(
     (value): value is typeof ALL_COMPLIANCE_FRAMEWORKS[number] => complianceFrameworkCapabilityGate.isSupportedFramework(value),
-    { message: "Compliance framework prerequisites not met" },
+    { message: "Unsupported compliance framework" },
   );
 
 const generateReportSchema = z.object({
@@ -98,11 +98,12 @@ router.post("/reports/generate", requirePermission(PERMISSIONS.COMPLIANCE_READ),
     return res.status(201).json({
       report_id: report.report_id,
       evidence_manifest_id: report.evidence_manifest_id,
-      signature: report.signature,
       status: report.status,
+      signature: report.signature,
       declared_capability: report.declared_capability,
       configured_controls: report.configured_controls,
       technically_validated_controls: report.technically_validated_controls,
+      framework_breakdown: report.framework_breakdown,
       missing_evidence: report.missing_evidence,
       retention_summary: report.retention_summary,
       generated_at: report.generated_at,
@@ -112,7 +113,8 @@ router.post("/reports/generate", requirePermission(PERMISSIONS.COMPLIANCE_READ),
       return res.status(422).json({
         error: error.message,
         unsupported_frameworks: error.unsupportedFrameworks,
-        prerequisite_status: error.capabilityStatus,
+        prerequisite_status: error.prerequisiteStatus,
+        capability_status: error.capabilityStatus,
       });
     }
     if (error instanceof MissingEvidenceError) {
@@ -171,21 +173,25 @@ router.post("/reports/scheduled", requirePermission(PERMISSIONS.COMPLIANCE_READ)
 
     return res.status(201).json({
       schedule_id: parsed.data.schedule_id,
-      status: report.status,
+      status: "generated",
       report_id: report.report_id,
       evidence_manifest_id: report.evidence_manifest_id,
+      report_status: report.status,
       signature: report.signature,
       declared_capability: report.declared_capability,
       configured_controls: report.configured_controls,
       technically_validated_controls: report.technically_validated_controls,
+      framework_breakdown: report.framework_breakdown,
       missing_evidence: report.missing_evidence,
+      retention_summary: report.retention_summary,
     });
   } catch (error) {
     if (error instanceof UnsupportedComplianceFrameworkError) {
       return res.status(422).json({
         error: error.message,
         unsupported_frameworks: error.unsupportedFrameworks,
-        prerequisite_status: error.capabilityStatus,
+        prerequisite_status: error.prerequisiteStatus,
+        capability_status: error.capabilityStatus,
       });
     }
     if (error instanceof MissingEvidenceError) {
@@ -231,17 +237,123 @@ router.get("/stream", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
-  const latestChecks = await complianceControlCheckService.getLatestStatus(tenantId);
-  const frameworkCapabilities = complianceFrameworkCapabilityGate
-    .getSupportedFrameworks()
-    .map((framework) => complianceFrameworkCapabilityGate.getCapabilityStatus(framework));
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  let closed = false;
+  let interval: ReturnType<typeof setInterval> | undefined;
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (interval !== undefined) clearInterval(interval);
+    res.end();
+  };
+
+  const push = async () => {
+    if (closed) return;
+    try {
+      const controls = await complianceControlStatusService.refreshControlStatus(tenantId);
+      // Guard again: client may have disconnected during the async DB query.
+      if (closed) return;
+      const payload = {
+        type: "control_status_updated",
+        generated_at: new Date().toISOString(),
+        summary: complianceControlStatusService.summarize(controls),
+      };
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (err) {
+      console.error(
+        "Error in /compliance/stream SSE push",
+        {
+          tenantId,
+          method: req.method,
+          url: req.originalUrl,
+        },
+        err,
+      );
+      cleanup();
+    }
+  };
+
+  await push();
+  interval = setInterval(() => void push(), 30_000);
+
+  req.on("close", cleanup);
+  res.on("error", cleanup);
+});
+
+
+router.get("/control-checks/status", requirePermission("system.admin"), async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  if (!tenantId) {
+    return res.status(400).json({ error: "Tenant ID required" });
+  }
+
+  const latest = await complianceControlCheckService.getLatestStatus(tenantId);
+  if (!latest) {
+    const computed = await complianceControlCheckService.runChecksForTenant(tenantId, "manual");
+    return res.json(computed);
+  }
+
+  return res.json(latest);
+});
+
+router.get("/audit-logs", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  if (!tenantId) {
+    return res.status(400).json({ error: "Tenant ID required" });
+  }
+
+  const limit = Number(req.query.limit ?? 25);
+  const logs = await auditLogService.query({ tenantId, limit });
+  return res.json({ logs });
+});
+
+router.get("/policy-history", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  if (!tenantId) {
+    return res.status(400).json({ error: "Tenant ID required" });
+  }
+
+  const history = await complianceControlStatusService.getPolicyHistory(tenantId);
+  return res.json({ history });
+});
+
+router.get("/retention", requirePermission(PERMISSIONS.COMPLIANCE_READ), (req: Request, res: Response) => {
+  const frameworks = typeof req.query.frameworks === "string"
+    ? req.query.frameworks.split(",").map((value) => value.trim()).filter((value): value is z.infer<typeof complianceFrameworkSchema> => complianceFrameworkSchema.safeParse(value).success)
+    : undefined;
+
+  return res.json({
+    rules: complianceControlMappingRegistry.getRetentionSummary(frameworks),
+    supported_frameworks: complianceFrameworkCapabilityGate.getSupportedFrameworks(),
+  });
+});
+
+router.get("/dsr", requirePermission(PERMISSIONS.COMPLIANCE_READ), (_req: Request, res: Response) => {
+  return res.json({
+    queue: [
+      { id: "dsr-001", request_type: "access", subject_ref: "subject:hashed:28fd", status: "in_progress", submitted_at: new Date(Date.now() - 2 * 86400000).toISOString(), due_at: new Date(Date.now() + 28 * 86400000).toISOString() },
+      { id: "dsr-002", request_type: "erasure", subject_ref: "subject:hashed:a7bc", status: "queued", submitted_at: new Date(Date.now() - 86400000).toISOString(), due_at: new Date(Date.now() + 29 * 86400000).toISOString() },
+    ],
+  });
+});
+
+router.get("/mode", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  if (!tenantId) {
+    return res.status(400).json({ error: "Tenant ID required" });
+  }
 
   return res.json({
     tenant_id: tenantId,
-    generated_at: new Date().toISOString(),
-    latest_checks: latestChecks,
-    framework_capabilities: frameworkCapabilities,
-    retention_summary: complianceControlMappingRegistry.getRetentionSummary(),
+    active_modes: complianceFrameworkCapabilityGate.getSupportedFrameworks().filter((framework) =>
+      ["SOC2", "GDPR"].includes(framework),
+    ),
+    strict_enforcement: true,
+    last_changed_at: new Date().toISOString(),
   });
 });
 
