@@ -242,6 +242,20 @@ async function main() {
     throw new Error('GITHUB_TOKEN, GITHUB_REPOSITORY, and GITHUB_SHA must be set.');
   }
 
+  const timeoutSeconds = Number(args.timeoutSeconds);
+  const pollSeconds = Number(args.pollSeconds);
+
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    throw new Error(`Invalid --timeout-seconds value: ${args.timeoutSeconds}. Expected a positive number of seconds.`);
+  }
+
+  if (!Number.isFinite(pollSeconds) || pollSeconds <= 0) {
+    throw new Error(`Invalid --poll-seconds value: ${args.pollSeconds}. Expected a positive number of seconds.`);
+  }
+
+  args.timeoutSeconds = timeoutSeconds;
+  args.pollSeconds = pollSeconds;
+
   const [owner, repo] = repository.split('/');
   const manifestPath = resolve(args.manifest);
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
