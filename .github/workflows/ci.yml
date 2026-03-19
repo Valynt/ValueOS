@@ -129,6 +129,9 @@ jobs:
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
+      - name: Workspace package governance inventory
+        run: pnpm run check:workspace-package-governance
+
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 

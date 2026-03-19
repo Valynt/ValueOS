@@ -27,5 +27,21 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   },
-  "tsErrorBaseline": 6
+  "tsErrorBaseline": 6,
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the root Vitest workspace inline infra project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal infrastructure adapters are released only through product runtimes."
+      }
+    }
+  }
 }

@@ -43,5 +43,21 @@
     "vite": "^6.1.6",
     "vitest": "^4.0.17"
   },
-  "tsErrorBaseline": 60
+  "tsErrorBaseline": 60,
+  "valueos": {
+    "classification": "experimental",
+    "supportTier": "experimental",
+    "owner": "team-ai-platform",
+    "shipped": false,
+    "ci": {
+      "rootVitest": {
+        "status": "excluded",
+        "justification": "Prototype dashboard with unresolved source debt (see tsErrorBaseline); not part of the shipped product surface."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Prototype-only dashboard; not part of the release train."
+      }
+    }
+  }
 }

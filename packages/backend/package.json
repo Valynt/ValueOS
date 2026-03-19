@@ -110,5 +110,21 @@
   "tsErrorBaseline": 2897,
   "exports": {
     ".": "./index.ts"
+  },
+  "valueos": {
+    "classification": "production-runtime",
+    "supportTier": "customer-critical",
+    "owner": "team-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the dedicated packages/backend Vitest workspace project."
+      },
+      "release": {
+        "status": "eligible",
+        "justification": "Versioned backend runtime artifact."
+      }
+    }
   }
 }

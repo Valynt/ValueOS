@@ -42,5 +42,21 @@
   },
   "dependencies": {
     "react-hotkeys-hook": "^5.2.1"
+  },
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-frontend",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the packages/components Vitest workspace project, including design-system tests."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal UI workspace library; shipped only through consuming applications."
+      }
+    }
   }
 }

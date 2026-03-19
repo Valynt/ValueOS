@@ -4,5 +4,21 @@
   "private": true,
   "type": "module",
   "main": "index.ts",
-  "types": "index.ts"
+  "types": "index.ts",
+  "valueos": {
+    "classification": "experimental",
+    "supportTier": "experimental",
+    "owner": "team-ai-platform",
+    "shipped": false,
+    "ci": {
+      "rootVitest": {
+        "status": "excluded",
+        "justification": "Prototype MCP support module with no standalone shipped contract."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Prototype support module; not released independently."
+      }
+    }
+  }
 }

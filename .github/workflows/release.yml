@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate workspace package release/CI policy
+        run: pnpm run check:workspace-package-governance
+
       - name: Build workspace
         run: pnpm run build --if-present
 
@@ -117,6 +120,12 @@ jobs:
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate published packages against release policy
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: node scripts/ci/check-workspace-package-governance.mjs --mode=release --published-packages-env=PUBLISHED_PACKAGES
 
       - name: Create GitHub Releases for tagged packages
         if: steps.changesets.outputs.published == 'true'
