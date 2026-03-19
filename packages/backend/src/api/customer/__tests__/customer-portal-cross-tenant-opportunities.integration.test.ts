@@ -111,9 +111,14 @@ function buildMockSupabase() {
 // ── Mocks ────────────────────────────────────────────────────────────────────
 const mockSupabase = buildMockSupabase();
 
-vi.mock("../../../lib/supabase.js", () => ({
-  createServerSupabaseClient: () => mockSupabase,
-}));
+vi.mock("../../../lib/supabase.js", async () => {
+  const { createSupabaseModuleMock } = await import("../../../test-utils/supabaseMock.js");
+  const supabaseModuleMock = createSupabaseModuleMock({
+    from: vi.fn((table: string) => mockSupabase.from(table)),
+  });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mockSupabase as never);
+  return supabaseModuleMock;
+});
 
 // Stub services consumed by the handler so we can test the Supabase query path
 vi.mock("../../../services/tenant/CustomerAccessService", () => ({

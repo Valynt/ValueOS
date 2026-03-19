@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../lib/supabase.js", () => ({
-  createServerSupabaseClient: vi.fn(),
-}));
+vi.mock("../../../lib/supabase.js", async () => {
+  const { createSupabaseModuleMock } = await import("../../../test-utils/supabaseMock.js");
+  return createSupabaseModuleMock();
+});
 
 vi.mock("../../../lib/logger.js", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
@@ -41,26 +42,25 @@ function buildSupabaseMock(options: { stale?: boolean } = {}) {
     }
 
     if (table === "audit_logs") {
+      const terminal = {
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
+          }),
+        }),
+      };
+
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-              }),
+            order: terminal.order,
+            in: vi.fn().mockReturnValue({
+              order: terminal.order,
             }),
             eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-                }),
-              }),
-            }),
-            in: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-                }),
+              order: terminal.order,
+              in: vi.fn().mockReturnValue({
+                order: terminal.order,
               }),
             }),
           }),

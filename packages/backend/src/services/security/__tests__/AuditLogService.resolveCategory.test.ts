@@ -16,9 +16,10 @@ vi.mock("../../BaseService.js", () => ({
     constructor() {}
   },
 }));
-vi.mock("../../../lib/supabase.js", () => ({
-  createServerSupabaseClient: () => ({}),
-}));
+vi.mock("../../../lib/supabase.js", async () => {
+  const { createSupabaseModuleMock } = await import("../../../test-utils/supabaseMock.js");
+  return createSupabaseModuleMock();
+});
 vi.mock("../SecurityEventStreamingService.js", () => ({
   securityEventStreamingService: { stream: () => Promise.resolve() },
 }));

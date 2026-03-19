@@ -2,7 +2,7 @@
  * Customer Portal API Tests
  */
 
-import { supabase } from '@shared/lib/supabase';
+import { getSupabaseClient, supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +14,10 @@ import { getCustomerValueCase } from '../customer/value-case.js'
 
 // Mock dependencies
 vi.mock('../../services/tenant/CustomerAccessService');
-vi.mock('../../lib/supabase');
+vi.mock('@shared/lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../test-utils/supabaseMock.js');
+  return createSupabaseModuleMock();
+});
 
 describe('Customer Portal API', () => {
   let mockReq: Partial<Request>;
@@ -33,10 +36,12 @@ describe('Customer Portal API', () => {
 
     mockRes = {
       status: statusMock,
-      json: jsonMock
+      json: jsonMock,
+      on: vi.fn(),
     };
 
     vi.clearAllMocks();
+    vi.mocked(getSupabaseClient).mockReturnValue(supabase as never);
   });
 
   describe('GET /api/customer/metrics/:token', () => {
@@ -55,7 +60,7 @@ describe('Customer Portal API', () => {
       });
 
       // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
+      (supabase.from as any).mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
@@ -152,7 +157,7 @@ describe('Customer Portal API', () => {
       });
 
       // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
+      (supabase.from as any).mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({

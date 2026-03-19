@@ -8,8 +8,9 @@ vi.mock('../../../observability/valueLoopMetrics', () => ({
   recordLoopCompletion: vi.fn(),
 }));
 vi.mock('../../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
-vi.mock('../../../lib/supabase', () => ({
-  supabase: {
+vi.mock('../../../lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../../test-utils/supabaseMock.js');
+  return createSupabaseModuleMock({
     from: vi.fn(function () {
       return {
         select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
@@ -19,8 +20,8 @@ vi.mock('../../../lib/supabase', () => ({
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
     }),
-  },
-}));
+  });
+});
 vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
 vi.mock('../../../config/telemetry', () => ({
   getTracer: vi.fn(function () {

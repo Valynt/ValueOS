@@ -60,9 +60,16 @@ const mockSupabase = {
   },
 };
 
-vi.mock('../lib/supabase', () => ({
-  createServerSupabaseClient: vi.fn().mockReturnValue(mockSupabase),
-}));
+vi.mock('../lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../test-utils/supabaseMock.js');
+  const supabaseModuleMock = createSupabaseModuleMock({
+    from: mockSupabase.from,
+    auth: mockSupabase.auth,
+    storage: mockSupabase.storage,
+  });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mockSupabase as never);
+  return supabaseModuleMock;
+});
 
 // Import subject
 import { deprovisionTenant } from '../TenantProvisioning.js'

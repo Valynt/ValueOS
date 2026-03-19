@@ -74,9 +74,12 @@ const { mockSupabase } = vi.hoisted(() => {
   return { mockSupabase };
 });
 
-vi.mock('../lib/supabase', () => ({
-  createServerSupabaseClient: vi.fn().mockReturnValue(mockSupabase),
-}));
+vi.mock('../lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../test-utils/supabaseMock.js');
+  const supabaseModuleMock = createSupabaseModuleMock({ from: mockSupabase.from });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mockSupabase as never);
+  return supabaseModuleMock;
+});
 
 describe('TenantProvisioning Performance', () => {
   beforeEach(() => {

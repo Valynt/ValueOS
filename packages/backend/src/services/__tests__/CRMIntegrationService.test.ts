@@ -20,9 +20,10 @@ vi.mock('../IntegrationControlService', () => ({
   integrationControlService: integrationControlMock,
 }));
 
-vi.mock('../../lib/supabase', () => ({
-  createServerSupabaseClient: vi.fn(),
-}));
+vi.mock('../../lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../test-utils/supabaseMock.js');
+  return createSupabaseModuleMock();
+});
 
 import { crmIntegrationService } from '../crm/CRMIntegrationService.ts'
 

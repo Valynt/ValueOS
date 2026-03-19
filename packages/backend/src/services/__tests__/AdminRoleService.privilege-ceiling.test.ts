@@ -16,9 +16,12 @@ const mocks = vi.hoisted(() => ({
   publish: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../lib/supabase", () => ({
-  createServerSupabaseClient: () => mocks.supabase,
-}));
+vi.mock("../../lib/supabase", async () => {
+  const { createSupabaseModuleMock } = await import("../../test-utils/supabaseMock.js");
+  const supabaseModuleMock = createSupabaseModuleMock({ from: mocks.supabase.from });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mocks.supabase as never);
+  return supabaseModuleMock;
+});
 
 vi.mock("../../lib/rbacInvalidation", () => ({
   publishRbacInvalidation: mocks.publish,

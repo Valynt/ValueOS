@@ -11,9 +11,12 @@ const mockSupabase = {
   from: vi.fn(),
 };
 
-vi.mock('../../../lib/supabase.js', () => ({
-  createServerSupabaseClient: () => mockSupabase,
-}));
+vi.mock('../../../lib/supabase.js', async () => {
+  const { createSupabaseModuleMock } = await import('../../../test-utils/supabaseMock.js');
+  const supabaseModuleMock = createSupabaseModuleMock({ from: mockSupabase.from });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mockSupabase as never);
+  return supabaseModuleMock;
+});
 
 // Mock logger
 vi.mock('../../../lib/logger.js', () => ({

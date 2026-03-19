@@ -22,9 +22,15 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../lib/supabase', () => ({
-  createServerSupabaseClient: () => mocks.supabase,
-}));
+vi.mock('../../lib/supabase', async () => {
+  const { createSupabaseModuleMock } = await import('../../test-utils/supabaseMock.js');
+  const supabaseModuleMock = createSupabaseModuleMock({
+    from: mocks.supabase.from,
+    auth: mocks.supabase.auth,
+  });
+  supabaseModuleMock.createServerSupabaseClient.mockReturnValue(mocks.supabase as never);
+  return supabaseModuleMock;
+});
 
 vi.mock('../../lib/logger', () => ({
   logger: mocks.logger,
