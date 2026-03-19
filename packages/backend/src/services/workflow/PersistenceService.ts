@@ -42,11 +42,30 @@ class PersistenceService {
   private saveQueue: Map<string, NodeJS.Timeout> = new Map();
   private readonly DEBOUNCE_MS = 2000;
 
+  private requireOrganizationId(
+    organizationId: string | undefined,
+    method: string
+  ): string {
+    if (!organizationId) {
+      throw new Error(
+        `PersistenceService.${method} requires organizationId`
+      );
+    }
+
+    return organizationId;
+  }
+
   async createBusinessCase(
+    organizationId: string,
     name: string,
     client: string,
     userId: string
   ): Promise<BusinessCase | null> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "createBusinessCase"
+    );
+
     if (featureFlags.DISABLE_LEGACY_BUSINESS_CASES) {
       throw new Error(
         "Creation of legacy business cases is disabled via feature flag"
@@ -60,6 +79,7 @@ class PersistenceService {
     const { data, error } = await supabase
       .from("business_cases")
       .insert({
+        organization_id: scopedOrganizationId,
         name,
         client,
         status: "draft",
@@ -79,7 +99,15 @@ class PersistenceService {
     return data as BusinessCase;
   }
 
-  async getBusinessCase(caseId: string): Promise<BusinessCase | null> {
+  async getBusinessCase(
+    organizationId: string,
+    caseId: string
+  ): Promise<BusinessCase | null> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "getBusinessCase"
+    );
+
     if (featureFlags.DISABLE_LEGACY_BUSINESS_CASES) {
       return null;
     }
@@ -92,6 +120,7 @@ class PersistenceService {
     const { data, error } = await supabase
       .from("business_cases")
       .select("*")
+      .eq("organization_id", scopedOrganizationId)
       .eq("id", caseId)
       .single();
 
@@ -107,9 +136,15 @@ class PersistenceService {
   }
 
   async updateBusinessCase(
+    organizationId: string,
     caseId: string,
     updates: Partial<BusinessCase>
   ): Promise<boolean> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "updateBusinessCase"
+    );
+
     if (featureFlags.DISABLE_LEGACY_BUSINESS_CASES) {
       throw new Error(
         "Updates to legacy business cases are disabled via feature flag"
@@ -121,12 +156,15 @@ class PersistenceService {
       { caseId }
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("business_cases")
       .update(updates)
-      .eq("id", caseId);
+      .eq("organization_id", scopedOrganizationId)
+      .eq("id", caseId)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error updating business case",
         error instanceof Error ? error : undefined
@@ -138,13 +176,20 @@ class PersistenceService {
   }
 
   async saveComponent(
+    organizationId: string,
     caseId: string,
     component: CanvasComponent,
     actor: string = "user"
   ): Promise<string | null> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "saveComponent"
+    );
+
     const { data, error } = await supabase
       .from("canvas_components")
       .insert({
+        organization_id: scopedOrganizationId,
         case_id: caseId,
         type: component.type,
         position_x: component.position.x,
@@ -166,7 +211,7 @@ class PersistenceService {
       return null;
     }
 
-    await this.logHistory(data.id, "created", actor, {
+    await this.logHistory(scopedOrganizationId, data.id, "created", actor, {
       type: component.type,
       position: component.position,
       size: component.size,
@@ -176,10 +221,16 @@ class PersistenceService {
   }
 
   async updateComponent(
+    organizationId: string,
     componentId: string,
     updates: Partial<CanvasComponent>,
     actor: string = "user"
   ): Promise<boolean> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "updateComponent"
+    );
+
     const dbUpdates: Partial<{
       position_x: number;
       position_y: number;
@@ -205,12 +256,15 @@ class PersistenceService {
 
     dbUpdates.is_dirty = false;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("canvas_components")
       .update(dbUpdates)
-      .eq("id", componentId);
+      .eq("organization_id", scopedOrganizationId)
+      .eq("id", componentId)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error updating component",
         error instanceof Error ? error : undefined
@@ -225,22 +279,34 @@ class PersistenceService {
           ? "resized"
           : "updated";
 
-    await this.logHistory(componentId, actionType, actor, updates);
+    await this.logHistory(
+      scopedOrganizationId,
+      componentId,
+      actionType,
+      actor,
+      updates
+    );
 
     return true;
   }
 
   debouncedUpdateComponent(
+    organizationId: string,
     componentId: string,
     updates: Partial<CanvasComponent>,
     actor: string = "user"
   ): void {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "debouncedUpdateComponent"
+    );
+
     if (this.saveQueue.has(componentId)) {
       clearTimeout(this.saveQueue.get(componentId)!);
     }
 
     const timeout = setTimeout(() => {
-      this.updateComponent(componentId, updates, actor);
+      this.updateComponent(scopedOrganizationId, componentId, updates, actor);
       this.saveQueue.delete(componentId);
     }, this.DEBOUNCE_MS);
 
@@ -248,17 +314,32 @@ class PersistenceService {
   }
 
   async deleteComponent(
+    organizationId: string,
     componentId: string,
     actor: string = "user"
   ): Promise<boolean> {
-    await this.logHistory(componentId, "deleted", actor, {});
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "deleteComponent"
+    );
 
-    const { error } = await supabase
+    await this.logHistory(
+      scopedOrganizationId,
+      componentId,
+      "deleted",
+      actor,
+      {}
+    );
+
+    const { data, error } = await supabase
       .from("canvas_components")
       .delete()
-      .eq("id", componentId);
+      .eq("organization_id", scopedOrganizationId)
+      .eq("id", componentId)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       logger.error(
         "Error deleting component",
         error instanceof Error ? error : undefined
@@ -269,10 +350,19 @@ class PersistenceService {
     return true;
   }
 
-  async loadComponents(caseId: string): Promise<CanvasComponent[]> {
+  async loadComponents(
+    organizationId: string,
+    caseId: string
+  ): Promise<CanvasComponent[]> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "loadComponents"
+    );
+
     const { data, error } = await supabase
       .from("canvas_components")
       .select("*")
+      .eq("organization_id", scopedOrganizationId)
       .eq("case_id", caseId)
       .order("created_at", { ascending: true });
 
@@ -304,6 +394,7 @@ class PersistenceService {
   }
 
   async logHistory(
+    organizationId: string,
     componentId: string,
     actionType: "created" | "updated" | "deleted" | "moved" | "resized",
     actor: string,
@@ -315,51 +406,40 @@ class PersistenceService {
     actionType: "created" | "updated" | "deleted" | "moved" | "resized",
     actor: string,
     changes: unknown
-  ): Promise<void>;
-  async logHistory(...args: unknown[]): Promise<void> {
-    if (args.length === 5) {
-      // Full signature (organizationId, componentId, actionType, actor, changes)
-      const [organizationId, componentId, actionType, actor, changes] =
-        args as [
-          string,
-          string,
-          "created" | "updated" | "deleted" | "moved" | "resized",
-          string,
-          unknown,
-        ];
-      if (!organizationId) {
-        logger.error(
-          "logHistory called without organizationId — skipping to prevent cross-tenant leak"
-        );
-        return;
-      }
-      const { error } = await supabase.from("component_history").insert({
-        organization_id: organizationId,
-        component_id: componentId,
-        action_type: actionType,
-        actor,
-        changes,
-      });
-      if (error) {
-        logger.error(
-          "Error logging history",
-          error instanceof Error ? error : undefined
-        );
-      }
-      return;
-    } else if (args.length === 4) {
-      // Deprecated signature (componentId, actionType, actor, changes)
+  ): Promise<void> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "logHistory"
+    );
+
+    const { error } = await supabase.from("component_history").insert({
+      organization_id: scopedOrganizationId,
+      component_id: componentId,
+      action_type: actionType,
+      actor,
+      changes,
+    });
+    if (error) {
       logger.error(
-        "logHistory called without organizationId — skipping to prevent cross-tenant leak"
+        "Error logging history",
+        error instanceof Error ? error : undefined
       );
-      return;
     }
   }
 
-  async getComponentHistory(componentId: string): Promise<HistoryEntry[]> {
+  async getComponentHistory(
+    organizationId: string,
+    componentId: string
+  ): Promise<HistoryEntry[]> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "getComponentHistory"
+    );
+
     const { data, error } = await supabase
       .from("component_history")
       .select("*")
+      .eq("organization_id", scopedOrganizationId)
       .eq("component_id", componentId)
       .order("timestamp", { ascending: false });
 
@@ -375,9 +455,15 @@ class PersistenceService {
   }
 
   async getGlobalHistory(
+    organizationId: string,
     caseId: string,
     limit: number = 50
   ): Promise<HistoryEntry[]> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "getGlobalHistory"
+    );
+
     const { data, error } = await supabase
       .from("component_history")
       .select(
@@ -386,6 +472,8 @@ class PersistenceService {
         canvas_components!inner(case_id)
       `
       )
+      .eq("organization_id", scopedOrganizationId)
+      .eq("canvas_components.organization_id", scopedOrganizationId)
       .eq("canvas_components.case_id", caseId)
       .order("timestamp", { ascending: false })
       .limit(limit);
@@ -415,15 +503,13 @@ class PersistenceService {
     content: string,
     metadata: Record<string, unknown> = {}
   ): Promise<void> {
-    if (!organizationId) {
-      logger.error(
-        "logAgentActivity called without organizationId — skipping to prevent cross-tenant leak"
-      );
-      return;
-    }
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "logAgentActivity"
+    );
 
     const { error } = await supabase.from("agent_activities").insert({
-      organization_id: organizationId,
+      organization_id: scopedOrganizationId,
       case_id: caseId,
       agent_name: agentName,
       activity_type: activityType,
@@ -441,12 +527,19 @@ class PersistenceService {
   }
 
   async getAgentActivities(
+    organizationId: string,
     caseId: string,
     limit: number = 50
   ): Promise<AgentActivity[]> {
+    const scopedOrganizationId = this.requireOrganizationId(
+      organizationId,
+      "getAgentActivities"
+    );
+
     const { data, error } = await supabase
       .from("agent_activities")
       .select("*")
+      .eq("organization_id", scopedOrganizationId)
       .eq("case_id", caseId)
       .order("timestamp", { ascending: false })
       .limit(limit);
