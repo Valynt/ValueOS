@@ -5,12 +5,33 @@
  */
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity, AlertTriangle, ArrowRight, Bell, Check, CheckCircle2,
-  ChevronRight, Clock, Eye, FileText,
-  Filter, FlaskConical, Layers, Microscope, Scale,
-  Shield, Sparkles, TrendingUp, X
+  Activity,
+  ArrowRight,
+  Bell,
+  Check,
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileText,
+  Filter,
+  FlaskConical,
+  Layers,
+  Microscope,
+  Scale,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  X,
 } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useWireframeAuth } from "./WireframeAuthContext";
 
@@ -23,6 +44,7 @@ import type { NotificationBroadcastPayload } from "@/lib/realtime/supabaseRealti
 /* ------------------------------------------------------------------ */
 type NotifCategory = "agent" | "policy" | "evidence" | "approval" | "system";
 type NotifPriority = "high" | "medium" | "low" | "info";
+type NotificationFilter = NotifCategory | "all";
 
 interface Notification {
   id: string;
@@ -40,6 +62,28 @@ interface Notification {
   iconBg: string;
 }
 
+interface NotificationSection {
+  group: string;
+  items: Notification[];
+}
+
+type NotificationListRow =
+  | { key: string; type: "group"; group: string }
+  | { key: string; type: "notification"; notification: Notification };
+
+interface NotificationFilterView {
+  filtered: Notification[];
+  groupedSections: NotificationSection[];
+  rows: NotificationListRow[];
+}
+
+interface NotificationDerivedState {
+  unreadCount: number;
+  readCount: number;
+  categoryUnreadCounts: Record<NotificationFilter, number>;
+  views: Record<NotificationFilter, NotificationFilterView>;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Context                                                            */
 /* ------------------------------------------------------------------ */
@@ -47,8 +91,8 @@ interface NotificationContextType {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   toggle: () => void;
-  unreadCount: number;
   notifications: Notification[];
+  derivedState: NotificationDerivedState;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
 }
@@ -74,7 +118,8 @@ function createMockNotifications(): Notification[] {
       category: "agent",
       priority: "high",
       title: "The Strategist composed a value narrative",
-      description: "Draft executive brief for Acme Corp Cloud Migration is ready for review. Confidence: 72%.",
+      description:
+        "Draft executive brief for Acme Corp Cloud Migration is ready for review. Confidence: 72%.",
       source: "The Strategist",
       timestamp: ago(2),
       read: false,
@@ -89,7 +134,8 @@ function createMockNotifications(): Notification[] {
       category: "policy",
       priority: "high",
       title: "Policy §4.2 triggered — Discount exceeds threshold",
-      description: "Stark Industries discount of 22% exceeds the 15% VP-approval threshold. Escalated to Decision Desk.",
+      description:
+        "Stark Industries discount of 22% exceeds the 15% VP-approval threshold. Escalated to Decision Desk.",
       source: "PolicyEngine",
       timestamp: ago(12),
       read: false,
@@ -104,7 +150,8 @@ function createMockNotifications(): Notification[] {
       category: "evidence",
       priority: "medium",
       title: "Evidence E4 flagged as stale",
-      description: "Forrester Productivity Report (2022) is 3+ years old. The Analyst recommends sourcing a 2025 update.",
+      description:
+        "Forrester Productivity Report (2022) is 3+ years old. The Analyst recommends sourcing a 2025 update.",
       source: "The Analyst",
       timestamp: ago(34),
       read: false,
@@ -119,7 +166,8 @@ function createMockNotifications(): Notification[] {
       category: "approval",
       priority: "medium",
       title: "Stage promotion pending — Acme Corp",
-      description: "Value case meets 70% confidence threshold. Ready to promote from Evidence → Defensible.",
+      description:
+        "Value case meets 70% confidence threshold. Ready to promote from Evidence → Defensible.",
       source: "System",
       timestamp: ago(58),
       read: false,
@@ -134,7 +182,8 @@ function createMockNotifications(): Notification[] {
       category: "agent",
       priority: "info",
       title: "The Modeler ran sensitivity analysis",
-      description: "4 scenarios modeled for Acme Corp. Conservative: $2.8M, Base: $4.2M, Optimistic: $5.1M, Aggressive: $6.3M.",
+      description:
+        "4 scenarios modeled for Acme Corp. Conservative: $2.8M, Base: $4.2M, Optimistic: $5.1M, Aggressive: $6.3M.",
       source: "The Modeler",
       timestamp: ago(72),
       read: true,
@@ -149,7 +198,8 @@ function createMockNotifications(): Notification[] {
       category: "system",
       priority: "medium",
       title: "Realization drift detected — Wayne Enterprises",
-      description: "Actual value realization is +18% above model predictions. The Monitor recommends recalibrating.",
+      description:
+        "Actual value realization is +18% above model predictions. The Monitor recommends recalibrating.",
       source: "The Monitor",
       timestamp: ago(120),
       read: true,
@@ -164,7 +214,8 @@ function createMockNotifications(): Notification[] {
       category: "agent",
       priority: "info",
       title: "The Analyst validated 2 assumptions",
-      description: "A1 (infrastructure costs) confirmed at 92% confidence. A5 (implementation timeline) confirmed at 85%.",
+      description:
+        "A1 (infrastructure costs) confirmed at 92% confidence. A5 (implementation timeline) confirmed at 85%.",
       source: "The Analyst",
       timestamp: ago(180),
       read: true,
@@ -177,7 +228,8 @@ function createMockNotifications(): Notification[] {
       category: "evidence",
       priority: "low",
       title: "New benchmark ingested",
-      description: "Gartner Cloud Migration Benchmark 2025 added to evidence library. Linked to 3 active value cases.",
+      description:
+        "Gartner Cloud Migration Benchmark 2025 added to evidence library. Linked to 3 active value cases.",
       source: "Evidence Ingestion",
       timestamp: ago(240),
       read: true,
@@ -190,7 +242,8 @@ function createMockNotifications(): Notification[] {
       category: "approval",
       priority: "info",
       title: "Cyberdyne case approved — entering Realization",
-      description: "VP Sarah Chen approved the $5.6M Data Platform Migration case. Now tracking realization metrics.",
+      description:
+        "VP Sarah Chen approved the $5.6M Data Platform Migration case. Now tracking realization metrics.",
       source: "Decision Desk",
       timestamp: ago(360),
       read: true,
@@ -205,7 +258,8 @@ function createMockNotifications(): Notification[] {
       category: "system",
       priority: "low",
       title: "Domain Pack updated — Enterprise IT",
-      description: "12 new industry benchmarks and 3 assumption templates added to the Enterprise IT domain pack.",
+      description:
+        "12 new industry benchmarks and 3 assumption templates added to the Enterprise IT domain pack.",
       source: "System",
       timestamp: ago(480),
       read: true,
@@ -224,11 +278,11 @@ function createMockNotifications(): Notification[] {
 function rowToNotification(row: NotificationBroadcastPayload): Notification {
   // Icon and colour are derived from category — same mapping as mock data.
   const iconMap: Record<string, { icon: React.ElementType; iconColor: string; iconBg: string }> = {
-    agent:    { icon: Sparkles,      iconColor: "text-primary",          iconBg: "bg-primary/10" },
-    policy:   { icon: Shield,        iconColor: "text-risk",             iconBg: "bg-risk/10" },
-    evidence: { icon: FlaskConical,  iconColor: "text-warning",          iconBg: "bg-warning/10" },
-    approval: { icon: Scale,         iconColor: "text-violet-400",       iconBg: "bg-violet-500/10" },
-    system:   { icon: Activity,      iconColor: "text-amber-400",        iconBg: "bg-amber-500/10" },
+    agent: { icon: Sparkles, iconColor: "text-primary", iconBg: "bg-primary/10" },
+    policy: { icon: Shield, iconColor: "text-risk", iconBg: "bg-risk/10" },
+    evidence: { icon: FlaskConical, iconColor: "text-warning", iconBg: "bg-warning/10" },
+    approval: { icon: Scale, iconColor: "text-violet-400", iconBg: "bg-violet-500/10" },
+    system: { icon: Activity, iconColor: "text-amber-400", iconBg: "bg-amber-500/10" },
   };
   const { icon, iconColor, iconBg } = iconMap[row.category] ?? iconMap.system;
 
@@ -262,7 +316,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const lastFetchKeyRef = useRef<string | null>(null);
 
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const derivedState = useMemo(() => buildNotificationDerivedState(notifications), [notifications]);
 
   // ------------------------------------------------------------------
   // Hydrate from API whenever org or token changes
@@ -274,11 +328,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     lastFetchKeyRef.current = fetchKey;
 
     apiClient
-      .get<{ data: NotificationBroadcastPayload[] }>(
-        "/api/v1/notifications",
-        undefined,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      )
+      .get<{ data: NotificationBroadcastPayload[] }>("/api/v1/notifications", undefined, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
       .then((res) => {
         // Ignore stale responses if a newer fetch has been started.
         if (lastFetchKeyRef.current !== fetchKey) {
@@ -299,12 +351,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!organizationId) return;
 
-    const unsubscribe = getRealtimeService().subscribeToNotifications(
-      organizationId,
-      (payload) => {
-        setNotifications((prev) => [rowToNotification(payload), ...prev]);
-      }
-    );
+    const unsubscribe = getRealtimeService().subscribeToNotifications(organizationId, (payload) => {
+      setNotifications((prev) => [rowToNotification(payload), ...prev]);
+    });
 
     return unsubscribe;
   }, [organizationId]);
@@ -319,11 +368,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       if (!accessToken) return;
       apiClient
-        .patch(
-          `/api/v1/notifications/${id}/read`,
-          undefined,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        )
+        .patch(`/api/v1/notifications/${id}/read`, undefined, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
         .catch(() => {
           // Revert on failure
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)));
@@ -386,7 +433,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [toggle]);
 
   return (
-    <NotificationContext.Provider value={{ isOpen, setIsOpen, toggle, unreadCount, notifications, markAsRead, markAllAsRead }}>
+    <NotificationContext.Provider
+      value={{
+        isOpen,
+        setIsOpen,
+        toggle,
+        notifications,
+        derivedState,
+        markAsRead,
+        markAllAsRead,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );
@@ -396,7 +453,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 /*  Nav Bell Button (for nav rail)                                     */
 /* ------------------------------------------------------------------ */
 export function NotificationBell() {
-  const { toggle, unreadCount } = useNotifications();
+  const { toggle, derivedState } = useNotifications();
+  const { unreadCount } = derivedState;
 
   return (
     <button
@@ -461,23 +519,291 @@ function formatRelativeTime(timestamp: Date): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function buildNotificationDerivedState(notifications: Notification[]): NotificationDerivedState {
+  const categoryUnreadCounts: Record<NotificationFilter, number> = {
+    all: 0,
+    agent: 0,
+    policy: 0,
+    evidence: 0,
+    approval: 0,
+    system: 0,
+  };
+
+  const filteredByCategory: Record<NotificationFilter, Notification[]> = {
+    all: [],
+    agent: [],
+    policy: [],
+    evidence: [],
+    approval: [],
+    system: [],
+  };
+
+  let unreadCount = 0;
+  let readCount = 0;
+
+  for (const notification of notifications) {
+    filteredByCategory.all.push(notification);
+    filteredByCategory[notification.category].push(notification);
+
+    if (notification.read) {
+      readCount += 1;
+    } else {
+      unreadCount += 1;
+      categoryUnreadCounts.all += 1;
+      categoryUnreadCounts[notification.category] += 1;
+    }
+  }
+
+  const views = Object.fromEntries(
+    (["all", "agent", "policy", "evidence", "approval", "system"] as NotificationFilter[]).map(
+      (filter) => {
+        const filtered = filteredByCategory[filter];
+        const groupedSections: NotificationSection[] = [];
+        let currentGroup: string | null = null;
+        let currentItems: Notification[] = [];
+
+        for (const notification of filtered) {
+          const group = getTimeGroup(notification.timestamp);
+          if (group !== currentGroup) {
+            if (currentGroup) {
+              groupedSections.push({ group: currentGroup, items: currentItems });
+            }
+            currentGroup = group;
+            currentItems = [notification];
+          } else {
+            currentItems.push(notification);
+          }
+        }
+
+        if (currentGroup) {
+          groupedSections.push({ group: currentGroup, items: currentItems });
+        }
+
+        const rows = groupedSections.flatMap<NotificationListRow>((section) => [
+          { key: `group-${section.group}`, type: "group", group: section.group },
+          ...section.items.map((notification) => ({
+            key: notification.id,
+            type: "notification" as const,
+            notification,
+          })),
+        ]);
+
+        return [filter, { filtered, groupedSections, rows }];
+      }
+    )
+  ) as Record<NotificationFilter, NotificationFilterView>;
+
+  return {
+    unreadCount,
+    readCount,
+    categoryUnreadCounts,
+    views,
+  };
+}
+
+const GROUP_ROW_HEIGHT = 34;
+const ITEM_ROW_HEIGHT = 116;
+const ITEM_ROW_WITH_ACTION_HEIGHT = 140;
+const VIRTUALIZATION_THRESHOLD = 50;
+const VIRTUAL_OVERSCAN = 6;
+
+interface VirtualizedListState {
+  containerRef: (node: HTMLDivElement | null) => void;
+  onScroll: (event: React.UIEvent<HTMLDivElement>) => void;
+  totalHeight: number;
+  visibleRows: Array<{ row: NotificationListRow; index: number; start: number }>;
+}
+
+function getRowHeight(row: NotificationListRow): number {
+  if (row.type === "group") {
+    return GROUP_ROW_HEIGHT;
+  }
+
+  return row.notification.actionLabel ? ITEM_ROW_WITH_ACTION_HEIGHT : ITEM_ROW_HEIGHT;
+}
+
+function useVirtualizedNotificationRows(
+  rows: NotificationListRow[],
+  enabled: boolean
+): VirtualizedListState {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+
+  const measurements = useMemo(() => {
+    const starts: number[] = [];
+    const heights: number[] = [];
+    let offset = 0;
+
+    for (const row of rows) {
+      starts.push(offset);
+      const height = getRowHeight(row);
+      heights.push(height);
+      offset += height;
+    }
+
+    return {
+      heights,
+      starts,
+      totalHeight: offset,
+    };
+  }, [rows]);
+
+  useEffect(() => {
+    if (!enabled || !container) {
+      return;
+    }
+
+    const updateHeight = () => setContainerHeight(container.clientHeight);
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [container, enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setScrollTop(0);
+    }
+  }, [enabled, rows]);
+
+  const visibleRows = useMemo(() => {
+    if (!enabled) {
+      return rows.map((row, index) => ({
+        row,
+        index,
+        start: measurements.starts[index] ?? 0,
+      }));
+    }
+
+    const viewportBottom = scrollTop + containerHeight;
+    let startIndex = 0;
+    while (
+      startIndex < rows.length &&
+      (measurements.starts[startIndex] ?? 0) + (measurements.heights[startIndex] ?? 0) < scrollTop
+    ) {
+      startIndex += 1;
+    }
+
+    let endIndex = startIndex;
+    while (endIndex < rows.length && (measurements.starts[endIndex] ?? 0) < viewportBottom) {
+      endIndex += 1;
+    }
+
+    const visibleStart = Math.max(0, startIndex - VIRTUAL_OVERSCAN);
+    const visibleEnd = Math.min(rows.length, endIndex + VIRTUAL_OVERSCAN);
+
+    return rows.slice(visibleStart, visibleEnd).map((row, offset) => {
+      const index = visibleStart + offset;
+      return {
+        row,
+        index,
+        start: measurements.starts[index] ?? 0,
+      };
+    });
+  }, [containerHeight, enabled, measurements.heights, measurements.starts, rows, scrollTop]);
+
+  return {
+    containerRef: setContainer,
+    onScroll: (event) => setScrollTop(event.currentTarget.scrollTop),
+    totalHeight: measurements.totalHeight,
+    visibleRows,
+  };
+}
+
+function NotificationListItem({
+  notification,
+  index,
+  onClick,
+}: {
+  notification: Notification;
+  index: number;
+  onClick: (id: string) => void;
+}) {
+  const Icon = notification.icon;
+  const priorityStyle = PRIORITY_STYLES[notification.priority];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.03 }}
+      onClick={() => onClick(notification.id)}
+      className={`relative px-4 py-3 border-l-2 cursor-pointer transition-colors group ${
+        priorityStyle.border
+      } ${
+        notification.read
+          ? "opacity-60 hover:opacity-80"
+          : "bg-primary/[0.02] hover:bg-primary/[0.04]"
+      }`}
+    >
+      {!notification.read && (
+        <span className={`absolute top-4 right-4 w-2 h-2 rounded-full ${priorityStyle.dot}`} />
+      )}
+
+      <div className="flex gap-3">
+        <div
+          className={`w-8 h-8 rounded-lg ${notification.iconBg} flex items-center justify-center shrink-0 mt-0.5`}
+        >
+          <Icon className={`w-4 h-4 ${notification.iconColor}`} />
+        </div>
+
+        <div className="flex-1 min-w-0 pr-4">
+          <p
+            className={`text-[12px] leading-snug ${notification.read ? "text-muted-foreground" : "text-foreground font-medium"}`}
+          >
+            {notification.title}
+          </p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5 leading-relaxed line-clamp-2">
+            {notification.description}
+          </p>
+
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[9px] font-mono text-muted-foreground/40">
+              {notification.source}
+            </span>
+            <span className="text-[9px] text-muted-foreground/30">·</span>
+            <span className="text-[9px] font-mono text-muted-foreground/40">
+              {formatRelativeTime(notification.timestamp)}
+            </span>
+          </div>
+
+          {notification.actionLabel && (
+            <button className="mt-2 flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary/80 transition-colors">
+              {notification.actionLabel}
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!notification.read && (
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Check className="w-3 h-3 text-muted-foreground/40" />
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Slide-out Panel                                                    */
 /* ------------------------------------------------------------------ */
 export default function NotificationCenter() {
-  const { isOpen, setIsOpen, notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { isOpen, setIsOpen, derivedState, markAsRead, markAllAsRead } = useNotifications();
   const [activeFilter, setActiveFilter] = useState<NotifCategory | "all">("all");
-
-  const filtered = activeFilter === "all"
-    ? notifications
-    : notifications.filter((n) => n.category === activeFilter);
-
-  // Group by time
-  const grouped: Record<string, Notification[]> = {};
-  for (const n of filtered) {
-    const group = getTimeGroup(n.timestamp);
-    (grouped[group] ??= []).push(n);
-  }
+  const activeView = useMemo(
+    () => derivedState.views[activeFilter],
+    [activeFilter, derivedState.views]
+  );
+  const unreadCount = derivedState.unreadCount;
+  const shouldVirtualize = activeView.rows.length >= VIRTUALIZATION_THRESHOLD;
+  const { containerRef, onScroll, totalHeight, visibleRows } = useVirtualizedNotificationRows(
+    activeView.rows,
+    shouldVirtualize
+  );
 
   return (
     <AnimatePresence>
@@ -535,9 +861,7 @@ export default function NotificationCenter() {
               {CATEGORIES.map((cat) => {
                 const Icon = cat.icon;
                 const isActive = activeFilter === cat.key;
-                const count = cat.key === "all"
-                  ? notifications.filter((n) => !n.read).length
-                  : notifications.filter((n) => n.category === cat.key && !n.read).length;
+                const count = derivedState.categoryUnreadCounts[cat.key];
                 return (
                   <button
                     key={cat.key}
@@ -551,9 +875,13 @@ export default function NotificationCenter() {
                     <Icon className="w-3 h-3" />
                     {cat.label}
                     {count > 0 && (
-                      <span className={`w-3.5 h-3.5 rounded-full text-[7px] font-bold flex items-center justify-center ${
-                        isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                      }`}>
+                      <span
+                        className={`w-3.5 h-3.5 rounded-full text-[7px] font-bold flex items-center justify-center ${
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {count}
                       </span>
                     )}
@@ -565,111 +893,70 @@ export default function NotificationCenter() {
             {/* Live indicator */}
             <div className="px-4 py-1.5 border-b border-border/50 flex items-center gap-1.5 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-health animate-pulse" />
-              <span className="text-[9px] font-mono text-muted-foreground/60">Live — updates in real time</span>
+              <span className="text-[9px] font-mono text-muted-foreground/60">
+                Live — updates in real time
+              </span>
             </div>
 
             {/* Notification List */}
-            <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && (
+            <div ref={containerRef} onScroll={onScroll} className="flex-1 overflow-y-auto">
+              {activeView.filtered.length === 0 && (
                 <div className="px-4 py-12 text-center">
                   <Filter className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-                  <p className="text-[11px] text-muted-foreground/50">No notifications in this category</p>
+                  <p className="text-[11px] text-muted-foreground/50">
+                    No notifications in this category
+                  </p>
                 </div>
               )}
 
-              {Object.entries(grouped).map(([group, items]) => (
-                <div key={group}>
-                  {/* Time group header */}
-                  <div className="px-4 py-1.5 sticky top-0 bg-card/95 backdrop-blur-sm z-10">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 flex items-center gap-1">
-                      <Clock className="w-2.5 h-2.5" />
-                      {group}
-                    </span>
-                  </div>
+              {activeView.filtered.length > 0 && (
+                <div
+                  className="relative"
+                  style={shouldVirtualize ? { height: `${totalHeight}px` } : undefined}
+                >
+                  {visibleRows.map(({ row, index, start }) => {
+                    const wrapperProps = shouldVirtualize
+                      ? {
+                          className: "absolute left-0 right-0",
+                          style: { top: `${start}px` },
+                        }
+                      : {};
 
-                  {/* Items */}
-                  {items.map((notif, idx) => {
-                    const Icon = notif.icon;
-                    const priorityStyle = PRIORITY_STYLES[notif.priority];
                     return (
-                      <motion.div
-                        key={notif.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.03 }}
-                        onClick={() => markAsRead(notif.id)}
-                        className={`relative px-4 py-3 border-l-2 cursor-pointer transition-colors group ${
-                          priorityStyle.border
-                        } ${
-                          notif.read
-                            ? "opacity-60 hover:opacity-80"
-                            : "bg-primary/[0.02] hover:bg-primary/[0.04]"
-                        }`}
-                      >
-                        {/* Unread dot */}
-                        {!notif.read && (
-                          <span className={`absolute top-4 right-4 w-2 h-2 rounded-full ${priorityStyle.dot}`} />
+                      <div key={row.key} {...wrapperProps}>
+                        {row.type === "group" ? (
+                          <div className="px-4 py-1.5 bg-card/95 backdrop-blur-sm z-10">
+                            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />
+                              {row.group}
+                            </span>
+                          </div>
+                        ) : (
+                          <NotificationListItem
+                            notification={row.notification}
+                            index={index}
+                            onClick={markAsRead}
+                          />
                         )}
-
-                        <div className="flex gap-3">
-                          {/* Icon */}
-                          <div className={`w-8 h-8 rounded-lg ${notif.iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
-                            <Icon className={`w-4 h-4 ${notif.iconColor}`} />
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0 pr-4">
-                            <p className={`text-[12px] leading-snug ${notif.read ? "text-muted-foreground" : "text-foreground font-medium"}`}>
-                              {notif.title}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground/60 mt-0.5 leading-relaxed line-clamp-2">
-                              {notif.description}
-                            </p>
-
-                            {/* Meta row */}
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-[9px] font-mono text-muted-foreground/40">
-                                {notif.source}
-                              </span>
-                              <span className="text-[9px] text-muted-foreground/30">·</span>
-                              <span className="text-[9px] font-mono text-muted-foreground/40">
-                                {formatRelativeTime(notif.timestamp)}
-                              </span>
-                            </div>
-
-                            {/* Action button */}
-                            {notif.actionLabel && (
-                              <button className="mt-2 flex items-center gap-1 text-[10px] font-mono text-primary hover:text-primary/80 transition-colors">
-                                {notif.actionLabel}
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Hover read indicator */}
-                        {!notif.read && (
-                          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Check className="w-3 h-3 text-muted-foreground/40" />
-                          </div>
-                        )}
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Footer */}
             <div className="px-4 py-2.5 border-t border-border flex items-center justify-between shrink-0 bg-muted/10">
               <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
                 <Eye className="w-3 h-3" />
-                <span>{notifications.filter((n) => n.read).length} read</span>
+                <span>{derivedState.readCount} read</span>
                 <span>·</span>
-                <span>{unreadCount} unread</span>
+                <span>{derivedState.unreadCount} unread</span>
               </div>
               <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground/30">
-                <kbd className="px-1 py-0.5 rounded bg-muted/50 border border-border/50 text-[8px]">N</kbd>
+                <kbd className="px-1 py-0.5 rounded bg-muted/50 border border-border/50 text-[8px]">
+                  N
+                </kbd>
                 <span>toggle</span>
               </div>
             </div>
