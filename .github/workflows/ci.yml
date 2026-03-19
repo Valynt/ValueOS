@@ -95,6 +95,9 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Split-latency SLO conformance
+        run: node scripts/ci/check-slo-threshold-consistency.mjs
+
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
 

@@ -52,7 +52,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 5,
         "x": 0,
         "y": 1
       },
@@ -71,12 +71,132 @@
         },
         "textMode": "auto"
       },
-      "title": "P95 Latency (target: 200ms)",
+      "title": "Interactive Completion P95 (target: 200ms)",
       "type": "stat",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\"}[$interval])) by (le))",
-          "legendFormat": "P95",
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\",latency_class=\"interactive\"}[$interval])) by (le))",
+          "legendFormat": "Interactive completion P95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 150
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          },
+          "unit": "ms",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Orchestration TTFB P95 (target: 200ms)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_ttfb_ms_bucket{service=~\"$service\",latency_class=\"orchestration\"}[$interval])) by (le))",
+          "legendFormat": "Orchestration TTFB P95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2500
+              },
+              {
+                "color": "red",
+                "value": 3000
+              }
+            ]
+          },
+          "unit": "ms",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Orchestration Completion P95 (target: 3000ms)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\",latency_class=\"orchestration\"}[$interval])) by (le))",
+          "legendFormat": "Orchestration completion P95",
           "refId": "A"
         }
       ]
@@ -114,8 +234,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 8,
+        "w": 4,
+        "x": 15,
         "y": 1
       },
       "id": 2,
@@ -174,8 +294,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
+        "w": 5,
+        "x": 19,
         "y": 1
       },
       "id": 3,
@@ -255,22 +375,22 @@
           "mode": "multi"
         }
       },
-      "title": "Request Latency Percentiles",
+      "title": "Split Latency SLOs",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\"}[$interval])) by (le, route))",
-          "legendFormat": "P50 {{route}}",
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\",latency_class=\"interactive\"}[$interval])) by (le))",
+          "legendFormat": "Interactive completion P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\"}[$interval])) by (le, route))",
-          "legendFormat": "P95 {{route}}",
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_ttfb_ms_bucket{service=~\"$service\",latency_class=\"orchestration\"}[$interval])) by (le))",
+          "legendFormat": "Orchestration TTFB P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\"}[$interval])) by (le, route))",
-          "legendFormat": "P99 {{route}}",
+          "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{service=~\"$service\",latency_class=\"orchestration\"}[$interval])) by (le))",
+          "legendFormat": "Orchestration completion P95",
           "refId": "C"
         }
       ]

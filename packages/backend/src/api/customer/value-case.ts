@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Request, Response } from "express";
 import { z } from "zod";
 
+import { classifyLatencyClass } from "../../config/slo.js";
 import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { customerAccessService } from "../../services/tenant/CustomerAccessService";
@@ -66,6 +67,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     const endTimer = httpRequestDuration.startTimer({
       method: req.method,
       route: "/api/customer/value-case/:token",
+      latency_class: classifyLatencyClass("/api/customer/value-case/:token"),
     });
     res.on("finish", () => {
       endTimer({ status_code: String(res.statusCode) });

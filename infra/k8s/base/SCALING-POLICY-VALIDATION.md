@@ -8,7 +8,9 @@ This document describes the staged load validation profile for backend and worke
 - CPU utilization target: **65%**
 - Memory utilization target: **78%**
 - External metric: **`backend_http_requests_per_second`** (average value target `8` per pod)
-- External metric: **`backend_http_p95_latency_ms`** (global threshold `450ms`)
+- External metric: **`backend_interactive_http_p95_latency_ms`** (interactive completion threshold `200ms`)
+- External metric: **`backend_orchestration_ttfb_p95_latency_ms`** (orchestration TTFB threshold `200ms`)
+- Reference-only metric: **`backend_orchestration_completion_p95_latency_ms`** (orchestration completion SLO `3000ms`; not an HPA scale signal)
 
 ### Worker (background-jobs)
 - External metric: **`message_worker_queue_depth`** (average value target `30` per pod)
@@ -25,7 +27,7 @@ This document describes the staged load validation profile for backend and worke
 - `scaleUp.selectPolicy`: **Max**
 
 ### Conservative scale-down
-- `scaleDown.stabilizationWindowSeconds`: **360-420s**
+- `scaleDown.stabilizationWindowSeconds`: **120s** for interactive APIs, **slower for async workers**
 - `scaleDown.policies`:
   - `Percent`: **10%** / 60s
   - `Pods`: **-1** / 90-120s
@@ -39,7 +41,7 @@ Use `infra/testing/scaling-policy.k6.js` with staged scenarios:
 
 1. **Steady** (`~12m`) 
    - Ramp to 40 VUs and hold
-   - Confirms baseline target utilization and steady-state p95
+   - Confirms baseline target utilization and steady-state split-latency SLOs
 2. **Spike** (`~5m`) 
    - Burst arrival rate to 160 req/s then recover
    - Verifies rapid scale-up behavior and bounded error rate
@@ -58,12 +60,16 @@ kubectl -n valynt get hpa backend-hpa worker-hpa -w
 
 # Observe external metrics served by adapter
 kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_http_requests_per_second" | jq
-kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_http_p95_latency_ms" | jq
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_interactive_http_p95_latency_ms" | jq
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_orchestration_ttfb_p95_latency_ms" | jq
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_orchestration_completion_p95_latency_ms" | jq
 ```
 
 ## Success criteria
 
 - `http_req_failed` < 2%
-- `http_req_duration p95` < 600ms, `p99` < 1200ms
+- Interactive completion `p95 < 200ms`
+- Orchestration TTFB `p95 < 200ms`
+- Orchestration completion `p95 < 3000ms`
 - Backend pods scale out within 30-60s of spike stage
-- Worker pods scale out when queue depth persists above target, then scale down gradually over 6-7 minutes
+- Worker pods scale out when queue depth persists above target, then scale down gradually over the validated stabilization window

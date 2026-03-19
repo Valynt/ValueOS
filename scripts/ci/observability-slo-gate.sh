@@ -3,11 +3,15 @@
 set -euo pipefail
 
 PROMETHEUS_BASE_URL="${PROMETHEUS_BASE_URL:-http://localhost:9090}"
-SLO_MAX_P95_LATENCY_MS="${SLO_MAX_P95_LATENCY_MS:-300}"
+SLO_MAX_INTERACTIVE_P95_LATENCY_MS="${SLO_MAX_INTERACTIVE_P95_LATENCY_MS:-200}"
+SLO_MAX_ORCHESTRATION_TTFB_P95_MS="${SLO_MAX_ORCHESTRATION_TTFB_P95_MS:-200}"
+SLO_MAX_ORCHESTRATION_COMPLETION_P95_MS="${SLO_MAX_ORCHESTRATION_COMPLETION_P95_MS:-3000}"
 SLO_MAX_ERROR_RATE="${SLO_MAX_ERROR_RATE:-0.001}"
 SLO_MAX_MTTR_MINUTES="${SLO_MAX_MTTR_MINUTES:-15}"
 
-LATENCY_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend"}[5m])) by (le))'
+INTERACTIVE_LATENCY_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",latency_class="interactive"}[5m])) by (le))'
+ORCHESTRATION_TTFB_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_ttfb_ms_bucket{job="valueos-app",service="valueos-backend",latency_class="orchestration"}[5m])) by (le))'
+ORCHESTRATION_COMPLETION_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",latency_class="orchestration"}[5m])) by (le))'
 ERROR_RATE_QUERY='sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code=~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))'
 MTTR_QUERY='avg_over_time(valuecanvas_incident_mttr_minutes[24h])'
 
@@ -63,7 +67,9 @@ main() {
 
   echo "🔍 Evaluating observability SLO gate against ${PROMETHEUS_BASE_URL}"
 
-  evaluate_slo "Latency P95" "$LATENCY_QUERY" "$SLO_MAX_P95_LATENCY_MS" "ms" || failed=1
+  evaluate_slo "Interactive completion latency P95" "$INTERACTIVE_LATENCY_QUERY" "$SLO_MAX_INTERACTIVE_P95_LATENCY_MS" "ms" || failed=1
+  evaluate_slo "Orchestration TTFB P95" "$ORCHESTRATION_TTFB_QUERY" "$SLO_MAX_ORCHESTRATION_TTFB_P95_MS" "ms" || failed=1
+  evaluate_slo "Orchestration completion latency P95" "$ORCHESTRATION_COMPLETION_QUERY" "$SLO_MAX_ORCHESTRATION_COMPLETION_P95_MS" "ms" || failed=1
   evaluate_slo "Error rate" "$ERROR_RATE_QUERY" "$SLO_MAX_ERROR_RATE" "" || failed=1
   evaluate_slo "MTTR" "$MTTR_QUERY" "$SLO_MAX_MTTR_MINUTES" "m" || failed=1
 

@@ -15,19 +15,47 @@ groups:
           description: "5xx error rate > 5% over the last 10 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
 
-      - alert: HighP95Latency
+      - alert: InteractiveLatencyP95High
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing).*"}[5m])) by (le, route)
-          ) > 1000
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"}[5m])) by (le)
+          ) > 200
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "High p95 latency on critical APIs"
-          description: "p95 latency > 1s on /api/llm or /api/billing routes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+          summary: "Interactive completion latency SLO is breaching"
+          description: "Interactive request completion p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#interactivecompletionlatencyhigh"
+
+      - alert: OrchestrationTTFBP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_ttfb_ms_bucket{latency_class="orchestration"}[5m])) by (le)
+          ) > 200
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Orchestration TTFB SLO is breaching"
+          description: "Orchestration request time-to-first-byte p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#orchestrationttfbhigh"
+
+      - alert: OrchestrationCompletionP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"}[5m])) by (le)
+          ) > 3000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Orchestration completion latency SLO is breaching"
+          description: "Orchestration request completion p95 is above 3000ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#orchestrationcompletionhigh"
 
       - alert: ApiScrapeDown
         expr: up{job="valuecanvas-api"} == 0
@@ -71,4 +99,4 @@ groups:
         annotations:
           summary: "High latency for value-cases endpoint (P95 > 200ms)"
           description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#interactivecompletionlatencyhigh"

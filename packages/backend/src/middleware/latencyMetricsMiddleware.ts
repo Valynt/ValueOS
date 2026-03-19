@@ -2,6 +2,7 @@ import type { Histogram } from "@opentelemetry/api";
 import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
 
+import { CANONICAL_SLO_THRESHOLDS, classifyLatencyClass, ORCHESTRATION_ROUTE_PREFIXES } from "../config/slo.js";
 import { createHistogram } from "../config/telemetry.js";
 
 const WINDOW_SIZE = 120;
@@ -9,15 +10,13 @@ const latencyWindows = new Map<string, number[]>();
 
 const LATENCY_CLASS_SLOS = {
   interactive: {
-    completionP95Ms: 200,
+    completionP95Ms: CANONICAL_SLO_THRESHOLDS.interactiveLatencyP95Ms,
   },
   orchestration: {
-    ttfbP95Ms: 200,
-    completionP95Ms: 3000,
+    ttfbP95Ms: CANONICAL_SLO_THRESHOLDS.orchestrationTtfbP95Ms,
+    completionP95Ms: CANONICAL_SLO_THRESHOLDS.orchestrationCompletionP95Ms,
   },
 } as const;
-
-const ORCHESTRATION_ROUTE_PREFIXES = ["/api/llm/chat", "/api/billing", "/api/queue"];
 
 type LatencyClass = keyof typeof LATENCY_CLASS_SLOS;
 
@@ -40,21 +39,20 @@ async function getLatencyHistogram(): Promise<Histogram> {
 }
 
 function classifyRoute(pathname: string): RouteLatencyClassification {
-  const orchestrationRoute = ORCHESTRATION_ROUTE_PREFIXES.find((route) =>
-    pathname.startsWith(route),
-  );
+  const latencyClass = classifyLatencyClass(pathname);
+  const orchestrationRoute = ORCHESTRATION_ROUTE_PREFIXES.find((route) => pathname.startsWith(route));
 
-  if (orchestrationRoute) {
+  if (latencyClass === "orchestration" && orchestrationRoute) {
     return {
       routeKey: orchestrationRoute,
-      latencyClass: "orchestration",
+      latencyClass,
       sloModel: "ttfb_and_completion",
     };
   }
 
   return {
     routeKey: pathname,
-    latencyClass: "interactive",
+    latencyClass,
     sloModel: "completion",
   };
 }

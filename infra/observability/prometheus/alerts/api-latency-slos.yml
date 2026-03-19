@@ -1,0 +1,50 @@
+groups:
+  - name: api-latency-slos
+    rules:
+      - alert: InteractiveCompletionLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{service="valueos-backend",latency_class="interactive"}[5m])) by (le)
+          ) > 200
+        for: 10m
+        labels:
+          severity: warning
+          slo: interactive-completion
+          team: backend-platform
+        annotations:
+          summary: "Interactive completion latency SLO breach"
+          description: "Interactive request completion p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#interactivecompletionlatencyhigh"
+
+      - alert: OrchestrationTTFBHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_ttfb_ms_bucket{service="valueos-backend",latency_class="orchestration"}[5m])) by (le)
+          ) > 200
+        for: 10m
+        labels:
+          severity: warning
+          slo: orchestration-ttfb
+          team: backend-platform
+        annotations:
+          summary: "Orchestration TTFB SLO breach"
+          description: "Orchestration request time-to-first-byte p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#orchestrationttfbhigh"
+
+      - alert: OrchestrationCompletionHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{service="valueos-backend",latency_class="orchestration"}[5m])) by (le)
+          ) > 3000
+        for: 10m
+        labels:
+          severity: warning
+          slo: orchestration-completion
+          team: backend-platform
+        annotations:
+          summary: "Orchestration completion latency SLO breach"
+          description: "Orchestration request completion p95 is above 3000ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#orchestrationcompletionhigh"

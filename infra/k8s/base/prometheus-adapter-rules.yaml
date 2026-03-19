@@ -30,13 +30,13 @@ data:
             )
           )
 
-      - seriesQuery: 'valuecanvas_http_request_duration_ms_bucket{namespace!="",app!="",le!=""}'
+      - seriesQuery: 'valuecanvas_http_request_duration_ms_bucket{namespace!="",app!="",le!="",latency_class="interactive"}'
         resources:
           overrides:
             namespace: {resource: "namespace"}
         name:
           matches: "^valuecanvas_http_request_duration_ms_bucket$"
-          as: "backend_http_p95_latency_ms"
+          as: "backend_interactive_http_p95_latency_ms"
         metricsQuery: >-
           histogram_quantile(
             0.95,
@@ -44,6 +44,53 @@ data:
               rate(
                 valuecanvas_http_request_duration_ms_bucket{
                   <<.LabelMatchers>>,
+                  latency_class="interactive",
+                  route!="/health/live",
+                  route!="/health/ready",
+                  route!="/metrics"
+                }[2m]
+              )
+            ) by (le)
+          )
+
+      - seriesQuery: 'valuecanvas_http_request_ttfb_ms_bucket{namespace!="",app!="",le!="",latency_class="orchestration"}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^valuecanvas_http_request_ttfb_ms_bucket$"
+          as: "backend_orchestration_ttfb_p95_latency_ms"
+        metricsQuery: >-
+          histogram_quantile(
+            0.95,
+            sum(
+              rate(
+                valuecanvas_http_request_ttfb_ms_bucket{
+                  <<.LabelMatchers>>,
+                  latency_class="orchestration",
+                  route!="/health/live",
+                  route!="/health/ready",
+                  route!="/metrics"
+                }[2m]
+              )
+            ) by (le)
+          )
+
+      - seriesQuery: 'valuecanvas_http_request_duration_ms_bucket{namespace!="",app!="",le!="",latency_class="orchestration"}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^valuecanvas_http_request_duration_ms_bucket$"
+          as: "backend_orchestration_completion_p95_latency_ms"
+        metricsQuery: >-
+          histogram_quantile(
+            0.95,
+            sum(
+              rate(
+                valuecanvas_http_request_duration_ms_bucket{
+                  <<.LabelMatchers>>,
+                  latency_class="orchestration",
                   route!="/health/live",
                   route!="/health/ready",
                   route!="/metrics"

@@ -8,7 +8,9 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | SLI | Target | Measurement | Evidence |
 |-----|--------|-------------|----------|
 | Availability | 99.9% | `1 - (5xx / total)` over 30d rolling | `infra/observability/SLOs.md`, Prometheus rules |
-| Latency P95 | ≤ 200ms | `histogram_quantile(0.95, http_request_duration_ms)` | `infra/testing/load-test.k6.js` thresholds |
+| Interactive completion latency P95 | ≤ 200ms | `histogram_quantile(0.95, valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"})` | `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/observability/prometheus/alerts/api-latency-slos.yml` |
+| Orchestration TTFB P95 | ≤ 200ms | `histogram_quantile(0.95, valuecanvas_http_request_ttfb_ms_bucket{latency_class="orchestration"})` | `packages/backend/src/config/slo.ts`, `infra/k8s/base/hpa.yaml`, `infra/testing/load-test.k6.js` |
+| Orchestration completion latency P95 | ≤ 3000ms | `histogram_quantile(0.95, valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"})` | `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/observability/prometheus/alerts/api-latency-slos.yml` |
 | Error rate | ≤ 0.1% | `5xx / total` over 5m | Grafana dashboard `mission-control.json` |
 | MTTR | ≤ 15 min | Alert-to-resolution | `docs/runbooks/emergency-procedures.md` |
 
@@ -99,7 +101,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
-| HPA | CPU/memory-based autoscaling | `infra/k8s/base/hpa.yaml` |
+| HPA | CPU/memory plus split-latency autoscaling (`interactive completion <= 200ms`, `orchestration TTFB <= 200ms`) | `infra/k8s/base/hpa.yaml`, `infra/k8s/base/prometheus-adapter-rules.yaml` |
 | PDB | Pod disruption budgets | `infra/k8s/base/backend-pdb.yaml` |
 | Multi-AZ | Terraform configured for multi-AZ | `infra/terraform/main.tf` |
 | Automated backups | Daily CronJob with S3 upload + retention | `infra/k8s/cronjobs/database-backup.yaml` |

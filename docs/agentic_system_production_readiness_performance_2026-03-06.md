@@ -1,5 +1,7 @@
 # Agentic System Production Readiness: Performance Engineering Assessment (2026-03-06)
 
+> **Archive note (updated 2026-03-19):** This assessment is retained for historical context only. Current production manifests now use a split-latency model: interactive completion p95 <= 200ms, orchestration TTFB p95 <= 200ms, and orchestration completion p95 <= 3000ms. The current sources of truth are `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/k8s/base/hpa.yaml`, `infra/k8s/base/prometheus-adapter-rules.yaml`, and `docs/security-compliance/production-contract.md`.
+
 ## Scope and Method
 
 This assessment is a static-readiness review of the ValueOS agentic stack (backend API, agent workers, queueing, Supabase/Postgres access, Redis caching, and Kubernetes scaling configuration). It is based on code/config inspection and existing load-test/alert definitions, not on a fresh production load run.

@@ -9,15 +9,19 @@ ops_labels: alerting,incident-response,observability
 
 Runbooks for Prometheus alert rules defined in:
 
-- `infra/k8s/observability/prometheus/alert-rules.yaml`
-- `infra/prometheus/alerts/resource-pressure-alerts.yml` (duplicate host-level `HighCPUUsage` and `HighMemoryUsage` variants)
+- `infra/observability/prometheus/alerts/api-latency-slos.yml`
+- `infra/prometheus/alerts/slo-alerts.yml`
+- `infra/prometheus/alerts/backend-api-alerts.yml`
+- `infra/k8s/observability/prometheus/alert-rules.yaml` (staged legacy rules not yet aligned with the production split-latency contract)
 
 ## Status
 
 | Alert | Runbook status | Owning team | Rule file(s) |
 |---|---|---|---|
 | HighErrorRate | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml` |
-| HighResponseTime | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml` |
+| InteractiveCompletionLatencyHigh | [x] complete | Backend Platform | `infra/observability/prometheus/alerts/api-latency-slos.yml` |
+| OrchestrationTTFBHigh | [x] complete | Backend Platform | `infra/observability/prometheus/alerts/api-latency-slos.yml` |
+| OrchestrationCompletionHigh | [x] complete | Backend Platform | `infra/observability/prometheus/alerts/api-latency-slos.yml` |
 | PodDown | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml` |
 | HighCPUUsage | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/resource-pressure-alerts.yml` |
 | HighMemoryUsage | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/resource-pressure-alerts.yml` |
@@ -42,14 +46,32 @@ Runbooks for Prometheus alert rules defined in:
 - **Post-incident actions:** add regression test for failure mode; adjust alert threshold only with SLO review; document dependency guardrails.
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
-## HighResponseTime
-- **Trigger meaning:** API p95 latency per pod exceeds 1s for 5m.
-- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana RED dashboard.
-- **Common causes:** noisy neighbor CPU contention; DB query slowdown; external API latency; cold cache after deploy.
-- **Remediation:** scale deployment replicas; enable cached path / reduce expensive feature; roll back recent query or route change.
+## InteractiveCompletionLatencyHigh
+- **Trigger meaning:** interactive request completion p95 exceeds **200ms** for 10m. This is the universal SLO for cache-friendly, user-blocking routes.
+- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana `mission-control.json` split-latency panels.
+- **Common causes:** noisy-neighbor CPU contention; DB query slowdown on read paths; cache misses after deploy; frontend/API fan-out regression.
+- **Remediation:** scale deployment replicas; re-enable cached path or rollback expensive interactive route change; check `backend_interactive_http_p95_latency_ms` HPA signal.
 - **Escalation:** Engage **Backend Platform** and **Data Platform** if sustained >15m or if DB alerts co-fire.
-- **Post-incident actions:** capture latency profile; add route-level SLO guardrail; tune autoscaling floor.
-- **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
+- **Post-incident actions:** capture route-level latency profile; keep interactive endpoints out of orchestration/LLM workflows unless redesigned.
+- **Ownership:** Backend Platform. **Rule files:** `infra/observability/prometheus/alerts/api-latency-slos.yml`, `infra/prometheus/alerts/slo-alerts.yml`, `infra/prometheus/alerts/backend-api-alerts.yml`.
+
+## OrchestrationTTFBHigh
+- **Trigger meaning:** orchestration request **TTFB p95 exceeds 200ms** for 10m. This means streaming/job acknowledgement is too slow even if full completion remains acceptable.
+- **Triage commands:** inspect streaming route logs with `kubectl -n <ns> logs <pod> --since=10m | rg -n "flushHeaders|stream|queue|latency"`; inspect Grafana split-latency panels; check `backend_orchestration_ttfb_p95_latency_ms`.
+- **Common causes:** delayed stream setup; queue admission lag; auth/tenant context lookup before first byte; cold start before headers flush.
+- **Remediation:** restore fast early acknowledgement/stream-open path; prewarm orchestration workers; move heavy pre-response work behind async execution.
+- **Escalation:** Engage **Backend Platform** immediately if paired with queue lag or agent cold-start alerts.
+- **Post-incident actions:** verify the route still fits the orchestration class and keeps first-byte work minimal.
+- **Ownership:** Backend Platform. **Rule files:** `infra/observability/prometheus/alerts/api-latency-slos.yml`, `infra/prometheus/alerts/slo-alerts.yml`, `infra/prometheus/alerts/backend-api-alerts.yml`.
+
+## OrchestrationCompletionHigh
+- **Trigger meaning:** orchestration request completion p95 exceeds **3000ms** for 10m. This is distinct from TTFB and captures end-to-end orchestration completion.
+- **Triage commands:** inspect queue depth, agent execution, and upstream dependency traces; check `kubectl -n <ns> get hpa`; review orchestration-specific Grafana panels.
+- **Common causes:** LLM latency; queue backlog; slow downstream billing/queue services; serialization or artifact composition overhead.
+- **Remediation:** scale orchestration workers; reduce synchronous completion work; roll back expensive orchestration change; confirm streaming/async fallbacks remain enabled.
+- **Escalation:** Engage **Backend Platform** and **Data Platform** if duration is DB-bound, and **Agent Platform** if agent execution dominates.
+- **Post-incident actions:** add route-level completion SLO guardrail and verify TTFB remains independent from completion.
+- **Ownership:** Backend Platform. **Rule files:** `infra/observability/prometheus/alerts/api-latency-slos.yml`, `infra/prometheus/alerts/slo-alerts.yml`, `infra/prometheus/alerts/backend-api-alerts.yml`.
 
 ## PodDown
 - **Trigger meaning:** Pod scrape target reports `up == 0` for 2m.
