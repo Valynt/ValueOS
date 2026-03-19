@@ -10,6 +10,7 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
+import { buildAnonymizedMetadata, buildDeletedPlaceholderEmail } from "../lib/anonymization.js";
 import { createServerSupabaseClient } from "../lib/supabase";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
@@ -220,8 +221,8 @@ router.post(
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const placeholderEmail = `deleted+${userId}@redacted.local`;
       const redactedTs = new Date().toISOString();
+      const placeholderEmail = buildDeletedPlaceholderEmail(email, userId);
 
       // 1. Anonymize user profile (scoped to tenant)
       await supabase
@@ -231,13 +232,16 @@ router.post(
           full_name: null,
           display_name: null,
           avatar_url: null,
-          metadata: { anonymized: true, anonymized_at: redactedTs },
+          metadata: buildAnonymizedMetadata(undefined, redactedTs),
         })
         .eq("id", userId)
         .eq("tenant_id", tenantId);
 
       // 2. Scrub content in related tables (scoped to tenant)
-      const scrubbed = { content: "[redacted]", metadata: { anonymized: true, redacted_at: redactedTs } };
+      const scrubbed = {
+        content: "[redacted]",
+        metadata: { ...buildAnonymizedMetadata(undefined, redactedTs), redacted_at: redactedTs },
+      };
       await supabase.from("messages").update(scrubbed).eq("user_id", userId).eq("tenant_id", tenantId);
       await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
       await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);

@@ -16,6 +16,7 @@ This index maps key SOC2/GDPR controls to automated evidence produced in CI. It 
 | SOC2 | CC6.1 Logical and physical access controls | `tests/security/rls-tenant-isolation.test.ts` | `reports/compliance/rls/vitest-rls.junit.xml`, `reports/compliance/rls/vitest-rls.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` (RLS foundations: tenants, user_tenants, security schema, user_has_tenant_access), `infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql` |
 | SOC2 | CC6.8 Audit log integrity/immutability | `tests/compliance/audit/audit-log-immutability.test.ts` | `reports/compliance/audit/vitest-audit-immutability.junit.xml`, `reports/compliance/audit/vitest-audit-immutability.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql`, `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` (audit_logs, security_audit_log tables) |
 | GDPR | Article 15/17 (access + erasure DSR workflow) | `tests/compliance/dsr-workflow.test.ts` | `reports/compliance/dsr/vitest-dsr.junit.xml`, `reports/compliance/dsr/vitest-dsr.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` (sessions, messages, agent_audit_logs — GDPR Art.17 gap resolution), `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` |
+| GDPR / SOC2 | Non-production data minimization and anonymization evidence | `scripts/privacy/nonprod-data-pipeline.ts` | `artifacts/nonprod-data-privacy/verification-report.json`, `artifacts/nonprod-data-privacy/verification-summary.md`, `artifacts/nonprod-data-privacy/anonymized/**` | `${GITHUB_RUN_ID}` from `nonprod-data-anonymization-verification.yml` | `packages/shared/src/lib/piiFilter.ts`, `packages/backend/src/lib/redaction.ts`, `packages/backend/src/lib/anonymization.ts`, `packages/backend/src/api/dataSubjectRequests.ts` |
 | ISO 27001 | A.12.4 Event logging and monitoring | `tests/compliance/audit/audit-log-immutability.test.ts` | Same as audit artifacts above | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql` |
 
 ## Standard artifact naming
@@ -30,6 +31,22 @@ Each bundle contains:
 - `SHA256SUMS` checksum ledger.
 - `SHA256SUMS.sig` + `SHA256SUMS.pem` keyless signature material.
 - `reports/compliance/metadata/workflow-run.json` with run metadata.
+
+## Non-production anonymization artifact
+
+Release sign-off for staging/dev data must include the latest successful artifact from `.github/workflows/nonprod-data-anonymization-verification.yml`:
+
+- Artifact name: `nonprod-data-anonymization-report-<GITHUB_RUN_ID>`
+- Required files:
+  - `artifacts/nonprod-data-privacy/verification-summary.md`
+  - `artifacts/nonprod-data-privacy/verification-report.json`
+  - `artifacts/nonprod-data-privacy/anonymized/**`
+
+Approvers must verify that the artifact summary shows `PASS` for all three rule families:
+
+1. forbidden production identifiers absent,
+2. sensitive fields redacted/null/anonymized only, and
+3. raw sensitive literals absent.
 
 ## Quarterly evidence export
 

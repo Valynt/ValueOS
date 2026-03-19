@@ -1,0 +1,29 @@
+{
+  "forbiddenIdentifierHints": [
+    "prod-live-tenant",
+    "production.valueos.com",
+    "api.valueos.com",
+    "sk_live_",
+    "pk_live_",
+    "cus_live_"
+  ],
+  "allowedEmailSuffixes": [
+    "@redacted.local"
+  ],
+  "sensitiveFieldPatterns": [
+    "email",
+    "phone",
+    "ssn",
+    "passport",
+    "tax",
+    "token",
+    "secret",
+    "password",
+    "auth",
+    "session",
+    "cookie",
+    "address",
+    "dob",
+    "birth"
+  ]
+}

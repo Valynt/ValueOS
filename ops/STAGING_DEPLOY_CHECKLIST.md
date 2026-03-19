@@ -18,6 +18,8 @@ aspirational and not used for v1.
 - [ ] Migrations applied: `supabase db push --db-url "$DATABASE_URL"`
 - [ ] RLS policies verified: `pnpm run test:rls` (requires DB connection)
 - [ ] Seed data loaded (if applicable)
+- [ ] Restored/seeded staging data anonymized and verified: `pnpm exec tsx scripts/privacy/nonprod-data-pipeline.ts --input <restored-snapshot-or-export> --forbidden-identifiers-file scripts/privacy/fixtures/forbidden-production-identifiers.txt --output-dir artifacts/nonprod-data-privacy`
+- [ ] Attach `artifacts/nonprod-data-privacy/verification-summary.md` or the `nonprod-data-anonymization-report-<run_id>` workflow artifact to the release/deploy sign-off
 
 ## Build & Deploy
 
@@ -48,4 +50,5 @@ aspirational and not used for v1.
 - [ ] Zero-downtime deploy verified (rolling restart with no 5xx)
 - [ ] Logs flowing to structured output (JSON, no raw console.log)
 - [ ] Health check returns degraded status when Redis is down
+- [ ] Release approver reviewed non-prod anonymization report and confirmed all rules passed
 - [ ] Document any gaps found during deploy in this file

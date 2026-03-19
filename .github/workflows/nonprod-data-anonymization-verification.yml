@@ -1,0 +1,63 @@
+name: Non-Production Data Anonymization Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_path:
+        description: "Representative dataset or restored snapshot path to anonymize and verify"
+        required: false
+        default: "scripts/privacy/fixtures/restored-snapshot.sample.json"
+        type: string
+      forbidden_identifiers_file:
+        description: "Optional newline-delimited file of forbidden production identifiers"
+        required: false
+        default: "scripts/privacy/fixtures/forbidden-production-identifiers.txt"
+        type: string
+  push:
+    paths:
+      - "scripts/privacy/**"
+      - "packages/backend/src/lib/anonymization.ts"
+      - "packages/backend/src/api/dataSubjectRequests.ts"
+      - "packages/backend/src/lib/redaction.ts"
+      - "packages/shared/src/lib/piiFilter.ts"
+      - ".github/workflows/nonprod-data-anonymization-verification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  anonymize-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run non-production anonymization pipeline
+        run: |
+          mkdir -p artifacts/nonprod-data-privacy
+          pnpm exec tsx scripts/privacy/nonprod-data-pipeline.ts \
+            --input "${{ github.event.inputs.input_path || 'scripts/privacy/fixtures/restored-snapshot.sample.json' }}" \
+            --forbidden-identifiers-file "${{ github.event.inputs.forbidden_identifiers_file || 'scripts/privacy/fixtures/forbidden-production-identifiers.txt' }}" \
+            --output-dir artifacts/nonprod-data-privacy
+
+      - name: Upload anonymization verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nonprod-data-anonymization-report-${{ github.run_id }}
+          path: artifacts/nonprod-data-privacy/**
+          if-no-files-found: error
+          retention-days: 90

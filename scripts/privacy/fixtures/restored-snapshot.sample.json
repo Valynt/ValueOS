@@ -1,0 +1,30 @@
+{
+  "snapshot_id": "staging-restore-2026-03-19",
+  "environment": "staging",
+  "tenant_id": "tenant-demo",
+  "users": [
+    {
+      "id": "user-1",
+      "email": "alice.customer@example.com",
+      "full_name": "Alice Customer",
+      "phone": "+1 (415) 555-0100",
+      "metadata": {
+        "imported_from": "prod-snapshot-2026-03-18"
+      }
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-1",
+      "user_id": "user-1",
+      "content": "Call Alice Customer at +1 (415) 555-0100"
+    }
+  ],
+  "integrations": [
+    {
+      "id": "crm-1",
+      "owner_email": "owner@example.com",
+      "api_token": "sk_live_exampletoken1234567890abcdefghijkl"
+    }
+  ]
+}

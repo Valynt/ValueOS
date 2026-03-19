@@ -73,6 +73,15 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
    > instance immediately before the restore procedure, then use that as the source.
    > Document the fallback in the incident record.
 
+4a. **Anonymize restored non-production data and capture evidence** before exposing the database to staging/dev users:
+   ```bash
+   pnpm exec tsx scripts/privacy/nonprod-data-pipeline.ts \
+     --input /secure-restores/staging/latest/restored-snapshot.json \
+     --forbidden-identifiers-file scripts/privacy/fixtures/forbidden-production-identifiers.txt \
+     --output-dir artifacts/nonprod-data-privacy
+   ```
+   Review `artifacts/nonprod-data-privacy/verification-summary.md`. The run is acceptable only if all rules pass and the summary shows the forbidden-identifier, sensitive-field, and raw-literal checks as `PASS`.
+
 5. **Update connection strings**: Rotate `DATABASE_URL` in Vault/Secrets Manager
 6. **Verify**: Run `bash scripts/dr-validate.sh staging` to confirm data integrity
 7. **Notify stakeholders**: Post in `#incidents` with RTO achieved and data loss window
@@ -126,7 +135,7 @@ Run `bash scripts/dr-validate.sh` quarterly at minimum:
 | Q3 | staging | Full backup-restore + WAL replay test | Platform team |
 | Q4 | staging | Full backup-restore + cluster recreation | Platform team |
 
-After each test, update `dr-validation-report.json` and record RTO in the quarterly review.
+After each test, update `dr-validation-report.json`, attach the latest `nonprod-data-anonymization-report-<run_id>` workflow artifact (or the local `artifacts/nonprod-data-privacy/verification-summary.md` generated from the restored snapshot), and record RTO in the quarterly review.
 
 ## Recovery SLA
 
