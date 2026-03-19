@@ -77,6 +77,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 
 ## Go/No-Go Checklist
 
+- **Canonical enforcement:** `pnpm run check:release-signoff` is the automated control that enforces release-sign-off consistency before production promotion and during release automation. The deploy and release workflows must remain wired to this check; the checklist items below are evidence expectations that the gate validates, not a manual substitute.
 - [ ] Pre-production launch gate passed in CI (`.github/workflows/deploy.yml` → `preprod-launch-gate` job).
 - [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and co-branding scope.
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
@@ -92,6 +93,24 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Accessibility and localization dashboard trends reviewed in `docs/quality/ux-quality-scorecard.md`, with any regression assigned to the documented route owner before production sign-off.
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
+
+### Automated release sign-off enforcement
+
+The canonical release evidence gate is `scripts/ci/check-release-signoff.mjs`, exposed as:
+
+```bash
+pnpm run check:release-signoff
+```
+
+This check is blocking in both `.github/workflows/release.yml` and the production promotion path in `.github/workflows/deploy.yml`. It fails the workflow when any of the following drift conditions exist:
+
+1. `docs/operations/release-scope-ga-signoff.md` is missing or does not declare the target release version.
+2. Product, Engineering, or Security approvals are missing explicit signed timestamps.
+3. `docs/security-compliance/threat-model.md` does not contain the matching Review and Approver Record row for the same release.
+4. `docs/security-compliance/evidence-index.md` does not reference the same release evidence bundle chain.
+5. The workflow’s target release version and the documented sign-off artifacts disagree.
+
+Treat a failing automated release sign-off check as a hard **No-Go** for production promotion until the evidence chain is corrected in-repo.
 
 ## Release Notes & Versioning Evidence (Changesets)
 

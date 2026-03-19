@@ -48,6 +48,9 @@ jobs:
       - name: Build workspace
         run: pnpm run build --if-present
 
+      - name: Validate release sign-off evidence chain
+        run: pnpm run check:release-signoff
+
       - name: Generate SBOM (CycloneDX)
         run: |
           mkdir -p release-artifacts

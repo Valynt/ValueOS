@@ -815,6 +815,10 @@ jobs:
             echo "No co-branding assets detected; skipping co-branding checks."
           fi
 
+      - name: Validate release sign-off evidence chain
+        run: |
+          pnpm run check:release-signoff
+
       - name: Upload pre-production launch gate artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
