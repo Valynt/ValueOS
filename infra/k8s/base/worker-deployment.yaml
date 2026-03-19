@@ -86,6 +86,10 @@ spec:
                   name: valynt-secrets
                   key: openai-api-key
                   optional: true
+            - name: AGENT_QUEUE_CONCURRENCY
+              value: "4"
+            - name: DATABASE_POOL_SIZE
+              value: "4"
 
           resources:
             # Tuned from observed p95/p99 execution windows to reduce throttling while lowering idle waste.

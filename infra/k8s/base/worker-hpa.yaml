@@ -16,10 +16,10 @@ spec:
     kind: Deployment
     name: worker
   minReplicas: 2
-  maxReplicas: 12
+  maxReplicas: 16
   metrics:
     # BullMQ agent job queue depth is the canonical worker scaling signal.
-    # Target ~20 waiting jobs per pod based on observed throughput.
+    # Target ~15 waiting jobs per pod now that per-worker concurrency is capped at 4.
     - type: External
       external:
         metric:
@@ -29,9 +29,9 @@ spec:
               queue: agent-jobs
         target:
           type: AverageValue
-          averageValue: "20"
+          averageValue: "15"
 
-    # Delayed jobs provide early scale-out before scheduled bursts become active.
+    # Delayed jobs provide early scale-out before scheduled bursts become active and workers saturate.
     - type: External
       external:
         metric:
@@ -41,7 +41,7 @@ spec:
               queue: agent-jobs
         target:
           type: AverageValue
-          averageValue: "50"
+          averageValue: "40"
 
     # CPU and memory remain secondary safety signals for compute-heavy jobs.
     - type: Resource

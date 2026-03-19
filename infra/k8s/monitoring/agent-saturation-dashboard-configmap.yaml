@@ -1,0 +1,192 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-agent-saturation
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part-of: valueos
+  annotations:
+    dashboards.valueos.dev/purpose: agent-saturation
+    dashboards.valueos.dev/owner: sre
+    dashboards.valueos.dev/review-cadence: weekly
+    dashboards.valueos.dev/source: infra/k8s/monitoring/agent-saturation-dashboard-configmap.yaml
+data:
+  agent-saturation.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "id": null,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0.05 },
+                  { "color": "red", "value": 0.15 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 1,
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_cfs_throttled_seconds_total{namespace=\"valynt-agents\", container!~\"POD|istio-proxy|opa-ext-authz|auth-proxy\", pod=~\"$deployment.*\"}[5m]))",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU Throttling Rate by Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 800000000 },
+                  { "color": "red", "value": 1500000000 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 2,
+          "targets": [
+            {
+              "expr": "sum by (pod) (container_memory_rss{namespace=\"valynt-agents\", container!~\"POD|istio-proxy|opa-ext-authz|auth-proxy\", pod=~\"$deployment.*\"})",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Memory RSS by Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 3,
+          "targets": [
+            {
+              "expr": "sum by (agent_type) (agent_queue_depth{queue=\"agent-tasks\", agent_type=~\"$agent_type\"})",
+              "legendFormat": "agent queue {{agent_type}}",
+              "refId": "A"
+            },
+            {
+              "expr": "sum by (consumer_group) (redis_stream_length{stream=\"valuecanvas.events\", consumer_group=~\"$agent_type\"})",
+              "legendFormat": "redis backlog {{consumer_group}}",
+              "refId": "B"
+            }
+          ],
+          "title": "Queue Depth / Backlog",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 10 },
+                  { "color": "red", "value": 30 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 4,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(agent_fabric_execution_duration_seconds_bucket{agent_type=~\"$agent_type\"}[5m])) by (le, agent_type))",
+              "legendFormat": "{{agent_type}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Execution Latency p95",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["agents", "autoscaling", "saturation", "sre"],
+      "templating": {
+        "list": [
+          {
+            "current": { "selected": false, "text": "opportunity-agent", "value": "opportunity-agent" },
+            "datasource": "Prometheus",
+            "definition": "label_values(kube_deployment_labels{namespace=\"valynt-agents\"}, deployment)",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Deployment",
+            "multi": false,
+            "name": "deployment",
+            "options": [],
+            "query": "label_values(kube_deployment_labels{namespace=\"valynt-agents\"}, deployment)",
+            "refresh": 1,
+            "sort": 1,
+            "type": "query"
+          },
+          {
+            "current": { "selected": false, "text": "opportunity", "value": "opportunity" },
+            "datasource": "Prometheus",
+            "definition": "label_values(agent_fabric_execution_duration_seconds_bucket, agent_type)",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Agent Type",
+            "multi": false,
+            "name": "agent_type",
+            "options": [],
+            "query": "label_values(agent_fabric_execution_duration_seconds_bucket, agent_type)",
+            "refresh": 1,
+            "sort": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "title": "Agent Saturation Dashboard",
+      "timezone": "UTC",
+      "version": 1
+    }

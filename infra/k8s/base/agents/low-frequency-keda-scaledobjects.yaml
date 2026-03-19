@@ -14,7 +14,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -40,7 +40,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -66,7 +66,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -92,7 +92,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 8
+  maxReplicaCount: 12
   triggers:
     - type: prometheus
       metadata:
@@ -118,7 +118,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 8
+  maxReplicaCount: 12
   triggers:
     - type: prometheus
       metadata:
@@ -144,7 +144,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:
@@ -170,7 +170,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -196,7 +196,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:
@@ -222,7 +222,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -248,7 +248,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -274,7 +274,7 @@ spec:
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:

@@ -1,163 +1,52 @@
 # Agent Scaling Strategy — Infrastructure-as-Code Specification
 
-**Scope:** All `valynt-agents` workloads
+**Scope:** `infra/k8s/base/agents/*` and queue-backed worker autoscaling.
 **Last Updated:** 2026-03-19
 
----
+## 1. Workload Profiles
 
-## 1. Scaling Classes (Source of Truth)
+| Profile | Intended workloads | MAX_CONCURRENT_REQUESTS | DB pool / pod | Scaling stance |
+|---|---|---:|---:|---|
+| latency-sensitive | Interactive lifecycle stages that sit on the user-facing critical path | 6 | 4 | Keep warm capacity, then fan out through HPA. |
+| financial-critical | Heavier execution paths where each request holds CPU, memory, and DB state for longer | 4 | 3 | Prefer narrower pods with bounded DB pressure; scale out before increasing per-pod fan-in. |
+| low-frequency async | Queue-backed and bursty async agents, including low-frequency KEDA workloads | 2 | 2 | Prefer HPA/KEDA replica growth over deep in-pod queues. |
+| queue-worker | Shared BullMQ worker deployment | 4 (`AGENT_QUEUE_CONCURRENCY`) | 4 (`DATABASE_POOL_SIZE`) | Use queue depth as the primary scaling signal; keep per-worker fan-out bounded. |
 
-| Agent | Scaling class | Baseline replicas | Scaling mechanism | Notes |
-|---|---|---:|---|---|
-| opportunity-agent | latency-sensitive core | 2 | HPA + Redis external metric | Keep warm for interactive discovery UX. |
-| target-agent | latency-sensitive core | 2 | HPA | KPI drafting is user-facing and bursty. |
-| integrity-agent | latency-sensitive core | 2 | HPA | Validation/veto stage gates workflow transitions. |
-| expansion-agent | latency-sensitive core | 3 | HPA + external metric | Growth planning remains always-on. |
-| realization-agent | latency-sensitive core | 2 | HPA + Redis external metric | Execution plans are part of critical path. |
-| financial-modeling-agent | financial critical | 3 | HPA + external metric | Never scale to zero; protects forecasting latency SLOs. |
-| research-agent | high-throughput async | 3 | HPA + external metric | Long-running workloads, high sustained throughput. |
-| company-intelligence-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| value-mapping-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| system-mapper-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| intervention-designer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| outcome-engineer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| coordinator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| value-eval-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| communicator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| benchmark-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| narrative-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
-| groundtruth-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+## 2. Inventory of Agent Manifests
 
-> Rule: financial + latency-sensitive classes must keep non-zero baseline.
+| Agent | Profile | CPU request | Memory request | Autoscaler min | Autoscaler max | Autoscaler type | Current MAX_CONCURRENT_REQUESTS | DB pool / pod |
+|---|---|---:|---:|---:|---:|---|---:|---:|
+| benchmark-agent | low-frequency async | 150m | 384Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
+| communicator-agent | low-frequency async | 100m | 256Mi | 0 | 8 | KEDA ScaledObject | 2 | 2 |
+| company-intelligence-agent | low-frequency async | 150m | 384Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
+| coordinator-agent | low-frequency async | 150m | 384Mi | 0 | 8 | KEDA ScaledObject | 2 | 2 |
+| expansion-agent | latency-sensitive | 200m | 512Mi | 3 | 12 | HPA | 6 | 4 |
+| financial-modeling-agent | financial-critical | 200m | 512Mi | 3 | 10 | HPA | 4 | 3 |
+| groundtruth-agent | low-frequency async | 150m | 384Mi | 0 | 8 | KEDA ScaledObject | 2 | 2 |
+| integrity-agent | latency-sensitive | 100m | 256Mi | 2 | 6 | HPA | 6 | 4 |
+| intervention-designer-agent | low-frequency async | 250m | 640Mi | 0 | 12 | KEDA ScaledObject | 2 | 2 |
+| narrative-agent | low-frequency async | 200m | 512Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
+| opportunity-agent | latency-sensitive | 500m | 1Gi | 2 | 8 | HPA | 6 | 4 |
+| outcome-engineer-agent | low-frequency async | 250m | 640Mi | 0 | 12 | KEDA ScaledObject | 2 | 2 |
+| realization-agent | financial-critical | 750m | 1536Mi | 2 | 10 | HPA | 4 | 3 |
+| research-agent | low-frequency async | 200m | 512Mi | 3 | 14 | HPA | 2 | 2 |
+| system-mapper-agent | low-frequency async | 200m | 512Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
+| target-agent | latency-sensitive | 100m | 256Mi | 2 | 6 | HPA | 6 | 4 |
+| value-eval-agent | low-frequency async | 150m | 384Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
+| value-mapping-agent | low-frequency async | 150m | 384Mi | 0 | 10 | KEDA ScaledObject | 2 | 2 |
 
-### Interactive warm-capacity allowlist
+## 3. Aggregate Connection-Pressure Guardrails
 
-Only the following agents may sit on synchronous request paths. Each one must
-retain non-zero warm capacity via HPA-managed `minReplicas`:
+The new profile split intentionally lowers per-pod DB fan-in before increasing autoscaler ceilings:
 
-- `opportunity`
-- `target`
-- `integrity`
-- `expansion`
-- `realization`
-- `financial-modeling`
+- **Latency-sensitive:** worst-case pool pressure is `12 replicas * 4 connections = 48` for the largest interactive class, instead of `12 * 5 = 60` under the old shared default.
+- **Financial-critical:** heavy pods cap at `10 replicas * 3 connections = 30`, which keeps financial-modeling and realization under the old `10/12 * 5` connection envelope.
+- **Low-frequency async:** scale-to-zero classes can now fan out to `8-12` replicas while still staying at `16-24` aggregate DB connections because each pod only carries a pool of `2`.
+- **Queue worker:** the shared worker now advertises `AGENT_QUEUE_CONCURRENCY=4` and `DATABASE_POOL_SIZE=4` so queue bursts scale through HPA instead of a silent default pool of `10` per pod.
 
-### Scale-to-zero async denylist
+## 4. Autoscaling Rules of Thumb
 
-The following agents are explicitly **async-only**. They may be invoked only by
-queue, polling, or streaming workflows and must never be treated as warm
-interactive capacity:
-
-- `company-intelligence`
-- `value-mapping`
-- `system-mapper`
-- `intervention-designer`
-- `outcome-engineer`
-- `coordinator`
-- `value-eval`
-- `communicator`
-- `benchmark`
-- `narrative`
-- `groundtruth`
-
-Backend enforcement lives in `packages/backend/src/services/agents/AgentScalingPolicy.ts`
-and interactive-route guards in `QueryExecutor` / `ActionRouterHandlers`.
-
-### Backend request-path audit
-
-- `packages/backend/src/runtime/execution-runtime/QueryExecutor.ts` now rejects denylisted agents when a request is still synchronous, even if the work is executed through an async worker and awaited inline.
-- `packages/backend/src/services/agents/ActionRouterHandlers.ts` blocks interactive `invokeAgent` and `showExplanation` actions from wiring async-only agents into the UI critical path.
-- `packages/backend/src/api/workflow.ts` remains an accepted async entry point because it returns `202 Accepted` and delegates execution to background workflow orchestration.
-
----
-
-## 2. Stabilization Windows by Workload Type
-
-| Workload type | Scale-up window | Scale-down window | Why |
-|---|---:|---:|---|
-| Interactive API / web | 0-15s | 90-120s | Request/response traffic can release capacity quickly after spike validation shows no request thrash. |
-| Queue-backed async worker | 30s | 300s | Pods may still hold in-flight jobs; give queues time to drain before scale-in. |
-| Low-frequency async agents (KEDA) | activation-driven | 180s cooldown | Capacity exists to clear asynchronous backlog, not to satisfy interactive latency. |
-
-Operational rule: shorten scale-down windows only for interactive workloads that have passed load validation without oscillation or request thrash. Keep longer windows for workloads that may drop or requeue in-flight work during scale-in.
-
----
-
-## 3. Low-Frequency Agent Wake-Up Design (KEDA)
-
-Low-frequency agents now use `keda.sh/v1alpha1` `ScaledObject` resources with:
-
-- `minReplicaCount: 0`
-- `pollingInterval: 15s`
-- `cooldownPeriod: 180s`
-- Redis stream depth trigger via Prometheus query over `redis_stream_length`
-
-This replaces fixed-min HPA behavior and enables true scale-to-zero while still
-waking agents as soon as pending stream depth exceeds activation thresholds.
-These agents provide asynchronous backlog-clearing capacity; they should not be
-counted as warm capacity for interactive request-path latency SLOs.
-
-Primary manifest: `infra/k8s/base/agents/low-frequency-keda-scaledobjects.yaml`.
-
----
-
-## 4. Cold-Start SLO Instrumentation and Alerting
-
-### Metric contract
-
-The platform emits a histogram metric:
-
-- `agent_enqueue_to_ready_seconds_bucket`
-- `agent_enqueue_to_ready_seconds_count`
-
-This measures enqueue timestamp to first ready pod latency for wake-up events.
-
-### SLO target
-
-- **Objective:** 95% of cold starts complete within **45 seconds**.
-
-### Recording rules
-
-Defined in `infra/k8s/monitoring/prometheus-slo-rules.yaml`:
-
-- `slo:agent_cold_start:good_rate5m`
-- `slo:agent_cold_start:good_rate1h`
-- Burn-rate calculations for 5m/1h windows
-
-### Alerts
-
-- `AgentColdStartSLOBurnRateTooHigh` (critical; SLO burn-rate)
-- `AgentFabricColdStartEnqueueToReadyP95High` (warning; p95 > 45s)
-
----
-
-## 5. GPU Inference Overlay
-
-GPU inference workloads are isolated in:
-
-- `infra/k8s/overlays/gpu-inference/`
-
-The overlay applies dedicated scheduling and resource constraints for inference
-pods:
-
-- Node selectors for GPU pools
-- GPU tolerations (`nvidia.com/gpu`)
-- Explicit MIG requests/limits (`nvidia.com/mig-1g.10gb: "1"`)
-
-Current GPU overlay targets:
-
-- `value-eval-agent`
-- `groundtruth-agent`
-
-This keeps GPU scheduling concerns out of the base manifests and allows
-cluster-specific promotion of GPU workloads.
-
----
-
-## 6. Operational Notes
-
-1. Deploy KEDA before applying `low-frequency-keda-scaledobjects.yaml`.
-2. Keep Redis + Prometheus scraping healthy; wake-up is driven by stream depth.
-3. Review cold-start SLO dashboards after each scaling threshold adjustment.
-4. Reclassify agents in this document whenever workload behavior changes.
-5. Keep the worker HPA in `infra/k8s/base/worker-hpa.yaml` as the single source of truth for worker autoscaling.
+1. Lower concurrency first for CPU-throttled or memory-spiky agents.
+2. Raise HPA/KEDA replica ceilings only if queue depth and p95 latency remain high after concurrency is reduced.
+3. Keep DB pool changes coupled to autoscaler max replica changes; never change one without recalculating the aggregate connection envelope.
+4. Use the saturation dashboard before changing profile defaults so replica, queue, CPU, and latency evidence stay aligned.
