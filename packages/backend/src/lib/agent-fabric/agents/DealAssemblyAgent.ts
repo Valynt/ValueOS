@@ -46,6 +46,8 @@ type WebScraperResult = {
   metadata: Record<string, unknown>;
 };
 
+const TRANSCRIPT_ANALYSIS_CONCURRENCY = 4;
+
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
@@ -212,20 +214,12 @@ export class DealAssemblyAgent extends BaseAgent {
           const { CallAnalysisService } = await import("../../services/CallAnalysisService.js") as {
             CallAnalysisService: { analyzeTranscript: (id: string) => Promise<CallAnalysisResult> };
           };
-
-          for (const transcriptId of transcriptIds) {
-            try {
-              const result = await CallAnalysisService.analyzeTranscript(transcriptId);
-              callAnalysisResults.push(result);
-            } catch (transcriptErr) {
-              logger.warn("Failed to analyze transcript, skipping", {
-                agent: this.name,
-                session_id: sessionId,
-                transcriptId,
-                error: (transcriptErr as Error).message,
-              });
-            }
-          }
+          const transcriptAnalysisResults = await this.analyzeTranscriptsConcurrently(
+            transcriptIds,
+            sessionId,
+            CallAnalysisService.analyzeTranscript
+          );
+          callAnalysisResults.push(...transcriptAnalysisResults);
 
           logger.info("Call transcript ingestion complete", {
             agent: this.name,
@@ -467,6 +461,40 @@ export class DealAssemblyAgent extends BaseAgent {
         startTime
       );
     }
+  }
+
+  private async analyzeTranscriptsConcurrently(
+    transcriptIds: string[],
+    sessionId: string,
+    analyzeTranscript: (transcriptId: string) => Promise<CallAnalysisResult>
+  ): Promise<CallAnalysisResult[]> {
+    const concurrency = Math.min(TRANSCRIPT_ANALYSIS_CONCURRENCY, transcriptIds.length);
+    const successfulResults: Array<CallAnalysisResult | undefined> = new Array(transcriptIds.length);
+    let nextTranscriptIndex = 0;
+
+    const workers = Array.from({ length: concurrency }, async () => {
+      while (nextTranscriptIndex < transcriptIds.length) {
+        const transcriptIndex = nextTranscriptIndex;
+        nextTranscriptIndex += 1;
+
+        const transcriptId = transcriptIds[transcriptIndex];
+
+        try {
+          successfulResults[transcriptIndex] = await analyzeTranscript(transcriptId);
+        } catch (transcriptErr) {
+          logger.warn("Failed to analyze transcript, skipping", {
+            agent: this.name,
+            session_id: sessionId,
+            transcriptId,
+            error: (transcriptErr as Error).message,
+          });
+        }
+      }
+    });
+
+    await Promise.all(workers);
+
+    return successfulResults.filter((result): result is CallAnalysisResult => result !== undefined);
   }
 
   /**
