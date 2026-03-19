@@ -26,9 +26,17 @@ function parseArgs(argv) {
     }
 
     if (key === 'timeout-seconds') {
-      args.timeoutSeconds = Number(next);
+      const timeoutSeconds = Number(next);
+      if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+        throw new Error(`Invalid value for --timeout-seconds: expected a positive number, got "${next}"`);
+      }
+      args.timeoutSeconds = timeoutSeconds;
     } else if (key === 'poll-seconds') {
-      args.pollSeconds = Number(next);
+      const pollSeconds = Number(next);
+      if (!Number.isFinite(pollSeconds) || pollSeconds <= 0) {
+        throw new Error(`Invalid value for --poll-seconds: expected a positive number, got "${next}"`);
+      }
+      args.pollSeconds = pollSeconds;
     } else if (key === 'manifest') {
       args.manifest = next;
     } else if (key === 'summary-out') {
