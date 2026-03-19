@@ -34,7 +34,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 `main` branch protection must require the following checks:
 
 - `pr-fast-blocking-subsets`
-- `post-merge-critical-subsets`
+- `staging-deploy-release-gates`
 - `codeql-analyze (js-ts)`
 
 ## Scanner Version Upgrade Workflow
@@ -49,4 +49,5 @@ When bumping scanner action versions:
    - `node scripts/ci/security-baseline-verification.mjs`
    - `node scripts/ci/check-ci-security-control-matrix.mjs`
    - `node scripts/ci/check-ci-workflow-scanner-refs.mjs`
+   - `node scripts/ci/check-required-check-workflow-consistency.mjs`
 4. Include all related updates in the same PR. Scanner version bumps without paired manifest/workflow consistency updates must be treated as policy violations.

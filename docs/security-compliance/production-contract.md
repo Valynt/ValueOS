@@ -120,7 +120,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 `main` branch protection must include these required checks:
 
 - `pr-fast-blocking-subsets`
-- `post-merge-critical-subsets`
+- `staging-deploy-release-gates`
 - `codeql-analyze (js-ts)`
 
 These checks map to quality, security, and code-scanning controls and should remain required for merge to `main`.
