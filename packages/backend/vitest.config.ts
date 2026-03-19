@@ -6,7 +6,6 @@ import { defineConfig } from 'vitest/config';
 const root = path.resolve(import.meta.dirname, '../..');
 
 export default defineConfig({
-  // @ts-expect-error — @vitejs/plugin-react targets vite 6, vitest/config resolves vite 7
   plugins: [react()],
   test: {
     globals: true,
