@@ -8,22 +8,21 @@
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ─── Hoisted mocks ────────────────────────────────────────────────────────────
-
-const { mockInvalidateEndpoint, mockGetOrLoad } = vi.hoisted(() => ({
-  mockInvalidateEndpoint: vi.fn().mockResolvedValue(0),
+const { mockGetOrLoad, mockInfo, mockInvalidateEndpoint } = vi.hoisted(() => ({
   mockGetOrLoad: vi.fn().mockResolvedValue({ success: true }),
+  mockInfo: vi.fn(),
+  mockInvalidateEndpoint: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock('../services/ReadThroughCacheService.js', () => ({
+vi.mock('@shared/lib/logger', () => ({
+  createLogger: () => ({ info: mockInfo, warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+}));
+
+vi.mock('../services/cache/ReadThroughCacheService.js', () => ({
   ReadThroughCacheService: {
     invalidateEndpoint: mockInvalidateEndpoint,
     getOrLoad: mockGetOrLoad,
   }
-}));
-
-vi.mock('../lib/logger.js', () => ({
-  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
 vi.mock('../middleware/rateLimiter.js', () => ({
@@ -48,29 +47,22 @@ import type { Express } from 'express';
 import express from 'express';
 import request from 'supertest';
 
-// ─── App factory ──────────────────────────────────────────────────────────────
-
-// Build a fresh Express instance so individual describe blocks can reconfigure
-// mocks before construction if needed (e.g., to test the authenticated path).
 function makeApp(): Express {
   const app = express();
-  app.use(express.json());
   return app;
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('POST /api/analytics/web-vitals — tenant header spoofing', () => {
   let app: Express;
 
   beforeAll(async () => {
-    // Import the router inside beforeAll so mocks are fully registered first.
     const { default: analyticsRouter } = await import('../api/analytics.js');
     app = makeApp();
     app.use('/api/analytics', analyticsRouter);
   });
 
   beforeEach(() => {
+    mockInfo.mockClear();
     mockInvalidateEndpoint.mockClear();
   });
 
@@ -100,7 +92,7 @@ describe('POST /api/analytics/web-vitals — tenant header spoofing', () => {
     const res = await request(app)
       .post('/api/analytics/web-vitals')
       .set('x-tenant-id', 'spoofed-tenant-uuid')
-      .send({ rating: 'good' }); // missing name and value
+      .send({ rating: 'good' });
 
     expect(res.status).toBe(400);
     expect(mockInvalidateEndpoint).not.toHaveBeenCalled();
