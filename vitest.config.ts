@@ -132,6 +132,10 @@ if (excludedShippedPackages.some(([, packageEntry]) => packageEntry.ci.rootVites
  *
  * Every shipped workspace package listed in config/ci/workspace-package-policy.json must be
  * either mapped here as an explicit project or excluded in that policy with a justification.
+ *
+ * Repository contract: `pnpm test` is the workspace unit-test lane. Package-local Vitest
+ * configs may delegate broader suites (integration, perf/load, security, e2e) to separate
+ * commands or configs, but the default workspace run must stay unit-only.
  */
 const explicitProjects = Array.from(
   new Set(coveredProjects.map(([packagePath]) => projectDefinitions[packagePath as keyof typeof projectDefinitions])),

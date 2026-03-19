@@ -1,212 +1,95 @@
-# 🚨 Test Infrastructure Failures - Blocking CI/CD Pipeline
+# 🚨 Test Infrastructure Scope Regression Risk
 
 ## Priority: P0 - Critical
 
 ## Summary
 
-The test suite is currently failing with 534 failed tests out of 1971 total tests (27% failure rate). These failures are **infrastructure-related** and not caused by recent code changes.
+The stale failure model for this repository was assuming a broad infrastructure outage inside the default `pnpm test` lane. The current problem is narrower and more actionable:
 
-## Impact
+> **If backend Vitest scope drifts, the default `pnpm test` run can accidentally include non-unit backend suites that are intentionally excluded from the unit lane.**
 
-- ❌ CI/CD pipeline is blocked
-- ❌ Cannot validate new features or bug fixes
-- ❌ Risk of deploying untested code
-- ❌ Developer productivity impacted
+That scope regression can turn the default CI run into an 800+ failure burst because the excluded suites expect dedicated infrastructure, longer runtimes, or different secrets/configuration than the unit lane provisions.
 
-## Root Causes
+## Canonical contract
 
-### 1. Database Migration Dependency Issue
+The unit-lane contract is enforced by:
 
-**Error**: `relation "audit_logs" does not exist`
-**Location**: `supabase/migrations/20251230012508_llm_gating_tables.sql`
+1. `vitest.config.ts`
+2. `packages/backend/vitest.config.ts`
+3. `.github/workflows/test.yml`
 
-**Details**:
+Supporting documentation lives in `docs/testing/pnpm-test-contract.md`.
 
-- Migration `20251230012508_llm_gating_tables.sql` depends on `audit_logs` table
-- The `audit_logs` table is not being created in the test environment
-- This causes the migration to fail and fall back to minimal test schema
-- Affects: 534+ tests across multiple test suites
+## Current failure model
 
-**Affected Test Files**:
+### What `pnpm test` is supposed to run
 
-- `src/security/__tests__/tenant-isolation.test.ts`
-- `tests/integration/failure-scenarios.integration.test.ts`
-- `tests/performance/stress-testing.test.ts`
-- And many more...
+- Workspace Vitest projects only
+- Backend **unit-oriented** tests covered by `packages/backend/vitest.config.ts`
+- Deterministic suites that do not require separate infrastructure orchestration
 
-**Fix Required**:
+### What `pnpm test` is intentionally supposed to exclude
 
-```sql
--- Option 1: Create audit_logs table before llm_gating_tables migration
--- Option 2: Remove dependency on audit_logs from llm_gating_tables
--- Option 3: Ensure audit_logs is created in minimal test schema
-```
+The backend package contains suites that are valid, but **must not** be part of the default run:
 
-### 2. MSW (Mock Service Worker) Configuration Issues
+- `*.integration.{test,spec}.ts`
+- `*.int.{test,spec}.ts`
+- `*.e2e.{test,spec}.ts`
+- `*.perf.{test,spec}.ts`
+- `*.load.{test,spec}.ts`
+- Integration-only directories such as:
+  - `src/**/__tests__/integration/**`
+  - `src/**/__integration__/**`
+  - `src/**/integration/**`
+- Security/RLS lanes that run through dedicated commands/configs, such as `pnpm run test:rls`
 
-**Error**: `[MSW] Warning: intercepted a request without a matching request handler`
+### Why the default lane fails so loudly when this regresses
 
-**Unhandled Request Patterns**:
+These excluded suites commonly require one or more of the following:
 
-- Docker API requests: `POST http://localhost/containers/create`, `GET http://localhost/containers/json`
-- Testcontainer exec requests: `POST http://localhost/exec/{id}/start`
-- Network requests: `GET http://localhost/networks/bridge`
-- Image requests: `GET http://localhost/images/{image}/json`
+- Real or provisioned databases
+- Queue/streaming infrastructure
+- Dedicated secrets or auth fixtures
+- Longer timing budgets than the unit lane allows
+- Suite-specific setup/teardown that is not part of the default GitHub Actions unit workflow
 
-**Details**:
+When those tests leak into `pnpm test`, CI reports a large failure count that looks like broad infrastructure breakage even though the underlying issue is test-scope drift.
 
-- MSW is intercepting Testcontainer/Docker requests but has no handlers configured
-- This creates noise in test output and may cause test instability
-- Affects all tests using Testcontainers (Postgres, Redis)
+## Concrete prevention strategy
 
-**Fix Required**:
+### 1. Backend Vitest exclusions
 
-```typescript
-// Add to tests/setup.ts or MSW handlers
-import { http, passthrough } from "msw";
+`packages/backend/vitest.config.ts` explicitly excludes the non-unit backend patterns listed above.
 
-export const dockerHandlers = [
-  http.all("http://localhost/containers/*", () => passthrough()),
-  http.all("http://localhost/exec/*", () => passthrough()),
-  http.all("http://localhost/images/*", () => passthrough()),
-  http.all("http://localhost/networks/*", () => passthrough()),
-];
-```
+### 2. Static CI guard
 
-### 3. Coverage Tool TypeScript Parsing Errors
+`scripts/ci/check-backend-unit-test-scope.mjs` scans backend tests and fails if a known non-unit test path would still be matched by the default backend config.
 
-**Error**: `Failed to parse file:///workspaces/ValueOS/src/{file}.ts. Excluding it from coverage.`
+### 3. CI ordering
 
-**Affected Files** (partial list):
+`.github/workflows/test.yml` runs the guard **before** the main Vitest invocation so scope regressions fail fast instead of generating another large, noisy failure run.
 
-- `src/config/alerting.ts` - "Expected a semicolon"
-- `src/lib/settingsRegistry.patch.ts` - "Expected ';', '}' or <eof>"
-- `src/lib/settingsRegistry.fixed.ts` - "Expected '{', got 'interface'"
-- `src/stories/*.stories.ts` - "Expected ',', got '{'"
-- `src/services/AlertingService.ts` - "Expected '{', got 'interface'"
-- And 20+ more files...
+## Operational guidance
 
-**Details**:
+### Default lane
 
-- Rollup/V8 coverage provider cannot parse certain TypeScript syntax
-- Likely due to TypeScript version mismatch or configuration issue
-- Files are excluded from coverage, reducing code coverage accuracy
+- Use `pnpm test` for workspace unit coverage only.
 
-**Fix Required**:
+### Separate lanes/commands
 
-```javascript
-// vitest.config.ts
-export default defineConfig({
-  test: {
-    coverage: {
-      provider: "v8",
-      exclude: [
-        "**/*.stories.ts",
-        "**/*.patch.ts",
-        "**/*.fixed.ts",
-        // Add other problematic patterns
-      ],
-    },
-  },
-});
-```
+- Use `pnpm run test:rls` for RLS/security policy coverage.
+- Use `pnpm run test:e2e:gate` for the E2E gate.
+- Use targeted backend Vitest commands/configs for integration, performance, and load suites.
 
-## Test Failure Breakdown
+## Resolution criteria
 
-### By Category:
-
-- **Database/Migration Issues**: ~300 tests
-- **MSW Configuration**: ~150 tests
-- **Coverage Parsing**: ~84 tests (files excluded)
-
-### By Test Suite:
-
-- `src/security/__tests__/tenant-isolation.test.ts`: 7/25 failed
-- `tests/integration/failure-scenarios.integration.test.ts`: Multiple failures
-- `tests/performance/stress-testing.test.ts`: 0/22 passed
-- `tests/performance/load-testing.test.ts`: Multiple failures
-
-## Recent Commit Analysis
-
-**Latest Commit**: `feat: Add markdown rendering and vault interaction dependencies`
-**Changes**:
-
-- Added `react-markdown`, `react-syntax-highlighter`, `remark-gfm` dependencies
-- Moved `node-vault` from devDependencies to dependencies
-- Added `.dx-metrics.json` file
-
-**Verdict**: ✅ Commit is NOT the cause of test failures
-
-- All failures are pre-existing infrastructure issues
-- New dependencies are correctly installed and functional
-- No code changes that would break existing tests
-
-## Recommended Action Plan
-
-### Phase 1: Immediate Fixes (P0)
-
-1. **Fix audit_logs dependency**
-   - [ ] Identify where audit_logs table should be created
-   - [ ] Update migration order or create missing migration
-   - [ ] Update minimal test schema to include audit_logs
-
-2. **Configure MSW for Docker requests**
-   - [ ] Add passthrough handlers for Docker/Testcontainer requests
-   - [ ] Update MSW setup in `tests/setup.ts`
-   - [ ] Verify no test logic depends on mocking these requests
-
-### Phase 2: Coverage Improvements (P1)
-
-3. **Fix TypeScript parsing in coverage**
-   - [ ] Update vitest configuration to exclude problematic file patterns
-   - [ ] Investigate TypeScript/Rollup version compatibility
-   - [ ] Consider alternative coverage provider if issues persist
-
-### Phase 3: Validation (P0)
-
-4. **Re-run full test suite**
-   - [ ] Verify all 1971 tests pass
-   - [ ] Check coverage reports are accurate
-   - [ ] Validate CI/CD pipeline is unblocked
-
-## Monitoring & Prevention
-
-### Add to CI/CD:
-
-```yaml
-# .github/workflows/test.yml
-- name: Test Infrastructure Health Check
-  run: |
-    npm run test -- --reporter=json > test-results.json
-    node scripts/analyze-test-failures.js
-    if [ $? -ne 0 ]; then
-      echo "::error::Test infrastructure issues detected"
-      exit 1
-    fi
-```
-
-### Add Pre-commit Hook:
-
-```bash
-# .husky/pre-commit
-npm run test -- --changed --bail
-```
-
-## Notes for Post-Commit Reliability Agent
-
-**Current Status**: FAIL state detected
-**Action Taken**: Created issue documentation instead of committing fixes
-**Reason**: Fixes require architectural changes beyond "minimal necessary fix" scope
-
-**Next Steps**:
-
-1. Human review of this issue
-2. Architectural decision on migration strategy
-3. MSW configuration update
-4. Re-run Post-Commit Reliability Agent after fixes
+- [ ] `packages/backend/vitest.config.ts` excludes non-unit backend suites
+- [ ] `scripts/ci/check-backend-unit-test-scope.mjs` passes locally and in CI
+- [ ] `.github/workflows/test.yml` runs the guard before `pnpm test`
+- [ ] `docs/testing/pnpm-test-contract.md` documents the contract
+- [ ] Engineers stop treating `pnpm test` as a catch-all backend integration/perf/security lane
 
 ---
 
-**Created**: 2026-01-05T12:45:00Z
-**Agent**: Post-Commit Reliability Agent
-**Commit**: feat: Add markdown rendering and vault interaction dependencies
+**Updated**: 2026-03-19T00:00:00Z
+**Status**: Active repository contract

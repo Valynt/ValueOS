@@ -122,7 +122,7 @@ pnpm run db:migrate
 # Quality
 pnpm run lint
 pnpm run check           # TypeScript typecheck
-pnpm test                # Vitest (sequential, fileParallelism: false)
+pnpm test                # Workspace unit tests only (Vitest, sequential, fileParallelism: false)
 pnpm run test:rls        # RLS policy validation
 bash scripts/test-agent-security.sh
 
@@ -147,7 +147,9 @@ node scripts/dx/doctor.js
 - Framework: Vitest with jsdom, globals enabled.
 - Tests co-located: `*.test.ts` / `*.spec.ts` next to source, or in `__tests__/` directories.
 - Sequential execution (`fileParallelism: false`).
+- `pnpm test` is the unit-only default lane. Backend integration (`*.integration.{test,spec}.ts`, `*.int.{test,spec}.ts`, integration-only directories), performance (`*.perf.{test,spec}.ts`), load (`*.load.{test,spec}.ts`), E2E (`*.e2e.{test,spec}.ts`), and security/RLS suites run through dedicated commands or configs instead of the default workspace Vitest run.
 - Mock `LLMGateway` and `MemorySystem` in agent tests.
+- Detailed contract: `docs/testing/pnpm-test-contract.md`.
 
 ## Safety & Compliance
 

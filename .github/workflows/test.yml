@@ -68,6 +68,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Guard backend unit-test scope
+        run: node scripts/ci/check-backend-unit-test-scope.mjs
+
       - name: Run tests
         env:
           FILTER: ${{ github.event.inputs.filter }}
@@ -79,8 +82,8 @@ jobs:
           ARGS=()
           if [ "$COVERAGE" = "true" ]; then ARGS+=(--coverage); fi
           if [ -n "$FILTER" ]; then ARGS+=(-- "$FILTER"); fi
-          echo "Running: npx vitest run ${ARGS[*]}"
-          npx vitest run "${ARGS[@]}"
+          echo "Running: pnpm test -- ${ARGS[*]}"
+          pnpm test -- "${ARGS[@]}"
 
       - name: Upload coverage
         if: ${{ github.event.inputs.coverage == 'true' }}
