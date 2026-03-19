@@ -5,6 +5,7 @@ import type { MemorySystemConfig } from "../MemorySystem.js";
 
 const ORG_ID = "org-ttl-test";
 const AGENT_ID = "TestAgent";
+const CROSS_WORKSPACE_AGENT_ID = "compliance-auditor";
 
 function makeConfig(ttl_seconds: number): MemorySystemConfig {
   return {
@@ -99,7 +100,7 @@ describe("MemorySystem cross-workspace gate", () => {
 
     await expect(
       system.retrieve({
-        agent_id: AGENT_ID,
+        agent_id: CROSS_WORKSPACE_AGENT_ID,
         organization_id: ORG_ID,
         allow_cross_workspace: true,
         // cross_workspace_reason intentionally omitted
@@ -112,7 +113,7 @@ describe("MemorySystem cross-workspace gate", () => {
 
     // Should not throw — returns empty since no memories stored
     const results = await system.retrieve({
-      agent_id: AGENT_ID,
+      agent_id: CROSS_WORKSPACE_AGENT_ID,
       organization_id: ORG_ID,
       allow_cross_workspace: true,
       cross_workspace_reason: "compliance audit",

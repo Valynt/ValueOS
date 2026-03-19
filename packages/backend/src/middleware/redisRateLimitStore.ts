@@ -23,6 +23,12 @@ export class RedisRateLimitStore {
   }
 
   private async initializeRedis(): Promise<void> {
+    if (process.env.NODE_ENV === "test") {
+      logger.info("Skipping Redis rate limit store initialization in test environment");
+      this.redis = null;
+      return;
+    }
+
     try {
       this.redis = await getRedisClient();
       logger.info("Redis rate limit store initialized");
