@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "echo 'mcp-dashboard: skipped (has unresolved source errors, see tsErrorBaseline)'",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview"

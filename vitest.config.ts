@@ -1,39 +1,15 @@
-import path from "path";
-
 import { defineConfig } from "vitest/config";
 
-const root = path.resolve(import.meta.dirname);
+import { rootVitestProjects } from "./scripts/ci/vitest-workspace-topology.mjs";
 
 /**
- * Vitest workspace — each project runs with its own environment and aliases.
+ * Root Vitest workspace — package-local configs own environment + aliases.
  *
- * - packages/memory: node, no aliases (relative imports only)
- * - packages/backend: node, @shared/@backend/@mcp aliases (delegates to package config)
- * - apps/ValyntApp: jsdom, react plugin, @/* aliases (delegates to package config)
+ * Guarded by scripts/ci/check-vitest-workspace-packages.mjs so any workspace
+ * package that gains test files must be added here (via the shared topology manifest).
  */
 export default defineConfig({
   test: {
-    projects: [
-      // packages/memory — no per-package vitest config; inline it here
-      {
-        test: {
-          name: "memory",
-          globals: true,
-          environment: "node",
-          fileParallelism: false,
-          include: ["packages/memory/tests/**/*.{test,spec}.ts"],
-          exclude: ["**/node_modules/**", "**/dist/**"],
-        },
-        resolve: {
-          alias: {
-            "@shared": path.resolve(root, "packages/shared/src"),
-          },
-        },
-      },
-      // packages/backend — delegates to its own vitest.config.ts
-      "packages/backend",
-      // apps/ValyntApp — delegates to its own vitest.config.ts (jsdom + react + @/* aliases)
-      "apps/ValyntApp",
-    ],
+    projects: rootVitestProjects,
   },
 });

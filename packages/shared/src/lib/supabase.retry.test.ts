@@ -30,7 +30,7 @@ describe('Supabase Client Retry Logic', () => {
   });
 
   it('should retry network errors 3 times', async () => {
-    const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
     global.fetch = mockFetch;
 
     const supabase = createServerSupabaseClient('service-key');
@@ -49,8 +49,8 @@ describe('Supabase Client Retry Logic', () => {
 
   it('should succeed if a retry succeeds', async () => {
     const mockFetch = vi.fn()
-      .mockRejectedValueOnce(new Error('Network error')) // Attempt 1 fail
-      .mockRejectedValueOnce(new Error('Network error')) // Attempt 2 fail
+      .mockRejectedValueOnce(new TypeError('Network error')) // Attempt 1 fail
+      .mockRejectedValueOnce(new TypeError('Network error')) // Attempt 2 fail
       .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200, statusText: 'OK' })); // Attempt 3 success
 
     global.fetch = mockFetch;
