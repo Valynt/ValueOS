@@ -228,13 +228,15 @@ export class EnhancedParallelExecutor implements ResourceListener {
       return;
     }
 
+    // Mark as disposed first so any in-flight resource callbacks see the flag.
+    this.isDisposed = true;
+
     if (this.isRegisteredWithResourceMonitor) {
       this.resourceMonitor.removeListener(this);
       this.isRegisteredWithResourceMonitor = false;
     }
 
     this.currentPlan = null;
-    this.isDisposed = true;
   }
 
   private getEffectiveConcurrency(maxConcurrency: number): number {
