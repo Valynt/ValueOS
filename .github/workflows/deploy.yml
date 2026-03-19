@@ -1,4 +1,5 @@
 name: Deploy
+# active-runtime-platform: kubernetes
 
 on:
   push:

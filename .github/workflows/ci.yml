@@ -105,6 +105,12 @@ jobs:
       - name: Compose DB binding guard
         run: node scripts/ci/check-compose-db-bindings.mjs
 
+      - name: Runtime platform contract guard
+        run: pnpm run check:runtime-platform-contract
+
+      - name: Archived ECS guardrails
+        run: pnpm run check:archived-ecs-guardrails
+
       - name: Env/port drift guard
         run: node scripts/ci/check-env-port-drift.mjs
 
