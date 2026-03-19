@@ -41,6 +41,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/"
   },
