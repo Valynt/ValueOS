@@ -82,6 +82,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
+- [ ] Secrets rotation confirmed using the `secret-rotation-evidence-production-<run_id>` artifact from `.github/workflows/secret-rotation-verification.yml` or `.github/workflows/deploy.yml` (`secret-rotation-gate`), with both JSON and text outputs attached to the release packet.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
 - [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Security approvals required for release tag `v1.0.0`; Design review may be attached as additional evidence only) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
@@ -126,7 +127,7 @@ Production approval is **No-Go** unless the exact upstream jobs/checks below are
 
 ## Pre-Production Launch Gate (CI Blocking Control)
 
-Production promotion is blocked unless the **Pre-Production Launch Gate** job succeeds in `.github/workflows/deploy.yml`.
+Production promotion is blocked unless the **Pre-Production Launch Gate** job succeeds in `.github/workflows/deploy.yml`. The production deployment workflow also requires the **Secret Rotation Gate** (`secret-rotation-gate`) to succeed immediately before promotion, publishing the `secret-rotation-evidence-production-<run_id>` artifact as the authoritative evidence for the release checklist item **“Secrets rotation confirmed”**.
 
 ### Gate checks
 
@@ -143,6 +144,10 @@ Production promotion is blocked unless the **Pre-Production Launch Gate** job su
    - If co-branding assets are present for the release, branding asset/render verification must pass.
    - If no co-branding assets are present, this check is explicitly skipped with a log entry.
    - Owner: **Design Systems**.
+5. **Secret rotation metadata age verification**
+   - `scripts/security/verify-secret-rotation.mjs` must pass against the production environment's configured AWS Secrets Manager and/or Vault metadata sources.
+   - The workflow must publish `secret-rotation-evidence-production-<run_id>` with both machine-readable JSON evidence and the text execution log.
+   - Owner: **Platform Security**.
 
 ### Operational ownership and escalation
 

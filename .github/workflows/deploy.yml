@@ -839,7 +839,15 @@ jobs:
           path: |
             artifacts/i18n/preprod-localization-smoke-${{ github.run_id }}.json
 
-  # ──────────────────────────────────────────────────────────────────────────
+  secret-rotation-gate:
+    name: Secret Rotation Gate
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    uses: ./.github/workflows/secret-rotation-verification.yml
+    with:
+      target_environment: production
+
+ # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
