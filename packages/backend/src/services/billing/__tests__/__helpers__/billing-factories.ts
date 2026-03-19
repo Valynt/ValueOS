@@ -27,13 +27,15 @@ export function createBillingCustomer(
 ): BillingCustomer {
   const now = new Date().toISOString();
   const tenantId = generateId();
+  const orgId = generateId();
 
   return {
     id: generateId(),
     tenant_id: tenantId,
-    organization_name: "Test Organization",
+    organization_id: orgId,
     stripe_customer_id: `cus_${Math.random().toString(36).substring(7)}`,
     stripe_customer_email: "billing@test.com",
+    email: "billing@test.com",
     status: "active",
     default_payment_method: undefined,
     payment_method_type: undefined,
@@ -68,7 +70,6 @@ export function createSubscription(
     billing_customer_id: generateId(),
     tenant_id: generateId(),
     stripe_subscription_id: `sub_${Math.random().toString(36).substring(7)}`,
-    stripe_customer_id: `cus_${Math.random().toString(36).substring(7)}`,
     plan_tier: "standard",
     billing_period: "monthly",
     status: "active",
@@ -77,9 +78,9 @@ export function createSubscription(
     trial_start: undefined,
     trial_end: undefined,
     canceled_at: undefined,
-    ended_at: undefined,
     amount: 99,
     currency: "usd",
+    items: [],
     metadata: {},
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -100,9 +101,7 @@ export function createSubscriptionItem(
   return {
     id: generateId(),
     subscription_id: generateId(),
-    stripe_subscription_item_id: `si_${Math.random().toString(36).substring(7)}`,
     stripe_price_id: `price_${Math.random().toString(36).substring(7)}`,
-    stripe_product_id: `prod_${Math.random().toString(36).substring(7)}`,
     metric,
     unit_amount: 1000,
     currency: "usd",
@@ -110,7 +109,6 @@ export function createSubscriptionItem(
     aggregation:
       metric === "storage_gb" || metric === "user_seats" ? "max" : "sum",
     included_quantity: 1000000,
-    metadata: {},
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -169,6 +167,7 @@ export function createUsageAggregate(
     idempotency_key: `agg_${tenantId}_${subscriptionItemId}_${Date.now()}`,
     metadata: {},
     created_at: now.toISOString(),
+    updated_at: now.toISOString(),
     ...overrides,
   };
 }
@@ -303,6 +302,7 @@ export function createWebhookEvent(
     error_message: undefined,
     retry_count: 0,
     received_at: now,
+    created_at: now,
     ...overrides,
   };
 }
@@ -324,7 +324,6 @@ export function createCompleteBillingSetup(
   const subscription = createSubscription({
     tenant_id: tid,
     billing_customer_id: customer.id,
-    stripe_customer_id: customer.stripe_customer_id,
     plan_tier: planTier,
   });
 

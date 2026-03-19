@@ -32,7 +32,7 @@ export function getTestSupabaseClient(): SupabaseClient {
 
   return createClient(supabaseUrl, supabaseServiceKey, {
     global: {
-       
+
       fetch: fetch as any,
     },
   });
@@ -188,7 +188,7 @@ export async function executeAsUser<T = any>(
       headers: {
         Authorization: `Bearer ${token}`,
       },
-       
+
       fetch: fetch as any,
     },
   });
@@ -219,9 +219,12 @@ export async function assertRowCount(
     throw new Error(`Failed to count rows in ${tableName}: ${error.message}`);
   }
 
-  if (count !== expectedCount) {
+  // Handle case where count might be null (no rows or query issue)
+  const actualCount = count ?? 0;
+
+  if (actualCount !== expectedCount) {
     throw new Error(
-      `Expected ${expectedCount} rows in ${tableName}, but found ${count}${
+      `Expected ${expectedCount} rows in ${tableName}, but found ${actualCount}${
         filter ? ` with filter ${JSON.stringify(filter)}` : ""
       }`
     );
@@ -245,9 +248,9 @@ export async function assertRecordExists(
 
   const { data, error } = await query.single();
 
-  if (error) {
+  if (error || !data) {
     throw new Error(
-      `Record not found in ${tableName} with filter ${JSON.stringify(filter)}: ${error.message}`
+      `Record not found in ${tableName} with filter ${JSON.stringify(filter)}: ${error?.message || 'No record found'}`
     );
   }
 
