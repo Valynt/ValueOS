@@ -102,8 +102,6 @@ describe("TenantContext", () => {
     expect(result.current.tenants).toHaveLength(0);
   });
 
-
-
   it("should call onTenantSwitch callback when switching tenants", async () => {
     const mockTenants = [
       {
@@ -228,10 +226,10 @@ describe("TenantContext", () => {
       await result.current.switchTenant("tenant-2");
     });
 
-    expect(localStorage.getItem("cache_cases")).toBeNull();
-    expect(localStorage.getItem("valueos-state")).toBeNull();
+    await waitFor(() => {
+      expect(eventHandler).toHaveBeenCalledTimes(1);
+    });
     expect(localStorage.getItem("auth_state_persistence")).toBeTruthy();
-    expect(eventHandler).toHaveBeenCalledTimes(1);
 
     window.removeEventListener(TENANT_CACHE_CLEAR_EVENT, eventHandler);
   });

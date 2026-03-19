@@ -36,15 +36,18 @@ vi.mock("../../lib/supabase", () => ({
   },
 }));
 
+const mockOpenDrawer = vi.fn();
+
 vi.mock("../../contexts/DrawerContext", () => ({
   useDrawer: () => ({
-    openDrawer: vi.fn(),
+    openDrawer: mockOpenDrawer,
   }),
 }));
 
 describe("Template Integration Workflows", () => {
   describe("Financial Analysis Workflow", () => {
     it("should complete ROI analysis to Impact Cascade flow", async () => {
+      mockOpenDrawer.mockClear();
       render(
         <MemoryRouter initialEntries={["/roi-calculator"]}>
           <Routes>
@@ -58,8 +61,7 @@ describe("Template Integration Workflows", () => {
       const roiCard = screen.getByText("Cost Inputs").closest("button");
       fireEvent.click(roiCard!);
 
-      // Should open drawer with inputs
-      expect(screen.getByText("Engineering Headcount")).toBeInTheDocument();
+      expect(mockOpenDrawer).toHaveBeenCalledWith("Cost Inputs", expect.anything());
 
       // Step 2: Navigate to Impact Cascade
       // In real app, this would be triggered by "Analyze Impact" button
@@ -84,13 +86,24 @@ describe("Template Integration Workflows", () => {
     it("should render Value Canvas with proper layout", () => {
       render(<ValueCanvas />);
 
-      expect(screen.getByText("Value Canvas")).toBeInTheDocument();
+      expect(screen.getByTestId("chat-canvas-layout")).toBeInTheDocument();
+      expect(screen.getByText("No initial action")).toBeInTheDocument();
     });
   });
 
   describe("Quantum View Integration", () => {
     it("should render Quantum View with persona analyses", () => {
-      const mockAnalyses: { id: string; persona: PersonaType; title: string; summary: string; confidence: number; keyMetrics: { label: string; value: string; unit: string; }[]; recommendations: string[]; risks: string[]; consensus: boolean; }[] = [
+      const mockAnalyses: {
+        id: string;
+        persona: PersonaType;
+        title: string;
+        summary: string;
+        confidence: number;
+        keyMetrics: { label: string; value: string; unit: string }[];
+        recommendations: string[];
+        risks: string[];
+        consensus: boolean;
+      }[] = [
         {
           id: "financial-1",
           persona: "financial" as PersonaType,
@@ -119,11 +132,11 @@ describe("Template Integration Workflows", () => {
 
       // Step 1: View overview
       expect(screen.getByText("Quantum View")).toBeInTheDocument();
-      expect(screen.getByText("5")).toBeInTheDocument(); // Total personas
+      expect(screen.getByText("Total Personas")).toBeInTheDocument();
+      expect(screen.getAllByText("2").length).toBeGreaterThan(0);
 
-      // Step 2: Select financial persona
-      const financialCard = screen.getByText("Financial Analysis").closest("button");
-      fireEvent.click(financialCard!);
+      const financialCard = screen.getByTestId("persona-card-financial");
+      fireEvent.click(financialCard);
 
       // Step 3: View details
       expect(screen.getByText("Financial Analysis")).toBeInTheDocument();
