@@ -15,8 +15,10 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 
 import {
   CustomerNarrativeInput,
@@ -80,7 +82,15 @@ export class CustomerNarrativeGenerator {
         },
       };
 
-      const response = await this.llmGateway.complete(request);
+      const response = await secureLLMComplete(this.llmGateway, request.messages, {
+        ...request.metadata,
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        serviceName: "CustomerNarrativeGenerator",
+        operation: "generate",
+        traceId: input.caseId,
+        sessionId: input.caseId,
+      });
 
       let parsedJson: unknown;
       try {
@@ -123,6 +133,48 @@ export class CustomerNarrativeGenerator {
     });
 
     const hallucinationCheck = await this.checkHallucination(result.output, input);
+
+    if (!hallucinationCheck) {
+      logger.warn("CustomerNarrativeGenerator: hallucination escalation triggered", {
+        caseId: input.caseId,
+        tenantId: input.tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: input.caseId,
+        resourceType: "artifact_generation",
+        userId: "system",
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        sessionId: input.caseId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "CustomerNarrativeGenerator",
+          artifactType: "customer_narrative",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "artifacts:customer_narrative_generated",
+      resource: input.caseId,
+      resourceType: "artifact_generation",
+      userId: "system",
+      organizationId: input.organizationId,
+      tenantId: input.tenantId,
+      sessionId: input.caseId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "CustomerNarrativeGenerator",
+        artifactType: "customer_narrative",
+        hallucinationCheck,
+        tokenUsage: result.tokenUsage,
+      },
+    });
 
     logger.info("CustomerNarrativeGenerator: generation complete", {
       caseId: input.caseId,

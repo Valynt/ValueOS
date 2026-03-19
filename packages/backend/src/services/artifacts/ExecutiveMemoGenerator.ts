@@ -15,8 +15,10 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 
 import {
   ExecutiveMemoInput,
@@ -130,7 +132,15 @@ export class ExecutiveMemoGenerator {
         },
       };
 
-      const response = await this.llmGateway.complete(request);
+      const response = await secureLLMComplete(this.llmGateway, request.messages, {
+        ...request.metadata,
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        serviceName: "ExecutiveMemoGenerator",
+        operation: "generate",
+        traceId: input.caseId,
+        sessionId: input.caseId,
+      });
 
       // Parse and validate with Zod
       let parsedJson: unknown;
@@ -187,6 +197,48 @@ export class ExecutiveMemoGenerator {
       result.output,
       input
     );
+
+    if (!hallucinationCheck) {
+      logger.warn("ExecutiveMemoGenerator: hallucination escalation triggered", {
+        caseId: input.caseId,
+        tenantId: input.tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: input.caseId,
+        resourceType: "artifact_generation",
+        userId: "system",
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        sessionId: input.caseId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "ExecutiveMemoGenerator",
+          artifactType: "executive_memo",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "artifacts:executive_memo_generated",
+      resource: input.caseId,
+      resourceType: "artifact_generation",
+      userId: "system",
+      organizationId: input.organizationId,
+      tenantId: input.tenantId,
+      sessionId: input.caseId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "ExecutiveMemoGenerator",
+        artifactType: "executive_memo",
+        hallucinationCheck,
+        tokenUsage: result.tokenUsage,
+      },
+    });
 
     const duration = Date.now() - startTime;
     logger.info("ExecutiveMemoGenerator: generation complete", {

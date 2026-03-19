@@ -14,7 +14,10 @@
  * Agent-owned code must use BaseAgent.secureInvoke() instead.
  */
 
+import { createLogger } from "../logger.js";
 import type { LLMMessage } from '../agent-fabric/LLMGateway.js';
+
+const logger = createLogger({ component: "secureLLMComplete" });
 
 /**
  * Minimal interface satisfied by both LLMGateway and LLMGatewayInterface.
@@ -56,8 +59,9 @@ export async function secureLLMComplete(
   messages: LLMMessage[],
   options: SecureLLMCompleteOptions = {},
 ): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
-  const tenantId = options.organizationId ?? options.tenantId;
-  if (!tenantId) {
+  const organizationId = options.organizationId;
+  const tenantId = options.tenantId ?? organizationId;
+  if (!organizationId && !tenantId) {
     throw new Error(
       'secureLLMComplete requires a tenant identifier (organizationId or tenantId). ' +
         'Pass it in the options object to satisfy tenant isolation requirements.',
@@ -83,6 +87,14 @@ export async function secureLLMComplete(
             `Violations: ${result.violations.map((v) => v.message).join('; ')}`,
         );
       }
+
+      logger.warn("secureLLMComplete low/medium PII or content violation detected", {
+        tenantId,
+        organizationId: organizationId ?? tenantId,
+        serviceName: typeof options.serviceName === "string" ? options.serviceName : undefined,
+        operation: typeof options.operation === "string" ? options.operation : undefined,
+        violations: result.violations,
+      });
     }
   }
 
@@ -97,7 +109,7 @@ export async function secureLLMComplete(
     temperature,
     max_tokens,
     metadata: {
-      organizationId: tenantId,
+      organizationId: organizationId ?? tenantId,
       tenantId,
       userId: userId ?? 'system',
       ...rest,

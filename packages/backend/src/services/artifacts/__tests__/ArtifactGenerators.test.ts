@@ -9,10 +9,20 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+import { secureLLMComplete } from "../../../lib/llm/secureLLMWrapper.js";
+import { logSecurityEvent } from "../../../services/security/auditLogger.js";
 import { ExecutiveMemoGenerator } from "../../../services/artifacts/ExecutiveMemoGenerator.js";
 import { CFORecommendationGenerator } from "../../../services/artifacts/CFORecommendationGenerator.js";
 import { CustomerNarrativeGenerator } from "../../../services/artifacts/CustomerNarrativeGenerator.js";
 import { InternalCaseGenerator } from "../../../services/artifacts/InternalCaseGenerator.js";
+
+vi.mock("../../../lib/llm/secureLLMWrapper.js", () => ({
+  secureLLMComplete: vi.fn(),
+}));
+
+vi.mock("../../../services/security/auditLogger.js", () => ({
+  logSecurityEvent: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock dependencies
 const mockLLMGateway = {
@@ -39,6 +49,7 @@ vi.mock("../../../lib/logger.js", () => ({
 describe("Artifact Generators", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(logSecurityEvent).mockResolvedValue(undefined);
   });
 
   describe("ExecutiveMemoGenerator", () => {
@@ -83,7 +94,7 @@ describe("Artifact Generators", () => {
         },
       };
 
-      mockLLMGateway.complete.mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as any,
@@ -120,6 +131,20 @@ describe("Artifact Generators", () => {
       expect(result.output.title).toBe("Test Memo");
       expect(result.hallucinationCheck).toBe(true);
       expect(result.tokenUsage).toBeDefined();
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({
+          serviceName: "ExecutiveMemoGenerator",
+          operation: "generate",
+          organizationId: "org-1",
+          tenantId: "tenant-1",
+        })
+      );
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+      expect(logSecurityEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "artifacts:executive_memo_generated" })
+      );
     });
 
     it("should fail hallucination check when claim_id mismatch", async () => {
@@ -148,7 +173,7 @@ describe("Artifact Generators", () => {
         usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
       };
 
-      mockLLMGateway.complete.mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as any,
@@ -181,6 +206,9 @@ describe("Artifact Generators", () => {
 
       // Should fail hallucination check because claim_id doesn't match input
       expect(result.hallucinationCheck).toBe(false);
+      expect(logSecurityEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "security:hallucination_detected" })
+      );
     });
   });
 
@@ -218,7 +246,7 @@ describe("Artifact Generators", () => {
         usage: { prompt_tokens: 1200, completion_tokens: 600, total_tokens: 1800 },
       };
 
-      mockLLMGateway.complete.mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
 
       const generator = new CFORecommendationGenerator(
         mockLLMGateway as any,
@@ -247,6 +275,15 @@ describe("Artifact Generators", () => {
 
       expect(result.output.recommendation.decision).toBe("approve");
       expect(result.hallucinationCheck).toBe(true);
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({
+          serviceName: "CFORecommendationGenerator",
+          tenantId: "tenant-1",
+        })
+      );
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
     });
   });
 
@@ -271,7 +308,7 @@ describe("Artifact Generators", () => {
         usage: { prompt_tokens: 1000, completion_tokens: 400, total_tokens: 1400 },
       };
 
-      mockLLMGateway.complete.mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as any,
@@ -297,6 +334,164 @@ describe("Artifact Generators", () => {
 
       // When persisted, artifacts with readiness < 0.8 should be marked as 'draft'
       expect(result.output.confidence_assessment.blockers).toContain("Insufficient data");
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Additional generators", () => {
+    it("routes customer narrative generation through secureLLMComplete", async () => {
+      vi.mocked(secureLLMComplete).mockResolvedValue({
+        content: JSON.stringify({
+          title: "Customer Story",
+          industry_framing: "Industry framing",
+          business_outcomes: [
+            {
+              outcome: "Grow",
+              description: "Improve revenue",
+              value_range: "$100K-$200K",
+              confidence: 0.85,
+              claim_id: "claim-1",
+            },
+          ],
+          benchmark_context: [
+            {
+              metric: "ROI",
+              comparison: "Above average",
+              opportunity: "Scale faster",
+              benchmark_id: "bench-1",
+            },
+          ],
+          proof_points: [{ headline: "Proof", details: "Detail", evidence_ref: "ev-1" }],
+          risk_mitigations: [{ concern: "Adoption", mitigation: "Enablement" }],
+          implementation_highlights: {
+            timeline: "90 days",
+            key_milestones: ["Kickoff"],
+            quick_wins: ["Pilot"],
+          },
+          next_steps: [{ action: "Schedule kickoff", owner: "CSM", timeframe: "1 week" }],
+          provenance_refs: ["claim-1"],
+        }),
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+      } as any);
+
+      const generator = new CustomerNarrativeGenerator(
+        mockLLMGateway as any,
+        mockCircuitBreaker as any,
+        mockMemorySystem as any
+      );
+
+      const result = await generator.generate({
+        tenantId: "tenant-1",
+        organizationId: "org-1",
+        caseId: "case-1",
+        valueCaseTitle: "Title",
+        organizationName: "Org",
+        readinessScore: 0.8,
+        buyer: { title: "CIO", persona: "economic" },
+        drivers: [],
+        benchmarks: [],
+        proofPoints: [],
+      } as any);
+
+      expect(result.output.title).toBe("Customer Story");
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({ serviceName: "CustomerNarrativeGenerator" })
+      );
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+    });
+
+    it("routes internal case generation through secureLLMComplete", async () => {
+      vi.mocked(secureLLMComplete).mockResolvedValue({
+        content: JSON.stringify({
+          title: "Internal Case",
+          deal_summary: {
+            acv: "$100K",
+            tcv: "$300K",
+            term_years: 3,
+            quantified_value_range: "$500K-$700K",
+            vp_ratio: "5.0x",
+            strategic_importance: "High",
+          },
+          value_analysis: {
+            total_quantified_value: { low: "$500K", high: "$700K", unit: "USD" },
+            key_drivers: [{ name: "Driver", impact: "$200K", confidence: 0.8, claim_id: "claim-1" }],
+          },
+          competitive_context: {
+            primary_competitors: [{ name: "Competitor", positioning: "Incumbent", threat_level: "medium" }],
+            our_advantages: ["Speed"],
+            competitive_risks: [{ risk: "Discounting", mitigation: "Differentiate" }],
+          },
+          risk_assessment: [
+            {
+              category: "delivery",
+              description: "Tight timeline",
+              likelihood: "medium",
+              financial_impact: "$50K",
+              mitigation: "Stage rollout",
+              owner: "PM",
+            },
+          ],
+          assumption_quality: {
+            overall_rating: "high",
+            critical_assumptions: [
+              {
+                assumption: "Adoption rate",
+                quality: "Strong",
+                validated: true,
+                evidence_strength: "High",
+              },
+            ],
+            gaps: [],
+          },
+          integrity_status: {
+            score: 0.9,
+            vetoed: false,
+            critical_issues: [],
+            recommended_actions: [],
+          },
+          recommendation: {
+            decision: "proceed",
+            conditions: [],
+            rationale: "Good fit",
+          },
+          next_steps: [{ action: "Prepare deal desk review", owner: "AE", deadline: "2026-04-01", priority: "high" }],
+          provenance_refs: ["claim-1"],
+        }),
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+      } as any);
+
+      const generator = new InternalCaseGenerator(
+        mockLLMGateway as any,
+        mockCircuitBreaker as any,
+        mockMemorySystem as any
+      );
+
+      const result = await generator.generate({
+        tenantId: "tenant-1",
+        organizationId: "org-1",
+        caseId: "case-1",
+        valueCaseTitle: "Title",
+        organizationName: "Org",
+        readinessScore: 0.8,
+        deal: {},
+        valueModel: {},
+        competitors: [],
+        competitiveAdvantages: [],
+        competitiveRisks: [],
+        risks: [],
+        assumptions: [],
+        integrity: { vetoed: false },
+      } as any);
+
+      expect(result.output.title).toBe("Internal Case");
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({ serviceName: "InternalCaseGenerator" })
+      );
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
     });
   });
 });
