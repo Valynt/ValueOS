@@ -1,3 +1,9 @@
+---
+title: Module Ownership and Dependency Boundaries
+owner: team-platform
+system: valueos-platform
+---
+
 # Module Ownership and Dependency Boundaries
 
 **Last Updated**: 2026-02-13

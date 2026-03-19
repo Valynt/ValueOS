@@ -2,6 +2,7 @@
 title: Database-aware Deployment Runbook
 owner: team-platform
 ops_labels: deployment,database,release
+system: valueos-platform
 status: active
 ---
 

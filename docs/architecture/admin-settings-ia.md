@@ -1,3 +1,9 @@
+---
+title: Admin / Settings Information Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Admin / Settings Information Architecture
 
 ## Status: Proposal (v1)

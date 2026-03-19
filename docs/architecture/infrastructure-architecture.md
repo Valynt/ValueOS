@@ -1,3 +1,9 @@
+---
+title: Infrastructure Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Infrastructure Architecture
 
 **Last Updated**: 2026-02-08

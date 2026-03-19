@@ -1,3 +1,10 @@
+---
+title: RBAC Redis Pub/Sub Unavailable
+owner: team-platform
+system: valueos-platform
+ops_labels: rbac,redis,incident-response
+---
+
 # Runbook: RBAC Redis Pub/Sub Unavailable
 
 **Alert:** `RbacRedisPubSubUnavailable`  

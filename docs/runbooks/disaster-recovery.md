@@ -1,8 +1,10 @@
 ---
 title: Disaster Recovery Runbook
-owner: team-operations
+owner: team-platform
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
 review_date: 2026-05-31
+system: valueos-platform
+ops_labels: disaster-recovery,backup,restore
 status: active
 ---
 

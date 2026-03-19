@@ -1,3 +1,9 @@
+---
+title: Architecture Overview
+owner: team-platform
+system: valueos-platform
+---
+
 # Architecture Overview
 
 > **Note:** References to `pnpm run dx` and `pnpm run dx:*` in this document are design specifications, not implemented package.json scripts. Use `gitpod automations service start <id>` to start services. See `.windsurf/automations.yaml` for the canonical service list.
