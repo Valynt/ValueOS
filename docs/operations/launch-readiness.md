@@ -84,9 +84,9 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
-- [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Design approvals, release tag `v1.0.0`) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
-- [ ] Threat model review record attached: `docs/security-compliance/threat-model.md` (Review and Approver Record for release tag `v1.0.0`).
-- [ ] **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release, with approvers and date recorded in the document.
+- [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Security approvals required for release tag `v1.0.0`; Design review may be attached as additional evidence only) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
+- [ ] Threat model review record attached: `docs/security-compliance/threat-model.md` (Review and Approver Record for release tag `v1.0.0`, reviewed by the Security approver before sign-off).
+- [ ] **Hard Go/No-Go**: Security approver reviewed `docs/security-compliance/threat-model.md` and the linked release evidence chain in `docs/security-compliance/evidence-index.md` for this release, with approvers and date recorded before Product/Engineering/Security sign-off is accepted.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
