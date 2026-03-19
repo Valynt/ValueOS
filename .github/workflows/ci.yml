@@ -663,6 +663,8 @@ jobs:
       - accessibility-audit
     steps:
       - name: Enforce staging/deploy blockers
+        env:
+          STAGING_HEALTHCHECK_URL: ${{ vars.STAGING_HEALTHCHECK_URL }}
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
@@ -678,21 +680,28 @@ jobs:
             sleep 1
           done
 
-          # Validate health endpoint
-          echo "Testing /health endpoint..."
-          HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:3001/health)
+          STAGING_HEALTHCHECK_URL="${STAGING_HEALTHCHECK_URL:-https://staging.valuecanvas.app/health}"
+
+          # Regression guard: this release gate validates a deployed staging URL.
+          # Do not reintroduce localhost probes here unless the job also starts a backend,
+          # captures BACKEND_PID, waits for readiness, and tears it down deterministically.
+          case "$STAGING_HEALTHCHECK_URL" in
+            http://localhost*|http://127.0.0.1*|http://[::1]*|https://localhost*|https://127.0.0.1*|https://[::1]*)
+              echo "❌ STAGING_HEALTHCHECK_URL must target a deployed staging endpoint, not localhost: $STAGING_HEALTHCHECK_URL"
+              exit 1
+              ;;
+          esac
+
+          echo "Testing deployed staging health endpoint: $STAGING_HEALTHCHECK_URL"
+          HEALTH_RESPONSE=$(curl --silent --show-error --location --max-time 20 --write-out "\n%{http_code}" "$STAGING_HEALTHCHECK_URL")
           HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
           BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
 
           echo "Response code: $HTTP_CODE"
           echo "Response body: $BODY"
 
-          # Cleanup
-          kill $BACKEND_PID 2>/dev/null || true
-
-          # Validate response
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Health check failed: expected 200, got $HTTP_CODE"
+            echo "❌ Health check failed: expected 200 from $STAGING_HEALTHCHECK_URL, got $HTTP_CODE"
             exit 1
           fi
 
