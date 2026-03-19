@@ -4,6 +4,7 @@ metadata:
   name: financial-modeling-agent
   labels:
     app: financial-modeling-agent
+    workload: financial-modeling-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: financial-modeling-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: financial-modeling-agent
+        workload: financial-modeling-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: financial-modeling-agent

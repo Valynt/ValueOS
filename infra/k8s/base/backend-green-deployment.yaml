@@ -5,6 +5,7 @@ metadata:
   namespace: valynt
   labels:
     app: backend
+    workload: backend-green
     slot: green
     component: api
     app.kubernetes.io/name: backend
@@ -29,6 +30,7 @@ spec:
     metadata:
       labels:
         app: backend
+        workload: backend-green
         slot: green
         component: api
         version: v1
@@ -60,6 +62,8 @@ spec:
               value: "production"
             - name: API_PORT
               value: "3001"
+            - name: OBSERVABILITY_DEPLOYMENT
+              value: "backend-green"
             - name: LOG_FORMAT
               value: "json"
             - name: LOG_LEVEL

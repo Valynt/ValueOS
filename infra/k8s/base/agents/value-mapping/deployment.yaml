@@ -4,6 +4,7 @@ metadata:
   name: value-mapping-agent
   labels:
     app: value-mapping-agent
+    workload: value-mapping-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: value-mapping-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: value-mapping-agent
+        workload: value-mapping-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: value-mapping-agent

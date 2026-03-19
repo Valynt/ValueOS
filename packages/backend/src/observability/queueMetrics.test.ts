@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockCounterInc = vi.fn();
-const mockGaugeSet = vi.fn();
-const mockHistogramObserve = vi.fn();
-
-vi.mock("../lib/observability/index.js", () => ({
-  createCounter: vi.fn(() => ({ inc: mockCounterInc, add: vi.fn() })),
-  createObservableGauge: vi.fn(() => ({ set: mockGaugeSet })),
-  createHistogram: vi.fn(() => ({ observe: mockHistogramObserve, record: vi.fn() })),
+const {
+  mockCounterInc,
+  mockGaugeSet,
+  mockHistogramObserve,
+} = vi.hoisted(() => ({
+  mockCounterInc: vi.fn(),
+  mockGaugeSet: vi.fn(),
+  mockHistogramObserve: vi.fn(),
 }));
 
-// queueMetrics uses require() for the histogram — mock the module resolution
 vi.mock("../lib/observability/index.js", () => ({
   createCounter: vi.fn(() => ({ inc: mockCounterInc, add: vi.fn() })),
   createObservableGauge: vi.fn(() => ({ set: mockGaugeSet })),
@@ -69,25 +68,50 @@ describe("attachQueueMetrics", () => {
 
   it("increments completed counter when job completes", () => {
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-sync");
+    attachQueueMetrics(worker, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+      concurrency: 3,
+    });
 
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit(
       "completed",
       makeJob(),
     );
 
-    expect(mockCounterInc).toHaveBeenCalledWith({ queue: "crm-sync", status: "completed" });
+    expect(mockCounterInc).toHaveBeenCalledWith({
+      queue: "crm-sync",
+      worker_class: "crm-sync-worker",
+      deployment: "worker",
+      status: "completed",
+    });
+    expect(mockGaugeSet).toHaveBeenCalledWith(
+      {
+        queue: "crm-sync",
+        worker_class: "crm-sync-worker",
+        deployment: "worker",
+      },
+      3,
+    );
   });
 
-  it("records job duration histogram on completion", () => {
+  it("records job duration histogram on completion", async () => {
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-sync");
+    attachQueueMetrics(worker, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+    });
 
     const job = makeJob({ processedOn: Date.now() - 2000, finishedOn: Date.now() });
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit("completed", job);
+    await Promise.resolve();
 
     expect(mockHistogramObserve).toHaveBeenCalledWith(
-      { queue: "crm-sync" },
+      {
+        queue: "crm-sync",
+        worker_class: "crm-sync-worker",
+        deployment: "worker",
+      },
       expect.any(Number),
     );
     const duration = mockHistogramObserve.mock.calls[0][1] as number;
@@ -96,7 +120,10 @@ describe("attachQueueMetrics", () => {
 
   it("increments failed counter and records lastFailedAt on failure", () => {
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-sync");
+    attachQueueMetrics(worker, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+    });
 
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit(
       "failed",
@@ -104,31 +131,51 @@ describe("attachQueueMetrics", () => {
       new Error("timeout"),
     );
 
-    expect(mockCounterInc).toHaveBeenCalledWith({ queue: "crm-sync", status: "failed" });
+    expect(mockCounterInc).toHaveBeenCalledWith({
+      queue: "crm-sync",
+      worker_class: "crm-sync-worker",
+      deployment: "worker",
+      status: "failed",
+    });
   });
 
   it("increments stalled counter on stall event", () => {
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-sync");
+    attachQueueMetrics(worker, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+    });
 
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit(
       "stalled",
       "job-99",
     );
 
-    expect(mockCounterInc).toHaveBeenCalledWith({ queue: "crm-sync" });
+    expect(mockCounterInc).toHaveBeenCalledWith({
+      queue: "crm-sync",
+      worker_class: "crm-sync-worker",
+      deployment: "worker",
+    });
   });
 
   it("increments active counter on active event", () => {
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-sync");
+    attachQueueMetrics(worker, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+    });
 
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit(
       "active",
       makeJob(),
     );
 
-    expect(mockCounterInc).toHaveBeenCalledWith({ queue: "crm-sync", status: "active" });
+    expect(mockCounterInc).toHaveBeenCalledWith({
+      queue: "crm-sync",
+      worker_class: "crm-sync-worker",
+      deployment: "worker",
+      status: "active",
+    });
   });
 });
 
@@ -153,9 +200,20 @@ describe("getQueueHealth", () => {
   it("emits consumer lag gauge as waiting + delayed", async () => {
     const queue = makeQueue({ waiting: 4, delayed: 3 });
 
-    await getQueueHealth(queue, "crm-sync");
+    await getQueueHealth(queue, "crm-sync", {
+      workerClass: "crm-sync-worker",
+      deployment: "worker",
+      concurrency: 3,
+    });
 
-    expect(mockGaugeSet).toHaveBeenCalledWith(7);
+    expect(mockGaugeSet).toHaveBeenCalledWith(
+      {
+        queue: "crm-sync",
+        worker_class: "crm-sync-worker",
+        deployment: "worker",
+      },
+      7,
+    );
   });
 
   it("returns zeros and does not throw when Redis is unavailable", async () => {
@@ -173,7 +231,10 @@ describe("getQueueHealth", () => {
   it("includes lastFailedAt after a failure event was recorded", async () => {
     // Simulate a prior failure being recorded via attachQueueMetrics
     const worker = makeWorker();
-    attachQueueMetrics(worker, "crm-webhook");
+    attachQueueMetrics(worker, "crm-webhook", {
+      workerClass: "crm-webhook-worker",
+      deployment: "worker",
+    });
     (worker as unknown as { emit: (e: string, ...a: unknown[]) => void }).emit(
       "failed",
       makeJob(),
@@ -181,7 +242,10 @@ describe("getQueueHealth", () => {
     );
 
     const queue = makeQueue();
-    const result = await getQueueHealth(queue, "crm-webhook");
+    const result = await getQueueHealth(queue, "crm-webhook", {
+      workerClass: "crm-webhook-worker",
+      deployment: "worker",
+    });
 
     expect(result.lastFailedAt).not.toBeNull();
   });

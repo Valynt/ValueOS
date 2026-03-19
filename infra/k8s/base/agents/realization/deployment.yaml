@@ -5,6 +5,7 @@ metadata:
   namespace: valynt-agents
   labels:
     app: realization-agent
+    workload: realization-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: realization-agent
@@ -23,6 +24,7 @@ spec:
     metadata:
       labels:
         app: realization-agent
+        workload: realization-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: realization-agent

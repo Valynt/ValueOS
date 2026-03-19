@@ -4,6 +4,7 @@ metadata:
   name: system-mapper-agent
   labels:
     app: system-mapper-agent
+    workload: system-mapper-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: system-mapper-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: system-mapper-agent
+        workload: system-mapper-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: system-mapper-agent

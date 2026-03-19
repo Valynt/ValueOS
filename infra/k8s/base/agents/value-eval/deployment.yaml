@@ -4,6 +4,7 @@ metadata:
   name: value-eval-agent
   labels:
     app: value-eval-agent
+    workload: value-eval-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: value-eval-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: value-eval-agent
+        workload: value-eval-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: value-eval-agent

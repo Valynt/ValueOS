@@ -20,6 +20,8 @@ import type { Job, Queue, Worker } from "bullmq";
 import { createCounter, createObservableGauge } from "../lib/observability/index.js";
 
 const logger = createLogger({ component: "QueueMetrics" });
+const queueMetricLabelNames = ["queue", "worker_class", "deployment"];
+const queueEventLabelNames = [...queueMetricLabelNames, "status"];
 
 // ─── Metrics ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ const logger = createLogger({ component: "QueueMetrics" });
 const jobTotalCounter = createCounter(
   "queue_job_total",
   "Total BullMQ job events by queue and status",
+  queueEventLabelNames,
 );
 
 /** Job processing duration in seconds. Initialized lazily after module load. */
@@ -37,6 +40,8 @@ async function getJobDurationHistogram() {
     jobDurationHistogram = createHistogram(
       "queue_job_duration_seconds",
       "BullMQ job processing duration in seconds",
+      undefined,
+      queueMetricLabelNames,
     );
   }
   return jobDurationHistogram;
@@ -46,12 +51,21 @@ async function getJobDurationHistogram() {
 const consumerLagGauge = createObservableGauge(
   "queue_consumer_lag",
   "Waiting + delayed job count per BullMQ queue",
+  queueMetricLabelNames,
 );
 
 /** Stalled job count per queue. */
 const stalledJobCounter = createCounter(
   "queue_stalled_job_total",
   "BullMQ jobs that stalled (active without heartbeat)",
+  queueMetricLabelNames,
+);
+
+/** Configured concurrency per worker instance for tuning capacity. */
+const configuredConcurrencyGauge = createObservableGauge(
+  "queue_worker_configured_concurrency",
+  "Configured BullMQ concurrency per worker instance",
+  queueMetricLabelNames,
 );
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -69,9 +83,26 @@ export interface QueueHealthResult {
   checkedAt: string;
 }
 
+export interface QueueMetricsContext {
+  workerClass?: string;
+  deployment?: string;
+  concurrency?: number;
+}
+
 // ─── In-memory last-failure tracker ──────────────────────────────────────────
 
 const lastFailedAt = new Map<string, string>();
+
+function getQueueLabels(queueName: string, context: QueueMetricsContext = {}): Record<string, string> {
+  return {
+    queue: queueName,
+    worker_class: context.workerClass ?? queueName,
+    deployment: context.deployment
+      ?? process.env.OBSERVABILITY_DEPLOYMENT
+      ?? process.env.OTEL_SERVICE_NAME
+      ?? "unknown",
+  };
+}
 
 // ─── Worker listener attachment ───────────────────────────────────────────────
 
@@ -81,21 +112,31 @@ const lastFailedAt = new Map<string, string>();
  * Designed to be called once per worker after initialisation. Adds listeners
  * alongside any existing ones — does not replace them.
  */
-export function attachQueueMetrics(worker: Worker, queueName: string): void {
+export function attachQueueMetrics(
+  worker: Worker,
+  queueName: string,
+  context: QueueMetricsContext = {},
+): void {
+  const labels = getQueueLabels(queueName, context);
+
+  if (context.concurrency !== undefined) {
+    configuredConcurrencyGauge.set(labels, context.concurrency);
+  }
+
   worker.on("completed", (job: Job) => {
-    jobTotalCounter.inc({ queue: queueName, status: "completed" });
+    jobTotalCounter.inc({ ...labels, status: "completed" });
 
     const processedOn = job.processedOn ?? Date.now();
     const finishedOn = job.finishedOn ?? Date.now();
     const durationSeconds = (finishedOn - processedOn) / 1000;
     if (durationSeconds >= 0) {
-      getJobDurationHistogram().then(h => h.observe({ queue: queueName }, durationSeconds)).catch(() => {});
+      getJobDurationHistogram().then(h => h.observe(labels, durationSeconds)).catch(() => {});
     }
   });
 
   worker.on("failed", (job: Job | undefined, err: Error) => {
-    jobTotalCounter.inc({ queue: queueName, status: "failed" });
-    lastFailedAt.set(queueName, new Date().toISOString());
+    jobTotalCounter.inc({ ...labels, status: "failed" });
+    lastFailedAt.set(`${labels.deployment}:${queueName}`, new Date().toISOString());
 
     // Log structured failure context — no PII, only job metadata.
     logger.error("BullMQ job failed", {
@@ -109,12 +150,12 @@ export function attachQueueMetrics(worker: Worker, queueName: string): void {
   });
 
   worker.on("stalled" as Parameters<typeof worker.on>[0], (jobId: string) => {
-    stalledJobCounter.inc({ queue: queueName });
+    stalledJobCounter.inc(labels);
     logger.warn("BullMQ job stalled", { queue: queueName, jobId });
   });
 
   worker.on("active", (_job: Job) => {
-    jobTotalCounter.inc({ queue: queueName, status: "active" });
+    jobTotalCounter.inc({ ...labels, status: "active" });
   });
 }
 
@@ -129,8 +170,10 @@ export function attachQueueMetrics(worker: Worker, queueName: string): void {
 export async function getQueueHealth(
   queue: Queue,
   queueName: string,
+  context: QueueMetricsContext = {},
 ): Promise<QueueHealthResult> {
   const checkedAt = new Date().toISOString();
+  const labels = getQueueLabels(queueName, context);
 
   try {
     const counts = await queue.getJobCounts(
@@ -148,7 +191,11 @@ export async function getQueueHealth(
     const completed = counts.completed ?? 0;
 
     // Consumer lag = jobs that are queued but not yet being processed.
-    consumerLagGauge.set(waiting + delayed);
+    consumerLagGauge.set(labels, waiting + delayed);
+
+    if (context.concurrency !== undefined) {
+      configuredConcurrencyGauge.set(labels, context.concurrency);
+    }
 
     // Stalled jobs: BullMQ tracks these internally; we approximate by checking
     // for jobs in "active" state that have exceeded the stall interval.
@@ -159,7 +206,7 @@ export async function getQueueHealth(
       const stalledJobs = await (queue as Queue & { getStalledCount?: () => Promise<number> }).getStalledCount?.();
       stalledCount = stalledJobs ?? 0;
       if (stalledCount > 0) {
-        stalledJobCounter.inc({ queue: queueName });
+        stalledJobCounter.inc(labels);
       }
     } catch {
       // Not available in this version — skip silently.
@@ -173,7 +220,7 @@ export async function getQueueHealth(
       failed,
       completed,
       stalledCount,
-      lastFailedAt: lastFailedAt.get(queueName) ?? null,
+      lastFailedAt: lastFailedAt.get(`${labels.deployment}:${queueName}`) ?? null,
       checkedAt,
     };
   } catch (err) {
@@ -188,7 +235,7 @@ export async function getQueueHealth(
       failed: 0,
       completed: 0,
       stalledCount: 0,
-      lastFailedAt: lastFailedAt.get(queueName) ?? null,
+      lastFailedAt: lastFailedAt.get(`${labels.deployment}:${queueName}`) ?? null,
       checkedAt,
     };
   }

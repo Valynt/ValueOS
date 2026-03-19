@@ -4,6 +4,7 @@ metadata:
   name: expansion-agent
   labels:
     app: expansion-agent
+    workload: expansion-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: expansion-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: expansion-agent
+        workload: expansion-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: expansion-agent

@@ -20,6 +20,7 @@ data:
   enable-health-checks: "true"
 
   # Performance settings
+  # Review monthly against the operational tuning loop baselines.
   max-concurrent-requests: "10"
   request-timeout-ms: "30000"
 

@@ -188,6 +188,8 @@
 - [Incident Response](./operations/incident-response.md)
 - [Launch Readiness](./operations/launch-readiness.md)
 - [Load Test Baselines](./operations/load-test-baselines.md)
+- [Operational Tuning Baselines](./operations/operational-tuning-baselines.md)
+- [Operational Tuning Monthly Review](./operations/operational-tuning-review.md)
 - [Metering Queue Operations](./operations/metering-queue-operations.md)
 - [Migration Automation Guide](./operations/MIGRATION_AUTOMATION_GUIDE.md)
 - [Migration Quick Reference](./operations/MIGRATION_QUICK_REFERENCE.md)

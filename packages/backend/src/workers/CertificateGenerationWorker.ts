@@ -14,11 +14,12 @@
  * failure and can retry according to the queue's retry policy.
  */
 
-import { Worker, type Job } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 
 import { logger } from '../lib/logger.js';
 import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
+import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { CertificateJobRepository } from '../services/certificates/CertificateJobRepository.js';
 import type { LifecycleContext } from '../types/agent.js';
 
@@ -329,10 +330,29 @@ export function getCertificateGenerationWorker(): Worker<CertificateGenerationJo
       });
     });
 
+    attachQueueMetrics(_worker, QUEUE_NAME, {
+      workerClass: 'certificate-generation-worker',
+      concurrency: config.queue.concurrency || 5,
+    });
+
     logger.info('CertificateGenerationWorker: started', { queue: QUEUE_NAME });
   }
 
   return _worker;
+}
+
+let _queue: Queue<CertificateGenerationJobPayload> | null = null;
+
+export function getCertificateGenerationQueue(): Queue<CertificateGenerationJobPayload> {
+  if (!_queue) {
+    const config = getAgentMessageQueueConfig();
+    const redisUrl = config.redis.url ?? "redis://localhost:6379";
+    _queue = new Queue<CertificateGenerationJobPayload>(QUEUE_NAME, {
+      connection: { url: redisUrl },
+    });
+  }
+
+  return _queue;
 }
 
 // Start the worker if this file is executed directly
