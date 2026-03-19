@@ -8,7 +8,9 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | SLI | Target | Measurement | Evidence |
 |-----|--------|-------------|----------|
 | Availability | 99.9% | `1 - (5xx / total)` over 30d rolling | `infra/observability/SLOs.md`, Prometheus rules |
-| Latency P95 | ≤ 200ms | `histogram_quantile(0.95, http_request_duration_ms)` | `infra/testing/load-test.k6.js` thresholds |
+| Interactive completion latency P95 | ≤ 200ms | `histogram_quantile(0.95, valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"})` | `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/k8s/base/hpa.yaml` |
+| Orchestration TTFB P95 | ≤ 200ms | `backend_orchestration_ttfb_p95_latency_ms` | `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/k8s/base/hpa.yaml` |
+| Orchestration completion latency P95 | ≤ 3000ms | `histogram_quantile(0.95, valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"})` | `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, `infra/observability/prometheus/alerts/backend-api-alerts.yml` |
 | Error rate | ≤ 0.1% | `5xx / total` over 5m | Grafana dashboard `mission-control.json` |
 | MTTR | ≤ 15 min | Alert-to-resolution | `docs/runbooks/emergency-procedures.md` |
 

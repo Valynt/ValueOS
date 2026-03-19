@@ -10,6 +10,8 @@ ops_labels: alerting,incident-response,observability
 Runbooks for Prometheus alert rules defined in:
 
 - `infra/k8s/observability/prometheus/alert-rules.yaml`
+- `infra/prometheus/alerts/backend-api-alerts.yml`
+- `infra/prometheus/alerts/slo-alerts.yml`
 - `infra/prometheus/alerts/resource-pressure-alerts.yml` (duplicate host-level `HighCPUUsage` and `HighMemoryUsage` variants)
 
 ## Status
@@ -17,7 +19,9 @@ Runbooks for Prometheus alert rules defined in:
 | Alert | Runbook status | Owning team | Rule file(s) |
 |---|---|---|---|
 | HighErrorRate | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml` |
-| HighResponseTime | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml` |
+| HighInteractiveCompletionLatency | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml` |
+| HighOrchestrationTTFB | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml` |
+| HighOrchestrationCompletionLatency | [x] complete | Backend Platform | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml` |
 | PodDown | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml` |
 | HighCPUUsage | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/resource-pressure-alerts.yml` |
 | HighMemoryUsage | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/resource-pressure-alerts.yml` |
@@ -42,14 +46,32 @@ Runbooks for Prometheus alert rules defined in:
 - **Post-incident actions:** add regression test for failure mode; adjust alert threshold only with SLO review; document dependency guardrails.
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
-## HighResponseTime
-- **Trigger meaning:** API p95 latency per pod exceeds 1s for 5m.
-- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana RED dashboard.
-- **Common causes:** noisy neighbor CPU contention; DB query slowdown; external API latency; cold cache after deploy.
-- **Remediation:** scale deployment replicas; enable cached path / reduce expensive feature; roll back recent query or route change.
-- **Escalation:** Engage **Backend Platform** and **Data Platform** if sustained >15m or if DB alerts co-fire.
-- **Post-incident actions:** capture latency profile; add route-level SLO guardrail; tune autoscaling floor.
-- **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
+## HighInteractiveCompletionLatency
+- **Trigger meaning:** Interactive completion p95 exceeds 200ms for 5–10m. This is the same completion SLO enforced in `packages/backend/src/config/slo.ts`, `infra/testing/load-test.k6.js`, and the interactive HPA metric in `infra/k8s/base/hpa.yaml`.
+- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect the Grafana Mission Control interactive latency panel.
+- **Common causes:** CPU contention on cache-friendly routes; DB query slowdown on interactive reads; cache misses after deploy; inefficient serialization.
+- **Remediation:** scale backend replicas; restore cache hit rate; roll back recent interactive-route or query change; verify HPA is receiving `backend_interactive_http_p95_latency_ms` updates.
+- **Escalation:** Engage **Backend Platform** if sustained >10m; include **Data Platform** when DB regressions or query fingerprint alerts co-fire.
+- **Post-incident actions:** capture route-level latency profile; keep interactive routes within the 200ms completion budget; redesign long-running flows as orchestration/async paths instead of widening the interactive SLO.
+- **Ownership:** Backend Platform. **Rule files:** `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml`.
+
+## HighOrchestrationTTFB
+- **Trigger meaning:** Orchestration request p95 time-to-first-byte exceeds 200ms for 5–10m. This mirrors the backend HPA external metric `backend_orchestration_ttfb_p95_latency_ms`.
+- **Triage commands:** inspect the Grafana Mission Control orchestration TTFB panel; `kubectl -n <ns> logs deploy/backend --since=10m | rg -n "stream|ttfb|queue|cold start"`; `kubectl -n <ns> get hpa backend-hpa -o yaml`.
+- **Common causes:** delayed stream initialization; queue dispatch lag; cold starts in agent/runtime services; auth or tenant context hydration before first chunk.
+- **Remediation:** scale backend replicas if HPA lagged; reduce pre-stream work; warm caches or agent pools; defer expensive orchestration steps until after the first byte is emitted.
+- **Escalation:** Engage **Backend Platform** if sustained >10m; add **Platform SRE** when autoscaling/external metric ingestion is degraded.
+- **Post-incident actions:** preserve the 200ms TTFB contract and move any newly synchronous setup work behind the first streamed response or into async jobs.
+- **Ownership:** Backend Platform. **Rule files:** `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml`.
+
+## HighOrchestrationCompletionLatency
+- **Trigger meaning:** Orchestration completion p95 exceeds 3000ms for 5–10m. This alert intentionally has a looser completion threshold than the 200ms interactive class while retaining the same 200ms TTFB objective.
+- **Triage commands:** inspect Grafana Mission Control orchestration completion latency; `kubectl -n <ns> logs deploy/backend --since=10m | rg -n "llm|billing|queue|timeout"`; review dependency latency dashboards for LLM, billing, or queue backends.
+- **Common causes:** upstream LLM/provider latency; long billing or queue operations; degraded downstream dependency; serialization of multi-step orchestration that should stream earlier.
+- **Remediation:** confirm TTFB stays healthy; shed or defer expensive post-stream work; roll back recent orchestration changes; apply provider fallback or queue backlog mitigation.
+- **Escalation:** Engage **Backend Platform** and **Data Platform** if completion stays above 3s for >15m or burn-rate alerts fire.
+- **Post-incident actions:** keep orchestration completion within the 3000ms budget, add per-route completion telemetry, and do not reuse the interactive 200ms completion target for streamed/async flows.
+- **Ownership:** Backend Platform. **Rule files:** `infra/k8s/observability/prometheus/alert-rules.yaml`, `infra/prometheus/alerts/backend-api-alerts.yml`, `infra/prometheus/alerts/slo-alerts.yml`.
 
 ## PodDown
 - **Trigger meaning:** Pod scrape target reports `up == 0` for 2m.

@@ -1,7 +1,6 @@
 groups:
   - name: api-slo-availability
     rules:
-      # Global API availability SLO: 99.9% success rate (error budget 0.1%)
       - alert: APIAvailabilityFastBurn
         expr: |
           sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
@@ -32,24 +31,47 @@ groups:
 
   - name: api-slo-latency
     rules:
-      # API latency SLO: p95 under 200ms
-      - alert: APILatencyP95High
+      - alert: APIInteractiveCompletionP95High
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le)
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"}[5m])) by (le)
           ) > 200
         for: 10m
         labels:
           severity: warning
-          slo: latency
+          slo: interactive_completion_latency
         annotations:
-          summary: "High p95 latency"
-          description: "P95 API latency has exceeded 200ms for at least 10m."
+          summary: "High interactive completion p95 latency"
+          description: "Interactive API completion p95 has exceeded 200ms for at least 10m."
+
+      - alert: APIOrchestrationTTFBP95High
+        expr: |
+          max_over_time(backend_orchestration_ttfb_p95_latency_ms{latency_class="orchestration"}[5m]) > 200
+        for: 10m
+        labels:
+          severity: warning
+          slo: orchestration_ttfb_latency
+        annotations:
+          summary: "High orchestration TTFB p95"
+          description: "Orchestration time-to-first-byte p95 has exceeded 200ms for at least 10m."
+
+      - alert: APIOrchestrationCompletionP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"}[5m])) by (le)
+          ) > 3000
+        for: 10m
+        labels:
+          severity: warning
+          slo: orchestration_completion_latency
+        annotations:
+          summary: "High orchestration completion p95 latency"
+          description: "Orchestration completion p95 has exceeded 3000ms for at least 10m."
 
   - name: api-slo-mttr
     rules:
-      # MTTR SLO: incidents should resolve in <= 15 minutes
       - alert: APIMTTRHigh
         expr: |
           avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > 15

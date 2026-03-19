@@ -13,21 +13,49 @@ groups:
         annotations:
           summary: "High 5xx error rate"
           description: "5xx error rate > 5% over the last 10 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#higherrorrate"
 
-      - alert: HighP95Latency
+      - alert: HighInteractiveCompletionLatency
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing).*"}[5m])) by (le, route)
-          ) > 1000
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"}[5m])) by (le)
+          ) > 200
         for: 10m
         labels:
           severity: warning
+          latency_class: interactive
         annotations:
-          summary: "High p95 latency on critical APIs"
-          description: "p95 latency > 1s on /api/llm or /api/billing routes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+          summary: "High interactive completion latency"
+          description: "Interactive request completion p95 is above 200ms for at least 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highinteractivecompletionlatency"
+
+      - alert: HighOrchestrationTTFB
+        expr: |
+          max_over_time(backend_orchestration_ttfb_p95_latency_ms{latency_class="orchestration"}[5m]) > 200
+        for: 10m
+        labels:
+          severity: warning
+          latency_class: orchestration
+        annotations:
+          summary: "High orchestration TTFB"
+          description: "Orchestration time-to-first-byte p95 is above 200ms for at least 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highorchestrationttfb"
+
+      - alert: HighOrchestrationCompletionLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"}[5m])) by (le)
+          ) > 3000
+        for: 10m
+        labels:
+          severity: warning
+          latency_class: orchestration
+        annotations:
+          summary: "High orchestration completion latency"
+          description: "Orchestration request completion p95 is above 3000ms for at least 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highorchestrationcompletionlatency"
 
       - alert: ApiScrapeDown
         expr: up{job="valuecanvas-api"} == 0
@@ -37,7 +65,7 @@ groups:
         annotations:
           summary: "valuecanvas-api Prometheus target is down"
           description: "No scrape data from valuecanvas-api for 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-poddown"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#poddown"
 
       - alert: PostgresScrapeDown
         expr: up{job="postgresql"} == 0
@@ -47,7 +75,7 @@ groups:
         annotations:
           summary: "PostgreSQL Prometheus target is down"
           description: "No scrape data from postgresql job for 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-databaseconnectionpoolexhausted"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#databaseconnectionpoolexhausted"
 
       - alert: RedisScrapeDown
         expr: up{job="redis"} == 0
@@ -57,18 +85,19 @@ groups:
         annotations:
           summary: "Redis Prometheus target is down"
           description: "No scrape data from redis job for 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highrequestrate"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highrequestrate"
 
       - alert: HighValueCaseGetP95Latency
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/value-cases"}[5m])) by (le)
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/value-cases",latency_class="interactive"}[5m])) by (le)
           ) > 200
         for: 5m
         labels:
           severity: page
+          latency_class: interactive
         annotations:
           summary: "High latency for value-cases endpoint (P95 > 200ms)"
           description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highinteractivecompletionlatency"

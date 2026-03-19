@@ -46,6 +46,8 @@ const orchestrationCompletionLatency = new Trend(
 
 const INTERACTIVE_ROUTE_PREFIXES = ["/health", "/api/health/ready", "/api/teams"];
 const ORCHESTRATION_ROUTE_PREFIXES = ["/api/llm/chat", "/api/billing", "/api/queue"];
+const INTERACTIVE_COMPLETION_SLO_MS = 200;
+const ORCHESTRATION_TTFB_SLO_MS = 200;
 const ORCHESTRATION_COMPLETION_SLO_MS = 3000;
 
 function findRouteClass(route) {
@@ -75,12 +77,12 @@ export const options = {
     health_latency: ["p(99)<100"], // health must be fast
     interactive_completion_latency: [
       {
-        threshold: "p(95)<200",
+        threshold: `p(95)<${INTERACTIVE_COMPLETION_SLO_MS}`,
         abortOnFail: true,
         delayAbortEval: "2m",
       },
     ],
-    orchestration_ttfb_latency: ["p(95)<200"],
+    orchestration_ttfb_latency: [`p(95)<${ORCHESTRATION_TTFB_SLO_MS}`],
     orchestration_completion_latency: [`p(95)<${ORCHESTRATION_COMPLETION_SLO_MS}`],
   },
 };

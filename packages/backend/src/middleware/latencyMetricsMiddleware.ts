@@ -2,6 +2,7 @@ import type { Histogram } from "@opentelemetry/api";
 import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
 
+import { PRODUCTION_LATENCY_SLOS } from "../config/slo.js";
 import { createHistogram } from "../config/telemetry.js";
 
 const WINDOW_SIZE = 120;
@@ -9,11 +10,11 @@ const latencyWindows = new Map<string, number[]>();
 
 const LATENCY_CLASS_SLOS = {
   interactive: {
-    completionP95Ms: 200,
+    completionP95Ms: PRODUCTION_LATENCY_SLOS.interactive.completionP95Ms,
   },
   orchestration: {
-    ttfbP95Ms: 200,
-    completionP95Ms: 3000,
+    ttfbP95Ms: PRODUCTION_LATENCY_SLOS.orchestration.ttfbP95Ms,
+    completionP95Ms: PRODUCTION_LATENCY_SLOS.orchestration.completionP95Ms,
   },
 } as const;
 

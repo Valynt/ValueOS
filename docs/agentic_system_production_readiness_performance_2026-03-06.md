@@ -1,5 +1,17 @@
 # Agentic System Production Readiness: Performance Engineering Assessment (2026-03-06)
 
+> **Archived on 2026-03-19.** This assessment predates the current split-latency production contract. The authoritative thresholds now live in `packages/backend/src/config/slo.ts`, `docs/security-compliance/production-contract.md`, `infra/testing/load-test.k6.js`, and `infra/k8s/base/hpa.yaml`. Keep this document for historical context only.
+
+## Archive Status
+
+- Historical snapshot retained for the March 6, 2026 readiness review.
+- Superseded materially by the split-latency model adopted on 2026-03-19:
+  - interactive completion p95 `<= 200ms`
+  - orchestration TTFB p95 `<= 200ms`
+  - orchestration completion p95 `<= 3000ms`
+- Any contradiction between this document and current manifests/configuration should be resolved in favor of the newer sources above.
+
+
 ## Scope and Method
 
 This assessment is a static-readiness review of the ValueOS agentic stack (backend API, agent workers, queueing, Supabase/Postgres access, Redis caching, and Kubernetes scaling configuration). It is based on code/config inspection and existing load-test/alert definitions, not on a fresh production load run.

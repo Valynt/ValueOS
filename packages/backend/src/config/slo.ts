@@ -9,8 +9,12 @@ export type DeploymentEnvironment = 'development' | 'staging' | 'production';
 
 export interface SLOThresholdSet {
   availabilityTarget: number;
-  latencyP95Target: number;
-  latencyP95Ms: number;
+  interactiveCompletionP95Target: number;
+  interactiveCompletionP95Ms: number;
+  orchestrationTtfbP95Target: number;
+  orchestrationTtfbP95Ms: number;
+  orchestrationCompletionP95Target: number;
+  orchestrationCompletionP95Ms: number;
   authSuccessTarget: number;
   queueHealthTarget: number;
   queueDepthMax: number;
@@ -25,8 +29,12 @@ export interface SLOThresholdSet {
 
 export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
   availabilityTarget: 0.999,
-  latencyP95Target: 0.95,
-  latencyP95Ms: 200,
+  interactiveCompletionP95Target: 0.95,
+  interactiveCompletionP95Ms: 200,
+  orchestrationTtfbP95Target: 0.95,
+  orchestrationTtfbP95Ms: 200,
+  orchestrationCompletionP95Target: 0.95,
+  orchestrationCompletionP95Ms: 3000,
   authSuccessTarget: 0.995,
   queueHealthTarget: 0.99,
   queueDepthMax: 100,
@@ -41,13 +49,17 @@ export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
 
 export const SLO_ENVIRONMENT_OVERRIDES: Record<DeploymentEnvironment, Partial<SLOThresholdSet>> = {
   development: {
-    latencyP95Ms: 350,
+    interactiveCompletionP95Ms: 350,
+    orchestrationTtfbP95Ms: 350,
+    orchestrationCompletionP95Ms: 5000,
     mttrMinutesMax: 30,
     errorRateFastBurnMax: 0.02,
     errorRateSlowBurnMax: 0.002,
   },
   staging: {
-    latencyP95Ms: 250,
+    interactiveCompletionP95Ms: 250,
+    orchestrationTtfbP95Ms: 250,
+    orchestrationCompletionP95Ms: 3500,
     mttrMinutesMax: 20,
     errorRateFastBurnMax: 0.015,
     errorRateSlowBurnMax: 0.0015,
@@ -112,9 +124,24 @@ export function resolveSLOThresholds(
   const envOverrides: Partial<SLOThresholdSet> = {
     availabilityTarget:
       parseEnvNumber(env[`${envPrefix}AVAILABILITY_TARGET`]) ?? parseEnvNumber(env.SLO_AVAILABILITY_TARGET),
-    latencyP95Target:
-      parseEnvNumber(env[`${envPrefix}LATENCY_P95_TARGET`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_TARGET),
-    latencyP95Ms: parseEnvNumber(env[`${envPrefix}LATENCY_P95_MS`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_MS),
+    interactiveCompletionP95Target:
+      parseEnvNumber(env[`${envPrefix}INTERACTIVE_COMPLETION_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_INTERACTIVE_COMPLETION_P95_TARGET),
+    interactiveCompletionP95Ms:
+      parseEnvNumber(env[`${envPrefix}INTERACTIVE_COMPLETION_P95_MS`]) ??
+      parseEnvNumber(env.SLO_INTERACTIVE_COMPLETION_P95_MS),
+    orchestrationTtfbP95Target:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_TTFB_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_TTFB_P95_TARGET),
+    orchestrationTtfbP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_TTFB_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_TTFB_P95_MS),
+    orchestrationCompletionP95Target:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_COMPLETION_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_COMPLETION_P95_TARGET),
+    orchestrationCompletionP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_COMPLETION_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_COMPLETION_P95_MS),
     authSuccessTarget:
       parseEnvNumber(env[`${envPrefix}AUTH_SUCCESS_TARGET`]) ?? parseEnvNumber(env.SLO_AUTH_SUCCESS_TARGET),
     queueHealthTarget:
@@ -143,6 +170,19 @@ export function resolveSLOThresholds(
 
 const activeThresholds = resolveSLOThresholds('production');
 
+export const PRODUCTION_LATENCY_SLOS = {
+  interactive: {
+    completionP95Target: activeThresholds.interactiveCompletionP95Target,
+    completionP95Ms: activeThresholds.interactiveCompletionP95Ms,
+  },
+  orchestration: {
+    ttfbP95Target: activeThresholds.orchestrationTtfbP95Target,
+    ttfbP95Ms: activeThresholds.orchestrationTtfbP95Ms,
+    completionP95Target: activeThresholds.orchestrationCompletionP95Target,
+    completionP95Ms: activeThresholds.orchestrationCompletionP95Ms,
+  },
+} as const;
+
 export const PRODUCTION_SLOS: SLO[] = [
   {
     id: 'availability',
@@ -163,22 +203,60 @@ export const PRODUCTION_SLOS: SLO[] = [
     },
   },
   {
-    id: 'latency-p95',
-    name: 'API Latency (P95)',
-    description: `95% of API requests complete within ${activeThresholds.latencyP95Ms} milliseconds`,
-    target: activeThresholds.latencyP95Target,
+    id: 'interactive-completion-latency-p95',
+    name: 'Interactive Completion Latency (P95)',
+    description: `95% of interactive API requests complete within ${activeThresholds.interactiveCompletionP95Ms} milliseconds`,
+    target: activeThresholds.interactiveCompletionP95Target,
     window: '30d',
     sli: {
-      metric: 'api.latency_p95',
-      goodEvents: `http_request_duration_ms_bucket <= ${activeThresholds.latencyP95Ms}`,
-      totalEvents: 'http_requests_total',
-      threshold: activeThresholds.latencyP95Ms,
+      metric: 'api.interactive_completion_p95',
+      goodEvents: `valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"} <= ${activeThresholds.interactiveCompletionP95Ms}`,
+      totalEvents: 'valuecanvas_http_request_duration_ms_count{latency_class="interactive"}',
+      threshold: activeThresholds.interactiveCompletionP95Ms,
     },
     errorBudget: {
-      remaining: 1 - activeThresholds.latencyP95Target,
+      remaining: 1 - activeThresholds.interactiveCompletionP95Target,
       consumed: 0,
       burnRate: 0,
-      alertThreshold: (1 - activeThresholds.latencyP95Target) / 2,
+      alertThreshold: (1 - activeThresholds.interactiveCompletionP95Target) / 2,
+    },
+  },
+  {
+    id: 'orchestration-ttfb-latency-p95',
+    name: 'Orchestration Time to First Byte (P95)',
+    description: `95% of orchestration requests emit the first byte within ${activeThresholds.orchestrationTtfbP95Ms} milliseconds`,
+    target: activeThresholds.orchestrationTtfbP95Target,
+    window: '30d',
+    sli: {
+      metric: 'api.orchestration_ttfb_p95',
+      goodEvents: `backend_orchestration_ttfb_p95_latency_ms <= ${activeThresholds.orchestrationTtfbP95Ms}`,
+      totalEvents: 'backend_orchestration_ttfb_p95_latency_ms',
+      threshold: activeThresholds.orchestrationTtfbP95Ms,
+    },
+    errorBudget: {
+      remaining: 1 - activeThresholds.orchestrationTtfbP95Target,
+      consumed: 0,
+      burnRate: 0,
+      alertThreshold: (1 - activeThresholds.orchestrationTtfbP95Target) / 2,
+    },
+  },
+  {
+    id: 'orchestration-completion-latency-p95',
+    name: 'Orchestration Completion Latency (P95)',
+    description: `95% of orchestration requests complete within ${activeThresholds.orchestrationCompletionP95Ms} milliseconds`,
+    target: activeThresholds.orchestrationCompletionP95Target,
+    window: '30d',
+    sli: {
+      metric: 'api.orchestration_completion_p95',
+      goodEvents: `valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"} <= ${activeThresholds.orchestrationCompletionP95Ms}`,
+      totalEvents: 'valuecanvas_http_request_duration_ms_count{latency_class="orchestration"}',
+      threshold: activeThresholds.orchestrationCompletionP95Ms,
+    },
+    errorBudget: {
+      remaining: 1 - activeThresholds.orchestrationCompletionP95Target,
+      consumed: 0,
+      burnRate: 0,
+      alertThreshold: (1 - activeThresholds.orchestrationCompletionP95Target) / 2,
     },
   },
   {

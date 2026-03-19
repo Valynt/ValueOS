@@ -32,20 +32,52 @@ data:
           description: "{{ $labels.namespace }}/{{ $labels.pod }} has error rate of {{ $value | humanizePercentage }}"
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#higherrorrate"
 
-      # High response time
-      - alert: HighResponseTime
+
+      # High interactive completion latency
+      - alert: HighInteractiveCompletionLatency
         expr: |
           histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, namespace, pod)
-          ) > 1
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"}[5m])) by (le, namespace, pod)
+          ) > 200
         for: 5m
         labels:
           severity: warning
           component: backend
+          latency_class: interactive
         annotations:
-          summary: "High response time detected"
-          description: "{{ $labels.namespace }}/{{ $labels.pod }} has p95 latency of {{ $value }}s"
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highresponsetime"
+          summary: "High interactive completion latency detected"
+          description: "{{ $labels.namespace }}/{{ $labels.pod }} has interactive completion p95 latency of {{ $value }}ms"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highinteractivecompletionlatency"
+
+      # High orchestration time to first byte
+      - alert: HighOrchestrationTTFB
+        expr: |
+          max_over_time(backend_orchestration_ttfb_p95_latency_ms{latency_class="orchestration"}[5m]) > 200
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+          latency_class: orchestration
+        annotations:
+          summary: "High orchestration TTFB detected"
+          description: "{{ $labels.namespace }}/{{ $labels.pod }} has orchestration TTFB p95 of {{ $value }}ms"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highorchestrationttfb"
+
+      # High orchestration completion latency
+      - alert: HighOrchestrationCompletionLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration"}[5m])) by (le, namespace, pod)
+          ) > 3000
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+          latency_class: orchestration
+        annotations:
+          summary: "High orchestration completion latency detected"
+          description: "{{ $labels.namespace }}/{{ $labels.pod }} has orchestration completion p95 latency of {{ $value }}ms"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highorchestrationcompletionlatency"
 
       # Pod down
       - alert: PodDown

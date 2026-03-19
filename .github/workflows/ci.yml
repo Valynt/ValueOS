@@ -95,6 +95,9 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Performance SLO synchronization guard
+        run: pnpm run check:performance-slo-sync
+
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
 
