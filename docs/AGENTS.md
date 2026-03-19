@@ -130,6 +130,40 @@ bash scripts/test-agent-security.sh
 node scripts/dx/doctor.js
 ```
 
+## Dev Container
+
+| File | Purpose |
+|---|---|
+| `.devcontainer/Dockerfile` | Custom image: OS packages, Node, pnpm, kubectl, terraform |
+| `.devcontainer/devcontainer.json` | Build args (with SHA256s), forwarded ports, VS Code extensions |
+| `.devcontainer/versions.json` | Single source of truth for all pinned tool versions |
+| `.devcontainer/scripts/bootstrap.sh` | Idempotent setup: toolchain validation, `.env`, `pnpm install` |
+| `.ona/automations.yaml` | All automation tasks and dev server services |
+
+**Custom Dockerfile** (`mcr.microsoft.com/devcontainers/base:ubuntu-24.04`). Do not switch to a pre-built language image — the project requires kubectl, terraform, postgresql-client, and redis-tools that are not present in `javascript-node`. Layer order is slowest→fastest-changing: OS packages → Node.js → pnpm → infra CLIs → user setup. BuildKit cache mounts are used on all `apt-get` layers.
+
+**SHA256 verification.** Every downloaded binary (Node tarball, kubectl, terraform zip) is verified against a pinned SHA256 before installation. The hashes live in `devcontainer.json` `build.args` alongside the version strings. When upgrading a tool, update both the version and the hash.
+
+**Version source of truth hierarchy:**
+1. `.devcontainer/versions.json` — canonical; read by `bootstrap.sh` and `read-version.sh`
+2. `.nvmrc` — must match `versions.json` `node`
+3. `.tool-versions` — must match `versions.json` `node` and `pnpm`
+4. `devcontainer.json` `build.args` — must match `versions.json` for all four tools
+
+When bumping a version, update `versions.json` first, then propagate to the other three files and recompute the SHA256.
+
+**No lifecycle hooks in `devcontainer.json`.** `postCreateCommand`, `onCreateCommand`, and `postStartCommand` are forbidden. All setup runs through automations:
+- `installDeps` (`postDevcontainerStart`) — runs `bootstrap.sh`: validates toolchain versions, provisions `.env`, installs workspace dependencies with `--frozen-lockfile`, smoke-tests that `turbo` and `tsx` resolve.
+- `backend` / `frontend` services (`postEnvironmentStart`) — wait on `node_modules/.modules.yaml` before starting dev servers.
+
+**`pnpm install` uses `--frozen-lockfile`.** This matches `.npmrc` and fails fast if `pnpm-lock.yaml` is out of sync. Never pass `--no-frozen-lockfile` in automation — fix the lockfile instead.
+
+**`turbo` and `tsx` are workspace devDependencies**, not global image installs. They are available after `pnpm install` via `pnpm exec turbo` / `pnpm exec tsx`. Do not add them to the Dockerfile.
+
+**`PNPM_HOME`:** `/home/vscode/.local/share/pnpm` — the container runs as the `vscode` user (uid 1000). This directory is created by the Dockerfile and owned by `vscode`.
+
+**Ports forwarded:** 5173 (ValyntApp), 5174 (VOSAcademy), 3001 (Backend API). All opened with `--protocol https` by the service start commands.
+
 ## Dev Environment Notes
 
 **Backend port:** Express binds to `API_PORT` (default **3001**). Health check: `http://localhost:3001/health`. Do not assume port 8000.
