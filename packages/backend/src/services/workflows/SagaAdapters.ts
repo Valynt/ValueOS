@@ -131,7 +131,10 @@ export class SupabaseSagaPersistence implements SagaPersistence {
  * convert between that and the numeric 1|2|3 used in ProvenanceRecord.
  */
 export class SupabaseProvenanceStore implements ProvenanceStore {
-  constructor(private supabase: ReturnType<typeof createClient>) {}
+  constructor(
+    private supabase: ReturnType<typeof createClient>,
+    private organizationId: string,
+  ) {}
 
   async insert(record: ProvenanceRecord): Promise<void> {
     const { error } = await (this.supabase
@@ -142,6 +145,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
         id: record.id,
         value_case_id: record.valueCaseId,
         claim_id: record.claimId,
+        organization_id: this.organizationId,
         data_source: record.dataSource,
         evidence_tier: evidenceTierToLabel(record.evidenceTier),
         formula: record.formula ?? null,
@@ -163,13 +167,16 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
-            eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+            eq: (col: string, val: string) => {
+              eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+            };
           };
         };
       })
       .select('*')
       .eq('value_case_id', valueCaseId)
-      .eq('claim_id', claimId);
+      .eq('claim_id', claimId)
+      .eq('organization_id', this.organizationId);
 
     if (error) throw new Error(`Provenance lookup error: ${error.message}`);
     return (data ?? []).map((row) => this.mapToRecord(row));
@@ -180,12 +187,15 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
-            single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+            eq: (col: string, val: string) => {
+              single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+            };
           };
         };
       })
       .select('*')
       .eq('id', id)
+      .eq('organization_id', this.organizationId)
       .single();
 
     if (error || !data) return null;
@@ -196,11 +206,14 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
     const { data, error } = await (this.supabase
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
-          eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+          eq: (col: string, val: string) => {
+            eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+          };
         };
       })
       .select('*')
-      .eq('value_case_id', valueCaseId);
+      .eq('value_case_id', valueCaseId)
+      .eq('organization_id', this.organizationId);
 
     if (error) throw new Error(`Provenance search error: ${error.message}`);
     return (data ?? []).map((row) => this.mapToRecord(row));
