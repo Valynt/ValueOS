@@ -232,6 +232,10 @@ export class WebhookService {
   /**
    * Backward-compatible wrapper retained for older tests/helpers that still
    * expect a class instance with `processWebhook()` returning duplicate state.
+   *
+   * @deprecated This method is intended for use in tests only. Production code
+   *             should use the full webhook handling flow (e.g. `verifySignature`
+   *             and `processEvent`) instead.
    */
   async processWebhook(
     event: Partial<Stripe.Event> & {
@@ -241,6 +245,13 @@ export class WebhookService {
       request?: { idempotency_key?: string | null } | null;
     }
   ): Promise<{ processed: true; isDuplicate: boolean }> {
+    if (process.env.NODE_ENV !== "test") {
+      throw new Error(
+        "WebhookService.processWebhook is deprecated and only supported in the test environment. " +
+          "Use the standard webhook handling flow (verifySignature/processEvent) in production code.",
+      );
+    }
+
     if (!event || typeof event !== "object" || !event.id || !event.type || !event.data) {
       throw new Error("Invalid webhook payload");
     }
