@@ -14,6 +14,8 @@ import express, { Express } from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { addServiceIdentityHeader } from '../../middleware/serviceIdentityMiddleware.js';
+
 // Mock dependencies
 vi.mock('../../lib/logger', () => ({
   logger: {
@@ -40,6 +42,15 @@ vi.mock('../../lib/supabase', () => ({
       single: vi.fn(),
     })),
   },
+  createServerSupabaseClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+    })),
+  })),
 }));
 
 vi.mock('../../services/LLMFallback', () => ({
@@ -108,6 +119,9 @@ describe('Security Integration Tests', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    delete process.env.SERVICE_IDENTITY_REQUIRED;
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    delete process.env.SERVICE_IDENTITY_CALLER_ID;
   });
 
   describe('CSRF Protection Tests', () => {
@@ -632,17 +646,33 @@ describe('Security Integration Tests', () => {
     });
 
     it('should validate service identity on requests', async () => {
-      // Service identity should be validated by middleware
+      process.env.SERVICE_IDENTITY_REQUIRED = 'true';
+      process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+        expectedAudience: 'valueos-backend',
+        hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+      });
+      process.env.SERVICE_IDENTITY_CALLER_ID = 'agent-api';
+
+      const headers = addServiceIdentityHeader({}, {
+        method: 'POST',
+        path: '/api/llm/chat',
+        body: {
+          prompt: 'Hello',
+          model: 'gpt-4',
+        },
+      });
+
       const response = await request(app)
         .post('/api/llm/chat')
         .set('x-csrf-token', validCsrfToken)
         .set('Cookie', `csrf_token=${validCsrfToken}`)
-        .set('X-Service-Id', 'valuecanvas')
+        .set(headers)
         .send({
           prompt: 'Hello',
           model: 'gpt-4',
         });
 
+      expect(response.status).not.toBe(401);
       expect(response.status).not.toBe(403);
     });
   });
