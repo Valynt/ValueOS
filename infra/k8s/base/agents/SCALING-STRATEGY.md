@@ -1,7 +1,7 @@
 # Agent Scaling Strategy — Infrastructure-as-Code Specification
 
 **Scope:** All `valynt-agents` workloads
-**Last Updated:** 2026-02-28
+**Last Updated:** 2026-03-19
 
 ---
 
@@ -16,23 +16,35 @@
 | realization-agent | latency-sensitive core | 2 | HPA + Redis external metric | Execution plans are part of critical path. |
 | financial-modeling-agent | financial critical | 3 | HPA + external metric | Never scale to zero; protects forecasting latency SLOs. |
 | research-agent | high-throughput async | 3 | HPA + external metric | Long-running workloads, high sustained throughput. |
-| company-intelligence-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| value-mapping-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| system-mapper-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| intervention-designer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| outcome-engineer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| coordinator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| value-eval-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| communicator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| benchmark-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| narrative-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
-| groundtruth-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Scale from Redis stream depth. |
+| company-intelligence-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| value-mapping-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| system-mapper-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| intervention-designer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| outcome-engineer-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| coordinator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| value-eval-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| communicator-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| benchmark-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| narrative-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
+| groundtruth-agent | low-frequency queue | 0 | **KEDA ScaledObject** | Async backlog capacity only; not interactive latency capacity. |
 
 > Rule: financial + latency-sensitive classes must keep non-zero baseline.
 
 ---
 
-## 2. Low-Frequency Agent Wake-Up Design (KEDA)
+## 2. Stabilization Windows by Workload Type
+
+| Workload type | Scale-up window | Scale-down window | Why |
+|---|---:|---:|---|
+| Interactive API / web | 0-15s | 90-120s | Request/response traffic can release capacity quickly after spike validation shows no request thrash. |
+| Queue-backed async worker | 30s | 300s | Pods may still hold in-flight jobs; give queues time to drain before scale-in. |
+| Low-frequency async agents (KEDA) | activation-driven | 180s cooldown | Capacity exists to clear asynchronous backlog, not to satisfy interactive latency. |
+
+Operational rule: shorten scale-down windows only for interactive workloads that have passed load validation without oscillation or request thrash. Keep longer windows for workloads that may drop or requeue in-flight work during scale-in.
+
+---
+
+## 3. Low-Frequency Agent Wake-Up Design (KEDA)
 
 Low-frequency agents now use `keda.sh/v1alpha1` `ScaledObject` resources with:
 
@@ -43,12 +55,14 @@ Low-frequency agents now use `keda.sh/v1alpha1` `ScaledObject` resources with:
 
 This replaces fixed-min HPA behavior and enables true scale-to-zero while still
 waking agents as soon as pending stream depth exceeds activation thresholds.
+These agents provide asynchronous backlog-clearing capacity; they should not be
+counted as warm capacity for interactive request-path latency SLOs.
 
 Primary manifest: `infra/k8s/base/agents/low-frequency-keda-scaledobjects.yaml`.
 
 ---
 
-## 3. Cold-Start SLO Instrumentation and Alerting
+## 4. Cold-Start SLO Instrumentation and Alerting
 
 ### Metric contract
 
@@ -78,7 +92,7 @@ Defined in `infra/k8s/monitoring/prometheus-slo-rules.yaml`:
 
 ---
 
-## 4. GPU Inference Overlay
+## 5. GPU Inference Overlay
 
 GPU inference workloads are isolated in:
 
@@ -101,9 +115,10 @@ cluster-specific promotion of GPU workloads.
 
 ---
 
-## 5. Operational Notes
+## 6. Operational Notes
 
 1. Deploy KEDA before applying `low-frequency-keda-scaledobjects.yaml`.
 2. Keep Redis + Prometheus scraping healthy; wake-up is driven by stream depth.
 3. Review cold-start SLO dashboards after each scaling threshold adjustment.
 4. Reclassify agents in this document whenever workload behavior changes.
+5. Keep the worker HPA in `infra/k8s/base/worker-hpa.yaml` as the single source of truth for worker autoscaling.
