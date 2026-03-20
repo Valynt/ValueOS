@@ -7,6 +7,8 @@ import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { PlaygroundSessionService } from '../PlaygroundSessionService.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock Redis client
 vi.mock('redis', () => ({
   createClient: vi.fn(() => ({

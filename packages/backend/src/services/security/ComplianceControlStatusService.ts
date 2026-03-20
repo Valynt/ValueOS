@@ -50,7 +50,11 @@ export interface ComplianceControlSummary {
 }
 
 export class ComplianceControlStatusService {
-  private readonly supabase = createServerSupabaseClient();
+  private _supabase: ReturnType<typeof createServerSupabaseClient> | undefined;
+  private get supabase(): ReturnType<typeof createServerSupabaseClient> {
+    if (!this._supabase) this._supabase = createServerSupabaseClient();
+    return this._supabase;
+  }
 
   /**
    * MFA coverage: percentage of tenant users with MFA effectively enabled.

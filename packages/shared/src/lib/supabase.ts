@@ -165,6 +165,23 @@ export function getRequestSupabaseClient(req: SupabaseRequestLike): RequestScope
   return req.supabase ?? createRequestSupabaseClient(req);
 }
 
+/**
+ * Creates a request-scoped RLS client from a headers object.
+ * Throws if no valid bearer token is present — will not fall back to anon or
+ * service-role credentials.
+ */
+export function createRequestRlsSupabaseClient(
+  input: { headers: { authorization?: string } }
+): RequestScopedRlsSupabaseClient {
+  const token = parseBearerToken(input.headers?.authorization);
+  if (!token) {
+    throw new Error(
+      "createRequestRlsSupabaseClient: will not fall back to anon or service-role credentials — a valid bearer token is required"
+    );
+  }
+  return createRequestScopedClient(token);
+}
+
 export function createServiceRoleSupabaseClient(): ServiceRoleSupabaseClient {
   if (!isServer) {
     throw new Error("Service-role Supabase client cannot be used in browser environment");
@@ -175,7 +192,7 @@ export function createServiceRoleSupabaseClient(): ServiceRoleSupabaseClient {
   }
 
   if (!supabaseServiceRoleKey) {
-    throw new Error("Supabase service role key is required for server-side operations");
+    throw new Error("Supabase service role key is required for elevated server-side operations");
   }
 
   if (!serviceRoleSupabaseClient) {

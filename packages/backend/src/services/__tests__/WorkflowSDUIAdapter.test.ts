@@ -11,6 +11,8 @@ import {
 import { canvasSchemaService } from '../CanvasSchemaService.js'
 import { WorkflowSDUIAdapter } from '../WorkflowSDUIAdapter.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock dependencies
 vi.mock('../CanvasSchemaService');
 vi.mock('../../lib/logger');

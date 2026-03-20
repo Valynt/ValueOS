@@ -3,6 +3,8 @@ import request from 'supertest';
 import { getMetricsRegistry } from '../middleware/metricsMiddleware';
 import app from '../server.js'
 
+vi.mock("../lib/supabase.js");
+
 describe('Prometheus metrics', () => {
   afterEach(() => {
     getMetricsRegistry().resetMetrics();

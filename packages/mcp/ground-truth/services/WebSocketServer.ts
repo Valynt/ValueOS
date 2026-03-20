@@ -33,6 +33,36 @@ import { getCache } from "../core/Cache";
  * We map "authenticated" → "basic" so downstream channel checks remain
  * stable regardless of which auth provider issued the token.
  */
+function extractProviderPermissions(userData: Record<string, unknown>): string[] {
+  // All authenticated users get the "basic" permission baseline
+  const permissions: string[] = ["basic"];
+  const appMeta = userData["app_metadata"];
+  if (appMeta && typeof appMeta === "object" && !Array.isArray(appMeta)) {
+    const meta = appMeta as Record<string, unknown>;
+    const roles = meta["roles"];
+    if (Array.isArray(roles)) {
+      for (const r of roles) {
+        if (typeof r === "string") {
+          permissions.push(`role:${r}`);
+          permissions.push(r);
+        }
+      }
+    }
+    const entitlements = meta["entitlements"];
+    if (Array.isArray(entitlements)) {
+      for (const e of entitlements) {
+        if (typeof e === "string") {
+          permissions.push(e);
+          // e.g. "stream:premium" → also push "premium"
+          const suffix = e.split(":")[1];
+          if (suffix) permissions.push(suffix);
+        }
+      }
+    }
+  }
+  return permissions;
+}
+
 function extractPermissions(payload: JWTPayload): string[] {
   const permissions: string[] = [];
 
@@ -514,42 +544,102 @@ export class WebSocketServer {
    * `app_metadata.roles` (array) or the top-level `role` string,
    * matching the claim shape produced by Supabase Auth.
    *
-   * Returns null on any verification failure so the caller can
-   * reject the connection without leaking error details to the client.
+   * Throws a structured error with `closeCode` and `closeReason` on
+   * validation failures so the caller can close the connection with the
+   * appropriate WebSocket status code.
    */
   private async validateAuthToken(
     token: string
-  ): Promise<{ userId: string; permissions: string[] } | null> {
+  ): Promise<{ userId: string; organizationId?: string; permissions: string[] }> {
+    if (!token || !token.trim()) {
+      throw Object.assign(new Error("Malformed authentication token"), {
+        closeCode: 1002,
+        closeReason: "Malformed authentication token",
+      });
+    }
+
     const secret = process.env.SUPABASE_JWT_SECRET ?? process.env.JWT_SECRET;
     if (!secret) {
       logger.error(
         "WebSocketServer: SUPABASE_JWT_SECRET is not set — cannot validate tokens"
       );
-      return null;
+      throw Object.assign(new Error("Authentication not configured"), {
+        closeCode: 1011,
+        closeReason: "Authentication not configured",
+      });
     }
 
+    let payload: import("jose").JWTPayload;
     try {
       const secretKey = createSecretKey(Buffer.from(secret, "utf8"));
-      const { payload } = await jwtVerify(token, secretKey, {
+      ({ payload } = await jwtVerify(token, secretKey, {
         algorithms: ["HS256"],
-      });
-
-      const userId = payload.sub;
-      if (!userId) {
-        logger.warn("WebSocketServer: JWT missing sub claim");
-        return null;
-      }
-
-      const permissions = extractPermissions(payload);
-
-      return { userId, permissions };
+      }));
     } catch (error) {
-      // Log at debug level — failed auth attempts are expected noise
-      logger.debug("WebSocketServer: JWT verification failed", {
-        error: error instanceof Error ? error.message : String(error),
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.debug("WebSocketServer: JWT verification failed", { error: msg });
+
+      if (msg.includes('"exp" claim')) {
+        throw Object.assign(new Error("Token expired"), {
+          closeCode: 1008,
+          closeReason: "Token expired",
+        });
+      }
+      if (msg.includes('"aud" claim')) {
+        throw Object.assign(new Error("Token audience mismatch"), {
+          closeCode: 1008,
+          closeReason: "Token audience mismatch",
+        });
+      }
+      throw Object.assign(new Error("Invalid token"), {
+        closeCode: 1008,
+        closeReason: "Invalid token",
       });
-      return null;
     }
+
+    const userId = payload.sub;
+    if (!userId) {
+      logger.warn("WebSocketServer: JWT missing sub claim");
+      throw Object.assign(new Error("Invalid token claims"), {
+        closeCode: 1008,
+        closeReason: "Invalid token claims",
+      });
+    }
+
+    const organizationId = (payload as any).tenant_id as string | undefined;
+
+    // Verify token is not revoked via provider
+    const providerUrl = process.env.WS_AUTH_PROVIDER_URL;
+    const providerApiKey = process.env.WS_AUTH_PROVIDER_API_KEY;
+    if (providerUrl && providerApiKey) {
+      try {
+        const response = await fetch(`${providerUrl}/auth/v1/user`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: providerApiKey,
+          },
+        });
+        if (!response.ok) {
+          throw Object.assign(new Error("Token revoked"), {
+            closeCode: 1008,
+            closeReason: "Token revoked",
+          });
+        }
+        const userData = await response.json() as any;
+        const providerPermissions = extractProviderPermissions(userData);
+        const basePermissions = extractPermissions(payload);
+        const permissions = Array.from(new Set([...basePermissions, ...providerPermissions]));
+        return { userId, organizationId, permissions };
+      } catch (error) {
+        if ((error as any).closeCode) throw error;
+        logger.warn("WebSocketServer: provider token check failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const permissions = extractPermissions(payload);
+    return { userId, organizationId, permissions };
   }
 
   /**
