@@ -28,7 +28,7 @@ jobs:
       - name: Check for Security Vulnerabilities
         run: |
           # Check for hardcoded secrets
-          if grep -r "password\|secret\|key" --include="*.ts" packages/backend/src/services/ | grep -v "test\|mock\|fixture\|CallAnalysisService.ts" | grep -E "(=\s*['\"][^'\"]+['\"]|:\s*['\"][^'\"]+['\"])"; then
+          if grep -hr "password\|secret\|key" --include="*.ts" packages/backend/src/services/ | grep -v "test\|mock\|fixture\|CallAnalysisService.ts" | grep -E "(=\s*['\"][^'\"]+['\"]|:\s*['\"][^'\"]+['\"])"; then
             echo "❌ Potential hardcoded secrets found"
             exit 1
           fi
@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19.5"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -108,7 +108,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19.5"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -137,7 +137,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19.5"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -162,7 +162,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.19.5"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
