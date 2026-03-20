@@ -120,10 +120,10 @@ describe('DomainCache', () => {
 
   describe('cleanup', () => {
     it('should remove expired entries during cleanup', async () => {
+      vi.useFakeTimers();
+      cache = new DomainCache(5, 10);
       cache.set('domain1.com', true);
       cache.set('domain2.com', false);
-      
-      vi.useFakeTimers();
       
       // Advance time past TTL
       vi.advanceTimersByTime(6000);
