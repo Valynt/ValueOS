@@ -39,10 +39,6 @@ async function waitForStable(page: Page, ms = 1500) {
   await page.waitForTimeout(ms);
 }
 
-async function getVisibleText(page: Page, selector: string): Promise<string> {
-  return page.locator(selector).first().innerText().catch(() => "");
-}
-
 async function hasElement(page: Page, selector: string): Promise<boolean> {
   return page.locator(selector).first().isVisible().catch(() => false);
 }
