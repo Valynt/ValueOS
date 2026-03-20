@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -261,7 +261,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -331,7 +331,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -384,7 +384,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -465,7 +465,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -513,7 +513,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -631,7 +631,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 22.x
 
       - uses: pnpm/action-setup@v4
         with:

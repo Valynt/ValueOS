@@ -1,0 +1,5 @@
+echo "The error is:"
+echo "Your Node version is incompatible with isomorphic-dompurify@2.36.0(@noble/hashes@2.0.1)"
+echo "Expected version: >=20.19.5"
+echo "Got: v20.19.0"
+echo "This means I need to upgrade node versions in the workflows from 20.19.0 to 20.x or 20.19.5 or just 22.x, but let me check if there's an engine block in package.json."
