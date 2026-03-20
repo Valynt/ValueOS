@@ -49,8 +49,12 @@ import { InteractiveChart } from "./components/SDUI/InteractiveChart";
 import { KPIForm } from "./components/SDUI/KPIForm";
 import { KPITargetCard } from "./components/SDUI/KPITargetCard";
 import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { PlanComparison } from "./components/SDUI/PlanComparison";
+import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
 import { ScenarioComparison } from "./components/SDUI/ScenarioComparison";
+import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
 import { StakeholderMap } from "./components/SDUI/StakeholderMap";
+import { UsageMeter } from "./components/SDUI/UsageMeter";
 import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
 import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
@@ -59,18 +63,14 @@ import { SDUIComponentSection } from "./schema";
 // V1 Surface Widgets - Deal Assembly
 
 // V1 Surface Widgets - Value Modeling
-import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
 
 // V1 Surface Widgets - Integrity
-import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
 
 // V1 Surface Widgets - Executive Output
 
 // V1 Surface Widgets - Realization
 
 // V1 Surface Widgets - Billing
-import { PlanComparison } from "./components/SDUI/PlanComparison";
-import { UsageMeter } from "./components/SDUI/UsageMeter";
 
 /**
  * Versioned component entry with compatibility information
