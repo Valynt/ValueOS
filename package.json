@@ -128,7 +128,6 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "@vitest/coverage-v8": "3.2.4",
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.27.3",
@@ -174,12 +173,7 @@
       "lodash-es": ">=4.17.23",
       "mdast-util-to-hast": ">=13.2.1",
       "rollup": ">=4.59.0",
-      "dompurify": ">=3.3.2",
-      "jspdf": ">=4.2.1",
-      "fast-xml-parser": ">=5.5.7",
-      "flatted": ">=3.4.2",
-      "undici": ">=7.24.0",
-      "socket.io-parser": ">=4.2.6"
+      "dompurify": ">=3.3.2"
     },
     "ignoredBuiltDependencies": [
       "@scarf/scarf",
