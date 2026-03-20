@@ -193,13 +193,43 @@ export const secureTokenManager = {
     // by getCurrentSession() immediately after — this is only for unblocking the UI.
     try {
       const keys = Object.keys(localStorage);
-      const sbKey = keys.find((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
-      if (!sbKey) return null;
+      const sbKeys = keys.filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+      // If there is no clear unique Supabase auth token key, avoid guessing.
+      if (sbKeys.length !== 1) {
+        return null;
+      }
+
+      const sbKey = sbKeys[0];
       const raw = localStorage.getItem(sbKey);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { access_token?: string; user?: unknown };
-      if (parsed?.access_token && parsed?.user) {
-        return parsed as unknown as Session;
+
+      const parsed = JSON.parse(raw) as unknown;
+
+      // Supabase typically stores { currentSession, expiresAt } under the sb-* key.
+      // Validate that we have something that looks like a full Session before returning it.
+      const isValidSessionLike = (value: any): value is Session => {
+        return (
+          !!value &&
+          typeof value === "object" &&
+          typeof value.access_token === "string" &&
+          typeof value.token_type === "string" &&
+          typeof value.expires_at === "number" &&
+          typeof value.refresh_token === "string" &&
+          value.user != null
+        );
+      };
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "currentSession" in parsed &&
+        isValidSessionLike((parsed as { currentSession?: unknown }).currentSession)
+      ) {
+        return (parsed as { currentSession: Session }).currentSession;
+      }
+
+      if (isValidSessionLike(parsed)) {
+        return parsed;
       }
     } catch {
       // localStorage unavailable or malformed — fall through
