@@ -8,6 +8,7 @@
 import { createHash } from 'crypto';
 
 import { logger } from '../../lib/logger';
+import { MemoryCache, getCache } from './Cache';
 import {
   ConfidenceTier,
   ErrorCodes,
@@ -28,6 +29,7 @@ export abstract class BaseModule implements GroundTruthModule {
   protected initialized = false;
   protected requestCount = 0;
   protected lastRequestTime = 0;
+  protected cache: MemoryCache = getCache();
 
   async initialize(config: Record<string, any>): Promise<void> {
     this.config = config;
@@ -188,19 +190,22 @@ export abstract class BaseModule implements GroundTruthModule {
    * Rate limiting check
    */
   protected async checkRateLimit(domain: string, limit: number): Promise<void> {
-    // Implementation would integrate with rate limiting service
-    // For now, basic time-based check
     const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    const minInterval = (60 * 1000) / limit; // Convert RPM to milliseconds
+    const windowSize = 60 * 1000; // 1 minute window
+    const key = `rate_limit:${domain}`;
 
-    if (timeSinceLastRequest < minInterval) {
+    const history = ((await this.cache.get<number[]>(key)) || []).filter(time => now - time < windowSize);
+
+    if (history.length >= limit) {
       throw new GroundTruthError(
         ErrorCodes.RATE_LIMIT_EXCEEDED,
-        `Rate limit exceeded for ${domain}`,
-        { limit, timeSinceLastRequest }
+        `Rate limit exceeded for ${domain}`
       );
     }
+
+    history.push(now);
+    // Use tier3 for shortest cache duration since MemoryCache requires a tier argument
+    await this.cache.set(key, history, 'tier3');
   }
 
   /**
