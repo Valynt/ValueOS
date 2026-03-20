@@ -304,7 +304,7 @@ export async function revokeAllAccess(organizationId: string): Promise<void> {
         status: 'inactive',
         disabled_at: new Date().toISOString(),
         disabled_reason: 'Tenant deprovisioned',
-      } as any)
+      })
       .eq('tenant_id', organizationId);
 
     if (updateError) {

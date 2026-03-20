@@ -8,8 +8,12 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const MIGRATIONS_GLOB = 'infra/supabase/supabase/migrations/*.sql';
 
 function listMigrationFiles() {
-  const output = execSync(`rg --files -g '${MIGRATIONS_GLOB}'`, { cwd: ROOT, encoding: 'utf8' }).trim();
-  return output ? output.split('\n').sort() : [];
+  try {
+    const output = execSync(`find infra/supabase/supabase/migrations -type f -name "*.sql"`, { cwd: ROOT, encoding: 'utf8' }).trim();
+    return output ? output.split('\n').sort() : [];
+  } catch {
+    return [];
+  }
 }
 
 function lineNumberForOffset(content, offset) {

@@ -316,6 +316,41 @@ export interface Database {
         };
       };
       // Add other tables as needed...
+      user_tenants: {
+        Row: {
+          id: string;
+          user_id: string;
+          tenant_id: string;
+          role: string;
+          status: string;
+          disabled_at: string | null;
+          disabled_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tenant_id: string;
+          role?: string;
+          status?: string;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tenant_id?: string;
+          role?: string;
+          status?: string;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Functions: {
       // Add stored procedures if needed
