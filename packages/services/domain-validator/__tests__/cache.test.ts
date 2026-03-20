@@ -120,19 +120,22 @@ describe('DomainCache', () => {
 
   describe('cleanup', () => {
     it('should remove expired entries during cleanup', async () => {
-      cache.set('domain1.com', true);
-      cache.set('domain2.com', false);
-      
+      // Fake timers must be active before constructing the cache so the
+      // internal setInterval is registered under the fake clock.
       vi.useFakeTimers();
-      
-      // Advance time past TTL
+      const timedCache = new DomainCache(5, 10);
+
+      timedCache.set('domain1.com', true);
+      timedCache.set('domain2.com', false);
+
+      // Advance past TTL so entries are stale
       vi.advanceTimersByTime(6000);
-      
-      // Trigger cleanup (runs every minute)
+
+      // Trigger the cleanup interval (fires every 60 s)
       vi.advanceTimersByTime(60000);
-      
-      expect(cache.size()).toBe(0);
-      
+
+      expect(timedCache.size()).toBe(0);
+
       vi.useRealTimers();
     });
   });

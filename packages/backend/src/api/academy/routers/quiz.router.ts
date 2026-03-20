@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
+import type { RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
@@ -130,7 +130,7 @@ function generateQuizFeedback(
 // ============================================================================
 
 async function getQuizQuestionsByPillar(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   pillarId: number
 ): Promise<QuizQuestion[]> {
   const { data, error } = await client
@@ -161,7 +161,7 @@ async function getQuizQuestionsByPillar(
 }
 
 async function getUserQuizResults(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string,
   pillarId?: number
@@ -202,7 +202,7 @@ async function getUserQuizResults(
 }
 
 async function createQuizResult(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   result: Omit<QuizResult, "id"> & { organizationId: string }
 ): Promise<void> {
   const { error } = await client.from("quiz_results").insert({
@@ -227,7 +227,7 @@ async function createQuizResult(
   }
 }
 
-async function getPillarById(client: ReturnType<typeof createRequestRlsSupabaseClient>, pillarId: number) {
+async function getPillarById(client: RequestScopedRlsSupabaseClient, pillarId: number) {
   const { data, error } = await client
     .from("pillars")
     .select("*")
@@ -243,7 +243,7 @@ async function getPillarById(client: ReturnType<typeof createRequestRlsSupabaseC
 }
 
 async function getUserSimulationAttempts(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string
 ): Promise<SimulationAttempt[]> {
@@ -271,7 +271,7 @@ async function getUserSimulationAttempts(
 }
 
 async function hasCertification(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string,
   pillarId: number,
@@ -295,7 +295,7 @@ async function hasCertification(
 }
 
 async function createCertification(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   cert: Omit<Certification, "id"> & { organizationId: string }
 ): Promise<void> {
   const { error } = await client.from("certifications").insert({
@@ -319,7 +319,7 @@ async function createCertification(
 }
 
 async function upsertProgress(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   progress: {
     userId: string;
     organizationId: string;
@@ -383,7 +383,7 @@ async function upsertProgress(
 }
 
 async function getUserMaturityLevel(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string
 ): Promise<number> {
   const { data, error } = await client

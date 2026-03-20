@@ -1,6 +1,3 @@
-import { randomUUID } from "crypto";
-
-import { validateServiceIdentityConfig } from "../../middleware/serviceIdentityMiddleware.js";
 import { logger } from "../../lib/logger.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 
@@ -12,21 +9,38 @@ import {
 } from "./ComplianceControlMappingRegistry.js";
 import { complianceFrameworkCapabilityGate } from "./ComplianceFrameworkCapabilityGate.js";
 
+/* eslint-disable security/detect-object-injection -- Proxy reflection and typed environment lookups are intentional here. */
+
 export type AutomatedControlCheckStatus = "pass" | "fail";
 export type AutomatedControlCheckKind = "evidence_freshness" | "technical_validation";
+export type ConfiguredControlStatus = "configured" | "missing";
+
+export interface DeclaredFrameworkCapability {
+  framework: ComplianceFramework;
+  supported: boolean;
+  missing_prerequisites: string[];
+  gating_label: "prerequisite_gate";
+}
+
+export interface ConfiguredControlState {
+  framework: ComplianceFramework;
+  control_id: string;
+  source: "environment" | "tenant_config";
+  status: ConfiguredControlStatus;
+  message: string;
+}
 
 export interface AutomatedControlCheckResult {
   control_id: string;
   framework: ComplianceFramework;
-  check_kind: AutomatedControlCheckKind;
-  assertion_id: string;
-  evidence_type: EvidenceType | null;
+  evidence_type: EvidenceType;
   status: AutomatedControlCheckStatus;
   message: string;
   last_evidence_at: string | null;
-  max_age_minutes: number | null;
+  max_age_minutes: number;
   freshness_minutes: number | null;
-  details?: Record<string, unknown>;
+  check_kind: AutomatedControlCheckKind;
+  assertion_id?: string;
 }
 
 export interface AutomatedControlCheckSnapshot {
@@ -36,35 +50,9 @@ export interface AutomatedControlCheckSnapshot {
   trigger: "scheduled" | "manual";
   overall_status: AutomatedControlCheckStatus;
   failing_checks: number;
+  declared_capability: DeclaredFrameworkCapability[];
+  configured_controls: ConfiguredControlState[];
   results: AutomatedControlCheckResult[];
-}
-
-interface RpcCapableSupabaseClient {
-  from(table: string): {
-    select(query: string): {
-      eq(field: string, value: unknown): unknown;
-      in(field: string, values: unknown[]): unknown;
-      order(field: string, options: { ascending: boolean }): unknown;
-      limit(count: number): unknown;
-      maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
-    };
-    insert(payload: Record<string, unknown>): Promise<{ error: unknown | null }>;
-  };
-  rpc?: (fn: string, params?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-}
-
-interface RlsVerificationRow {
-  table_name: string;
-  rls_enabled: boolean;
-  policy_count: number;
-  has_not_null_constraint: boolean;
-}
-
-interface TechnicalAssertionDefinition {
-  framework: ComplianceFramework;
-  control_id: string;
-  assertion_id: string;
-  execute: (tenantId: string) => Promise<AutomatedControlCheckResult>;
 }
 
 const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
@@ -76,72 +64,220 @@ const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
 };
 
 const CONCURRENT_TENANT_CHECKS = 5;
-const ENCRYPTION_KEY_PATTERN = /^(pbkdf2:|hex:|base64:)|.{44,}$/;
+const SUPPORTED_TECHNICAL_FRAMEWORKS: ComplianceFramework[] = ["SOC2", "GDPR", "HIPAA"];
+const TECHNICAL_REQUIRED_TABLES = ["audit_logs", "audit_logs_archive", "compliance_reports", "organization_configurations"];
+const IMMUTABLE_AUDIT_TABLES = ["audit_logs", "audit_logs_archive"];
+const IMMUTABLE_AUDIT_POLICY_NAMES = [
+  "deny_audit_logs_update",
+  "deny_audit_logs_delete",
+  "deny_audit_logs_archive_update",
+  "deny_audit_logs_archive_delete",
+];
+const IMMUTABLE_AUDIT_TRIGGER_NAMES = [
+  "prevent_audit_delete",
+  "prevent_audit_update",
+  "prevent_audit_archive_delete",
+  "prevent_audit_archive_update",
+];
+const DATABASE_TLS_MARKERS = ["sslmode=require", "sslmode=verify-ca", "sslmode=verify-full"];
 
-const FRAMEWORK_RLS_REQUIREMENTS: Record<ComplianceFramework, string[]> = {
-  GDPR: [
-    "audit_logs",
-    "audit_logs_archive",
-    "compliance_control_status",
-    "compliance_control_audit",
-    "compliance_control_evidence",
-  ],
-  HIPAA: [
-    "audit_logs",
-    "security_audit_log",
-    "compliance_control_status",
-    "compliance_control_audit",
-    "mfa_secrets",
-  ],
-  CCPA: ["audit_logs", "audit_logs_archive", "compliance_control_status"],
-  SOC2: [
-    "audit_logs",
-    "security_audit_log",
-    "compliance_control_status",
-    "compliance_control_audit",
-    "user_settings",
-    "user_tenants",
-  ],
-  ISO27001: ["audit_logs", "security_audit_log", "compliance_control_status"],
-};
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
+interface OrganizationConfigurationRow {
+  auth_policy?: { enforceMFA?: boolean } | null;
 }
 
-function isEnabled(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "true" || normalized === "1" || normalized === "yes";
+interface TableSecurityRow {
+  tablename?: string;
+  rowsecurity?: boolean;
 }
 
-function normalizeRows(data: unknown): RlsVerificationRow[] {
-  if (!Array.isArray(data)) {
-    return [];
-  }
-
-  return data.flatMap((row) => {
-    if (typeof row !== "object" || row === null) {
-      return [];
-    }
-
-    const candidate = row as Record<string, unknown>;
-    if (!isNonEmptyString(candidate.table_name)) {
-      return [];
-    }
-
-    return [{
-      table_name: candidate.table_name,
-      rls_enabled: candidate.rls_enabled === true,
-      policy_count: typeof candidate.policy_count === "number" ? candidate.policy_count : 0,
-      has_not_null_constraint: candidate.has_not_null_constraint === true,
-    } satisfies RlsVerificationRow];
-  });
+interface PolicyRow {
+  tablename?: string;
+  policyname?: string;
 }
+
+interface TriggerRow {
+  event_object_table?: string;
+  trigger_name?: string;
+}
+
+interface TenantTechnicalState {
+  organizationAuthPolicy: { enforceMFA: boolean; found: boolean };
+  rlsTables: Map<string, boolean>;
+  immutableAuditPolicies: Set<string>;
+  immutableAuditTriggers: Set<string>;
+  encryptionRequired: boolean;
+  serviceIdentityConfigured: boolean;
+  productionMfaEnforced: boolean;
+}
+
+interface TechnicalAssertionDefinition {
+  framework: ComplianceFramework;
+  controlId: string;
+  assertionId: string;
+  evidenceType: EvidenceType;
+  evaluate(state: TenantTechnicalState): { status: AutomatedControlCheckStatus; message: string };
+}
+
+const TECHNICAL_ASSERTIONS: TechnicalAssertionDefinition[] = [
+  {
+    framework: "GDPR",
+    controlId: "gdpr_art_32_security_processing",
+    assertionId: "gdpr_required_tables_rls_enabled",
+    evidenceType: "control_status",
+    evaluate: (state) => {
+      const requiredTables = ["audit_logs", "compliance_reports", "organization_configurations"];
+      const missingTables = requiredTables.filter((table) => !state.rlsTables.get(table));
+      return missingTables.length === 0
+        ? {
+            status: "pass",
+            message: "Row-level security is enabled on GDPR-reporting tables.",
+          }
+        : {
+            status: "fail",
+            message: `Row-level security is missing on required tables: ${missingTables.join(", ")}.`,
+          };
+    },
+  },
+  {
+    framework: "GDPR",
+    controlId: "gdpr_art_32_security_processing",
+    assertionId: "gdpr_encryption_required_config_enforced",
+    evidenceType: "control_status",
+    evaluate: (state) => ({
+      status: state.encryptionRequired ? "pass" : "fail",
+      message: state.encryptionRequired
+        ? "Encryption-required production configuration is enforced."
+        : "Encryption-required production configuration is not enforced.",
+    }),
+  },
+  {
+    framework: "SOC2",
+    controlId: "soc2_cc6_change_mgmt",
+    assertionId: "soc2_mfa_enforced_in_production",
+    evidenceType: "control_status",
+    evaluate: (state) => ({
+      status: state.productionMfaEnforced ? "pass" : "fail",
+      message: state.productionMfaEnforced
+        ? "MFA is enforced for production access."
+        : "MFA is not enforced for production access.",
+    }),
+  },
+  {
+    framework: "SOC2",
+    controlId: "soc2_cc7_monitoring",
+    assertionId: "soc2_immutable_audit_protections_present",
+    evidenceType: "audit_logs",
+    evaluate: (state) => {
+      const missingPolicies = IMMUTABLE_AUDIT_POLICY_NAMES.filter((policy) => !state.immutableAuditPolicies.has(policy));
+      const missingTriggers = IMMUTABLE_AUDIT_TRIGGER_NAMES.filter((trigger) => !state.immutableAuditTriggers.has(trigger));
+      return missingPolicies.length === 0 && missingTriggers.length === 0
+        ? {
+            status: "pass",
+            message: "Immutable audit protections are present for live and archived audit logs.",
+          }
+        : {
+            status: "fail",
+            message: `Immutable audit protections are incomplete. Missing policies: ${missingPolicies.join(", ") || "none"}; missing triggers: ${missingTriggers.join(", ") || "none"}.`,
+          };
+    },
+  },
+  {
+    framework: "SOC2",
+    controlId: "soc2_cc7_monitoring",
+    assertionId: "soc2_service_identity_configured",
+    evidenceType: "security_audit_log",
+    evaluate: (state) => ({
+      status: state.serviceIdentityConfigured ? "pass" : "fail",
+      message: state.serviceIdentityConfigured
+        ? "Cryptographic service identity assertions are configured for protected internal routes."
+        : "Protected internal routes do not have required cryptographic service identity configuration.",
+    }),
+  },
+  {
+    framework: "HIPAA",
+    controlId: "hipaa_164_312_b_audit_controls",
+    assertionId: "hipaa_service_identity_configured",
+    evidenceType: "security_audit_log",
+    evaluate: (state) => ({
+      status: state.serviceIdentityConfigured ? "pass" : "fail",
+      message: state.serviceIdentityConfigured
+        ? "Service identity is configured for protected internal routes handling regulated workflows."
+        : "Service identity is not configured for protected internal routes handling regulated workflows.",
+    }),
+  },
+  {
+    framework: "HIPAA",
+    controlId: "hipaa_164_312_b_audit_controls",
+    assertionId: "hipaa_mfa_enforced_in_production",
+    evidenceType: "control_status",
+    evaluate: (state) => ({
+      status: state.productionMfaEnforced ? "pass" : "fail",
+      message: state.productionMfaEnforced
+        ? "MFA is enforced for production access in HIPAA-relevant environments."
+        : "MFA is not enforced for production access in HIPAA-relevant environments.",
+    }),
+  },
+  {
+    framework: "HIPAA",
+    controlId: "hipaa_164_312_c_integrity",
+    assertionId: "hipaa_required_tables_rls_enabled",
+    evidenceType: "control_status",
+    evaluate: (state) => {
+      const requiredTables = ["audit_logs", "audit_logs_archive", "compliance_reports", "organization_configurations"];
+      const missingTables = requiredTables.filter((table) => !state.rlsTables.get(table));
+      return missingTables.length === 0
+        ? {
+            status: "pass",
+            message: "Row-level security is enabled on HIPAA-relevant reporting tables.",
+          }
+        : {
+            status: "fail",
+            message: `Row-level security is missing on HIPAA-relevant tables: ${missingTables.join(", ")}.`,
+          };
+    },
+  },
+  {
+    framework: "HIPAA",
+    controlId: "hipaa_164_312_c_integrity",
+    assertionId: "hipaa_immutable_audit_protections_present",
+    evidenceType: "audit_logs",
+    evaluate: (state) => {
+      const missingPolicies = IMMUTABLE_AUDIT_POLICY_NAMES.filter((policy) => !state.immutableAuditPolicies.has(policy));
+      const missingTriggers = IMMUTABLE_AUDIT_TRIGGER_NAMES.filter((trigger) => !state.immutableAuditTriggers.has(trigger));
+      return missingPolicies.length === 0 && missingTriggers.length === 0
+        ? {
+            status: "pass",
+            message: "Immutable audit protections are present for HIPAA audit evidence stores.",
+          }
+        : {
+            status: "fail",
+            message: `HIPAA audit integrity protections are incomplete. Missing policies: ${missingPolicies.join(", ") || "none"}; missing triggers: ${missingTriggers.join(", ") || "none"}.`,
+          };
+    },
+  },
+  {
+    framework: "HIPAA",
+    controlId: "hipaa_164_312_c_integrity",
+    assertionId: "hipaa_encryption_required_config_enforced",
+    evidenceType: "control_status",
+    evaluate: (state) => ({
+      status: state.encryptionRequired ? "pass" : "fail",
+      message: state.encryptionRequired
+        ? "Encryption-required configuration is enforced for regulated data paths."
+        : "Encryption-required configuration is not enforced for regulated data paths.",
+    }),
+  },
+];
 
 export class ComplianceControlCheckService {
-  private readonly supabase = createServerSupabaseClient() as unknown as RpcCapableSupabaseClient;
+  private readonly supabase = createServerSupabaseClient();
   private interval: NodeJS.Timeout | null = null;
+
+  private isEnabled(value: string | undefined): boolean {
+    if (!value) return false;
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
 
   private async findLatestEvidenceTimestamp(tenantId: string, evidenceType: EvidenceType): Promise<string | null> {
     if (evidenceType === "control_status") {
@@ -158,7 +294,7 @@ export class ComplianceControlCheckService {
         return null;
       }
 
-      return isNonEmptyString(data?.evidence_ts) ? data.evidence_ts : null;
+      return (data?.evidence_ts as string | undefined) ?? null;
     }
 
     const baseQuery = this.supabase
@@ -171,7 +307,7 @@ export class ComplianceControlCheckService {
     if (evidenceType === "audit_logs") {
       const { data, error } = await baseQuery.maybeSingle();
       if (error) return null;
-      return isNonEmptyString(data?.timestamp) ? data.timestamp : null;
+      return (data?.timestamp as string | undefined) ?? null;
     }
 
     if (evidenceType === "security_audit_log") {
@@ -185,7 +321,7 @@ export class ComplianceControlCheckService {
         .maybeSingle();
 
       if (error) return null;
-      return isNonEmptyString(data?.timestamp) ? data.timestamp : null;
+      return (data?.timestamp as string | undefined) ?? null;
     }
 
     if (evidenceType === "audit_logs_archive") {
@@ -199,7 +335,7 @@ export class ComplianceControlCheckService {
         .maybeSingle();
 
       if (error) return null;
-      return isNonEmptyString(data?.timestamp) ? data.timestamp : null;
+      return (data?.timestamp as string | undefined) ?? null;
     }
 
     if (evidenceType === "security_audit_log_archive") {
@@ -214,343 +350,245 @@ export class ComplianceControlCheckService {
         .maybeSingle();
 
       if (error) return null;
-      return isNonEmptyString(data?.timestamp) ? data.timestamp : null;
+      return (data?.timestamp as string | undefined) ?? null;
     }
 
     return null;
   }
 
-  private async validateRequiredTableRls(framework: ComplianceFramework, controlId: string, assertionId: string): Promise<AutomatedControlCheckResult> {
-    const requiredTables = FRAMEWORK_RLS_REQUIREMENTS[framework] ?? [];
-
-    if (!this.supabase.rpc) {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "fail",
-        message: "Database metadata RPC is unavailable; unable to verify required-table RLS posture.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-        details: { required_tables: requiredTables },
-      };
-    }
-
-    const { data, error } = await this.supabase.rpc("verify_rls_tenant_isolation");
-    if (error) {
-      logger.warn("ComplianceControlCheckService: failed RLS verification RPC", { framework, error: error.message });
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "fail",
-        message: `Unable to verify RLS posture for required tables: ${error.message}`,
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-        details: { required_tables: requiredTables },
-      };
-    }
-
-    const rowMap = new Map(normalizeRows(data).map((row) => [row.table_name, row]));
-    const missingTables: string[] = [];
-    const failingTables: string[] = [];
-
-    for (const tableName of requiredTables) {
-      const row = rowMap.get(tableName);
-      if (!row) {
-        missingTables.push(tableName);
-        continue;
-      }
-
-      if (!row.rls_enabled || row.policy_count < 1 || !row.has_not_null_constraint) {
-        failingTables.push(tableName);
-      }
-    }
-
-    if (missingTables.length === 0 && failingTables.length === 0) {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "pass",
-        message: "RLS is enabled on all required tenant-scoped tables with tenant constraints in place.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-        details: { required_tables: requiredTables },
-      };
-    }
-
-    const problems = [
-      missingTables.length > 0 ? `missing metadata for ${missingTables.join(", ")}` : null,
-      failingTables.length > 0 ? `failing posture on ${failingTables.join(", ")}` : null,
-    ].filter(isNonEmptyString);
-
-    return {
-      control_id: controlId,
-      framework,
-      check_kind: "technical_validation",
-      assertion_id: assertionId,
-      evidence_type: null,
-      status: "fail",
-      message: `Required-table RLS validation failed: ${problems.join("; ")}.`,
-      last_evidence_at: null,
-      max_age_minutes: null,
-      freshness_minutes: null,
-      details: {
-        required_tables: requiredTables,
-        missing_tables: missingTables,
-        failing_tables: failingTables,
-      },
-    };
-  }
-
-  private async validateImmutableAuditProtections(framework: ComplianceFramework, controlId: string, assertionId: string, tenantId: string): Promise<AutomatedControlCheckResult> {
+  private async getOrganizationConfiguration(tenantId: string): Promise<OrganizationConfigurationRow | null> {
     const { data, error } = await this.supabase
-      .from("audit_logs")
-      .select("timestamp, integrity_hash, previous_hash")
-      .eq("tenant_id", tenantId)
-      .order("timestamp", { ascending: false })
+      .from("organization_configurations")
+      .select("auth_policy")
+      .eq("organization_id", tenantId)
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      logger.warn("ComplianceControlCheckService: failed audit immutability lookup", { tenantId, framework, error: error.message });
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "fail",
-        message: `Unable to inspect immutable audit protections: ${error.message}`,
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-      };
+      logger.warn("ComplianceControlCheckService: failed organization_configurations lookup", {
+        tenantId,
+        error: error.message,
+      });
+      return null;
     }
 
-    const integrityHash = data?.integrity_hash;
-    const previousHash = data?.previous_hash;
-    const timestamp = isNonEmptyString(data?.timestamp) ? data.timestamp : null;
-    const hasIntegrity = isNonEmptyString(integrityHash);
-    const hasChainContext = previousHash === null || isNonEmptyString(previousHash);
-
-    if (hasIntegrity && hasChainContext) {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "pass",
-        message: "Immutable audit protections are present: the audit log exposes an integrity hash chain.",
-        last_evidence_at: timestamp,
-        max_age_minutes: null,
-        freshness_minutes: null,
-      };
-    }
-
-    return {
-      control_id: controlId,
-      framework,
-      check_kind: "technical_validation",
-      assertion_id: assertionId,
-      evidence_type: null,
-      status: "fail",
-      message: "Immutable audit protections could not be confirmed from the latest audit record.",
-      last_evidence_at: timestamp,
-      max_age_minutes: null,
-      freshness_minutes: null,
-      details: {
-        has_integrity_hash: hasIntegrity,
-        has_previous_hash_context: hasChainContext,
-      },
-    };
+    return (data as OrganizationConfigurationRow | null) ?? null;
   }
 
-  private buildEncryptionConfigResult(framework: ComplianceFramework, controlId: string, assertionId: string): AutomatedControlCheckResult {
-    const nodeEnv = (process.env.NODE_ENV ?? "development").toLowerCase();
-    const encryptionKey = process.env.APP_ENCRYPTION_KEY ?? process.env.ENCRYPTION_KEY;
+  private async fetchTableSecurityState(): Promise<Map<string, boolean>> {
+    const { data, error } = await this.supabase
+      .from("pg_tables")
+      .select("tablename, rowsecurity")
+      .eq("schemaname", "public")
+      .in("tablename", TECHNICAL_REQUIRED_TABLES);
 
-    if (nodeEnv !== "production") {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "pass",
-        message: "Encryption-required production configuration is not applicable outside production.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-        details: { node_env: nodeEnv },
-      };
+    if (error) {
+      logger.warn("ComplianceControlCheckService: failed pg_tables lookup", { error: error.message });
+      return new Map<string, boolean>();
     }
 
-    const isValid = isNonEmptyString(encryptionKey) && ENCRYPTION_KEY_PATTERN.test(encryptionKey);
-    return {
-      control_id: controlId,
-      framework,
-      check_kind: "technical_validation",
-      assertion_id: assertionId,
-      evidence_type: null,
-      status: isValid ? "pass" : "fail",
-      message: isValid
-        ? "Production encryption-required configuration is enforced."
-        : "Production encryption-required configuration is missing or too weak.",
-      last_evidence_at: null,
-      max_age_minutes: null,
-      freshness_minutes: null,
-      details: { node_env: nodeEnv, encryption_key_configured: isValid },
-    };
+    return new Map(
+      ((data as TableSecurityRow[] | null) ?? []).map((row) => [row.tablename ?? "", Boolean(row.rowsecurity)]),
+    );
   }
 
-  private buildMfaEnforcementResult(framework: ComplianceFramework, controlId: string, assertionId: string): AutomatedControlCheckResult {
-    const nodeEnv = (process.env.NODE_ENV ?? "development").toLowerCase();
-    const mfaEnabled = process.env.MFA_ENABLED === "true";
+  private async fetchImmutableAuditPolicies(): Promise<Set<string>> {
+    const { data, error } = await this.supabase
+      .from("pg_policies")
+      .select("tablename, policyname")
+      .eq("schemaname", "public")
+      .in("tablename", IMMUTABLE_AUDIT_TABLES);
 
-    if (nodeEnv !== "production") {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "pass",
-        message: "Production MFA enforcement is not applicable outside production.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-        details: { node_env: nodeEnv },
-      };
+    if (error) {
+      logger.warn("ComplianceControlCheckService: failed pg_policies lookup", { error: error.message });
+      return new Set<string>();
     }
 
-    return {
-      control_id: controlId,
-      framework,
-      check_kind: "technical_validation",
-      assertion_id: assertionId,
-      evidence_type: null,
-      status: mfaEnabled ? "pass" : "fail",
-      message: mfaEnabled
-        ? "MFA is enforced for production access."
-        : "MFA is not enforced in production.",
-      last_evidence_at: null,
-      max_age_minutes: null,
-      freshness_minutes: null,
-      details: { node_env: nodeEnv, mfa_enabled: mfaEnabled },
-    };
+    return new Set(
+      (((data as PolicyRow[] | null) ?? [])
+        .map((row) => row.policyname)
+        .filter((value): value is string => typeof value === "string")),
+    );
   }
 
-  private buildServiceIdentityResult(framework: ComplianceFramework, controlId: string, assertionId: string): AutomatedControlCheckResult {
+  private async fetchImmutableAuditTriggers(): Promise<Set<string>> {
+    const { data, error } = await this.supabase
+      .from("information_schema.triggers")
+      .select("event_object_table, trigger_name")
+      .eq("trigger_schema", "public")
+      .in("event_object_table", IMMUTABLE_AUDIT_TABLES);
+
+    if (error) {
+      logger.warn("ComplianceControlCheckService: failed information_schema.triggers lookup", { error: error.message });
+      return new Set<string>();
+    }
+
+    return new Set(
+      (((data as TriggerRow[] | null) ?? [])
+        .map((row) => row.trigger_name)
+        .filter((value): value is string => typeof value === "string")),
+    );
+  }
+
+  private getEncryptionRequiredConfigState(): boolean {
+    const databaseUrl = process.env.DATABASE_URL ?? "";
+    const redisUrl = process.env.REDIS_URL ?? "";
+    const cacheEncryptionEnabled = process.env.CACHE_ENCRYPTION_ENABLED !== "false";
+    const cacheEncryptionKeyPresent = Boolean(process.env.CACHE_ENCRYPTION_KEY);
+    const applicationEncryptionKeyPresent = Boolean(process.env.APP_ENCRYPTION_KEY ?? process.env.ENCRYPTION_KEY);
+    const databaseTlsEnabled = DATABASE_TLS_MARKERS.some((marker) => databaseUrl.includes(marker));
+    const redisTlsEnabled = redisUrl.startsWith("rediss://") && (process.env.REDIS_TLS_REJECT_UNAUTHORIZED ?? "true") === "true";
+
+    return cacheEncryptionEnabled
+      && cacheEncryptionKeyPresent
+      && applicationEncryptionKeyPresent
+      && databaseTlsEnabled
+      && redisTlsEnabled;
+  }
+
+  private getServiceIdentityConfiguredState(): boolean {
+    const strictMode = process.env.NODE_ENV === "production" || process.env.SERVICE_IDENTITY_REQUIRED === "true";
+    if (!strictMode) {
+      return true;
+    }
+
+    const rawConfig = process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    if (!rawConfig) {
+      return false;
+    }
+
     try {
-      validateServiceIdentityConfig();
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "pass",
-        message: "Service identity is configured for protected internal routes.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
+      const parsed = JSON.parse(rawConfig) as {
+        jwtIssuers?: unknown[];
+        hmacKeys?: unknown[];
+        allowedSpiffeIds?: unknown[];
+        ingressAttestors?: unknown[];
       };
+
+      const hasCryptographicAssertions = (parsed.jwtIssuers?.length ?? 0) > 0 || (parsed.hmacKeys?.length ?? 0) > 0;
+      const hasSpiffe = (parsed.allowedSpiffeIds?.length ?? 0) > 0;
+      const hasIngressAttestors = (parsed.ingressAttestors?.length ?? 0) > 0;
+
+      if (!hasCryptographicAssertions) {
+        return false;
+      }
+
+      if (hasSpiffe && !hasIngressAttestors) {
+        return false;
+      }
+
+      return hasCryptographicAssertions || (hasSpiffe && hasIngressAttestors);
     } catch (error) {
-      return {
-        control_id: controlId,
-        framework,
-        check_kind: "technical_validation",
-        assertion_id: assertionId,
-        evidence_type: null,
-        status: "fail",
-        message: error instanceof Error
-          ? error.message
-          : "Service identity is not configured for protected internal routes.",
-        last_evidence_at: null,
-        max_age_minutes: null,
-        freshness_minutes: null,
-      };
+      logger.warn("ComplianceControlCheckService: invalid SERVICE_IDENTITY_CONFIG_JSON", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
     }
   }
 
-  private buildTechnicalAssertions(): TechnicalAssertionDefinition[] {
+  private async collectTenantTechnicalState(tenantId: string): Promise<TenantTechnicalState> {
+    const [orgConfig, rlsTables, immutableAuditPolicies, immutableAuditTriggers] = await Promise.all([
+      this.getOrganizationConfiguration(tenantId),
+      this.fetchTableSecurityState(),
+      this.fetchImmutableAuditPolicies(),
+      this.fetchImmutableAuditTriggers(),
+    ]);
+
+    const environmentRequiresMfa = process.env.NODE_ENV !== "production" || this.isEnabled(process.env.MFA_ENABLED);
+    const tenantConfigRequiresMfa = Boolean(orgConfig?.auth_policy?.enforceMFA);
+
+    return {
+      organizationAuthPolicy: {
+        enforceMFA: tenantConfigRequiresMfa,
+        found: Boolean(orgConfig),
+      },
+      rlsTables,
+      immutableAuditPolicies,
+      immutableAuditTriggers,
+      encryptionRequired: this.getEncryptionRequiredConfigState(),
+      serviceIdentityConfigured: this.getServiceIdentityConfiguredState(),
+      productionMfaEnforced: environmentRequiresMfa && tenantConfigRequiresMfa,
+    };
+  }
+
+  private getDeclaredCapabilities(): DeclaredFrameworkCapability[] {
+    return SUPPORTED_TECHNICAL_FRAMEWORKS.map((framework) => {
+      const status = complianceFrameworkCapabilityGate.getCapabilityStatus(framework);
+      return {
+        framework,
+        supported: status.supported,
+        missing_prerequisites: status.missingPrerequisites,
+        gating_label: "prerequisite_gate",
+      };
+    });
+  }
+
+  private getConfiguredControls(state: TenantTechnicalState): ConfiguredControlState[] {
     return [
       {
         framework: "GDPR",
-        control_id: "gdpr_art_32_security_processing",
-        assertion_id: "gdpr_art_32_required_table_rls",
-        execute: async () => this.validateRequiredTableRls("GDPR", "gdpr_art_32_security_processing", "gdpr_art_32_required_table_rls"),
-      },
-      {
-        framework: "GDPR",
-        control_id: "gdpr_art_32_security_processing",
-        assertion_id: "gdpr_art_32_encryption_required_config",
-        execute: async () => this.buildEncryptionConfigResult("GDPR", "gdpr_art_32_security_processing", "gdpr_art_32_encryption_required_config"),
+        control_id: "gdpr_encryption_required_config",
+        source: "environment",
+        status: state.encryptionRequired ? "configured" : "missing",
+        message: state.encryptionRequired
+          ? "TLS and encryption-required settings are configured."
+          : "TLS and encryption-required settings are incomplete.",
       },
       {
         framework: "SOC2",
-        control_id: "soc2_cc6_change_mgmt",
-        assertion_id: "soc2_cc6_required_table_rls",
-        execute: async () => this.validateRequiredTableRls("SOC2", "soc2_cc6_change_mgmt", "soc2_cc6_required_table_rls"),
+        control_id: "soc2_mfa_enforced_in_production",
+        source: state.organizationAuthPolicy.found ? "tenant_config" : "environment",
+        status: state.productionMfaEnforced ? "configured" : "missing",
+        message: state.productionMfaEnforced
+          ? "Production MFA is configured in environment and tenant auth policy."
+          : "Production MFA is missing in environment or tenant auth policy.",
       },
       {
         framework: "SOC2",
-        control_id: "soc2_cc6_change_mgmt",
-        assertion_id: "soc2_cc6_mfa_enforced_in_production",
-        execute: async () => this.buildMfaEnforcementResult("SOC2", "soc2_cc6_change_mgmt", "soc2_cc6_mfa_enforced_in_production"),
-      },
-      {
-        framework: "SOC2",
-        control_id: "soc2_cc7_monitoring",
-        assertion_id: "soc2_cc7_service_identity_internal_routes",
-        execute: async () => this.buildServiceIdentityResult("SOC2", "soc2_cc7_monitoring", "soc2_cc7_service_identity_internal_routes"),
+        control_id: "soc2_service_identity_configured",
+        source: "environment",
+        status: state.serviceIdentityConfigured ? "configured" : "missing",
+        message: state.serviceIdentityConfigured
+          ? "Cryptographic service identity assertions are configured."
+          : "Cryptographic service identity assertions are missing.",
       },
       {
         framework: "HIPAA",
-        control_id: "hipaa_164_312_b_audit_controls",
-        assertion_id: "hipaa_164_312_b_immutable_audit_protections",
-        execute: async (tenantId) => this.validateImmutableAuditProtections("HIPAA", "hipaa_164_312_b_audit_controls", "hipaa_164_312_b_immutable_audit_protections", tenantId),
+        control_id: "hipaa_mfa_enforced_in_production",
+        source: state.organizationAuthPolicy.found ? "tenant_config" : "environment",
+        status: state.productionMfaEnforced ? "configured" : "missing",
+        message: state.productionMfaEnforced
+          ? "Production MFA is configured for regulated access."
+          : "Production MFA is not fully configured for regulated access.",
       },
       {
         framework: "HIPAA",
-        control_id: "hipaa_164_312_c_integrity",
-        assertion_id: "hipaa_164_312_c_required_table_rls",
-        execute: async () => this.validateRequiredTableRls("HIPAA", "hipaa_164_312_c_integrity", "hipaa_164_312_c_required_table_rls"),
+        control_id: "hipaa_service_identity_configured",
+        source: "environment",
+        status: state.serviceIdentityConfigured ? "configured" : "missing",
+        message: state.serviceIdentityConfigured
+          ? "Protected internal routes have service identity configuration."
+          : "Protected internal routes lack service identity configuration.",
       },
       {
         framework: "HIPAA",
-        control_id: "hipaa_164_312_c_integrity",
-        assertion_id: "hipaa_164_312_e_encryption_required_config",
-        execute: async () => this.buildEncryptionConfigResult("HIPAA", "hipaa_164_312_c_integrity", "hipaa_164_312_e_encryption_required_config"),
-      },
-      {
-        framework: "HIPAA",
-        control_id: "hipaa_164_312_c_integrity",
-        assertion_id: "hipaa_164_312_d_mfa_enforced_in_production",
-        execute: async () => this.buildMfaEnforcementResult("HIPAA", "hipaa_164_312_c_integrity", "hipaa_164_312_d_mfa_enforced_in_production"),
+        control_id: "hipaa_encryption_required_config",
+        source: "environment",
+        status: state.encryptionRequired ? "configured" : "missing",
+        message: state.encryptionRequired
+          ? "Encryption-required settings are configured for HIPAA-relevant paths."
+          : "Encryption-required settings are incomplete for HIPAA-relevant paths.",
       },
     ];
   }
 
-  private async runEvidenceFreshnessChecks(tenantId: string): Promise<AutomatedControlCheckResult[]> {
-    const supportedFrameworks = complianceFrameworkCapabilityGate.getSupportedFrameworks().filter(
-      (framework): framework is ComplianceFramework => ["SOC2", "GDPR", "HIPAA"].includes(framework),
-    );
-
+  private async buildEvidenceFreshnessResults(tenantId: string): Promise<AutomatedControlCheckResult[]> {
     const controls = complianceControlMappingRegistry
-      .listFrameworkMappings(supportedFrameworks)
+      .listFrameworkMappings(
+        complianceFrameworkCapabilityGate.getSupportedFrameworks().filter(
+          (framework): framework is ComplianceFramework => SUPPORTED_TECHNICAL_FRAMEWORKS.includes(framework),
+        ),
+      )
       .flatMap((mapping) =>
         mapping.controls.flatMap((control) =>
           control.required_evidence_types.map((evidenceType) => ({
@@ -574,8 +612,6 @@ export class ComplianceControlCheckService {
       results.push({
         control_id: check.controlId,
         framework: check.framework,
-        check_kind: "evidence_freshness",
-        assertion_id: `${check.controlId}:${check.evidenceType}:freshness`,
         evidence_type: check.evidenceType,
         status: isFresh ? "pass" : "fail",
         message: isFresh
@@ -586,38 +622,52 @@ export class ComplianceControlCheckService {
         last_evidence_at: latest,
         max_age_minutes: maxAge,
         freshness_minutes: freshness !== null ? Number(freshness.toFixed(2)) : null,
+        check_kind: "evidence_freshness",
       });
     }
 
     return results;
   }
 
-  private async runTechnicalValidationChecks(tenantId: string): Promise<AutomatedControlCheckResult[]> {
-    const supportedFrameworks = new Set(complianceFrameworkCapabilityGate.getSupportedFrameworks());
-    const assertions = this.buildTechnicalAssertions().filter((assertion) => supportedFrameworks.has(assertion.framework));
-
-    const results: AutomatedControlCheckResult[] = [];
-    for (const assertion of assertions) {
-      results.push(await assertion.execute(tenantId));
-    }
-
-    return results;
+  private buildTechnicalValidationResults(state: TenantTechnicalState): AutomatedControlCheckResult[] {
+    return TECHNICAL_ASSERTIONS.map((assertion) => {
+      const evaluation = assertion.evaluate(state);
+      return {
+        control_id: assertion.controlId,
+        framework: assertion.framework,
+        evidence_type: assertion.evidenceType,
+        status: evaluation.status,
+        message: evaluation.message,
+        last_evidence_at: null,
+        max_age_minutes: 0,
+        freshness_minutes: null,
+        check_kind: "technical_validation",
+        assertion_id: assertion.assertionId,
+      };
+    });
   }
 
   async runChecksForTenant(tenantId: string, trigger: "scheduled" | "manual" = "scheduled"): Promise<AutomatedControlCheckSnapshot> {
     const checkedAt = new Date().toISOString();
-    const evidenceResults = await this.runEvidenceFreshnessChecks(tenantId);
-    const technicalResults = await this.runTechnicalValidationChecks(tenantId);
+    const [technicalState, evidenceResults] = await Promise.all([
+      this.collectTenantTechnicalState(tenantId),
+      this.buildEvidenceFreshnessResults(tenantId),
+    ]);
+    const declaredCapability = this.getDeclaredCapabilities();
+    const configuredControls = this.getConfiguredControls(technicalState);
+    const technicalResults = this.buildTechnicalValidationResults(technicalState);
     const results = [...evidenceResults, ...technicalResults];
 
     const failingChecks = results.filter((item) => item.status === "fail");
     const snapshot: AutomatedControlCheckSnapshot = {
-      run_id: randomUUID(),
+      run_id: crypto.randomUUID(),
       tenant_id: tenantId,
       checked_at: checkedAt,
       trigger,
       overall_status: failingChecks.length > 0 ? "fail" : "pass",
       failing_checks: failingChecks.length,
+      declared_capability: declaredCapability,
+      configured_controls: configuredControls,
       results,
     };
 
@@ -649,8 +699,6 @@ export class ComplianceControlCheckService {
         trigger,
         overall_status: snapshot.overall_status,
         failing_checks: snapshot.failing_checks,
-        evidence_failures: evidenceResults.filter((result) => result.status === "fail").length,
-        technical_failures: technicalResults.filter((result) => result.status === "fail").length,
       },
       status: snapshot.overall_status === "pass" ? "success" : "failed",
     });
@@ -700,13 +748,13 @@ export class ComplianceControlCheckService {
   }
 
   async runScheduledSweep(): Promise<void> {
-    const { data, error } = await this.supabase.from("tenants").select("id") as { data: Array<{ id: string }> | null; error: { message: string } | null };
+    const { data, error } = await this.supabase.from("tenants").select("id");
     if (error) {
       logger.warn("ComplianceControlCheckService: failed loading tenants for scheduled sweep", { error: error.message });
       return;
     }
 
-    const tenants = data ?? [];
+    const tenants = (data as Array<{ id: string }> | null) ?? [];
     for (let i = 0; i < tenants.length; i += CONCURRENT_TENANT_CHECKS) {
       const batch = tenants.slice(i, i + CONCURRENT_TENANT_CHECKS);
       await Promise.all(

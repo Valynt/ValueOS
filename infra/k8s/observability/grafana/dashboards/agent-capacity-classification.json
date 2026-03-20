@@ -1,0 +1,84 @@
+{
+  "dashboard": {
+    "title": "ValueCanvas - Agent Capacity Classification",
+    "tags": ["valuecanvas", "agents", "capacity", "cold-start"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Interactive Warm Allowlist — available replicas",
+        "description": "Only these agents may participate in synchronous request paths. Non-zero replicas here represent interactive warm capacity.",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(kube_deployment_status_replicas_available{namespace=\"valynt-agents\",deployment=~\"opportunity-agent|target-agent|integrity-agent|expansion-agent|realization-agent|financial-modeling-agent\"}) by (deployment)",
+            "legendFormat": "{{deployment}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Replicas" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Scale-to-zero Async Denylist — available replicas",
+        "description": "Replicas here clear backlog only. Even when non-zero, this is not interactive capacity and must not be used to satisfy synchronous latency expectations.",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(kube_deployment_status_replicas_available{namespace=\"valynt-agents\",deployment=~\"company-intelligence-agent|value-mapping-agent|system-mapper-agent|intervention-designer-agent|outcome-engineer-agent|coordinator-agent|value-eval-agent|communicator-agent|benchmark-agent|narrative-agent|groundtruth-agent\"}) by (deployment)",
+            "legendFormat": "{{deployment}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Replicas" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Async-only cold-start p95",
+        "description": "Cold-start latency for async-only agents. Spikes here mean backlog wake-up time, not interactive warm readiness.",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agent_enqueue_to_ready_seconds_bucket{agent=~\"company-intelligence|value-mapping|system-mapper|intervention-designer|outcome-engineer|coordinator|value-eval|communicator|benchmark|narrative|groundtruth\"}[5m])) by (le, agent))",
+            "legendFormat": "{{agent}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Seconds" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Research async warm capacity",
+        "description": "Research remains warm for throughput, but is still async-preferred rather than interactive-allowlisted.",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(kube_deployment_status_replicas_available{namespace=\"valynt-agents\",deployment=\"research-agent\"})",
+            "legendFormat": "research-agent",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Replicas" },
+          { "format": "short" }
+        ]
+      }
+    ]
+  }
+}

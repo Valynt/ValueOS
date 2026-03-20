@@ -5,11 +5,18 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { domainDatabase } from '../src/database';
-import { app } from '../src/server';
-import { domainValidator } from '../src/validator';
+// Mock config before server import to prevent process.exit(1) on missing env vars
+vi.mock('../src/config', () => ({
+  config: {
+    port: 3000,
+    nodeEnv: 'test',
+    supabase: { url: 'https://test.supabase.co', serviceRoleKey: 'test-key' },
+    cache: { ttlSeconds: 300, maxSize: 1000 },
+    logging: { level: 'info' },
+  },
+  validateConfig: vi.fn(),
+}));
 
-// Mock dependencies
 vi.mock('../src/validator', () => ({
   domainValidator: {
     verifyDomain: vi.fn(),
@@ -23,6 +30,10 @@ vi.mock('../src/database', () => ({
     healthCheck: vi.fn(),
   },
 }));
+
+import { domainDatabase } from '../src/database';
+import { app } from '../src/server';
+import { domainValidator } from '../src/validator';
 
 describe('Server Endpoints', () => {
   beforeEach(() => {

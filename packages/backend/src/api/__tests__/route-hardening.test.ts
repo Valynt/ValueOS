@@ -125,6 +125,8 @@ import billingRouter from '../billing/index.js'
 import healthRouter from '../health/index.js'
 import llmRouter from '../llm.js'
 
+vi.mock("../../lib/supabase.js");
+
 function collectMiddlewareNames(router: any): string[] {
   const names: string[] = [];
   const stack = router?.stack || [];

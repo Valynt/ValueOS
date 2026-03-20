@@ -23,7 +23,7 @@ import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.j
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
-import { getValueDriversRepository } from './repository.js'
+import { ValueDriversRepository } from './repository.js'
 import { 
   ApiErrorResponse,
   CreateValueDriverSchema,
@@ -261,7 +261,7 @@ async function createDriver(req: Request, res: Response, next: NextFunction): Pr
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     const driver = await repository.create(
       authReq.tenantId!,
       authReq.user!.id,
@@ -285,7 +285,7 @@ async function listDrivers(req: Request, res: Response, next: NextFunction): Pro
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     
     // Non-admin users can only see published drivers
     const parsedQuery = ListValueDriversQuerySchema.parse(req.query);
@@ -311,7 +311,7 @@ async function getDriver(req: Request, res: Response, next: NextFunction): Promi
   const { driverId } = req.params;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     const driver = await repository.getById(authReq.tenantId!, driverId);
 
     // Non-admin users can only see published drivers
@@ -342,7 +342,7 @@ async function updateDriver(req: Request, res: Response, next: NextFunction): Pr
   const { driverId } = req.params;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     const driver = await repository.update(authReq.tenantId!, driverId, req.body);
 
     res.status(200).json({
@@ -363,7 +363,7 @@ async function deleteDriver(req: Request, res: Response, next: NextFunction): Pr
   const { driverId } = req.params;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     await repository.delete(authReq.tenantId!, driverId);
 
     res.status(204).send();
@@ -381,7 +381,7 @@ async function trackUsage(req: Request, res: Response, next: NextFunction): Prom
   const { driverId } = req.params;
 
   try {
-    const repository = getValueDriversRepository();
+    const repository = ValueDriversRepository.fromRequest(req);
     await repository.incrementUsage(authReq.tenantId!, driverId);
 
     res.status(204).send();

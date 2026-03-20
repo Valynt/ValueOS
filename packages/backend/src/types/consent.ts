@@ -1,6 +1,6 @@
 /**
  * Consent Type Definitions
- * 
+ *
  * Types for consent management, data processing permissions,
  * and GDPR/privacy compliance.
  */
@@ -195,15 +195,17 @@ export type ConsentAuditEventType =
   | 'data_shared'
   | 'policy_updated';
 
-export type ConsentQueryClient = Pick<SupabaseClient, 'from'>;
+// ============================================================================
+// Consent Registry (Simplified)
+// ============================================================================
 
-export interface ConsentQuery {
+export interface ConsentCheckRequest {
   tenantId: string;
   scope: string;
   subject: string;
-  supabase: ConsentQueryClient;
+  supabase: Pick<SupabaseClient, "from">;
 }
 
 export interface ConsentRegistry {
-  hasConsent: (query: ConsentQuery) => Promise<boolean>;
+  hasConsent: (request: ConsentCheckRequest) => Promise<boolean>;
 }

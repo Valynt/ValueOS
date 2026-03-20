@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServiceRoleSupabaseClient, createRequestRlsSupabaseClient } from '../../lib/supabase.js';
+import { createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   Artifact,
@@ -80,12 +80,19 @@ export class ArtifactsRepository {
   private supabase: SupabaseClient;
   private tableName = 'memory_artifacts';
 
-  constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServiceRoleSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   static fromRequest(req: Request): ArtifactsRepository {
-    return new ArtifactsRepository(createRequestRlsSupabaseClient(req));
+    if (req.supabase) {
+      return new ArtifactsRepository(req.supabase);
+    }
+    const token = (req.session as Record<string, unknown> | undefined)?.access_token;
+    if (typeof token === 'string') {
+      return new ArtifactsRepository(createUserSupabaseClient(token));
+    }
+    throw new Error('ArtifactsRepository.fromRequest: no user-scoped Supabase client available on request');
   }
 
   /**
@@ -538,12 +545,11 @@ export class ArtifactsRepository {
   }
 }
 
-// Singleton instance
-let repository: ArtifactsRepository | null = null;
 
-export function getArtifactsRepository(): ArtifactsRepository {
-  if (!repository) {
-    repository = new ArtifactsRepository();
+export function getArtifactsRepository(req?: Request): ArtifactsRepository {
+  if (!req) {
+    throw new Error("getArtifactsRepository now requires an Express request so it can build a user-scoped Supabase client");
   }
-  return repository;
+
+  return ArtifactsRepository.fromRequest(req);
 }

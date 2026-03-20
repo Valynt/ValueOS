@@ -47,4 +47,3 @@ CREATE POLICY "members_select" ON public.organizations
 
 GRANT ALL ON public.organizations TO service_role;
 GRANT SELECT ON public.organizations TO authenticated;
-GRANT SELECT ON public.organizations TO anon;

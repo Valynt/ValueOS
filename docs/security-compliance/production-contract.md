@@ -111,7 +111,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 |---------|---------------|----------|
 | GDPR data export (Art. 15) | DSR API endpoint | `packages/backend/src/api/dataSubjectRequests.ts` |
 | GDPR data erasure (Art. 17) | DSR API endpoint with anonymization | `packages/backend/src/api/dataSubjectRequests.ts` |
-| Consent management | Per-user consent registry + middleware enforce `tenant_id`, canonical `auth_subject`, and consent type before protected processing | `packages/backend/src/services/auth/consentRegistry.ts`, `packages/backend/src/middleware/consentMiddleware.ts` |
+| Consent management | Request-scoped consent registry + middleware enforcing tenant + canonical data-subject identity + consent type | `packages/backend/src/services/auth/consentRegistry.ts`, `packages/backend/src/middleware/consentMiddleware.ts` |
 | PII filtering in logs | Sanitization before logging | `packages/backend/src/lib/piiFilter.ts` (referenced by audit service) |
 | DSR compliance tests | Automated test suite | `tests/compliance/dsr-workflow.test.ts` |
 

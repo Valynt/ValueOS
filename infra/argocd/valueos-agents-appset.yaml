@@ -20,7 +20,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "6"
+                value: "2"
           - agentName: communicator
             overlayPath: infra/k8s/overlays/agents/apps/communicator
             imageName: valynt/agent-communicator
@@ -31,7 +31,7 @@ spec:
             memoryLimit: 1Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "12"
+                value: "2"
           - agentName: company-intelligence
             overlayPath: infra/k8s/overlays/agents/apps/company-intelligence
             imageName: valynt/agent-company-intelligence
@@ -42,7 +42,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "8"
+                value: "2"
           - agentName: coordinator
             overlayPath: infra/k8s/overlays/agents/apps/coordinator
             imageName: valynt/agent-coordinator
@@ -53,7 +53,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "10"
+                value: "2"
           - agentName: expansion
             overlayPath: infra/k8s/overlays/agents/apps/expansion
             imageName: valynt/agent-expansion
@@ -64,7 +64,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "8"
+                value: "6"
           - agentName: financial-modeling
             overlayPath: infra/k8s/overlays/agents/apps/financial-modeling
             imageName: valynt/agent-financial-modeling
@@ -75,7 +75,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "6"
+                value: "4"
           - agentName: groundtruth
             overlayPath: infra/k8s/overlays/agents/apps/groundtruth
             imageName: valynt/agent-groundtruth
@@ -86,7 +86,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "7"
+                value: "2"
           - agentName: integrity
             overlayPath: infra/k8s/overlays/agents/apps/integrity
             imageName: valynt/agent-integrity
@@ -97,7 +97,7 @@ spec:
             memoryLimit: 1Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "10"
+                value: "6"
           - agentName: intervention-designer
             overlayPath: infra/k8s/overlays/agents/apps/intervention-designer
             imageName: valynt/agent-intervention-designer
@@ -108,7 +108,7 @@ spec:
             memoryLimit: 2.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "6"
+                value: "2"
           - agentName: narrative
             overlayPath: infra/k8s/overlays/agents/apps/narrative
             imageName: valynt/agent-narrative
@@ -119,7 +119,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "7"
+                value: "2"
           - agentName: opportunity
             overlayPath: infra/k8s/overlays/agents/apps/opportunity
             imageName: valynt/agent-opportunity
@@ -130,7 +130,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "10"
+                value: "6"
           - agentName: outcome-engineer
             overlayPath: infra/k8s/overlays/agents/apps/outcome-engineer
             imageName: valynt/agent-outcome-engineer
@@ -141,7 +141,7 @@ spec:
             memoryLimit: 2.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "6"
+                value: "2"
           - agentName: realization
             overlayPath: infra/k8s/overlays/agents/apps/realization
             imageName: valynt/agent-realization
@@ -152,7 +152,7 @@ spec:
             memoryLimit: 3Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "5"
+                value: "4"
           - agentName: research
             overlayPath: infra/k8s/overlays/agents/apps/research
             imageName: valynt/agent-research
@@ -163,7 +163,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "8"
+                value: "2"
           - agentName: system-mapper
             overlayPath: infra/k8s/overlays/agents/apps/system-mapper
             imageName: valynt/agent-system-mapper
@@ -174,7 +174,7 @@ spec:
             memoryLimit: 2Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "8"
+                value: "2"
           - agentName: target
             overlayPath: infra/k8s/overlays/agents/apps/target
             imageName: valynt/agent-target
@@ -185,7 +185,7 @@ spec:
             memoryLimit: 1Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "12"
+                value: "6"
           - agentName: value-eval
             overlayPath: infra/k8s/overlays/agents/apps/value-eval
             imageName: valynt/agent-value-eval
@@ -196,7 +196,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "7"
+                value: "2"
           - agentName: value-mapping
             overlayPath: infra/k8s/overlays/agents/apps/value-mapping
             imageName: valynt/agent-value-mapping
@@ -207,7 +207,7 @@ spec:
             memoryLimit: 1.5Gi
             envOverrides:
               - name: MAX_CONCURRENT_REQUESTS
-                value: "8"
+                value: "2"
   template:
     metadata:
       name: valueos-agent-{{ .agentName }}

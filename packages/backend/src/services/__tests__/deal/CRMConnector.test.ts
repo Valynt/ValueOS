@@ -3,6 +3,8 @@ import { CRMConnector } from "../../deal/CRMConnector.js";
 import { createMockLogger } from "../helpers/testHelpers.js";
 import { REPLAY_ATTACK_VECTORS, COMMAND_INJECTION_PAYLOADS } from "../fixtures/securityFixtures.js";
 
+vi.mock("../../../lib/supabase.js");
+
 describe("CRMConnector", () => {
   let connector: CRMConnector;
 

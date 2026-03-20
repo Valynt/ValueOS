@@ -1,18 +1,18 @@
 
 :root {
-  --vds-color-bg: #0F1724;
-  --vds-color-surface-1: #0B1220;
-  --vds-color-surface-2: #111826;
+  --vds-color-bg: #0A0A0A;
+  --vds-color-surface-1: #0F0F0F;
+  --vds-color-surface-2: #171717;
   --vds-color-primary: #08A0A0;
   --vds-color-primary-600: #007777;
   --vds-color-accent: #0FBF9B;
   --vds-color-success: #16A34A;
   --vds-color-warning: #F59E0B;
   --vds-color-danger: #EF4444;
-  --vds-color-text-primary: #E6EEF3;
-  --vds-color-text-muted: #9AA6B2;
-  --vds-color-border: #1F2937;
-  --vds-color-focus: #96F2D6;
+  --vds-color-text-primary: #EDEDED;
+  --vds-color-text-muted: #8C8C8C;
+  --vds-color-border: #2E2E2E;
+  --vds-color-focus: #08A0A0;
   --vds-space-0: 0rem;
   --vds-space-1: 0.25rem;
   --vds-space-2: 0.5rem;

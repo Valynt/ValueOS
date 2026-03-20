@@ -5,7 +5,7 @@
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import type { Request, Response } from "express";
 
-import { createRequestRlsSupabaseClient } from "../../lib/supabase.js";
+import { createRequestSupabaseClient } from "@shared/lib/supabase";
 import { academyRouter } from "./index.js";
 import type { AcademyContext } from "./trpc.js";
 
@@ -33,7 +33,7 @@ export function createAcademyContext({
     const token = (req.session as Record<string, unknown> | undefined)?.access_token;
     if (typeof token === "string") {
       accessToken = token;
-      supabase = createRequestRlsSupabaseClient(token);
+      supabase = createRequestSupabaseClient({ accessToken: token });
     }
   }
 

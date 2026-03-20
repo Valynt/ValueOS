@@ -592,6 +592,7 @@ describe('Stress Testing', () => {
       console.log(`   Max RPS: ${summary.maxRequestsPerSecond}`);
       console.log(`   Degradation threshold: ${summary.gracefulDegradationThreshold}`);
       console.log(`   Recovery time: ${summary.recoveryTime}`);
+    });
   });
 
   describe('EnhancedParallelExecutor Stress Test', () => {

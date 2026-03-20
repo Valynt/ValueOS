@@ -256,22 +256,21 @@ router.post(
         ? body.data.session_id
         : uuidv4();
 
-      // Verify the case belongs to this tenant before running any agents.
-      // Prevents IDOR: a user from tenant A triggering work on tenant B's case.
-      const { createServiceRoleSupabaseClient } = await import("../lib/supabase.js");
-      const supabaseOwnerCheck = createServiceRoleSupabaseClient();
-      const { data: caseRow, error: caseErr } = await supabaseOwnerCheck
-        .from("value_cases")
-        .select("id")
-        .eq("id", caseId)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-
-      if (caseErr) {
-        logger.error("Ownership check query failed", { caseId, tenantId, error: caseErr.message });
-        res.status(500).json({ error: "Internal error verifying case ownership" });
-        return;
+      if (!req.supabase) {
+        throw new Error("run-hypothesis-loop requires req.supabase");
       }
+
+      // Verify the case belongs to this tenant before running any agents.
+      // Prevents IDOR via request-scoped RLS instead of service_role.
+      const caseAccess = new RequestScopedValueCaseAccessService(req.supabase);
+      const caseRow = await caseAccess.assertCaseReadable({
+        caseId,
+        tenantId,
+        userId,
+        requestId: req.requestId,
+        route: req.path,
+      });
+
       if (!caseRow) {
         res.status(404).json({ error: "Case not found" });
         return;
@@ -301,8 +300,8 @@ router.post(
         "../lib/agent-fabric/AuditLogger.js"
       );
 
-      // Reuse the client already created for the ownership check above.
-      const supabaseClient = supabaseOwnerCheck;
+      // Reuse the authenticated request-scoped client for orchestration.
+      const supabaseClient = req.supabase;
 
       const llmGateway = new LLMGateway({
         provider: "together",

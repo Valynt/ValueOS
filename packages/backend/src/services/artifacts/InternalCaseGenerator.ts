@@ -74,19 +74,13 @@ export class InternalCaseGenerator {
     const prompt = template(templateContext);
 
     const result = await this.circuitBreaker.execute(async () => {
-      const request = {
-        messages: [{ role: "user" as const, content: prompt }],
-        metadata: {
-          tenantId: input.tenantId,
-          organizationId: input.organizationId,
-          caseId: input.caseId,
-          artifactType: "internal_case",
-          generator: "InternalCaseGenerator",
-        },
-      };
-
-      const response = await secureLLMComplete(this.llmGateway, request.messages, {
-        ...request.metadata,
+      const response = await secureLLMComplete(this.llmGateway, [
+        { role: "user" as const, content: prompt }
+      ], {
+        tenantId: input.tenantId,
+        caseId: input.caseId,
+        artifactType: "internal_case",
+        generator: "InternalCaseGenerator",
         serviceName: "InternalCaseGenerator",
         operation: "generate",
         traceId: input.caseId,

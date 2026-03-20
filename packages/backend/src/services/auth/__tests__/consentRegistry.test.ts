@@ -1,151 +1,124 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from "vitest";
 
-vi.mock('../../../lib/logger.js', () => ({
-  logger: {
-    error: vi.fn(),
-  },
-}));
-
-vi.mock('../../config/settings.js', () => ({
-  settings: {
-    VITE_SUPABASE_URL: 'https://example.supabase.co',
-  },
-}));
-
-import { createConsentRegistry } from '../consentRegistry.js';
+import { createDatabaseConsentRegistry } from "../consentRegistry.js";
 
 type ConsentRow = {
-  id: string;
-  tenant_id: string;
   auth_subject: string;
   consent_type: string;
+  id: string;
+  tenant_id: string;
   withdrawn_at: string | null;
 };
 
-function getConsentRowValue(row: ConsentRow, column: string): unknown {
-  switch (column) {
-    case 'id':
-      return row.id;
-    case 'tenant_id':
-      return row.tenant_id;
-    case 'auth_subject':
-      return row.auth_subject;
-    case 'consent_type':
-      return row.consent_type;
-    case 'withdrawn_at':
-      return row.withdrawn_at;
-    default:
-      return undefined;
-  }
-}
+function createSupabaseStub(rows: ConsentRow[]) {
+  const filters = new Map<string, string | null>();
 
-function createMockSupabase(rows: ConsentRow[]) {
-  return {
-    from: vi.fn(() => {
-      const filters = new Map<string, unknown>();
-      const builder = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn((column: string, value: unknown) => {
-          filters.set(column, value);
-          return builder;
-        }),
-        is: vi.fn((column: string, value: unknown) => {
-          filters.set(column, value);
-          return builder;
-        }),
-        limit: vi.fn(async (count: number) => {
-          const matches = rows
-            .filter((row) => {
-              for (const [column, value] of filters.entries()) {
-                if (getConsentRowValue(row, column) !== value) {
-                  return false;
-                }
-              }
-              return true;
-            })
-            .slice(0, count)
-            .map(({ id }) => ({ id }));
-
-          return { data: matches, error: null };
-        }),
-      };
-
+  const builder = {
+    select() {
       return builder;
-    }),
+    },
+    eq(column: string, value: string) {
+      filters.set(column, value);
+      return builder;
+    },
+    is(column: string, value: null) {
+      filters.set(column, value);
+      return builder;
+    },
+    async limit() {
+      const matches = rows.filter((row) => {
+        return Array.from(filters.entries()).every(([column, value]) => {
+          const rowValue = row[column as keyof ConsentRow];
+          return rowValue === value;
+        });
+      });
+
+      return {
+        data: matches.slice(0, 1).map(({ id }) => ({ id })),
+        error: null,
+      };
+    },
+  };
+
+  return {
+    from(table: string) {
+      expect(table).toBe("user_consents");
+      return builder;
+    },
   };
 }
 
-describe('createConsentRegistry', () => {
-  it('returns true only for the matching tenant, subject, and consent type', async () => {
-    const registry = createConsentRegistry();
-    const supabase = createMockSupabase([
+describe("createDatabaseConsentRegistry", () => {
+  it("returns true only for the consented subject within the same tenant", async () => {
+    const registry = createDatabaseConsentRegistry();
+    const supabase = createSupabaseStub([
       {
-        id: 'consent-a',
-        tenant_id: 'tenant-1',
-        auth_subject: 'user-a',
-        consent_type: 'llm.chat',
+        id: "consent-a",
+        tenant_id: "tenant-1",
+        auth_subject: "subject-a",
+        consent_type: "llm.chat",
         withdrawn_at: null,
       },
     ]);
 
     await expect(
       registry.hasConsent({
-        tenantId: 'tenant-1',
-        subject: 'user-a',
-        scope: 'llm.chat',
+        tenantId: "tenant-1",
+        scope: "llm.chat",
+        subject: "subject-a",
         supabase,
       })
     ).resolves.toBe(true);
 
     await expect(
       registry.hasConsent({
-        tenantId: 'tenant-1',
-        subject: 'user-b',
-        scope: 'llm.chat',
+        tenantId: "tenant-1",
+        scope: "llm.chat",
+        subject: "subject-b",
         supabase,
       })
     ).resolves.toBe(false);
   });
 
-  it('does not treat withdrawn consent as active consent', async () => {
-    const registry = createConsentRegistry();
-    const supabase = createMockSupabase([
+  it("does not treat withdrawn consent as active", async () => {
+    const registry = createDatabaseConsentRegistry();
+    const supabase = createSupabaseStub([
       {
-        id: 'consent-withdrawn',
-        tenant_id: 'tenant-1',
-        auth_subject: 'user-a',
-        consent_type: 'llm.chat',
-        withdrawn_at: '2026-03-18T12:00:00Z',
+        id: "withdrawn-consent",
+        tenant_id: "tenant-1",
+        auth_subject: "subject-a",
+        consent_type: "llm.chat",
+        withdrawn_at: "2026-03-18T10:00:00.000Z",
       },
     ]);
 
     await expect(
       registry.hasConsent({
-        tenantId: 'tenant-1',
-        subject: 'user-a',
-        scope: 'llm.chat',
+        tenantId: "tenant-1",
+        scope: "llm.chat",
+        subject: "subject-a",
         supabase,
       })
     ).resolves.toBe(false);
   });
 
-  it('does not allow a consent record from another tenant to satisfy the check', async () => {
-    const registry = createConsentRegistry();
-    const supabase = createMockSupabase([
+  it("does not satisfy consent checks with a cross-tenant record", async () => {
+    const registry = createDatabaseConsentRegistry();
+    const supabase = createSupabaseStub([
       {
-        id: 'consent-cross-tenant',
-        tenant_id: 'tenant-2',
-        auth_subject: 'user-a',
-        consent_type: 'llm.chat',
+        id: "cross-tenant-consent",
+        tenant_id: "tenant-2",
+        auth_subject: "subject-a",
+        consent_type: "llm.chat",
         withdrawn_at: null,
       },
     ]);
 
     await expect(
       registry.hasConsent({
-        tenantId: 'tenant-1',
-        subject: 'user-a',
-        scope: 'llm.chat',
+        tenantId: "tenant-1",
+        scope: "llm.chat",
+        subject: "subject-a",
         supabase,
       })
     ).resolves.toBe(false);

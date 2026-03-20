@@ -13,7 +13,7 @@ import {
   TransientDbError,
 } from '../../../lib/db/errors.js';
 import { valueDriversRouter } from '../index.js'
-import { getValueDriversRepository } from '../repository.js'
+import { ValueDriversRepository } from '../repository.js'
 import { requireRole } from '../../../middleware/auth.js'
 
 // Mock the repository
@@ -66,7 +66,7 @@ vi.mock('../../../lib/logger.js', () => ({
 
 describe('Value Drivers API', () => {
   let app: Express;
-  let mockRepository: vi.Mocked<ReturnType<typeof getValueDriversRepository>>;
+  let mockRepository: vi.Mocked<InstanceType<typeof ValueDriversRepository>>;
 
   const validDriverData = {
     name: 'Demo Prep Time Reduction',
@@ -100,7 +100,7 @@ describe('Value Drivers API', () => {
       incrementUsage: vi.fn(),
     } as any;
 
-    (getValueDriversRepository as vi.Mock).mockReturnValue(mockRepository);
+    (ValueDriversRepository.fromRequest as vi.Mock).mockReturnValue(mockRepository);
   });
 
   afterEach(() => {

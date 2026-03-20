@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+
+vi.mock("../../lib/supabase.js");
   cspNonceMiddleware,
   csrfProtectionMiddleware,
   securityHeadersMiddleware,

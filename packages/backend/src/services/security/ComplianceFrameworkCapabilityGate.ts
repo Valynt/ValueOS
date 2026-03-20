@@ -19,6 +19,8 @@ export interface FrameworkCapabilityStatus {
   missingPrerequisites: string[];
 }
 
+export type FrameworkPrerequisiteStatus = FrameworkCapabilityStatus;
+
 const HIPAA_REQUIREMENTS: CapabilityRequirement[] = [
   {
     key: "phi_data_classification",
@@ -60,6 +62,10 @@ export class UnsupportedComplianceFrameworkError extends Error {
   ) {
     super(`Compliance framework prerequisites not met for: ${unsupportedFrameworks.join(", ")}`);
   }
+
+  get prerequisiteStatus(): FrameworkPrerequisiteStatus[] {
+    return this.capabilityStatus;
+  }
 }
 
 export class ComplianceFrameworkCapabilityGate {
@@ -90,6 +96,10 @@ export class ComplianceFrameworkCapabilityGate {
       gate_label: "prerequisite_gating",
       missingPrerequisites: [],
     };
+  }
+
+  getPrerequisiteStatus(framework: ComplianceFramework): FrameworkPrerequisiteStatus {
+    return this.getCapabilityStatus(framework);
   }
 
   getSupportedFrameworks(): ComplianceFramework[] {

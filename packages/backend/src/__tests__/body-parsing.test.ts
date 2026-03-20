@@ -11,6 +11,8 @@ vi.mock('../../services/billing/WebhookService', () => ({
 import app from '../server.js'
 import WebhookService from '../services/billing/WebhookService.js'
 
+vi.mock("../lib/supabase.js");
+
 const mockedWebhookService = WebhookService as {
   verifySignature: ReturnType<typeof vi.fn>;
   processEvent: ReturnType<typeof vi.fn>;

@@ -115,19 +115,13 @@ export class CFORecommendationGenerator {
 
     // Invoke LLM with circuit breaker and Zod validation
     const result = await this.circuitBreaker.execute(async () => {
-      const request = {
-        messages: [{ role: "user" as const, content: prompt }],
-        metadata: {
-          tenantId: input.tenantId,
-          organizationId: input.organizationId,
-          caseId: input.caseId,
-          artifactType: "cfo_recommendation",
-          generator: "CFORecommendationGenerator",
-        },
-      };
-
-      const response = await secureLLMComplete(this.llmGateway, request.messages, {
-        ...request.metadata,
+      const response = await secureLLMComplete(this.llmGateway, [
+        { role: "user" as const, content: prompt }
+      ], {
+        tenantId: input.tenantId,
+        caseId: input.caseId,
+        artifactType: "cfo_recommendation",
+        generator: "CFORecommendationGenerator",
         serviceName: "CFORecommendationGenerator",
         operation: "generate",
         traceId: input.caseId,

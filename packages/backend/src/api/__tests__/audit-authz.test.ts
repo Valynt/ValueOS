@@ -66,6 +66,8 @@ vi.mock("../../services/ComplianceControlStatusService.js", () => ({
 import adminRouter from "../admin.js";
 import complianceRouter from "../compliance.js";
 
+vi.mock("../../lib/supabase.js");
+
 describe("audit/compliance authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();

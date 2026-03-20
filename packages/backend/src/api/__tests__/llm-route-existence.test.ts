@@ -2,6 +2,8 @@ import jwt from "jsonwebtoken";
 import request from "supertest";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../lib/supabase.js");
+
 vi.mock("@shared/lib/logger", () => ({
   createLogger: () => ({
     info: vi.fn(),

@@ -6,14 +6,15 @@ metadata:
   labels:
     app: company-intelligence-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: company-intelligence-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -31,14 +32,15 @@ metadata:
   labels:
     app: value-mapping-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: value-mapping-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -56,14 +58,15 @@ metadata:
   labels:
     app: system-mapper-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: system-mapper-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -81,14 +84,15 @@ metadata:
   labels:
     app: intervention-designer-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: intervention-designer-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 8
+  maxReplicaCount: 12
   triggers:
     - type: prometheus
       metadata:
@@ -106,14 +110,15 @@ metadata:
   labels:
     app: outcome-engineer-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: outcome-engineer-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 8
+  maxReplicaCount: 12
   triggers:
     - type: prometheus
       metadata:
@@ -131,14 +136,15 @@ metadata:
   labels:
     app: coordinator-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: coordinator-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:
@@ -156,14 +162,15 @@ metadata:
   labels:
     app: value-eval-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: value-eval-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -181,14 +188,15 @@ metadata:
   labels:
     app: communicator-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: communicator-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:
@@ -206,14 +214,15 @@ metadata:
   labels:
     app: benchmark-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: benchmark-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -231,14 +240,15 @@ metadata:
   labels:
     app: narrative-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: narrative-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 6
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:
@@ -256,14 +266,15 @@ metadata:
   labels:
     app: groundtruth-agent
     scaling.valueos.io/class: low-frequency-queue
-    scaling.valueos.io/cold-start-class: async-scale-to-zero
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: scale-to-zero-async
 spec:
   scaleTargetRef:
     name: groundtruth-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 4
+  maxReplicaCount: 8
   triggers:
     - type: prometheus
       metadata:

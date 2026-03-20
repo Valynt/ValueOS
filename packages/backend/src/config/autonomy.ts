@@ -15,5 +15,5 @@ export const AUTONOMY_CONFIG: AutonomyConfig = {
 };
 
 export function getAutonomyConfig(): AutonomyConfig {
-  return AUTONOMY_CONFIG;
+  return { ...AUTONOMY_CONFIG };
 }

@@ -30,6 +30,11 @@ const inlineProjects = {
       exclude: ["**/node_modules/**", "**/dist/**"],
       fileParallelism: false,
     },
+    resolve: {
+      alias: {
+        "@valueos/shared": path.resolve(root, "packages/shared/src/index.ts"),
+      },
+    },
   },
   "packages/mcp/ground-truth": {
     test: {
@@ -43,6 +48,10 @@ const inlineProjects = {
     resolve: {
       alias: {
         "@mcp-common": path.resolve(root, "packages/mcp/common"),
+        "@backend/types/eso": path.resolve(root, "packages/backend/src/types/eso.ts"),
+        "@backend/types/eso-data": path.resolve(root, "packages/backend/src/types/eso-data.ts"),
+        "@backend/types/eso-checks": path.resolve(root, "packages/backend/src/types/eso-checks.ts"),
+        "@backend/types/vos-pt1-seed": path.resolve(root, "packages/backend/src/types/vos-pt1-seed.ts"),
       },
     },
   },

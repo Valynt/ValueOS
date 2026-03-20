@@ -92,7 +92,7 @@ function makePolicyMock() {
   };
 }
 
-function makeRouterMock(agentType = 'coordinator') {
+function makeRouterMock(agentType = 'opportunity') {
   return {
     selectAgent: vi.fn().mockReturnValue(agentType),
     routeStage: vi.fn().mockReturnValue({ selected_agent: null }),
@@ -208,6 +208,20 @@ describe('QueryExecutor.processQueryAsync', () => {
     );
     expect(result.jobId).toBe('job-123');
     expect(result.traceId).toBeTruthy();
+  });
+
+
+  it('rejects scale-to-zero agents when an async worker is still servicing an interactive request path', async () => {
+    const guardedExecutor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('system-mapper') as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+    );
+
+    await expect(
+      guardedExecutor.processQueryAsync(makeEnvelope() as never, 'map the system', makeState() as never, 'user-1', 'session-1', 'trace-guarded', 'interactive'),
+    ).rejects.toThrow('async-only');
   });
 
   it('calls assertTenantExecutionAllowed before queuing', async () => {
@@ -365,6 +379,21 @@ describe('QueryExecutor.processQuery (sync path)', () => {
 
     expect(result.response?.payload).toMatchObject({ error: true });
     expect(String(result.nextState.context?.lastError ?? '')).toContain('Tenant context mismatch');
+  });
+
+  it('blocks scale-to-zero agents on synchronous request paths', async () => {
+    const guardedExecutor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('system-mapper') as never,
+      makeCircuitBreakerMock() as never,
+      makeQueueMock() as never,
+    );
+
+    const result = await guardedExecutor.processQuery(makeEnvelope() as never, 'map the system', makeState() as never, 'u', 's');
+
+    expect(result.response?.payload).toMatchObject({ error: true });
+    expect(String(result.response?.payload.message)).toContain('async-only');
+    expect(String(result.response?.payload.message)).toContain('queue, polling, or streaming workflows');
   });
 
   it('returns vetoed response when integrity check fails', async () => {

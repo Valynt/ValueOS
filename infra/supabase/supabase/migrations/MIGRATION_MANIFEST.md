@@ -87,12 +87,15 @@ This document tracks the state of database migrations and explains any intention
 - `20260327020000_fix_performance_index_violations` - Index violations
 - `20260801000000_pg_cron_partition_scheduler` - Partition scheduler
 
-### 11. Deferred Migrations (`_deferred/`)
+### 11. Security Hardening (202609)
+- `20260917000000_rls_and_search_path_remediation` - RLS and search_path remediation (Supabase linter errors 0007, 0011, 0013)
+
+### 12. Deferred Migrations (`_deferred/`)
 These migrations are intentionally deferred for post-launch:
 - Future feature migrations not required for v1 launch
 - Complex schema changes requiring coordination
 
-### 12. Archived Migrations (`_archived_monolith_20260213/`)
+### 13. Archived Migrations (`_archived_monolith_20260213/`)
 Historical migrations from the monolith period. Preserved for reference but not applied to current schema.
 
 ## Validation

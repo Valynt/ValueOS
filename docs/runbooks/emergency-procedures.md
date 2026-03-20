@@ -146,3 +146,39 @@ When default or placeholder credentials are detected in IaC, execute immediate r
 | 2026-02-13 | development | `db_master_password` | Terraform updated to `var.db_master_password`; value rotated in secure backend and verified via `terraform plan` with no literal password in code | Platform Security | SEC-2417 |
 | 2026-02-13 | staging | `db_master_password`, `staging_app_secrets` | Terraform updated to secure variable references; Secrets Manager secret payload replaced from secure source and validated in CI Checkov custom policies | Platform Security | SEC-2417 |
 | 2026-02-13 | shared module | `jwt_secret_string`, `db_password_secret_string` | Module placeholders removed; secret values now injected from secret manager/vault pipeline; audit trail attached to change ticket | Platform Security | SEC-2417 |
+
+## Service identity key compromise or emergency rotation
+
+Use this procedure when a service identity HMAC secret, JWT signing secret, or private key is suspected to be exposed, misused, or unverifiable.
+
+### Detection triggers
+- Repeated `Service identity verification failed` responses on protected internal routes.
+- Unexpected `servicePrincipal`, `issuer`, or `keyId` values in backend audit/application logs.
+- Discovery that a shared secret or signing key was exposed in chat, logs, tickets, CI output, or a developer workstation.
+- Evidence that a caller is still attempting the removed legacy `X-Service-Identity` header.
+
+### Immediate containment
+1. Declare a security incident and page Platform + Security through the escalation path above.
+2. Identify affected environments, caller services, and protected routes.
+3. Add the compromised service principal to `SERVICE_IDENTITY_REVOKED_SERVICES` if active abuse is suspected.
+4. For HMAC compromise:
+   - mark the impacted `hmacKeys[].keyId` as revoked, or
+   - remove the compromised key from `SERVICE_IDENTITY_CONFIG_JSON` after a successor key is staged.
+5. For JWT compromise:
+   - remove or revoke the compromised signing secret/private key,
+   - rotate the verifier material if the trust root changed, and
+   - shorten acceptance windows so previously minted assertions expire quickly.
+6. Restart or roll deployments as required so all pods load the replacement configuration.
+
+### Recovery
+1. Generate successor service identity material in the approved secret manager.
+2. Roll callers forward first and verify each caller emits the new assertion format from `addServiceIdentityHeader(...)`.
+3. Validate protected internal routes with an integration or smoke test that succeeds with the successor key and fails with the retired key.
+4. Review logs/metrics for any continued traffic signed by the compromised `keyId` or `issuer`.
+5. Remove emergency revocations only after verification shows all callers are healthy on the successor key.
+
+### Post-incident actions
+- Capture timeline, affected services, old/new key IDs, and evidence links in the incident record.
+- Audit the last known exposure window for protected-route access made with the compromised principal.
+- Rotate adjacent credentials if the compromise source could have exposed additional secrets.
+- Add or update regression tests when the incident reveals a missing control, detection gap, or unsafe caller path.

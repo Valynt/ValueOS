@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mfaService } from '../../services/auth/MFAService.js'
 import { requireMFA } from '../mfa.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock logger
 vi.mock('@shared/lib/logger', () => ({
   createLogger: () => ({

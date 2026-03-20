@@ -5,14 +5,14 @@ metadata:
   namespace: valynt-agents
   labels:
     app: financial-modeling-agent
-    autoscaling.valueos.dev/profile: queue-depth
+    autoscaling.valueos.dev/profile: financial-critical
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: financial-modeling-agent
   minReplicas: 3
-  maxReplicas: 12
+  maxReplicas: 10
   metrics:
     - type: External
       external:
@@ -24,7 +24,7 @@ spec:
               agent_type: financial-modeling
         target:
           type: AverageValue
-          averageValue: "8"
+          averageValue: "6"
     - type: Resource
       resource:
         name: cpu
@@ -51,6 +51,6 @@ spec:
           value: 200
           periodSeconds: 30
         - type: Pods
-          value: 10
+          value: 6
           periodSeconds: 30
       selectPolicy: Max

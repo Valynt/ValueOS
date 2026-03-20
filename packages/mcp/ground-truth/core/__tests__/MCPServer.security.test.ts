@@ -81,9 +81,11 @@ describe("MCPFinancialGroundTruthServer - Security", () => {
     });
 
     it("should use fallback hash only when crypto fails", async () => {
-      // Mock crypto failure
-      const originalCrypto = require("crypto");
-      require("crypto") = undefined;
+      // Simulate crypto failure by making createHash throw on this call
+      const crypto = await import("crypto");
+      const createHashSpy = vi
+        .spyOn(crypto, "createHash")
+        .mockImplementationOnce(() => { throw new Error("crypto unavailable"); });
 
       const testData = [{ metric: "revenue", value: 1000000 }];
       const hashMethod = (server as any).generateVerificationHash.bind(server);
@@ -91,8 +93,7 @@ describe("MCPFinancialGroundTruthServer - Security", () => {
 
       expect(hash).toMatch(/^fallback:[a-f0-9]+$/);
 
-      // Restore crypto
-      require("crypto") = originalCrypto;
+      createHashSpy.mockRestore();
     });
 
     it("should generate different hashes for different data", async () => {

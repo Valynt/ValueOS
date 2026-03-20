@@ -14,10 +14,7 @@ import {
 } from "../../lib/db/errors";
 import { logDbError, logDbInfo, logDbWarn } from "../../lib/db/logging.js";
 import { parseDbInput } from "../../lib/db/validation.js";
-import {
-  createServiceRoleSupabaseClient,
-  createRequestRlsSupabaseClient,
-} from "../../lib/supabase.js";
+import { createUserSupabaseClient } from "../../lib/supabase.js";
 
 import {
   CreateValueDriverDbSchema,
@@ -57,17 +54,26 @@ export class ValueDriversRepository {
   private supabase: SupabaseClient;
   private tableName = "value_drivers";
 
-  constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServiceRoleSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   /**
    * Create a repository instance from an Express request, using the user-scoped
-   * Supabase client so that RLS policies are enforced. Falls back to server
-   * client only when no user context is available (background jobs).
+   * Supabase client so that RLS policies are enforced for interactive flows.
    */
   static fromRequest(req: Request): ValueDriversRepository {
-    return new ValueDriversRepository(createRequestRlsSupabaseClient(req));
+    if (req.supabase) {
+      return new ValueDriversRepository(req.supabase);
+    }
+    const token = (req.session as Record<string, unknown> | undefined)
+      ?.access_token;
+    if (typeof token === "string") {
+      return new ValueDriversRepository(createUserSupabaseClient(token));
+    }
+    throw new Error(
+      "ValueDriversRepository.fromRequest: no user-scoped Supabase client available on request"
+    );
   }
 
   /**
@@ -567,12 +573,11 @@ export class ValueDriversRepository {
   }
 }
 
-// Singleton instance
-let repository: ValueDriversRepository | null = null;
 
-export function getValueDriversRepository(): ValueDriversRepository {
-  if (!repository) {
-    repository = new ValueDriversRepository();
+export function getValueDriversRepository(req?: Request): ValueDriversRepository {
+  if (!req) {
+    throw new Error("getValueDriversRepository now requires an Express request so it can build a user-scoped Supabase client");
   }
-  return repository;
+
+  return ValueDriversRepository.fromRequest(req);
 }

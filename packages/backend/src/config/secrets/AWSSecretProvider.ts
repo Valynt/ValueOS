@@ -9,7 +9,6 @@
  */
 
 import {
-  CreateSecretCommand,
   DeleteSecretCommand,
   DescribeSecretCommand,
   GetSecretValueCommand,

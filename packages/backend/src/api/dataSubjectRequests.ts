@@ -8,9 +8,8 @@
 import { createHash } from "crypto";
 
 import { createLogger } from "@shared/lib/logger";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Request, Response } from "express";
-
-import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/rbac";
@@ -38,7 +37,7 @@ function hashEmail(email: string): string {
 }
 
 async function resolveUserId(
-  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
+  supabase: SupabaseClient,
   email: string,
   tenantId: string,
 ): Promise<string | null> {
@@ -52,7 +51,7 @@ async function resolveUserId(
 }
 
 async function gatherFootprint(
-  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
+  supabase: SupabaseClient,
   userId: string,
   tenantId: string,
 ) {
@@ -86,7 +85,7 @@ async function gatherFootprint(
 }
 
 async function auditDsr(
-  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
+  supabase: SupabaseClient,
   action: string,
   actorId: string,
   targetEmail: string,
@@ -148,7 +147,11 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServiceRoleSupabaseClient();
+      if (!req.supabase) {
+        return res.status(500).json({ error: "Request-scoped Supabase client required" });
+      }
+
+      const supabase = req.supabase;
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
@@ -213,7 +216,11 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServiceRoleSupabaseClient();
+      if (!req.supabase) {
+        return res.status(500).json({ error: "Request-scoped Supabase client required" });
+      }
+
+      const supabase = req.supabase;
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
@@ -336,7 +343,11 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServiceRoleSupabaseClient();
+      if (!req.supabase) {
+        return res.status(500).json({ error: "Request-scoped Supabase client required" });
+      }
+
+      const supabase = req.supabase;
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {

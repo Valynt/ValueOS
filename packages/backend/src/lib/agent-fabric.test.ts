@@ -25,6 +25,8 @@ vi.mock("@valueos/agents/orchestration", () => ({
 
 import { AgentFabric } from "./agent-fabric";
 
+vi.mock("./supabase.js");
+
 describe("AgentFabric", () => {
   it("throws when factoryDeps are not set", async () => {
     const fabric = new AgentFabric("url", "anon", "provider");

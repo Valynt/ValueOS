@@ -54,6 +54,7 @@ describe("WebSocketServer token validation", () => {
     process.env.WS_AUTH_ISSUER = "https://issuer.example";
     process.env.WS_AUTH_AUDIENCE = "authenticated";
     process.env.WS_AUTH_JWT_SECRET = "super-secret-signing-key";
+    process.env.SUPABASE_JWT_SECRET = "super-secret-signing-key";
     process.env.WS_AUTH_PROVIDER_URL = "https://auth.example";
     process.env.WS_AUTH_PROVIDER_API_KEY = "anon-key";
     process.env.CORS_ORIGIN = "http://localhost:3000";
@@ -72,6 +73,7 @@ describe("WebSocketServer token validation", () => {
     delete process.env.WS_AUTH_ISSUER;
     delete process.env.WS_AUTH_AUDIENCE;
     delete process.env.WS_AUTH_JWT_SECRET;
+    delete process.env.SUPABASE_JWT_SECRET;
     delete process.env.WS_AUTH_PROVIDER_URL;
     delete process.env.WS_AUTH_PROVIDER_API_KEY;
     delete process.env.CORS_ORIGIN;
