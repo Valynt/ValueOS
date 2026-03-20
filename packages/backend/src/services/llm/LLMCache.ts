@@ -333,31 +333,33 @@ export class LLMCache {
     let skipped = 0;
     let failed = 0;
 
-    for (const entry of prompts) {
-      try {
-        const existing = await this.get(entry.prompt, entry.model);
-        if (existing !== null) {
-          skipped++;
-          continue;
+    await Promise.all(
+      prompts.map(async (entry) => {
+        try {
+          const existing = await this.get(entry.prompt, entry.model);
+          if (existing !== null) {
+            skipped++;
+            return;
+          }
+
+          const response = await llmCaller(entry);
+
+          await this.set(entry.prompt, entry.model, response, {
+            promptTokens: 0,
+            completionTokens: 0,
+            cost: 0,
+          });
+
+          warmed++;
+        } catch (error: unknown) {
+          failed++;
+          logger.error('Cache warm failed for prompt', {
+            model: entry.model,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
-
-        const response = await llmCaller(entry);
-
-        await this.set(entry.prompt, entry.model, response, {
-          promptTokens: 0,
-          completionTokens: 0,
-          cost: 0,
-        });
-
-        warmed++;
-      } catch (error: unknown) {
-        failed++;
-        logger.error('Cache warm failed for prompt', {
-          model: entry.model,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+      })
+    );
 
     logger.info('Cache warm complete', { warmed, skipped, failed });
   }
