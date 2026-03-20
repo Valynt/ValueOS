@@ -157,6 +157,7 @@ ${sanitizedTranscript}
 Provide comprehensive analysis as JSON.`;
 
     try {
+
       const response = await secureLLMComplete(
         this.llm,
         [
