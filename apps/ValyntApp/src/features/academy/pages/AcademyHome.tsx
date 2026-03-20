@@ -8,31 +8,31 @@ export default function AcademyHome() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="vos-gradient text-white py-20 md:py-32 relative overflow-hidden">
+      <section className="bg-surface border-b border-border py-20 md:py-32 relative overflow-hidden">
         <div className="container max-w-6xl relative z-10">
           {/* VOS System Online Badge */}
           <div className="mb-8">
-            <span className="status-active text-sm md:text-base">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="inline-flex items-center gap-2 text-sm md:text-base text-muted-foreground border border-border rounded-full px-3 py-1">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               VOS® System Online
             </span>
           </div>
 
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-tight max-w-4xl">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-tight max-w-4xl text-foreground">
             Mastering the Value Operating System
           </h1>
-          <p className="text-lg md:text-xl text-white/80 mb-8 max-w-3xl">
+          <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl">
             Get personalized VOS education tailored to your learning style, career goals, and industry needs. Join 10,000+ professionals already transforming their careers.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-3xl">
-            <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
-              <div className="p-4">
+            <div className="bg-card text-card-foreground rounded-lg border border-border">
+              <div className="p-4 flex gap-3">
                 <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <BookOpen className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">300+ VOS use cases</h3>
+                  <h3 className="font-semibold mb-1 text-foreground">300+ VOS use cases</h3>
                   <p className="text-sm text-muted-foreground">
                     Step-by-step tutorials for immediate application
                   </p>
@@ -40,13 +40,13 @@ export default function AcademyHome() {
               </div>
             </div>
 
-            <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
-              <div className="p-4">
+            <div className="bg-card text-card-foreground rounded-lg border border-border">
+              <div className="p-4 flex gap-3">
                 <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Career acceleration</h3>
+                  <h3 className="font-semibold mb-1 text-foreground">Career acceleration</h3>
                   <p className="text-sm text-muted-foreground">
                     85% of graduates report promotion within 6 months
                   </p>
@@ -60,7 +60,7 @@ export default function AcademyHome() {
               Get Started Free
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+            <Button size="lg" variant="outline">
               View Curriculum
             </Button>
           </div>
@@ -166,7 +166,7 @@ export default function AcademyHome() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-muted/50">
+      <section className="py-20 bg-surface border-t border-border">
         <div className="container max-w-4xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Master VOS?</h2>
           <p className="text-lg text-muted-foreground mb-8">

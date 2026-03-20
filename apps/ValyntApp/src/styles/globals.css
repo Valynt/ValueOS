@@ -40,11 +40,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(0 0% 80%);
+    background: hsl(var(--border));
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(0 0% 65%);
+    background: hsl(var(--muted-foreground));
   }
 
   /* Prevent layout shift from scrollbar appearing */

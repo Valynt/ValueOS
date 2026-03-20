@@ -400,10 +400,18 @@ export class ComplianceReportGeneratorService {
 
 let _complianceReportGeneratorService: ComplianceReportGeneratorService | undefined;
 export const complianceReportGeneratorService = new Proxy({} as ComplianceReportGeneratorService, {
-  get(_target, property, receiver) {
+  get(_target, prop, _receiver) {
     if (!_complianceReportGeneratorService) {
       _complianceReportGeneratorService = new ComplianceReportGeneratorService();
     }
-    return Reflect.get(_complianceReportGeneratorService, property, receiver);
+    const value = Reflect.get(
+      _complianceReportGeneratorService as ComplianceReportGeneratorService,
+      prop,
+      _complianceReportGeneratorService as ComplianceReportGeneratorService
+    );
+    if (typeof value === "function") {
+      return value.bind(_complianceReportGeneratorService);
+    }
+    return value;
   },
 });
