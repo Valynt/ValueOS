@@ -20,5 +20,9 @@
         "justification": "Experimental MCP package; excluded from release automation."
       }
     }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^14.2.1"
   }
 }

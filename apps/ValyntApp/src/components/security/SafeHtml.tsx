@@ -1,5 +1,6 @@
 /* eslint-disable react/no-danger -- SEC-002: sole sanctioned dangerouslySetInnerHTML surface; all input passes through DOMPurify */
 import type { CSSProperties } from 'react';
+
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 type SafeHtmlProps = {

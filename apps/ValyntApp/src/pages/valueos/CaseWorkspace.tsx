@@ -13,11 +13,11 @@ import { AlertCircle, ArrowLeft, ArrowRight, Check, FileText, Loader2, Sparkles 
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCase, useCreateCase } from "@/hooks/useCases";
-import { apiClient } from "@/api/client/unified-api-client";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------

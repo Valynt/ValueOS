@@ -20,5 +20,9 @@
         "justification": "Prototype support module; not released independently."
       }
     }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^14.2.1"
   }
 }

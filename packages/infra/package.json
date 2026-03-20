@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.1",
-    "ioredis": "^5.9.1"
+    "ioredis": "^5.9.1",
+    "isomorphic-dompurify": "2.30.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.29",

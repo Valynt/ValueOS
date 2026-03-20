@@ -18,6 +18,7 @@
     "test": "vitest run packages/memory/**/*.test.ts"
   },
   "dependencies": {
+    "isomorphic-dompurify": "2.30.0",
     "zod": "^3.25.76"
   },
   "peerDependencies": {

@@ -243,7 +243,7 @@ export function generateTrustBadge(
   }
 
   // Safe: length > 0 checked above
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const latestStep = relevantSteps[relevantSteps.length - 1]!;
 
   return {

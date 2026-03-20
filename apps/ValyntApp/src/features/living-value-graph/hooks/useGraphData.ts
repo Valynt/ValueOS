@@ -6,12 +6,13 @@
  * Falls back to an empty graph when the case has no tree yet.
  */
 
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+
+import type { Graph, ValueEdge, ValueNode } from '../types/graph.types';
 
 import { apiClient } from '@/api/client/unified-api-client';
 
-import type { Graph, ValueEdge, ValueNode } from '../types/graph.types';
 
 // ---------------------------------------------------------------------------
 // Backend row shape (mirrors ValueTreeNodeRow from the repository)

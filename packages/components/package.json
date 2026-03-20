@@ -41,6 +41,7 @@
     "./design-system/*": "./design-system/src/*"
   },
   "dependencies": {
+    "isomorphic-dompurify": "2.30.0",
     "react-hotkeys-hook": "^5.2.1"
   },
   "valueos": {

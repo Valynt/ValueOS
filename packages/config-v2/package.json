@@ -24,5 +24,9 @@
         "justification": "Config manifest package; not shipped as an external release artifact."
       }
     }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^14.2.1"
   }
 }

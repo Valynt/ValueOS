@@ -63,6 +63,7 @@
     "html2canvas": "^1.4.1",
     "ioredis": "^5.9.1",
     "ipaddr.js": "^2.3.0",
+    "isomorphic-dompurify": "2.30.0",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.0",

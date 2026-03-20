@@ -11,7 +11,7 @@
 import { SecretsManagerClient, GetSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
 // These commands are not re-exported from the package barrel under moduleResolution:"bundler"
 // so we import them directly from their declaration files.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const { DeleteSecretCommand, DescribeSecretCommand, ListSecretsCommand, PutSecretValueCommand, RotateSecretCommand } =
   require('@aws-sdk/client-secrets-manager') as {
     DeleteSecretCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/DeleteSecretCommand').DeleteSecretCommand;
