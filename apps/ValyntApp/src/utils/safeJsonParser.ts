@@ -95,7 +95,13 @@ function repairJson(jsonString: string): string {
   repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
   
   // Fix missing quotes around keys (common LLM error)
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+  const unquotedKeyRegex = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'|([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g;
+  repaired = repaired.replace(unquotedKeyRegex, (match, p1, p2) => {
+    if (p1 !== undefined && p2 !== undefined) {
+      return `${p1}"${p2}":`;
+    }
+    return match;
+  });
   
   // Fix single quotes to double quotes
   repaired = repaired.replace(/'/g, '"');
