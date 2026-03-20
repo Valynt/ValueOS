@@ -278,7 +278,7 @@ export class AlertingService {
    */
   private getMetricValueFromCache(
     metricName: string,
-    aggregatedAgentMetrics: ReturnType<typeof this.aggregateAgentMetrics> | null,
+    aggregatedAgentMetrics: { successRate: number, hallucinationRate: number, lowConfidenceRate: number, p95ResponseTime: number, p99ResponseTime: number } | null,
     systemMetrics: { totalCost: number, cacheHitRate: number } | null
   ): number {
     const [category, metric] = metricName.split('.');

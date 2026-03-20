@@ -56,7 +56,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId;
       const { scenarioId, scenarioName, kpiTargets, assumptions, handoffNotes } = req.body;
 
       const baselineId = await realizationService.createBaseline(
@@ -90,7 +90,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId;
 
       const checkpoints = await realizationService.getCheckpoints(caseId, organizationId);
 
@@ -140,7 +140,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId;
 
       const targets = await realizationService.getKpiTargets(caseId, organizationId);
 
