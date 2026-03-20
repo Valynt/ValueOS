@@ -61,6 +61,16 @@ export async function secureLLMComplete(
 ): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const organizationId = options.organizationId;
   const tenantId = options.tenantId ?? organizationId;
+
+  // CRITICAL: Enforce tenant isolation - both fields must not be provided with different values
+  if (organizationId && options.tenantId && organizationId !== options.tenantId) {
+    throw new Error(
+      `secureLLMComplete: Conflicting tenant identifiers provided. ` +
+        `organizationId (${organizationId}) !== tenantId (${options.tenantId}). ` +
+        `Pass only one identifier to satisfy tenant isolation requirements.`,
+    );
+  }
+
   if (!organizationId && !tenantId) {
     throw new Error(
       'secureLLMComplete requires a tenant identifier (organizationId or tenantId). ' +
@@ -98,10 +108,10 @@ export async function secureLLMComplete(
     }
   }
 
-  // Omit tenant alias fields from rest — tenantId is passed explicitly below.
-  // serviceName/operation remain in rest for observability consumers.
-  const { userId, model, temperature, max_tokens, ...rawRest } = options;
-  const { organizationId: _o, tenantId: _t, ...rest } = rawRest;
+  // Clean up options: remove tenant alias fields from rest to avoid passing both
+  // We only pass the canonical tenantId to the gateway. organizationId is omitted
+  // from metadata to prevent downstream confusion (it's used for business logic only).
+  const { userId, model, temperature, max_tokens, organizationId: _org, tenantId: _tenant, ...rest } = options;
 
   return gateway.complete({
     messages,
@@ -109,11 +119,10 @@ export async function secureLLMComplete(
     temperature,
     max_tokens,
     metadata: {
-      organizationId: organizationId ?? tenantId,
       tenantId,
       userId: userId ?? 'system',
       ...rest,
-    },
+    } as any, // Note: LLMGateway accepts either tenantId or organizationId, we standardize on tenantId
   });
 }
 
