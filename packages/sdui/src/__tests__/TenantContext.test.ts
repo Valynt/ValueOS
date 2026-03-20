@@ -6,8 +6,8 @@ import {
   validateTenantContext,
   TenantContextError,
   DEFAULT_THEME,
-  TenantContext,
 } from '../TenantContext';
+import type { TenantContext } from '../TenantContext';
 
 describe('TenantContext', () => {
   describe('createTenantContext', () => {

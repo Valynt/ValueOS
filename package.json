@@ -122,6 +122,7 @@
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.2.1",
+    "@testing-library/react": "^14.2.1",
     "@types/express": "4.17.21",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^24.7.0",

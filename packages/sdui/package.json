@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^20.19.29",
     "@types/react": "^18.3.27",
+    "@vitest/coverage-v8": "^4.0.17",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
