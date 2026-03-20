@@ -20,5 +20,9 @@
         "justification": "Experimental MCP package; excluded from release automation."
       }
     }
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "3.2.4",
+    "vitest": "3.2.4"
   }
 }

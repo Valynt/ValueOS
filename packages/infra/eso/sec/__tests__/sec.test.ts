@@ -42,7 +42,8 @@ describe("SECAdapter", () => {
     const rawData = { company: "Test Corp" };
     const transformed = await adapter.transformData(rawData);
     expect(transformed).toEqual({
-      source: "SEC",
+      source: "SEC-EDGAR",
+      ingestionType: "sec_filing",
       data: rawData,
       timestamp: expect.any(String),
     });
