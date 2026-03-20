@@ -21,14 +21,14 @@ export function validateRequiredEnv(): void {
   if (_isBrowser) return;
 
   // Server-side validation (self-contained, no cross-package imports)
-  const missing: string[] = [];
-  for (const key of REQUIRED_ENV_VARS) {
-    if (typeof process !== "undefined" && process.env && !process.env[key]) {
-      missing.push(key);
-    }
-  }
-  if (missing.length > 0) {
-    console.warn(`[env] Missing environment variables: ${missing.join(", ")}`);
+  const missingVars = REQUIRED_ENV_VARS.filter(
+    (varName) => typeof process !== "undefined" && process.env && !process.env[varName]
+  );
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables:\n${missingVars.join('\n')}`
+    );
   }
 }
 
