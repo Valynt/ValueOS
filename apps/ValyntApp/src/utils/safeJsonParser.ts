@@ -92,7 +92,7 @@ function repairJson(jsonString: string): string {
   let repaired = jsonString;
   
   // Fix trailing commas in objects
-  repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+  repaired = repaired.replace(/,(?=\s*[}\]])(?=(?:(?:[^"\\]|\\.)*"(?:[^"\\]|\\.)*")*(?:[^"\\]|\\.)*$)/g, '');
   
   // Fix missing quotes around keys (common LLM error)
   repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
