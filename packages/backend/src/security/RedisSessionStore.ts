@@ -252,11 +252,13 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
-          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
-          invalidatedSessionIds.add(sessionId);
-        }
+        await Promise.all(
+          sessionIds.map(async (sessionId) => {
+            const metadata = await this.get(sessionId, tenantId);
+            await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+            invalidatedSessionIds.add(sessionId);
+          })
+        );
 
         if (sessionIds.length > 0) {
           logger.info('Invalidated user sessions in Redis', { userId, count: invalidatedSessionIds.size });
@@ -268,12 +270,14 @@ export class RedisSessionStore {
     }
 
     // Also clear from memory fallback
-    for (const metadata of [...this.memoryFallback.values()]) {
-      if (metadata.userId === userId && (!tenantId || metadata.tenantId === tenantId)) {
+    const memoryPromises = [...this.memoryFallback.values()]
+      .filter((metadata) => metadata.userId === userId && (!tenantId || metadata.tenantId === tenantId))
+      .map(async (metadata) => {
         await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
         invalidatedSessionIds.add(metadata.sessionId);
-      }
-    }
+      });
+
+    await Promise.all(memoryPromises);
 
     return invalidatedSessionIds.size;
   }
@@ -292,11 +296,13 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getDeviceIndexKey(deviceId, tenantId));
 
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
-          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
-          invalidatedSessionIds.add(sessionId);
-        }
+        await Promise.all(
+          sessionIds.map(async (sessionId) => {
+            const metadata = await this.get(sessionId, tenantId);
+            await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+            invalidatedSessionIds.add(sessionId);
+          })
+        );
       }
     } catch (error) {
       logger.warn('Redis device invalidation failed', { error: String(error) });
@@ -304,12 +310,14 @@ export class RedisSessionStore {
     }
 
     // Scan memory for device matches
-    for (const metadata of [...this.memoryFallback.values()]) {
-      if (metadata.deviceId === deviceId && (!tenantId || metadata.tenantId === tenantId)) {
+    const memoryPromises = [...this.memoryFallback.values()]
+      .filter((metadata) => metadata.deviceId === deviceId && (!tenantId || metadata.tenantId === tenantId))
+      .map(async (metadata) => {
         await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
         invalidatedSessionIds.add(metadata.sessionId);
-      }
-    }
+      });
+
+    await Promise.all(memoryPromises);
 
     logger.info('Invalidated device sessions', { deviceId, count: invalidatedSessionIds.size });
     return invalidatedSessionIds.size;
