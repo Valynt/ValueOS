@@ -71,7 +71,7 @@ services:
           echo "[backend] Waiting for node_modules... (${wait_count}/150)"
           sleep 2
         done
-        ona env port open 3001 --protocol https 2>/dev/null || true
+        ona environment port open 3001 --name "Backend API" 2>/dev/null || true
         pnpm run dev:backend
       ready: curl -sf http://localhost:3001/health
 
@@ -92,16 +92,7 @@ services:
           echo "[frontend] Waiting for node_modules... (${wait_count}/150)"
           sleep 2
         done
-        ona env port open 5173 --protocol https 2>/dev/null || true
+        ona environment port open 5173 --name "ValyntApp" 2>/dev/null || true
         pnpm run dev:frontend
       ready: curl -sf http://localhost:5173
 
-  academy:
-    name: VOSAcademy (Vite)
-    description: Vite dev server for VOSAcademy on port 5174. Not auto-started; run manually once the vosacademy workspace package exists.
-    triggeredBy: []
-    commands:
-      start: |
-        ona env port open 5174 --protocol https 2>/dev/null || true
-        pnpm run dev:academy
-      ready: curl -sf http://localhost:5174

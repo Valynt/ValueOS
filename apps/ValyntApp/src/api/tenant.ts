@@ -74,14 +74,27 @@ async function resolveAuthenticatedUserId(
     };
   }
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    logger.warn("Failed to resolve authenticated user", { error });
-    return { data: null, error: new Error("Unable to verify authenticated user") };
+  // getUser() verifies the JWT server-side but requires a network call to Supabase.
+  // If that fails (e.g. transient network error or TypeError), fall back to
+  // getSession() which reads the locally-stored session without a network round-trip.
+  let user: { id: string } | null = null;
+  try {
+    const { data: getUserData, error: getUserError } = await supabase.auth.getUser();
+    if (getUserError) {
+      logger.warn("getUser() failed, falling back to getSession()", { error: getUserError });
+      const { data: sessionData } = await supabase.auth.getSession();
+      user = sessionData?.session?.user ?? null;
+    } else {
+      user = getUserData.user;
+    }
+  } catch (networkError) {
+    logger.warn("getUser() threw, falling back to getSession()", { error: networkError });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      user = sessionData?.session?.user ?? null;
+    } catch {
+      user = null;
+    }
   }
 
   if (!user?.id) {
