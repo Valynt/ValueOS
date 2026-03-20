@@ -42,7 +42,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.2.2",
     "vite": "^6.1.6",
-    "vitest": "^4.0.17"
+    "vitest": "^4.1.0"
   },
   "tsErrorBaseline": 60,
   "valueos": {
