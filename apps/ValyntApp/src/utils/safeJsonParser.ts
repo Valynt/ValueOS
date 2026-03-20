@@ -99,7 +99,9 @@ function repairJson(jsonString: string): string {
   
   // Fix single quotes to double quotes
   // But be careful not to replace single quotes inside double quotes
-  repaired = repaired.replace(/'([^']*)'/g, '"$1"');
+  repaired = repaired.replace(/"(?:[^"\\]|\\.)*"|'((?:[^'\\]|\\.)*)'/g, (match, p1) => {
+    return match.startsWith("'") ? '"' + p1 + '"' : match;
+  });
   
   // Fix escaped quotes that shouldn't be escaped
   repaired = repaired.replace(/\\"/g, '"');
