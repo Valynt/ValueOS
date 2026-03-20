@@ -240,8 +240,25 @@ export class AlertingService {
    */
   private async checkRule(rule: AlertRule): Promise<void> {
     try {
+      // Determine which metric categories we need to fetch
+      const categoriesNeeded = new Set<string>();
       for (const threshold of rule.thresholds) {
-        const currentValue = await this.getMetricValue(threshold.metricName);
+        const category = threshold.metricName.split('.')[0];
+        if (category) {
+          categoriesNeeded.add(category);
+        }
+      }
+
+      // Pre-fetch only the required metrics
+      const [agentMetricsRaw, systemMetrics] = await Promise.all([
+        categoriesNeeded.has('agent') ? this.metricsCollector.getAgentMetrics(undefined, 'hour') : Promise.resolve([]),
+        (categoriesNeeded.has('llm') || categoriesNeeded.has('cache')) ? this.metricsCollector.getSystemMetrics('hour') : Promise.resolve(null)
+      ]);
+
+      const aggregatedAgentMetrics = categoriesNeeded.has('agent') ? this.aggregateAgentMetrics(agentMetricsRaw) : null;
+
+      for (const threshold of rule.thresholds) {
+        const currentValue = this.getMetricValueFromCache(threshold.metricName, aggregatedAgentMetrics, systemMetrics);
         
         if (this.shouldAlert(currentValue, threshold)) {
           const alert = this.createAlert(rule, threshold, currentValue);
@@ -257,35 +274,36 @@ export class AlertingService {
   }
 
   /**
-   * Get current value for a metric
+   * Get current value for a metric from cached data
    */
-  private async getMetricValue(metricName: string): Promise<number> {
+  private getMetricValueFromCache(
+    metricName: string,
+    aggregatedAgentMetrics: { successRate: number, hallucinationRate: number, lowConfidenceRate: number, p95ResponseTime: number, p99ResponseTime: number } | null,
+    systemMetrics: { totalCost: number, cacheHitRate: number } | null
+  ): number {
     const [category, metric] = metricName.split('.');
 
     switch (category) {
       case 'agent': {
-        const metrics = await this.metricsCollector.getAgentMetrics(undefined, 'hour');
-        const aggregated = this.aggregateAgentMetrics(metrics);
-        
+        if (!aggregatedAgentMetrics) return 0;
         switch (metric) {
           case 'error_rate':
-            return 1 - aggregated.successRate;
+            return 1 - aggregatedAgentMetrics.successRate;
           case 'hallucination_rate':
-            return aggregated.hallucinationRate;
+            return aggregatedAgentMetrics.hallucinationRate;
           case 'low_confidence_rate':
-            return aggregated.lowConfidenceRate;
+            return aggregatedAgentMetrics.lowConfidenceRate;
           case 'p95_response_time':
-            return aggregated.p95ResponseTime;
+            return aggregatedAgentMetrics.p95ResponseTime;
           case 'p99_response_time':
-            return aggregated.p99ResponseTime;
+            return aggregatedAgentMetrics.p99ResponseTime;
           default:
             return 0;
         }
       }
 
       case 'llm': {
-        const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
-        
+        if (!systemMetrics) return 0;
         switch (metric) {
           case 'hourly_cost':
             return systemMetrics.totalCost;
@@ -295,8 +313,7 @@ export class AlertingService {
       }
 
       case 'cache': {
-        const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
-        
+        if (!systemMetrics) return 0;
         switch (metric) {
           case 'hit_rate':
             return systemMetrics.cacheHitRate;
