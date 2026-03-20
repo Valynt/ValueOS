@@ -66,23 +66,33 @@ function stripMarkdownCodeBlocks(content: string): string {
  * Extract JSON substring from mixed content
  */
 function extractJsonSubstring(content: string): string | null {
-  // Find first { and last }
   const firstBrace = content.indexOf('{');
   const lastBrace = content.lastIndexOf('}');
-  
-  if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
-    // Try array notation
-    const firstBracket = content.indexOf('[');
-    const lastBracket = content.lastIndexOf(']');
-    
-    if (firstBracket === -1 || lastBracket === -1 || firstBracket >= lastBracket) {
-      return null;
+  const firstBracket = content.indexOf('[');
+  const lastBracket = content.lastIndexOf(']');
+
+  const hasObject = firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace;
+  const hasArray = firstBracket !== -1 && lastBracket !== -1 && firstBracket < lastBracket;
+
+  if (hasObject && hasArray) {
+    // Return the one that starts first, but only if it contains the other or they are disjoint
+    // Simplest is to check which one is the outermost container
+    if (firstBrace < firstBracket && lastBrace > lastBracket) {
+      return content.substring(firstBrace, lastBrace + 1);
+    } else if (firstBracket < firstBrace && lastBracket > lastBrace) {
+      return content.substring(firstBracket, lastBracket + 1);
     }
-    
+    // If they are disjoint, take the one that starts first
+    return firstBrace < firstBracket
+      ? content.substring(firstBrace, lastBrace + 1)
+      : content.substring(firstBracket, lastBracket + 1);
+  } else if (hasObject) {
+    return content.substring(firstBrace, lastBrace + 1);
+  } else if (hasArray) {
     return content.substring(firstBracket, lastBracket + 1);
   }
   
-  return content.substring(firstBrace, lastBrace + 1);
+  return null;
 }
 
 /**
@@ -98,13 +108,15 @@ function repairJson(jsonString: string): string {
   repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
   
   // Fix single quotes to double quotes
-  repaired = repaired.replace(/'/g, '"');
+  // But be careful not to replace single quotes inside double quotes
+  repaired = repaired.replace(/'([^']*)'/g, '"$1"');
   
   // Fix escaped quotes that shouldn't be escaped
   repaired = repaired.replace(/\\"/g, '"');
   
   // Fix missing commas between properties
-  repaired = repaired.replace(/"\s*\n\s*"/g, '",\n"');
+  // this regex tries to find a closing brace/bracket followed by an opening one without a comma
+  repaired = repaired.replace(/([\}\]])\s*([\{\["])/g, '$1,$2');
   
   // Fix undefined/null values
   repaired = repaired.replace(/:\s*undefined/g, ': null');
