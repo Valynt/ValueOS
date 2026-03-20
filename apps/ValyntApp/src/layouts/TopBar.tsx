@@ -16,31 +16,6 @@ interface TopBarProps {
 
 const DEFAULT_SEARCH_PLACEHOLDER = "Search opportunities, models, agents...";
 
-function normalizePlanLabel(value: string | null | undefined): string {
-  const normalized = value?.trim().toLowerCase();
-  if (!normalized) return "Standard";
-
-  if (["enterprise", "enterprise_plan"].includes(normalized)) return "Enterprise";
-  if (["mid_market", "growth", "pro"].includes(normalized)) return "Growth";
-  if (["smb", "starter", "basic", "free"].includes(normalized)) return "Starter";
-
-  return normalized
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((chunk) => chunk[0].toUpperCase() + chunk.slice(1))
-    .join(" ");
-}
-
-function getInitials(name: string): string {
-  const chunks = name
-    .split(" ")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (chunks.length === 0) return "VO";
-  return chunks.map((part) => part[0]?.toUpperCase() ?? "").join("");
-}
 
 export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -67,27 +42,6 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
     return candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0)?.trim() ?? "Value Org";
   }, [companyContext?.context.company_name, currentTenant?.name, user?.user_metadata]);
 
-  // TODO: planLabel is computed but currently unused after TenantSwitcher integration.
-  // Keep for potential use in tenant badge or settings.
-  const planLabel = useMemo(() => {
-    const authMeta = user?.user_metadata as Record<string, unknown> | undefined;
-    const metadata = companyContext?.context.metadata;
-
-    const planFromCompanyMetadata =
-      metadata && typeof metadata === "object" && typeof metadata.plan === "string"
-        ? metadata.plan
-        : null;
-
-    const candidates = [
-      planFromCompanyMetadata,
-      companyContext?.context.company_size,
-      currentTenant?.role,
-      typeof authMeta?.plan === "string" ? authMeta.plan : null,
-      typeof authMeta?.subscription_plan === "string" ? authMeta.subscription_plan : null,
-    ];
-
-    return normalizePlanLabel(candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0));
-  }, [companyContext?.context.company_size, companyContext?.context.metadata, currentTenant?.role, user?.user_metadata]);
 
   // orgInitials removed — TenantSwitcher handles its own initials
 
