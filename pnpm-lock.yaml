@@ -15,7 +15,7 @@ overrides:
   mdast-util-to-hast: '>=13.2.1'
   rollup: '>=4.59.0'
   dompurify: '>=3.3.2'
-  isomorphic-dompurify: 2.35.0
+  isomorphic-dompurify: 2.30.0
 
 patchedDependencies:
   wouter@3.7.1:
@@ -436,8 +436,8 @@ importers:
         specifier: ^3.1.0
         version: 3.2.0
       isomorphic-dompurify:
-        specifier: 2.35.0
-        version: 2.35.0(@noble/hashes@2.0.1)
+        specifier: 2.30.0
+        version: 2.30.0(@noble/hashes@2.0.1)
       jspdf:
         specifier: ^4.2.0
         version: 4.2.0
@@ -7679,9 +7679,9 @@ packages:
     resolution: {integrity: sha512-6B3tLtFqtQS4ekarvLVMZ+X+VlvQekbe4taUkf/rhVO3d/h0M2rfARm/pXLcPEsjjMsFgrFgSrhQIxcSVrBz8w==}
     engines: {node: '>=18'}
 
-  isomorphic-dompurify@2.35.0:
-    resolution: {integrity: sha512-a9+LQqylQCU8f1zmsYmg2tfrbdY2YS/Hc+xntcq/mDI2MY3Q108nq8K23BWDIg6YGC5JsUMC15fj2ZMqCzt/+A==}
-    engines: {node: '>=20.19.5'}
+  isomorphic-dompurify@2.30.0:
+    resolution: {integrity: sha512-f4qgn5X2A/gfP0/OeXhJ3iu4zH5IHma0upZg6zEEe3iN5QVHoWr6s9TVQxKSAAo4rW7MNrUROp4TIobY7LAEgg==}
+    engines: {node: '>=18'}
 
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
@@ -19486,7 +19486,7 @@ snapshots:
   isexe@3.1.5:
     optional: true
 
-  isomorphic-dompurify@2.35.0(@noble/hashes@2.0.1):
+  isomorphic-dompurify@2.30.0(@noble/hashes@2.0.1):
     dependencies:
       dompurify: 3.3.3
       jsdom: 27.4.0(@noble/hashes@2.0.1)
