@@ -98,11 +98,21 @@ function repairJson(jsonString: string): string {
   repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
   
   // Fix single quotes to double quotes
-  repaired = repaired.replace(/'/g, '"');
+  // But be careful not to replace single quotes inside double quotes
+  repaired = repaired.replace(/'([^']*)'/g, '"$1"');
   
-  // Fix escaped quotes that act as structural quotes
-  repaired = repaired.replace(/(^|[\{\[\,:]\s*)\\"/g, '$1"');
-  repaired = repaired.replace(/\\"(\s*[\}\]\,:]|$)/g, '"$1');
+  // Fix heavily escaped JSON (e.g. "{\\"key\\": \\"value\\"}")
+  // If the entire payload is stringified, every quote will be escaped.
+  // We check if all quotes are escaped (ignoring double backslashes)
+  // to avoid corrupting payloads with valid inner quotes (e.g. `{"key": "He said: \\"Hello\\""}`).
+  const strWithoutEscapedSlashes = repaired.replace(/\\\\/g, '');
+  const totalQuotes = (strWithoutEscapedSlashes.match(/"/g) || []).length;
+  const escapedQuotes = (strWithoutEscapedSlashes.match(/\\"/g) || []).length;
+
+  if (totalQuotes > 0 && totalQuotes === escapedQuotes) {
+    // It's completely double-escaped JSON. Unescape everything.
+    repaired = repaired.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
   
   // Fix missing commas between properties
   repaired = repaired.replace(/"\s*\n\s*"/g, '",\n"');
