@@ -96,11 +96,11 @@ export default function LivingValueGraphPage() {
             <div className="absolute bottom-4 left-4 right-4">
               <InlineMutationBar
                 nodeId={selectedNode.id}
-                onEdit={() => console.log('Edit', selectedNode.id)}
-                onScenario={() => console.log('Scenario', selectedNode.id)}
-                onAskAgent={() => console.log('Ask Agent', selectedNode.id)}
-                onLinkEvidence={() => console.log('Link Evidence', selectedNode.id)}
-                onRedTeam={() => console.log('Red Team', selectedNode.id)}
+                onEdit={() => {}}
+                onScenario={() => {}}
+                onAskAgent={() => {}}
+                onLinkEvidence={() => {}}
+                onRedTeam={() => {}}
                 onRequestApproval={() => setIsApprovalDrawerOpen(true)}
               />
             </div>
@@ -134,8 +134,7 @@ export default function LivingValueGraphPage() {
       <ApprovalDrawer
         isOpen={isApprovalDrawerOpen}
         onClose={() => setIsApprovalDrawerOpen(false)}
-        onSubmit={(reason: string) => {
-          console.log('Approval requested:', reason);
+        onSubmit={(_reason: string) => {
           setIsApprovalDrawerOpen(false);
         }}
       />
