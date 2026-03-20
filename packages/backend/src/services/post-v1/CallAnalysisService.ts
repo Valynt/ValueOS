@@ -157,7 +157,6 @@ ${sanitizedTranscript}
 Provide comprehensive analysis as JSON.`;
 
     try {
-      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
       const response = await secureLLMComplete(
         this.llm,
         [
