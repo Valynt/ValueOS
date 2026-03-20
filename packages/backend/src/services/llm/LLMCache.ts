@@ -36,7 +36,7 @@ export class LLMCache {
     this.config = {
       ttl: 24 * 60 * 60, // 24 hours default
       enabled: process.env.ENABLE_LLM_CACHE !== 'false',
-      keyPrefix: 'llm:cache:',
+      keyPrefix: `llm:cache:`,
       ...config
     };
     
