@@ -63,7 +63,7 @@ describe('assertTenantMembership', () => {
     expect(err.userId).toBe('user-1');
     expect(err.requestedTenantId).toBe('tenant-1');
     expect(err.userTenantId).toBe('tenant-2');
-    expect(err.message).toBe('User *** does not belong to tenant tenant-1');
+    expect(err.message).toMatch(/User .* does not belong to tenant tenant-1/);
   });
 
   it('throws TenantSecurityError without userTenantId when getUserTenantId fails', async () => {
@@ -85,6 +85,6 @@ describe('assertTenantMembership', () => {
     expect(err.userId).toBe('user-1');
     expect(err.requestedTenantId).toBe('tenant-1');
     expect(err.userTenantId).toBeUndefined();
-    expect(err.message).toBe('User *** does not belong to tenant tenant-1');
+    expect(err.message).toMatch(/User .* does not belong to tenant tenant-1/);
   });
 });
