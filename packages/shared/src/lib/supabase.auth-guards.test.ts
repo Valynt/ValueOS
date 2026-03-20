@@ -22,20 +22,20 @@ describe('shared supabase auth guards', () => {
   });
 
   it('rejects server-side RLS client creation when no bearer token is present', async () => {
-    const { createRequestSupabaseClient } = await import('./supabase.js');
+    const { createRequestRlsSupabaseClient } = await import('./supabase');
 
-    expect(() => createRequestSupabaseClient({ headers: {} } as any)).toThrow(
-      /Authorization bearer token or session access token required/,
+    expect(() => createRequestRlsSupabaseClient({ headers: {} })).toThrow(
+      /will not fall back to anon or service-role credentials/,
     );
     expect(createClientSpy).not.toHaveBeenCalled();
   });
 
   it('rejects server-side RLS client creation when the bearer token is blank', async () => {
-    const { createRequestSupabaseClient } = await import('./supabase.js');
+    const { createRequestRlsSupabaseClient } = await import('./supabase');
 
     expect(() =>
-      createRequestSupabaseClient({ headers: { authorization: 'Bearer   ' } } as any),
-    ).toThrow(/Authorization bearer token or session access token required/);
+      createRequestRlsSupabaseClient({ headers: { authorization: 'Bearer   ' } }),
+    ).toThrow(/will not fall back to anon or service-role credentials/);
     expect(createClientSpy).not.toHaveBeenCalled();
   });
 
@@ -44,7 +44,7 @@ describe('shared supabase auth guards', () => {
     const { createServiceRoleSupabaseClient } = await import('./supabase');
 
     expect(() => createServiceRoleSupabaseClient()).toThrow(
-      /Supabase service role key is required for server-side operations/,
+      /service role key is required for elevated server-side operations/,
     );
     expect(createClientSpy).not.toHaveBeenCalled();
   });
