@@ -623,7 +623,6 @@ export class WebhookService {
   }
 }
 
-export { WebhookService };
 export const webhookService = new WebhookService();
 /** @deprecated Use named import `webhookService` instead. */
 export default webhookService;
