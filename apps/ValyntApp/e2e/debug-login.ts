@@ -23,7 +23,10 @@ async function run() {
     if (req.url().includes("/api/")) {
       const h = req.headers();
       console.log(`[req] ${req.method()} ${req.url().replace(BASE_URL,"")}`);
-      if (h["authorization"]) console.log(`  auth: ${h["authorization"].slice(0,50)}...`);
+      if (h["authorization"]) {
+        const scheme = h["authorization"].split(" ")[0] || "authorization";
+        console.log(`  auth: ${scheme} [redacted]`);
+      }
     }
   });
   page.on("response", async (res) => {
