@@ -7,6 +7,8 @@ import { auditLogService } from '../AuditLogService.js'
 import { ModelService } from '../ModelService.js'
 import { userSettingsService } from '../UserSettingsService.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock dependencies
 vi.mock('../AuditLogService', () => ({
   auditLogService: {

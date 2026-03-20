@@ -8,6 +8,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CRMConnector, CRMOpportunitySchema } from "../CRMConnector.js";
 
+vi.mock("../../../lib/supabase.js");
+
 describe("CRMConnector", () => {
   const connector = new CRMConnector();
 

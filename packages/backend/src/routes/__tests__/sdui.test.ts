@@ -24,6 +24,8 @@ import sduiRouter from '../sdui.js'
 
 import { SDUI_VERSION } from '@valueos/sdui';
 
+vi.mock("../../lib/supabase.js");
+
 // Create Express app for testing
 const app = express();
 app.use(express.json());

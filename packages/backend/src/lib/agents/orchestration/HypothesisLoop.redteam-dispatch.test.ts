@@ -6,6 +6,8 @@ import { type SagaSnapshot, SagaState, SagaTrigger, type SagaTriggerType } from 
 import type { RedTeamAnalyzer, RedTeamOutput } from './agents/RedTeamAgent.js';
 import { type FinancialModelingAgentInterface, type GroundTruthAgentInterface, HypothesisLoop, type NarrativeAgentInterface, type OpportunityAgentInterface } from './HypothesisLoop.js';
 
+vi.mock("../../supabase.js");
+
 class InMemorySaga {
   private state = SagaState.INITIATED;
 

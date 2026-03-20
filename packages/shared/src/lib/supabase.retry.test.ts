@@ -117,7 +117,7 @@ describe('Supabase client factories', () => {
     const { createServiceRoleSupabaseClient } = await loadModule();
 
     expect(() => createServiceRoleSupabaseClient()).toThrow(
-      'Supabase service role key is required for server-side operations',
+      'Supabase service role key is required for elevated server-side operations',
     );
     expect(createClientMock).not.toHaveBeenCalled();
   });

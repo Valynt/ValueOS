@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ActionRouter } from '../ActionRouter.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock manifestoEnforcer and enforceRules to allow actions
 vi.mock('../ManifestoEnforcer', () => ({
   manifestoEnforcer: { checkAction: vi.fn().mockResolvedValue({ allowed: true, violations: [], warnings: [] }) }

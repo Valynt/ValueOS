@@ -13,6 +13,8 @@ import {
 import { AgentSDUIAdapter } from '../AgentSDUIAdapter.js'
 import { canvasSchemaService } from '../CanvasSchemaService.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock dependencies
 vi.mock('../CanvasSchemaService');
 vi.mock('../../lib/logger');

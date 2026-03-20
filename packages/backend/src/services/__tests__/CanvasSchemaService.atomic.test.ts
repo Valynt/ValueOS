@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { CanvasSchemaService } from '../CanvasSchemaService.js'
 
+vi.mock("../../lib/supabase.js");
+
 describe('CanvasSchemaService - Atomic Actions', () => {
   // We can instantiate with no args because the constructor handles optional args
   const service = new CanvasSchemaService();

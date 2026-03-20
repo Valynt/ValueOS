@@ -398,4 +398,12 @@ export class ComplianceReportGeneratorService {
   }
 }
 
-export const complianceReportGeneratorService = new ComplianceReportGeneratorService();
+let _complianceReportGeneratorService: ComplianceReportGeneratorService | undefined;
+export const complianceReportGeneratorService = new Proxy({} as ComplianceReportGeneratorService, {
+  get(_target, property, receiver) {
+    if (!_complianceReportGeneratorService) {
+      _complianceReportGeneratorService = new ComplianceReportGeneratorService();
+    }
+    return Reflect.get(_complianceReportGeneratorService, property, receiver);
+  },
+});

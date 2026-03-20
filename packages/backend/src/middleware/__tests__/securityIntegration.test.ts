@@ -6,6 +6,8 @@ import healthRouter from '../../api/health/index.js'
 import llmRouter from '../../api/llm.js'
 import queueRouter from '../../api/queue.js'
 
+vi.mock("../../lib/supabase.js");
+
 function hasMiddleware(router: any, name: string): boolean {
   return router.stack?.some((layer: any) => (layer.name || '').includes(name));
 }

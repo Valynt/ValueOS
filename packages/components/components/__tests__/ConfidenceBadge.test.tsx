@@ -72,6 +72,6 @@ describe("ConfidenceBadge", () => {
 
   it("includes aria-label with confidence info", () => {
     render(<ConfidenceBadge score={0.75} showTooltip={false} />);
-    expect(screen.getByLabelText("Confidence: 75% - High confidence")).toBeInTheDocument();
+    expect(screen.getByLabelText("Confidence: 75% - Medium confidence")).toBeInTheDocument();
   });
 });

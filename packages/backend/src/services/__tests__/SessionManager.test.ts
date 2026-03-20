@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authService } from '../../services/auth/AuthService.js'
 import { SessionManager } from '../../services/SessionManager.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock authService
 vi.mock('../../services/AuthService', () => ({
   authService: {

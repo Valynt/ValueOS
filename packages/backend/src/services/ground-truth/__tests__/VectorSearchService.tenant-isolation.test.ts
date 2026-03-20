@@ -8,6 +8,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { vectorSearchService } from "../../memory/VectorSearchService.js";
 import { groundTruthCache } from "../GroundTruthCache.js";
 
+vi.mock("../../../lib/supabase.js");
+
 // Mock dependencies
 vi.mock("../GroundTruthCache.js", () => ({
   groundTruthCache: {

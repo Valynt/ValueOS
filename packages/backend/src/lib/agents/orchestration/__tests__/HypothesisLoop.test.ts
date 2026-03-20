@@ -9,6 +9,8 @@ import {
 } from '../../core/ValueCaseSaga.js';
 import type { RedTeamAnalyzer, RedTeamOutput } from '../agents/RedTeamAgent.js';
 import {
+
+vi.mock("../../../supabase.js");
   type FinancialModelingAgentInterface,
   type GroundTruthAgentInterface,
   HypothesisLoop,

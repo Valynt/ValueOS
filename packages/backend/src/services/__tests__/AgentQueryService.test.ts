@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimeoutError } from "../../lib/resilience/errors";
 import { AgentQueryService } from "../../services/AgentQueryService.js"
 
+vi.mock("../../lib/supabase.js");
+
 // Mock Supabase client
 const mockSupabase = {
   from: vi.fn(),
