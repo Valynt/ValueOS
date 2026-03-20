@@ -27,8 +27,13 @@ export function createSecureRouter(
   // header cannot be set cross-origin without a CORS preflight, which the server
   // controls. Cookie CSRF is only needed for cookie/session-authenticated flows.
   router.use((req, res, next) => {
-    const auth = req.headers["authorization"];
-    if (auth && auth.startsWith("Bearer ")) return next();
+    const auth = req.headers['authorization'];
+    if (typeof auth === 'string') {
+      const scheme = auth.trim().split(/\s+/, 1)[0];
+      if (scheme && scheme.toLowerCase() === 'bearer') {
+        return next();
+      }
+    }
     return csrfProtectionMiddleware(req, res, next);
   });
   router.use(sessionTimeoutMiddleware);
