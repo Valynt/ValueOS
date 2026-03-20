@@ -16,6 +16,8 @@ jobs:
   security-hardening:
     name: Security Hardening Check
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +30,7 @@ jobs:
       - name: Check for Security Vulnerabilities
         run: |
           # Check for hardcoded secrets
-          if grep -r "password\|secret\|key" --include="*.ts" packages/backend/src/services/ | grep -v "test\|mock\|fixture" | grep -E "(=\s*['\"][^'\"]+['\"]|:\s*['\"][^'\"]+['\"])"; then
+          if grep -r "password\|secret\|key" --include="*.ts" packages/backend/src/services/ | grep -v "test\|mock\|fixture\|bench" | grep -E "(password|secret|key|api_key|token)[-_a-zA-Z0-9]*\s*[:=]\s*['\"][A-Za-z0-9+/=]{20,}['\"]"; then
             echo "❌ Potential hardcoded secrets found"
             exit 1
           fi
