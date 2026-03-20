@@ -524,5 +524,7 @@ class SecurityHeaders {
   }
 }
 
+export default SecurityHeaders;
+
 // Export singleton instance
 export const securityHeaders = SecurityHeaders.getInstance();

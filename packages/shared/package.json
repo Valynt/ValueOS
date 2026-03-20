@@ -55,9 +55,7 @@
   "devDependencies": {
     "@types/node": "^20.19.29",
     "@types/uuid": "^11.0.0",
-    "@vitest/coverage-v8": "3.2.4",
-    "typescript": "^5.9.3",
-    "vitest": "3.2.4"
+    "typescript": "^5.9.3"
   },
   "tsErrorBaseline": 1,
   "valueos": {

@@ -26,9 +26,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.29",
-    "@vitest/coverage-v8": "3.2.4",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.18"
   },
   "tsErrorBaseline": 54,
   "valueos": {
