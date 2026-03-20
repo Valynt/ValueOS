@@ -25,7 +25,7 @@ export function ComplianceModePage() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-900">Compliance Mode</h2>
-      <div className="rounded border bg-white p-4">
+      <div className="rounded border bg-card p-4">
         <div className="text-sm text-gray-600">Active frameworks</div>
         <div className="mt-2 flex gap-2 flex-wrap">
           {mode?.active_modes.map((framework) => (
@@ -34,7 +34,7 @@ export function ComplianceModePage() {
         </div>
         <div className="text-xs text-gray-500 mt-3">Strict enforcement: {mode?.strict_enforcement ? "enabled" : "disabled"}</div>
       </div>
-      <div className="rounded border bg-white p-4">
+      <div className="rounded border bg-card p-4">
         <h3 className="text-sm font-semibold">Live Control Status</h3>
         <div className="mt-3 space-y-2">
           {controls?.controls.map((control) => (

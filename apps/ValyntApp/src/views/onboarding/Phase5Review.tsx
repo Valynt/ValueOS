@@ -52,12 +52,12 @@ function SectionCard({
   badge?: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center gap-2 mb-3">
         <Icon className={cn("w-4 h-4", color)} />
-        <h3 className="text-[13px] font-semibold text-zinc-900">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
         {badge}
-        <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-medium">
+        <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
           {count}
         </span>
       </div>
@@ -80,13 +80,13 @@ function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion }) {
       {suggestion.source_urls.length > 0 && (
         <button
           onClick={() => setShowSources(!showSources)}
-          className="text-[9px] text-zinc-400 hover:text-zinc-600"
+          className="text-[9px] text-muted-foreground hover:text-muted-foreground"
         >
           {suggestion.source_urls.length} source{suggestion.source_urls.length !== 1 ? "s" : ""}
         </button>
       )}
       {showSources && (
-        <div className="absolute mt-6 p-2 bg-white border border-zinc-200 rounded-lg shadow-lg z-10 space-y-1">
+        <div className="absolute mt-6 p-2 bg-card border border-border rounded-lg shadow-lg z-10 space-y-1">
           {suggestion.source_urls.map((url, i) => (
             <a
               key={i}
@@ -123,7 +123,7 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
         </div>
         <div>
           <h2 className="text-[16px] font-black text-zinc-950 tracking-tight">Review & Activate</h2>
-          <p className="text-[12px] text-zinc-400">
+          <p className="text-[12px] text-muted-foreground">
             Confirm your company intelligence — this becomes the foundation for every value case
           </p>
         </div>
@@ -152,22 +152,22 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
       <SectionCard icon={Building2} title="Company" count={1} color="text-blue-600">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[11px] text-zinc-400">Name</p>
-            <p className="text-[13px] font-medium text-zinc-900">{phase1.company_name}</p>
+            <p className="text-[11px] text-muted-foreground">Name</p>
+            <p className="text-[13px] font-medium text-foreground">{phase1.company_name}</p>
           </div>
           <div>
-            <p className="text-[11px] text-zinc-400">Industry</p>
-            <p className="text-[13px] font-medium text-zinc-900">{phase1.industry || "—"}</p>
+            <p className="text-[11px] text-muted-foreground">Industry</p>
+            <p className="text-[13px] font-medium text-foreground">{phase1.industry || "—"}</p>
           </div>
           <div>
-            <p className="text-[11px] text-zinc-400">Size</p>
-            <p className="text-[13px] font-medium text-zinc-900 capitalize">
+            <p className="text-[11px] text-muted-foreground">Size</p>
+            <p className="text-[13px] font-medium text-foreground capitalize">
               {phase1.company_size?.replace("_", " ") || "—"}
             </p>
           </div>
           <div>
-            <p className="text-[11px] text-zinc-400">Sales Motion</p>
-            <p className="text-[13px] font-medium text-zinc-900 capitalize">
+            <p className="text-[11px] text-muted-foreground">Sales Motion</p>
+            <p className="text-[13px] font-medium text-foreground capitalize">
               {phase1.sales_motion?.replace("_", " ") || "—"}
             </p>
           </div>
@@ -182,9 +182,9 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
               (s) => s.entity_type === "product" && (s.payload as Record<string, string>).name === p.name
             );
             return (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50 relative">
-                <span className="text-[13px] font-medium text-zinc-900 flex-1">{p.name}</span>
-                <span className="text-[11px] text-zinc-400 capitalize">{p.product_type?.replace("_", " ")}</span>
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface relative">
+                <span className="text-[13px] font-medium text-foreground flex-1">{p.name}</span>
+                <span className="text-[11px] text-muted-foreground capitalize">{p.product_type?.replace("_", " ")}</span>
                 <ProvenanceBadge suggestion={matchingSuggestion} />
               </div>
             );
@@ -197,7 +197,7 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-500" />
-            <h3 className="text-[14px] font-bold text-zinc-900">Advanced AI Insights</h3>
+            <h3 className="text-[14px] font-bold text-foreground">Advanced AI Insights</h3>
           </div>
 
           {pendingCapabilities.length > 0 && (
@@ -216,8 +216,8 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
                   return (
                     <div key={s.id} className="p-3 rounded-xl border border-blue-100 bg-blue-50/20 flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="text-[12px] font-semibold text-zinc-900">{capability}</p>
-                        <p className="text-[11px] text-zinc-500 mt-1">{operational_change}</p>
+                        <p className="text-[12px] font-semibold text-foreground">{capability}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{operational_change}</p>
                       </div>
                       <button
                         onClick={() => acceptMutation.mutate({
@@ -254,7 +254,7 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
                   return (
                     <div key={s.id} className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/20 flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="text-[12px] font-semibold text-zinc-900">{pattern_name}</p>
+                        <p className="text-[12px] font-semibold text-foreground">{pattern_name}</p>
                         <div className="flex gap-2 mt-1">
                           {typical_kpis.slice(0, 2).map((k: unknown, idx: number) => {
                             if (typeof k === "object" && k !== null) {
@@ -309,12 +309,12 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
         <SectionCard icon={Users} title="Buyer Personas" count={phase3.personas.length} color="text-emerald-600">
           <div className="space-y-2">
             {phase3.personas.map((p, i) => (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50">
-                <span className="text-[13px] font-medium text-zinc-900 flex-1">{p.title}</span>
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface">
+                <span className="text-[13px] font-medium text-foreground flex-1">{p.title}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold capitalize">
                   {p.persona_type?.replace("_", " ")}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-semibold capitalize">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold capitalize">
                   {p.seniority?.replace("_", " ")}
                 </span>
               </div>
@@ -334,12 +334,12 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
                 high_risk: "bg-red-50 text-red-700 border-red-200",
               };
               return (
-                <div key={i} className="p-3 rounded-xl bg-zinc-50">
+                <div key={i} className="p-3 rounded-xl bg-surface">
                   <div className="flex items-start gap-2">
                     <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 mt-0.5", riskColors[c.risk_level])}>
                       {c.risk_level.replace("_", " ")}
                     </span>
-                    <p className="text-[12px] text-zinc-700">{c.claim_text}</p>
+                    <p className="text-[12px] text-muted-foreground">{c.claim_text}</p>
                   </div>
                 </div>
               );
@@ -349,26 +349,26 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
       )}
 
       {/* Confirm */}
-      <div className="p-5 rounded-2xl bg-zinc-950 text-white">
+      <div className="p-5 rounded-2xl bg-background text-white">
         <div className="flex items-center gap-3 mb-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
           <h3 className="text-[14px] font-semibold">Ready to activate</h3>
         </div>
-        <p className="text-[12px] text-zinc-400 mb-4">
+        <p className="text-[12px] text-muted-foreground mb-4">
           Once activated, this intelligence becomes the foundation for every value case.
           You can always update it later from the Company Knowledge page.
         </p>
         <div className="flex gap-3">
-          <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-zinc-400 hover:text-white transition-colors">
+          <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-white transition-colors">
             Back
           </button>
           <button
             onClick={onConfirm}
             disabled={isSubmitting}
-            className="px-6 py-3 bg-white text-zinc-950 rounded-xl text-[13px] font-semibold hover:bg-zinc-100 transition-colors flex items-center gap-2"
+            className="px-6 py-3 bg-card text-zinc-950 rounded-xl text-[13px] font-semibold hover:bg-muted transition-colors flex items-center gap-2"
           >
             {isSubmitting ? (
-              <div className="w-4 h-4 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-border border-t-zinc-900 rounded-full animate-spin" />
             ) : (
               <Sparkles className="w-4 h-4" />
             )}

@@ -142,7 +142,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
           content={renderNode}
         />
       </div>
-      <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">
+      <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-card/80 px-2 py-1 rounded border">
         Zoom: {(zoom * 100).toFixed(0)}%
       </div>
 

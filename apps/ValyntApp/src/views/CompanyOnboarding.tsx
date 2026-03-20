@@ -261,12 +261,12 @@ export default function CompanyOnboarding() {
   };
 
   return (
-    <div className="min-h-full bg-zinc-50 flex">
+    <div className="min-h-full bg-surface flex">
       {/* Left: progress rail */}
-      <div className="w-64 bg-white border-r border-zinc-200 p-8 flex-shrink-0">
+      <div className="w-64 bg-card border-r border-border p-8 flex-shrink-0">
         <div className="mb-10">
           <h1 className="text-[18px] font-black text-zinc-950 tracking-[-0.05em]">VALYNT</h1>
-          <p className="text-[11px] text-zinc-400 mt-1">Value Intelligence Setup</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Value Intelligence Setup</p>
         </div>
 
         <div className="space-y-1">
@@ -275,14 +275,14 @@ export default function CompanyOnboarding() {
               key={p.key}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors",
-                phase === p.step ? "bg-zinc-950 text-white" :
-                phase > p.step ? "text-zinc-600" : "text-zinc-300"
+                phase === p.step ? "bg-background text-white" :
+                phase > p.step ? "text-muted-foreground" : "text-foreground/80"
               )}
             >
               <div className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0",
-                phase === p.step ? "bg-white text-zinc-950" :
-                phase > p.step ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-400"
+                phase === p.step ? "bg-card text-zinc-950" :
+                phase > p.step ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
               )}>
                 {phase > p.step ? "✓" : p.step}
               </div>
@@ -291,8 +291,8 @@ export default function CompanyOnboarding() {
           ))}
         </div>
 
-        <div className="mt-10 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
-          <p className="text-[11px] text-zinc-500 leading-relaxed">
+        <div className="mt-10 p-4 rounded-xl bg-surface border border-border">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
             This one-time setup teaches the system your business, products, and competitive landscape.
             Every value case you build after this will be faster and sharper.
           </p>
@@ -300,7 +300,7 @@ export default function CompanyOnboarding() {
 
         <button
           onClick={handleSkip}
-          className="mt-4 w-full text-[12px] text-zinc-400 hover:text-zinc-600 transition-colors py-2"
+          className="mt-4 w-full text-[12px] text-muted-foreground hover:text-muted-foreground transition-colors py-2"
         >
           Skip for now →
         </button>

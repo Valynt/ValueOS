@@ -123,7 +123,7 @@ export function ValueDriverLibrary() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-8 py-4">
+      <header className="bg-card border-b border-slate-200 px-8 py-4">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Value Drivers</h1>

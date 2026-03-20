@@ -27,7 +27,7 @@ const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({ content, title, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white p-6 rounded shadow-lg max-w-4xl w-full max-h-full overflow-auto">
+      <div className="bg-card p-6 rounded shadow-lg max-w-4xl w-full max-h-full overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{title}</h2>
           <div className="flex space-x-2">

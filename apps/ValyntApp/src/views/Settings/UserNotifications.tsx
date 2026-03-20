@@ -98,7 +98,7 @@ export const UserNotifications: React.FC<UserNotificationsProps> = ({ userId }) 
                 >
                   <span
                     className={`
-                      inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                      inline-block h-4 w-4 transform rounded-full bg-card transition-transform
                       ${isEnabled ? 'translate-x-6' : 'translate-x-1'}
                     `}
                   />

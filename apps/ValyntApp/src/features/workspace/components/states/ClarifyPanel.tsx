@@ -58,7 +58,7 @@ export function ClarifyPanel({
   };
 
   return (
-    <Card className="border-blue-200 bg-white shadow-sm overflow-hidden">
+    <Card className="border-blue-200 bg-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -97,7 +97,7 @@ export function ClarifyPanel({
                 "hover:border-blue-300 hover:bg-blue-50/50",
                 selectedId === option.id
                   ? "border-blue-400 bg-blue-50 ring-1 ring-blue-200"
-                  : "border-slate-200 bg-white"
+                  : "border-slate-200 bg-card"
               )}
             >
               <div className="flex items-start gap-2">
@@ -111,7 +111,7 @@ export function ClarifyPanel({
                 >
                   {selectedId === option.id && (
                     <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-card" />
                     </div>
                   )}
                 </div>

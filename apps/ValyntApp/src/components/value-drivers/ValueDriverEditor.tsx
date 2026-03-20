@@ -173,7 +173,7 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4">
+      <div className="relative bg-card rounded-lg shadow-xl w-full max-w-3xl mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>

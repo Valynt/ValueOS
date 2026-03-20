@@ -24,7 +24,7 @@ export const DecimalCalculator: React.FC = () => {
   };
 
   return (
-    <div className="p-4 border rounded bg-white dark:bg-neutral-900 max-w-xs">
+    <div className="p-4 border rounded bg-card dark:bg-neutral-900 max-w-xs">
       <h3 className="font-bold mb-2">Decimal.js Calculator</h3>
       <Input
         type="text"

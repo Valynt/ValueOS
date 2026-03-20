@@ -475,7 +475,7 @@ export const OrganizationUsers: React.FC = () => {
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-md p-6 m-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-xs uppercase text-blue-600 font-semibold">Beta Cohort</p>

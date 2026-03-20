@@ -53,7 +53,7 @@ function SourceBadge({ urls }: { urls: string[] }) {
   const firstName = getSourceName(urls[0]);
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 text-[9px] font-medium">
+    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border text-[9px] font-medium">
       <ExternalLink className="w-2.5 h-2.5" />
       {urls.length === 1 ? firstName : `${firstName} +${urls.length - 1}`}
     </div>
@@ -119,7 +119,7 @@ export function SuggestionCard({
                 setIsEditing(false);
                 setEditedPayload(suggestion.payload as Record<string, unknown>);
               }}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancel
             </button>
@@ -136,7 +136,7 @@ export function SuggestionCard({
             <button
               onClick={() => setIsEditing(true)}
               disabled={isProcessing}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground border border-border hover:bg-muted transition-colors disabled:opacity-50"
             >
               <Pencil className="w-3 h-3" /> Edit
             </button>

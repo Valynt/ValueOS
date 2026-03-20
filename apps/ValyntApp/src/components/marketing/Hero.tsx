@@ -121,7 +121,7 @@ export function Hero() {
                 className="h-1 w-full rounded-full overflow-hidden"
                 style={{ backgroundColor: "rgba(224, 224, 224, 0.1)" }}
               >
-                <div className="h-full w-3/4 bg-white rounded-full"></div>
+                <div className="h-full w-3/4 bg-card rounded-full"></div>
               </div>
             </div>
             <div

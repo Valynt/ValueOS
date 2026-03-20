@@ -125,7 +125,7 @@ export function HomePage() {
 
       {/* Continue Where You Left Off */}
       {casesLoading ? (
-        <Card className="mb-8 p-4 border border-slate-200 bg-white">
+        <Card className="mb-8 p-4 border border-slate-200 bg-card">
           <div className="flex items-center gap-4">
             <Skeleton className="w-12 h-12 rounded-lg" />
             <div className="flex-1">
@@ -136,7 +136,7 @@ export function HomePage() {
           </div>
         </Card>
       ) : continueCase ? (
-        <Card className="mb-8 p-4 border border-slate-200 bg-white">
+        <Card className="mb-8 p-4 border border-slate-200 bg-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -175,7 +175,7 @@ export function HomePage() {
         </h2>
 
         {/* Command Input */}
-        <Card className="mb-4 p-3 border border-slate-200 bg-white">
+        <Card className="mb-4 p-3 border border-slate-200 bg-card">
           <div className="flex items-center gap-3">
             <Play size={18} className="text-slate-400" />
             <input
@@ -192,7 +192,7 @@ export function HomePage() {
           {quickActions.map((action, index) => (
             <Card
               key={index}
-              className="p-4 border border-slate-200 bg-white hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+              className="p-4 border border-slate-200 bg-card hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${action.color}`}>
@@ -222,7 +222,7 @@ export function HomePage() {
         {casesLoading ? (
           <div className="grid grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="p-4 border border-slate-200 bg-white">
+              <Card key={i} className="p-4 border border-slate-200 bg-card">
                 <div className="flex items-start justify-between mb-3">
                   <Skeleton className="w-10 h-10 rounded-full" />
                   <Skeleton className="h-5 w-16" />
@@ -248,7 +248,7 @@ export function HomePage() {
               return (
                 <Card
                   key={caseItem.id}
-                  className="p-4 border border-slate-200 bg-white hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+                  className="p-4 border border-slate-200 bg-card hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
                   onClick={() => navigate(`/app/cases/${caseItem.id}`)}
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -279,7 +279,7 @@ export function HomePage() {
             })}
           </div>
         ) : (
-          <Card className="p-8 text-center border border-slate-200 bg-white">
+          <Card className="p-8 text-center border border-slate-200 bg-card">
             <p className="text-slate-500">No cases yet. Create your first value case to get started.</p>
             <Button className="mt-4" onClick={() => navigate("/app/cases/new")}>
               Create Case

@@ -79,7 +79,7 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-4xl h-[80vh] flex flex-col bg-white shadow-2xl">
+      <Card className="w-full max-w-4xl h-[80vh] flex flex-col bg-card shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div>
@@ -201,7 +201,7 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
           <div className="mt-3 space-y-2">
             <div className="text-xs font-semibold text-slate-600">Tool Executions:</div>
             {message.metadata.toolCalls.map((toolCall) => (
-              <div key={toolCall.id} className="bg-white rounded p-2 border">
+              <div key={toolCall.id} className="bg-card rounded p-2 border">
                 <div className="flex items-center gap-2 mb-1">
                   <Wrench className="h-3 w-3" />
                   <span className="text-xs font-medium">{toolCall.tool}</span>
@@ -235,7 +235,7 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
           <div className="mt-3 space-y-2">
             <div className="text-xs font-semibold text-slate-600">Suggestions:</div>
             {message.metadata.suggestions.map((suggestion) => (
-              <div key={suggestion.id} className="bg-white rounded p-2 border">
+              <div key={suggestion.id} className="bg-card rounded p-2 border">
                 <div className="flex items-center justify-between mb-1">
                   <Badge variant="outline" className="text-xs">
                     {suggestion.type}

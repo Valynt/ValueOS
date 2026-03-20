@@ -112,7 +112,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
           </div>
           <div>
             <h2 className="text-[16px] font-black text-zinc-950 tracking-tight">Your Company</h2>
-            <p className="text-[12px] text-zinc-400">Tell us about your business so every value case starts smarter</p>
+            <p className="text-[12px] text-muted-foreground">Tell us about your business so every value case starts smarter</p>
           </div>
         </div>
       </div>
@@ -120,27 +120,27 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
       {/* Company basics */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block">
             Company Name *
           </label>
           <input
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g. Acme Corp"
-            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+            className="w-full px-4 py-3 rounded-xl border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400 transition-colors"
           />
         </div>
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block">
             Website
           </label>
           <div className="relative">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
               placeholder="https://acme.com"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400 transition-colors"
             />
           </div>
         </div>
@@ -148,32 +148,32 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block">
             Industry
           </label>
           <input
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
             placeholder="e.g. SaaS, FinTech"
-            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+            className="w-full px-4 py-3 rounded-xl border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400 transition-colors"
           />
         </div>
         <div>
-          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block">
             Ticker / CIK (optional)
           </label>
           <input
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
             placeholder="e.g. MSFT or 0000789019"
-            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+            className="w-full px-4 py-3 rounded-xl border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400 transition-colors"
           />
         </div>
       </div>
 
       {/* Company size */}
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2 block">
+        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2 block">
           Company Size
         </label>
         <div className="flex gap-2">
@@ -184,8 +184,8 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
               className={cn(
                 "flex-1 py-2.5 rounded-xl border text-[12px] font-medium transition-colors",
                 companySize === opt.value
-                  ? "border-zinc-950 bg-zinc-950 text-white"
-                  : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                  ? "border-zinc-950 bg-background text-white"
+                  : "border-border text-muted-foreground hover:border-border"
               )}
             >
               {opt.label}
@@ -196,7 +196,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
 
       {/* Sales motion */}
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2 block">
+        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2 block">
           Primary Sales Motion
         </label>
         <div className="flex gap-2">
@@ -207,8 +207,8 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
               className={cn(
                 "flex-1 py-2.5 rounded-xl border text-[12px] font-medium transition-colors",
                 salesMotion === opt.value
-                  ? "border-zinc-950 bg-zinc-950 text-white"
-                  : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                  ? "border-zinc-950 bg-background text-white"
+                  : "border-border text-muted-foreground hover:border-border"
               )}
             >
               {opt.label}
@@ -220,15 +220,15 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
       {/* Auto-fill from website */}
       {onStartResearch && (
         <div className="space-y-3">
-          <div className="p-4 rounded-xl border border-zinc-200 bg-white">
+          <div className="p-4 rounded-xl border border-border bg-card">
             <button
               type="button"
               onClick={() => setFastTrackMode((prev) => !prev)}
               className="w-full flex items-start justify-between gap-3 text-left"
             >
               <div>
-                <p className="text-[13px] font-semibold text-zinc-900">Fast-track onboarding</p>
-                <p className="text-[12px] text-zinc-500 mt-1">
+                <p className="text-[13px] font-semibold text-foreground">Fast-track onboarding</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
                   Use an AI research agent to scan your website and public signals, then preload competitors,
                   personas, and claims so you can review and launch faster.
                 </p>
@@ -236,13 +236,13 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
               <span
                 className={cn(
                   "mt-0.5 inline-flex h-6 min-w-11 items-center rounded-full p-1 transition-colors",
-                  fastTrackMode ? "bg-zinc-900" : "bg-zinc-300"
+                  fastTrackMode ? "bg-background" : "bg-zinc-300"
                 )}
                 aria-label="Toggle fast-track onboarding"
               >
                 <span
                   className={cn(
-                    "h-4 w-4 rounded-full bg-white transition-transform",
+                    "h-4 w-4 rounded-full bg-card transition-transform",
                     fastTrackMode ? "translate-x-5" : "translate-x-0"
                   )}
                 />
@@ -258,7 +258,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
                 "w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-[12px] font-medium transition-colors",
                 canAutoFill
                   ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                  : "border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed"
+                  : "border-border bg-surface text-muted-foreground cursor-not-allowed"
               )}
             >
               <Sparkles className="w-4 h-4" />
@@ -276,7 +276,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
                 {entityTypes.map((et) => {
                   const status = entityStatus[et] ?? "pending";
                   const statusColors: Record<string, string> = {
-                    pending: "bg-zinc-100 text-zinc-400",
+                    pending: "bg-muted text-muted-foreground",
                     running: "bg-blue-100 text-blue-600",
                     completed: "bg-emerald-100 text-emerald-700",
                     done: "bg-emerald-100 text-emerald-700",
@@ -287,7 +287,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
                       key={et}
                       className={cn(
                         "px-2 py-1.5 rounded-lg text-[10px] font-medium text-center capitalize",
-                        statusColors[status] ?? "bg-zinc-100 text-zinc-400"
+                        statusColors[status] ?? "bg-muted text-muted-foreground"
                       )}
                     >
                       {et.replace("_", " ")}
@@ -323,37 +323,37 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
       {/* Products */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             Products / Solutions *
           </label>
           <button
             onClick={addProduct}
-            className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-700 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             <Plus className="w-3 h-3" /> Add
           </button>
         </div>
         <div className="space-y-3">
           {products.map((p, i) => (
-            <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 bg-zinc-50/50">
-              <Package className="w-4 h-4 text-zinc-400 mt-2.5 flex-shrink-0" />
+            <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-border bg-surface/50">
+              <Package className="w-4 h-4 text-muted-foreground mt-2.5 flex-shrink-0" />
               <div className="flex-1 space-y-2">
                 <input
                   value={p.name}
                   onChange={(e) => updateProduct(i, "name", e.target.value)}
                   placeholder="Product name"
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
                 />
                 <input
                   value={p.description}
                   onChange={(e) => updateProduct(i, "description", e.target.value)}
                   placeholder="Brief description — what does it do for customers?"
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                  className="w-full px-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
                 />
                 <select
                   value={p.product_type ?? "platform"}
                   onChange={(e) => updateProduct(i, "product_type", e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-zinc-200 text-[12px] bg-white text-zinc-600 outline-none"
+                  className="px-3 py-2 rounded-lg border border-border text-[12px] bg-card text-muted-foreground outline-none"
                 >
                   <option value="platform">Platform</option>
                   <option value="module">Module</option>
@@ -362,8 +362,8 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
                 </select>
               </div>
               {products.length > 1 && (
-                <button onClick={() => removeProduct(i)} className="p-1 rounded hover:bg-zinc-200 mt-2">
-                  <X className="w-3.5 h-3.5 text-zinc-400" />
+                <button onClick={() => removeProduct(i)} className="p-1 rounded hover:bg-muted/70 mt-2">
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               )}
             </div>
@@ -379,8 +379,8 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
           className={cn(
             "px-6 py-3 rounded-xl text-[13px] font-medium transition-colors",
             canProceed
-              ? "bg-zinc-950 text-white hover:bg-zinc-800"
-              : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+              ? "bg-background text-white hover:bg-surface-elevated"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
           )}
         >
           Continue

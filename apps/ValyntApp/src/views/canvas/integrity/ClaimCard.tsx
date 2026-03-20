@@ -23,7 +23,7 @@ export function ClaimCard({ claim }: ClaimCardProps) {
           ? "border-amber-200 bg-amber-50/30"
           : claim.status === "rejected"
           ? "border-red-200 bg-red-50/30"
-          : "border-zinc-200 bg-white",
+          : "border-border bg-card",
       )}
     >
       {/* Status badge + tier + confidence */}
@@ -44,7 +44,7 @@ export function ClaimCard({ claim }: ClaimCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-12 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+          <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full",
@@ -56,18 +56,18 @@ export function ClaimCard({ claim }: ClaimCardProps) {
               style={{ width: `${claim.confidence}%` }}
             />
           </div>
-          <span className="text-[11px] font-medium text-zinc-600">{claim.confidence}%</span>
+          <span className="text-[11px] font-medium text-muted-foreground">{claim.confidence}%</span>
         </div>
       </div>
 
       {/* Claim text */}
-      <p className="text-[13px] text-zinc-800 font-medium mb-2">{claim.text}</p>
+      <p className="text-[13px] text-foreground font-medium mb-2">{claim.text}</p>
 
       {/* Evidence tier label */}
       <div className="flex items-center gap-1.5 mb-3">
-        <FileSearch className="w-3 h-3 text-zinc-400" />
-        <span className="text-[11px] text-zinc-500">{claim.tier}</span>
-        <ExternalLink className="w-3 h-3 text-zinc-300 cursor-pointer hover:text-zinc-500" />
+        <FileSearch className="w-3 h-3 text-muted-foreground" />
+        <span className="text-[11px] text-muted-foreground">{claim.tier}</span>
+        <ExternalLink className="w-3 h-3 text-foreground/80 cursor-pointer hover:text-muted-foreground" />
       </div>
 
       {/* Objection (flagged claims only) */}
@@ -80,16 +80,16 @@ export function ClaimCard({ claim }: ClaimCardProps) {
 
       {/* Actions (flagged claims only) */}
       {claim.status === "flagged" && (
-        <div className="flex items-center gap-2 pt-2 border-t border-zinc-100">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[11px] font-medium hover:bg-zinc-800">
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-background text-white rounded-lg text-[11px] font-medium hover:bg-surface-elevated">
             <RotateCcw className="w-3 h-3" />
             Revise Claim
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-[11px] font-medium text-muted-foreground hover:bg-surface">
             <ThumbsUp className="w-3 h-3" />
             Override
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-[11px] font-medium text-muted-foreground hover:bg-surface">
             <ThumbsDown className="w-3 h-3" />
             Remove
           </button>

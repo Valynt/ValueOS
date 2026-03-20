@@ -37,7 +37,7 @@ function EntityTable<T extends Record<string, any>>({
           className="mb-4 p-2 border rounded w-full"
         />
       )}
-      <table className="min-w-full bg-white border" role="table">
+      <table className="min-w-full bg-card border" role="table">
         <thead>
           <tr className="bg-gray-50">
             {columns.map((col) => (

@@ -34,7 +34,7 @@ export const UserTestingDashboard: React.FC = () => {
       </h3>
 
       <div className="space-y-4">
-        <div className="flex justify-between items-center p-3 bg-white rounded border">
+        <div className="flex justify-between items-center p-3 bg-card rounded border">
           <div>
             <p className="text-sm font-bold">Current Persona: {persona}</p>
             <p className="text-xs text-muted-foreground">
@@ -58,7 +58,7 @@ export const UserTestingDashboard: React.FC = () => {
           {testResults.map((res, i) => (
             <div
               key={i}
-              className="flex justify-between items-center p-2 bg-white rounded border text-sm"
+              className="flex justify-between items-center p-2 bg-card rounded border text-sm"
             >
               <span>{res.step}</span>
               <div className="flex items-center gap-2">

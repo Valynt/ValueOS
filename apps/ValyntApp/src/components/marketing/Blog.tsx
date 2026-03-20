@@ -156,7 +156,7 @@ export default function Blog() {
             <button
               onClick={() => setSelectedType(null)}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                selectedType === null ? 'shadow-lg' : 'hover:bg-white/5'
+                selectedType === null ? 'shadow-lg' : 'hover:bg-card/5'
               }`}
               style={selectedType === null ? {
                 backgroundColor: '#18C3A5',
@@ -175,7 +175,7 @@ export default function Blog() {
                   key={type}
                   onClick={() => setSelectedType(type as string)}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                    selectedType === type ? 'shadow-lg' : 'hover:bg-white/5'
+                    selectedType === type ? 'shadow-lg' : 'hover:bg-card/5'
                   }`}
                   style={selectedType === type ? {
                     backgroundColor: '#18C3A5',
@@ -199,7 +199,7 @@ export default function Blog() {
                   key={tag}
                   onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    selectedTag === tag ? 'shadow-md' : 'hover:bg-white/5'
+                    selectedTag === tag ? 'shadow-md' : 'hover:bg-card/5'
                   }`}
                   style={selectedTag === tag ? {
                     backgroundColor: 'rgba(24, 195, 165, 0.2)',

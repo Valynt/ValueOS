@@ -21,6 +21,7 @@ export default {
         foreground: "hsl(var(--foreground))",
         
         surface: "hsl(var(--surface))",
+        "surface-elevated": "hsl(var(--surface-elevated))",
         
         card: {
           DEFAULT: "hsl(var(--card))",

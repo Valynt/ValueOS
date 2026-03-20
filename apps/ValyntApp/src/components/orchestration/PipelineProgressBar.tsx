@@ -25,7 +25,7 @@ export function PipelineProgressBar({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className="relative flex-1 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+      <div className="relative flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
         {/* Filled track */}
         <div
           className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand-indigo to-emerald-500 transition-[width] duration-700 ease-out"
@@ -35,7 +35,7 @@ export function PipelineProgressBar({
         {/* Pulsing leading edge */}
         {isRunning && pct > 0 && pct < 100 && (
           <div
-            className="absolute inset-y-0 w-8 rounded-full bg-white/40 animate-pulse"
+            className="absolute inset-y-0 w-8 rounded-full bg-card/40 animate-pulse"
             style={{ left: `calc(${pct}% - 16px)` }}
           />
         )}
@@ -43,11 +43,11 @@ export function PipelineProgressBar({
 
       {/* Label */}
       {label ? (
-        <span className="text-[11px] font-medium text-zinc-500 tabular-nums shrink-0">
+        <span className="text-[11px] font-medium text-muted-foreground tabular-nums shrink-0">
           {label}
         </span>
       ) : (
-        <span className="text-[11px] font-medium text-zinc-400 tabular-nums shrink-0">
+        <span className="text-[11px] font-medium text-muted-foreground tabular-nums shrink-0">
           {pct}%
         </span>
       )}

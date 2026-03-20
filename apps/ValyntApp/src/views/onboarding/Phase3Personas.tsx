@@ -86,7 +86,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
         </div>
         <div>
           <h2 className="text-[16px] font-black text-zinc-950 tracking-tight">Buyer Personas</h2>
-          <p className="text-[12px] text-zinc-400">Who buys from you? This shapes how value narratives are framed</p>
+          <p className="text-[12px] text-muted-foreground">Who buys from you? This shapes how value narratives are framed</p>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
             const p = payload as Record<string, any>;
             return (
               <div className="space-y-1">
-                <p className="text-[13px] font-medium text-zinc-900">{p.title}</p>
+                <p className="text-[13px] font-medium text-foreground">{p.title}</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {p.persona_type && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 capitalize">
@@ -134,16 +134,16 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
                     </span>
                   )}
                   {p.seniority && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 capitalize">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
                       {String(p.seniority).replace("_", " ")}
                     </span>
                   )}
                 </div>
                 {Array.isArray(p.typical_kpis) && p.typical_kpis.length > 0 && (
-                  <p className="text-[11px] text-zinc-500">KPIs: {p.typical_kpis.join(", ")}</p>
+                  <p className="text-[11px] text-muted-foreground">KPIs: {p.typical_kpis.join(", ")}</p>
                 )}
                 {Array.isArray(p.pain_points) && p.pain_points.length > 0 && (
-                  <p className="text-[11px] text-zinc-500">Pains: {p.pain_points.join(", ")}</p>
+                  <p className="text-[11px] text-muted-foreground">Pains: {p.pain_points.join(", ")}</p>
                 )}
               </div>
             );
@@ -154,23 +154,23 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
 
       <div className="space-y-4">
         {personas.map((p, i) => (
-          <div key={i} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 space-y-3">
+          <div key={i} className="p-4 rounded-xl border border-border bg-surface/50 space-y-3">
             <div className="flex items-center justify-between">
               <input
                 value={p.title}
                 onChange={(e) => update(i, "title", e.target.value)}
                 placeholder="e.g. VP of Engineering, CFO, Head of RevOps"
-                className="flex-1 px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                className="flex-1 px-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
               />
               {personas.length > 1 && (
-                <button onClick={() => remove(i)} className="p-1 rounded hover:bg-zinc-200 ml-2">
-                  <X className="w-3.5 h-3.5 text-zinc-400" />
+                <button onClick={() => remove(i)} className="p-1 rounded hover:bg-muted/70 ml-2">
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               )}
             </div>
 
             <div className="flex gap-1.5 flex-wrap">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 self-center mr-1">Type:</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground self-center mr-1">Type:</span>
               {types.map((t) => (
                 <button
                   key={t.value}
@@ -179,7 +179,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
                     "px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-colors",
                     p.persona_type === t.value
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                      : "border-zinc-200 text-zinc-500"
+                      : "border-border text-muted-foreground"
                   )}
                 >
                   {t.label}
@@ -188,7 +188,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
             </div>
 
             <div className="flex gap-1.5 flex-wrap">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 self-center mr-1">Level:</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground self-center mr-1">Level:</span>
               {seniorities.map((s) => (
                 <button
                   key={s.value}
@@ -197,7 +197,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
                     "px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-colors",
                     p.seniority === s.value
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                      : "border-zinc-200 text-zinc-500"
+                      : "border-border text-muted-foreground"
                   )}
                 >
                   {s.label}
@@ -209,13 +209,13 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
               value={p.kpis}
               onChange={(e) => update(i, "kpis", e.target.value)}
               placeholder="KPIs they care about (comma-separated)"
-              className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[12px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+              className="w-full px-3 py-2 rounded-lg border border-border text-[12px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
             />
             <input
               value={p.pains}
               onChange={(e) => update(i, "pains", e.target.value)}
               placeholder="Pain points (comma-separated)"
-              className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[12px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+              className="w-full px-3 py-2 rounded-lg border border-border text-[12px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
             />
           </div>
         ))}
@@ -223,17 +223,17 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
 
       <button
         onClick={add}
-        className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-zinc-300 rounded-xl text-[12px] text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors w-full justify-center"
+        className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-border rounded-xl text-[12px] text-muted-foreground hover:border-zinc-400 hover:text-muted-foreground transition-colors w-full justify-center"
       >
         <Plus className="w-3 h-3" /> Add Persona
       </button>
 
       <div className="flex justify-between pt-2">
-        <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors">
+        <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:bg-muted transition-colors">
           Back
         </button>
         <div className="flex gap-2">
-          <button onClick={() => onNext({ personas: [] })} className="px-5 py-3 rounded-xl text-[13px] font-medium text-zinc-400 hover:text-zinc-600 transition-colors">
+          <button onClick={() => onNext({ personas: [] })} className="px-5 py-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors">
             Skip
           </button>
           <button
@@ -241,7 +241,7 @@ export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
             disabled={filled.length === 0}
             className={cn(
               "px-6 py-3 rounded-xl text-[13px] font-medium transition-colors",
-              filled.length > 0 ? "bg-zinc-950 text-white hover:bg-zinc-800" : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+              filled.length > 0 ? "bg-background text-white hover:bg-surface-elevated" : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
             Continue ({filled.length})

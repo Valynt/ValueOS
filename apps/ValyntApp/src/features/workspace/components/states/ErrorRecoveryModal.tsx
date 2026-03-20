@@ -69,7 +69,7 @@ export function ErrorRecoveryModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative bg-card rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Red accent bar */}
         <div className="h-1 bg-red-500" />
 

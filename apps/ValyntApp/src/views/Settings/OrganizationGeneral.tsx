@@ -270,12 +270,12 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                       data-testid="tenant-branding-logo"
                       src={logo}
                       alt={`${orgName} logo preview`}
-                      className="h-14 w-auto rounded-xl bg-white/10 p-2"
+                      className="h-14 w-auto rounded-xl bg-card/10 p-2"
                     />
                   ) : (
                     <div
                       data-testid="tenant-branding-logo-fallback"
-                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10"
+                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-card/10"
                     >
                       <Building2 className="h-6 w-6" />
                     </div>
@@ -290,12 +290,12 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                 </div>
 
                 {initialBranding?.faviconUrl && (
-                  <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2">
+                  <div className="flex items-center gap-3 rounded-xl bg-card/10 px-3 py-2">
                     <img
                       data-testid="tenant-branding-favicon"
                       src={initialBranding.faviconUrl}
                       alt={`${orgName} favicon preview`}
-                      className="h-8 w-8 rounded-lg bg-white object-contain p-1"
+                      className="h-8 w-8 rounded-lg bg-card object-contain p-1"
                     />
                     <span className="text-sm text-white/80">Browser favicon asset</span>
                   </div>
@@ -323,7 +323,7 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                 >
                   Share branded proposal
                 </button>
-                <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
+                <div className="flex items-center gap-2 rounded-full bg-card/10 px-3 py-1.5 text-xs font-medium text-white/90">
                   <Palette className="h-3.5 w-3.5" />
                   Theme sync from organization settings
                 </div>

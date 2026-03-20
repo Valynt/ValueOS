@@ -114,7 +114,7 @@ export function TeamPage() {
       </div>
 
       {/* Search and Filter */}
-      <Card className="mb-6 p-4 bg-white border border-slate-200">
+      <Card className="mb-6 p-4 bg-card border border-slate-200">
         <div className="flex items-center justify-between">
           <div className="relative w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -133,7 +133,7 @@ export function TeamPage() {
       </Card>
 
       {/* Members Table */}
-      <Card className="bg-white border border-slate-200 overflow-hidden">
+      <Card className="bg-card border border-slate-200 overflow-hidden">
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
           <div className="col-span-5">Name</div>

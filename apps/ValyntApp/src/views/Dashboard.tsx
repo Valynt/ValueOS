@@ -93,7 +93,7 @@ function CaseCard({ c }: { c: ValueCaseWithRelations }) {
   const statusIcons: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
     running: { icon: Play, color: "text-emerald-700", bg: "bg-emerald-50" },
     "needs-input": { icon: AlertTriangle, color: "text-amber-700", bg: "bg-amber-50" },
-    paused: { icon: Pause, color: "text-zinc-500", bg: "bg-zinc-100" },
+    paused: { icon: Pause, color: "text-muted-foreground", bg: "bg-muted" },
     review: { icon: Shield, color: "text-blue-700", bg: "bg-blue-50" },
   };
   const st = statusIcons[status] ?? statusIcons.running;
@@ -102,14 +102,14 @@ function CaseCard({ c }: { c: ValueCaseWithRelations }) {
   return (
     <Link
       to={`/workspace/${c.id}`}
-      className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 hover:shadow-md transition-all group"
+      className="bg-card border border-border rounded-2xl p-5 hover:border-border hover:shadow-md transition-all group"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={cn("w-2.5 h-2.5 rounded-full", stageColors[stage])} />
-          <span className="text-[12px] font-semibold text-zinc-700">{stage}</span>
-          <span className="text-zinc-300">&middot;</span>
-          <span className="text-[11px] text-zinc-400 font-mono">{c.id.slice(0, 8)}</span>
+          <span className="text-[12px] font-semibold text-muted-foreground">{stage}</span>
+          <span className="text-foreground/80">&middot;</span>
+          <span className="text-[11px] text-muted-foreground font-mono">{c.id.slice(0, 8)}</span>
         </div>
         <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", st!.color, st!.bg)}>
           <StIcon className="w-3 h-3" />
@@ -119,14 +119,14 @@ function CaseCard({ c }: { c: ValueCaseWithRelations }) {
 
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-[15px] font-black text-zinc-950 tracking-tight group-hover:text-zinc-800 line-clamp-1">{displayName}</h3>
-          <p className="text-[12px] text-zinc-400 mt-0.5">{lastActivity}</p>
+          <h3 className="text-[15px] font-black text-zinc-950 tracking-tight group-hover:text-foreground line-clamp-1">{displayName}</h3>
+          <p className="text-[12px] text-muted-foreground mt-0.5">{lastActivity}</p>
         </div>
         <div className="text-right flex-shrink-0 ml-3">
           <p className="text-[15px] font-black text-zinc-950 tracking-tight">{value}</p>
           {confidence > 0 && (
             <div className="flex items-center gap-1.5 justify-end mt-1">
-              <div className="w-14 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+              <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full rounded-full",
@@ -135,16 +135,16 @@ function CaseCard({ c }: { c: ValueCaseWithRelations }) {
                   style={{ width: `${confidence}%` }}
                 />
               </div>
-              <span className="text-[11px] font-medium text-zinc-500">{confidence}%</span>
+              <span className="text-[11px] font-medium text-muted-foreground">{confidence}%</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-100">
+      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface border border-border">
         <Zap className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-        <span className="text-[12px] text-zinc-700 flex-1 line-clamp-1">{nextAction}</span>
-        <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-zinc-500" />
+        <span className="text-[12px] text-muted-foreground flex-1 line-clamp-1">{nextAction}</span>
+        <ChevronRight className="w-3.5 h-3.5 text-foreground/80 group-hover:text-muted-foreground" />
       </div>
     </Link>
   );
@@ -153,33 +153,33 @@ function CaseCard({ c }: { c: ValueCaseWithRelations }) {
 function EmptyState() {
   return (
     <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center mb-4">
-        <Sparkles className="w-6 h-6 text-zinc-400" />
+      <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mb-4">
+        <Sparkles className="w-6 h-6 text-muted-foreground" />
       </div>
-      <p className="text-[14px] font-medium text-zinc-700 mb-1">No active cases yet</p>
-      <p className="text-[13px] text-zinc-400">Enter a company name above to start your first value case.</p>
+      <p className="text-[14px] font-medium text-muted-foreground mb-1">No active cases yet</p>
+      <p className="text-[13px] text-muted-foreground">Enter a company name above to start your first value case.</p>
     </div>
   );
 }
 
 function CaseCardSkeleton() {
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5 animate-pulse">
+    <div className="bg-card border border-border rounded-2xl p-5 animate-pulse">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-zinc-200" />
-          <div className="h-3 w-16 bg-zinc-200 rounded" />
+          <div className="w-2.5 h-2.5 rounded-full bg-muted/70" />
+          <div className="h-3 w-16 bg-muted/70 rounded" />
         </div>
-        <div className="h-5 w-20 bg-zinc-100 rounded-full" />
+        <div className="h-5 w-20 bg-muted rounded-full" />
       </div>
       <div className="flex items-start justify-between mb-3">
         <div className="space-y-1.5">
-          <div className="h-4 w-40 bg-zinc-200 rounded" />
-          <div className="h-3 w-24 bg-zinc-100 rounded" />
+          <div className="h-4 w-40 bg-muted/70 rounded" />
+          <div className="h-3 w-24 bg-muted rounded" />
         </div>
-        <div className="h-4 w-12 bg-zinc-200 rounded" />
+        <div className="h-4 w-12 bg-muted/70 rounded" />
       </div>
-      <div className="h-9 bg-zinc-50 rounded-xl border border-zinc-100" />
+      <div className="h-9 bg-surface rounded-xl border border-border" />
     </div>
   );
 }
@@ -206,14 +206,14 @@ function QuickStart() {
   };
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-6">
+    <div className="bg-card border border-border rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-background rounded-xl flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-[14px] font-semibold text-zinc-900">Start a Value Case</h3>
-          <p className="text-[12px] text-zinc-400">Enter a company name — the agent handles the rest</p>
+          <h3 className="text-[14px] font-semibold text-foreground">Start a Value Case</h3>
+          <p className="text-[12px] text-muted-foreground">Enter a company name — the agent handles the rest</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -223,13 +223,13 @@ function QuickStart() {
           onChange={(e) => setCompanyName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleGo()}
           placeholder="e.g. Acme Corp, Snowflake, Stripe…"
-          className="flex-1 px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-zinc-50 placeholder:text-zinc-400 placeholder:italic placeholder:font-light outline-none focus:border-zinc-400 focus:bg-white transition-colors"
+          className="flex-1 px-4 py-3 rounded-xl border border-border text-[13px] bg-surface placeholder:text-muted-foreground placeholder:italic placeholder:font-light outline-none focus:border-zinc-400 focus:bg-card transition-colors"
           disabled={createCase.isPending}
         />
         <button
           onClick={handleGo}
           disabled={!companyName.trim() || createCase.isPending}
-          className="px-5 py-3 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-3 bg-background text-white rounded-xl text-[13px] font-medium hover:bg-surface-elevated transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Play className="w-4 h-4" />
           {createCase.isPending ? "Creating…" : "Go"}
@@ -248,16 +248,16 @@ function AgentStrip({ cases }: { cases: ValueCaseWithRelations[] }) {
   const agentNames = ["Opportunity", "Financial Modeling", "Integrity", "Narrative"];
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-white border border-zinc-200 rounded-2xl">
-      <Bot className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Agents</span>
+    <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-2xl">
+      <Bot className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Agents</span>
       <div className="flex items-center gap-4 flex-1 overflow-x-auto">
         {agentNames.map((name, i) => {
           const isRunning = i === 1 && runningCount > 0;
           return (
             <div key={name} className="flex items-center gap-1.5 flex-shrink-0">
               <div className={cn("w-2 h-2 rounded-full", isRunning ? "bg-emerald-500 animate-pulse" : "bg-zinc-300")} />
-              <span className="text-[12px] text-zinc-600">{name}</span>
+              <span className="text-[12px] text-muted-foreground">{name}</span>
             </div>
           );
         })}
@@ -265,7 +265,7 @@ function AgentStrip({ cases }: { cases: ValueCaseWithRelations[] }) {
       {needsInputCount > 0 && (
         <span className="text-[11px] text-amber-600 font-medium flex-shrink-0">{needsInputCount} need input</span>
       )}
-      <Link to="/agents" className="text-[11px] text-zinc-400 hover:text-zinc-700 flex-shrink-0">Manage</Link>
+      <Link to="/agents" className="text-[11px] text-muted-foreground hover:text-muted-foreground flex-shrink-0">Manage</Link>
     </div>
   );
 }
@@ -274,37 +274,37 @@ function NeedsInputQueue({ cases }: { cases: ValueCaseWithRelations[] }) {
   const flagged = cases.filter((c) => deriveStatus(c) === "needs-input").slice(0, 5);
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-zinc-600" />
-          <h3 className="text-[13px] font-semibold text-zinc-900">Needs Input</h3>
+          <Shield className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-[13px] font-semibold text-foreground">Needs Input</h3>
           {flagged.length > 0 && (
             <span className="w-5 h-5 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
               {flagged.length}
             </span>
           )}
         </div>
-        <span className="text-[11px] text-zinc-400">Cases awaiting you</span>
+        <span className="text-[11px] text-muted-foreground">Cases awaiting you</span>
       </div>
       {flagged.length === 0 ? (
-        <p className="text-[12px] text-zinc-400 text-center py-6">All clear — no cases need input</p>
+        <p className="text-[12px] text-muted-foreground text-center py-6">All clear — no cases need input</p>
       ) : (
         <div className="space-y-2">
           {flagged.map((c) => (
             <Link
               key={c.id}
               to={`/workspace/${c.id}`}
-              className="flex items-start gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors border-l-2 border-amber-400"
+              className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface transition-colors border-l-2 border-amber-400"
             >
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] text-zinc-900 font-medium truncate">
+                <p className="text-[13px] text-foreground font-medium truncate">
                   {c.company_profiles?.company_name ?? c.name}
                 </p>
-                <p className="text-[11px] text-zinc-400">{deriveStage(c)} &middot; {deriveNextAction(c)}</p>
+                <p className="text-[11px] text-muted-foreground">{deriveStage(c)} &middot; {deriveNextAction(c)}</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-300 flex-shrink-0 mt-0.5" />
+              <ChevronRight className="w-4 h-4 text-foreground/80 flex-shrink-0 mt-0.5" />
             </Link>
           ))}
         </div>
@@ -319,27 +319,27 @@ function RecentActivity({ cases }: { cases: ValueCaseWithRelations[] }) {
     .slice(0, 5);
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[13px] font-semibold text-zinc-900">Recent Work</h3>
-        <span className="text-[11px] text-zinc-400">Latest updates</span>
+        <h3 className="text-[13px] font-semibold text-foreground">Recent Work</h3>
+        <span className="text-[11px] text-muted-foreground">Latest updates</span>
       </div>
       {recent.length === 0 ? (
-        <p className="text-[12px] text-zinc-400 text-center py-6">No activity yet</p>
+        <p className="text-[12px] text-muted-foreground text-center py-6">No activity yet</p>
       ) : (
         <div className="space-y-1">
           {recent.map((c) => (
             <Link
               key={c.id}
               to={`/workspace/${c.id}`}
-              className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-zinc-50 transition-colors"
+              className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-surface transition-colors"
             >
               <TrendingUp className="w-4 h-4 mt-0.5 flex-shrink-0 text-emerald-500" />
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] text-zinc-700 leading-relaxed truncate">
+                <p className="text-[12px] text-muted-foreground leading-relaxed truncate">
                   {c.company_profiles?.company_name ?? c.name}
                 </p>
-                <p className="text-[11px] text-zinc-400">{deriveStage(c)} &middot; {deriveLastActivity(c)}</p>
+                <p className="text-[11px] text-muted-foreground">{deriveStage(c)} &middot; {deriveLastActivity(c)}</p>
               </div>
             </Link>
           ))}
@@ -372,9 +372,9 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-zinc-950 tracking-[-0.05em]">{greeting}</h1>
-          <p className="text-[13px] text-zinc-400 mt-0.5">
+          <p className="text-[13px] text-muted-foreground mt-0.5">
             {isLoading ? (
-              <span className="inline-block h-3 w-40 bg-zinc-200 rounded animate-pulse" />
+              <span className="inline-block h-3 w-40 bg-muted/70 rounded animate-pulse" />
             ) : (
               <>
                 {activeCases.length} active {activeCases.length === 1 ? "case" : "cases"}
@@ -387,7 +387,7 @@ export default function Dashboard() {
         </div>
         <Link
           to="/opportunities"
-          className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-background text-white rounded-xl text-[13px] font-medium hover:bg-surface-elevated transition-colors"
         >
           <Plus className="w-4 h-4" />
           New Case
@@ -398,7 +398,7 @@ export default function Dashboard() {
       <AgentStrip cases={activeCases} />
 
       <div>
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mb-3">Active Cases</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-3">Active Cases</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {isLoading ? (
             <><CaseCardSkeleton /><CaseCardSkeleton /><CaseCardSkeleton /><CaseCardSkeleton /></>

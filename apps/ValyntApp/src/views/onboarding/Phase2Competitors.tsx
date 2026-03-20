@@ -49,7 +49,7 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
         </div>
         <div>
           <h2 className="text-[16px] font-black text-zinc-950 tracking-tight">Competitive Landscape</h2>
-          <p className="text-[12px] text-zinc-400">Name your competitors so the system knows what to lean into and what to avoid</p>
+          <p className="text-[12px] text-muted-foreground">Name your competitors so the system knows what to lean into and what to avoid</p>
         </div>
       </div>
 
@@ -84,8 +84,8 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
             const p = payload as Record<string, string>;
             return (
               <div className="space-y-1">
-                <p className="text-[13px] font-medium text-zinc-900">{p.name}</p>
-                {p.website_url && <p className="text-[11px] text-zinc-400">{p.website_url}</p>}
+                <p className="text-[13px] font-medium text-foreground">{p.name}</p>
+                {p.website_url && <p className="text-[11px] text-muted-foreground">{p.website_url}</p>}
                 {p.relationship && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100 capitalize">
                     {p.relationship}
@@ -100,20 +100,20 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
 
       <div className="space-y-3">
         {competitors.map((c, i) => (
-          <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 bg-zinc-50/50">
+          <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-border bg-surface/50">
             <div className="flex-1 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <input
                   value={c.name}
                   onChange={(e) => update(i, "name", e.target.value)}
                   placeholder="Competitor name"
-                  className="px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                  className="px-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
                 />
                 <input
                   value={c.website_url}
                   onChange={(e) => update(i, "website_url", e.target.value)}
                   placeholder="Website (optional)"
-                  className="px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                  className="px-3 py-2 rounded-lg border border-border text-[13px] bg-card placeholder:text-muted-foreground outline-none focus:border-zinc-400"
                 />
               </div>
               <div className="flex gap-1.5">
@@ -125,7 +125,7 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
                       "px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors",
                       c.relationship === r.value
                         ? "border-violet-300 bg-violet-50 text-violet-700"
-                        : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
+                        : "border-border text-muted-foreground hover:border-border"
                     )}
                   >
                     {r.label}
@@ -134,8 +134,8 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
               </div>
             </div>
             {competitors.length > 1 && (
-              <button onClick={() => remove(i)} className="p-1 rounded hover:bg-zinc-200 mt-1">
-                <X className="w-3.5 h-3.5 text-zinc-400" />
+              <button onClick={() => remove(i)} className="p-1 rounded hover:bg-muted/70 mt-1">
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             )}
           </div>
@@ -144,19 +144,19 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
 
       <button
         onClick={add}
-        className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-zinc-300 rounded-xl text-[12px] text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors w-full justify-center"
+        className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-border rounded-xl text-[12px] text-muted-foreground hover:border-zinc-400 hover:text-muted-foreground transition-colors w-full justify-center"
       >
         <Plus className="w-3 h-3" /> Add Competitor
       </button>
 
       <div className="flex justify-between pt-2">
-        <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-zinc-500 hover:bg-zinc-100 transition-colors">
+        <button onClick={onBack} className="px-5 py-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:bg-muted transition-colors">
           Back
         </button>
         <div className="flex gap-2">
           <button
             onClick={() => onNext({ competitors: [] })}
-            className="px-5 py-3 rounded-xl text-[13px] font-medium text-zinc-400 hover:text-zinc-600 transition-colors"
+            className="px-5 py-3 rounded-xl text-[13px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors"
           >
             Skip
           </button>
@@ -166,8 +166,8 @@ export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
             className={cn(
               "px-6 py-3 rounded-xl text-[13px] font-medium transition-colors",
               filled.length > 0
-                ? "bg-zinc-950 text-white hover:bg-zinc-800"
-                : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                ? "bg-background text-white hover:bg-surface-elevated"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
             Continue ({filled.length})

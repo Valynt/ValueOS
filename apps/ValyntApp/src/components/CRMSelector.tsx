@@ -152,7 +152,7 @@ export function CRMSelector({
 
   if (isConnected === null) {
     return (
-      <div className={cn("flex items-center justify-center h-24 text-zinc-400 text-sm", className)}>
+      <div className={cn("flex items-center justify-center h-24 text-muted-foreground text-sm", className)}>
         Checking CRM connection…
       </div>
     );
@@ -161,7 +161,7 @@ export function CRMSelector({
   if (!isConnected) {
     return (
       <div className={cn("flex flex-col items-center gap-4 py-8", className)}>
-        <p className="text-sm text-zinc-500 text-center max-w-xs">
+        <p className="text-sm text-muted-foreground text-center max-w-xs">
           Connect your {provider === "salesforce" ? "Salesforce" : "HubSpot"} account to import
           opportunities directly into value cases.
         </p>
@@ -184,7 +184,7 @@ export function CRMSelector({
         placeholder="Search opportunities…"
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
-        className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#18C3A5]/40"
+        className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#18C3A5]/40"
       />
 
       {/* Error */}
@@ -195,13 +195,13 @@ export function CRMSelector({
       {/* List */}
       <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
         {isLoading && (
-          <div className="flex items-center justify-center h-16 text-zinc-400 text-sm">
+          <div className="flex items-center justify-center h-16 text-muted-foreground text-sm">
             Loading…
           </div>
         )}
 
         {!isLoading && opportunities.length === 0 && (
-          <div className="flex items-center justify-center h-16 text-zinc-400 text-sm">
+          <div className="flex items-center justify-center h-16 text-muted-foreground text-sm">
             No opportunities found
           </div>
         )}
@@ -223,23 +223,23 @@ export function CRMSelector({
                   isSelected
                     ? "bg-[#18C3A5]/10 border border-[#18C3A5]/30"
                     : isHovered
-                    ? "bg-zinc-50 border border-zinc-200"
+                    ? "bg-surface border border-border"
                     : "border border-transparent",
                 )}
               >
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-sm font-medium text-zinc-900 truncate">{opp.name}</span>
+                  <span className="text-sm font-medium text-foreground truncate">{opp.name}</span>
                   {opp.companyName && (
-                    <span className="text-xs text-zinc-400 truncate">{opp.companyName}</span>
+                    <span className="text-xs text-muted-foreground truncate">{opp.companyName}</span>
                   )}
-                  <span className="text-xs text-zinc-400">{opp.stage}</span>
+                  <span className="text-xs text-muted-foreground">{opp.stage}</span>
                 </div>
                 <div className="flex flex-col items-end gap-0.5 shrink-0">
-                  <span className="text-sm font-semibold text-zinc-700">
+                  <span className="text-sm font-semibold text-muted-foreground">
                     {formatCurrency(opp.amount, opp.currency)}
                   </span>
                   {opp.probability != null && (
-                    <span className="text-xs text-zinc-400">{opp.probability}%</span>
+                    <span className="text-xs text-muted-foreground">{opp.probability}%</span>
                   )}
                 </div>
               </button>

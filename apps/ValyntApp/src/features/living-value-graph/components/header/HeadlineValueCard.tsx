@@ -28,7 +28,7 @@ export function HeadlineValueCard({
   };
 
   return (
-    <div className="p-4 bg-white rounded-lg border border-neutral-200 shadow-sm">
+    <div className="p-4 bg-card rounded-lg border border-neutral-200 shadow-sm">
       <div className="text-xs text-neutral-500 uppercase mb-1">Total NPV</div>
       <div className="text-2xl font-bold text-neutral-900 tabular-nums">
         {formatValue(npv)}

@@ -53,7 +53,7 @@ export function TemplateSelector({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full flex items-center justify-between gap-2 px-4 py-3",
-          "bg-white border border-slate-200 rounded-lg",
+          "bg-card border border-slate-200 rounded-lg",
           "hover:border-slate-300 transition-colors",
           "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
         )}
@@ -99,7 +99,7 @@ export function TemplateSelector({
             className="fixed inset-0 z-10" 
             onClick={() => setIsOpen(false)} 
           />
-          <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden max-h-96 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-card rounded-xl shadow-xl border border-slate-200 overflow-hidden max-h-96 overflow-y-auto">
             {DEFAULT_TEMPLATES.map((template) => {
               const Icon = CATEGORY_ICONS[template.category] || BarChart3;
               const isSelected = template.id === selectedTemplateId;

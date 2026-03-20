@@ -44,7 +44,7 @@ export function BillingPage() {
     <div className="p-8 max-w-5xl mx-auto">
       <div className="grid grid-cols-2 gap-6">
         {/* Current Plan Card */}
-        <Card className="p-6 bg-white border border-slate-200 relative overflow-hidden">
+        <Card className="p-6 bg-card border border-slate-200 relative overflow-hidden">
           {/* Decorative blob */}
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/5 rounded-full" />
           
@@ -75,7 +75,7 @@ export function BillingPage() {
         </Card>
 
         {/* AI Credits Usage Card */}
-        <Card className="p-6 bg-white border border-slate-200">
+        <Card className="p-6 bg-card border border-slate-200">
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               AI Credits Usage

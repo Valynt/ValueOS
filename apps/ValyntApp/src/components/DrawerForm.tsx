@@ -38,7 +38,7 @@ const DrawerForm: React.FC<DrawerFormProps> = ({ isOpen, onClose, title, childre
     <div className={`fixed inset-0 z-50 ${isOpen ? "block" : "hidden"}`}>
       <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
       <div
-        className={`absolute right-0 top-0 h-full w-96 bg-white shadow-lg transform transition-transform ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute right-0 top-0 h-full w-96 bg-card shadow-lg transform transition-transform ${isOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="text-lg font-semibold">{title}</h2>

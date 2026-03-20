@@ -12,7 +12,7 @@ export function WorkspaceHeader() {
   const globalScore = useDefensibilityStore((state) => state.globalScore);
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
+    <header className="flex items-center justify-between px-4 py-3 bg-card border-b border-neutral-200">
       <div className="flex items-center gap-6">
         <div>
           <h1 className="text-lg font-semibold">Opportunity Name</h1>

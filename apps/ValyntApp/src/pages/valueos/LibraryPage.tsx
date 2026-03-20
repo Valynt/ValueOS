@@ -78,7 +78,7 @@ export function LibraryPage() {
     return (
       <div className="min-h-full bg-background">
         {/* Sub-navigation tabs */}
-        <div className="border-b bg-white">
+        <div className="border-b bg-card">
           <div className="max-w-7xl mx-auto px-8">
             <nav className="flex gap-1 -mb-px">
               {LIBRARY_TABS.map((tab) => (

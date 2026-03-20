@@ -71,7 +71,7 @@ function StageIndicator({ stage }: { stage: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", dot)} />
-      <span className="text-[13px] font-semibold text-zinc-700">{label}</span>
+      <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
     </div>
   );
 }
@@ -81,7 +81,7 @@ function ValueRangeBar({ low, high, max }: { low: number; high: number; max: num
   const leftPct = (low / max) * 100;
   const widthPct = ((high - low) / max) * 100;
   return (
-    <div className="relative h-2 bg-zinc-100 rounded-full overflow-hidden">
+    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
       <div
         className="absolute h-full bg-emerald-400 rounded-full"
         style={{ left: `${leftPct}%`, width: `${Math.max(widthPct, 2)}%` }}
@@ -95,30 +95,30 @@ function HypothesisRow({ hypothesis }: { hypothesis: BriefHypothesis }) {
   const hasValue = hypothesis.estimated_value?.unit === "usd";
 
   return (
-    <div className="flex items-start gap-3 p-4 rounded-2xl border border-zinc-100 hover:border-zinc-200 hover:bg-zinc-50/50 transition-all">
+    <div className="flex items-start gap-3 p-4 rounded-2xl border border-border hover:border-border hover:bg-surface/50 transition-all">
       <div className={cn("mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", conf.bg)}>
         <Sparkles className={cn("w-3.5 h-3.5", conf.color)} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-zinc-900 leading-snug">{hypothesis.description}</p>
+        <p className="text-[13px] font-medium text-foreground leading-snug">{hypothesis.description}</p>
         <div className="flex items-center gap-3 mt-1.5">
-          <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wide">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
             {hypothesis.category}
           </span>
           <span className={cn("text-[11px] font-semibold px-1.5 py-0.5 rounded-full", conf.color, conf.bg)}>
             {conf.label} confidence
           </span>
           {hypothesis.status !== "proposed" && (
-            <span className="text-[11px] text-zinc-400 capitalize">{hypothesis.status}</span>
+            <span className="text-[11px] text-muted-foreground capitalize">{hypothesis.status}</span>
           )}
         </div>
       </div>
       {hasValue && hypothesis.estimated_value && (
         <div className="text-right flex-shrink-0">
-          <p className="text-[13px] font-black text-zinc-900 tracking-tight">
+          <p className="text-[13px] font-black text-foreground tracking-tight">
             {formatUSD(hypothesis.estimated_value.low)}–{formatUSD(hypothesis.estimated_value.high)}
           </p>
-          <p className="text-[11px] text-zinc-400">
+          <p className="text-[11px] text-muted-foreground">
             over {hypothesis.estimated_value.timeframe_months}mo
           </p>
         </div>
@@ -152,40 +152,40 @@ function ConfidenceSummaryBar({
 
 function AccountCard({ account, opportunity }: { account: OpportunityBrief["account"]; opportunity: BriefOpportunity }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+    <div className="bg-card border border-border rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-zinc-950 rounded-2xl flex items-center justify-center flex-shrink-0">
+        <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center flex-shrink-0">
           <Building2 className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-[18px] font-black text-zinc-950 tracking-tight leading-tight truncate">
             {account.name}
           </h2>
-          <p className="text-[13px] text-zinc-500 mt-0.5">{opportunity.name}</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">{opportunity.name}</p>
         </div>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="bg-zinc-50 rounded-2xl p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-400 mb-1">Stage</p>
+        <div className="bg-surface rounded-2xl p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-1">Stage</p>
           <StageIndicator stage={opportunity.lifecycle_stage} />
         </div>
         {account.industry && (
-          <div className="bg-zinc-50 rounded-2xl p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-400 mb-1">Industry</p>
-            <p className="text-[13px] font-semibold text-zinc-700">{account.industry}</p>
+          <div className="bg-surface rounded-2xl p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-1">Industry</p>
+            <p className="text-[13px] font-semibold text-muted-foreground">{account.industry}</p>
           </div>
         )}
         {account.arr_usd != null && (
-          <div className="bg-zinc-50 rounded-2xl p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-400 mb-1">ARR</p>
-            <p className="text-[13px] font-semibold text-zinc-700">{formatUSD(account.arr_usd)}</p>
+          <div className="bg-surface rounded-2xl p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-1">ARR</p>
+            <p className="text-[13px] font-semibold text-muted-foreground">{formatUSD(account.arr_usd)}</p>
           </div>
         )}
         {account.employee_count != null && (
-          <div className="bg-zinc-50 rounded-2xl p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-400 mb-1">Employees</p>
-            <p className="text-[13px] font-semibold text-zinc-700">
+          <div className="bg-surface rounded-2xl p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-1">Employees</p>
+            <p className="text-[13px] font-semibold text-muted-foreground">
               {account.employee_count.toLocaleString()}
             </p>
           </div>
@@ -193,7 +193,7 @@ function AccountCard({ account, opportunity }: { account: OpportunityBrief["acco
       </div>
 
       {opportunity.close_date && (
-        <div className="mt-3 flex items-center gap-2 text-[12px] text-zinc-400">
+        <div className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground">
           <CheckCircle2 className="w-3.5 h-3.5" />
           Target close {new Date(opportunity.close_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </div>
@@ -207,30 +207,30 @@ function ValueSummaryCard({ brief }: { brief: OpportunityBrief }) {
   const hasValue = brief.totalValueHigh > 0;
 
   return (
-    <div className="bg-zinc-950 text-white rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.15)]">
+    <div className="bg-background text-white rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.15)]">
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp className="w-4 h-4 text-emerald-400" />
-        <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-zinc-400">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           Value Potential
         </span>
       </div>
 
       {hasValue ? (
         <>
-          <p className="text-[11px] text-zinc-500 mb-1">Estimated range</p>
+          <p className="text-[11px] text-muted-foreground mb-1">Estimated range</p>
           <p className="text-[32px] font-black tracking-tight leading-none">
             {formatUSD(brief.totalValueLow)}
-            <span className="text-zinc-500 mx-2">–</span>
+            <span className="text-muted-foreground mx-2">–</span>
             {formatUSD(brief.totalValueHigh)}
           </p>
-          <p className="text-[12px] text-zinc-500 mt-2">
+          <p className="text-[12px] text-muted-foreground mt-2">
             across {total} {total === 1 ? "hypothesis" : "hypotheses"}
           </p>
         </>
       ) : (
         <div className="py-2">
-          <p className="text-[15px] font-semibold text-zinc-400">No value estimates yet</p>
-          <p className="text-[12px] text-zinc-600 mt-1">
+          <p className="text-[15px] font-semibold text-muted-foreground">No value estimates yet</p>
+          <p className="text-[12px] text-muted-foreground mt-1">
             Run the Financial Modeling agent to generate estimates.
           </p>
         </div>
@@ -239,8 +239,8 @@ function ValueSummaryCard({ brief }: { brief: OpportunityBrief }) {
       {total > 0 && (
         <div className="mt-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-zinc-500">Confidence mix</span>
-            <span className="text-[11px] text-zinc-500">{total} hypotheses</span>
+            <span className="text-[11px] text-muted-foreground">Confidence mix</span>
+            <span className="text-[11px] text-muted-foreground">{total} hypotheses</span>
           </div>
           <ConfidenceSummaryBar summary={brief.confidenceSummary} total={total} />
           <div className="flex items-center gap-4 mt-2">
@@ -270,12 +270,12 @@ function HypothesisList({
   const maxValue = Math.max(...hypotheses.map(h => h.estimated_value?.high ?? 0));
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+    <div className="bg-card border border-border rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-[14px] font-black text-zinc-950 tracking-tight">Value Hypotheses</h3>
         <Link
           to={`/opportunities/${opportunityId}/cases/new`}
-          className="flex items-center gap-1.5 text-[12px] font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+          className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           Run agent
           <ChevronRight className="w-3.5 h-3.5" />
@@ -284,16 +284,16 @@ function HypothesisList({
 
       {hypotheses.length === 0 ? (
         <div className="py-10 text-center">
-          <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Sparkles className="w-6 h-6 text-zinc-400" />
+          <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <Sparkles className="w-6 h-6 text-muted-foreground" />
           </div>
-          <p className="text-[14px] font-semibold text-zinc-700">No hypotheses yet</p>
-          <p className="text-[13px] text-zinc-400 mt-1 max-w-xs mx-auto">
+          <p className="text-[14px] font-semibold text-muted-foreground">No hypotheses yet</p>
+          <p className="text-[13px] text-muted-foreground mt-1 max-w-xs mx-auto">
             Create a value case and run the Opportunity agent to generate hypotheses.
           </p>
           <Link
             to={`/opportunities/${opportunityId}/cases/new`}
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-zinc-950 text-white text-[13px] font-semibold rounded-xl hover:bg-zinc-800 transition-colors"
+            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-background text-white text-[13px] font-semibold rounded-xl hover:bg-surface-elevated transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Start a value case
@@ -328,9 +328,9 @@ function HypothesisList({
 function BriefSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
-      <div className="h-48 bg-zinc-100 rounded-3xl" />
-      <div className="h-40 bg-zinc-100 rounded-3xl" />
-      <div className="h-64 bg-zinc-100 rounded-3xl" />
+      <div className="h-48 bg-muted rounded-3xl" />
+      <div className="h-40 bg-muted rounded-3xl" />
+      <div className="h-64 bg-muted rounded-3xl" />
     </div>
   );
 }

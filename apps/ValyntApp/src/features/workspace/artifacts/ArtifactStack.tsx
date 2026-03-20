@@ -71,7 +71,7 @@ function ArtifactCard({ artifact, isActive, onClick }: ArtifactCardProps) {
         'hover:bg-slate-100',
         isActive 
           ? 'bg-primary/5 border border-primary/20 shadow-sm' 
-          : 'bg-white border border-slate-200'
+          : 'bg-card border border-slate-200'
       )}
     >
       <div className="flex items-start gap-3">

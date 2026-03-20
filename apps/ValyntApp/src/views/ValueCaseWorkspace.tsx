@@ -144,7 +144,7 @@ export function ValueCaseWorkspace() {
     <div className="flex flex-col h-full">
       {/* ── Pipeline progress header ── */}
       {(isProcessing || hasPipelineActivity) && (
-        <div className="border-b border-zinc-200 bg-white">
+        <div className="border-b border-border bg-card">
           {/* Compact progress bar at the very top */}
           {pipeline.isRunning && (
             <PipelineProgressBar
@@ -175,7 +175,7 @@ export function ValueCaseWorkspace() {
 
       {/* ── Fallback: legacy agent status pill ── */}
       {isProcessing && !hasPipelineActivity && (
-        <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-2">
+        <div className="border-b border-border bg-surface px-6 py-2">
           <AgentStatusIndicator
             state={agentState}
             currentStep={agentContext.currentStep}
@@ -185,14 +185,14 @@ export function ValueCaseWorkspace() {
 
       {/* ── Thought stream ── */}
       {thoughts.length > 0 && (
-        <div className="border-b border-zinc-200 bg-zinc-50/50 px-6 py-3">
-          <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wide mb-1">
+        <div className="border-b border-border bg-surface/50 px-6 py-3">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
             Agent Thoughts
           </p>
-          <div className="space-y-0.5 font-mono text-xs text-zinc-500 max-h-24 overflow-y-auto">
+          <div className="space-y-0.5 font-mono text-xs text-muted-foreground max-h-24 overflow-y-auto">
             {thoughts.slice(-5).map((t) => (
               <div key={t.id} className="flex items-start gap-2">
-                <span className="text-zinc-900 font-medium">[{t.type}]</span>
+                <span className="text-foreground font-medium">[{t.type}]</span>
                 <span>{t.content}</span>
               </div>
             ))}
@@ -226,7 +226,7 @@ export function ValueCaseWorkspace() {
               onWidgetAction={handleWidgetAction}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-zinc-400 text-sm">
+            <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
               Select or create a value case to begin.
             </div>
           )}

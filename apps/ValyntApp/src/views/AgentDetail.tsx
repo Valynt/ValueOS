@@ -47,30 +47,30 @@ export default function AgentDetail() {
       {/* Header */}
       <div className="px-6 lg:px-10 pt-6 lg:pt-10 pb-4">
         <div className="flex items-center gap-2 mb-4">
-          <Link to="/agents" className="flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-zinc-700">
+          <Link to="/agents" className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-muted-foreground">
             <ArrowLeft className="w-4 h-4" />
             Agent Hub
           </Link>
-          <span className="text-zinc-300">/</span>
-          <span className="text-[13px] text-zinc-700 font-medium">{agent.name}</span>
+          <span className="text-foreground/80">/</span>
+          <span className="text-[13px] text-muted-foreground font-medium">{agent.name}</span>
         </div>
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 bg-zinc-950 rounded-2xl flex items-center justify-center flex-shrink-0">
+          <div className="w-14 h-14 bg-background rounded-2xl flex items-center justify-center flex-shrink-0">
             <Bot className="w-7 h-7 text-white" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-xl font-black text-zinc-950 tracking-[-0.05em]">{agent.name}</h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700">Active</span>
-              <span className="text-[12px] text-zinc-400">{agent.version}</span>
+              <span className="text-[12px] text-muted-foreground">{agent.version}</span>
             </div>
-            <p className="text-[13px] text-zinc-500 max-w-2xl">{agent.description}</p>
+            <p className="text-[13px] text-muted-foreground max-w-2xl">{agent.description}</p>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="px-6 lg:px-10 border-b border-zinc-200">
+      <div className="px-6 lg:px-10 border-b border-border">
         <div className="flex gap-1">
           {tabs.map((tab) => (
             <button
@@ -80,7 +80,7 @@ export default function AgentDetail() {
                 "px-4 py-3 text-[13px] font-medium border-b-2 transition-colors",
                 activeTab === tab
                   ? "border-zinc-950 text-zinc-950"
-                  : "border-transparent text-zinc-400 hover:text-zinc-700"
+                  : "border-transparent text-muted-foreground hover:text-muted-foreground"
               )}
             >
               {tab}
@@ -94,14 +94,14 @@ export default function AgentDetail() {
         {activeTab === "Runs" && (
           <div className="p-6 lg:p-10 max-w-[1200px] space-y-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 bg-white flex-1 max-w-xs">
-                <Search className="w-4 h-4 text-zinc-400" />
-                <input type="text" placeholder="Search runs..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-zinc-400" />
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card flex-1 max-w-xs">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <input type="text" placeholder="Search runs..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
               </div>
             </div>
             <div className="space-y-2">
               {runs.map((run) => (
-                <div key={run.id} className="bg-white border border-zinc-200 rounded-2xl p-4 hover:border-zinc-300 transition-colors">
+                <div key={run.id} className="bg-card border border-border rounded-2xl p-4 hover:border-border transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -114,23 +114,23 @@ export default function AgentDetail() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-zinc-900">{run.input}</p>
-                      <p className="text-[11px] text-zinc-400">{run.id} &middot; {run.caseId}</p>
+                      <p className="text-[13px] font-medium text-foreground">{run.input}</p>
+                      <p className="text-[11px] text-muted-foreground">{run.id} &middot; {run.caseId}</p>
                     </div>
                     <div className="flex items-center gap-5 flex-shrink-0">
                       <div className="text-right">
                         <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-zinc-400" />
-                          <span className="text-[12px] text-zinc-600">{run.duration}</span>
+                          <Clock className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-[12px] text-muted-foreground">{run.duration}</span>
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3 text-zinc-400" />
-                          <span className="text-[12px] text-zinc-600">{run.cost}</span>
+                          <DollarSign className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-[12px] text-muted-foreground">{run.cost}</span>
                         </div>
                       </div>
-                      <span className="text-[11px] text-zinc-400 w-12 text-right">{run.timestamp}</span>
+                      <span className="text-[11px] text-muted-foreground w-12 text-right">{run.timestamp}</span>
                     </div>
                   </div>
                 </div>
@@ -141,13 +141,13 @@ export default function AgentDetail() {
 
         {activeTab === "Memory" && (
           <div className="p-6 lg:p-10 max-w-[1000px] space-y-4">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 bg-white max-w-sm mb-4">
-              <Search className="w-4 h-4 text-zinc-400" />
-              <input type="text" placeholder="Search memory..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-zinc-400" />
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card max-w-sm mb-4">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input type="text" placeholder="Search memory..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
             </div>
             <div className="space-y-3">
               {memoryItems.map((item, i) => (
-                <div key={i} className="bg-white border border-zinc-200 rounded-2xl p-4">
+                <div key={i} className="bg-card border border-border rounded-2xl p-4">
                   <div className="flex items-start gap-3">
                     <div className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
@@ -156,7 +156,7 @@ export default function AgentDetail() {
                       <Brain className={cn("w-4 h-4", item.type === "fact" ? "text-blue-600" : "text-violet-600")} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[13px] text-zinc-900">{item.content}</p>
+                      <p className="text-[13px] text-foreground">{item.content}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className={cn(
                           "px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize",
@@ -164,9 +164,9 @@ export default function AgentDetail() {
                         )}>
                           {item.type}
                         </span>
-                        <span className="text-[11px] text-zinc-400">{item.source}</span>
-                        <span className="text-[11px] text-zinc-400">{item.confidence}% confidence</span>
-                        <span className="text-[11px] text-zinc-400 ml-auto">{item.timestamp}</span>
+                        <span className="text-[11px] text-muted-foreground">{item.source}</span>
+                        <span className="text-[11px] text-muted-foreground">{item.confidence}% confidence</span>
+                        <span className="text-[11px] text-muted-foreground ml-auto">{item.timestamp}</span>
                       </div>
                     </div>
                   </div>
@@ -178,9 +178,9 @@ export default function AgentDetail() {
 
         {activeTab === "Configuration" && (
           <div className="p-6 lg:p-10 max-w-[800px]">
-            <div className="bg-white border border-zinc-200 rounded-2xl p-5">
-              <h3 className="text-[13px] font-semibold text-zinc-900 mb-4">Agent Configuration</h3>
-              <pre className="bg-zinc-50 rounded-xl p-4 text-[12px] font-mono text-zinc-700 overflow-x-auto">
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <h3 className="text-[13px] font-semibold text-foreground mb-4">Agent Configuration</h3>
+              <pre className="bg-surface rounded-xl p-4 text-[12px] font-mono text-muted-foreground overflow-x-auto">
 {JSON.stringify({
   agent_id: "opportunity",
   model: "together/meta-llama/Llama-3-70b-chat-hf",
@@ -197,16 +197,16 @@ export default function AgentDetail() {
 
         {activeTab === "Permissions" && (
           <div className="p-6 lg:p-10 max-w-[800px] space-y-4">
-            <h3 className="text-[13px] font-semibold text-zinc-900">Available Tools</h3>
+            <h3 className="text-[13px] font-semibold text-foreground">Available Tools</h3>
             <div className="space-y-2">
               {tools.map((tool) => (
-                <div key={tool.name} className="bg-white border border-zinc-200 rounded-2xl p-4 flex items-center gap-4">
-                  <div className="w-8 h-8 bg-zinc-100 rounded-lg flex items-center justify-center">
-                    <Wrench className="w-4 h-4 text-zinc-500" />
+                <div key={tool.name} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                    <Wrench className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-[13px] font-mono font-medium text-zinc-900">{tool.name}</p>
-                    <p className="text-[12px] text-zinc-500">{tool.description}</p>
+                    <p className="text-[13px] font-mono font-medium text-foreground">{tool.name}</p>
+                    <p className="text-[12px] text-muted-foreground">{tool.description}</p>
                   </div>
                   <span className={cn(
                     "px-2 py-0.5 rounded-full text-[10px] font-semibold",

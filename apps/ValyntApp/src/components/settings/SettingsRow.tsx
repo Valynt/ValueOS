@@ -126,7 +126,7 @@ export function SettingsToggleRow({
           >
             <span
               className={cn(
-                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                "inline-block h-4 w-4 transform rounded-full bg-card transition-transform",
                 checked ? "translate-x-6" : "translate-x-1"
               )}
             />
@@ -154,7 +154,7 @@ export function SettingsSection({ title, description, children }: SettingsSectio
           )}
         </div>
       )}
-      <div className="bg-white rounded-lg border border-border">
+      <div className="bg-card rounded-lg border border-border">
         {children}
       </div>
     </div>

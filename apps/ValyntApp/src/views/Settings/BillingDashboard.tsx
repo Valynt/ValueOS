@@ -179,7 +179,7 @@ export const BillingDashboard: React.FC = () => {
                   {Object.entries(usage.usage).map(([metric, amount]) => (
                     <div
                       key={metric}
-                      className="bg-white p-6 rounded-lg shadow"
+                      className="bg-card p-6 rounded-lg shadow"
                     >
                       <UsageMeter
                         metric={metric as BillingMetric}
@@ -191,7 +191,7 @@ export const BillingDashboard: React.FC = () => {
                 </div>
 
                 {/* Upcoming Invoice Preview */}
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-card p-6 rounded-lg shadow">
                   <h3 className="text-lg font-semibold mb-4">
                     Projected Invoice
                   </h3>

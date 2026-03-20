@@ -86,15 +86,15 @@ export default function ValueCaseCanvas() {
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="px-6 py-4 border-b border-zinc-200 bg-white flex items-center gap-4 flex-shrink-0">
-        <Link to={`/opportunities/${oppId}`} className="p-1.5 rounded-lg hover:bg-zinc-100">
-          <ArrowLeft className="w-4 h-4 text-zinc-400" />
+      <div className="px-6 py-4 border-b border-border bg-card flex items-center gap-4 flex-shrink-0">
+        <Link to={`/opportunities/${oppId}`} className="p-1.5 rounded-lg hover:bg-muted">
+          <ArrowLeft className="w-4 h-4 text-muted-foreground" />
         </Link>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-[15px] font-black text-zinc-950 tracking-tight truncate">
-              {caseTitle ?? <span className="inline-block w-48 h-4 bg-zinc-100 rounded animate-pulse" />}
+              {caseTitle ?? <span className="inline-block w-48 h-4 bg-muted rounded animate-pulse" />}
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 flex-shrink-0">
               Running
@@ -106,20 +106,20 @@ export default function ValueCaseCanvas() {
               </span>
             )}
           </div>
-          <p className="text-[11px] text-zinc-400">{caseId || "VC-1024"}</p>
+          <p className="text-[11px] text-muted-foreground">{caseId || "VC-1024"}</p>
         </div>
 
         {/* Confidence */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-[11px] text-zinc-400">Confidence</span>
-          <div className="w-20 h-2 bg-zinc-100 rounded-full overflow-hidden">
+          <span className="text-[11px] text-muted-foreground">Confidence</span>
+          <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full" style={{ width: "87%" }} />
           </div>
-          <span className="text-[12px] font-semibold text-zinc-700">87%</span>
+          <span className="text-[12px] font-semibold text-muted-foreground">87%</span>
         </div>
 
         {/* Version history */}
-        <button className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded-xl text-[12px] font-medium text-zinc-700 hover:bg-zinc-50">
+        <button className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-xl text-[12px] font-medium text-muted-foreground hover:bg-surface">
           <Clock className="w-3.5 h-3.5" />
           v12
         </button>
@@ -127,7 +127,7 @@ export default function ValueCaseCanvas() {
         {/* Evidence */}
         <button
           onClick={() => setEvidenceOpen(!evidenceOpen)}
-          className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded-xl text-[12px] font-medium text-zinc-700 hover:bg-zinc-50"
+          className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-xl text-[12px] font-medium text-muted-foreground hover:bg-surface"
         >
           <Shield className="w-3.5 h-3.5" />
           Evidence
@@ -137,7 +137,7 @@ export default function ValueCaseCanvas() {
         <button
           onClick={() => pptxExport.mutate({ title: caseTitle ?? undefined })}
           disabled={pptxExport.isPending}
-          className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded-xl text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-xl text-[12px] font-medium text-muted-foreground hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
           title="Export as PowerPoint"
         >
           <Download className="w-3.5 h-3.5" />
@@ -145,14 +145,14 @@ export default function ValueCaseCanvas() {
         </button>
 
         {/* Run stage */}
-        <button className="flex items-center gap-1.5 px-3 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800">
+        <button className="flex items-center gap-1.5 px-3 py-2 bg-background text-white rounded-xl text-[12px] font-medium hover:bg-surface-elevated">
           <Play className="w-3.5 h-3.5" />
           Run Stage
         </button>
       </div>
 
       {/* Stage selector — the workflow loop */}
-      <div className="px-6 py-3 border-b border-zinc-100 bg-white flex items-center gap-1 flex-shrink-0">
+      <div className="px-6 py-3 border-b border-border bg-card flex items-center gap-1 flex-shrink-0">
         {stages.map((s) => (
           <button
             key={s.key}
@@ -160,8 +160,8 @@ export default function ValueCaseCanvas() {
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-medium transition-colors",
               activeStage === s.key
-                ? "bg-zinc-950 text-white"
-                : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                ? "bg-background text-white"
+                : "text-muted-foreground hover:bg-muted hover:text-muted-foreground"
             )}
           >
             <div className={cn("w-2 h-2 rounded-full", s.color)} />
@@ -170,7 +170,7 @@ export default function ValueCaseCanvas() {
         ))}
 
         {/* Loop indicator */}
-        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-zinc-400">
+        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RotateCcw className="w-3 h-3" />
           <span>Iterate anytime</span>
         </div>
@@ -186,14 +186,14 @@ export default function ValueCaseCanvas() {
             <h3 className="text-[15px] font-black text-zinc-950 tracking-tight">
               {currentStage?.label}
             </h3>
-            <span className="text-[11px] text-zinc-400">{currentStage?.description}</span>
-            <span className="text-[11px] text-zinc-300 ml-auto">Last updated 25m ago</span>
+            <span className="text-[11px] text-muted-foreground">{currentStage?.description}</span>
+            <span className="text-[11px] text-foreground/80 ml-auto">Last updated 25m ago</span>
           </div>
           {stageContent[activeStage]}
         </div>
 
         {/* Agent thread panel */}
-        <div className="w-[340px] border-l border-zinc-200 bg-white p-5 overflow-y-auto flex-shrink-0 hidden xl:block">
+        <div className="w-[340px] border-l border-border bg-card p-5 overflow-y-auto flex-shrink-0 hidden xl:block">
           <AgentThread runId={activeRunId} directResult={activeDirectResult} />
         </div>
       </div>

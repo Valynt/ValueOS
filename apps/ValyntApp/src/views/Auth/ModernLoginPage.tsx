@@ -81,95 +81,61 @@ export function ModernLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center antialiased selection:bg-zinc-800 selection:text-zinc-200 text-zinc-50 bg-black p-4">
-      {/* Animated Background */}
-      <div
-        className="fixed top-0 w-full h-screen -z-10"
-        style={{
-          maskImage: "linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)",
-          WebkitMaskImage:
-            "linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)",
-        }}
-      >
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-zinc-900 via-black to-zinc-900" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: "1s" }}
-        />
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       {/* Main Container */}
-      <div className="w-full max-w-[320px] sm:max-w-[350px] mx-auto space-y-8">
-        {/* Brand & Header */}
-        <div className="flex flex-col items-center space-y-6 text-center">
-          {/* Logo Lockup */}
-          <div className="flex items-center gap-3 select-none">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-white"
-            >
-              <path d="M12 2L22 12L12 22L2 12L7 7H12" />
-            </svg>
-            <span className="text-2xl tracking-[0.2em] text-white font-medium">VALUEOS</span>
+      <div className="w-full max-w-sm mx-auto space-y-6">
+        {/* Brand */}
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+            <span className="text-primary-foreground font-black text-base tracking-tighter">V</span>
           </div>
+          <span className="text-lg font-black text-foreground tracking-[-0.05em]">VALUEOS</span>
+        </div>
 
-          <div className="space-y-1.5">
-            <h1 className="text-xl font-semibold text-white tracking-tight">{t("auth.welcomeBack", "Welcome back")}</h1>
-            <p className="text-xs text-zinc-400">
+        {/* Card */}
+        <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+          <div className="space-y-1 text-center">
+            <h1 className="text-xl font-bold text-foreground tracking-tight">
+              {t("auth.welcomeBack", "Welcome back")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
               {t("auth.noAccount", "Don't have an account?")}{" "}
-              <Link
-                to="/signup"
-                className="font-medium text-white underline underline-offset-4 hover:text-zinc-300 transition-colors"
-              >
+              <Link to="/signup" className="text-primary hover:text-primary/80 font-medium transition-colors">
                 {t("auth.signUp", "Sign up")}
               </Link>
             </p>
           </div>
-        </div>
 
-
-        <div className="flex justify-end">
-          <label className="text-[11px] text-zinc-400 flex items-center gap-2">
-            {t("auth.language", "Language")}
-            <select
-              value={locale}
-              onChange={(event) => void setLocale(event.target.value as LocaleCode)}
-              className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200"
-              aria-label={t("auth.language", "Language")}
-            >
-              {locales.map((supportedLocale) => (
-                <option key={supportedLocale.code} value={supportedLocale.code}>
-                  {supportedLocale.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div
-            role="alert"
-            className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center"
-          >
-            {error}
+          {/* Language selector */}
+          <div className="flex justify-end">
+            <label className="text-[11px] text-muted-foreground flex items-center gap-2">
+              {t("auth.language", "Language")}
+              <select
+                value={locale}
+                onChange={(event) => void setLocale(event.target.value as LocaleCode)}
+                className="bg-surface border border-border rounded px-2 py-1 text-foreground text-[11px]"
+                aria-label={t("auth.language", "Language")}
+              >
+                {locales.map((supportedLocale) => (
+                  <option key={supportedLocale.code} value={supportedLocale.code}>
+                    {supportedLocale.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        )}
 
-        {/* Authentication Form */}
-        <div className="grid gap-5">
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            {/* Email Input */}
-            <div className="grid gap-2">
-              <label htmlFor="email" className="text-xs font-medium leading-none text-zinc-300">
+          {/* Error */}
+          {error && (
+            <div role="alert" className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs text-center">
+              {error}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-foreground">
                 {t("auth.email", "Email")}
               </label>
               <input
@@ -179,7 +145,7 @@ export function ModernLoginPage() {
                 autoCapitalize="none"
                 autoComplete="email"
                 autoCorrect="off"
-                className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                className="flex h-9 w-full rounded-md border border-border bg-surface px-3 py-1 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -187,9 +153,8 @@ export function ModernLoginPage() {
               />
             </div>
 
-            {/* Password Input */}
-            <div className="grid gap-2">
-              <label htmlFor="password" className="text-xs font-medium leading-none text-zinc-300">
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-xs font-medium text-foreground">
                 {t("auth.password", "Password")}
               </label>
               <div className="relative">
@@ -198,7 +163,7 @@ export function ModernLoginPage() {
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 pr-10 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  className="flex h-9 w-full rounded-md border border-border bg-surface px-3 py-1 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -207,7 +172,7 @@ export function ModernLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:text-zinc-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   disabled={loading || oauthLoading}
                 >
@@ -216,33 +181,16 @@ export function ModernLoginPage() {
               </div>
             </div>
 
-            {/* Login Button */}
             <button
               type="submit"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-black hover:bg-zinc-200 h-9 w-full shadow-[0_0_20px_-5px_rgba(255,255,255,0.15)]"
+              className="inline-flex items-center justify-center w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all disabled:pointer-events-none disabled:opacity-50"
               disabled={loading || oauthLoading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   {t("auth.signingIn", "Signing in...")}
                 </span>
@@ -253,60 +201,44 @@ export function ModernLoginPage() {
           </form>
 
           {/* Divider */}
-          <div className="relative py-1">
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-zinc-800" />
+              <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-              <span className="bg-black px-2 text-zinc-500 font-medium">{t("auth.continueWith", "Or continue with")}</span>
+              <span className="bg-card px-2 text-muted-foreground font-medium">
+                {t("auth.continueWith", "Or continue with")}
+              </span>
             </div>
           </div>
 
-          {/* Google Login */}
+          {/* Google */}
           <button
+            type="button"
             onClick={() => handleOAuthSignIn("google")}
             disabled={loading || oauthLoading}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-zinc-800 bg-black hover:bg-zinc-900 hover:border-zinc-700 text-zinc-200 h-9 w-full gap-2"
+            className="inline-flex items-center justify-center w-full h-9 gap-2 rounded-md border border-border bg-white/5 text-foreground text-sm font-medium hover:bg-white/8 transition-colors disabled:pointer-events-none disabled:opacity-50"
           >
             <svg className="size-4" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
             {oauthLoading ? "Connecting..." : "Google"}
           </button>
         </div>
 
         {/* Footer */}
-        <p className="px-4 text-center text-xs text-zinc-600 leading-relaxed">
+        <p className="text-center text-xs text-muted-foreground leading-relaxed">
           By clicking continue, you agree to our{" "}
-          <a
-            href="/terms"
-            className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
-          >
+          <a href="/terms" className="underline underline-offset-4 hover:text-foreground transition-colors">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a
-            href="/privacy"
-            className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
-          >
+          <a href="/privacy" className="underline underline-offset-4 hover:text-foreground transition-colors">
             Privacy Policy
-          </a>
-          .
+          </a>.
         </p>
       </div>
     </div>

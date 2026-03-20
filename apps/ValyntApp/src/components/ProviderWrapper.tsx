@@ -30,8 +30,8 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
       <ErrorBoundary
         onError={handleAuthError}
         fallback={
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
+          <div className="min-h-screen flex items-center justify-center bg-surface">
+            <div className="max-w-md w-full bg-card shadow-lg rounded-lg p-6">
               <div className="text-center">
                 <div className="flex justify-center mb-4">
                   <svg
@@ -48,8 +48,8 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
                     />
                   </svg>
                 </div>
-                <h2 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h2>
-                <p className="text-sm text-gray-600 mb-4">
+                <h2 className="text-lg font-medium text-foreground mb-2">Authentication Error</h2>
+                <p className="text-sm text-muted-foreground mb-4">
                   We encountered an issue with authentication. Please try logging in again.
                 </p>
                 <button

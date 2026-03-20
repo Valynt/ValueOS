@@ -255,7 +255,7 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
             >
               <span
                 className={`
-                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                  inline-block h-4 w-4 transform rounded-full bg-card transition-transform
                   ${values["user.accessibility.highContrast"]
                     ? "translate-x-6"
                     : "translate-x-1"
@@ -310,7 +310,7 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
             >
               <span
                 className={`
-                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                  inline-block h-4 w-4 transform rounded-full bg-card transition-transform
                   ${values["user.accessibility.reducedMotion"]
                     ? "translate-x-6"
                     : "translate-x-1"

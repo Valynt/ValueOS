@@ -8,7 +8,7 @@ export function BottomTray() {
   const { phaseHistory } = useWorkflowState();
 
   return (
-    <div className="h-48 bg-white border-t border-neutral-200 flex">
+    <div className="h-48 bg-card border-t border-neutral-200 flex">
       <div className="flex-1 p-4 overflow-y-auto">
         <h4 className="text-xs font-semibold text-neutral-500 uppercase mb-2">Workflow Timeline</h4>
         <div className="space-y-1">

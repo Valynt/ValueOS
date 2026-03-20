@@ -194,7 +194,7 @@ export default function ROICalculator() {
                   }
                   className={`px-3 py-3 text-xs font-medium rounded-xl border transition-all ${optimizationGoal === goal.id
                       ? "bg-primary/20 border-primary/50 text-primary shadow-glow-teal"
-                      : "bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                      : "bg-card/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
                     }`}
                 >
                   {goal.label}
@@ -452,7 +452,7 @@ export default function ROICalculator() {
                       </span>
                     </div>
                   </div>
-                  <div className="w-full bg-white/5 rounded-full h-1.5">
+                  <div className="w-full bg-card/5 rounded-full h-1.5">
                     <div
                       className="bg-primary h-1.5 rounded-full transition-all"
                       style={{ width: `${item.pct}%` }}
@@ -464,7 +464,7 @@ export default function ROICalculator() {
           </div>
         </div>
 
-        <div className="bento-card bg-white/[0.02]">
+        <div className="bento-card bg-card/[0.02]">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             Strategic Insights
@@ -475,18 +475,18 @@ export default function ROICalculator() {
             />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
+            <div className="p-4 bg-card/5 rounded-xl border border-white/5 text-neutral-400">
               Ship products{" "}
               <span className="text-white font-semibold">2x faster</span>
             </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
+            <div className="p-4 bg-card/5 rounded-xl border border-white/5 text-neutral-400">
               Scale with{" "}
               <span className="text-white font-semibold">
                 {efficiencyTarget}%
               </span>{" "}
               capacity boost
             </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-neutral-400">
+            <div className="p-4 bg-card/5 rounded-xl border border-white/5 text-neutral-400">
               Reduce onboarding by{" "}
               <span className="text-white font-semibold">50%</span>
             </div>

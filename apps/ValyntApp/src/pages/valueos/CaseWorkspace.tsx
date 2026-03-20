@@ -61,7 +61,7 @@ function StepCompany({
           value={data.companyName}
           onChange={(e) => onChange({ companyName: e.target.value })}
           placeholder="e.g. Acme Corp"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-card bg-slate-50 transition-colors"
         />
       </div>
       <div>
@@ -74,7 +74,7 @@ function StepCompany({
           value={data.companyDomain}
           onChange={(e) => onChange({ companyDomain: e.target.value })}
           placeholder="e.g. acmecorp.com"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-card bg-slate-50 transition-colors"
         />
       </div>
       <div>
@@ -87,7 +87,7 @@ function StepCompany({
           value={data.crmOpportunityId}
           onChange={(e) => onChange({ crmOpportunityId: e.target.value })}
           placeholder="e.g. 0065g00000AbCdEf"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-card bg-slate-50 transition-colors"
         />
       </div>
       <div>
@@ -100,7 +100,7 @@ function StepCompany({
           value={data.description}
           onChange={(e) => onChange({ description: e.target.value })}
           placeholder="What problem are you solving for this customer?"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors resize-none"
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-card bg-slate-50 transition-colors resize-none"
         />
       </div>
     </div>

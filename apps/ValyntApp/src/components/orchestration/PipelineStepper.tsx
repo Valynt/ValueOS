@@ -67,7 +67,7 @@ function ConfidenceBadge({ value }: { value: number }) {
 function DurationBadge({ ms }: { ms: number }) {
   const label = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
   return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] text-zinc-400 tabular-nums">
+    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums">
       <Clock className="h-3 w-3" />
       {label}
     </span>
@@ -92,7 +92,7 @@ function statusRingClass(status: PipelineStepStatus): string {
     case "failed":
       return "border-red-500 bg-red-50 text-red-500";
     default:
-      return "border-zinc-200 bg-zinc-50 text-zinc-400";
+      return "border-border bg-surface text-muted-foreground";
   }
 }
 
@@ -103,7 +103,7 @@ function connectorClass(status: PipelineStepStatus): string {
     case "running":
       return "bg-gradient-to-r from-emerald-400 to-brand-indigo animate-pulse";
     default:
-      return "bg-zinc-200";
+      return "bg-muted/70";
   }
 }
 
@@ -134,8 +134,8 @@ function StepNode({ step, isLast }: StepNodeProps) {
           className={`text-[11px] font-semibold tracking-wide text-center leading-tight ${step.status === "running"
               ? "text-brand-indigo"
               : step.status === "completed"
-                ? "text-zinc-700"
-                : "text-zinc-400"
+                ? "text-muted-foreground"
+                : "text-muted-foreground"
             }`}
         >
           {step.stepName}
@@ -143,7 +143,7 @@ function StepNode({ step, isLast }: StepNodeProps) {
 
         {/* Agent name */}
         {step.agentName && step.status !== "pending" && (
-          <span className="text-[9px] text-zinc-400 font-medium truncate max-w-[80px] text-center">
+          <span className="text-[9px] text-muted-foreground font-medium truncate max-w-[80px] text-center">
             {step.agentName}
           </span>
         )}
@@ -160,7 +160,7 @@ function StepNode({ step, isLast }: StepNodeProps) {
 
         {/* Message / highlights */}
         {step.message && step.status !== "pending" && (
-          <p className="text-[10px] text-zinc-500 text-center leading-snug max-w-[100px] line-clamp-2">
+          <p className="text-[10px] text-muted-foreground text-center leading-snug max-w-[100px] line-clamp-2">
             {step.message}
           </p>
         )}
@@ -212,7 +212,7 @@ export function PipelineStepper({
             {Array.from({ length: maxRevisionCycles }).map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 w-6 rounded-full transition-colors ${i < revisionCycle ? "bg-amber-400" : "bg-zinc-200"
+                className={`h-1.5 w-6 rounded-full transition-colors ${i < revisionCycle ? "bg-amber-400" : "bg-muted/70"
                   }`}
               />
             ))}

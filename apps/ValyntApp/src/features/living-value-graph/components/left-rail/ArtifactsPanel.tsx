@@ -79,7 +79,7 @@ function ArtifactItem({ artifact, canRegenerate, onRegenerate }: ArtifactItemPro
   return (
     <div
       className={`p-3 rounded border ${
-        artifact.isStale ? 'bg-amber-50 border-amber-200' : 'bg-white border-neutral-200'
+        artifact.isStale ? 'bg-amber-50 border-amber-200' : 'bg-card border-neutral-200'
       }`}
     >
       <div className="flex items-start justify-between">

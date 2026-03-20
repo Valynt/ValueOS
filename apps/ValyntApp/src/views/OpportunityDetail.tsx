@@ -29,13 +29,13 @@ export default function OpportunityDetail() {
       <div className="flex items-center gap-2 mb-6">
         <Link
           to="/opportunities"
-          className="flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-zinc-700 transition-colors"
+          className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-muted-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Opportunities
         </Link>
-        <span className="text-zinc-300">/</span>
-        <span className="text-[13px] text-zinc-700 font-medium truncate max-w-[200px]">{id}</span>
+        <span className="text-foreground/80">/</span>
+        <span className="text-[13px] text-muted-foreground font-medium truncate max-w-[200px]">{id}</span>
       </div>
 
       {/* Header */}
@@ -44,14 +44,14 @@ export default function OpportunityDetail() {
           <h1 className="text-2xl font-black text-zinc-950 tracking-[-0.05em]">
             Opportunity Value Brief
           </h1>
-          <p className="text-[13px] text-zinc-500 mt-1">
+          <p className="text-[13px] text-muted-foreground mt-1">
             Account context, lifecycle stage, and value hypotheses.
           </p>
         </div>
         <button
           onClick={handleStartCase}
           disabled={createCase.isPending}
-          className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2.5 bg-background text-white rounded-xl text-[13px] font-medium hover:bg-surface-elevated transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {createCase.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />

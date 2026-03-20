@@ -18,7 +18,7 @@ export function PolicyHistoryPage() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-gray-900">Policy History</h2>
-      <div className="rounded border bg-white p-4 space-y-3">
+      <div className="rounded border bg-card p-4 space-y-3">
         {isLoading && <p className="text-sm text-gray-500">Loading policy history...</p>}
         {data?.history.map((entry) => (
           <div key={entry.id} className="border rounded p-3">

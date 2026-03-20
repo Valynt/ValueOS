@@ -23,7 +23,7 @@ export function SettingsLayout() {
   return (
     <div className="min-h-full bg-background">
       {/* Header */}
-      <div className="border-b bg-white">
+      <div className="border-b bg-card">
         <div className="max-w-4xl mx-auto px-6">
           <h1 className="text-xl font-semibold py-6">Settings</h1>
           

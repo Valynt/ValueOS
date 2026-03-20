@@ -47,7 +47,7 @@ export function EvidencePanel({ node }: EvidencePanelProps) {
                   ? 'bg-amber-50 border-amber-200'
                   : item.confidence >= 0.8
                   ? 'bg-green-50 border-green-200'
-                  : 'bg-white border-neutral-200'
+                  : 'bg-card border-neutral-200'
               }`}
             >
               <div className="flex items-start justify-between">

@@ -121,11 +121,11 @@ export function CreateOrganization() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-background">
             <Building2 className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900">Create your organization</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h1 className="text-2xl font-bold text-foreground">Create your organization</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Set up your workspace to start building value cases.
           </p>
         </div>
@@ -134,7 +134,7 @@ export function CreateOrganization() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Org name */}
           <div>
-            <label htmlFor="org-name" className="block text-sm font-medium text-zinc-700 mb-1.5">
+            <label htmlFor="org-name" className="block text-sm font-medium text-muted-foreground mb-1.5">
               Organization name
             </label>
             <input
@@ -145,13 +145,13 @@ export function CreateOrganization() {
               placeholder="Acme Corp"
               autoFocus
               disabled={isSubmitting}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 disabled:opacity-50"
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-zinc-400 focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
             />
           </div>
 
           {/* Tier selection */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-2">Plan</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Plan</label>
             <div className="grid grid-cols-2 gap-3">
               {tiers.map((t) => (
                 <button
@@ -162,13 +162,13 @@ export function CreateOrganization() {
                   className={cn(
                     "rounded-xl border p-3 text-left transition-colors",
                     tier === t.value
-                      ? "border-zinc-900 bg-zinc-950 text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300",
+                      ? "border-zinc-900 bg-background text-white"
+                      : "border-border bg-card text-muted-foreground hover:border-border",
                     isSubmitting && "opacity-50 cursor-not-allowed",
                   )}
                 >
                   <p className="text-sm font-semibold">{t.label}</p>
-                  <p className={cn("text-xs mt-0.5", tier === t.value ? "text-zinc-300" : "text-zinc-400")}>
+                  <p className={cn("text-xs mt-0.5", tier === t.value ? "text-foreground/80" : "text-muted-foreground")}>
                     {t.description}
                   </p>
                 </button>
@@ -187,7 +187,7 @@ export function CreateOrganization() {
           <button
             type="submit"
             disabled={isSubmitting || name.trim().length < 2}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-950 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-background px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-surface-elevated disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

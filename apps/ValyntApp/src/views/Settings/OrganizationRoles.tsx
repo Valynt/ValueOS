@@ -158,7 +158,7 @@ export const OrganizationRoles: React.FC = () => {
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-card rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200"><div className="flex items-center justify-between"><h3 className="text-lg font-semibold text-gray-900">Create Custom Role</h3><button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-gray-100 rounded transition-colors"><X className="h-5 w-5 text-gray-500" /></button></div></div>
             <div className="p-6 space-y-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label><input type="text" value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g., Project Manager" /></div>

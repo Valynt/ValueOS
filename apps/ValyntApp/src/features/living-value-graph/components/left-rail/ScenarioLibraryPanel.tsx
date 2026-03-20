@@ -82,7 +82,7 @@ export function ScenarioLibraryPanel({
             onClick={() => onScenarioSelect?.(scenario.id)}
             className={`w-full text-left p-3 rounded border transition-colors ${scenario.id === activeScenarioId
                 ? 'bg-blue-50 border-blue-200'
-                : 'bg-white border-neutral-200 hover:bg-neutral-50'
+                : 'bg-card border-neutral-200 hover:bg-neutral-50'
               }`}
           >
             <div className="flex items-center justify-between">

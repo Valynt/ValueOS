@@ -11,7 +11,7 @@ export function TopNav() {
   const { canApprove } = useStateGating();
 
   return (
-    <nav className="flex items-center justify-between px-4 py-2 bg-white border-b border-neutral-200">
+    <nav className="flex items-center justify-between px-4 py-2 bg-card border-b border-neutral-200">
       <div className="flex items-center gap-4">
         <div className="font-bold text-lg">ValueOS</div>
         <div className="h-6 w-px bg-neutral-300" />

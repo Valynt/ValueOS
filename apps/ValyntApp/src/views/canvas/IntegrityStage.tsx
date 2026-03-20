@@ -54,16 +54,16 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
       )}
 
       {/* Summary counts */}
-      <div className="flex items-center gap-1 p-1 bg-white border border-zinc-200 rounded-2xl">
+      <div className="flex items-center gap-1 p-1 bg-card border border-border rounded-2xl">
         {[
-          { label: "Total Claims", value: claims.length, color: "text-zinc-900",   bg: undefined         },
+          { label: "Total Claims", value: claims.length, color: "text-foreground",   bg: undefined         },
           { label: "Verified",     value: verified,       color: "text-emerald-700", bg: "bg-emerald-50" },
           { label: "Flagged",      value: flagged,        color: "text-amber-700",   bg: "bg-amber-50"   },
-          { label: "Pending",      value: pending,        color: "text-zinc-500",    bg: "bg-zinc-100"   },
+          { label: "Pending",      value: pending,        color: "text-muted-foreground",    bg: "bg-muted"   },
         ].map((s) => (
           <div key={s.label} className={cn("flex-1 text-center py-3 rounded-xl", s.bg)}>
             <p className={cn("text-lg font-black tracking-tight", s.color)}>{s.value}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               {s.label}
             </p>
           </div>
@@ -72,14 +72,14 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
 
       {/* Integrity score */}
       {score != null && (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+        <div className="bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-zinc-600" />
-              <h4 className="text-[13px] font-semibold text-zinc-900">Integrity Score</h4>
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              <h4 className="text-[13px] font-semibold text-foreground">Integrity Score</h4>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-24 h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+              <div className="w-24 h-2.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full rounded-full",
@@ -92,7 +92,7 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
             </div>
           </div>
           {flagged > 0 && (
-            <p className="text-[12px] text-zinc-500">
+            <p className="text-[12px] text-muted-foreground">
               {flagged} claim{flagged > 1 ? "s" : ""} need attention before this case can advance.
             </p>
           )}
@@ -104,7 +104,7 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
         <button
           onClick={() => organizationId && runAgent(organizationId)}
           disabled={isRunning}
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-xl text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl text-[11px] font-medium text-muted-foreground hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RotateCcw className={cn("w-3 h-3", isRunning && "animate-spin")} />
           {isRunning ? "Running…" : "Re-run Agent"}
@@ -113,7 +113,7 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
 
       {/* Claims list */}
       <div>
-        <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mb-3">
+        <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-3">
           All Claims
         </h4>
         <div className="space-y-3">

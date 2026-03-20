@@ -10,7 +10,7 @@ export function FAQ() {
           <h4 className="text-lg font-medium text-white mb-2">
             AI hallucinates. Can I trust these numbers?
           </h4>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Trust is our core product. We employ a specialized whose sole job is
             to audit other agents. It enforces "Manifesto Compliance," ensuring
             every metric is traceable, evidence-based, and conservative.
@@ -20,7 +20,7 @@ export function FAQ() {
           <h4 className="text-lg font-medium text-white mb-2">
             Is my customer data safe?
           </h4>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Absolutely. ValueCanvas is built on a multi-tenant architecture with
             strict and enterprise-grade secrets management. Your data is
             isolated, encrypted, and governed by strict compliance.
@@ -30,7 +30,7 @@ export function FAQ() {
           <h4 className="text-lg font-medium text-white mb-2">
             Will this replace my team?
           </h4>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             No. It creates a . By automating the research and modeling grunt
             work, your team focuses on strategic relationships. We don't replace
             the strategist; we replace the spreadsheet drudgery.
@@ -41,7 +41,7 @@ export function FAQ() {
             <h4 className="text-white font-medium mb-1">
               Have more questions?
             </h4>
-            <p className="text-sm text-zinc-400 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Our solution engineers are ready to walk you through the
               architecture.
             </p>

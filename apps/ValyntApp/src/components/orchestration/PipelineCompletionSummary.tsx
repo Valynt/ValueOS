@@ -67,10 +67,10 @@ export function PipelineCompletionSummary({
           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-zinc-900">
+          <h3 className="text-base font-semibold text-foreground">
             Value Case Finalized
           </h3>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             {pipeline.revisionCycle > 0
               ? `Completed after ${pipeline.revisionCycle} revision${pipeline.revisionCycle > 1 ? "s" : ""}`
               : "Completed on first pass"}
@@ -81,38 +81,38 @@ export function PipelineCompletionSummary({
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
         {/* Hypotheses */}
-        <div className="rounded-lg bg-white border border-zinc-100 px-3 py-2.5">
+        <div className="rounded-lg bg-card border border-border px-3 py-2.5">
           <div className="flex items-center gap-1.5 mb-1">
             <Sparkles className="h-3.5 w-3.5 text-brand-indigo" />
-            <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               Hypotheses
             </span>
           </div>
-          <span className="text-lg font-bold text-zinc-900 tabular-nums">
+          <span className="text-lg font-bold text-foreground tabular-nums">
             {hypothesisCount}
           </span>
         </div>
 
         {/* Total Value */}
         {typeof totalValue === "number" && totalValue > 0 && (
-          <div className="rounded-lg bg-white border border-zinc-100 px-3 py-2.5">
+          <div className="rounded-lg bg-card border border-border px-3 py-2.5">
             <div className="flex items-center gap-1.5 mb-1">
               <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Total Value
               </span>
             </div>
-            <span className="text-lg font-bold text-zinc-900 tabular-nums">
+            <span className="text-lg font-bold text-foreground tabular-nums">
               {formatValue(totalValue)}
             </span>
           </div>
         )}
 
         {/* Confidence */}
-        <div className="rounded-lg bg-white border border-zinc-100 px-3 py-2.5">
+        <div className="rounded-lg bg-card border border-border px-3 py-2.5">
           <div className="flex items-center gap-1.5 mb-1">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               Confidence
             </span>
           </div>
@@ -130,14 +130,14 @@ export function PipelineCompletionSummary({
         </div>
 
         {/* Duration */}
-        <div className="rounded-lg bg-white border border-zinc-100 px-3 py-2.5">
+        <div className="rounded-lg bg-card border border-border px-3 py-2.5">
           <div className="flex items-center gap-1.5 mb-1">
-            <Clock className="h-3.5 w-3.5 text-zinc-400" />
-            <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               Duration
             </span>
           </div>
-          <span className="text-lg font-bold text-zinc-900 tabular-nums">
+          <span className="text-lg font-bold text-foreground tabular-nums">
             {duration}
           </span>
         </div>

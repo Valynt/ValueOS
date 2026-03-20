@@ -59,7 +59,7 @@ export function ResumePanel({
   };
 
   return (
-    <Card className="border-slate-200 bg-white shadow-sm overflow-hidden">
+    <Card className="border-slate-200 bg-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
         {loading ? (

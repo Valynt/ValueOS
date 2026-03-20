@@ -60,13 +60,13 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
 
   return (
     <div className="space-y-3">
-      <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Agent Workflow</h4>
+      <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Agent Workflow</h4>
 
       {/* No run yet */}
       {!runId && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-dashed border-zinc-200">
-          <Clock className="w-4 h-4 text-zinc-300 flex-shrink-0" />
-          <p className="text-[12px] text-zinc-400">
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface border border-dashed border-border">
+          <Clock className="w-4 h-4 text-foreground/80 flex-shrink-0" />
+          <p className="text-[12px] text-muted-foreground">
             Click "Run Stage" in the Hypothesis panel to start the agent.
           </p>
         </div>
@@ -92,17 +92,17 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
               {statusIcon()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-medium text-zinc-800">{statusLabel()}</p>
+              <p className="text-[12px] font-medium text-foreground">{statusLabel()}</p>
               {job?.message && (
-                <p className="text-[11px] text-zinc-500 mt-0.5">{job.message}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{job.message}</p>
               )}
               {job?.queuedAt && (
-                <p className="text-[11px] text-zinc-400 mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   Queued {new Date(job.queuedAt).toLocaleTimeString()}
                 </p>
               )}
               {job?.completedAt && job.latency && (
-                <p className="text-[11px] text-zinc-400 mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   Completed in {(job.latency / 1000).toFixed(1)}s
                 </p>
               )}
@@ -122,7 +122,7 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
             </div>
           )}
 
-          <p className="text-[10px] text-zinc-300 font-mono px-1">run: {runId}</p>
+          <p className="text-[10px] text-foreground/80 font-mono px-1">run: {runId}</p>
         </div>
       )}
 
@@ -137,10 +137,10 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
             Agent run completed. Review the hypothesis output before proceeding to the Model stage.
           </p>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[12px] font-medium hover:bg-zinc-800 transition-colors">
+            <button className="px-3 py-1.5 bg-background text-white rounded-lg text-[12px] font-medium hover:bg-surface-elevated transition-colors">
               Approve
             </button>
-            <button className="px-3 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-[12px] font-medium hover:bg-zinc-50 transition-colors">
+            <button className="px-3 py-1.5 border border-border text-muted-foreground rounded-lg text-[12px] font-medium hover:bg-surface transition-colors">
               Request Changes
             </button>
           </div>
@@ -148,17 +148,17 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
       )}
 
       {/* Agent input */}
-      <div className="flex items-end gap-2 bg-white border border-zinc-200 rounded-2xl p-2 mt-4">
+      <div className="flex items-end gap-2 bg-card border border-border rounded-2xl p-2 mt-4">
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Ask the agent about this case..."
           rows={1}
-          className="flex-1 resize-none bg-transparent px-3 py-2 text-[13px] text-zinc-900 placeholder:text-zinc-400 placeholder:italic placeholder:font-light outline-none"
+          className="flex-1 resize-none bg-transparent px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground placeholder:italic placeholder:font-light outline-none"
         />
         <button
           disabled={!message.trim()}
-          className="w-9 h-9 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="w-9 h-9 bg-background rounded-full flex items-center justify-center flex-shrink-0 hover:bg-surface-elevated disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ArrowUp className="w-3.5 h-3.5 text-white" />
         </button>

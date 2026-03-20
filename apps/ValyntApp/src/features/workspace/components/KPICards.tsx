@@ -97,7 +97,7 @@ function KPICard({
       "rounded-xl p-5 transition-all",
       isDark 
         ? "bg-slate-800/50 border border-slate-700/50" 
-        : "bg-white border border-slate-200 shadow-sm"
+        : "bg-card border border-slate-200 shadow-sm"
     )}>
       <div className="flex items-start justify-between mb-3">
         <span className={cn(

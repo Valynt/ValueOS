@@ -16,7 +16,7 @@ const models = [
 const statusConfig: Record<string, { color: string; bg: string }> = {
   active: { color: "text-emerald-700", bg: "bg-emerald-50" },
   draft: { color: "text-amber-700", bg: "bg-amber-50" },
-  archived: { color: "text-zinc-500", bg: "bg-zinc-100" },
+  archived: { color: "text-muted-foreground", bg: "bg-muted" },
 };
 
 export default function Models() {
@@ -30,9 +30,9 @@ export default function Models() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-zinc-950 tracking-[-0.05em]">Value Models</h1>
-          <p className="text-[13px] text-zinc-400 mt-1">Reusable modeling frameworks for value cases</p>
+          <p className="text-[13px] text-muted-foreground mt-1">Reusable modeling frameworks for value cases</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-background text-white rounded-xl text-[13px] font-medium hover:bg-surface-elevated transition-colors">
           <Plus className="w-4 h-4" />
           New Model
         </button>
@@ -40,18 +40,18 @@ export default function Models() {
 
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 bg-white flex-1 max-w-xs">
-          <Search className="w-4 h-4 text-zinc-400" />
-          <input type="text" placeholder="Search models..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-zinc-400" />
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card flex-1 max-w-xs">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <input type="text" placeholder="Search models..." className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" />
         </div>
-        <div className="flex items-center gap-1 bg-white border border-zinc-200 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
           {["all", "active", "draft", "archived"].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors capitalize",
-                filter === s ? "bg-zinc-950 text-white" : "text-zinc-500 hover:text-zinc-700"
+                filter === s ? "bg-background text-white" : "text-muted-foreground hover:text-muted-foreground"
               )}
             >
               {s === "all" ? "All" : s}
@@ -68,7 +68,7 @@ export default function Models() {
             <Link
               key={m.id}
               to={`/models/${m.id}`}
-              className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] hover:border-zinc-300 hover:shadow-md transition-all group"
+              className="bg-card border border-border rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] hover:border-border hover:shadow-md transition-all group"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
@@ -78,22 +78,22 @@ export default function Models() {
                   {m.status}
                 </span>
               </div>
-              <h3 className="text-[14px] font-semibold text-zinc-900 mb-1 group-hover:text-zinc-950">{m.name}</h3>
+              <h3 className="text-[14px] font-semibold text-foreground mb-1 group-hover:text-zinc-950">{m.name}</h3>
               <div className="flex items-center gap-2 mb-4">
-                <Tag className="w-3 h-3 text-zinc-400" />
-                <span className="text-[12px] text-zinc-500">{m.category}</span>
-                <span className="text-zinc-300">&middot;</span>
-                <span className="text-[12px] text-zinc-400">{m.version}</span>
+                <Tag className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[12px] text-muted-foreground">{m.category}</span>
+                <span className="text-foreground/80">&middot;</span>
+                <span className="text-[12px] text-muted-foreground">{m.version}</span>
               </div>
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+              <div className="flex items-center justify-between pt-3 border-t border-border">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
-                    <BarChart3 className="w-3 h-3 text-zinc-400" />
-                    <span className="text-[12px] text-zinc-500">{m.kpis} KPIs</span>
+                    <BarChart3 className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[12px] text-muted-foreground">{m.kpis} KPIs</span>
                   </div>
-                  <span className="text-[12px] text-zinc-400">Used by {m.usedBy}</span>
+                  <span className="text-[12px] text-muted-foreground">Used by {m.usedBy}</span>
                 </div>
-                <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-zinc-500 transition-colors" />
+                <ArrowRight className="w-4 h-4 text-foreground/80 group-hover:text-muted-foreground transition-colors" />
               </div>
             </Link>
           );

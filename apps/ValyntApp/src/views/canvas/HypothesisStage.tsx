@@ -51,13 +51,13 @@ function EditableField({
             if (e.key === "Enter") { onSave(draft); setEditing(false); }
             if (e.key === "Escape") { setDraft(value); setEditing(false); }
           }}
-          className={cn("bg-white border border-zinc-300 rounded-lg px-2 py-1 text-[13px] outline-none focus:border-zinc-500", className)}
+          className={cn("bg-card border border-border rounded-lg px-2 py-1 text-[13px] outline-none focus:border-zinc-500", className)}
         />
-        <button onClick={() => { onSave(draft); setEditing(false); }} className="p-1 rounded hover:bg-zinc-100">
+        <button onClick={() => { onSave(draft); setEditing(false); }} className="p-1 rounded hover:bg-muted">
           <Check className="w-3 h-3 text-emerald-600" />
         </button>
-        <button onClick={() => { setDraft(value); setEditing(false); }} className="p-1 rounded hover:bg-zinc-100">
-          <X className="w-3 h-3 text-zinc-400" />
+        <button onClick={() => { setDraft(value); setEditing(false); }} className="p-1 rounded hover:bg-muted">
+          <X className="w-3 h-3 text-muted-foreground" />
         </button>
       </div>
     );
@@ -66,10 +66,10 @@ function EditableField({
   return (
     <span
       onClick={() => setEditing(true)}
-      className={cn("cursor-pointer hover:bg-zinc-100 rounded px-1 -mx-1 transition-colors group/edit inline-flex items-center gap-1", className)}
+      className={cn("cursor-pointer hover:bg-muted rounded px-1 -mx-1 transition-colors group/edit inline-flex items-center gap-1", className)}
     >
       {value}
-      <Edit3 className="w-3 h-3 text-zinc-300 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+      <Edit3 className="w-3 h-3 text-foreground/80 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
     </span>
   );
 }
@@ -78,7 +78,7 @@ function EditableField({
 function ConfidenceBadge({ value, source }: { value: number; source: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-10 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+      <div className="w-10 h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full",
@@ -87,9 +87,9 @@ function ConfidenceBadge({ value, source }: { value: number; source: string }) {
           style={{ width: `${value}%` }}
         />
       </div>
-      <span className="text-[10px] font-medium text-zinc-500">{value}%</span>
-      <span className="text-[10px] text-zinc-300">·</span>
-      <span className="text-[10px] text-zinc-400">{source}</span>
+      <span className="text-[10px] font-medium text-muted-foreground">{value}%</span>
+      <span className="text-[10px] text-foreground/80">·</span>
+      <span className="text-[10px] text-muted-foreground">{source}</span>
     </div>
   );
 }
@@ -98,7 +98,7 @@ function ConfidenceBadge({ value, source }: { value: number; source: string }) {
 function DirectionIcon({ direction }: { direction: "up" | "down" | "neutral" }) {
   if (direction === "up") return <TrendingUp className="w-3 h-3 text-emerald-500" />;
   if (direction === "down") return <TrendingDown className="w-3 h-3 text-blue-500" />;
-  return <Minus className="w-3 h-3 text-zinc-400" />;
+  return <Minus className="w-3 h-3 text-muted-foreground" />;
 }
 
 // Ghost KPI card — suggested by domain pack, not yet in the case
@@ -113,22 +113,22 @@ function GhostKPICard({
 }) {
   return (
     <div className={cn(
-      "bg-white border rounded-xl p-4 transition-all",
+      "bg-card border rounded-xl p-4 transition-all",
       kpi.hardened
-        ? "border-zinc-200"
-        : "border-dashed border-zinc-300 bg-zinc-50/50 hover:border-zinc-400"
+        ? "border-border"
+        : "border-dashed border-border bg-surface/50 hover:border-zinc-400"
     )}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <DirectionIcon direction={kpi.direction} />
-          <span className="text-[13px] font-semibold text-zinc-900">{kpi.name}</span>
+          <span className="text-[13px] font-semibold text-foreground">{kpi.name}</span>
           {kpi.unit && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-500">{kpi.unit}</span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{kpi.unit}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {kpi.category && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
               {kpi.category}
             </span>
           )}
@@ -146,16 +146,16 @@ function GhostKPICard({
       </div>
 
       {kpi.description && (
-        <p className="text-[12px] text-zinc-500 mb-2">{kpi.description}</p>
+        <p className="text-[12px] text-muted-foreground mb-2">{kpi.description}</p>
       )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {kpi.baseline_hint && (
-            <span className="text-[11px] text-zinc-400 italic">{kpi.baseline_hint}</span>
+            <span className="text-[11px] text-muted-foreground italic">{kpi.baseline_hint}</span>
           )}
           {kpi.target_hint && !kpi.baseline_hint && (
-            <span className="text-[11px] text-zinc-400 italic">{kpi.target_hint}</span>
+            <span className="text-[11px] text-muted-foreground italic">{kpi.target_hint}</span>
           )}
         </div>
 
@@ -163,7 +163,7 @@ function GhostKPICard({
           <button
             onClick={onAccept}
             disabled={isAccepting}
-            className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
           >
             <Plus className="w-3 h-3" />
             Accept
@@ -187,14 +187,14 @@ function DomainPackKPIs() {
   const ghostCount = merged.kpis.filter(k => !k.hardened).length;
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-violet-600" />
-          <h4 className="text-[13px] font-semibold text-zinc-900">
+          <h4 className="text-[13px] font-semibold text-foreground">
             {merged.pack.name} KPIs
           </h4>
-          <span className="text-[11px] text-zinc-400">
+          <span className="text-[11px] text-muted-foreground">
             {merged.kpis.length} metrics · {ghostCount} suggested
           </span>
         </div>
@@ -202,7 +202,7 @@ function DomainPackKPIs() {
           <button
             onClick={() => hardenAll.mutate({ caseId })}
             disabled={hardenAll.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[11px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-background text-white rounded-lg text-[11px] font-medium hover:bg-surface-elevated transition-colors disabled:opacity-50"
           >
             <ArrowRight className="w-3 h-3" />
             {hardenAll.isPending ? "Adding..." : `Add all ${ghostCount} KPIs`}
@@ -235,7 +235,7 @@ function DomainPackAssumptions() {
   const originLabel = (origin: string) => {
     if (origin === "domain_pack") return { text: "Domain Default", color: "bg-violet-50 text-violet-700" };
     if (origin === "manual") return { text: "User Override", color: "bg-emerald-50 text-emerald-700" };
-    return { text: "System Default", color: "bg-zinc-100 text-zinc-500" };
+    return { text: "System Default", color: "bg-muted text-muted-foreground" };
   };
 
   const formatValue = (a: typeof merged.assumptions[0]) => {
@@ -245,11 +245,11 @@ function DomainPackAssumptions() {
   };
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+    <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center gap-2 mb-4">
         <Layers className="w-4 h-4 text-amber-600" />
-        <h4 className="text-[13px] font-semibold text-zinc-900">Financial Assumptions</h4>
-        <span className="text-[11px] text-zinc-400">{merged.assumptions.length} parameters</span>
+        <h4 className="text-[13px] font-semibold text-foreground">Financial Assumptions</h4>
+        <span className="text-[11px] text-muted-foreground">{merged.assumptions.length} parameters</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -260,18 +260,18 @@ function DomainPackAssumptions() {
               key={a.assumption_key}
               className={cn(
                 "p-3 rounded-xl border transition-colors",
-                a.hardened ? "bg-white border-zinc-200" : "bg-zinc-50/50 border-dashed border-zinc-300"
+                a.hardened ? "bg-card border-border" : "bg-surface/50 border-dashed border-border"
               )}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-zinc-400">{a.display_name}</span>
+                <span className="text-[11px] text-muted-foreground">{a.display_name}</span>
                 <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-semibold", origin.color)}>
                   {origin.text}
                 </span>
               </div>
               <p className="text-lg font-black text-zinc-950 tracking-tight">{formatValue(a)}</p>
               {a.description && (
-                <p className="text-[10px] text-zinc-400 mt-0.5">{a.description}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{a.description}</p>
               )}
             </div>
           );
@@ -335,15 +335,15 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Lightbulb className="w-4 h-4 text-blue-600" />
-          <h4 className="text-[13px] font-semibold text-zinc-900">Hypotheses</h4>
+          <h4 className="text-[13px] font-semibold text-foreground">Hypotheses</h4>
           {!isLoading && (
-            <span className="text-[11px] text-zinc-400">{hypotheses.length} claims</span>
+            <span className="text-[11px] text-muted-foreground">{hypotheses.length} claims</span>
           )}
         </div>
         <button
           onClick={handleRunStage}
           disabled={runAgent.isPending || isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-background text-white rounded-xl text-[12px] font-medium hover:bg-surface-elevated transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {runAgent.isPending ? (
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -356,7 +356,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12 text-zinc-400">
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
           <span className="text-[13px]">Loading hypothesis data…</span>
         </div>
@@ -389,10 +389,10 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
 
       {/* Empty state — no run yet */}
       {!isLoading && !runAgent.isPending && hypotheses.length === 0 && (
-        <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-2xl p-8 text-center">
-          <Lightbulb className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
-          <p className="text-[14px] font-medium text-zinc-600">No hypotheses yet</p>
-          <p className="text-[12px] text-zinc-400 mt-1">Click "Run Stage" to have the Opportunity Agent generate value hypotheses.</p>
+        <div className="bg-surface border border-dashed border-border rounded-2xl p-8 text-center">
+          <Lightbulb className="w-8 h-8 text-foreground/80 mx-auto mb-3" />
+          <p className="text-[14px] font-medium text-muted-foreground">No hypotheses yet</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Click "Run Stage" to have the Opportunity Agent generate value hypotheses.</p>
         </div>
       )}
 
@@ -405,13 +405,13 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             const statusConfig = {
               verified: { label: "Verified", color: "text-emerald-700", bg: "bg-emerald-50", icon: Check },
               "needs-evidence": { label: "Needs Evidence", color: "text-amber-700", bg: "bg-amber-50", icon: AlertTriangle },
-              draft: { label: "Draft", color: "text-zinc-500", bg: "bg-zinc-100", icon: Edit3 },
+              draft: { label: "Draft", color: "text-muted-foreground", bg: "bg-muted", icon: Edit3 },
             };
             const st = statusConfig[status];
             const StIcon = st.icon;
 
             return (
-              <div key={`${h.title}-${i}`} className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-colors">
+              <div key={`${h.title}-${i}`} className="bg-card border border-border rounded-2xl p-5 hover:border-border transition-colors">
                 {/* Status + confidence row */}
                 <div className="flex items-center justify-between mb-3">
                   <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", st.color, st.bg)}>
@@ -422,14 +422,14 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
                 </div>
 
                 {/* Title + description */}
-                <p className="text-[14px] font-semibold text-zinc-900 mb-1">{h.title}</p>
-                <p className="text-[13px] text-zinc-600 leading-relaxed mb-3">{h.description}</p>
+                <p className="text-[14px] font-semibold text-foreground mb-1">{h.title}</p>
+                <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{h.description}</p>
 
                 {/* Impact range */}
                 {h.estimated_impact && (
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Impact:</span>
-                    <span className="text-[12px] font-medium text-zinc-700">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Impact:</span>
+                    <span className="text-[12px] font-medium text-muted-foreground">
                       {h.estimated_impact.low}–{h.estimated_impact.high} {h.estimated_impact.unit}
                       {" "}over {h.estimated_impact.timeframe_months}mo
                     </span>
@@ -439,9 +439,9 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
                 {/* Evidence chain */}
                 {h.evidence.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Evidence:</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Evidence:</span>
                     {h.evidence.map((e) => (
-                      <span key={e} className="flex items-center gap-1 px-2 py-0.5 bg-zinc-50 border border-zinc-100 rounded-md text-[10px] text-zinc-600">
+                      <span key={e} className="flex items-center gap-1 px-2 py-0.5 bg-surface border border-border rounded-md text-[10px] text-muted-foreground">
                         <FileSearch className="w-2.5 h-2.5" />
                         {e}
                       </span>
@@ -456,7 +456,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
 
       {/* Metadata footer when output exists */}
       {hypothesisOutput && (
-        <div className="text-[11px] text-zinc-400 text-right">
+        <div className="text-[11px] text-muted-foreground text-right">
           Last run: {new Date(hypothesisOutput.created_at).toLocaleString()} · confidence: {hypothesisOutput.confidence ?? "—"}
         </div>
       )}
@@ -468,10 +468,10 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
       <DomainPackAssumptions />
 
       {/* Company intelligence — from CompanyValueContext when available */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-zinc-500" />
-          <h4 className="text-[13px] font-semibold text-zinc-900">Company Intelligence</h4>
+          <Sparkles className="w-4 h-4 text-muted-foreground" />
+          <h4 className="text-[13px] font-semibold text-foreground">Company Intelligence</h4>
           <span className={cn(
             "ml-auto text-[10px] px-2 py-0.5 rounded-full font-semibold",
             isReady ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
@@ -484,19 +484,19 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
           <>
             {/* Real data from company context */}
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-3 bg-zinc-50 rounded-xl">
-                <p className="text-[11px] text-zinc-400">Company</p>
+              <div className="p-3 bg-surface rounded-xl">
+                <p className="text-[11px] text-muted-foreground">Company</p>
                 <p className="text-lg font-black text-zinc-950 tracking-tight">{companyContext.context.company_name}</p>
-                <p className="text-[11px] font-medium text-zinc-500 capitalize">
+                <p className="text-[11px] font-medium text-muted-foreground capitalize">
                   {companyContext.context.industry || "—"} · {companyContext.context.company_size?.replace("_", " ") || "—"}
                 </p>
               </div>
-              <div className="p-3 bg-zinc-50 rounded-xl">
-                <p className="text-[11px] text-zinc-400">Sales Motion</p>
+              <div className="p-3 bg-surface rounded-xl">
+                <p className="text-[11px] text-muted-foreground">Sales Motion</p>
                 <p className="text-lg font-black text-zinc-950 tracking-tight capitalize">
                   {companyContext.context.sales_motion?.replace("_", " ") || "—"}
                 </p>
-                <p className="text-[11px] font-medium text-zinc-500">
+                <p className="text-[11px] font-medium text-muted-foreground">
                   {companyContext.context.annual_revenue || "Revenue not set"}
                 </p>
               </div>
@@ -506,8 +506,8 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             {companyContext.products.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Package className="w-3 h-3 text-zinc-400" />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Products</p>
+                  <Package className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Products</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {companyContext.products.map((p) => (
@@ -523,8 +523,8 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             {companyContext.personas.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Users className="w-3 h-3 text-zinc-400" />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Target Personas</p>
+                  <Users className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Target Personas</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {companyContext.personas.map((p) => (
@@ -540,8 +540,8 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             {companyContext.competitors.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Swords className="w-3 h-3 text-zinc-400" />
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Competitive Landscape</p>
+                  <Swords className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Competitive Landscape</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {companyContext.competitors.map((c) => (
@@ -559,13 +559,13 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: "Annual Revenue", value: "$2.4B", sub: "+8.2% YoY", conf: 98, subColor: "text-emerald-600" },
-              { label: "Employees", value: "12,400", sub: "Manufacturing", conf: 95, subColor: "text-zinc-500" },
-              { label: "IT Spend (est.)", value: "$180M", sub: "7.5% of revenue", conf: 82, subColor: "text-zinc-500" },
+              { label: "Employees", value: "12,400", sub: "Manufacturing", conf: 95, subColor: "text-muted-foreground" },
+              { label: "IT Spend (est.)", value: "$180M", sub: "7.5% of revenue", conf: 82, subColor: "text-muted-foreground" },
               { label: "Pain Score", value: "8.4/10", sub: "Legacy migration urgency", conf: 76, subColor: "text-red-500" },
             ].map((m) => (
-              <div key={m.label} className="p-3 bg-zinc-50 rounded-xl">
+              <div key={m.label} className="p-3 bg-surface rounded-xl">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[11px] text-zinc-400">{m.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{m.label}</p>
                   <ConfidenceBadge value={m.conf} source="" />
                 </div>
                 <p className="text-lg font-black text-zinc-950 tracking-tight">{m.value}</p>
@@ -595,10 +595,10 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             sub: isReady ? "from onboarding" : "3 high priority",
           },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-zinc-200 rounded-2xl p-4 text-center">
+          <div key={s.label} className="bg-card border border-border rounded-2xl p-4 text-center">
             <p className="text-2xl font-black text-zinc-950 tracking-tight">{s.value}</p>
-            <p className="text-[11px] font-medium text-zinc-700 mt-1">{s.label}</p>
-            <p className="text-[10px] text-zinc-400">{s.sub}</p>
+            <p className="text-[11px] font-medium text-muted-foreground mt-1">{s.label}</p>
+            <p className="text-[10px] text-muted-foreground">{s.sub}</p>
           </div>
         ))}
       </div>

@@ -50,7 +50,7 @@ export default function LivingValueGraphPage() {
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50">
-      <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
+      <header className="flex items-center justify-between px-4 py-3 bg-card border-b border-neutral-200">
         <div>
           <h1 className="text-lg font-semibold">{graph ? 'Working Capital Optimization' : 'Living Value Graph'}</h1>
           <p className="text-sm text-neutral-500">{opportunityId ? `Opportunity #${opportunityId}` : 'Value Engineering Workspace'}</p>
@@ -78,7 +78,7 @@ export default function LivingValueGraphPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 bg-white border-r border-neutral-200 overflow-y-auto">
+        <aside className="w-64 bg-card border-r border-neutral-200 overflow-y-auto">
           {leftRailTab === 'outline' && graph && (
             <GraphOutlinePanel
               nodes={Object.values(graph.nodes)}
@@ -107,7 +107,7 @@ export default function LivingValueGraphPage() {
           )}
         </main>
 
-        <aside className="w-80 bg-white border-l border-neutral-200 overflow-y-auto">
+        <aside className="w-80 bg-card border-l border-neutral-200 overflow-y-auto">
           <NodeSummaryCard node={selectedNode} />
           <InputsPanel node={selectedNode} />
           <FormulaPanel node={selectedNode} />
@@ -117,7 +117,7 @@ export default function LivingValueGraphPage() {
         </aside>
       </div>
 
-      <div className="h-48 bg-white border-t border-neutral-200 flex">
+      <div className="h-48 bg-card border-t border-neutral-200 flex">
         {bottomTrayTab === 'workflow' && (
           <div className="flex-1 p-4">
             <WorkflowTimeline />

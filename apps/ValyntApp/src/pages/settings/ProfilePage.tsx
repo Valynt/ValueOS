@@ -67,7 +67,7 @@ export function ProfilePage() {
           <div className="flex items-center gap-4">
             <div className="relative">
               <UserAvatar name={profile.fullName} size="lg" />
-              <button className="absolute -bottom-1 -right-1 p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
+              <button className="absolute -bottom-1 -right-1 p-1.5 bg-card border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
                 <Camera className="h-3 w-3 text-muted-foreground" />
               </button>
             </div>

@@ -175,7 +175,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
         <UsageSummaryBanner metrics={metrics} />
 
         {/* Current Plan Card */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-card border border-gray-200 rounded-lg p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Current Plan</h3>
@@ -254,7 +254,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
         </div>
 
         {/* Billing History */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-card border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Billing History</h3>
             <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center">

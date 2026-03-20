@@ -72,14 +72,14 @@ export function CompanyContextPage() {
         title="Company Context"
         description="Provide company information once. Agents use this context to pre-seed all future value cases with relevant background."
       >
-        <div className="flex items-center gap-4 py-3 px-4 rounded-xl border border-zinc-200 bg-zinc-50">
-          <Database className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+        <div className="flex items-center gap-4 py-3 px-4 rounded-xl border border-border bg-surface">
+          <Database className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 min-w-0">
             {isLoading ? (
-              <div className="h-4 w-48 bg-zinc-200 rounded animate-pulse" />
+              <div className="h-4 w-48 bg-muted/70 rounded animate-pulse" />
             ) : hasContext ? (
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm text-zinc-700 font-medium">
+                <span className="text-sm text-muted-foreground font-medium">
                   {summary.entryCount} memory {summary.entryCount === 1 ? "entry" : "entries"} stored
                 </span>
                 {summary.labels.slice(0, 4).map((label) => (
@@ -89,13 +89,13 @@ export function CompanyContextPage() {
                 ))}
               </div>
             ) : (
-              <span className="text-sm text-zinc-500">
+              <span className="text-sm text-muted-foreground">
                 No context configured. Fill in the form below to get started.
               </span>
             )}
           </div>
           {hasContext && (
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400 flex-shrink-0">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-shrink-0">
               <Clock className="w-3 h-3" />
               <span>Updated {formatDate(summary.lastIngestedAt)}</span>
             </div>
@@ -173,7 +173,7 @@ export function CompanyContextPage() {
                   <button
                     type="button"
                     onClick={() => removeCompetitor(i)}
-                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-muted-foreground hover:bg-muted"
                     aria-label="Remove competitor"
                   >
                     <X className="w-4 h-4" />
@@ -185,7 +185,7 @@ export function CompanyContextPage() {
               <button
                 type="button"
                 onClick={addCompetitor}
-                className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 mt-1"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-muted-foreground mt-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add competitor

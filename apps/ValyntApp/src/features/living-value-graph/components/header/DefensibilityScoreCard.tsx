@@ -25,7 +25,7 @@ export function DefensibilityScoreCard({
   const formattedScore = formatDefensibilityScore(score);
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-neutral-200 shadow-sm">
+    <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-neutral-200 shadow-sm">
       {/* Circular Progress */}
       <div className="relative w-16 h-16">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">

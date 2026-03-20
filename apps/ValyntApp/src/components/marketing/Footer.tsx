@@ -15,20 +15,20 @@ export function Footer() {
                 VALYNT
               </span>
             </Link>
-            <p className="text-sm font-medium text-zinc-400 mb-4">
+            <p className="text-sm font-medium text-muted-foreground mb-4">
               Value Intelligence Platform
             </p>
-            <p className="text-xs text-zinc-500 mb-6">
+            <p className="text-xs text-muted-foreground mb-6">
               The Value Operating System for the AI era.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="text-zinc-500 hover:text-white">
+              <a href="#" className="text-muted-foreground hover:text-white">
                 <Twitter className="w-4 h-4" />
               </a>
-              <a href="#" className="text-zinc-500 hover:text-white">
+              <a href="#" className="text-muted-foreground hover:text-white">
                 <Github className="w-4 h-4" />
               </a>
-              <a href="#" className="text-zinc-500 hover:text-white">
+              <a href="#" className="text-muted-foreground hover:text-white">
                 <Linkedin className="w-4 h-4" />
               </a>
             </div>
@@ -36,19 +36,19 @@ export function Footer() {
 
           <div>
             <h4 className="text-xs font-semibold text-white mb-4">Product</h4>
-            <ul className="space-y-2 text-xs text-zinc-500">
+            <ul className="space-y-2 text-xs text-muted-foreground">
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   VALYNT Engine
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   VALYNT Graph
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   VALYNT Agents
                 </a>
               </li>
@@ -57,19 +57,19 @@ export function Footer() {
 
           <div>
             <h4 className="text-xs font-semibold text-white mb-4">Resources</h4>
-            <ul className="space-y-2 text-xs text-zinc-500">
+            <ul className="space-y-2 text-xs text-muted-foreground">
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   Documentation
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   Case Studies
                 </a>
               </li>
               <li>
-                <Link to="/academy" className="hover:text-zinc-300">
+                <Link to="/academy" className="hover:text-foreground/80">
                   VALYNT Academy
                 </Link>
               </li>
@@ -78,14 +78,14 @@ export function Footer() {
 
           <div>
             <h4 className="text-xs font-semibold text-white mb-4">Company</h4>
-            <ul className="space-y-2 text-xs text-zinc-500">
+            <ul className="space-y-2 text-xs text-muted-foreground">
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   About
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-zinc-300">
+                <a href="#" className="hover:text-foreground/80">
                   Careers
                 </a>
               </li>
@@ -94,25 +94,25 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/5">
-          <span className="text-[10px] text-zinc-600">
+          <span className="text-[10px] text-muted-foreground">
             © 2024 VALYNT Inc. All rights reserved.
           </span>
           <div className="flex gap-6 mt-4 md:mt-0">
             <a
               href="#"
-              className="text-[10px] text-zinc-600 hover:text-zinc-400"
+              className="text-[10px] text-muted-foreground hover:text-muted-foreground"
             >
               Privacy Policy
             </a>
             <a
               href="#"
-              className="text-[10px] text-zinc-600 hover:text-zinc-400"
+              className="text-[10px] text-muted-foreground hover:text-muted-foreground"
             >
               Terms of Service
             </a>
             <a
               href="/llms.txt"
-              className="text-[10px] text-zinc-600 hover:text-zinc-400"
+              className="text-[10px] text-muted-foreground hover:text-muted-foreground"
             >
               For AI systems
             </a>

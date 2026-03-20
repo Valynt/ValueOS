@@ -90,7 +90,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     <div className="flex h-full min-h-screen bg-gray-50">
       {/* Left Rail */}
       <nav
-        className="w-64 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto"
+        className="w-64 flex-shrink-0 bg-card border-r border-gray-200 overflow-y-auto"
         aria-label="Admin navigation"
       >
         {/* Search */}
@@ -123,7 +123,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           {/* Search Results */}
           {searchResults.length > 0 && (
             <ul
-              className="mt-2 border border-gray-200 rounded-md bg-white shadow-sm max-h-60 overflow-y-auto"
+              className="mt-2 border border-gray-200 rounded-md bg-card shadow-sm max-h-60 overflow-y-auto"
               role="listbox"
             >
               {searchResults.map((item) => (
@@ -221,7 +221,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         {/* Breadcrumbs + Scope Badge */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
+        <div className="bg-card border-b border-gray-200 px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
               {/* Breadcrumbs */}

@@ -61,12 +61,12 @@ export function AuditLogsPage() {
       </div>
       {exportError && <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{exportError}</div>}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Controls Passing</div><div className="text-2xl font-semibold">{controls?.summary.controls_passing ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Warnings</div><div className="text-2xl font-semibold">{controls?.summary.controls_warning ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Failing</div><div className="text-2xl font-semibold">{controls?.summary.controls_failing ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Last Evidence Refresh</div><div className="text-sm font-medium">{controls ? new Date(controls.generated_at).toLocaleString() : "-"}</div></div>
+        <div className="rounded border p-3 bg-card"><div className="text-xs text-gray-500">Controls Passing</div><div className="text-2xl font-semibold">{controls?.summary.controls_passing ?? 0}</div></div>
+        <div className="rounded border p-3 bg-card"><div className="text-xs text-gray-500">Warnings</div><div className="text-2xl font-semibold">{controls?.summary.controls_warning ?? 0}</div></div>
+        <div className="rounded border p-3 bg-card"><div className="text-xs text-gray-500">Failing</div><div className="text-2xl font-semibold">{controls?.summary.controls_failing ?? 0}</div></div>
+        <div className="rounded border p-3 bg-card"><div className="text-xs text-gray-500">Last Evidence Refresh</div><div className="text-sm font-medium">{controls ? new Date(controls.generated_at).toLocaleString() : "-"}</div></div>
       </div>
-      <div className="rounded border bg-white overflow-hidden">
+      <div className="rounded border bg-card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>

@@ -9,7 +9,7 @@ export function LeftRail() {
   const { steps, currentStep, isStepBlocked, getBlockingReason, completeStep } = useWorkflowState();
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col">
+    <aside className="w-64 bg-card border-r border-neutral-200 flex flex-col">
       <WorkflowStepPanel
         steps={steps}
         currentStep={currentStep}

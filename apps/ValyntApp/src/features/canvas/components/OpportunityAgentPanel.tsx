@@ -37,7 +37,7 @@ export const OpportunityAgentPanel: React.FC<OpportunityAgentPanelProps> = ({ ag
   };
 
   return (
-    <div className="rounded-lg border p-4 bg-white dark:bg-neutral-900 shadow">
+    <div className="rounded-lg border p-4 bg-card dark:bg-neutral-900 shadow">
       <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
         <span role="img" aria-label="Opportunity">
           💡
@@ -62,7 +62,7 @@ export const OpportunityAgentPanel: React.FC<OpportunityAgentPanelProps> = ({ ag
                   <Input
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="h-8 text-sm bg-white"
+                    className="h-8 text-sm bg-card"
                   />
                   <Button size="xs" onClick={() => saveEdit(msg.id)}>
                     <Check className="h-3 w-3" />
@@ -86,7 +86,7 @@ export const OpportunityAgentPanel: React.FC<OpportunityAgentPanelProps> = ({ ag
                   </div>
                   {msg.metadata?.confidence && (
                     <div className="mt-2">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/50">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-card/50">
                         {msg.metadata.confidence} confidence
                       </Badge>
                     </div>

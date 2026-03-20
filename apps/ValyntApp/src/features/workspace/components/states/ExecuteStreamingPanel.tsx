@@ -68,7 +68,7 @@ export function ExecuteStreamingPanel({
   };
 
   return (
-    <Card className="border-purple-200 bg-white shadow-sm overflow-hidden">
+    <Card className="border-purple-200 bg-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-purple-50/50 border-b border-purple-100 flex items-center justify-between">
         <div className="flex items-center gap-2">

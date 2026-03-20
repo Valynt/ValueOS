@@ -162,9 +162,9 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
   };
 
   return (
-    <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col">
+    <div className="fixed right-0 top-0 h-full w-96 bg-card border-l border-border shadow-xl z-50 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="text-lg font-semibold">Add Value Driver</h2>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="w-4 h-4" />
@@ -172,7 +172,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
       </div>
 
       {/* Category Filter */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-border">
         <div className="flex gap-2 flex-wrap">
           {categories.map((category) => (
             <Button
@@ -192,7 +192,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
         <div className="p-4 space-y-6">
           {/* Blank Drivers */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Blank Drivers</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Blank Drivers</h3>
             <div className="grid grid-cols-2 gap-3">
               <Card
                 className="cursor-pointer hover:shadow-md transition-shadow"
@@ -201,7 +201,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
                 <CardContent className="p-3 text-center">
                   <Hash className="w-6 h-6 mx-auto mb-2 text-blue-500" />
                   <div className="text-sm font-medium">Input Driver</div>
-                  <div className="text-xs text-gray-500">Manual value entry</div>
+                  <div className="text-xs text-muted-foreground">Manual value entry</div>
                 </CardContent>
               </Card>
 
@@ -212,7 +212,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
                 <CardContent className="p-3 text-center">
                   <Calculator className="w-6 h-6 mx-auto mb-2 text-green-500" />
                   <div className="text-sm font-medium">Calculated Driver</div>
-                  <div className="text-xs text-gray-500">Formula-based</div>
+                  <div className="text-xs text-muted-foreground">Formula-based</div>
                 </CardContent>
               </Card>
             </div>
@@ -221,7 +221,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
           {/* Input Drivers */}
           {inputTemplates.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                 <Hash className="w-4 h-4 text-blue-500" />
                 Input Drivers
               </h3>
@@ -242,12 +242,12 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
                               {template.category}
                             </Badge>
                           </div>
-                          <div className="text-xs text-gray-500 mb-2">{template.description}</div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-muted-foreground mb-2">{template.description}</div>
+                          <div className="text-xs text-muted-foreground">
                             Default: {formatValue(template.defaultValue, template.format)}
                           </div>
                         </div>
-                        <Plus className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <Plus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </CardContent>
                   </Card>
@@ -259,7 +259,7 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
           {/* Calculated Drivers */}
           {calculatedTemplates.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                 <Calculator className="w-4 h-4 text-green-500" />
                 Calculated Drivers
               </h3>
@@ -280,15 +280,15 @@ export const ValueDriverLibrary: React.FC<ValueDriverLibraryProps> = ({ onAddDri
                               {template.category}
                             </Badge>
                           </div>
-                          <div className="text-xs text-gray-500 mb-2">{template.description}</div>
-                          <div className="text-xs text-gray-400 mb-1">
+                          <div className="text-xs text-muted-foreground mb-2">{template.description}</div>
+                          <div className="text-xs text-muted-foreground mb-1">
                             Formula: {template.formula}
                           </div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-muted-foreground">
                             Default: {formatValue(template.defaultValue, template.format)}
                           </div>
                         </div>
-                        <Plus className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <Plus className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </CardContent>
                   </Card>

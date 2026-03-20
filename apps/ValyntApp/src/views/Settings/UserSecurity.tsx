@@ -438,7 +438,7 @@ export const UserSecurity: React.FC = () => {
                     <div className="flex space-x-2">
                       <button
                         onClick={handleCopyBackupCodes}
-                        className="flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                        className="flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-card transition-colors"
                       >
                         {copiedCode ? (
                           <Check className="h-4 w-4 mr-1.5 text-green-600" />
@@ -449,7 +449,7 @@ export const UserSecurity: React.FC = () => {
                       </button>
                       <button
                         onClick={handleDownloadBackupCodes}
-                        className="flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                        className="flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-card transition-colors"
                       >
                         <Download className="h-4 w-4 mr-1.5" />
                         Download
@@ -460,7 +460,7 @@ export const UserSecurity: React.FC = () => {
                     {backupCodes.map((code, index) => (
                       <div
                         key={index}
-                        className="px-3 py-2 bg-white border border-gray-200 rounded"
+                        className="px-3 py-2 bg-card border border-gray-200 rounded"
                       >
                         {code}
                       </div>
@@ -495,7 +495,7 @@ export const UserSecurity: React.FC = () => {
         ) : (
           <div className="space-y-4">
             <div className="text-center py-6">
-              <div className="inline-flex items-center justify-center w-48 h-48 bg-white border-4 border-gray-300 rounded-lg mb-4">
+              <div className="inline-flex items-center justify-center w-48 h-48 bg-card border-4 border-gray-300 rounded-lg mb-4">
                 <QrCode className="h-32 w-32 text-gray-400" />
               </div>
               <p className="text-sm text-gray-600 mb-4">

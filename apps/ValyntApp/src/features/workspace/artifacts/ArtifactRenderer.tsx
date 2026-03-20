@@ -42,7 +42,7 @@ export function ArtifactRenderer({
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-card">
         <div>
           <div className="flex items-center gap-2">
             <ArtifactTypeIcon type={type} />
@@ -117,7 +117,7 @@ function ContentRenderer({ content }: { content: ArtifactContent }) {
  */
 function MarkdownRenderer({ content }: { content: MarkdownContent }) {
   return (
-    <div className="prose prose-slate max-w-none bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+    <div className="prose prose-slate max-w-none bg-card rounded-lg border border-slate-200 p-6 shadow-sm">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -215,7 +215,7 @@ function JsonRenderer({ content }: { content: JsonContent }) {
   if ('valueDrivers' in data && Array.isArray(data.valueDrivers)) {
     return (
       <div className="space-y-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+        <div className="bg-card rounded-lg border border-slate-200 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Value Drivers</h3>
           <div className="space-y-3">
             {(data.valueDrivers as Array<{ name: string; impact: number; confidence: number }>).map((driver, index) => (
@@ -251,7 +251,7 @@ function JsonRenderer({ content }: { content: JsonContent }) {
 
   // Fallback: render as formatted JSON
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+    <div className="bg-card rounded-lg border border-slate-200 p-6 shadow-sm">
       <pre className="text-sm text-slate-700 overflow-auto">
         {JSON.stringify(data, null, 2)}
       </pre>
@@ -283,7 +283,7 @@ function TableRenderer({ content }: { content: TableContent }) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-card rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -326,7 +326,7 @@ function ChartRenderer({ content }: { content: ChartContent }) {
   const metrics = config?.metrics as { roi?: number; npv?: number; paybackMonths?: number; irr?: number } | undefined;
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+    <div className="bg-card rounded-lg border border-slate-200 p-6 shadow-sm">
       {/* Simple bar chart */}
       <div className="h-64 flex items-end justify-center gap-8 mb-6">
         {data.map((point, index) => (

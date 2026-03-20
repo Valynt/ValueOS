@@ -25,7 +25,7 @@ export function ApprovalDrawer({ isOpen, onClose, onSubmit }: ApprovalDrawerProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+      <div className="bg-card rounded-lg shadow-lg w-full max-w-md mx-4">
         <div className="p-4 border-b border-neutral-200">
           <h3 className="text-lg font-semibold text-neutral-900">Request Approval</h3>
           <p className="text-sm text-neutral-500">Submit this value case for approval</p>

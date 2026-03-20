@@ -51,7 +51,7 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
           ? "border-brand-indigo/30 bg-brand-indigo/5 shadow-sm shadow-brand-indigo/10"
           : isFailed
             ? "border-red-200 bg-red-50/50"
-            : "border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-sm"
+            : "border-border bg-card hover:border-border hover:shadow-sm"
       } ${className}`}
     >
       {/* Header */}
@@ -76,17 +76,17 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-zinc-800 truncate">
+              <span className="text-sm font-semibold text-foreground truncate">
                 {step.stepName}
               </span>
               {step.agentName && (
-                <span className="text-[10px] text-zinc-400 font-medium hidden sm:inline">
+                <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                   {step.agentName}
                 </span>
               )}
             </div>
             {step.message && (
-              <p className="text-xs text-zinc-500 truncate mt-0.5">
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {step.message}
               </p>
             )}
@@ -105,7 +105,7 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
 
           {/* Duration */}
           {typeof step.durationMs === "number" && step.status === "completed" && (
-            <span className="text-[10px] text-zinc-400 tabular-nums">
+            <span className="text-[10px] text-muted-foreground tabular-nums">
               {step.durationMs < 1000
                 ? `${step.durationMs}ms`
                 : `${(step.durationMs / 1000).toFixed(1)}s`}
@@ -119,7 +119,7 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
 
           {/* Expand toggle */}
           {step.partialResult && step.status === "completed" && (
-            <span className="text-zinc-400">
+            <span className="text-muted-foreground">
               {expanded ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
@@ -132,12 +132,12 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
 
       {/* Expanded detail */}
       {expanded && step.partialResult && (
-        <div className="border-t border-zinc-100 px-4 py-3 space-y-2">
+        <div className="border-t border-border px-4 py-3 space-y-2">
           {/* Stats row */}
-          <div className="flex items-center gap-4 text-xs text-zinc-500">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {typeof step.partialResult.itemCount === "number" && (
               <span>
-                <span className="font-semibold text-zinc-700">
+                <span className="font-semibold text-muted-foreground">
                   {step.partialResult.itemCount}
                 </span>{" "}
                 items
@@ -145,7 +145,7 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
             )}
             {typeof step.partialResult.totalValue === "number" && (
               <span>
-                <span className="font-semibold text-zinc-700">
+                <span className="font-semibold text-muted-foreground">
                   {formatValue(step.partialResult.totalValue)}
                 </span>{" "}
                 total value
@@ -159,7 +159,7 @@ export function AgentInsightCard({ step, className = "" }: AgentInsightCardProps
               {step.partialResult.highlights.map((h, i) => (
                 <li
                   key={i}
-                  className="text-xs text-zinc-600 flex items-start gap-1.5"
+                  className="text-xs text-muted-foreground flex items-start gap-1.5"
                 >
                   <span className="mt-1 h-1 w-1 rounded-full bg-zinc-400 shrink-0" />
                   <span className="line-clamp-2">{h}</span>

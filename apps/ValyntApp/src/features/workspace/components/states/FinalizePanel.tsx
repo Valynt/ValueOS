@@ -46,7 +46,7 @@ export function FinalizePanel({
   }, []);
 
   return (
-    <Card className="border-emerald-200 bg-white shadow-sm overflow-hidden">
+    <Card className="border-emerald-200 bg-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-emerald-50/50 border-b border-emerald-100 flex items-center gap-2">
         {saving ? (

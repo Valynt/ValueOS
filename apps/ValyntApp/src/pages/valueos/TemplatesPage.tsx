@@ -95,7 +95,7 @@ export function TemplatesPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-8 py-4">
+      <header className="bg-card border-b border-slate-200 px-8 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Case Templates</h1>
@@ -204,7 +204,7 @@ function TemplateCard({ template, onUse, onDuplicate, onDelete }: TemplateCardPr
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+    <div className="bg-card rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-slate-100">
         <div className="flex items-start justify-between">
@@ -236,7 +236,7 @@ function TemplateCard({ template, onUse, onDuplicate, onDelete }: TemplateCardPr
                   className="fixed inset-0 z-10" 
                   onClick={() => setShowMenu(false)} 
                 />
-                <div className="absolute right-0 top-8 z-20 w-40 bg-white rounded-lg shadow-lg border border-slate-200 py-1">
+                <div className="absolute right-0 top-8 z-20 w-40 bg-card rounded-lg shadow-lg border border-slate-200 py-1">
                   <button
                     onClick={() => { onDuplicate(); setShowMenu(false); }}
                     className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
@@ -280,7 +280,7 @@ function TemplateCard({ template, onUse, onDuplicate, onDelete }: TemplateCardPr
             return (
               <span
                 key={metricId}
-                className="px-2 py-1 text-xs font-medium bg-white border border-slate-200 rounded-md text-slate-600"
+                className="px-2 py-1 text-xs font-medium bg-card border border-slate-200 rounded-md text-slate-600"
               >
                 {metric.name}
               </span>
