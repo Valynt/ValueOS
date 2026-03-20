@@ -6,7 +6,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 
-import { ProvenanceNode, ProvenancePanel } from "../../../packages/components/components/ProvenancePanel";
+import { ProvenanceNode, ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
 import { ArtifactPreview } from "../../components/canvas/widgets/ArtifactPreview";
 
 describe("Integration: Provenance Panel Flow", () => {
@@ -39,7 +39,8 @@ describe("Integration: Provenance Panel Flow", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("150%"));
+    // Get the element with the claim ID, as the raw HTML is rendered as text in ArtifactPreview
+    fireEvent.click(screen.getByText(/claim-1/i, { selector: 'span[data-claim-id]' }));
     expect(onShowProvenance).toHaveBeenCalledWith("showProvenance", { claimId: "claim-1" });
   });
 
@@ -53,7 +54,7 @@ describe("Integration: Provenance Panel Flow", () => {
       />
     );
 
-    expect(screen.getByText("Provenance")).toBeInTheDocument();
+    expect(screen.getByText("Data Lineage")).toBeInTheDocument();
     expect(screen.getByText("150%")).toBeInTheDocument();
     expect(screen.getByText("CRM")).toBeInTheDocument();
     expect(screen.getByText("Salesforce")).toBeInTheDocument();

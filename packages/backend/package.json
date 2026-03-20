@@ -109,7 +109,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.18",
+    "@vitest/coverage-v8": "^4.0.18"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.90.1"
