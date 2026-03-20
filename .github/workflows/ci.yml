@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -261,7 +261,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -331,7 +331,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -384,7 +384,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -465,7 +465,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -513,7 +513,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -631,7 +631,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.x
 
       - uses: pnpm/action-setup@v4
         with:
@@ -674,7 +674,7 @@ jobs:
 
       - name: Upload Semgrep SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -706,14 +706,14 @@ jobs:
 
       - name: Upload Trivy filesystem SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
       - name: Upload Trivy image SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
