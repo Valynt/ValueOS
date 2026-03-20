@@ -103,8 +103,8 @@ function repairJson(jsonString: string): string {
     return match;
   });
   
-  // Fix single quotes to double quotes
-  repaired = repaired.replace(/'/g, '"');
+  // Convert single-quoted string literals to double-quoted while preserving inner apostrophes
+  repaired = repaired.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '"$1"');
   
   // Fix escaped quotes that shouldn't be escaped
   repaired = repaired.replace(/\\"/g, '"');
