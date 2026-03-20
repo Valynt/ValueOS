@@ -346,26 +346,22 @@ export class AgentAuditLogger {
 
     // Encrypt sensitive response data
     if (sanitized.response_data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data) as any;
+      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data);
     }
 
     // Encrypt sensitive context
     if (sanitized.context) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.context = this.encryptSensitiveData(sanitized.context) as any;
+      sanitized.context = this.encryptSensitiveData(sanitized.context) as AgentContext;
     }
 
     // Encrypt sensitive metadata
     if (sanitized.metadata) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata) as any;
+      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata) as Record<string, unknown>;
     }
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata) as any;
+      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata);
     }
 
     return sanitized;
@@ -683,23 +679,19 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data) as any;
+        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data);
       }
 
       if (entry.context) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.context = this.sanitizeAndZeroMemory(entry.context) as any;
+        entry.context = this.sanitizeAndZeroMemory(entry.context) as AgentContext;
       }
 
       if (entry.metadata) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata) as any;
+        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata) as Record<string, unknown>;
       }
 
       if (entry.response_metadata) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata) as any;
+        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata);
       }
     });
   }
