@@ -34,7 +34,7 @@ export default function LivingValueGraphPage() {
 
   const { graph, isLoading } = useGraphData(caseId);
   const { selectedNodeId, leftRailTab, bottomTrayTab } = useWorkspaceStore();
-  const { phase } = useWorkflowState();
+  const { phase, advancePhase } = useWorkflowState();
   const { activities } = useActivities();
 
   const selectedNode = selectedNodeId && graph ? graph.nodes[selectedNodeId] : null;
@@ -135,7 +135,8 @@ export default function LivingValueGraphPage() {
         isOpen={isApprovalDrawerOpen}
         onClose={() => setIsApprovalDrawerOpen(false)}
         onSubmit={(reason: string) => {
-          console.log('Approval requested:', reason);
+          // TODO: Replace with actual API call to submit approval request
+          advancePhase('VALIDATING', reason);
           setIsApprovalDrawerOpen(false);
         }}
       />
