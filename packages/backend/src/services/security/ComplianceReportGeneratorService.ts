@@ -458,10 +458,18 @@ export class ComplianceReportGeneratorService {
 
 let _complianceReportGeneratorService: ComplianceReportGeneratorService | undefined;
 export const complianceReportGeneratorService = new Proxy({} as ComplianceReportGeneratorService, {
-  get(_target, prop) {
+  get(_target, prop, _receiver) {
     if (!_complianceReportGeneratorService) {
       _complianceReportGeneratorService = new ComplianceReportGeneratorService();
     }
-    return (_complianceReportGeneratorService as unknown as Record<string | symbol, unknown>)[prop];
+    const value = Reflect.get(
+      _complianceReportGeneratorService as ComplianceReportGeneratorService,
+      prop,
+      _complianceReportGeneratorService as ComplianceReportGeneratorService
+    );
+    if (typeof value === "function") {
+      return value.bind(_complianceReportGeneratorService);
+    }
+    return value;
   },
 });
