@@ -271,9 +271,15 @@ export class UnifiedApiClient {
 
     // Double-submit CSRF cookie — read the csrf_token cookie set by the backend
     // and echo it as x-csrf-token on every state-changing request.
-    const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-    if (csrfMatch?.[1] && ["POST", "PUT", "PATCH", "DELETE"].includes(config.method || "GET")) {
-      headers["x-csrf-token"] = decodeURIComponent(csrfMatch[1]);
+    if (typeof document !== "undefined") {
+      const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+      if (csrfMatch?.[1] && ["POST", "PUT", "PATCH", "DELETE"].includes(config.method || "GET")) {
+        try {
+          headers["x-csrf-token"] = decodeURIComponent(csrfMatch[1]);
+        } catch {
+          // If decoding fails, skip setting the CSRF header rather than throwing.
+        }
+      }
     }
 
     // Add request ID header
