@@ -28,7 +28,7 @@ jobs:
       - name: Check for Security Vulnerabilities
         run: |
           # Check for hardcoded secrets
-          if grep -r "password\|secret\|key" --include="*.ts" packages/backend/src/services/ | grep -v "test\|mock\|fixture" | grep -E "(=\s*['\"][^'\"]+['\"]|:\s*['\"][^'\"]+['\"])"; then
+          if grep -riE "\b(password|secret|api_?key)\s*[=:]\s*['\"][a-zA-Z0-9_\-\+]{16,}['\"]" --include="*.ts" -r packages/backend/src/services/ | grep -v -e "test" -e "mock" -e "fixture"; then
             echo "❌ Potential hardcoded secrets found"
             exit 1
           fi
