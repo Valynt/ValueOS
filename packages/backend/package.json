@@ -26,9 +26,9 @@
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-iam": "^3.1012.0",
+    "@aws-sdk/client-iam": "^3.1013.0",
     "@aws-sdk/client-secrets-manager": "^3.989.0",
-    "@aws-sdk/client-sts": "^3.1012.0",
+    "@aws-sdk/client-sts": "^3.1013.0",
     "@e2b/code-interpreter": "^2.3.3",
     "@mcp/ground-truth": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
@@ -65,7 +65,7 @@
     "ipaddr.js": "^2.3.0",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.3",
-    "jspdf": "^4.2.0",
+    "jspdf": "^4.2.1",
     "kafkajs": "^2.2.4",
     "lz-string": "^1.5.0",
     "nats": "^2.29.2",
