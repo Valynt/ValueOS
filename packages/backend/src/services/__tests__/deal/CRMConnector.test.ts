@@ -3,6 +3,61 @@ import { CRMConnector } from "../../deal/CRMConnector.js";
 import { createMockLogger } from "../helpers/testHelpers.js";
 import { REPLAY_ATTACK_VECTORS, COMMAND_INJECTION_PAYLOADS } from "../fixtures/securityFixtures.js";
 
+const mockSupabase = vi.hoisted(() => ({
+  from: vi.fn(() => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: { provider: "hubspot", tenant_id: "tenant-1" },
+      error: null,
+    }),
+  })),
+}));
+
+vi.mock("../../../lib/supabase.js", () => ({
+  createServerSupabaseClient: vi.fn(() => mockSupabase),
+  supabase: mockSupabase,
+}));
+
+global.fetch = vi.fn().mockResolvedValue({
+  ok: true,
+  json: async () => ({ results: [] }),
+});
+
+vi.mock("../../crm/CrmConnectionService.js", () => {
+  return {
+    CrmConnectionService: class CrmConnectionService {
+      async getTokens() {
+        return {
+          accessToken: "mock-access-token",
+          refreshToken: "mock-refresh-token",
+        };
+      }
+    }
+  };
+});
+
+vi.mock("../../crm/providers/index.js", () => {
+  return {
+    getCrmProvider: () => ({
+      fetchOpportunityById: async (tokens: any, id: string) => {
+        if (id.startsWith("fail")) throw new Error("Mock failure");
+        return {
+          externalId: id,
+          name: "Mock Opportunity",
+          stage: "Closed Won",
+          properties: {},
+        };
+      },
+      fetchAccountById: async () => ({
+        externalId: "acc-1",
+        name: "Mock Account",
+        properties: {},
+      }),
+    })
+  };
+});
+
 describe("CRMConnector", () => {
   let connector: CRMConnector;
 
