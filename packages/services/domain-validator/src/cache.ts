@@ -15,6 +15,7 @@ export class DomainCache {
   private cache: Map<string, CacheEntry>;
   private readonly ttlMs: number;
   private readonly maxSize: number;
+  private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(ttlSeconds: number = config.cache.ttlSeconds, maxSize: number = config.cache.maxSize) {
     this.cache = new Map();
@@ -22,7 +23,14 @@ export class DomainCache {
     this.maxSize = maxSize;
 
     // Cleanup expired entries every minute
-    setInterval(() => this.cleanup(), 60 * 1000);
+    this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 1000);
+  }
+
+  /**
+   * Stop the cleanup interval (useful for tests)
+   */
+  stopCleanup(): void {
+    clearInterval(this.cleanupInterval);
   }
 
   /**
@@ -89,7 +97,7 @@ export class DomainCache {
   /**
    * Cleanup expired entries
    */
-  private cleanup(): void {
+  cleanup(): void {
     const now = Date.now();
     let cleanedCount = 0;
 

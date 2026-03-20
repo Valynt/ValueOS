@@ -12,17 +12,19 @@ import { domainDatabase } from './database';
 import { logger } from './logger';
 import { domainValidator } from './validator';
 
-// Validate configuration on startup
-try {
-  validateConfig();
-} catch (error) {
-  logger.error('Configuration validation failed', {
-    error: error instanceof Error ? error.message : String(error),
-  });
-  process.exit(1);
+// Validate configuration on startup (skip during tests)
+if (process.env.NODE_ENV !== 'test') {
+  try {
+    validateConfig();
+  } catch (error) {
+    logger.error('Configuration validation failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    process.exit(1);
+  }
 }
 
-const app = express();
+const app: express.Application = express();
 const startTime = Date.now();
 
 // Middleware
@@ -93,7 +95,7 @@ app.get('/verify', async (req: Request, res: Response) => {
  * 
  * Health check endpoint for monitoring.
  */
-app.get('/health', async (req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection
     const dbHealthy = await domainDatabase.healthCheck();
@@ -110,7 +112,7 @@ app.get('/health', async (req: Request, res: Response) => {
     // Get statistics
     const stats = await domainValidator.getStats();
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - startTime) / 1000),
@@ -127,7 +129,7 @@ app.get('/health', async (req: Request, res: Response) => {
     logger.error('Health check error', {
       error: error instanceof Error ? error.message : String(error),
     });
-    res.status(503).json({
+    return res.status(503).json({
       status: 'unhealthy',
       reason: 'Health check failed',
       timestamp: new Date().toISOString(),
@@ -140,13 +142,13 @@ app.get('/health', async (req: Request, res: Response) => {
  * 
  * Clear the domain cache (admin endpoint).
  */
-app.post('/cache/clear', (req: Request, res: Response) => {
+app.post('/cache/clear', (_req: Request, res: Response) => {
   try {
     const clearedCount = domainValidator.clearCache();
     
     logger.info('Cache cleared via API', { clearedCount });
     
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Cache cleared',
       clearedCount,
     });
@@ -154,7 +156,7 @@ app.post('/cache/clear', (req: Request, res: Response) => {
     logger.error('Cache clear error', {
       error: error instanceof Error ? error.message : String(error),
     });
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to clear cache',
     });
   }
@@ -165,11 +167,11 @@ app.post('/cache/clear', (req: Request, res: Response) => {
  * 
  * Get service statistics (admin endpoint).
  */
-app.get('/stats', async (req: Request, res: Response) => {
+app.get('/stats', async (_req: Request, res: Response) => {
   try {
     const stats = await domainValidator.getStats();
     
-    res.status(200).json({
+    return res.status(200).json({
       uptime: Math.floor((Date.now() - startTime) / 1000),
       cache: {
         size: stats.cacheSize,
@@ -184,7 +186,7 @@ app.get('/stats', async (req: Request, res: Response) => {
     logger.error('Stats error', {
       error: error instanceof Error ? error.message : String(error),
     });
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get stats',
     });
   }
@@ -203,7 +205,7 @@ app.use((req: Request, res: Response) => {
 /**
  * Error handler
  */
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error('Unhandled error', {
     error: err.message,
     stack: err.stack,

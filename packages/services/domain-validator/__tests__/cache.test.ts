@@ -2,7 +2,7 @@
  * Tests for DomainCache
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DomainCache } from '../src/cache';
 
@@ -11,6 +11,10 @@ describe('DomainCache', () => {
 
   beforeEach(() => {
     cache = new DomainCache(5, 10); // 5 second TTL, max 10 entries
+  });
+
+  afterEach(() => {
+    cache.stopCleanup();
   });
 
   describe('get and set', () => {
@@ -120,10 +124,12 @@ describe('DomainCache', () => {
 
   describe('cleanup', () => {
     it('should remove expired entries during cleanup', async () => {
-      cache.set('domain1.com', true);
-      cache.set('domain2.com', false);
-      
       vi.useFakeTimers();
+
+      const newCache = new DomainCache(5, 10);
+
+      newCache.set('domain1.com', true);
+      newCache.set('domain2.com', false);
       
       // Advance time past TTL
       vi.advanceTimersByTime(6000);
@@ -131,8 +137,9 @@ describe('DomainCache', () => {
       // Trigger cleanup (runs every minute)
       vi.advanceTimersByTime(60000);
       
-      expect(cache.size()).toBe(0);
+      expect(newCache.size()).toBe(0);
       
+      newCache.stopCleanup();
       vi.useRealTimers();
     });
   });
