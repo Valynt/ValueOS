@@ -256,7 +256,7 @@ export class UnifiedApiClient {
   private buildRequestConfig(
     config: RequestConfig,
     requestId: string
-  ): RequestInit & { url: string } {
+  ): RequestInit & { url: string; retryAttempts?: number; timeout?: number } {
     const url = this.buildUrl(config.url, config.params);
 
     const headers = {
@@ -267,6 +267,13 @@ export class UnifiedApiClient {
     // Add authentication header
     if (this.config.authToken) {
       headers["Authorization"] = `Bearer ${this.config.authToken}`;
+    }
+
+    // Double-submit CSRF cookie — read the csrf_token cookie set by the backend
+    // and echo it as x-csrf-token on every state-changing request.
+    const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    if (csrfMatch?.[1] && ["POST", "PUT", "PATCH", "DELETE"].includes(config.method || "GET")) {
+      headers["x-csrf-token"] = decodeURIComponent(csrfMatch[1]);
     }
 
     // Add request ID header
@@ -284,6 +291,8 @@ export class UnifiedApiClient {
     return {
       url,
       ...requestOptions,
+      retryAttempts: config.retryAttempts,
+      timeout: config.timeout,
     };
   }
 

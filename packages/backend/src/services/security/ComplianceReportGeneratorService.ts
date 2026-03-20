@@ -456,4 +456,12 @@ export class ComplianceReportGeneratorService {
   }
 }
 
-export const complianceReportGeneratorService = new ComplianceReportGeneratorService();
+let _complianceReportGeneratorService: ComplianceReportGeneratorService | undefined;
+export const complianceReportGeneratorService = new Proxy({} as ComplianceReportGeneratorService, {
+  get(_target, prop) {
+    if (!_complianceReportGeneratorService) {
+      _complianceReportGeneratorService = new ComplianceReportGeneratorService();
+    }
+    return (_complianceReportGeneratorService as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});

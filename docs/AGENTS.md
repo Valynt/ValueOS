@@ -162,7 +162,7 @@ When bumping a version, update `versions.json` first, then propagate to the othe
 
 **`PNPM_HOME`:** `/home/vscode/.local/share/pnpm` — the container runs as the `vscode` user (uid 1000). This directory is created by the Dockerfile and owned by `vscode`.
 
-**Ports forwarded:** 5173 (ValyntApp), 5174 (VOSAcademy), 3001 (Backend API). All opened with `--protocol https` by the service start commands.
+**Ports forwarded:** 5173 (ValyntApp), 3001 (Backend API). All opened with `--protocol https` by the service start commands.
 
 ## Dev Environment Notes
 

@@ -306,7 +306,7 @@ export class AgentAuditLogger {
   /**
    * Sanitize and encrypt audit log entry before storage
    */
-  private sanitizeLogEntry(entry: AgentAuditLog): AgentAuditLog {
+  private async sanitizeLogEntry(entry: AgentAuditLog): Promise<AgentAuditLog> {
     const sanitized: AgentAuditLog = {
       ...entry,
     };
@@ -347,25 +347,25 @@ export class AgentAuditLogger {
     // Encrypt sensitive response data
     if (sanitized.response_data) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data) as any;
+      sanitized.response_data = (await this.encryptSensitiveData(sanitized.response_data)) as any;
     }
 
     // Encrypt sensitive context
     if (sanitized.context) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.context = this.encryptSensitiveData(sanitized.context) as any;
+      sanitized.context = (await this.encryptSensitiveData(sanitized.context)) as any;
     }
 
     // Encrypt sensitive metadata
     if (sanitized.metadata) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata) as any;
+      sanitized.metadata = (await this.encryptSensitiveData(sanitized.metadata)) as any;
     }
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata) as any;
+      sanitized.response_metadata = (await this.encryptSensitiveData(sanitized.response_metadata)) as any;
     }
 
     return sanitized;
@@ -390,7 +390,7 @@ export class AgentAuditLogger {
   /**
    * Encrypt sensitive data if encryption is enabled
    */
-  private encryptSensitiveData(data: unknown): unknown {
+  private async encryptSensitiveData(data: unknown): Promise<unknown> {
     if (!this.isEncryptionEnabled()) {
       // Fall back to sanitization if encryption is not available
       return this.sanitizeAndZeroMemory(data);
@@ -426,7 +426,7 @@ export class AgentAuditLogger {
   /**
    * Decrypt sensitive data if it's encrypted
    */
-  private decryptSensitiveData(data: unknown): unknown {
+  private async decryptSensitiveData(data: unknown): Promise<unknown> {
     if (!this.isEncryptionEnabled() || !data || typeof data !== "object") {
       return data;
     }
@@ -615,7 +615,7 @@ export class AgentAuditLogger {
     }
 
     // Sanitize the log entry
-    const sanitizedEntry = this.sanitizeLogEntry({
+    const sanitizedEntry = await this.sanitizeLogEntry({
       ...entry,
       timestamp: new Date().toISOString(),
     });
@@ -769,13 +769,15 @@ export class AgentAuditLogger {
     }
 
     // Decrypt sensitive data in retrieved logs
-    const decryptedLogs = (data as AgentAuditLog[]).map((log: AgentAuditLog) => ({
-      ...log,
-      response_data: this.decryptSensitiveData(log.response_data),
-      context: this.decryptSensitiveData(log.context),
-      metadata: this.decryptSensitiveData(log.metadata),
-      response_metadata: this.decryptSensitiveData(log.response_metadata),
-    })) as AgentAuditLog[];
+    const decryptedLogs = await Promise.all(
+      (data as AgentAuditLog[]).map(async (log: AgentAuditLog) => ({
+        ...log,
+        response_data: await this.decryptSensitiveData(log.response_data),
+        context: await this.decryptSensitiveData(log.context),
+        metadata: await this.decryptSensitiveData(log.metadata),
+        response_metadata: await this.decryptSensitiveData(log.response_metadata),
+      }))
+    ) as AgentAuditLog[];
 
     return decryptedLogs;
   }

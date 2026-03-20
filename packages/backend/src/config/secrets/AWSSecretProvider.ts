@@ -8,17 +8,17 @@
  * Created: 2024-11-29
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const awsSdk = require("@aws-sdk/client-secrets-manager") as Record<string, unknown>;
-const CreateSecretCommand = awsSdk.CreateSecretCommand as new (input: Record<string, unknown>) => unknown;
-const DeleteSecretCommand = awsSdk.DeleteSecretCommand as new (input: Record<string, unknown>) => unknown;
-const DescribeSecretCommand = awsSdk.DescribeSecretCommand as new (input: Record<string, unknown>) => unknown;
-const GetSecretValueCommand = awsSdk.GetSecretValueCommand as new (input: Record<string, unknown>) => unknown;
-const ListSecretsCommand = awsSdk.ListSecretsCommand as new (input: Record<string, unknown>) => unknown;
-const PutSecretValueCommand = awsSdk.PutSecretValueCommand as new (input: Record<string, unknown>) => unknown;
-const RotateSecretCommand = awsSdk.RotateSecretCommand as new (input: Record<string, unknown>) => unknown;
-const SecretsManagerClient = awsSdk.SecretsManagerClient as new (config: Record<string, unknown>) => { send: (cmd: unknown) => Promise<unknown> };
-type GetSecretValueCommandOutput = Record<string, unknown>;
+import {
+  CreateSecretCommand,
+  DeleteSecretCommand,
+  DescribeSecretCommand,
+  GetSecretValueCommand,
+  ListSecretsCommand,
+  PutSecretValueCommand,
+  RotateSecretCommand,
+  SecretsManagerClient,
+  type GetSecretValueCommandOutput,
+} from "@aws-sdk/client-secrets-manager";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 import type { Redis as RedisClientType } from 'ioredis';

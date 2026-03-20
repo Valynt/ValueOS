@@ -187,7 +187,23 @@ export const secureTokenManager = {
     authSubscription = data.subscription;
   },
   getStoredSession: (): Session | null => {
-    // Never deserialize session tokens from localStorage.
+    // Read the Supabase-managed session from localStorage for optimistic UI restore.
+    // This prevents ProtectedRoute from redirecting to /login during the async
+    // getCurrentSession() background check. The session is validated server-side
+    // by getCurrentSession() immediately after — this is only for unblocking the UI.
+    try {
+      const keys = Object.keys(localStorage);
+      const sbKey = keys.find((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+      if (!sbKey) return null;
+      const raw = localStorage.getItem(sbKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { access_token?: string; user?: unknown };
+      if (parsed?.access_token && parsed?.user) {
+        return parsed as unknown as Session;
+      }
+    } catch {
+      // localStorage unavailable or malformed — fall through
+    }
     return null;
   },
   storeSession: async (session: Session) => {

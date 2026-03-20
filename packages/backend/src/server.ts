@@ -459,10 +459,17 @@ app.use(cachingMiddleware); // HTTP caching headers
 app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
 app.use((req, res, next) => {
   const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-  if (stateChangingMethods.has(req.method)) {
-    return csrfProtectionMiddleware(req, res, next);
+  if (!stateChangingMethods.has(req.method)) {
+    return next();
   }
-  next();
+  // Requests authenticated with a Bearer token are already CSRF-safe:
+  // browsers cannot attach custom Authorization headers cross-origin without
+  // a CORS preflight, which the server controls. Skip cookie-based CSRF check.
+  const authHeader = req.headers["authorization"];
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+  return csrfProtectionMiddleware(req, res, next);
 });
 
 // Conditionally add telemetry middleware
