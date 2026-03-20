@@ -95,7 +95,6 @@ class CallAnalysisService {
       const formData = new FormData();
       formData.append("file", file);
 
-      // SECURITY FIX: Use ExternalAPIAdapter instead of direct fetch
       const response = await this.apiAdapter.call("transcribe-audio", this.functionUrl, {
         method: "POST",
         headers: session
