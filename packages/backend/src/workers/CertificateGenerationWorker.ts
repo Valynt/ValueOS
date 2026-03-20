@@ -47,7 +47,7 @@ const certJobRepo = new CertificateJobRepository();
 /**
  * Generate certificate PDF
  */
-function generateCertificatePDF(data: {
+async function generateCertificatePDF(data: {
   userName: string;
   pillarTitle: string;
   vosRole: string;
@@ -55,10 +55,9 @@ function generateCertificatePDF(data: {
   score: number;
   awardedAt: Date;
   certificateId: string;
-}): string {
-  // Dynamic import kept synchronous via require — jsPDF is a dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { jsPDF } = require("jspdf") as typeof import("jspdf");
+}): Promise<string> {
+  // Use dynamic import instead of synchronous require
+  const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
@@ -202,7 +201,7 @@ async function processCertificateJob(job: Job<CertificateGenerationJobPayload>):
     };
 
     // Generate PDF
-    const certificateBlob = generateCertificatePDF(certificateData);
+    const certificateBlob = await generateCertificatePDF(certificateData);
 
     // Store the certificate in Supabase storage
     const storagePath = `certificates/${userId}/${certificationId}.pdf`;

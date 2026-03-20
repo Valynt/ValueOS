@@ -169,10 +169,9 @@ const TIER_COLORS: Record<string, { r: number; g: number; b: number }> = {
   bronze: { r: 176, g: 141, b: 87 },
 };
 
-function generateCertificatePDF(data: CertificateInput): string {
-  // Dynamic import kept synchronous via require — jsPDF is a dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { jsPDF } = require("jspdf") as typeof import("jspdf");
+async function generateCertificatePDF(data: CertificateInput): Promise<string> {
+  // Use dynamic import instead of synchronous require
+  const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
@@ -360,7 +359,7 @@ export const certificationsRouter = router({
         format: input.format,
       });
 
-      const certificateBlob = generateCertificatePDF(certificateData);
+      const certificateBlob = await generateCertificatePDF(certificateData);
 
       return {
         certificateData,
