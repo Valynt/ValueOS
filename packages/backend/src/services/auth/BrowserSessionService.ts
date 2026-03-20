@@ -28,7 +28,8 @@ export interface BrowserSessionResolution {
   previousSessionId?: string;
 }
 
-const SESSION_COOKIE_NAME = "__Host-valueos_session";
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-valueos_session" : "valueos_session";
 const FALLBACK_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_COOKIE_SAME_SITE = process.env.NODE_ENV === "production" ? "Strict" : "Lax";
 const KEY_PREFIX = "auth:browser-session:";
