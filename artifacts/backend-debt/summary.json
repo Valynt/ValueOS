@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-03-20T08:30:16.067Z",
+  "backendAnyCount": 37,
+  "tsErrors": {
+    "current": 0,
+    "baseline": 0,
+    "delta": 0,
+    "commandSucceeded": true
+  },
+  "lintWarnings": {
+    "current": 2437,
+    "errors": 0,
+    "baseline": 2447,
+    "delta": -10,
+    "commandSucceeded": true
+  }
+}
