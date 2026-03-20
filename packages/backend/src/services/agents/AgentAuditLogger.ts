@@ -346,7 +346,7 @@ export class AgentAuditLogger {
 
     // Encrypt sensitive response data
     if (sanitized.response_data) {
-      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data);
+      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data) as unknown;
     }
 
     // Encrypt sensitive context
@@ -361,7 +361,7 @@ export class AgentAuditLogger {
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
-      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata);
+      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata) as Record<string, unknown>;
     }
 
     return sanitized;
@@ -679,7 +679,7 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_data) {
-        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data);
+        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data) as unknown;
       }
 
       if (entry.context) {
@@ -691,7 +691,7 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_metadata) {
-        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata);
+        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata) as Record<string, unknown>;
       }
     });
   }
