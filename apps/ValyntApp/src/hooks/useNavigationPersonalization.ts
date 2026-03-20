@@ -36,7 +36,12 @@ function loadPersonalizationState(): PersonalizationState {
 function persistPersonalizationState(state: PersonalizationState) {
   try {
     localStorage.setItem(PERSONALIZATION_STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(PERSONALIZATION_UPDATED_EVENT));
+    // Defer the cross-component sync event so it doesn't fire synchronously
+    // inside a setState updater, which triggers the React "setState during
+    // render of a different component" warning.
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent(PERSONALIZATION_UPDATED_EVENT));
+    });
   } catch {
     // Best-effort persistence
   }
