@@ -302,18 +302,16 @@ export async function revokeAllAccess(organizationId: string): Promise<void> {
       .from('user_tenants')
       .update({
         status: 'inactive',
-        // @ts-ignore dynamic column support
         disabled_at: new Date().toISOString(),
-        // @ts-ignore dynamic column support
         disabled_reason: 'Tenant deprovisioned',
-      })
+      } as any)
       .eq('tenant_id', organizationId);
 
     if (updateError) {
-      logger.warn('Failed to update membership status with extended fields, trying basic status', updateError);
+      logger.warn('Failed to update membership status with extended fields, trying basic status', { error: updateError });
       await supabase
         .from('user_tenants')
-        .update({ status: 'inactive' } as unknown)
+        .update({ status: 'inactive' })
         .eq('tenant_id', organizationId);
     }
 
