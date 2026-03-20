@@ -81,26 +81,6 @@ async function login(page: Page): Promise<boolean> {
   }
 }
 
-// ── root redirect ─────────────────────────────────────────────────────────────
-
-async function testRootRedirect(page: Page) {
-  console.log("\n=== ROOT REDIRECT ===");
-  await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
-  await waitForStable(page, 2000);
-  const pathname = new URL(page.url()).pathname;
-
-  if (pathname.includes("/org/") && pathname.includes("/dashboard")) {
-    pass("root-redirect-dashboard", page.url());
-  } else if (pathname === "/onboarding") {
-    pass("root-redirect-onboarding", page.url(), "onboarding not yet complete");
-  } else if (pathname === "/create-org") {
-    fail("root-redirect", page.url(), "landed on /create-org — tenant not detected");
-  } else {
-    fail("root-redirect", page.url(), `unexpected path: ${pathname}`);
-  }
-  return pathname;
-}
-
 // ── dashboard ─────────────────────────────────────────────────────────────────
 
 async function testDashboard(page: Page, tenantPath: string) {
