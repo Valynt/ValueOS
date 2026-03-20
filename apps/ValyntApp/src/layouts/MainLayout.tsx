@@ -92,7 +92,7 @@ export function MainLayout() {
         Skip to main content
       </a>
 
-      <div className="flex h-screen overflow-hidden bg-[#fafafa] text-zinc-900">
+      <div className="flex h-screen overflow-hidden bg-background text-foreground">
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div

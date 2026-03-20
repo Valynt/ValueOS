@@ -270,7 +270,7 @@
     --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Dark mode support (optional, for future) */
+  /* Dark mode */
   .dark {
     --vos-color-primary: var(--valueos-primary);
     --vos-color-primary-foreground: var(--valueos-primary-foreground);
@@ -292,30 +292,38 @@
     --vos-color-info: var(--valueos-primary);
     --vos-color-on-status: var(--valueos-on-status);
 
+    /* Backgrounds */
     --background: var(--vos-color-neutral-background);
     --foreground: var(--vos-color-neutral-foreground);
 
     --surface: var(--vos-color-neutral-surface);
     --surface-elevated: var(--vos-color-neutral-subtle);
 
+    /* Cards */
     --card: var(--vos-color-neutral-surface);
     --card-foreground: var(--vos-color-neutral-foreground);
 
+    /* Popovers */
     --popover: var(--vos-color-neutral-surface);
     --popover-foreground: var(--vos-color-neutral-foreground);
 
+    /* Primary — teal */
     --primary: var(--vos-color-primary);
     --primary-foreground: var(--vos-color-primary-foreground);
 
+    /* Secondary */
     --secondary: var(--vos-color-secondary);
     --secondary-foreground: var(--vos-color-secondary-foreground);
 
+    /* Muted */
     --muted: var(--vos-color-neutral-subtle);
     --muted-foreground: var(--vos-color-neutral-muted);
 
+    /* Accent */
     --accent: var(--vos-color-accent);
     --accent-foreground: var(--vos-color-accent-foreground);
 
+    /* Destructive / status */
     --destructive: var(--vos-color-error);
     --destructive-foreground: var(--vos-color-on-status);
 
@@ -325,17 +333,19 @@
     --warning: var(--vos-color-warning);
     --warning-foreground: var(--vos-color-on-status);
 
+    /* Border & Input */
     --border: var(--vos-color-neutral-border);
     --input: var(--vos-color-neutral-border);
     --ring: var(--vos-color-primary);
 
-    --sidebar-background: var(--vos-color-neutral-background);
+    /* Sidebar — slightly darker than page background */
+    --sidebar-background: 0 0% 6%;
     --sidebar-foreground: var(--vos-color-neutral-foreground);
     --sidebar-primary: var(--vos-color-primary);
     --sidebar-primary-foreground: var(--vos-color-primary-foreground);
-    --sidebar-accent: var(--vos-color-neutral-subtle);
+    --sidebar-accent: 0 0% 13%;
     --sidebar-accent-foreground: var(--vos-color-neutral-foreground);
-    --sidebar-border: var(--vos-color-neutral-border);
+    --sidebar-border: 0 0% 14%;
     --sidebar-ring: var(--vos-color-primary);
   }
 }

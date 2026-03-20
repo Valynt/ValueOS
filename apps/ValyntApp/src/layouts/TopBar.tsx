@@ -145,16 +145,16 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   }, []);
 
   return (
-    <header className="h-14 border-b border-zinc-100 bg-white/95 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4 flex-shrink-0 overflow-x-clip">
+    <header className="h-14 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4 flex-shrink-0 overflow-x-clip">
       {/* Left: mobile menu + org/tenant switcher */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onMenuClick && (
           <button
             onClick={onMenuClick}
             aria-label="Open navigation menu"
-            className="lg:hidden min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-zinc-100 transition-colors inline-flex items-center justify-center flex-shrink-0"
+            className="lg:hidden min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-white/8 transition-colors inline-flex items-center justify-center flex-shrink-0"
           >
-            <Menu className="w-5 h-5 text-zinc-600" />
+            <Menu className="w-5 h-5 text-muted-foreground" />
           </button>
         )}
 
@@ -163,10 +163,10 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
 
         {/* Tenant badge */}
         {currentTenant && (
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-100 bg-zinc-50 text-[11px] text-zinc-500 font-medium">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-white/5 text-[11px] text-muted-foreground font-medium">
             <span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: currentTenant.color || "#18C3A5" }}
+              style={{ backgroundColor: currentTenant.color || "#08A0A0" }}
             />
             <span className="truncate max-w-[6rem]">{currentTenant.name}</span>
           </div>
@@ -179,35 +179,35 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
           className={cn(
             "flex items-center gap-2 px-3 min-h-11 rounded-xl border transition-all",
             searchFocused
-              ? "border-zinc-400 shadow-sm bg-white"
-              : "border-zinc-200 bg-zinc-50"
+              ? "border-primary/50 bg-surface"
+              : "border-border bg-surface"
           )}
         >
-          <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <input
             ref={searchRef}
             type="text"
             placeholder={personalizedPlaceholder}
             value={query}
-            className="flex-1 bg-transparent text-[13px] text-zinc-900 placeholder:text-zinc-400 outline-none"
+            className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground outline-none"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleSearchKeyDown}
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-zinc-100 text-[10px] text-zinc-400 font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/8 text-[10px] text-muted-foreground font-mono">
             /
           </kbd>
         </div>
 
         {recentSuggestions.length > 0 && (
-          <div className="hidden sm:flex items-center gap-2 mt-1 text-[11px] text-zinc-400 overflow-hidden">
+          <div className="hidden sm:flex items-center gap-2 mt-1 text-[11px] text-muted-foreground overflow-hidden">
             <span>Recent:</span>
             {recentSuggestions.map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
-                className="px-2 py-0.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 truncate max-w-[8rem]"
+                className="px-2 py-0.5 rounded-full bg-white/8 hover:bg-white/12 text-muted-foreground truncate max-w-[8rem]"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   setQuery(suggestion);
@@ -228,10 +228,10 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         <button
           aria-label="Open notifications"
           onClick={() => trackFeatureUsage("notifications")}
-          className="relative min-h-9 min-w-9 p-2 rounded-xl hover:bg-zinc-100 transition-colors inline-flex items-center justify-center"
+          className="relative min-h-9 min-w-9 p-2 rounded-xl hover:bg-white/8 transition-colors inline-flex items-center justify-center"
         >
-          <Bell className="w-[17px] h-[17px] text-zinc-400" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+          <Bell className="w-[17px] h-[17px] text-muted-foreground" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-destructive rounded-full" />
         </button>
 
         {/* Agent quick action */}
@@ -241,7 +241,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
             trackFeatureUsage("ask_agent");
             onAgentOpen?.();
           }}
-          className="flex items-center justify-center gap-2 px-3 sm:px-4 h-9 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 active:scale-[0.98] transition-all duration-150 whitespace-nowrap"
+          className="flex items-center justify-center gap-2 px-3 sm:px-4 h-9 bg-primary text-primary-foreground rounded-xl text-[13px] font-medium hover:bg-primary/90 active:scale-[0.98] transition-all duration-150 whitespace-nowrap"
         >
           <Sparkles className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Ask Agent</span>
