@@ -170,7 +170,6 @@ const TIER_COLORS: Record<string, { r: number; g: number; b: number }> = {
 };
 
 async function generateCertificatePDF(data: CertificateInput): Promise<string> {
-  // Use dynamic import instead of synchronous require
   const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

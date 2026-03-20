@@ -56,7 +56,6 @@ async function generateCertificatePDF(data: {
   awardedAt: Date;
   certificateId: string;
 }): Promise<string> {
-  // Use dynamic import instead of synchronous require
   const { jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

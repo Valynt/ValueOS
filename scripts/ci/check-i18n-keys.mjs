@@ -115,7 +115,7 @@ function findUsedKeys(srcDirs) {
     let files = "";
     try {
       files = execSync(
-        `find "${absDir}" -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx"`,
+        `rg --files "${absDir}" -g "*.ts" -g "*.tsx" -g "*.js" -g "*.jsx"`,
         { encoding: "utf-8" }
       );
     } catch {
