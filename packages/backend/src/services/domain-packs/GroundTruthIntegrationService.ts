@@ -8,7 +8,7 @@
  * - Value chain traversal
  */
 
-import { ESOModule } from "@mcp/ground-truth/modules/ESOModule";
+import { ESOModule } from "@mcp/ground-truth/modules/StructuralTruthModule";
 
 import { logger } from "../../lib/logger.js";
 import {
