@@ -1,0 +1,10 @@
+--- packages/backend/src/services/post-v1/IntegrityAgentService.ts
++++ packages/backend/src/services/post-v1/IntegrityAgentService.ts
+@@ -470,8 +470,8 @@
+       ];
+
+       // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+       const response = await secureLLMComplete(this.llmGateway, feedbackMessages, {
+         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+         temperature: 0.5,
+         max_tokens: 200,

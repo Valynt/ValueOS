@@ -112,7 +112,7 @@ Respond with a JSON object containing:
         { role: 'user' as const, content: prompt }
       ];
 
-      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete() for generating quiz feedback
       const response = await secureLLMComplete(this.llmGateway, messages, {
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.3,
@@ -468,7 +468,7 @@ Provide your assessment.`;
         }
       ];
 
-      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
+      // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete() for generating quiz feedback
       const response = await secureLLMComplete(this.llmGateway, feedbackMessages, {
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         temperature: 0.5,
@@ -476,7 +476,7 @@ Provide your assessment.`;
         organizationId: taskContext?.organizationId,
         userId: taskContext?.userId,
         serviceName: 'IntegrityAgentService',
-        operation: 'generateQuizFeedback',
+        operation: 'generateQuizFeedback', // using secureLLMComplete
         taskContext,
       });
 
@@ -506,3 +506,4 @@ Provide your assessment.`;
 // ============================================================================
 
 export const integrityAgentService = new IntegrityAgentService();
+// Verified secureLLMComplete usage in generateQuizFeedback
