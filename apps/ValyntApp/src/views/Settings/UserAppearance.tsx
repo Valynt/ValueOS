@@ -29,7 +29,6 @@ interface UserAppearanceProps {
 }
 
 export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
-  // FIX: Memoize context to prevent infinite re-renders
   const context = useMemo(() => ({ userId }), [userId]);
   const { values, loading, updateSetting } = useSettingsGroup(
     [
@@ -42,7 +41,7 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
       "user.accessibility.fontSize",
       "user.accessibility.reducedMotion",
     ],
-    { userId },
+    context,
     { scope: "user" }
   );
 
