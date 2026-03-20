@@ -5,11 +5,22 @@ import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const MIGRATIONS_GLOB = 'infra/supabase/supabase/migrations/*.sql';
+import { readdirSync } from 'node:fs';
+
+const MIGRATIONS_DIR = 'infra/supabase/supabase/migrations';
 
 function listMigrationFiles() {
-  const output = execSync(`rg --files -g '${MIGRATIONS_GLOB}'`, { cwd: ROOT, encoding: 'utf8' }).trim();
-  return output ? output.split('\n').sort() : [];
+  const dirPath = resolve(ROOT, MIGRATIONS_DIR);
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isFile() && e.name.endsWith('.sql'))
+      .map((e) => `${MIGRATIONS_DIR}/${e.name}`)
+      .sort();
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    throw e;
+  }
 }
 
 function lineNumberForOffset(content, offset) {
