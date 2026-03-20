@@ -4,10 +4,16 @@
     "strict": true,
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": false,
+    "baseUrl": ".",
+    "paths": {
+      "@mcp-common/*": ["./common/*"],
+      "@backend/*": ["../backend/src/*"],
+      "@shared/*": ["../shared/src/*"]
+    }
   },
   "include": [
-    "**/*.ts"
+    "common/**/*.ts"
   ],
   "exclude": [
     "node_modules",

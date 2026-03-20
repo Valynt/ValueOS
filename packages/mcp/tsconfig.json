@@ -19,9 +19,10 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@mcp-common/*": ["./common/*"]
+      "@mcp-common/*": ["./common/*"],
+      "@backend/*": ["../backend/src/*"]
     }
   },
-  "include": ["common/**/*"],
+  "include": ["common/**/*", "ground-truth/**/*", "crm/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
