@@ -96,6 +96,42 @@ function extractJsonSubstring(content: string): string | null {
 }
 
 /**
+ * Lightweight self-tests for extractJsonSubstring to guard against regressions.
+ *
+ * This is intended to be invoked from unit tests; it throws if any expectation fails.
+ */
+export function _test_extractJsonSubstring_scenarios(): void {
+  type Case = { name: string; input: string; expected: string | null };
+
+  const cases: Case[] = [
+    {
+      name: 'outer array with nested objects',
+      input:
+        'Intro text\n' +
+        '[{"id":1,"value":{"nested":true}},{"id":2,"value":{"nested":false}}]\n' +
+        'Outro text',
+      expected:
+        '[{"id":1,"value":{"nested":true}},{"id":2,"value":{"nested":false}}]',
+    },
+    {
+      name: 'mixed content with array and object, array appears first',
+      input: 'prefix [1,2,3] middle {"a":1,"b":2} suffix',
+      expected: '[1,2,3]',
+    },
+  ];
+
+  for (const testCase of cases) {
+    const actual = extractJsonSubstring(testCase.input);
+    if (actual !== testCase.expected) {
+      throw new Error(
+        `extractJsonSubstring test failed (${testCase.name}): expected ` +
+          `${JSON.stringify(testCase.expected)}, got ${JSON.stringify(actual)}`
+      );
+    }
+  }
+}
+
+/**
  * Attempt to repair common JSON errors
  */
 function repairJson(jsonString: string): string {
