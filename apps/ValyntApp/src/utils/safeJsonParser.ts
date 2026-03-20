@@ -100,8 +100,9 @@ function repairJson(jsonString: string): string {
   // Fix single quotes to double quotes
   repaired = repaired.replace(/'/g, '"');
   
-  // Fix escaped quotes that shouldn't be escaped
-  repaired = repaired.replace(/\\"/g, '"');
+  // Fix escaped quotes that act as structural quotes
+  repaired = repaired.replace(/(^|[\{\[\,:]\s*)\\"/g, '$1"');
+  repaired = repaired.replace(/\\"(\s*[\}\]\,:]|$)/g, '"$1');
   
   // Fix missing commas between properties
   repaired = repaired.replace(/"\s*\n\s*"/g, '",\n"');
