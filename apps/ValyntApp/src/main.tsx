@@ -9,6 +9,15 @@ import { analyticsClient } from "./lib/analyticsClient";
 import { logger } from "./lib/logger";
 import { initFrontendObservability } from "./lib/observability";
 
+// Apply theme before first render to avoid flash of unstyled content.
+// Default to dark; respect stored user preference if present.
+(function applyTheme() {
+  const stored = localStorage.getItem("theme");
+  const isDark = stored ? stored !== "light" : true;
+  document.documentElement.classList.toggle("dark", isDark);
+  if (!stored) localStorage.setItem("theme", "dark");
+})();
+
 // Validate env values before startup
 logger.debug("Startup env check", {
   supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? "set" : "missing",

@@ -173,7 +173,7 @@ export function Dashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {recommendedModules.map((module) => (
-                  <div key={module.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div key={module.id} className="flex items-center justify-between p-4 border border-border rounded-lg bg-surface">
                     <div className="flex-1">
                       <h3 className="font-semibold">{module.title}</h3>
                       <p className="text-sm text-muted-foreground mb-2">{module.description}</p>
@@ -254,7 +254,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {pillars.map((pillar) => (
                 <div key={pillar.id} className="relative">
-                  <Card className={`${pillar.locked ? 'opacity-50' : ''}`}>
+                  <Card className={pillar.locked ? 'opacity-50' : ''}>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <Badge variant="outline">Pillar {pillar.pillarNumber}</Badge>
