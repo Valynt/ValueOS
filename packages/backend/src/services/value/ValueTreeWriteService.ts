@@ -267,14 +267,17 @@ export class ValueTreeService {
   private calculatePathWeight(path: string[], tree: ValueTree): number {
     if (path.length < 2) return 1.0;
 
+    const linkWeights = new Map<string, number>();
+    for (const link of tree.links) {
+      linkWeights.set(`${link.parent_node_id}_${link.child_node_id}`, link.weight);
+    }
+
     let totalWeight = 1.0;
 
     for (let i = 0; i < path.length - 1; i++) {
-      const link = tree.links.find(
-        l => l.parent_node_id === path[i] && l.child_node_id === path[i + 1]
-      );
-      if (link) {
-        totalWeight *= link.weight;
+      const weight = linkWeights.get(`${path[i]}_${path[i + 1]}`);
+      if (weight !== undefined) {
+        totalWeight *= weight;
       }
     }
 
