@@ -144,7 +144,7 @@ function parseTokens(tokens: string[]): ASTNode {
 
       const precedence = getOperatorPrecedence(operator);
 
-      if (precedence < minPrecedence) break;
+      if (precedence < minPrecedence || precedence === 0) break;
 
       index++;
       const right = parseBinaryExpression(precedence + 1);
