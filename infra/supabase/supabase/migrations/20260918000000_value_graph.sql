@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS public.value_graph_edges (
                                       'capability_impacts_metric',
                                       'metric_maps_to_value_driver',
                                       'evidence_supports_metric',
-                                      'hypothesis_claims_metric'
+                                      'hypothesis_claims_value_driver'
                                   )),
     confidence_score  NUMERIC     NOT NULL DEFAULT 0.5
                                   CHECK (confidence_score >= 0 AND confidence_score <= 1),

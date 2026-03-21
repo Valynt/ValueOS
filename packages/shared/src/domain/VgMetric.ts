@@ -8,7 +8,7 @@
  * Graph position: VgCapability → (capability_impacts_metric) → VgMetric
  *                 VgMetric → (metric_maps_to_value_driver) → VgValueDriver
  *                 Evidence → (evidence_supports_metric) → VgMetric
- *                 ValueHypothesis → (hypothesis_claims_metric) → VgMetric
+ *                 ValueHypothesis → (hypothesis_claims_value_driver) → VgValueDriver
  *
  * Sprint 47: Initial definition.
  */

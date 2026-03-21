@@ -37,3 +37,4 @@ export * from "./VgCapability.js";
 export * from "./VgMetric.js";
 export * from "./VgValueDriver.js";
 export * from "./ValueGraphEdge.js";
+export * from "./GraphIntegrityGap.js";

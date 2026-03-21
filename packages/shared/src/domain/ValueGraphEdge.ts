@@ -13,10 +13,12 @@
  *   use_case_enabled_by_cap      UseCase       → VgCapability
  *   capability_impacts_metric    VgCapability  → VgMetric
  *   metric_maps_to_value_driver  VgMetric      → VgValueDriver
- *   evidence_supports_metric     Evidence      → VgMetric
- *   hypothesis_claims_metric     ValueHypothesis → VgMetric
+ *   evidence_supports_metric          Evidence        → VgMetric
+ *   hypothesis_claims_value_driver    ValueHypothesis → VgValueDriver
  *
  * Sprint 47: Initial definition.
+ * Sprint 48: Renamed hypothesis_claims_metric → hypothesis_claims_value_driver to match
+ *            the actual target entity type (VgValueDriver, not VgMetric).
  */
 
 import { z } from "zod";
@@ -40,7 +42,7 @@ export const ValueGraphEdgeTypeSchema = z.enum([
   "capability_impacts_metric",
   "metric_maps_to_value_driver",
   "evidence_supports_metric",
-  "hypothesis_claims_metric",
+  "hypothesis_claims_value_driver",
 ]);
 export type ValueGraphEdgeType = z.infer<typeof ValueGraphEdgeTypeSchema>;
 

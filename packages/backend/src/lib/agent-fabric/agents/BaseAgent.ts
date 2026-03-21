@@ -34,6 +34,10 @@ import type {
 } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
+import {
+  ValueGraphService,
+  valueGraphService as defaultValueGraphService,
+} from "../../../services/value-graph/ValueGraphService.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -84,6 +88,7 @@ export abstract class BaseAgent {
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
   protected auditLogger: AuditLogger;
+  protected valueGraphService: ValueGraphService;
   // Prompt version references set during execution, included in output metadata.
   protected _promptVersionRefs: PromptVersionReference[] = [];
 
@@ -92,7 +97,8 @@ export abstract class BaseAgent {
     organizationId: string,
     memorySystem: MemorySystem,
     llmGateway: LLMGateway,
-    circuitBreaker: CircuitBreaker
+    circuitBreaker: CircuitBreaker,
+    valueGraphService?: ValueGraphService
   ) {
     this.lifecycleStage = config.lifecycle_stage;
     // Read version from config metadata so AgentFactory can inject per-agent versions.
@@ -108,6 +114,7 @@ export abstract class BaseAgent {
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
     this.auditLogger = new AuditLogger();
+    this.valueGraphService = valueGraphService ?? defaultValueGraphService;
   }
 
   /**
