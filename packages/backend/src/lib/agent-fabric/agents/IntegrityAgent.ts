@@ -1058,14 +1058,22 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
 
       const claimsEdges = graph.edges.filter(e => e.edge_type === 'hypothesis_claims_value_driver');
       const evidenceEdges = graph.edges.filter(e => e.edge_type === 'evidence_supports_metric');
+      const metricMapEdges = graph.edges.filter(e => e.edge_type === 'metric_maps_to_value_driver');
 
-      // Build a set of entity IDs that have at least one evidence_supports_metric edge
-      const evidencedEntityIds = new Set(evidenceEdges.map(e => e.to_entity_id));
+      // Build a set of metric IDs that have at least one evidence_supports_metric edge
+      const metricsWithEvidence = new Set(evidenceEdges.map(e => e.to_entity_id));
+
+      // From those metrics, find all value drivers they map to via metric_maps_to_value_driver
+      const valueDriversWithEvidence = new Set(
+        metricMapEdges
+          .filter(edge => metricsWithEvidence.has(edge.from_entity_id))
+          .map(edge => edge.to_entity_id),
+      );
 
       const gaps: GraphIntegrityGap[] = [];
 
       for (const claimEdge of claimsEdges) {
-        if (!evidencedEntityIds.has(claimEdge.to_entity_id)) {
+        if (!valueDriversWithEvidence.has(claimEdge.to_entity_id)) {
           gaps.push({
             hypothesis_claims_edge_id: claimEdge.id,
             from_entity_id: claimEdge.from_entity_id,
