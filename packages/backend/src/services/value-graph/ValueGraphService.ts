@@ -330,16 +330,21 @@ export class ValueGraphService {
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("vg_capabilities")
-      .insert({
-        organization_id: input.organization_id,
-        opportunity_id: input.opportunity_id,
-        name: input.name,
-        description: input.description,
-        category: input.category,
-        ontology_version: input.ontology_version ?? "1.0",
-        created_at: now,
-        updated_at: now,
-      })
+      .upsert(
+        {
+          organization_id: input.organization_id,
+          opportunity_id: input.opportunity_id,
+          name: input.name,
+          description: input.description,
+          category: input.category,
+          ontology_version: input.ontology_version ?? "1.0",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          onConflict: "organization_id,opportunity_id,name",
+        },
+      )
       .select()
       .single();
 
