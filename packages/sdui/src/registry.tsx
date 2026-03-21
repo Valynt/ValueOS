@@ -63,6 +63,7 @@ import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
 
 // V1 Surface Widgets - Integrity
 import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
+import { IntegrityScoreCard } from "./components/SDUI/IntegrityScoreCard";
 
 // V1 Surface Widgets - Executive Output
 
@@ -769,6 +770,14 @@ versionedRegistry.register({
 });
 
 versionedRegistry.register({
+  component: IntegrityScoreCard,
+  version: 1,
+  description: "Composite integrity score card with circular gauge, violation chips (critical/warning/info), hard-block pulse state, and resolve quick-action. Sprint 53/54.",
+  optionalProps: ["integrityScore", "defenseReadinessScore", "violations", "hardBlocked", "onReviewViolations", "onResolveLatestWarning"],
+  tags: ["ui", "integrity", "score", "violations"],
+});
+
+versionedRegistry.register({
   component: EvidenceGapList,
   version: 1,
   description: "List of claims with insufficient evidence showing current tier, required tier, and suggested action.",
@@ -1060,6 +1069,13 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["scenarios"],
     description: "Selector for switching between named scenario configurations.",
+  },
+  // Value Integrity Layer — Sprint 53/54
+  IntegrityScoreCard: {
+    component: IntegrityScoreCard,
+    versions: [1],
+    requiredProps: [],
+    description: "Composite integrity score card with circular gauge, violation chips (critical/warning/info), hard-block pulse state, and resolve quick-action.",
   },
 };
 

@@ -1,11 +1,14 @@
 import { z } from 'zod';
 
+import { ViolationSchema } from '@shared/domain/Violation.js';
+
 export type EventName =
   | 'notifications.email.requested'
   | 'notifications.webhook.dispatch'
   | 'data.export.requested'
   | 'billing.usage.reported'
-  | 'agent_message';
+  | 'agent_message'
+  | 'integrity.contradiction.detected';
 
 export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
   'notifications.email.requested': z.object({
@@ -69,6 +72,24 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     }),
     idempotencyKey: z.string(),
   }),
+
+  /**
+   * Emitted by ValueIntegrityService when one or more contradictions are
+   * detected in a business case after an agent run.
+   *
+   * Sprint 53 — Value Integrity Layer
+   */
+  'integrity.contradiction.detected': z.object({
+    schemaVersion: z.literal('1.0'),
+    idempotencyKey: z.string().min(1),
+    emittedAt: z.string().datetime(),
+    /** Tenant that owns the case. Required for consumer-side isolation. */
+    organizationId: z.string().uuid(),
+    caseId: z.string().uuid(),
+    /** Propagated from the triggering agent run context. */
+    trace_id: z.string().min(1),
+    violations: z.array(ViolationSchema),
+  }),
 };
 
 export type EventPayloadMap = {
@@ -77,6 +98,7 @@ export type EventPayloadMap = {
   'data.export.requested': z.infer<typeof eventSchemaRegistry['data.export.requested']>;
   'billing.usage.reported': z.infer<typeof eventSchemaRegistry['billing.usage.reported']>;
   'agent_message': z.infer<typeof eventSchemaRegistry['agent_message']>;
+  'integrity.contradiction.detected': z.infer<typeof eventSchemaRegistry['integrity.contradiction.detected']>;
 };
 
 export function validateEventPayload<TName extends EventName>(
