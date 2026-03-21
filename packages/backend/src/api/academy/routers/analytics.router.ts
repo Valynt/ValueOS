@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { createRequestSupabaseClient, type RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
+import type { AcademyContext } from "../trpc.js";
 import { protectedProcedure, router } from "../trpc.js";
 
 // ============================================================================
@@ -34,6 +35,51 @@ function getSupabaseClient(ctx: { supabase?: RequestScopedRlsSupabaseClient; acc
     message: "No Supabase client available",
   });
 }
+
+function getOrganizationId(ctx: Pick<AcademyContext, "tenantId" | "user">): string {
+  const organizationId = ctx.tenantId ?? ctx.user?.organizationId;
+
+  if (!organizationId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Tenant context required",
+    });
+  }
+
+  return organizationId;
+}
+
+const pillarBreakdownItemSchema = z.object({
+  pillarId: z.number().int(),
+  pillarName: z.string(),
+  attempts: z.number().int().nonnegative(),
+  averageScore: z.number().int().nonnegative(),
+  passRate: z.number().int().nonnegative(),
+});
+
+const quizStatsRpcSchema = z.object({
+  totalQuizzes: z.number().int().nonnegative(),
+  averageScore: z.number().int().nonnegative(),
+  passRate: z.number().int().nonnegative(),
+  completionRate: z.number().int().nonnegative(),
+  pillarBreakdown: z.array(pillarBreakdownItemSchema),
+});
+
+const certificationStatsRpcSchema = z.object({
+  totalCertifications: z.number().int().nonnegative(),
+  tierBreakdown: z.array(
+    z.object({
+      tier: z.string(),
+      count: z.number().int().nonnegative(),
+    })
+  ),
+});
+
+const simulationStatsRpcSchema = z.object({
+  totalAttempts: z.number().int().nonnegative(),
+  averageScore: z.number().int().nonnegative(),
+  passRate: z.number().int().nonnegative(),
+});
 
 // ============================================================================
 // Router
@@ -147,124 +193,24 @@ export const analyticsRouter = router({
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
       const cutoffDate = getDateRangeCutoff(input.dateRange);
+      const organizationId = getOrganizationId(ctx);
 
       try {
-        // Get total quiz attempts
-        let quizCountQuery = client.from("quiz_results").select("*", { count: "exact", head: true });
+        const { data, error } = await client.rpc("get_academy_quiz_stats", {
+          p_organization_id: organizationId,
+          p_since: cutoffDate?.toISOString() ?? null,
+          p_pillar_id: input.pillarId ?? null,
+        });
 
-        if (cutoffDate) {
-          quizCountQuery = quizCountQuery.gte("completed_at", cutoffDate.toISOString());
-        }
-
-        const { count: totalQuizzes, error: quizCountError } = await quizCountQuery;
-
-        if (quizCountError) {
-          logger.error("Failed to get quiz stats", quizCountError);
+        if (error) {
+          logger.error("Failed to get quiz stats", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Failed to get quiz statistics",
           });
         }
 
-        // Get passed count for pass rate calculation
-        let passedCountQuery = client
-          .from("quiz_results")
-          .select("*", { count: "exact", head: true })
-          .eq("passed", true);
-
-        if (cutoffDate) {
-          passedCountQuery = passedCountQuery.gte("completed_at", cutoffDate.toISOString());
-        }
-
-        const { count: passedCount, error: passedError } = await passedCountQuery;
-
-        if (passedError) {
-          logger.error("Failed to get passed quiz count", passedError);
-        }
-
-        const passRate = totalQuizzes && totalQuizzes > 0 ? Math.round(((passedCount || 0) / totalQuizzes) * 100) : 0;
-
-        // Get average score
-        const { data: scoresData, error: scoresError } = await client.from("quiz_results").select("score");
-
-        let averageScore = 0;
-        if (!scoresError && scoresData && scoresData.length > 0) {
-          averageScore = Math.round(scoresData.reduce((sum, r) => sum + r.score, 0) / scoresData.length);
-        }
-
-        // Calculate completion rate (unique users with quiz results / total users)
-        const { data: quizUsers, error: quizUsersError } = await client.from("quiz_results").select("user_id");
-
-        if (quizUsersError) {
-          logger.error("Failed to get quiz users", quizUsersError);
-        }
-
-        const uniqueQuizUsers = new Set(quizUsers?.map((r) => r.user_id)).size;
-
-        const { count: totalUsers, error: totalUsersError } = await client
-          .from("users")
-          .select("*", { count: "exact", head: true });
-
-        if (totalUsersError) {
-          logger.error("Failed to get total users", totalUsersError);
-        }
-
-        const completionRate = totalUsers && totalUsers > 0 ? Math.round((uniqueQuizUsers / totalUsers) * 100) : 0;
-
-        // Get pillar breakdown
-        const { data: pillarResults, error: pillarError } = await client
-          .from("quiz_results")
-          .select("pillar_id, score, passed");
-
-        const pillarBreakdown: Array<{
-          pillarId: number;
-          pillarName: string;
-          attempts: number;
-          averageScore: number;
-          passRate: number;
-        }> = [];
-
-        if (!pillarError && pillarResults) {
-          const pillarStats = new Map<
-            number,
-            { attempts: number; totalScore: number; passedCount: number }
-          >();
-
-          for (const result of pillarResults) {
-            const stats = pillarStats.get(result.pillar_id) || { attempts: 0, totalScore: 0, passedCount: 0 };
-            stats.attempts++;
-            stats.totalScore += result.score;
-            if (result.passed) stats.passedCount++;
-            pillarStats.set(result.pillar_id, stats);
-          }
-
-          // Get pillar names
-          const { data: pillars, error: pillarsError } = await client.from("pillars").select("id, title");
-
-          if (pillarsError) {
-            logger.error("Failed to get pillars", pillarsError);
-          }
-
-          const pillarMap = new Map(pillars?.map((p) => [p.id, p.title]) ?? []);
-
-          for (const [pillarId, stats] of pillarStats) {
-            pillarBreakdown.push({
-              pillarId,
-              pillarName: pillarMap.get(pillarId) || `Pillar ${pillarId}`,
-              attempts: stats.attempts,
-              averageScore: Math.round(stats.totalScore / stats.attempts),
-              passRate: Math.round((stats.passedCount / stats.attempts) * 100),
-            });
-          }
-        }
-
-        return {
-          totalQuizzes: totalQuizzes || 0,
-          averageScore,
-          passRate,
-          completionRate,
-          pillarBreakdown,
-        };
+        return quizStatsRpcSchema.parse(data);
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         logger.error("Unexpected error in quizStats", err);
@@ -289,16 +235,13 @@ export const analyticsRouter = router({
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
       const cutoffDate = getDateRangeCutoff(input.dateRange);
+      const organizationId = getOrganizationId(ctx);
 
       try {
-        // Get total certifications
-        let certCountQuery = client.from("certifications").select("*", { count: "exact", head: true });
-
-        if (cutoffDate) {
-          certCountQuery = certCountQuery.gte("awarded_at", cutoffDate.toISOString());
-        }
-
-        const { count: totalCertifications, error } = await certCountQuery;
+        const { data, error } = await client.rpc("get_academy_certification_stats", {
+          p_organization_id: organizationId,
+          p_since: cutoffDate?.toISOString() ?? null,
+        });
 
         if (error) {
           logger.error("Failed to get certification stats", error);
@@ -308,26 +251,7 @@ export const analyticsRouter = router({
           });
         }
 
-        // Get tier breakdown
-        const { data: tierData, error: tierError } = await client.from("certifications").select("tier");
-
-        const tierBreakdown: Array<{ tier: string; count: number }> = [];
-
-        if (!tierError && tierData) {
-          const tierCounts = new Map<string, number>();
-          for (const cert of tierData) {
-            const tier = cert.tier || "bronze";
-            tierCounts.set(tier, (tierCounts.get(tier) || 0) + 1);
-          }
-          for (const [tier, count] of tierCounts) {
-            tierBreakdown.push({ tier, count });
-          }
-        }
-
-        return {
-          totalCertifications: totalCertifications || 0,
-          tierBreakdown,
-        };
+        return certificationStatsRpcSchema.parse(data);
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         logger.error("Unexpected error in certificationStats", err);
@@ -352,16 +276,13 @@ export const analyticsRouter = router({
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
       const cutoffDate = getDateRangeCutoff(input.dateRange);
+      const organizationId = getOrganizationId(ctx);
 
       try {
-        // Get total simulation attempts
-        let attemptCountQuery = client.from("simulation_attempts").select("*", { count: "exact", head: true });
-
-        if (cutoffDate) {
-          attemptCountQuery = attemptCountQuery.gte("completed_at", cutoffDate.toISOString());
-        }
-
-        const { count: totalAttempts, error } = await attemptCountQuery;
+        const { data, error } = await client.rpc("get_academy_simulation_stats", {
+          p_organization_id: organizationId,
+          p_since: cutoffDate?.toISOString() ?? null,
+        });
 
         if (error) {
           logger.error("Failed to get simulation stats", error);
@@ -371,37 +292,7 @@ export const analyticsRouter = router({
           });
         }
 
-        // Calculate average score
-        const { data: scoresData, error: scoresError } = await client.from("simulation_attempts").select("overall_score");
-
-        if (scoresError) {
-          logger.error("Failed to get simulation scores", scoresError);
-        }
-
-        let averageScore = 0;
-        if (scoresData && scoresData.length > 0) {
-          averageScore = Math.round(
-            scoresData.reduce((sum, a) => sum + a.overall_score, 0) / scoresData.length
-          );
-        }
-
-        // Calculate pass rate
-        const { count: passedCount, error: passedError } = await client
-          .from("simulation_attempts")
-          .select("*", { count: "exact", head: true })
-          .eq("passed", true);
-
-        if (passedError) {
-          logger.error("Failed to get passed simulation count", passedError);
-        }
-
-        const passRate = totalAttempts && totalAttempts > 0 ? Math.round(((passedCount || 0) / totalAttempts) * 100) : 0;
-
-        return {
-          totalAttempts: totalAttempts || 0,
-          averageScore,
-          passRate,
-        };
+        return simulationStatsRpcSchema.parse(data);
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         logger.error("Unexpected error in simulationStats", err);

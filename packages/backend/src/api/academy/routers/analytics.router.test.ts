@@ -7,7 +7,7 @@ import { analyticsRouter } from "./analytics.router.js";
 
 const ORGANIZATION_ID = "11111111-1111-1111-1111-111111111111";
 
-function createCallerContext(rpcImpl: AcademyContext["supabase"]) {
+function createCallerContext(supabase: AcademyContext["supabase"]) {
   return analyticsRouter.createCaller({
     req: {} as Request,
     res: {} as Response,
@@ -16,40 +16,53 @@ function createCallerContext(rpcImpl: AcademyContext["supabase"]) {
       organizationId: ORGANIZATION_ID,
     },
     tenantId: ORGANIZATION_ID,
-    supabase: rpcImpl,
+    supabase,
     accessToken: undefined,
   });
 }
 
+function createSupabaseMock(rpcResult: unknown) {
+  const rpc = vi.fn().mockResolvedValue({
+    data: rpcResult,
+    error: null,
+  });
+  const from = vi.fn(() => {
+    throw new Error("Unexpected row scan via .from() in analytics RPC test");
+  });
+
+  return {
+    rpc,
+    from,
+  };
+}
+
 describe("analyticsRouter SQL aggregates", () => {
-  it("delegates quizStats to the quiz RPC and preserves the response contract", async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: {
-        totalQuizzes: 42,
-        averageScore: 87,
-        passRate: 81,
-        completionRate: 63,
-        pillarBreakdown: [
-          {
-            pillarId: 2,
-            pillarName: "Discovery",
-            attempts: 15,
-            averageScore: 89,
-            passRate: 80,
-          },
-        ],
-      },
-      error: null,
+  it("delegates quizStats to the quiz RPC, preserves filters, and avoids tenant-wide row scans", async () => {
+    const supabase = createSupabaseMock({
+      totalQuizzes: 42,
+      averageScore: 87,
+      passRate: 81,
+      completionRate: 63,
+      pillarBreakdown: [
+        {
+          pillarId: 2,
+          pillarName: "Discovery",
+          attempts: 15,
+          averageScore: 89,
+          passRate: 80,
+        },
+      ],
     });
 
-    const caller = createCallerContext({ rpc } as unknown as NonNullable<AcademyContext["supabase"]>);
+    const caller = createCallerContext(supabase as unknown as NonNullable<AcademyContext["supabase"]>);
     const result = await caller.quizStats({ dateRange: "7d", pillarId: 2 });
 
-    expect(rpc).toHaveBeenCalledWith("get_academy_quiz_stats", {
+    expect(supabase.rpc).toHaveBeenCalledWith("get_academy_quiz_stats", {
       p_organization_id: ORGANIZATION_ID,
       p_since: expect.any(String),
       p_pillar_id: 2,
     });
+    expect(supabase.from).not.toHaveBeenCalled();
     expect(result).toEqual({
       totalQuizzes: 42,
       averageScore: 87,
@@ -68,25 +81,23 @@ describe("analyticsRouter SQL aggregates", () => {
   });
 
   it("delegates certificationStats to the certification RPC", async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: {
-        totalCertifications: 7,
-        tierBreakdown: [
-          { tier: "bronze", count: 3 },
-          { tier: "silver", count: 2 },
-          { tier: "gold", count: 2 },
-        ],
-      },
-      error: null,
+    const supabase = createSupabaseMock({
+      totalCertifications: 7,
+      tierBreakdown: [
+        { tier: "bronze", count: 3 },
+        { tier: "silver", count: 2 },
+        { tier: "gold", count: 2 },
+      ],
     });
 
-    const caller = createCallerContext({ rpc } as unknown as NonNullable<AcademyContext["supabase"]>);
+    const caller = createCallerContext(supabase as unknown as NonNullable<AcademyContext["supabase"]>);
     const result = await caller.certificationStats({ dateRange: "30d" });
 
-    expect(rpc).toHaveBeenCalledWith("get_academy_certification_stats", {
+    expect(supabase.rpc).toHaveBeenCalledWith("get_academy_certification_stats", {
       p_organization_id: ORGANIZATION_ID,
       p_since: expect.any(String),
     });
+    expect(supabase.from).not.toHaveBeenCalled();
     expect(result).toEqual({
       totalCertifications: 7,
       tierBreakdown: [
@@ -98,22 +109,20 @@ describe("analyticsRouter SQL aggregates", () => {
   });
 
   it("delegates simulationStats to the simulation RPC", async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: {
-        totalAttempts: 19,
-        averageScore: 84,
-        passRate: 74,
-      },
-      error: null,
+    const supabase = createSupabaseMock({
+      totalAttempts: 19,
+      averageScore: 84,
+      passRate: 74,
     });
 
-    const caller = createCallerContext({ rpc } as unknown as NonNullable<AcademyContext["supabase"]>);
+    const caller = createCallerContext(supabase as unknown as NonNullable<AcademyContext["supabase"]>);
     const result = await caller.simulationStats({ dateRange: "all" });
 
-    expect(rpc).toHaveBeenCalledWith("get_academy_simulation_stats", {
+    expect(supabase.rpc).toHaveBeenCalledWith("get_academy_simulation_stats", {
       p_organization_id: ORGANIZATION_ID,
       p_since: null,
     });
+    expect(supabase.from).not.toHaveBeenCalled();
     expect(result).toEqual({
       totalAttempts: 19,
       averageScore: 84,
