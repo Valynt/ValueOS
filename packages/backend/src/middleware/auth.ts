@@ -525,12 +525,19 @@ export function requireTenantRequestAlignment() {
 
 function applyAuthContext(req: Request, user: AuthUser | undefined, session: AuthSession | undefined, claims: JwtPayload | null) {
   const tenantId = extractTenantId(claims, user);
-  const userWithTenant = user ? { ...user, tenant_id: tenantId ?? user.tenant_id } : user;
+  const organizationId =
+    (claims?.organization_id as string | undefined) ??
+    (user?.organization_id as string | undefined) ??
+    tenantId;
+  const userWithTenant = user
+    ? { ...user, tenant_id: tenantId ?? user.tenant_id, organization_id: organizationId ?? user.organization_id }
+    : user;
 
   const authReq = req as AuthenticatedRequest;
   authReq.user = userWithTenant as AuthenticatedRequest["user"];
   (req as Record<string, unknown>).session = session;
   authReq.tenantId = tenantId;
+  authReq.organizationId = organizationId;
 }
 
 function ensureAuthHeader(req: Request, token?: string | null) {
