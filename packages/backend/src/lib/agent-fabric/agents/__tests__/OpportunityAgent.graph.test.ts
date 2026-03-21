@@ -110,15 +110,6 @@ function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContex
   };
 }
 
-function makeVgsWriteChain(returnData: unknown) {
-  return {
-    insert: vi.fn().mockReturnThis(),
-    upsert: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: returnData, error: null }),
-  };
-}
-
 const VALID_LLM_RESPONSE = JSON.stringify({
   company_summary: "Acme Corp is a mid-market manufacturing company.",
   industry_context: "Manufacturing sector facing margin pressure.",
