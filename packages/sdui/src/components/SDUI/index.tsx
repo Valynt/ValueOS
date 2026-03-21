@@ -576,6 +576,8 @@ export type { MetricCardProps, MetricCardMetric, EvidenceTier as MetricCardEvide
 export { ValuePathCard } from "./ValuePathCard";
 export type { ValuePathCardProps, ValuePathCardPath } from "./ValuePathCard";
 export { NarrativeBlock } from "./NarrativeBlock";
+export { IntegrityScoreCard } from "./IntegrityScoreCard";
+export type { IntegrityScoreCardProps, IntegrityViolation } from "./IntegrityScoreCard";
 
 export interface UnknownComponentFallbackProps {
   componentName?: string;

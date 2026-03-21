@@ -96,6 +96,24 @@ export const BusinessCaseSchema = z.object({
    */
   defense_readiness_score: z.number().min(0).max(1).nullable().optional(),
 
+  /**
+   * Composite integrity score (0–1). Sprint 53.
+   *
+   * Measures internal consistency of the business case across all agent outputs.
+   * Computed by ValueIntegrityService after each agent run:
+   *
+   *   integrity_score = 0.5 * defense_readiness_score
+   *                   + 0.5 * (1 - Σ violation_penalties)
+   *
+   * Penalties: critical → 0.20, warning → 0.05, info → 0.01.
+   * Dismissed violations carry a transparency penalty (critical → 0.05, warning → 0.01).
+   * Score is clamped to [0, 1].
+   *
+   * A score < 0.6 with open critical violations blocks status advance to in_review.
+   * NULL until ValueIntegrityService first runs for this case.
+   */
+  integrity_score: z.number().min(0).max(1).nullable().optional(),
+
   /** ISO 8601 timestamps. */
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
