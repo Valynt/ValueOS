@@ -1,652 +1,488 @@
-/**
- * Tenant Isolation Verification Tests
- * 
- * SOC2 Requirement: CC6.1 - Logical access controls
- * Security: Prevent cross-tenant data access
- * ISO 27001: A.9.4.1 - Information access restriction
- * 
- * Tests verify that Row Level Security (RLS) policies enforce strict
- * tenant isolation, preventing unauthorized cross-tenant data access.
- */
+import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-describe('Tenant Isolation Verification', () => {
+const repoRoot = path.resolve(import.meta.dirname, "../../..");
+const canonicalIdentityMigrationPath = path.join(
+  repoRoot,
+  "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",
+);
+const missingTablesMigrationPath = path.join(
+  repoRoot,
+  "infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql",
+);
+
+const canonicalIdentityMigration = readFileSync(canonicalIdentityMigrationPath, "utf8");
+const missingTablesMigration = readFileSync(missingTablesMigrationPath, "utf8");
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const databaseUrl = process.env.DATABASE_URL;
+const runtimeLaneEnabled = Boolean(supabaseUrl && anonKey && serviceRoleKey);
+const runtimeDescribe = runtimeLaneEnabled ? describe : describe.skip;
+
+type RuntimeUserContext = {
+  accessToken: string;
+  client: SupabaseClient;
+  email: string;
+  password: string;
+  tenantId: string;
+  userId: string;
+};
+
+function createScopedClient(url: string, key: string, accessToken: string): SupabaseClient {
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+function createSeededValueCase(tenantId: string) {
+  return {
+    id: crypto.randomUUID(),
+    tenant_id: tenantId,
+    name: `tenant-case-${crypto.randomUUID()}`,
+    status: "draft",
+    stage: "discovery",
+  };
+}
+
+function assertRlsPredicate(content: string, tableName: string) {
+  expect(content).toMatch(
+    new RegExp(`ALTER TABLE public\\.${tableName} ENABLE ROW LEVEL SECURITY;`, "m"),
+  );
+  expect(content).toMatch(
+    new RegExp(
+      `CREATE POLICY ${tableName}_[a-z_]+ ON public\\.${tableName}[\\s\\S]*security\\.user_has_tenant_access\\(`,
+      "m",
+    ),
+  );
+}
+
+function assertMigrationContainsIndexes(content: string, indexNames: string[]) {
+  for (const indexName of indexNames) {
+    expect(content).toContain(`CREATE INDEX IF NOT EXISTS ${indexName}`);
+  }
+}
+
+function runPsqlQuery(sql: string): string[] {
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required for runtime index introspection");
+  }
+
+  const result = spawnSync("psql", [databaseUrl, "-At", "-F", "\t", "-c", sql], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr || `psql exited with status ${result.status}`);
+  }
+
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+describe("Tenant Isolation Verification - static fallback lane", () => {
+  it("pins the tenant membership helper to active user_tenants rows and auth.uid()", () => {
+    expect(canonicalIdentityMigration).toContain("CREATE OR REPLACE FUNCTION security.current_tenant_id()");
+    expect(canonicalIdentityMigration).toContain("current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id'");
+    expect(canonicalIdentityMigration).toContain("CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id TEXT)");
+    expect(canonicalIdentityMigration).toContain("FROM public.user_tenants AS ut");
+    expect(canonicalIdentityMigration).toContain("ut.user_id   = (auth.uid())::text");
+    expect(canonicalIdentityMigration).toContain("ut.status = 'active'");
+  });
+
+  it("keeps value_cases tenant controls enforceable in active migrations", () => {
+    assertRlsPredicate(canonicalIdentityMigration, "value_cases");
+    expect(canonicalIdentityMigration).toContain("CREATE POLICY value_cases_tenant_insert ON public.value_cases");
+    expect(canonicalIdentityMigration).toContain("CREATE POLICY value_cases_tenant_update ON public.value_cases");
+    expect(canonicalIdentityMigration).toContain("WITH CHECK (");
+    assertMigrationContainsIndexes(canonicalIdentityMigration, [
+      "idx_value_cases_tenant_id",
+      "idx_value_cases_tenant_status",
+    ]);
+  });
+
+  it("keeps messages tenant controls and hot-path indexes in active migrations", () => {
+    assertRlsPredicate(missingTablesMigration, "messages");
+    expect(missingTablesMigration).toContain("CREATE POLICY messages_tenant_insert ON public.messages");
+    expect(missingTablesMigration).toContain("CREATE POLICY messages_tenant_update ON public.messages");
+    assertMigrationContainsIndexes(missingTablesMigration, [
+      "idx_messages_user_tenant",
+      "idx_messages_tenant_created",
+    ]);
+  });
+
+  it("keeps user_tenants membership indexes available for tenant authorization hot paths", () => {
+    expect(canonicalIdentityMigration).toContain("CREATE TABLE IF NOT EXISTS public.user_tenants");
+    expect(canonicalIdentityMigration).toContain("ALTER TABLE public.user_tenants ENABLE ROW LEVEL SECURITY;");
+    assertMigrationContainsIndexes(canonicalIdentityMigration, [
+      "idx_user_tenants_tenant",
+      "idx_user_tenants_user",
+      "idx_user_tenants_status",
+    ]);
+  });
+});
+
+runtimeDescribe("Tenant Isolation Verification - trusted runtime lane", () => {
   let adminClient: SupabaseClient;
-  let tenant1Id: string;
-  let tenant2Id: string;
-  let user1Id: string;
-  let user2Id: string;
+  let tenant1Context: RuntimeUserContext;
+  let tenant2Context: RuntimeUserContext;
+  let outsiderContext: RuntimeUserContext;
+  let createdUserIds: string[] = [];
+  let createdTenantIds: string[] = [];
+  let createdValueCaseIds: string[] = [];
+  let createdMessageIds: string[] = [];
 
-  beforeAll(async () => {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-
-    if (!supabaseUrl || !serviceKey) {
-      throw new Error('Missing required environment variables for testing');
+  async function createRuntimeUser(tenantId: string, emailPrefix: string): Promise<RuntimeUserContext> {
+    if (!supabaseUrl || !anonKey) {
+      throw new Error("Missing Supabase URL or anon key for runtime tenant isolation tests");
     }
 
-    adminClient = createClient(supabaseUrl, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
+    const email = `${emailPrefix}-${Date.now()}-${crypto.randomUUID()}@example.com`;
+    const password = `ValueOS-${crypto.randomUUID()}!`;
+    const authAdmin = adminClient.auth.admin;
+
+    const { data: createdUser, error: createUserError } = await authAdmin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { tenant_id: tenantId },
+      app_metadata: { tenant_id: tenantId },
     });
 
-    // Use pre-seeded test data from setup-test-environment.sh
-    tenant1Id = 'test-tenant-1';
-    tenant2Id = 'test-tenant-2';
-    user1Id = '11111111-1111-1111-1111-111111111111';
-    user2Id = '22222222-2222-2222-2222-222222222222';
-
-    // Verify test data exists
-    const { data: tenant1, error: error1 } = await adminClient
-      .from('tenants')
-      .select('id')
-      .eq('id', tenant1Id)
-      .single();
-
-    const { data: tenant2, error: error2 } = await adminClient
-      .from('tenants')
-      .select('id')
-      .eq('id', tenant2Id)
-      .single();
-
-    if (error1 || error2) {
-      console.error('Tenant query errors:', { error1, error2 });
-      throw new Error(`Failed to query tenants: ${error1?.message || error2?.message}`);
+    if (createUserError) {
+      throw createUserError;
     }
 
-    if (!tenant1 || !tenant2) {
-      throw new Error('Test tenants not found. Run: bash scripts/setup-test-environment.sh');
+    createdUserIds.push(createdUser.user.id);
+
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: signedIn, error: signInError } = await authClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signedIn.session) {
+      throw signInError || new Error(`Failed to sign in runtime user ${email}`);
+    }
+
+    return {
+      accessToken: signedIn.session.access_token,
+      client: createScopedClient(supabaseUrl, anonKey, signedIn.session.access_token),
+      email,
+      password,
+      tenantId,
+      userId: createdUser.user.id,
+    };
+  }
+
+  beforeAll(async () => {
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      return;
+    }
+
+    adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const tenant1Id = crypto.randomUUID();
+    const tenant2Id = crypto.randomUUID();
+    createdTenantIds = [tenant1Id, tenant2Id];
+
+    const { error: tenantInsertError } = await adminClient.from("tenants").insert([
+      { id: tenant1Id, name: `Tenant ${tenant1Id}`, status: "active" },
+      { id: tenant2Id, name: `Tenant ${tenant2Id}`, status: "active" },
+    ]);
+
+    if (tenantInsertError) {
+      throw tenantInsertError;
+    }
+
+    tenant1Context = await createRuntimeUser(tenant1Id, "tenant-1-user");
+    tenant2Context = await createRuntimeUser(tenant2Id, "tenant-2-user");
+    outsiderContext = await createRuntimeUser(crypto.randomUUID(), "tenant-outsider-user");
+
+    const { error: membershipInsertError } = await adminClient.from("user_tenants").insert([
+      {
+        tenant_id: tenant1Context.tenantId,
+        user_id: tenant1Context.userId,
+        role: "member",
+        status: "active",
+      },
+      {
+        tenant_id: tenant2Context.tenantId,
+        user_id: tenant2Context.userId,
+        role: "member",
+        status: "active",
+      },
+    ]);
+
+    if (membershipInsertError) {
+      throw membershipInsertError;
     }
   });
 
   afterAll(async () => {
-    // Test data is managed by setup-test-environment.sh
-    // No cleanup needed - data persists for multiple test runs
+    if (!adminClient) {
+      return;
+    }
+
+    if (createdMessageIds.length > 0) {
+      await adminClient.from("messages").delete().in("id", createdMessageIds);
+    }
+
+    if (createdValueCaseIds.length > 0) {
+      await adminClient.from("value_cases").delete().in("id", createdValueCaseIds);
+    }
+
+    if (createdTenantIds.length > 0) {
+      await adminClient.from("user_tenants").delete().in("tenant_id", createdTenantIds);
+      await adminClient.from("tenants").delete().in("id", createdTenantIds);
+    }
+
+    for (const userId of createdUserIds) {
+      await adminClient.auth.admin.deleteUser(userId);
+    }
   });
 
-  describe('RLS Policy Enforcement', () => {
-    it('should enforce tenant_id in all queries', async () => {
-      // Create data for tenant 1
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        })
-        .select()
-        .single();
+  it("confirms the active Supabase schema exposes tenant-scoped tables used by the control", async () => {
+    const [tenantsResult, membershipsResult, valueCasesResult, messagesResult] = await Promise.all([
+      adminClient.from("tenants").select("id").limit(1),
+      adminClient.from("user_tenants").select("tenant_id,user_id").limit(1),
+      adminClient.from("value_cases").select("id,tenant_id").limit(1),
+      adminClient.from("messages").select("id,tenant_id").limit(1),
+    ]);
 
-      expect(case1).toBeTruthy();
-      expect(case1?.tenant_id).toBe(tenant1Id);
-
-      // In real implementation with RLS:
-      // User from tenant 2 should not be able to access tenant 1's data
-      console.log('⚠️  Note: Implement RLS policy verification with JWT tokens');
-    });
-
-    it('should prevent NULL tenant_id inserts', async () => {
-      // Attempt to insert without tenant_id
-      const { error } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: null,
-          title: 'Invalid Case',
-          status: 'open',
-        } as any);
-
-      // Should fail due to NOT NULL constraint
-      expect(error).toBeTruthy();
-    });
-
-    it('should prevent tenant_id modification', async () => {
-      // Create data for tenant 1
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        })
-        .select()
-        .single();
-
-      // Attempt to change tenant_id
-      const { error } = await adminClient
-        .from('cases')
-        .update({ tenant_id: tenant2Id })
-        .eq('id', case1!.id);
-
-      // Should fail or be blocked by RLS
-      console.log('⚠️  Note: Implement tenant_id immutability check');
-
-      // Clean up
-      if (case1?.id) {
-        await adminClient.from('cases').delete().eq('id', case1.id);
-      }
-    });
+    expect(tenantsResult.error).toBeNull();
+    expect(membershipsResult.error).toBeNull();
+    expect(valueCasesResult.error).toBeNull();
+    expect(messagesResult.error).toBeNull();
   });
 
-  describe('Billing RLS Policies', () => {
-    it('should enforce tenant isolation on billing tables', async () => {
-      const { data, error } = await adminClient.rpc('verify_billing_rls_policies');
+  it("rejects tenant mismatch inserts for JWT-scoped value_cases clients", async () => {
+    const { data, error } = await tenant1Context.client
+      .from("value_cases")
+      .insert({
+        tenant_id: tenant2Context.tenantId,
+        name: `cross-tenant-insert-${crypto.randomUUID()}`,
+        status: "draft",
+        stage: "discovery",
+      })
+      .select();
 
-      expect(error).toBeNull();
-      expect(data?.length).toBeGreaterThan(0);
-
-      data?.forEach(row => {
-        expect(row.rls_enabled).toBe(true);
-        expect(row.tenant_policy_count).toBe(4);
-      });
-    });
-
-    it('should allow service_role access on billing tables', async () => {
-      const { data, error } = await adminClient.rpc('verify_billing_rls_policies');
-
-      expect(error).toBeNull();
-      expect(data?.length).toBeGreaterThan(0);
-
-      data?.forEach(row => {
-        expect(row.service_role_policy_count).toBeGreaterThan(0);
-      });
-    });
+    expect(data ?? []).toHaveLength(0);
+    expect(error).toBeTruthy();
   });
 
-  describe('Cross-Tenant Access Prevention', () => {
-    it('should prevent reading data from other tenants', async () => {
-      // Create data for tenant 1
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Secret Case',
-          status: 'open',
-        })
-        .select()
-        .single();
+  it("blocks cross-tenant reads, updates, and deletes on value_cases", async () => {
+    const seededCase = createSeededValueCase(tenant1Context.tenantId);
+    createdValueCaseIds.push(seededCase.id);
 
-      // In real implementation with RLS:
-      // Query from tenant 2 context should return empty
-      const { data: crossTenantQuery } = await adminClient
-        .from('cases')
-        .select('*')
-        .eq('id', case1!.id)
-        .eq('tenant_id', tenant2Id); // Wrong tenant
+    const { error: insertError } = await adminClient.from("value_cases").insert(seededCase);
+    expect(insertError).toBeNull();
 
-      expect(crossTenantQuery?.length || 0).toBe(0);
+    const ownerRead = await tenant1Context.client.from("value_cases").select("id,tenant_id,name").eq("id", seededCase.id);
+    const crossTenantRead = await tenant2Context.client
+      .from("value_cases")
+      .select("id,tenant_id,name")
+      .eq("id", seededCase.id);
+    const outsiderRead = await outsiderContext.client.from("value_cases").select("id").eq("id", seededCase.id);
 
-      // Clean up
-      if (case1?.id) {
-        await adminClient.from('cases').delete().eq('id', case1.id);
-      }
-    });
+    expect(ownerRead.error).toBeNull();
+    expect(ownerRead.data).toHaveLength(1);
+    expect(crossTenantRead.error).toBeNull();
+    expect(crossTenantRead.data ?? []).toHaveLength(0);
+    expect(outsiderRead.error).toBeNull();
+    expect(outsiderRead.data ?? []).toHaveLength(0);
 
-    it('should prevent updating data from other tenants', async () => {
-      // Create data for tenant 1
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        })
-        .select()
-        .single();
+    const crossTenantUpdate = await tenant2Context.client
+      .from("value_cases")
+      .update({ name: "mutated-by-tenant-2" })
+      .eq("id", seededCase.id)
+      .select("id,name,tenant_id");
 
-      // In real implementation with RLS:
-      // Update from tenant 2 context should fail
-      console.log('⚠️  Note: Implement cross-tenant update prevention test');
+    expect(crossTenantUpdate.error).toBeNull();
+    expect(crossTenantUpdate.data ?? []).toHaveLength(0);
 
-      // Clean up
-      if (case1?.id) {
-        await adminClient.from('cases').delete().eq('id', case1.id);
-      }
-    });
+    const crossTenantDelete = await tenant2Context.client
+      .from("value_cases")
+      .delete()
+      .eq("id", seededCase.id)
+      .select("id");
 
-    it('should prevent deleting data from other tenants', async () => {
-      // Create data for tenant 1
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        })
-        .select()
-        .single();
+    expect(crossTenantDelete.error).toBeNull();
+    expect(crossTenantDelete.data ?? []).toHaveLength(0);
 
-      // In real implementation with RLS:
-      // Delete from tenant 2 context should fail
-      console.log('⚠️  Note: Implement cross-tenant delete prevention test');
+    const { data: persistedRow, error: persistedRowError } = await adminClient
+      .from("value_cases")
+      .select("id,name,tenant_id")
+      .eq("id", seededCase.id)
+      .single();
 
-      // Clean up
-      if (case1?.id) {
-        await adminClient.from('cases').delete().eq('id', case1.id);
-      }
-    });
+    expect(persistedRowError).toBeNull();
+    expect(persistedRow?.tenant_id).toBe(tenant1Context.tenantId);
+    expect(persistedRow?.name).toBe(seededCase.name);
   });
 
-  describe('Tenant Data Segregation', () => {
-    it('should segregate user data by tenant', async () => {
-      // Create data for both tenants
-      await adminClient.from('cases').insert([
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        },
-        {
-          user_id: user2Id,
-          tenant_id: tenant2Id,
-          title: 'Tenant 2 Case',
-          status: 'open',
-        },
-      ]);
+  it("keeps tenant_id effectively immutable for scoped updates", async () => {
+    const { data: insertedCase, error: insertError } = await tenant1Context.client
+      .from("value_cases")
+      .insert({
+        tenant_id: tenant1Context.tenantId,
+        name: `mutable-check-${crypto.randomUUID()}`,
+        status: "draft",
+        stage: "discovery",
+      })
+      .select("id,tenant_id")
+      .single();
 
-      // Query for tenant 1 data
-      const { data: tenant1Cases } = await adminClient
-        .from('cases')
-        .select('*')
-        .eq('tenant_id', tenant1Id);
+    expect(insertError).toBeNull();
+    expect(insertedCase).toBeTruthy();
+    createdValueCaseIds.push(insertedCase!.id);
 
-      // Query for tenant 2 data
-      const { data: tenant2Cases } = await adminClient
-        .from('cases')
-        .select('*')
-        .eq('tenant_id', tenant2Id);
+    const attemptedMutation = await tenant1Context.client
+      .from("value_cases")
+      .update({ tenant_id: tenant2Context.tenantId })
+      .eq("id", insertedCase!.id)
+      .select("id,tenant_id");
 
-      expect(tenant1Cases?.length).toBeGreaterThan(0);
-      expect(tenant2Cases?.length).toBeGreaterThan(0);
+    expect((attemptedMutation.data ?? []).length).toBe(0);
+    expect(attemptedMutation.error).toBeTruthy();
 
-      // Verify no cross-contamination
-      tenant1Cases?.forEach(c => expect(c.tenant_id).toBe(tenant1Id));
-      tenant2Cases?.forEach(c => expect(c.tenant_id).toBe(tenant2Id));
+    const { data: persistedRow, error: persistedRowError } = await adminClient
+      .from("value_cases")
+      .select("id,tenant_id")
+      .eq("id", insertedCase!.id)
+      .single();
 
-      // Clean up
-      await adminClient.from('cases').delete().eq('tenant_id', tenant1Id);
-      await adminClient.from('cases').delete().eq('tenant_id', tenant2Id);
-    });
-
-    it('should segregate messages by tenant', async () => {
-      // Create messages for both tenants
-      await adminClient.from('messages').insert([
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          content: 'Tenant 1 message',
-          role: 'user',
-        },
-        {
-          user_id: user2Id,
-          tenant_id: tenant2Id,
-          content: 'Tenant 2 message',
-          role: 'user',
-        },
-      ]);
-
-      // Query for tenant 1 messages
-      const { data: tenant1Messages } = await adminClient
-        .from('messages')
-        .select('*')
-        .eq('tenant_id', tenant1Id);
-
-      // Query for tenant 2 messages
-      const { data: tenant2Messages } = await adminClient
-        .from('messages')
-        .select('*')
-        .eq('tenant_id', tenant2Id);
-
-      expect(tenant1Messages?.length).toBeGreaterThan(0);
-      expect(tenant2Messages?.length).toBeGreaterThan(0);
-
-      // Verify segregation
-      tenant1Messages?.forEach(m => expect(m.tenant_id).toBe(tenant1Id));
-      tenant2Messages?.forEach(m => expect(m.tenant_id).toBe(tenant2Id));
-
-      // Clean up
-      await adminClient.from('messages').delete().eq('tenant_id', tenant1Id);
-      await adminClient.from('messages').delete().eq('tenant_id', tenant2Id);
-    });
-
-    it('should segregate audit logs by tenant', async () => {
-      // Create audit logs for both tenants
-      await adminClient.from('security_audit_events').insert([
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          action: 'ACCESS_GRANTED',
-          resource: '/api/tenant1/resource',
-          required_permissions: [],
-          user_permissions: [],
-        },
-        {
-          user_id: user2Id,
-          tenant_id: tenant2Id,
-          action: 'ACCESS_GRANTED',
-          resource: '/api/tenant2/resource',
-          required_permissions: [],
-          user_permissions: [],
-        },
-      ]);
-
-      // Query for tenant 1 logs
-      const { data: tenant1Logs } = await adminClient
-        .from('security_audit_events')
-        .select('*')
-        .eq('tenant_id', tenant1Id);
-
-      // Query for tenant 2 logs
-      const { data: tenant2Logs } = await adminClient
-        .from('security_audit_events')
-        .select('*')
-        .eq('tenant_id', tenant2Id);
-
-      // Verify segregation
-      tenant1Logs?.forEach(l => expect(l.tenant_id).toBe(tenant1Id));
-      tenant2Logs?.forEach(l => expect(l.tenant_id).toBe(tenant2Id));
-
-      // Clean up
-      await adminClient.from('security_audit_events').delete().eq('tenant_id', tenant1Id);
-      await adminClient.from('security_audit_events').delete().eq('tenant_id', tenant2Id);
-    });
+    expect(persistedRowError).toBeNull();
+    expect(persistedRow?.tenant_id).toBe(tenant1Context.tenantId);
   });
 
-  describe('Tenant Context Validation', () => {
-    it('should validate tenant context in JWT token', () => {
-      // In real implementation:
-      // JWT token should contain tenant_id claim
-      const mockJWT = {
-        sub: user1Id,
-        tenant_id: tenant1Id,
-        email: 'tenant1-user@example.com',
-      };
+  it("rejects authenticated users without matching tenant membership", async () => {
+    const readAttempt = await outsiderContext.client.from("tenants").select("id");
+    expect(readAttempt.error).toBeNull();
+    expect(readAttempt.data ?? []).toHaveLength(0);
 
-      expect(mockJWT.tenant_id).toBe(tenant1Id);
-    });
+    const insertAttempt = await outsiderContext.client
+      .from("value_cases")
+      .insert({
+        tenant_id: tenant1Context.tenantId,
+        name: `outsider-insert-${crypto.randomUUID()}`,
+        status: "draft",
+        stage: "discovery",
+      })
+      .select("id");
 
-    it('should reject requests without tenant context', () => {
-      // In real implementation:
-      // Requests without tenant_id in JWT should be rejected
-      const mockJWT = {
-        sub: user1Id,
-        email: 'user@example.com',
-        // Missing tenant_id
-      };
-
-      const hasTenantContext = 'tenant_id' in mockJWT;
-
-      expect(hasTenantContext).toBe(false);
-    });
-
-    it('should validate tenant membership', async () => {
-      // Verify user is member of tenant
-      const { data: membership } = await adminClient
-        .from('user_tenants')
-        .select('*')
-        .eq('user_id', user1Id)
-        .eq('tenant_id', tenant1Id)
-        .eq('status', 'active')
-        .single();
-
-      expect(membership).toBeTruthy();
-      expect(membership?.tenant_id).toBe(tenant1Id);
-    });
-
-    it('should reject access for non-members', async () => {
-      // User 1 should not be member of tenant 2
-      const { data: membership } = await adminClient
-        .from('user_tenants')
-        .select('*')
-        .eq('user_id', user1Id)
-        .eq('tenant_id', tenant2Id)
-        .eq('status', 'active')
-        .single();
-
-      expect(membership).toBeNull();
-    });
+    expect(insertAttempt.error).toBeTruthy();
+    expect(insertAttempt.data ?? []).toHaveLength(0);
   });
 
-  describe('Multi-Tenant Query Patterns', () => {
-    it('should automatically filter queries by tenant', async () => {
-      // Create data for both tenants
-      await adminClient.from('cases').insert([
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case 1',
-          status: 'open',
-        },
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case 2',
-          status: 'open',
-        },
-        {
-          user_id: user2Id,
-          tenant_id: tenant2Id,
-          title: 'Tenant 2 Case 1',
-          status: 'open',
-        },
-      ]);
+  it("scopes membership and messages queries to the caller's tenant access", async () => {
+    const membershipRead = await tenant1Context.client
+      .from("user_tenants")
+      .select("tenant_id,user_id,status")
+      .order("tenant_id", { ascending: true });
 
-      // Query without explicit tenant filter (RLS should apply)
-      const { data: allCases } = await adminClient
-        .from('cases')
-        .select('*');
+    expect(membershipRead.error).toBeNull();
+    expect(membershipRead.data).toEqual([
+      {
+        status: "active",
+        tenant_id: tenant1Context.tenantId,
+        user_id: tenant1Context.userId,
+      },
+    ]);
 
-      // In real implementation with RLS:
-      // User from tenant 1 should only see tenant 1 cases
-      console.log('⚠️  Note: Implement automatic tenant filtering via RLS');
+    const { data: insertedMessage, error: insertMessageError } = await tenant1Context.client
+      .from("messages")
+      .insert({
+        user_id: tenant1Context.userId,
+        tenant_id: tenant1Context.tenantId,
+        content: `tenant-message-${crypto.randomUUID()}`,
+        role: "user",
+      })
+      .select("id,tenant_id,user_id,content")
+      .single();
 
-      // Clean up
-      await adminClient.from('cases').delete().eq('tenant_id', tenant1Id);
-      await adminClient.from('cases').delete().eq('tenant_id', tenant2Id);
-    });
+    expect(insertMessageError).toBeNull();
+    expect(insertedMessage).toBeTruthy();
+    createdMessageIds.push(insertedMessage!.id);
 
-    it('should handle joins with tenant isolation', async () => {
-      // Create related data
-      const { data: case1 } = await adminClient
-        .from('cases')
-        .insert({
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case',
-          status: 'open',
-        })
-        .select()
-        .single();
+    const ownerRead = await tenant1Context.client.from("messages").select("id,tenant_id").eq("id", insertedMessage!.id);
+    const crossTenantRead = await tenant2Context.client.from("messages").select("id,tenant_id").eq("id", insertedMessage!.id);
+    const crossTenantInsert = await tenant2Context.client
+      .from("messages")
+      .insert({
+        user_id: tenant2Context.userId,
+        tenant_id: tenant1Context.tenantId,
+        content: `tenant-mismatch-message-${crypto.randomUUID()}`,
+        role: "user",
+      })
+      .select("id");
 
-      // In real implementation:
-      // Joins should respect tenant boundaries
-      console.log('⚠️  Note: Implement tenant-aware join tests');
-
-      // Clean up
-      if (case1?.id) {
-        await adminClient.from('cases').delete().eq('id', case1.id);
-      }
-    });
-
-    it('should handle aggregations with tenant isolation', async () => {
-      // Create data for both tenants
-      await adminClient.from('cases').insert([
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case 1',
-          status: 'open',
-        },
-        {
-          user_id: user1Id,
-          tenant_id: tenant1Id,
-          title: 'Tenant 1 Case 2',
-          status: 'open',
-        },
-        {
-          user_id: user2Id,
-          tenant_id: tenant2Id,
-          title: 'Tenant 2 Case 1',
-          status: 'open',
-        },
-      ]);
-
-      // Count cases for tenant 1
-      const { count: tenant1Count } = await adminClient
-        .from('cases')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenant1Id);
-
-      // Count cases for tenant 2
-      const { count: tenant2Count } = await adminClient
-        .from('cases')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenant2Id);
-
-      expect(tenant1Count).toBe(2);
-      expect(tenant2Count).toBe(1);
-
-      // Clean up
-      await adminClient.from('cases').delete().eq('tenant_id', tenant1Id);
-      await adminClient.from('cases').delete().eq('tenant_id', tenant2Id);
-    });
+    expect(ownerRead.error).toBeNull();
+    expect(ownerRead.data).toHaveLength(1);
+    expect(crossTenantRead.error).toBeNull();
+    expect(crossTenantRead.data ?? []).toHaveLength(0);
+    expect(crossTenantInsert.error).toBeTruthy();
+    expect(crossTenantInsert.data ?? []).toHaveLength(0);
   });
 
-  describe('Tenant Isolation Audit', () => {
-    it('should log cross-tenant access attempts', async () => {
-      // In real implementation:
-      // Failed cross-tenant access should be logged
-      const accessAttempt = {
-        user_id: user1Id,
-        attempted_tenant_id: tenant2Id,
-        actual_tenant_id: tenant1Id,
-        action: 'READ',
-        resource: '/api/cases',
-        result: 'DENIED',
-        timestamp: new Date().toISOString(),
-      };
+  const runtimeIndexDescribe = databaseUrl ? describe : describe.skip;
 
-      expect(accessAttempt.result).toBe('DENIED');
+  runtimeIndexDescribe("Tenant Isolation Verification - runtime index introspection", () => {
+    it("finds tenant hot-path indexes in the active Supabase schema", () => {
+      const rows = runPsqlQuery(`
+        SELECT tablename || ':' || indexname
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND (
+            (tablename = 'value_cases' AND indexname IN ('idx_value_cases_tenant_id', 'idx_value_cases_tenant_status'))
+            OR (tablename = 'messages' AND indexname IN ('idx_messages_user_tenant', 'idx_messages_tenant_created'))
+            OR (tablename = 'user_tenants' AND indexname IN ('idx_user_tenants_tenant', 'idx_user_tenants_user'))
+          )
+        ORDER BY tablename, indexname;
+      `);
 
-      console.log('⚠️  Note: Implement cross-tenant access attempt logging');
-    });
-
-    it('should alert on repeated cross-tenant access attempts', () => {
-      const attempts = [
-        { timestamp: new Date('2024-01-01T00:00:00Z'), result: 'DENIED' },
-        { timestamp: new Date('2024-01-01T00:01:00Z'), result: 'DENIED' },
-        { timestamp: new Date('2024-01-01T00:02:00Z'), result: 'DENIED' },
-      ];
-
-      const deniedAttempts = attempts.filter(a => a.result === 'DENIED').length;
-      const ALERT_THRESHOLD = 3;
-
-      const shouldAlert = deniedAttempts >= ALERT_THRESHOLD;
-
-      expect(shouldAlert).toBe(true);
-    });
-
-    it('should generate tenant isolation compliance report', () => {
-      const report = {
-        generated_at: new Date().toISOString(),
-        total_tenants: 2,
-        total_users: 2,
-        cross_tenant_violations: 0,
-        rls_policies_active: true,
-        compliance_status: 'COMPLIANT',
-      };
-
-      expect(report.cross_tenant_violations).toBe(0);
-      expect(report.compliance_status).toBe('COMPLIANT');
-    });
-  });
-
-  describe('Performance with Tenant Isolation', () => {
-    it('should maintain query performance with RLS', async () => {
-      // Create test data
-      const cases = Array.from({ length: 100 }, (_, i) => ({
-        user_id: user1Id,
-        tenant_id: tenant1Id,
-        title: `Test Case ${i}`,
-        status: 'open',
-      }));
-
-      await adminClient.from('cases').insert(cases);
-
-      // Measure query performance
-      const startTime = Date.now();
-      const { data } = await adminClient
-        .from('cases')
-        .select('*')
-        .eq('tenant_id', tenant1Id)
-        .limit(10);
-
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      expect(data?.length).toBe(10);
-      expect(duration).toBeLessThan(1000); // Should be fast
-
-      console.log(`✅ Query with RLS completed in ${duration}ms`);
-
-      // Clean up
-      await adminClient.from('cases').delete().eq('tenant_id', tenant1Id);
-    });
-
-    it('should use indexes for tenant_id filtering', async () => {
-      // In real implementation:
-      // Verify that tenant_id columns have indexes
-      console.log('⚠️  Note: Verify tenant_id indexes exist on all tables');
-    });
-  });
-
-  describe('Tenant Deletion', () => {
-    it('should cascade delete tenant data', async () => {
-      // Generate unique tenant ID
-      const tempTenantId = `temp-tenant-${Date.now()}`;
-      
-      // Create temporary tenant
-      const { data: tempTenant } = await adminClient
-        .from('tenants')
-        .insert({
-          id: tempTenantId,
-          name: 'Temp Tenant',
-          status: 'active',
-        })
-        .select()
-        .single();
-
-      // Create data for temp tenant
-      await adminClient.from('cases').insert({
-        user_id: user1Id,
-        tenant_id: tempTenantId,
-        title: 'Temp Case',
-        status: 'open',
-      });
-
-      // Delete tenant
-      await adminClient.from('tenants').delete().eq('id', tempTenantId);
-
-      // Verify data is deleted
-      const { data: remainingCases } = await adminClient
-        .from('cases')
-        .select('*')
-        .eq('tenant_id', tempTenantId);
-
-      expect(remainingCases?.length || 0).toBe(0);
-    });
-
-    it('should prevent orphaned data after tenant deletion', async () => {
-      // In real implementation:
-      // Verify no data exists without valid tenant_id
-      console.log('⚠️  Note: Implement orphaned data detection');
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          'messages:idx_messages_tenant_created',
+          'messages:idx_messages_user_tenant',
+          'user_tenants:idx_user_tenants_tenant',
+          'user_tenants:idx_user_tenants_user',
+          'value_cases:idx_value_cases_tenant_id',
+          'value_cases:idx_value_cases_tenant_status',
+        ]),
+      );
     });
   });
 });

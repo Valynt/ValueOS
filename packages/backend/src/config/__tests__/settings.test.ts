@@ -47,6 +47,22 @@ describe("settings database pool sizing", () => {
     expect(settings.databasePool.maxSource).toBe("env-override");
   });
 
+  it("accepts DATABASE_POOL_SIZE as a compatibility alias for pool overrides", async () => {
+    applyBaseEnv();
+    process.env.NODE_ENV = "production";
+    process.env.APP_ENV = "prod";
+    process.env.DATABASE_POOL_ROLE = "worker";
+    process.env.DATABASE_EXPECTED_CONCURRENCY = "4";
+    process.env.DATABASE_POOL_SIZE = "4";
+
+    const { settings } = await import("../settings.js");
+
+    expect(settings.databasePool.role).toBe("worker");
+    expect(settings.databasePool.expectedConcurrency).toBe(4);
+    expect(settings.databasePool.max).toBe(4);
+    expect(settings.databasePool.maxSource).toBe("env-override");
+  });
+
   it("uses a higher local default for api pods when concurrency is not provided", async () => {
     applyBaseEnv();
     process.env.NODE_ENV = "development";

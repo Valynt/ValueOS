@@ -4,7 +4,7 @@ vi.mock('@shared/lib/redisClient', () => ({
   getRedisClient: vi.fn(),
 }));
 
-import { NonceStore } from '../nonceStore.js'
+import { NonceStore, NonceStoreUnavailableError } from '../nonceStore.js'
 
 type RedisSetResult = 'OK' | null;
 
@@ -47,6 +47,7 @@ describe('NonceStore (Redis-backed replay protection)', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    delete process.env.NODE_ENV;
   });
 
   it('expires nonces after TTL', async () => {
@@ -75,5 +76,14 @@ describe('NonceStore (Redis-backed replay protection)', () => {
 
     await expect(storeA.consumeOnce('issuer', 'nonce')).resolves.toBe(true);
     await expect(storeB.consumeOnce('issuer', 'nonce')).resolves.toBe(false);
+  });
+
+  it('requires Redis in production instead of silently falling back to memory', async () => {
+    process.env.NODE_ENV = 'production';
+    const store = new NonceStore({ ttlMs: 60000, redisConfigured: true });
+
+    await expect(store.consumeOnce('issuer', 'nonce')).rejects.toBeInstanceOf(
+      NonceStoreUnavailableError
+    );
   });
 });

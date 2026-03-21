@@ -187,6 +187,156 @@
         "x": 12,
         "y": 16
       }
+    },
+    {
+      "type": "timeseries",
+      "title": "App RSS vs sidecar RSS by deployment",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "valueos:deployment_app_memory_rss_bytes",
+          "legendFormat": "app {{namespace}}/{{workload}}",
+          "refId": "A"
+        },
+        {
+          "expr": "valueos:deployment_sidecar_memory_rss_bytes",
+          "legendFormat": "sidecar {{namespace}}/{{workload}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Sidecar RSS share by deployment",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "valueos:deployment_sidecar_memory_share",
+          "legendFormat": "{{namespace}}/{{workload}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.35
+              },
+              {
+                "color": "red",
+                "value": 0.5
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Sidecar-heavy memory pressure flag",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "valueos:deployment_sidecar_heavy_memory_pressure",
+          "legendFormat": "{{namespace}}/{{workload}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "App RSS and total RSS as share of requested memory",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "valueos:deployment_app_memory_rss_bytes / clamp_min(valueos:deployment_memory_request_bytes, 1)",
+          "legendFormat": "app {{namespace}}/{{workload}}",
+          "refId": "A"
+        },
+        {
+          "expr": "valueos:deployment_memory_rss_bytes / clamp_min(valueos:deployment_memory_request_bytes, 1)",
+          "legendFormat": "total {{namespace}}/{{workload}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.4
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      }
     }
   ],
   "schemaVersion": 38,
@@ -206,5 +356,5 @@
   "timezone": "browser",
   "title": "Operational Tuning Loop",
   "uid": "operational-tuning-loop",
-  "version": 1
+  "version": 2
 }

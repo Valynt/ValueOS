@@ -473,7 +473,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         scope: "tenant",
         audited: true,
         sensitivity: "sensitive",
-        description: "Enable SOC2, GDPR, or HIPAA compliance modes",
+        description: "Review compliance framework availability, gating, and backend prerequisites",
         minPlanTier: "enterprise",
       },
     ],

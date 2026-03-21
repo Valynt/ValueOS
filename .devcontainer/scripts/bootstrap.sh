@@ -8,13 +8,16 @@
 # Steps:
 #   1. Validate toolchain versions
 #   2. Ensure .env exists (from template if needed)
-#   3. Install workspace dependencies (frozen lockfile)
-#   4. Smoke-test: confirm node_modules sentinel is present
+#   3. Validate required devcontainer secrets
+#   4. Install workspace dependencies (frozen lockfile)
+#   5. Smoke-test: confirm node_modules sentinel is present
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VERSIONS_FILE="${ROOT}/.devcontainer/versions.json"
+# shellcheck source=.devcontainer/scripts/env-setup.sh
+source "${SCRIPT_DIR}/env-setup.sh"
 
 log()  { printf '[bootstrap] %s\n' "$*"; }
 warn() { printf '[bootstrap] WARN: %s\n' "$*" >&2; }
@@ -80,7 +83,14 @@ else
   warn "No .env source found. Create ${ENV_DEST} manually before starting services."
 fi
 
-# ── 3. Install workspace dependencies ────────────────────────────────────────
+# ── 3. Validate startup secrets ─────────────────────────────────────────────
+if [[ -x "${ROOT}/.devcontainer/scripts/validate-devcontainer-secrets.sh" ]] && [[ -f "${ENV_DEST}" ]]; then
+  log "Validating devcontainer secrets..."
+  load_kv_file "${ENV_DEST}"
+  "${ROOT}/.devcontainer/scripts/validate-devcontainer-secrets.sh"
+fi
+
+# ── 4. Install workspace dependencies ────────────────────────────────────────
 log "Installing workspace dependencies..."
 
 # Remove an incomplete node_modules left by a previously interrupted install.
@@ -95,7 +105,7 @@ else
   CI=true pnpm install --frozen-lockfile
 fi
 
-# ── 4. Smoke test ─────────────────────────────────────────────────────────────
+# ── 5. Smoke test ─────────────────────────────────────────────────────────────
 log "Verifying install..."
 
 [[ -f node_modules/.modules.yaml ]] \

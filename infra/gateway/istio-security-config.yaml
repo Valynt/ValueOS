@@ -61,6 +61,54 @@ spec:
   # Auth endpoints - strict rate limiting
   - match:
     - uri:
+        prefix: "/auth/v1/token"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "auth-login"
+  - match:
+    - uri:
+        prefix: "/auth/v1/signup"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "auth-signup"
+  - match:
+    - uri:
+        prefix: "/auth/v1/recover"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "auth-password-reset"
+  - match:
+    - uri:
+        prefix: "/auth/v1/otp"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "auth-mfa"
+  - match:
+    - uri:
         prefix: "/auth/"
     route:
     - destination:
@@ -72,7 +120,41 @@ spec:
           add:
             x-route-type: "auth"
     # Security headers added via EnvoyFilter (see below)
-  
+
+  # Admin endpoints - security critical
+  - match:
+    - uri:
+        prefix: "/api/admin/"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "admin"
+
+  # Expensive write paths - gateway-level throttling/WAF baseline
+  - match:
+    - uri:
+        prefix: "/api/llm/"
+    - uri:
+        prefix: "/api/agents/"
+    - uri:
+        prefix: "/api/artifacts/"
+    - uri:
+        prefix: "/api/workflows/"
+    route:
+    - destination:
+        host: backend-service
+        port:
+          number: 3000
+      headers:
+        request:
+          add:
+            x-route-type: "expensive-write"
+
   # API endpoints - moderate rate limiting
   - match:
     - uri:

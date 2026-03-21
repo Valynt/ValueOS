@@ -1,0 +1,289 @@
+name: Nightly Governance
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-governance-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  vitest-package-matrix-config:
+    name: nightly/vitest-package-matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Emit Vitest package matrix
+        id: matrix
+        run: echo "matrix=$(node scripts/ci/emit-vitest-package-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
+  vitest-package:
+    name: nightly/vitest/${{ matrix.package.label }}
+    runs-on: ubuntu-latest
+    needs: vitest-package-matrix-config
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.vitest-package-matrix-config.outputs.matrix) }}
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+      - name: Run package tests with coverage
+        run: |
+          npx vitest run \
+            --root "${{ matrix.package.dir }}" \
+            --config vitest.config.ts \
+            --coverage \
+            --coverage.provider=v8 \
+            --coverage.reporter=json-summary \
+            --coverage.reporter=text-summary \
+            --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
+
+  nightly-tenant-isolation-gate:
+    name: nightly/tenant-isolation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prepare compliance report directories
+        run: |
+          mkdir -p reports/compliance/rls
+          mkdir -p reports/compliance/dsr
+      - name: Tenant isolation + compliance tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          npx vitest run --config tests/security/vitest.security.config.ts \
+            tests/security/rls-tenant-isolation.test.ts \
+            tests/security/api-tenant-isolation.test.ts \
+            tests/security/supabase-rls-policy-matrix.test.ts \
+            tests/security/agent-invocation-tenant-boundary.test.ts \
+            packages/memory/tests/tenant-vector-isolation.test.ts \
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
+            --outputFile.json=reports/compliance/rls/vitest-rls.json
+      - name: Run DSR compliance tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx vitest run tests/compliance/dsr-workflow.test.ts packages/backend/src/api/__tests__/dataSubjectRequests.piiTables.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
+
+  nightly-critical-workflows-gate:
+    name: nightly/critical-workflows
+    runs-on: ubuntu-latest
+    needs:
+      - nightly-tenant-isolation-gate
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Critical workflow contracts
+        run: |
+          node scripts/ci/verify-critical-claims.mjs
+          pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts
+
+  nightly-accessibility-audit:
+    name: nightly/accessibility-trends
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Build frontend
+        run: npx turbo run build --filter=valynt-app
+      - name: Run WCAG 2.2 AA accessibility tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+        run: |
+          mkdir -p artifacts/accessibility
+          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+            --reporter=html,json \
+            --output=artifacts/accessibility
+      - name: Accessibility trend gate
+        if: always()
+        run: |
+          node scripts/ci/a11y-trend-gate.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --baseline .github/metrics/accessibility-baseline.json \
+            --metrics-out artifacts/accessibility/a11y-metrics.json \
+            --summary-out artifacts/accessibility/a11y-trend-summary.md
+      - name: Enforce WCAG severity budgets
+        if: always()
+        run: |
+          node scripts/ci/check-a11y-severity-budgets.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --budget .github/metrics/wcag-severity-budgets.json \
+            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
+
+  nightly-security-gate:
+    name: nightly/security-advisory
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: SCA — pnpm audit (fail on high/critical)
+        run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+      - name: Secret scan — gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+      - name: SAST — Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      - name: Build backend container image for Trivy
+        run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:nightly .
+      - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy container image scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: image
+          image-ref: valueos-backend:nightly
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  nightly-devcontainer-build:
+    name: nightly/devcontainer-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Copy env template
+        run: cp .devcontainer/.env.template .devcontainer/.env
+      - name: Build DevContainer image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .devcontainer/Dockerfile.optimized
+          push: false
+          load: true
+          tags: valueos-devcontainer:nightly
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Validate container health
+        run: |
+          docker run --rm valueos-devcontainer:nightly node --version
+          docker run --rm valueos-devcontainer:nightly pnpm --version

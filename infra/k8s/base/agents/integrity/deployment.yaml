@@ -83,6 +83,11 @@ spec:
             configMapKeyRef:
               name: agent-config
               key: latency-sensitive-max-concurrent-requests
+        - name: DATABASE_EXPECTED_CONCURRENCY
+          valueFrom:
+            configMapKeyRef:
+              name: agent-config
+              key: latency-sensitive-max-concurrent-requests
         - name: REQUEST_TIMEOUT_MS
           valueFrom:
             configMapKeyRef:
@@ -109,6 +114,11 @@ spec:
               name: agent-config
               key: circuit-breaker-recovery-timeout
         - name: DB_CONNECTION_POOL_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: agent-config
+              key: latency-sensitive-db-connection-pool-size
+        - name: DATABASE_POOL_MAX
           valueFrom:
             configMapKeyRef:
               name: agent-config
@@ -200,6 +210,13 @@ spec:
         - name: opa-http
           containerPort: 8181
           protocol: TCP
+        resources:
+          requests:
+            cpu: 50m
+            memory: 96Mi
+          limits:
+            cpu: 200m
+            memory: 192Mi
         readinessProbe:
           httpGet:
             path: /health?plugins
@@ -259,6 +276,13 @@ spec:
             configMapKeyRef:
               name: agent-sidecar-config
               key: jwt_audience
+        resources:
+          requests:
+            cpu: 75m
+            memory: 160Mi
+          limits:
+            cpu: 250m
+            memory: 320Mi
         readinessProbe:
           httpGet:
             path: /ready
