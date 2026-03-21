@@ -1,6 +1,8 @@
 ---
 title: Incident Response
 owner: team-sre
+backstage_owner: team:platform-engineering
+backstage_system: value-engineering-platform
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
 review_date: 2026-05-31
 status: active
