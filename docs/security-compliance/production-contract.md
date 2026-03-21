@@ -119,7 +119,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 `main` branch protection must include these required checks:
 
-- `pr-fast-blocking-subsets`
+- `pr-fast`
 - `staging-deploy-release-gates`
 - `codeql-analyze (js-ts)`
 

@@ -4,50 +4,52 @@ This is the single control matrix for workflows under `.github/workflows/`.
 
 | Control Domain | Control | Enforced In Workflow | Evidence Artifact |
 | --- | --- | --- | --- |
-| Code Quality | Lint + typecheck + unit/integration tests | `ci.yml` | Coverage + test artifacts |
-| Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `ci.yml` (`accessibility-audit` job) | `accessibility-trend` artifact (`a11y-metrics`, `wcag-severity-metrics`) |
-| Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `ci.yml` (`unit-tests` + `release-readiness`) | `i18n-coverage-dashboard`, `i18n-release-coverage-dashboard`, pseudo-loc report |
-| UX Performance | Bundle + route-level load budgets enforced in CI | `ci.yml` (`accessibility-audit` job) | `ux-performance-metrics`, `route-load-metrics` |
-| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)` job) | GitHub Code Scanning alerts (CodeQL SARIF) |
-| Security | Gitleaks secret scanning | `ci.yml` (`security-gate` job) | GitHub Action run logs + `security-gate-*` artifact |
-| Security | Semgrep SAST scanning | `ci.yml` (`security-gate` job) | `semgrep.sarif`, uploaded to code scanning |
-| Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `ci.yml` (`security-gate` job) | `trivy-fs.sarif`, `trivy-image.sarif`, uploaded to code scanning |
-| Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact (`*.json`, `*.txt`) |
-| Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
+| Code Quality | Lint + typecheck + unit/integration tests | `pr-fast.yml` and `main-verify.yml` (`unit/component/schema`) | Coverage + backend debt artifacts |
+| Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `pr-fast.yml` / `main-verify.yml` (`accessibility-audit`), `nightly-governance.yml` (`nightly/accessibility-trends`) | Accessibility and frontend-quality artifacts |
+| Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/i18n/*` |
+| UX Performance | Bundle + route-level load budgets enforced in CI | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/frontend-quality/*` |
+| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)`) | GitHub Code Scanning alerts (CodeQL SARIF) |
+| Security | Gitleaks secret scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | Action logs + uploaded security artifacts |
+| Security | Semgrep SAST scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `semgrep.sarif`, uploaded to code scanning where applicable |
+| Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `trivy-fs.sarif`, `trivy-image.sarif` |
+| Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact |
+| Compliance | RLS and DSR checks + evidence export | `pr-fast.yml`, `main-verify.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
-| Release Safety | Build/deploy, staging smoke tests, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary |
-| Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact (`reproducibility-report.md`, `reproducibility-comparison.json`, `reproducibility-allowlisted-diff.json`) |
+| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
+| Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
 ## Workflow Lifecycle
 
 | Workflow | Status | Owner | Notes |
 | --- | --- | --- | --- |
-| `ci.yml` | Active | team-quality | Consolidated quality + blocking security gates. |
+| `pr-fast.yml` | Active | team-quality | Pull-request-only merge blockers with fork-safe aggregation. |
+| `main-verify.yml` | Active | team-quality | Trusted post-merge verification and release-oriented aggregation on `main`. |
+| `nightly-governance.yml` | Active | team-quality | Scheduled advisory scans, trend checks, and heavy diagnostics. |
 | `codeql.yml` | Active | team-security | Dedicated CodeQL analysis on pull requests and main pushes. |
 | `deploy.yml` | Active | team-platform | Promotion and production safety controls. |
 | `terraform.yml` | Active | team-platform | Terraform validation and drift checks. |
 | `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
-| `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault, and reusable production-promotion gate evidence. |
+| `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault. |
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
-| `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Folded into `ci.yml` to remove duplicate setup and execution paths. |
+| `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Accessibility checks were folded into the active CI entry points. |
 
 ## Branch Protection Required Checks
 
 `main` branch protection must require the following checks:
 
-- `pr-fast-blocking-subsets`
+- `pr-fast`
 - `staging-deploy-release-gates`
 - `codeql-analyze (js-ts)`
 
 ## Scanner Version Upgrade Workflow
 
-To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`, including the dedicated CodeQL `init`/`analyze` refs and the `upload-sarif` ref used by `ci.yml`.
+To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`.
 
 When bumping scanner action versions:
 
-1. Update version refs in `scripts/ci/security-tool-versions.json` so the manifest remains the source of truth for CodeQL, Trivy, Semgrep, and Gitleaks action pins.
-2. Update `.github/workflows/ci.yml` and/or `.github/workflows/codeql.yml` to use the same refs, including `github/codeql-action/upload-sarif` in `ci.yml` when the CodeQL action major version changes.
+1. Update version refs in `scripts/ci/security-tool-versions.json`.
+2. Update `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/nightly-governance.yml`, and/or `.github/workflows/codeql.yml` to use the same refs.
 3. Run these guards locally:
    - `node scripts/ci/security-baseline-verification.mjs`
    - `node scripts/ci/check-ci-security-control-matrix.mjs`
