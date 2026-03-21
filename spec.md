@@ -1,172 +1,199 @@
-# ValueOS Production Finish Line — Specification
+# Spec: Sprint 49 — Test Stabilization + Value Graph Agent Integration + API
 
 ## Problem Statement
 
-ValueOS has a substantial, well-architected backend with real agent implementations, a working economic kernel, a saga-based lifecycle orchestrator, and live LLM integration via Together.ai. However, the platform is not yet production-complete because of a set of specific, concrete gaps that prevent end-to-end operation:
+Three distinct gaps block Sprint 49 delivery:
 
-1. **Frontend agents are mocked.** The `useAgent` hook in `apps/ValyntApp/src/features/agents/hooks/useAgent.ts` has a hardcoded `AGENT_PREVIEW_MODE` guard that returns a simulated streaming response instead of calling the backend. Users see fake agent output.
+1. **~120 backend test files crash at module-init time** because their `vi.mock` for the logger omits `createLogger`. Source files call `createLogger({ component: '...' })` at the top level; when a transitive import hits a mock that doesn't export `createLogger`, Vitest throws before any test runs. This is a pre-existing infrastructure gap that must be resolved before Sprint 49 agent tests can be written.
 
-2. **AgentFabricService returns static data.** `packages/backend/src/services/post-v1/AgentFabricService.ts` `buildAgentFabricResult()` returns hardcoded values (`roi_percentage: 15`, `npv_amount: 1500000`, `payback_months: 12`) regardless of input. This is the service wired to the canvas value case generation flow.
+2. **Five agents have no Value Graph integration.** `NarrativeAgent`, `TargetAgent`, `RealizationAgent`, `ExpansionAgent`, and `ComplianceAuditorAgent` do not read from or write to `ValueGraphService`. Sprint 48 identified two classes of silent failure in the first two agents: (a) wrong context key used to extract `opportunity_id`, causing writes to the wrong entity; (b) non-UUID string fallbacks hitting UUID Postgres columns and crashing writes silently. A shared `BaseGraphWriter` utility must enforce these invariants so the five new agents cannot repeat the same bugs.
 
-3. **Critical services are gated as post-v1.** `CallAnalysisService`, `EmailAnalysisService`, `WebScraperService`, `PromptVersionControl`, `RealizationFeedbackLoop`, and `BenchmarkService` are all in `POST_V1_SERVICES` and disabled at startup. These are required for the full context assembly and realization loop.
-
-4. **The FallbackAIService is pattern-matching theater.** When the LLM is unavailable, the fallback returns keyword-matched static strings rather than a proper degraded state. This masks failures.
-
-5. **The HypothesisGenerator uses heuristic impact estimation.** `estimateImpactMin/Max` are simple multipliers (`signalStrength * 5`, `signalStrength * 15 + 10`) with no LLM reasoning or benchmark grounding. The generator does not call the LLM.
-
-6. **The ValueLifecycleOrchestrator's `runLifecycle` only chains opportunity→target.** The full saga (INITIATED→DRAFTING→VALIDATING→COMPOSING→REFINING→FINALIZED) is defined but `runLifecycle` only executes two stages. The `runHypothesisLoop` method exists but is not wired to the primary API surface.
-
-7. **The CaseWorkspace wizard uses a static VALUE_MODELS catalogue.** The new-case wizard in `apps/ValyntApp/src/pages/valueos/CaseWorkspace.tsx` presents hardcoded model options and does not trigger the agent lifecycle on creation.
-
-8. **CallAnalysis, EmailAnalysis, and WebScraper are post-v1 but required.** CRM + call transcription + web research are the three required integration sources. All three are currently disabled.
-
-9. **The RealizationDashboard uses hardcoded fixture data.** `apps/ValyntApp/src/features/workflow/components/RealizationDashboard.tsx` renders static variance data (`predicted: 20, actual: 18`) rather than fetching from the realization agent output.
-
-10. **PromptVersionControl is post-v1.** Prompt versioning and A/B testing infrastructure exists but is disabled, meaning prompt changes are untracked and unauditable in production.
-
-11. **The `ENABLE_AGENT_PLACEHOLDER_MODE` flag defaults to `true` in non-production.** This means staging environments run with fake agent execution unless explicitly overridden.
-
-12. **The `ENABLE_DOMAIN_PACK_CONTEXT` flag defaults to `false`.** Domain pack KPI context loading in agents is disabled, meaning agents do not receive industry-specific KPI priors.
-
-13. **The `BenchmarkService` is post-v1.** The `HypothesisGenerator` queries the `benchmarks` table directly but the `BenchmarkService` (which provides p25/p50/p75/p90 distributions and persona-specific KPI retrieval) is disabled. Benchmark validation in hypothesis generation is therefore incomplete.
-
-14. **The `RealizationFeedbackLoop` is post-v1.** Post-sale value tracking and variance-triggered agent retraining are disabled. The realization phase has no feedback mechanism.
-
-15. **The `IntegrityAgentService` is post-v1.** The `IntegrityAgent` (fabric agent) exists and is wired into the lifecycle, but the `IntegrityAgentService` (which handles quiz grading and lab evaluation for the Academy) is disabled. This is a secondary concern but blocks the Academy feature.
+3. **The 7 Value Graph API endpoints do not exist.** Sprint 49 requires a new router at `/api/v1/graph/:opportunityId/` with authentication, tenant context, and an explicit opportunity-ownership check before any handler executes.
 
 ---
 
 ## Requirements
 
-### R1 — Remove All Mock/Stub Agent Paths
+### 1. Global Logger Mock in `packages/backend/src/test/setup.ts`
 
-- Delete the `AGENT_PREVIEW_MODE` guard in `useAgent.ts`. The hook must call `/api/agents/:agentId/invoke` for all agent interactions.
-- Replace `AgentFabricService.buildAgentFabricResult()` with a real invocation of the `ValueLifecycleOrchestrator.runHypothesisLoop()`. The canvas value case generation must produce LLM-derived outputs.
-- Remove or replace `FallbackAIService.generateFallbackAnalysis()` pattern-matching logic with a proper error state that surfaces the failure reason to the caller. Budget-limit fallback (the simple string response) is acceptable; keyword-matched fake analysis is not.
-- Set `ENABLE_AGENT_PLACEHOLDER_MODE` default to `false` in all environments.
+**Behaviour:** Add a global `vi.mock` for both logger module paths that provides `createLogger` as a `vi.fn()` returning a full mock logger object. The mock must be **overridable** — per-test `vi.mock` calls in individual files continue to take precedence, preserving existing high-fidelity assertions (e.g. `GuestAccessService.test.ts`).
 
-### R2 — Wire the Full Hypothesis Loop to the Primary API
+**Paths to mock globally:**
+- `../../lib/logger` (and `.js` variant) — the backend's own structured logger
+- `@shared/lib/logger` — the shared package logger
 
-- The `/api/agents/:agentId/invoke` endpoint currently supports direct fabric agent execution. Add a `/api/cases/:caseId/run-hypothesis-loop` endpoint (or equivalent) that invokes `ValueLifecycleOrchestrator.runHypothesisLoop()` end-to-end.
-- The `runLifecycle` method must be extended (or replaced by `runHypothesisLoop`) to execute all six saga stages: INITIATED→DRAFTING→VALIDATING→COMPOSING→REFINING→FINALIZED.
-- The `HypothesisGenerator` must call the LLM (via `LLMGateway`) to generate hypothesis descriptions and impact estimates rather than using heuristic multipliers. Benchmark plausibility checks must use `BenchmarkService` (once promoted to v1).
+**Mock shape** (must match both loggers' exported surface):
 
-### R3 — Promote Post-v1 Services to v1
+```typescript
+{
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+}
+```
 
-Move the following from `POST_V1_SERVICES` to `V1_SERVICES` in `v1-service-scope.ts` and ensure they are initialized at startup:
+**Reset:** `vi.clearAllMocks()` already runs in `afterEach` — no additional reset needed.
 
-- `CallAnalysisService` — required for call transcript ingestion in `DealAssemblyAgent`
-- `EmailAnalysisService` — required for email thread context in deal assembly
-- `WebScraperService` — required for web research in `DealAssemblyAgent`
-- `BenchmarkService` — required for hypothesis plausibility validation
-- `RealizationFeedbackLoop` — required for post-sale variance tracking
-- `PromptVersionControl` — required for auditable prompt management in production
-- `IntegrityAgentService` — required for Academy lab evaluation
+**Constraint:** Do not remove or modify any existing per-test `vi.mock` calls. The global mock is a safety net, not a replacement.
 
-### R4 — Wire CRM + Call + Web Research into Deal Assembly
+---
 
-- `DealAssemblyAgent` already has CRM and SEC EDGAR wiring. Add call transcript ingestion: when `transcript_ids` are provided in the assembly request, fetch transcripts, run `CallAnalysisService.analyzeTranscript()`, and merge the resulting pain points, objections, and stakeholders into the `DealContext`.
-- Add web research: when a `company_domain` is present, run `WebScraperService` to fetch public company context and merge it as `externally-researched` source fragments.
-- The `DealAssemblyService` must surface which sources were consulted and what was found/missing in the assembly summary.
+### 2. `BaseGraphWriter` Utility
 
-### R5 — Wire the CaseWorkspace to the Agent Lifecycle
+**Location:** `packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts`
 
-- The new-case wizard in `CaseWorkspace.tsx` must trigger `DealAssemblyAgent` on creation (when a CRM opportunity is linked) or `OpportunityAgent` (when starting from scratch).
-- Remove the static `VALUE_MODELS` catalogue. Model selection should be driven by domain packs or agent-suggested value drivers, not a hardcoded list.
-- Enable `ENABLE_DOMAIN_PACK_CONTEXT` by default. Agents must receive domain pack KPI context when a pack is assigned to the case.
+**Purpose:** A class that agents compose to write nodes and edges to the Value Graph. It enforces three invariants that prevented silent failures in Sprint 48.
 
-### R6 — Wire the RealizationDashboard to Real Data
+#### 2a. Canonical Context Extraction
 
-- `RealizationDashboard.tsx` must fetch realization data from the `RealizationAgent` output stored in `RealizationReportRepository`, not from hardcoded fixture state.
-- The dashboard must display actual vs. committed KPI values, variance direction, and intervention recommendations from the `RealizationFeedbackLoop`.
+Expose a `protected getSafeContext(context: LifecycleContext): { opportunityId: string; organizationId: string }` method.
 
-### R7 — Enable PromptVersionControl in Production
+- Extract `opportunity_id` from `context.user_inputs` or `context.metadata`. If missing or not a valid UUID v4, throw `LifecycleContextError` with a descriptive message — never fall back to `workspace_id` or any other key.
+- Extract `organization_id` from `context.organization_id`. If missing or not a valid UUID v4, throw.
 
-- All agent prompts must be registered in the `PromptRegistry` with version, owner, ticket, and risk class metadata.
-- Prompt activations in production must require approval metadata (`owner`, `ticket`, `risk_class`).
-- `PromptVersionControl` must be initialized at startup and wired to the `LLMGateway` so every LLM call records which prompt version was used.
+#### 2b. Safe UUID Generation
 
-### R8 — Production Hardening
+Expose a `protected generateNodeId(deterministicInput?: string): string` helper.
 
-- `ENABLE_AGENT_PLACEHOLDER_MODE` must default to `false` in all environments (currently defaults to `true` in non-production).
-- `ENABLE_DOMAIN_PACK_CONTEXT` must default to `true`.
-- `ENABLE_ASYNC_AGENT_EXECUTION` must be evaluated and enabled where appropriate (currently defaults to `false`).
-- The `AgentFabricService` in `post-v1/` must either be deleted or replaced with a real implementation. It must not remain as a static data generator.
-- The `RealizationFeedbackLoop` must be initialized and connected to the `RealizationAgent` output path so variance is recorded automatically after each realization stage execution.
+- If `deterministicInput` is provided and is already a valid UUID v4, return it as-is.
+- Otherwise, call `crypto.randomUUID()` — never pass a raw string fallback to a UUID column.
+
+#### 2c. Atomic Write Isolation
+
+Expose a `protected async safeWriteBatch(writes: Array<() => Promise<unknown>>): Promise<{ succeeded: number; failed: number; errors: Error[] }>` method.
+
+- Uses `Promise.allSettled` internally so one failed write does not abort the remaining writes.
+- Logs each failure with `logger.error` including the write index and error message.
+- Returns a summary object; callers decide whether to surface partial failure to the agent output.
+
+#### 2d. Convenience write methods
+
+Thin wrappers over `ValueGraphService` that call `getSafeContext` before delegating:
+
+- `writeCapability(context, input: Omit<WriteCapabilityInput, 'opportunity_id' | 'organization_id'>): Promise<VgCapability>`
+- `writeMetric(context, input: Omit<WriteMetricInput, 'opportunity_id' | 'organization_id'>): Promise<VgMetric>`
+- `writeValueDriver(context, input: Omit<WriteValueDriverInput, 'opportunity_id' | 'organization_id'>): Promise<VgValueDriver>`
+- `writeEdge(context, input: Omit<WriteEdgeInput, 'opportunity_id' | 'organization_id'>): Promise<ValueGraphEdge>`
+
+**Dependencies:** `ValueGraphService` injected via constructor for testability; defaults to the singleton `valueGraphService`.
+
+**Error type:** Export `LifecycleContextError extends Error` from the same file.
+
+---
+
+### 3. Five Agent Integrations (Sprint 49 KR 1)
+
+Wire each of the five agents to the Value Graph using `BaseGraphWriter`. Each agent:
+
+- Composes `BaseGraphWriter` (not extends — agents already extend `BaseAgent`).
+- Calls `getSafeContext(context)` at the start of its graph-write phase.
+- Uses `safeWriteBatch` for all node/edge writes.
+- Has a unit test asserting expected node types and edge types are written after a successful run (mock `ValueGraphService`).
+
+**Per-agent graph writes:**
+
+| Agent | Writes |
+|---|---|
+| `NarrativeAgent` | `VgValueDriver` nodes; `metric_maps_to_value_driver` edges |
+| `TargetAgent` | `VgMetric` nodes (KPI targets); `capability_impacts_metric` edges |
+| `RealizationAgent` | `VgMetric` nodes (actuals vs targets); `metric_maps_to_value_driver` edges |
+| `ExpansionAgent` | `VgCapability` nodes; `use_case_enabled_by_capability` edges |
+| `ComplianceAuditorAgent` | `VgValueDriver` nodes (compliance risk drivers); `hypothesis_claims_metric` edges |
+
+---
+
+### 4. Value Graph API Router (Sprint 49 KR 2)
+
+**File:** `packages/backend/src/api/valueGraph.ts`
+
+**Mount point:** `/api/v1/graph` in `server.ts`
+
+**Middleware chain on all routes:**
+
+```
+requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware() → validateOpportunityAccess
+```
+
+#### 4a. `validateOpportunityAccess` middleware
+
+**File:** `packages/backend/src/middleware/validateOpportunityAccess.ts`
+
+- Reads `req.params.opportunityId`.
+- Queries `value_cases` for `{ organization_id }` where `id = opportunityId`, using `req.supabase` (tenant-scoped client set by `tenantDbContextMiddleware`).
+- Returns `403 { error: "Access to this Value Graph is denied." }` if not found or `organization_id !== req.tenantId`.
+- On success, attaches `req.opportunityId = opportunityId`.
+- Add `opportunityId: string` to `packages/backend/src/types/express.d.ts`.
+
+#### 4b. The 7 endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/graph/:opportunityId/summary` | Node/edge counts by type from `getGraphForOpportunity` |
+| `GET` | `/api/v1/graph/:opportunityId/nodes` | Paginated nodes; `?entity_type=` filter supported |
+| `GET` | `/api/v1/graph/:opportunityId/export` | Full graph JSON (nodes + edges) |
+| `GET` | `/api/v1/graph/:opportunityId/paths` | Value paths from `getValuePaths()` |
+| `POST` | `/api/v1/graph/:opportunityId/edges` | Manually create an edge; Zod-validated body |
+| `PATCH` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Update node metadata; Zod-validated body |
+| `DELETE` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Remove node; writes audit log entry via `AuditLogger` |
+
+All responses include `organization_id` and `opportunity_id`.
+
+**OpenAPI:** Update `packages/backend/openapi.yaml` with all 7 paths.
 
 ---
 
 ## Acceptance Criteria
 
-1. A new value case can be created from a CRM opportunity, triggering `DealAssemblyAgent` which fetches CRM data, call transcripts (if provided), and web research, and produces a populated `DealContext` with no manual data entry.
-2. The `OpportunityAgent` generates value hypotheses using real LLM calls. Hypotheses include estimated impact ranges grounded against `BenchmarkService` p25/p75 distributions.
-3. The full saga (INITIATED→DRAFTING→VALIDATING→COMPOSING→REFINING→FINALIZED) executes end-to-end for a value case, with each stage producing persisted, auditable output.
-4. The `IntegrityAgent` produces a pass/veto decision with per-claim validation results backed by LLM reasoning. A veto blocks progression to COMPOSING.
-5. The `NarrativeAgent` produces an executive narrative with a defense readiness score. The narrative is persisted to `narrative_drafts` and retrievable via the API.
-6. The `RealizationAgent` compares committed KPI targets against actual telemetry and produces variance reports. The `RealizationFeedbackLoop` records outcomes and triggers recommendations.
-7. The `RealizationDashboard` displays live data from the realization agent, not fixture data.
-8. The `useAgent` hook calls the real backend for all agent interactions. No `AGENT_PREVIEW_MODE` guard exists in production code.
-9. `AgentFabricService.generateValueCase()` invokes the real hypothesis loop and returns LLM-derived outputs.
-10. `CallAnalysisService`, `WebScraperService`, `BenchmarkService`, `RealizationFeedbackLoop`, and `PromptVersionControl` are initialized at startup and operational.
-11. Every LLM call records the prompt version used. Prompt activations in production require approval metadata.
-12. `ENABLE_AGENT_PLACEHOLDER_MODE` is `false` in all environments. `ENABLE_DOMAIN_PACK_CONTEXT` is `true` by default.
-13. All agent outputs include `reasoning`, `assumptions`, `evidence_sources`, `confidence_level`, and `formula_trace` where applicable. No black-box numbers without provenance.
-14. The platform passes a full end-to-end test: opportunity context → hypothesis generation → financial modeling → integrity validation → narrative generation → realization tracking, with no broken flows, no mock data, and no manual rescue steps.
+### Item 1 — Global Logger Mock
+- `pnpm --filter backend test` produces zero `[vitest] No "createLogger" export is defined` errors.
+- `GuestAccessService.test.ts` and other tests with custom `vi.hoisted` logger spies continue to pass with their spy assertions intact.
+- Net failing test count in `@valueos/backend` is materially reduced from ~284.
+
+### Item 2 — `BaseGraphWriter`
+- `LifecycleContextError` is thrown (not swallowed) when `opportunity_id` is missing or not a UUID.
+- `generateNodeId` never returns a non-UUID string.
+- `safeWriteBatch` with one failing write commits the remaining writes and returns `{ succeeded: N-1, failed: 1, errors: [...] }`.
+- Unit tests for all three invariants pass.
+
+### Item 3 — Five Agent Integrations
+- Each agent has a test asserting expected node and edge types are written after a successful run.
+- No agent calls `ValueGraphService` methods directly — all writes go through `BaseGraphWriter`.
+- `pnpm test` green for all five agent test files.
+
+### Item 4 — Value Graph API
+- All 7 endpoints return `401` when unauthenticated.
+- All 7 endpoints return `403` when `opportunityId` belongs to a different tenant.
+- Read endpoints return correct data shapes from `ValueGraphService`.
+- Write/mutate endpoints return `400` on invalid Zod input.
+- `DELETE /nodes/:nodeId` writes an audit log entry.
+- `pnpm test` green for the new router test file.
+- `openapi.yaml` updated with all 7 paths.
 
 ---
 
-## Implementation Approach
+## Implementation Order
 
-The following is an ordered list of implementation tasks. Each task is a discrete, shippable unit of work.
+1. **Global logger mock in `setup.ts`** — verify zero `createLogger` errors before proceeding.
+2. **`LifecycleContextError` + `BaseGraphWriter`** — implement and unit-test all three invariants.
+3. **`NarrativeAgent` graph integration** — first agent, establishes the composition pattern.
+4. **`TargetAgent`, `RealizationAgent`, `ExpansionAgent`, `ComplianceAuditorAgent` graph integrations** — follow the same pattern.
+5. **`validateOpportunityAccess` middleware** — implement and unit-test in isolation.
+6. **Value Graph API router** — implement all 7 endpoints, wire middleware chain, mount in `server.ts`.
+7. **Update `express.d.ts`** — add `opportunityId: string` to `Request`.
+8. **Update `openapi.yaml`** — add all 7 paths.
+9. **Run `pnpm test`** — verify green across all new and modified files.
 
-### Phase 1 — Remove Mock Paths and Harden Feature Flags
+---
 
-1. **Delete `AGENT_PREVIEW_MODE` guard in `useAgent.ts`** (`apps/ValyntApp/src/features/agents/hooks/useAgent.ts`). Replace the simulated streaming loop with a real call to `apiClient.post('/api/agents/:agentId/invoke', ...)`. Wire the response to the existing message state. Handle errors with a proper error state, not a fake response.
+## Out of Scope
 
-2. **Replace `AgentFabricService.buildAgentFabricResult()` with real execution** (`packages/backend/src/services/post-v1/AgentFabricService.ts`). The `generateValueCase()` method must instantiate `ValueLifecycleOrchestrator` and call `runHypothesisLoop()`. Remove all hardcoded financial model values.
-
-3. **Set `ENABLE_AGENT_PLACEHOLDER_MODE` default to `false`** in `featureFlags.ts`. Remove the `process.env.NODE_ENV !== 'production'` conditional. The flag must be explicitly set to `true` only in test environments via env var.
-
-4. **Set `ENABLE_DOMAIN_PACK_CONTEXT` default to `true`** in `featureFlags.ts`.
-
-5. **Replace `FallbackAIService.generateFallbackAnalysis()` pattern-matching** with a structured error response that includes the failure reason, a `degraded: true` flag, and no fake hypotheses or metrics.
-
-### Phase 2 — Promote Post-v1 Services to v1
-
-6. **Move `CallAnalysisService`, `EmailAnalysisService`, `WebScraperService`, `BenchmarkService`, `RealizationFeedbackLoop`, `PromptVersionControl`, `IntegrityAgentService` from `POST_V1_SERVICES` to `V1_SERVICES`** in `v1-service-scope.ts`. Ensure each is initialized in `server.ts` startup sequence.
-
-7. **Wire `PromptVersionControl` to `LLMGateway`**. Every `LLMGateway.complete()` call must record the prompt version reference in the request metadata. Add a `promptVersionRef` field to `LLMRequestMetadata`.
-
-8. **Initialize `RealizationFeedbackLoop` in the realization stage handler**. After `RealizationAgent.execute()` completes, call `FeedbackLoopService.recordOutcome()` with the agent's proof points and variance data.
-
-### Phase 3 — Wire the Full Hypothesis Loop
-
-9. **Extend `runLifecycle()` to execute all six saga stages** in `ValueLifecycleOrchestrator.ts`. The current implementation only chains opportunity→target. Add integrity, narrative, and realization stages. Each stage must use the saga state machine transitions (INITIATED→DRAFTING→VALIDATING→COMPOSING→REFINING→FINALIZED).
-
-10. **Add `POST /api/cases/:caseId/run-hypothesis-loop` endpoint** in `packages/backend/src/api/dealAssembly.ts` (or a new `lifecycle.ts` route). This endpoint must accept a `LifecycleContext`, invoke `ValueLifecycleOrchestrator.runHypothesisLoop()`, and return the saga final state and output artifacts.
-
-11. **Replace `HypothesisGenerator` heuristic impact estimation with LLM reasoning**. The `generate()` method must call `LLMGateway.complete()` with a structured prompt that takes the value driver candidates and produces estimated impact ranges with reasoning. The LLM output must be validated against `BenchmarkService` p25/p75 distributions.
-
-### Phase 4 — Wire CRM + Call + Web Research into Deal Assembly
-
-12. **Add call transcript ingestion to `DealAssemblyAgent`**. When `transcript_ids` are present in the `LifecycleContext`, fetch each transcript from the database, call `CallAnalysisService.analyzeTranscript()`, and merge pain points, objections, stakeholders, and buying signals into the `DealContext` as `call-derived` source fragments.
-
-13. **Add web research to `DealAssemblyAgent`**. When `company_domain` is present, call `WebScraperService.scrape()` for the company's public web presence and merge the result as `externally-researched` source fragments. This supplements the existing SEC EDGAR integration.
-
-14. **Update `DealAssemblyService`** to pass `transcript_ids` and `company_domain` from the assembly request through to `DealAssemblyAgent`.
-
-### Phase 5 — Wire the CaseWorkspace to the Agent Lifecycle
-
-15. **Replace the static `VALUE_MODELS` catalogue in `CaseWorkspace.tsx`** with a call to the domain pack API or the `OpportunityAgent` to suggest value drivers. On case creation, trigger `DealAssemblyAgent` (if CRM opportunity linked) or `OpportunityAgent` (if starting from scratch) via the `/api/cases/:caseId/run-hypothesis-loop` endpoint.
-
-16. **Wire `RealizationDashboard.tsx` to real data**. Replace the hardcoded `useState` fixture with a `useEffect` that fetches from `GET /api/cases/:caseId/realization` (backed by `RealizationReportRepository`). Display actual vs. committed KPIs, variance, and intervention recommendations.
-
-### Phase 6 — Observability and Production Hardening
-
-17. **Ensure all agent outputs include provenance fields**. Audit `OpportunityAgent`, `FinancialModelingAgent`, `IntegrityAgent`, `NarrativeAgent`, `RealizationAgent`, and `ExpansionAgent` output schemas. Each must include: `reasoning_trace`, `assumptions_used`, `evidence_sources`, `confidence_level`, and (for financial outputs) `formula_trace`. Add missing fields where absent.
-
-18. **Wire `valueLoopMetrics` to the hypothesis loop execution path**. The `stageTransitionLatency`, `agentInvocations`, `hypothesisConfidence`, and `financialCalculations` metrics must be recorded at each stage of `runHypothesisLoop()`.
-
-19. **Validate `ENABLE_ASYNC_AGENT_EXECUTION`**. Evaluate whether async execution (BullMQ) should be enabled for the hypothesis loop. If enabled, ensure the frontend polls for job completion via the existing job status endpoint. Document the decision.
-
-20. **Run the full end-to-end test suite** (`pnpm run test:e2e`) and fix any failures introduced by the above changes. Ensure the lint warning ceiling in `BURN-DOWN.md` is not exceeded.
+- Sprint 50 UI components (`ValueGraphVisualization`, `ValuePathCard`, `MetricCard`).
+- `IntegrityAgentService` TypeScript errors (12 errors in `post-v1/IntegrityAgentService.ts`) — separate fix.
+- `ComplianceControlStatusService` lazy-init Supabase fix — separate fix.
+- Other pre-existing backend test failures not caused by the `createLogger` mock gap.

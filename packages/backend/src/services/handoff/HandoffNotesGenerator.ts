@@ -135,8 +135,117 @@ export class HandoffNotesGenerator {
       scenarioType: baseline.scenario_type,
     });
 
-    // Generate notes via the approved secure service wrapper.
-    const notes = await this.generateWithLLM(prompt, baselineId, tenantId);
+    // Generate notes via LLM
+    const startTime = Date.now();
+    let notes: HandoffNotesOutput;
+    let tokenUsage: { input_tokens: number; output_tokens: number; total_tokens: number } | undefined;
+
+    try {
+      const systemPrompt = `You are a value engineering consultant preparing a handoff summary for a Customer Success team.
+
+Your task is to synthesize the provided value case context into four clear, actionable sections that will help the CS team understand and deliver on the promises made during the sales process.
+
+Guidelines:
+- Be specific and concrete — avoid generic statements
+- Flag assumptions that require CS attention or validation
+- Highlight risks with clear owner recommendations
+- Keep sections concise (2-4 sentences each)
+- Write for a CS manager who needs to take action
+
+    Output must be valid JSON with these keys: deal_context, buyer_priorities, implementation_assumptions, key_risks`;
+
+      const response = await secureLLMComplete(this.llmGateway, [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ], {
+        tenantId,
+        serviceName: "HandoffNotesGenerator",
+        operation: "generateHandoffNotes",
+        sessionId: baselineId,
+        traceId: baselineId,
+      });
+
+      tokenUsage = response.usage
+        ? {
+            input_tokens: response.usage.prompt_tokens,
+            output_tokens: response.usage.completion_tokens,
+            total_tokens: response.usage.total_tokens,
+          }
+        : undefined;
+
+      const content = response.content || "{}";
+      const parsed = JSON.parse(content);
+
+      // Validate with Zod
+      notes = HandoffNotesOutputSchema.parse(parsed);
+    } catch (error) {
+      logger.error("LLM generation failed for handoff notes", {
+        baselineId,
+        error: (error as Error).message,
+      });
+
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "handoff:notes_generation_failed",
+        resource: baselineId,
+        resourceType: "handoff_notes",
+        userId: "system",
+        organizationId: tenantId,
+        tenantId,
+        sessionId: baselineId,
+        outcome: "failure",
+        severity: "medium",
+        details: {
+          generator: "HandoffNotesGenerator",
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      throw error; // Re-throw to fail the operation
+    }
+
+    // Run hallucination check
+    const hallucinationCheck = await this.checkHallucination(notes);
+
+    if (!hallucinationCheck) {
+      logger.warn("HandoffNotesGenerator: hallucination escalation triggered", {
+        baselineId,
+        tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: baselineId,
+        resourceType: "handoff_notes",
+        userId: "system",
+        organizationId: tenantId,
+        tenantId,
+        sessionId: baselineId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "HandoffNotesGenerator",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "handoff:notes_generated",
+      resource: baselineId,
+      resourceType: "handoff_notes",
+      userId: "system",
+      organizationId: tenantId,
+      tenantId,
+      sessionId: baselineId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "HandoffNotesGenerator",
+        hallucinationCheck,
+        tokenUsage,
+      },
+    });
 
     // Store generated notes in database
     await this.storeHandoffNotes(baselineId, tenantId, notes);
@@ -144,7 +253,13 @@ export class HandoffNotesGenerator {
     // Emit domain event
     await this.publishHandoffCompleteEvent(baselineId, tenantId);
 
-    logger.info("Handoff notes generated and stored", { baselineId, tenantId });
+    const duration = Date.now() - startTime;
+    logger.info("Handoff notes generation complete", {
+      baselineId,
+      tenantId,
+      durationMs: duration,
+      hallucinationCheck,
+    });
 
     return {
       baseline_id: baselineId,
@@ -270,7 +385,6 @@ Guidelines:
         operation: "generateHandoffNotes",
         sessionId: baselineId,
         traceId: baselineId,
-        organizationId: tenantId,
       });
 
       await logSecurityEvent({

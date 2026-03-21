@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BillingMetric } from '../../../config/billing.js';
 import { EntitlementsService } from '../EntitlementsService.js';
 
+vi.mock("../../../lib/supabase.js");
+
 // Test constants
 const GRACE_PERIOD_HOURS = 24;
 const GRACE_MULTIPLIER = 1.1; // 10% overage allowed

@@ -57,6 +57,7 @@ vi.mock("../../../lib/supabase.js", () => ({
 
 vi.mock("../../../lib/logger.js", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 import { WorkflowDAGExecutor } from "../WorkflowDAGIntegration.js";

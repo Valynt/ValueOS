@@ -8,7 +8,6 @@
  * Created: 2024-11-29
  */
 
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import * as fs from "fs";
 
 import { logger } from "../../lib/logger.js"
@@ -31,7 +30,10 @@ import {
   SecretAuditEvent,
   StructuredSecretAuditLogger,
 } from "./SecretAuditLogger";
-
+import {
+  SecretCacheCrypto,
+  type SerializedEncryptedCacheValue,
+} from "./SecretCacheCrypto.js";
 
 
 // Type definitions for node-vault (simplified)
@@ -59,7 +61,7 @@ export class VaultSecretProvider implements ISecretProvider {
   private cacheTTL: number;
   private kubernetesRole?: string;
   private auditLogger: StructuredSecretAuditLogger;
-  private encryptionKey: Buffer;
+  private readonly cacheCrypto: SecretCacheCrypto;
   private circuitBreaker: CircuitBreaker;
 
   constructor(
@@ -74,8 +76,12 @@ export class VaultSecretProvider implements ISecretProvider {
     this.cacheTTL = cacheTTL;
     this.kubernetesRole = kubernetesRole;
     this.auditLogger = new StructuredSecretAuditLogger();
-    // Generate a random encryption key for cache encryption
-    this.encryptionKey = randomBytes(32);
+    this.cacheCrypto = new SecretCacheCrypto({
+      cacheKey: process.env.CACHE_ENCRYPTION_KEY,
+      cacheKeyVersion: process.env.CACHE_ENCRYPTION_KEY_VERSION,
+      previousCacheKeys: process.env.CACHE_ENCRYPTION_PREVIOUS_KEYS,
+      providerName: "vault",
+    });
     // Initialize circuit breaker for external API calls
     this.circuitBreaker = createConfigurableCircuitBreaker({
       failureThreshold: 5,
@@ -89,30 +95,43 @@ export class VaultSecretProvider implements ISecretProvider {
       address: vaultAddress,
       namespace: vaultNamespace,
       environment: this.environment,
+      cacheEncryptionKeyVersion: this.cacheCrypto.getCurrentKeyVersion(),
     });
   }
 
   /**
-   * Encrypt data for secure cache storage
+   * Build additional authenticated data for cache entries
    */
-  private encrypt(data: string): string {
-    const iv = randomBytes(16);
-    const cipher = createCipheriv("aes-256-cbc", this.encryptionKey, iv);
-    let encrypted = cipher.update(data, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return iv.toString("hex") + ":" + encrypted;
+  private buildCacheAAD(cacheKey: string): string {
+    return `vault:${cacheKey}`;
   }
 
   /**
-   * Decrypt data from secure cache storage
+   * Encode a secret value for cache storage
    */
-  private decrypt(encryptedData: string): string {
-    const [ivHex, encrypted] = encryptedData.split(":");
-    const iv = Buffer.from(ivHex, "hex");
-    const decipher = createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+  private serializeCachedSecret(cacheKey: string, value: SecretValue): string {
+    const serialized = JSON.stringify(value);
+    if (!this.cacheCrypto.isEncryptionEnabled()) {
+      return serialized;
+    }
+
+    return JSON.stringify(
+      this.cacheCrypto.encrypt(serialized, this.buildCacheAAD(cacheKey))
+    );
+  }
+
+  /**
+   * Decode a secret value from cache storage
+   */
+  private deserializeCachedSecret(cacheKey: string, cachedValue: string): SecretValue {
+    if (!this.cacheCrypto.isEncryptionEnabled()) {
+      return JSON.parse(cachedValue) as SecretValue;
+    }
+
+    const payload = JSON.parse(cachedValue) as SerializedEncryptedCacheValue;
+    return JSON.parse(
+      this.cacheCrypto.decrypt(payload, this.buildCacheAAD(cacheKey))
+    ) as SecretValue;
   }
 
   /**
@@ -228,9 +247,7 @@ export class VaultSecretProvider implements ISecretProvider {
     const cached = this.cache.get(cacheKey);
 
     if (cached && cached.expiresAt > Date.now()) {
-      const decryptedValue = JSON.parse(
-        this.decrypt(cached.value)
-      ) as SecretValue;
+      const decryptedValue = this.deserializeCachedSecret(cacheKey, cached.value);
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -264,7 +281,7 @@ export class VaultSecretProvider implements ISecretProvider {
 
       // Cache the secret
       this.cache.set(cacheKey, {
-        value: this.encrypt(JSON.stringify(cleanValue)),
+        value: this.serializeCachedSecret(cacheKey, cleanValue),
         expiresAt: Date.now() + this.cacheTTL,
       });
 

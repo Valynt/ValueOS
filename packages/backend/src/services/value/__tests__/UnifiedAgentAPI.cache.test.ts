@@ -42,6 +42,8 @@ vi.mock("../ReadThroughCacheService.js", () => ({
 
 import { UnifiedAgentAPI } from "../UnifiedAgentAPI";
 
+vi.mock("../../../lib/supabase.js");
+
 describe("UnifiedAgentAPI distributed idempotency cache", () => {
   beforeEach(() => {
     agentCacheGetMock.mockReset();

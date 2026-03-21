@@ -1,144 +1,89 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-const ROOT = resolve(import.meta.dirname, '../..');
-const manifest = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci/release-gate-manifest.json'), 'utf8'));
+import {
+  evaluateExternalChecksFromCheckRuns,
+  evaluateExternalChecksFromReleaseManifest,
+  evaluateLocalChecks,
+  listAllCheckRuns,
+  loadCanonicalReleaseGateManifest,
+  loadReleaseManifest,
+  parseLocalResults,
+  parseRepository,
+  validateReleaseManifestShape,
+} from './release-manifest-lib.mjs';
 
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
 
-function parseRepository(repository) {
-  const [owner, repo] = repository.split('/');
-  if (!owner || !repo) {
-    throw new Error(`GITHUB_REPOSITORY must be owner/repo, received: ${repository || '<empty>'}`);
+function logEvaluation({ localEvaluation, externalEvaluation, sourceLabel }) {
+  for (const line of localEvaluation.summary) {
+    console.log(`- local ${line}`);
   }
-
-  return { owner, repo };
+  for (const line of externalEvaluation.summary) {
+    console.log(`- ${sourceLabel} ${line}`);
+  }
+  if (externalEvaluation.missing.length > 0) {
+    console.log(`- waiting for missing checks: ${externalEvaluation.missing.join(', ')}`);
+  }
+  if (externalEvaluation.pending.length > 0) {
+    console.log(`- waiting for pending checks: ${externalEvaluation.pending.join(', ')}`);
+  }
 }
 
-function parseLocalResults() {
-  const raw = process.env.RELEASE_GATE_LOCAL_RESULTS_JSON;
-  if (!raw) {
-    return {};
-  }
-
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('RELEASE_GATE_LOCAL_RESULTS_JSON must be a JSON object keyed by job id.');
-  }
-
-  return parsed;
-}
-
-async function fetchCheckRuns({ owner, repo, sha, token, page }) {
-  const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/commits/${sha}/check-runs?per_page=100&page=${page}&filter=latest`,
-    {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${token}`,
-        'User-Agent': 'valueos-release-gate-check',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`GitHub Checks API request failed (${response.status} ${response.statusText}).`);
-  }
-
-  return response.json();
-}
-
-async function listAllCheckRuns({ owner, repo, sha, token }) {
-  const checkRuns = [];
-  let page = 1;
-
-  while (true) {
-    const payload = await fetchCheckRuns({ owner, repo, sha, token, page });
-    checkRuns.push(...payload.check_runs);
-
-    if (payload.check_runs.length < 100) {
-      break;
+async function verifyFromManifest({
+  releaseGateManifest,
+  releaseManifestPath,
+  sha,
+  localResults,
+}) {
+  const localEvaluation = evaluateLocalChecks({ localResults, manifest: releaseGateManifest });
+  if (localEvaluation.failed.length > 0) {
+    console.error('❌ Local deploy gates are not green:');
+    for (const line of localEvaluation.summary) {
+      console.error(`- ${line}`);
     }
-
-    page += 1;
+    process.exit(1);
   }
 
-  return checkRuns;
+  const releaseManifest = loadReleaseManifest(releaseManifestPath);
+  validateReleaseManifestShape({ releaseManifest, sha });
+  const externalEvaluation = evaluateExternalChecksFromReleaseManifest({
+    releaseManifest,
+    manifest: releaseGateManifest,
+  });
+
+  console.log('Release gate manifest snapshot:');
+  logEvaluation({
+    localEvaluation,
+    externalEvaluation,
+    sourceLabel: 'manifest',
+  });
+
+  if (externalEvaluation.failed.length > 0) {
+    console.error(`❌ Release gate failed because required checks concluded unsuccessfully: ${externalEvaluation.failed.join(', ')}`);
+    process.exit(1);
+  }
+
+  if (externalEvaluation.missing.length > 0 || externalEvaluation.pending.length > 0) {
+    console.error('❌ Release gate failed because the release manifest is incomplete for this commit.');
+    process.exit(1);
+  }
+
+  console.log('✅ Canonical release gate set is green in the release manifest for this commit.');
 }
 
-function evaluateExternalChecks(checkRuns) {
-  const checkMap = new Map(checkRuns.map((checkRun) => [checkRun.name, checkRun]));
-  const summary = [];
-  const missing = [];
-  const pending = [];
-  const failed = [];
-
-  for (const check of manifest.externalRequiredChecks) {
-    const match = checkMap.get(check.checkName);
-
-    if (!match) {
-      missing.push(check.checkName);
-      continue;
-    }
-
-    const status = match.status;
-    const conclusion = match.conclusion;
-    summary.push(`${check.checkName}: status=${status}, conclusion=${conclusion ?? 'null'}`);
-
-    if (status !== 'completed') {
-      pending.push(check.checkName);
-      continue;
-    }
-
-    if (conclusion !== 'success') {
-      failed.push(`${check.checkName} (${conclusion ?? 'null'})`);
-    }
-  }
-
-  return { summary, missing, pending, failed };
-}
-
-function evaluateLocalChecks(localResults) {
-  const failed = [];
-  const summary = [];
-
-  for (const jobId of manifest.deployWorkflow.localNeeds) {
-    const result = localResults[jobId];
-    summary.push(`${jobId}: ${result ?? 'missing'}`);
-
-    if (result !== 'success') {
-      failed.push(`${jobId} (${result ?? 'missing'})`);
-    }
-  }
-
-  return { failed, summary };
-}
-
-async function main() {
-  const token = process.env.GITHUB_TOKEN;
-  const repository = process.env.GITHUB_REPOSITORY;
-  const sha = process.env.GITHUB_SHA;
-  const timeoutSeconds = Number(process.env.RELEASE_GATE_POLL_TIMEOUT_SECONDS ?? '5400');
-  const intervalSeconds = Number(process.env.RELEASE_GATE_POLL_INTERVAL_SECONDS ?? '30');
-  const localResults = parseLocalResults();
-
-  if (!token) {
-    throw new Error('GITHUB_TOKEN is required.');
-  }
-  if (!repository) {
-    throw new Error('GITHUB_REPOSITORY is required.');
-  }
-  if (!sha) {
-    throw new Error('GITHUB_SHA is required.');
-  }
-
+async function pollGitHubChecks({
+  token,
+  repository,
+  sha,
+  localResults,
+  timeoutSeconds,
+  intervalSeconds,
+  releaseGateManifest,
+}) {
   const { owner, repo } = parseRepository(repository);
-  const localEvaluation = evaluateLocalChecks(localResults);
+  const localEvaluation = evaluateLocalChecks({ localResults, manifest: releaseGateManifest });
   if (localEvaluation.failed.length > 0) {
     console.error('❌ Local deploy gates are not green:');
     for (const line of localEvaluation.summary) {
@@ -152,29 +97,25 @@ async function main() {
 
   while (Date.now() <= deadline) {
     const checkRuns = await listAllCheckRuns({ owner, repo, sha, token });
-    const evaluation = evaluateExternalChecks(checkRuns);
-    lastEvaluation = evaluation;
+    const externalEvaluation = evaluateExternalChecksFromCheckRuns({
+      checkRuns,
+      manifest: releaseGateManifest,
+    });
+    lastEvaluation = externalEvaluation;
 
     console.log('Release gate poll snapshot:');
-    for (const line of localEvaluation.summary) {
-      console.log(`- local ${line}`);
-    }
-    for (const line of evaluation.summary) {
-      console.log(`- external ${line}`);
-    }
-    if (evaluation.missing.length > 0) {
-      console.log(`- waiting for missing checks: ${evaluation.missing.join(', ')}`);
-    }
-    if (evaluation.pending.length > 0) {
-      console.log(`- waiting for pending checks: ${evaluation.pending.join(', ')}`);
-    }
+    logEvaluation({
+      localEvaluation,
+      externalEvaluation,
+      sourceLabel: 'external',
+    });
 
-    if (evaluation.failed.length > 0) {
-      console.error(`❌ Release gate failed because required checks concluded unsuccessfully: ${evaluation.failed.join(', ')}`);
+    if (externalEvaluation.failed.length > 0) {
+      console.error(`❌ Release gate failed because required checks concluded unsuccessfully: ${externalEvaluation.failed.join(', ')}`);
       process.exit(1);
     }
 
-    if (evaluation.missing.length === 0 && evaluation.pending.length === 0) {
+    if (externalEvaluation.missing.length === 0 && externalEvaluation.pending.length === 0) {
       console.log('✅ Canonical release gate set is green for this commit.');
       return;
     }
@@ -198,6 +139,49 @@ async function main() {
     }
   }
   process.exit(1);
+}
+
+async function main() {
+  const releaseGateManifest = loadCanonicalReleaseGateManifest();
+  const localResults = parseLocalResults();
+  const releaseManifestPath = process.env.RELEASE_GATE_MANIFEST_PATH;
+  const sha = process.env.GITHUB_SHA;
+
+  if (!sha) {
+    throw new Error('GITHUB_SHA is required.');
+  }
+
+  if (releaseManifestPath) {
+    await verifyFromManifest({
+      releaseGateManifest,
+      releaseManifestPath,
+      sha,
+      localResults,
+    });
+    return;
+  }
+
+  const token = process.env.GITHUB_TOKEN;
+  const repository = process.env.GITHUB_REPOSITORY;
+  const timeoutSeconds = Number(process.env.RELEASE_GATE_POLL_TIMEOUT_SECONDS ?? '5400');
+  const intervalSeconds = Number(process.env.RELEASE_GATE_POLL_INTERVAL_SECONDS ?? '30');
+
+  if (!token) {
+    throw new Error('GITHUB_TOKEN is required.');
+  }
+  if (!repository) {
+    throw new Error('GITHUB_REPOSITORY is required.');
+  }
+
+  await pollGitHubChecks({
+    token,
+    repository,
+    sha,
+    localResults,
+    timeoutSeconds,
+    intervalSeconds,
+    releaseGateManifest,
+  });
 }
 
 main().catch((error) => {

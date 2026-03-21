@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { requireObservabilityAccess } from "../observabilityAccess.js";
 
+vi.mock("../../lib/supabase.js");
+
 const logAuditMock = vi.fn();
 
 vi.mock("../../services/AuditLogService.js", () => ({

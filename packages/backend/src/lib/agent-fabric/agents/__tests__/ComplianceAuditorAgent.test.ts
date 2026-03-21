@@ -12,6 +12,7 @@ const { mockRetrieve, mockStoreSemanticMemory, mockComplete } = vi.hoisted(() =>
 
 vi.mock("../../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../LLMGateway.js", () => ({
@@ -36,6 +37,37 @@ vi.mock("../../CircuitBreaker.js", () => ({
     constructor() {}
     execute = vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn());
   },
+}));
+
+const { mockWriteValueDriver: mockCompWriteValueDriver, mockWriteMetric: mockCompWriteMetric, mockWriteEdge: mockCompWriteEdge, mockGetSafeContext: mockCompGetSafeContext, mockGenerateNodeId: mockCompGenerateNodeId, mockSafeWriteBatch: mockCompSafeWriteBatch } = vi.hoisted(() => {
+  const mockWriteValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+  const mockWriteMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+  const mockWriteEdge = vi.fn().mockResolvedValue({ id: "edge-1" });
+  const mockGetSafeContext = vi.fn().mockReturnValue({
+    opportunityId: "770e8400-e29b-41d4-a716-446655440002",
+    organizationId: "660e8400-e29b-41d4-a716-446655440001",
+  });
+  const mockGenerateNodeId = vi.fn().mockReturnValue("550e8400-e29b-41d4-a716-446655440000");
+  const mockSafeWriteBatch = vi.fn().mockImplementation(
+    async (writes: Array<() => Promise<unknown>>) => {
+      await Promise.all(writes.map((fn) => fn()));
+      return { succeeded: writes.length, failed: 0, errors: [] };
+    },
+  );
+  return { mockWriteValueDriver, mockWriteMetric, mockWriteEdge, mockGetSafeContext, mockGenerateNodeId, mockSafeWriteBatch };
+});
+
+vi.mock("../../BaseGraphWriter.js", () => ({
+  BaseGraphWriter: class {
+    getSafeContext = mockCompGetSafeContext;
+    generateNodeId = mockCompGenerateNodeId;
+    safeWriteBatch = mockCompSafeWriteBatch;
+    writeValueDriver = mockCompWriteValueDriver;
+    writeMetric = mockCompWriteMetric;
+    writeEdge = mockCompWriteEdge;
+    writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
+  },
+  LifecycleContextError: class extends Error {},
 }));
 
 vi.mock("../../../../services/MCPGroundTruthService.js", () => ({
@@ -207,6 +239,65 @@ describe("ComplianceAuditorAgent", () => {
       mockComplete.mockRejectedValue(new Error("LLM unavailable"));
 
       await expect(agent.execute(makeContext())).rejects.toThrow();
+    });
+  });
+
+  describe("Value Graph writes", () => {
+    beforeEach(() => {
+      mockCompWriteValueDriver.mockClear();
+      mockCompWriteMetric.mockClear();
+      mockCompWriteEdge.mockClear();
+      // Restore safeWriteBatch implementation after vi.clearAllMocks() resets it
+      mockCompSafeWriteBatch.mockImplementation(
+        async (writes: Array<() => Promise<unknown>>) => {
+          await Promise.all(writes.map((fn) => fn()));
+          return { succeeded: writes.length, failed: 0, errors: [] };
+        },
+      );
+    });
+
+    it("writes VgValueDriver + VgMetric nodes and metric_maps_to_value_driver edges when control gaps exist", async () => {
+      // Return distinct UUIDs so driverId !== metricId (avoids self-loop edges).
+      mockCompGenerateNodeId
+        .mockReturnValueOnce("550e8400-e29b-41d4-a716-446655440000") // driverId
+        .mockReturnValueOnce("661e8400-e29b-41d4-a716-446655440001") // metricId
+        .mockReturnValue("550e8400-e29b-41d4-a716-446655440000");    // fallback
+
+      // Simulate missing evidence for some sources so control gaps are generated
+      mockRetrieve
+        .mockResolvedValueOnce([])  // opportunity — no evidence → gap
+        .mockResolvedValueOnce([])  // target — no evidence → gap
+        .mockResolvedValue([{ content: "evidence", agent_id: "x", workspace_id: "ws", memory_type: "semantic", importance: 1 }]);
+
+      await agent.execute(makeContext());
+
+      expect(mockCompWriteValueDriver).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ category: "risk" }),
+      );
+      expect(mockCompWriteMetric).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ name: expect.stringContaining("(metric)") }),
+      );
+
+      // Edge must use the correct ontology type and must not be a self-loop
+      const edgeCall = mockCompWriteEdge.mock.calls[0];
+      expect(edgeCall).toBeDefined();
+      const edgeInput = edgeCall[1] as Record<string, unknown>;
+      expect(edgeInput.edge_type).toBe("metric_maps_to_value_driver");
+      expect(edgeInput.from_entity_type).toBe("vg_metric");
+      expect(edgeInput.to_entity_type).toBe("vg_value_driver");
+      expect(edgeInput.from_entity_id).not.toBe(edgeInput.to_entity_id);
+    });
+
+    it("succeeds without graph writes when getSafeContext throws", async () => {
+      mockCompGetSafeContext.mockImplementationOnce(() => {
+        throw new Error("opportunity_id is missing");
+      });
+
+      const result = await agent.execute(makeContext());
+      expect(result.status).toBe("success");
+      expect(mockCompWriteValueDriver).not.toHaveBeenCalled();
     });
   });
 });

@@ -205,11 +205,11 @@ checks.push(runCommand('cross-tenant-access-attempt-must-fail', crossTenantComma
 checks.push(runCommand('billing-bypass-attempt-must-alert-or-block', billingBypassCommand));
 checks.push(runAutoscaleCheck());
 
-// R3 chaos suite — five new failure scenarios
+// Reliability chaos suite — includes Postgres connection failure and Redis/BullMQ outage checks
 const chaosVitest = 'pnpm exec vitest run --config tests/vitest.shared.config.ts';
 checks.push(runCommand('chaos-llm-provider-outage', `${chaosVitest} tests/chaos/llm-provider-outage.test.ts`));
-checks.push(runCommand('chaos-db-transient-outage', `${chaosVitest} tests/chaos/db-transient-outage.test.ts`));
-checks.push(runCommand('chaos-queue-outage', `${chaosVitest} tests/chaos/queue-outage.test.ts`));
+checks.push(runCommand('chaos-postgres-connection-failure', `${chaosVitest} tests/chaos/db-transient-outage.test.ts`));
+checks.push(runCommand('chaos-redis-bullmq-unavailability', `${chaosVitest} tests/chaos/queue-outage.test.ts`));
 checks.push(runCommand('chaos-crm-billing-failure', `${chaosVitest} tests/chaos/crm-billing-failure.test.ts`));
 checks.push(runCommand('chaos-partial-execution-recovery', `${chaosVitest} tests/chaos/partial-execution-recovery.test.ts`));
 

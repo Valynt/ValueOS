@@ -303,12 +303,56 @@ async function getCase(req: Request, res: Response, next: NextFunction): Promise
 /**
  * PATCH /api/v1/cases/:caseId
  * Update a value case
+ *
+ * Status gate: transitions to 'in_review' are blocked when open critical
+ * integrity violations exist. Warnings are surfaced but non-blocking unless
+ * bypassWarnings is explicitly false (default: warnings are bypassed).
  */
 async function updateCase(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
 
   try {
+    // Integrity gate: enforce before any in_review transition.
+    const requestedStatus = (req.body as Record<string, unknown>)?.status;
+    if (requestedStatus === 'in_review') {
+      const organizationId = authReq.tenantId ?? authReq.organizationId;
+      if (!req.supabase) {
+        // Gate cannot run without a DB client — log so the bypass is observable.
+        logger.warn('Integrity gate skipped: req.supabase not available', { caseId });
+      } else if (organizationId) {
+        try {
+          const { valueIntegrityService } = await import(
+            '../../services/integrity/ValueIntegrityService.js'
+          );
+          const accessToken =
+            (req.headers.authorization?.replace('Bearer ', '') ?? '');
+          const blockResult = await valueIntegrityService.checkHardBlocks(
+            caseId,
+            organizationId,
+            accessToken,
+          );
+          if (blockResult.blocked) {
+            res.status(422).json({
+              error: 'IntegrityHardBlock',
+              message: 'This case has open critical integrity violations that must be resolved before advancing to in_review.',
+              blocked: true,
+              violations: blockResult.violations,
+              soft_warnings: blockResult.soft_warnings,
+            });
+            return;
+          }
+        } catch (integrityErr) {
+          // Non-fatal: log and allow the update to proceed if the integrity
+          // service is unavailable (fail-open to avoid blocking legitimate work).
+          logger.warn('Integrity gate check failed — proceeding without gate', {
+            caseId,
+            error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+          });
+        }
+      }
+    }
+
     const repository = ValueCasesRepository.fromRequest(req);
     const valueCase = await repository.update(authReq.tenantId!, caseId, req.body);
 

@@ -3,6 +3,8 @@ import request from 'supertest';
 
 import router from './auth.js'
 
+vi.mock("../lib/supabase.js");
+
 describe('auth api router', () => {
   const app = express().use('/api/auth', router);
 

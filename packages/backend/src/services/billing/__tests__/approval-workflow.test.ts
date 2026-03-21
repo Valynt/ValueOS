@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BillingApprovalService } from '../BillingApprovalService.js';
 
+vi.mock("../../../lib/supabase.js");
+
 // Mock data
 const mockTenantId = 'test-tenant-approval';
 const mockUserId = 'test-user-123';

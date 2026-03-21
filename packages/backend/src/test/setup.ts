@@ -166,10 +166,85 @@ vi.mock("ioredis", () => {
   };
 });
 
+// ---------------------------------------------------------------------------
+// Global logger mock — provides createLogger as a fallback for all tests.
+//
+// Tests that need granular spy assertions (e.g. GuestAccessService.test.ts)
+// override this with their own vi.mock call, which takes precedence per
+// Vitest's module-mock resolution order.
+//
+// Both logger paths are mocked because backend source files import from
+// either "../../lib/logger" (backend structured logger) or
+// "@shared/lib/logger" (shared package logger).
+//
+// The factory is inlined in each vi.mock call because vi.mock is hoisted
+// before variable declarations — external references are not available.
+// ---------------------------------------------------------------------------
+
+vi.mock("../lib/logger.js", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    cache: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+  log: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    cache: vi.fn(),
+  },
+}));
+
+vi.mock("@shared/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    cache: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+  log: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    cache: vi.fn(),
+  },
+}));
+
 // Supabase config — only set if not already present
 process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
 process.env.SUPABASE_ANON_KEY ??= "test-anon-key";
+
+
 
 // LLM config
 process.env.LLM_PROVIDER ??= "together";

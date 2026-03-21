@@ -42,6 +42,7 @@ import {
 import { ReadinessScorer } from '../../../services/integrity/ReadinessScorer.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import type { GraphIntegrityGap } from '@valueos/shared';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -241,16 +242,25 @@ export class IntegrityAgent extends BaseAgent {
       ?? context.workspace_id;
     await this.publishHypothesisValidated(context, opportunityId, analysis, integrityResult, vetoDecision, supported, total);
 
-    return this.buildOutput(result, status, this.toConfidenceLevel(integrityResult.confidence), startTime, {
-      reasoning: `Validated ${total} claims: ${supported} supported, ${total - supported} flagged. ` +
-        `Integrity score: ${(integrityResult.confidence * 100).toFixed(0)}%. ` +
-        (vetoDecision.veto ? `VETOED: ${vetoDecision.reason}` : vetoDecision.reRefine ? `Re-refinement requested: ${vetoDecision.reason}` : 'Passed.'),
-      suggested_next_actions: vetoDecision.veto
-        ? ['Address data integrity issues', 'Re-run TargetAgent with corrected inputs']
-        : vetoDecision.reRefine
-          ? ['Review flagged claims', 'Strengthen evidence for weak hypotheses']
-          : ['Proceed to NarrativeAgent for business case composition'],
-    });
+    // Step 7: Check Value Graph for structural integrity gaps (fire-and-forget)
+    const graphIntegrityGaps = await this.checkGraphIntegrityGaps(context);
+
+    return this.buildOutput(
+      { ...result, graph_integrity_gaps: graphIntegrityGaps },
+      status,
+      this.toConfidenceLevel(integrityResult.confidence),
+      startTime,
+      {
+        reasoning: `Validated ${total} claims: ${supported} supported, ${total - supported} flagged. ` +
+          `Integrity score: ${(integrityResult.confidence * 100).toFixed(0)}%. ` +
+          (vetoDecision.veto ? `VETOED: ${vetoDecision.reason}` : vetoDecision.reRefine ? `Re-refinement requested: ${vetoDecision.reason}` : 'Passed.'),
+        suggested_next_actions: vetoDecision.veto
+          ? ['Address data integrity issues', 'Re-run TargetAgent with corrected inputs']
+          : vetoDecision.reRefine
+            ? ['Review flagged claims', 'Strengthen evidence for weak hypotheses']
+            : ['Proceed to NarrativeAgent for business case composition'],
+      },
+    );
   }
 
   private async publishHypothesisValidated(
@@ -1019,4 +1029,78 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
   // -------------------------------------------------------------------------
 
   // ...existing code...
+
+  // -------------------------------------------------------------------------
+  // Value Graph integration
+  // -------------------------------------------------------------------------
+
+  /**
+   * Reads the Value Graph and returns gaps where a hypothesis_claims_value_driver
+   * edge has no corresponding evidence_supports_metric edge on the same
+   * target entity.
+   *
+   * Fire-and-forget: returns [] on any error so the primary output is
+   * never affected.
+   */
+  private async checkGraphIntegrityGaps(
+    context: LifecycleContext,
+  ): Promise<GraphIntegrityGap[]> {
+    const opportunityId = (context.user_inputs?.value_case_id as string | undefined)
+      ?? context.workspace_id;
+    const organizationId = context.organization_id;
+
+    if (!opportunityId || !organizationId) {
+      return [];
+    }
+
+    try {
+      const graph = await this.valueGraphService.getGraphForOpportunity(opportunityId, organizationId);
+
+      const claimsEdges = graph.edges.filter(e => e.edge_type === 'hypothesis_claims_value_driver');
+      const evidenceEdges = graph.edges.filter(e => e.edge_type === 'evidence_supports_metric');
+      const metricMapEdges = graph.edges.filter(e => e.edge_type === 'metric_maps_to_value_driver');
+
+      // Build a set of metric IDs that have at least one evidence_supports_metric edge
+      const metricsWithEvidence = new Set(evidenceEdges.map(e => e.to_entity_id));
+
+      // From those metrics, find all value drivers they map to via metric_maps_to_value_driver
+      const valueDriversWithEvidence = new Set(
+        metricMapEdges
+          .filter(edge => metricsWithEvidence.has(edge.from_entity_id))
+          .map(edge => edge.to_entity_id),
+      );
+
+      const gaps: GraphIntegrityGap[] = [];
+
+      for (const claimEdge of claimsEdges) {
+        if (!valueDriversWithEvidence.has(claimEdge.to_entity_id)) {
+          gaps.push({
+            hypothesis_claims_edge_id: claimEdge.id,
+            from_entity_id: claimEdge.from_entity_id,
+            to_entity_id: claimEdge.to_entity_id,
+            gap_type: 'missing_evidence_support',
+          });
+
+          logger.warn('IntegrityAgent: Value Graph gap — hypothesis claim has no evidence support', {
+            opportunityId,
+            organizationId,
+            claimEdgeId: claimEdge.id,
+            fromEntityId: claimEdge.from_entity_id,
+            toEntityId: claimEdge.to_entity_id,
+          });
+        }
+      }
+
+      return gaps;
+    } catch (err) {
+      logger.warn('IntegrityAgent: failed to check Value Graph integrity gaps', {
+        opportunityId,
+        organizationId,
+        error: (err as Error).message,
+      });
+      return [];
+    }
+  }
 }
+
+

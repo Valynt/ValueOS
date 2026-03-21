@@ -3,6 +3,8 @@ import { PlausibilityClassifier } from "../../integrity/PlausibilityClassifier.j
 import { createMockSupabase, factories } from "../helpers/testHelpers.js";
 import { SQL_INJECTION_PAYLOADS } from "../fixtures/securityFixtures.js";
 
+vi.mock("../../../lib/supabase.js");
+
 describe("PlausibilityClassifier", () => {
   let classifier: PlausibilityClassifier;
   let mockSupabase: ReturnType<typeof createMockSupabase>;

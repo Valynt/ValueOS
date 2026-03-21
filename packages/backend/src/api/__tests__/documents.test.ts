@@ -3,6 +3,8 @@ import request from 'supertest';
 
 import router from '../documents.js'
 
+vi.mock("../../lib/supabase.js");
+
 const app = express();
 app.use(express.json());
 app.use('/api/documents', router);

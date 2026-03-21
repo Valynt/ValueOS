@@ -4,6 +4,7 @@ import { assertEgressAllowed, EgressBlockedError, egressFetch } from '../egressC
 
 vi.mock('../logger.js', () => ({
   logger: { debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 // Stub global fetch so egressFetch tests don't make real network calls.

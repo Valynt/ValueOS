@@ -11,9 +11,16 @@ import {
 import { canvasSchemaService } from '../CanvasSchemaService.js'
 import { WorkflowSDUIAdapter } from '../WorkflowSDUIAdapter.js'
 
+vi.mock("../../lib/supabase.js");
+
 // Mock dependencies
 vi.mock('../CanvasSchemaService');
-vi.mock('../../lib/logger');
+vi.mock('../../lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 
 describe('WorkflowSDUIAdapter', () => {
   let adapter: WorkflowSDUIAdapter;

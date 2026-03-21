@@ -49,8 +49,8 @@ describe("ProvenancePanel", () => {
       />
     );
 
-    expect(screen.getByText("Provenance")).toBeInTheDocument();
-    expect(screen.getByText("$150,000")).toBeInTheDocument();
+    expect(screen.getByText("Data Lineage")).toBeInTheDocument();
+    expect(screen.getByText("150,000")).toBeInTheDocument();
     expect(screen.getByText("CRM Data")).toBeInTheDocument();
     expect(screen.getByText("FinancialModelingAgent")).toBeInTheDocument();
   });
@@ -64,7 +64,7 @@ describe("ProvenancePanel", () => {
       />
     );
 
-    expect(screen.queryByText("Provenance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Data Lineage")).not.toBeInTheDocument();
   });
 
   it("calls onClose when clicking close button", () => {
@@ -77,7 +77,7 @@ describe("ProvenancePanel", () => {
       />
     );
 
-    const closeButton = screen.getByLabelText("Close provenance panel");
+    const closeButton = screen.getByLabelText("Close panel");
     fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalled();
   });
@@ -105,20 +105,23 @@ describe("ProvenancePanel", () => {
       />
     );
 
-    expect(screen.getByText("Loading provenance...")).toBeInTheDocument();
+    expect(document.querySelector('[data-testid="loading-state"]')).toBeInTheDocument();
   });
 
   it("shows error state", () => {
+    const errorMessage = "Failed to load provenance";
     render(
       <ProvenancePanel
         isOpen={true}
         onClose={vi.fn()}
-        error="Failed to load provenance"
+        error={errorMessage}
         nodes={[]}
       />
     );
 
-    expect(screen.getByText("Failed to load provenance")).toBeInTheDocument();
+    // Component renders a hardcoded heading and the error prop value in separate <p> elements
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getAllByText(errorMessage).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows empty state when no nodes", () => {

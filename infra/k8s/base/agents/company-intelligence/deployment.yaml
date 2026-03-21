@@ -4,6 +4,7 @@ metadata:
   name: company-intelligence-agent
   labels:
     app: company-intelligence-agent
+    workload: company-intelligence-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: company-intelligence-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: company-intelligence-agent
+        workload: company-intelligence-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: company-intelligence-agent

@@ -5,6 +5,8 @@ import request from 'supertest';
 import agentsRouter from '../../api/agents';
 import { getEventProducer } from '../../services/EventProducer';
 
+vi.mock("../../lib/supabase.js");
+
 
 vi.mock('../../services/EventProducer');
 

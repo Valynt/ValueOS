@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../lib/supabase.js");
+
 const logAuditMock = vi.fn(async () => undefined);
 
 vi.mock("../../services/AuditLogService", () => ({

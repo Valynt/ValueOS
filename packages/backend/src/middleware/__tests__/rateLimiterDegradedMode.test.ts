@@ -81,6 +81,53 @@ describe('rateLimiter degraded mode policy', () => {
     }
   });
 
+  it('allows low-risk writes to continue in degraded mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    process.env.NODE_ENV = 'production';
+    delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+
+    const limiter = createRateLimiter('standard');
+
+    const res = makeRes();
+    const next = vi.fn();
+    await limiter(mockReq({ path: '/api/profile/preferences', method: 'POST' }), res as any, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalledWith(503);
+
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalOverride === undefined) {
+      delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    } else {
+      process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK = originalOverride;
+    }
+  });
+
+  it('fails closed for expensive write paths in degraded mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    process.env.NODE_ENV = 'production';
+    delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+
+    const limiter = createRateLimiter('standard');
+
+    const res = makeRes();
+    const next = vi.fn();
+    await limiter(mockReq({ path: '/api/llm/generate', method: 'POST' }), res as any, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.headers['X-RateLimit-Enforcement']).toBe('degraded-protective');
+
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalOverride === undefined) {
+      delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    } else {
+      process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK = originalOverride;
+    }
+  });
+
   it('allows sensitive memory fallback only when explicit operator override is set', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;

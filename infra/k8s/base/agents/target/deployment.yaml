@@ -4,6 +4,7 @@ metadata:
   name: target-agent
   labels:
     app: target-agent
+    workload: target-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: target-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: target-agent
+        workload: target-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: target-agent

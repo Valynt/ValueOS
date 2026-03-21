@@ -42,12 +42,12 @@ This is the single control matrix for workflows under `.github/workflows/`.
 
 ## Scanner Version Upgrade Workflow
 
-To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`.
+To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`, including the dedicated CodeQL `init`/`analyze` refs and the `upload-sarif` ref used by `ci.yml`.
 
 When bumping scanner action versions:
 
-1. Update version refs in `scripts/ci/security-tool-versions.json`.
-2. Update `.github/workflows/ci.yml` and/or `.github/workflows/codeql.yml` to use the same refs.
+1. Update version refs in `scripts/ci/security-tool-versions.json` so the manifest remains the source of truth for CodeQL, Trivy, Semgrep, and Gitleaks action pins.
+2. Update `.github/workflows/ci.yml` and/or `.github/workflows/codeql.yml` to use the same refs, including `github/codeql-action/upload-sarif` in `ci.yml` when the CodeQL action major version changes.
 3. Run these guards locally:
    - `node scripts/ci/security-baseline-verification.mjs`
    - `node scripts/ci/check-ci-security-control-matrix.mjs`

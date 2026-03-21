@@ -43,6 +43,7 @@ vi.mock('redis', () => ({
 
 vi.mock('../utils/logger.js', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), cache: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 import { LLMCache } from '../LLMCache.js';

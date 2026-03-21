@@ -39,6 +39,8 @@ status: active
 - [Monitoring Observability](./monitoring-observability.md)
 - [SLOs and SLIs](./slo-sli.md)
 - [Load Test Baselines](./load-test-baselines.md)
+- [Operational Tuning Baselines](./operational-tuning-baselines.md)
+- [Operational Tuning Monthly Review](./operational-tuning-review.md)
 - [Query Plan Baselines](./query-plan-baselines.md)
 - [Performance Tuning](./performance-tuning.md)
 - [Scaling Guide](./scaling-guide.md)
@@ -50,4 +52,4 @@ status: active
 
 ---
 
-**Total Documents**: 16
+**Total Documents**: 18

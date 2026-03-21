@@ -8,6 +8,8 @@ import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
 import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
 
 import {
+
+vi.mock("../../../supabase.js");
   RedTeamAgent,
   type RedTeamInput,
   type RedTeamLLMGateway,

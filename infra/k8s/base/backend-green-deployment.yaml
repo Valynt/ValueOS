@@ -5,6 +5,7 @@ metadata:
   namespace: valynt
   labels:
     app: backend
+    workload: backend-green
     slot: green
     component: api
     app.kubernetes.io/name: backend
@@ -29,6 +30,7 @@ spec:
     metadata:
       labels:
         app: backend
+        workload: backend-green
         slot: green
         component: api
         version: v1
@@ -62,6 +64,8 @@ spec:
               value: "3001"
             - name: DATABASE_POOL_ROLE
               value: "api"
+            - name: OBSERVABILITY_DEPLOYMENT
+              value: "backend-green"
             - name: LOG_FORMAT
               value: "json"
             - name: LOG_LEVEL
@@ -102,6 +106,36 @@ spec:
                 configMapKeyRef:
                   name: valynt-config
                   key: redis-url
+            - name: REDIS_CONTROL_PLANE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-control-plane-url
+            - name: REDIS_CACHE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-cache-url
+            - name: REDIS_CONTROL_PLANE_TLS_SERVERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-control-plane-tls-servername
+            - name: REDIS_CACHE_TLS_SERVERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-cache-tls-servername
+            - name: REDIS_TLS_REJECT_UNAUTHORIZED
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-tls-reject-unauthorized
+            - name: REDIS_TLS_CA_CERT_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-tls-ca-cert-path
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 configMapKeyRef:

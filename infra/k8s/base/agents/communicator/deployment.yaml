@@ -4,6 +4,7 @@ metadata:
   name: communicator-agent
   labels:
     app: communicator-agent
+    workload: communicator-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: communicator-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: communicator-agent
+        workload: communicator-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: communicator-agent

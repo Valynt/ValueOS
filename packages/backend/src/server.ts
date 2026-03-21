@@ -52,6 +52,7 @@ import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
+import { opportunityValueGraphRouter, valueGraphRouter } from "./api/valueGraph.js";
 import groundtruthRouter from "./api/groundtruth.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
@@ -66,7 +67,10 @@ import teamsRouter from "./api/teams.js";
 import { tenantContextRouter } from "./api/tenantContext.js";
 import { usageRouter } from "./api/usage.js";
 import { valueCasesRouter } from "./api/valueCases/index.js";
+import { integrityRouter } from "./api/integrity.js";
 import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
+import { reasoningTracesRouter } from "./api/reasoningTraces.js";
+import { valueGraphRouter as valueGraphCaseRouter } from "./routes/value-graph.js";
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
 import { getConfig } from "./config/environment.js";
@@ -79,6 +83,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { validateAuditLogEncryptionConfig } from "./services/agents/AuditLogEncryptionConfig.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
 import { createServerSupabaseClient } from "./lib/supabase.js";
@@ -459,10 +464,17 @@ app.use(cachingMiddleware); // HTTP caching headers
 app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
 app.use((req, res, next) => {
   const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-  if (stateChangingMethods.has(req.method)) {
-    return csrfProtectionMiddleware(req, res, next);
+  if (!stateChangingMethods.has(req.method)) {
+    return next();
   }
-  next();
+  // Requests authenticated with a Bearer token are already CSRF-safe:
+  // browsers cannot attach custom Authorization headers cross-origin without
+  // a CORS preflight, which the server controls. Skip cookie-based CSRF check.
+  const authHeader = String(req.headers["authorization"] ?? "");
+  if (/^\s*Bearer\s+/i.test(authHeader)) {
+    return next();
+  }
+  return csrfProtectionMiddleware(req, res, next);
 });
 
 // Conditionally add telemetry middleware
@@ -596,11 +608,20 @@ app.use("/api/crm", crmRouter);
 app.use("/api/value-drivers", valueDriversRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/v1/graph", valueGraphRouter);
 app.use("/api/v1/audit-logs", auditLogsRouter);
 app.use("/api/v1/cases", valueCasesRouter);
+// Integrity endpoints — mounted on the same /api/v1/cases prefix so
+// /:caseId/integrity and /:caseId/integrity/resolve/:id resolve correctly.
+app.use("/api/v1/cases", integrityRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
+// Value Graph API — Sprint 49
+app.use("/api/v1/cases", valueGraphCaseRouter);
+// Reasoning traces — Sprint 52
+app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
+app.use("/api/v1/opportunities", opportunityValueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
@@ -665,6 +686,14 @@ app.use(notFoundHandler);
 // Global error handler (must be last)
 app.use(globalErrorHandler);
 
+function validateAuditLogStartupConfig(): void {
+  const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(process.env);
+
+  if (auditLogEncryptionErrors.length > 0) {
+    throw new Error(auditLogEncryptionErrors.join(" "));
+  }
+}
+
 function validateProductionMfaStartup(): void {
   if (settings.NODE_ENV !== "production") {
     return;
@@ -710,6 +739,7 @@ async function startServer(): Promise<void> {
   // 2. Validate production requirements
   logger.info("[Instrumentation] Validating production requirements");
   validateServiceIdentityConfig();
+  validateAuditLogStartupConfig();
   validateProductionMfaStartup();
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(

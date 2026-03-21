@@ -17,6 +17,7 @@ vi.mock('../../../lib/llm/secureLLMWrapper.js', () => ({
 
 vi.mock('../../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 // ─── Import after mocks ───────────────────────────────────────────────────────

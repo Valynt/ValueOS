@@ -14,8 +14,9 @@ vi.mock('../../../lib/logger', () => ({
     info: vi.fn(),
     error: vi.fn((msg, meta) => console.error('MOCKED LOGGER ERROR:', msg, meta)),
     warn: vi.fn(),
-    debug: vi.fn()
-  }
+    debug: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 // Import dependencies
@@ -23,6 +24,8 @@ import { canvasSchemaService } from '../../services/sdui/CanvasSchemaService.js'
 import sduiRouter from '../sdui.js'
 
 import { SDUI_VERSION } from '@valueos/sdui';
+
+vi.mock("../../lib/supabase.js");
 
 // Create Express app for testing
 const app = express();

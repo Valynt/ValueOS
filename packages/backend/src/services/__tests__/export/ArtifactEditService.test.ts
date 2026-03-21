@@ -3,6 +3,8 @@ import { ArtifactEditService } from "../../export/ArtifactEditService.js";
 import { createMockSupabase } from "../helpers/testHelpers.js";
 import { SQL_INJECTION_PAYLOADS, XSS_PAYLOADS, TENANT_ISOLATION_SCENARIOS } from "../fixtures/securityFixtures.js";
 
+vi.mock("../../../lib/supabase.js");
+
 describe("ArtifactEditService", () => {
   let service: ArtifactEditService;
   let mockSupabase: ReturnType<typeof createMockSupabase>;

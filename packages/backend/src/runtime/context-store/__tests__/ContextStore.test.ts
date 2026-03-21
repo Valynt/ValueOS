@@ -12,6 +12,7 @@ const { mockLoggerError } = vi.hoisted(() => ({
 
 vi.mock("../../../lib/logger.js", () => ({
   logger: { error: mockLoggerError, info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../../lib/supabase", () => ({

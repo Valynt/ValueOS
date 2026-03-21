@@ -15,14 +15,10 @@
   },
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
-  "forwardPorts": [5173, 5174, 3001],
+  "forwardPorts": [5173, 3001],
   "portsAttributes": {
     "5173": {
       "label": "ValyntApp (Vite)",
-      "onAutoForward": "notify"
-    },
-    "5174": {
-      "label": "VOSAcademy (Vite)",
       "onAutoForward": "notify"
     },
     "3001": {
@@ -38,7 +34,7 @@
         "bradlc.vscode-tailwindcss",
         "vitest.explorer",
         "redhat.vscode-yaml",
-        "eamodio.gitlens"
+        "cweijan.vscode-postgresql-client2"
       ]
     }
   }

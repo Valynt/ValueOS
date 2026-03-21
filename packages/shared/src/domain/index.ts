@@ -29,3 +29,19 @@ export * from "./UseCase.js";
 // Canonical lifecycle stage type — re-exported for convenience.
 // The authoritative definition is OpportunityLifecycleStageSchema in Opportunity.ts.
 export type { OpportunityLifecycleStage as LifecycleStage } from "./Opportunity.js";
+
+// Value Graph — Sprint 47
+// Four new entities forming the canonical ontology layer.
+// Agents read/write these; ValueGraphService traverses them.
+export * from "./VgCapability.js";
+export * from "./VgMetric.js";
+export * from "./VgValueDriver.js";
+export * from "./ValueGraphEdge.js";
+export * from "./GraphIntegrityGap.js";
+
+// Value Integrity Layer — Sprint 53
+export * from "./Violation.js";
+
+// Reasoning Trace — Sprint 51
+// Persisted record of agent reasoning for every secureInvoke call.
+export * from "./ReasoningTrace.js";

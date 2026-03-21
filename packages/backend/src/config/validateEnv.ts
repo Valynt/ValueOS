@@ -7,6 +7,8 @@
 
 /* eslint-disable security/detect-object-injection -- Controlled environment variable access with hardcoded configuration */
 
+import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
+
 export interface ValidationResult {
   valid: boolean;
   /** Alias for valid */
@@ -246,6 +248,7 @@ export function validateEnv(): ValidationResult {
 
   validateSecureTransportRules(errors);
   validateCacheEncryptionRules(nodeEnv, errors);
+  errors.push(...validateAuditLogEncryptionConfig(process.env));
 
   return {
     valid: errors.length === 0,

@@ -249,7 +249,7 @@ router.post(
       const { caseId } = req.params;
       const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
-      const userId = (req as { userId?: string }).userId ?? "unknown";
+      const userId = req.userId ?? "unknown";
 
       const body = HypothesisLoopRequestSchema.safeParse(req.body);
       const sessionId = (body.success && body.data.session_id)
@@ -352,6 +352,32 @@ router.post(
         finalState: result.finalState,
         sessionId,
       });
+
+      // Recompute integrity score after agent run completes.
+      // Non-fatal: a scoring failure must not block the response.
+      try {
+        const { valueIntegrityService } = await import(
+          "../services/integrity/ValueIntegrityService.js"
+        );
+        const accessToken =
+          (req.headers.authorization?.replace("Bearer ", "") ?? "");
+        await valueIntegrityService.detectContradictions(
+          caseId,
+          organizationId,
+          accessToken,
+          sessionId,
+        );
+        await valueIntegrityService.recomputeScore(
+          caseId,
+          organizationId,
+          accessToken,
+        );
+      } catch (integrityErr) {
+        logger.warn("Integrity recompute failed after hypothesis loop", {
+          caseId,
+          error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+        });
+      }
 
       res.json({
         success: true,

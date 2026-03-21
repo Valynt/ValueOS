@@ -12,6 +12,7 @@ const { mockRetrieve, mockStoreSemanticMemory, mockComplete } = vi.hoisted(() =>
 
 vi.mock("../../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../LLMGateway.js", () => ({
@@ -36,6 +37,36 @@ vi.mock("../../CircuitBreaker.js", () => ({
     constructor() {}
     execute = vi.fn().mockImplementation((fn: () => Promise<any>) => fn());
   },
+}));
+
+const { mockWriteMetric: mockRealWriteMetric, mockWriteEdge: mockRealWriteEdge, mockGetSafeContext: mockRealGetSafeContext, mockGenerateNodeId: mockRealGenerateNodeId, mockSafeWriteBatch: mockRealSafeWriteBatch } = vi.hoisted(() => {
+  const mockWriteMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+  const mockWriteEdge = vi.fn().mockResolvedValue({ id: "edge-1" });
+  const mockGetSafeContext = vi.fn().mockReturnValue({
+    opportunityId: "770e8400-e29b-41d4-a716-446655440002",
+    organizationId: "660e8400-e29b-41d4-a716-446655440001",
+  });
+  const mockGenerateNodeId = vi.fn().mockReturnValue("550e8400-e29b-41d4-a716-446655440000");
+  const mockSafeWriteBatch = vi.fn().mockImplementation(
+    async (writes: Array<() => Promise<unknown>>) => {
+      await Promise.all(writes.map((fn) => fn()));
+      return { succeeded: writes.length, failed: 0, errors: [] };
+    },
+  );
+  return { mockWriteMetric, mockWriteEdge, mockGetSafeContext, mockGenerateNodeId, mockSafeWriteBatch };
+});
+
+vi.mock("../../BaseGraphWriter.js", () => ({
+  BaseGraphWriter: class {
+    getSafeContext = mockRealGetSafeContext;
+    generateNodeId = mockRealGenerateNodeId;
+    safeWriteBatch = mockRealSafeWriteBatch;
+    writeMetric = mockRealWriteMetric;
+    writeEdge = mockRealWriteEdge;
+    writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
+    writeValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+  },
+  LifecycleContextError: class extends Error {},
 }));
 
 vi.mock("../../../../services/MCPGroundTruthService.js", () => ({
@@ -404,4 +435,32 @@ describe("RealizationAgent", () => {
     ).rejects.toThrow(/tenant context mismatch/i);
   });
 
+  describe("Value Graph writes", () => {
+    beforeEach(() => {
+      mockRealWriteMetric.mockClear();
+      mockRealWriteEdge.mockClear();
+    });
+
+    it("writes VgMetric nodes and metric_maps_to_value_driver edges after successful execution", async () => {
+      await agent.execute(makeContext());
+
+      expect(mockRealWriteMetric).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }),
+        expect.objectContaining({ name: expect.any(String) }),
+      );
+      expect(mockRealWriteEdge).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }),
+        expect.objectContaining({ edge_type: "metric_maps_to_value_driver" }),
+      );
+    });
+
+    it("does not propagate graph write errors to agent output", async () => {
+      mockRealGetSafeContext.mockImplementationOnce(() => {
+        throw new Error("opportunity_id is missing");
+      });
+
+      const result = await agent.execute(makeContext());
+      expect(result.status).not.toBe("failure");
+    });
+  });
 });

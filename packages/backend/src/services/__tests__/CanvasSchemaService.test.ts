@@ -123,22 +123,13 @@ describe('CanvasSchemaService', () => {
                   id: 'vt-1',
                   compliance_metadata: {
                     results: [{ rule_id: 'r1', passed: true, message: 'passed' }]
-                  }
-                }],
-                error: null
-              }))
-            }))
-          } as any;
-        }
-        if (table === 'roi_models') {
-           return {
-            select: vi.fn(() => ({
-              in: vi.fn(() => ({
-                data: [{
-                  id: 'roi-1',
-                  compliance_metadata: {
-                    results: [{ rule_id: 'r2', passed: false, message: 'failed' }]
-                  }
+                  },
+                  roi_models: [{
+                    id: 'roi-1',
+                    compliance_metadata: {
+                      results: [{ rule_id: 'r2', passed: false, message: 'failed' }]
+                    }
+                  }]
                 }],
                 error: null
               }))

@@ -12,7 +12,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { llmFallback, LLMFallbackService } from "../LLMFallback.js"
 
 // Mock dependencies
-vi.mock("../../utils/logger");
+vi.mock("../../utils/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 vi.mock("@shared/lib/env", () => ({
   getEnvVar: vi.fn(),
   getLLMCostTrackerConfig: vi.fn(() => ({

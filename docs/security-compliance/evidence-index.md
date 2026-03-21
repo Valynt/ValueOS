@@ -13,7 +13,7 @@ This index maps key SOC 2, GDPR, ISO 27001, and FedRAMP-aligned controls to auto
 
 | Framework | Control | Automated suites | Evidence artifact(s) | Workflow run ID source | Migration lineage |
 |---|---|---|---|---|---|
-| SOC2 | CC6.1 Logical and physical access controls | `tests/security/rls-tenant-isolation.test.ts` | `reports/compliance/rls/vitest-rls.junit.xml`, `reports/compliance/rls/vitest-rls.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` (RLS foundations: tenants, user_tenants, security schema, user_has_tenant_access), `infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql` |
+| SOC2 | CC6.1 Logical and physical access controls | `tests/security/rls-tenant-isolation.test.ts`, `tests/compliance/security/tenant-isolation-verification.test.ts` | `reports/compliance/rls/vitest-rls.junit.xml`, `reports/compliance/rls/vitest-rls.json`, `artifacts/ci-lanes/tenant-isolation-static-gate/summary.md` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` (tenants, `user_tenants`, `security.user_has_tenant_access`, `value_cases` RLS), `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` (`messages` RLS + tenant hot-path indexes), `.github/workflows/ci.yml` (`tenant-isolation-static-gate`, `tenant-isolation-gate`) |
 | SOC2 | CC6.8 Audit log integrity/immutability | `tests/compliance/audit/audit-log-immutability.test.ts` | `reports/compliance/audit/vitest-audit-immutability.junit.xml`, `reports/compliance/audit/vitest-audit-immutability.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql`, `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` (audit_logs, security_audit_log tables) |
 | GDPR | Article 15/17 (access + erasure DSR workflow) | `tests/compliance/dsr-workflow.test.ts` | `reports/compliance/dsr/vitest-dsr.junit.xml`, `reports/compliance/dsr/vitest-dsr.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` (sessions, messages, agent_audit_logs — GDPR Art.17 gap resolution), `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` |
 | ISO 27001 | A.12.4 Event logging and monitoring | `tests/compliance/audit/audit-log-immutability.test.ts` | Same as audit artifacts above | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql` |
@@ -40,7 +40,8 @@ Compliance artifacts are published by CI with this bundle format:
 
 Each bundle contains:
 
-- JUnit and JSON reports for DSR, RLS, and audit immutability suites.
+- JUnit and JSON reports for DSR, RLS (including the tenant isolation compliance suite in the trusted runtime lane), and audit immutability suites.
+- `artifacts/ci-lanes/tenant-isolation-static-gate/summary.md` for the deterministic fork-safe tenant-isolation fallback lane.
 - `SHA256SUMS` checksum ledger.
 - `SHA256SUMS.sig` + `SHA256SUMS.pem` keyless signature material.
 - `reports/compliance/metadata/workflow-run.json` with run metadata.

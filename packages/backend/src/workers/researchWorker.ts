@@ -17,6 +17,7 @@ import Redis from 'ioredis';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
+import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
@@ -155,6 +156,11 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
 
   _worker.on('failed', (job, err) => {
     logger.error('Job failed', err, { jobId: job?.id });
+  });
+
+  attachQueueMetrics(_worker, RESEARCH_QUEUE_NAME, {
+    workerClass: 'research-worker',
+    concurrency: 3,
   });
 
   logger.info('Listening on queue', { queue: RESEARCH_QUEUE_NAME });

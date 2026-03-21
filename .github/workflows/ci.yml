@@ -162,6 +162,9 @@ jobs:
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
 
+      - name: Guard Valynt browser/server import boundaries
+        run: pnpm check:valynt-browser-server-boundaries
+
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
@@ -223,99 +226,37 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  vitest-package-matrix-config:
-    name: vitest/package-matrix
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v6
 
-      - name: Emit Vitest package matrix
-        id: matrix
-        run: echo "matrix=$(node scripts/ci/emit-vitest-package-matrix.mjs)" >> "$GITHUB_OUTPUT"
+  pr-fast-tests:
+    name: pr-fast-tests
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/_reusable-test.yml
+    with:
+      scope: affected
+      coverage_mode: summary
+      trust_context: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'trusted' || 'untrusted' }}
+    secrets: inherit
 
-  vitest-package:
-    name: vitest/${{ matrix.package.label }}
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    needs: vitest-package-matrix-config
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.vitest-package-matrix-config.outputs.matrix) }}
-    env:
-      NODE_ENV: test
-      SUPABASE_URL: http://localhost:54321
-      SUPABASE_ANON_KEY: test-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
-      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
-      SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
-      OPENAI_API_KEY: test-openai-key
-    steps:
-      - uses: actions/checkout@v6
+  main-verification-tests:
+    name: main-verification-tests
+    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/_reusable-test.yml
+    with:
+      scope: full
+      coverage_mode: summary
+      trust_context: trusted
+    secrets: inherit
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
-
-      - name: Run package tests with coverage
-        run: |
-          npx vitest run \
-            --root "${{ matrix.package.dir }}" \
-            --config vitest.config.ts \
-            --coverage \
-            --coverage.provider=v8 \
-            --coverage.reporter=json-summary \
-            --coverage.reporter=text-summary \
-            --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
-
-      - name: Write coverage summary
-        run: |
-          node scripts/ci/write-vitest-coverage-summary.mjs \
-            --package-id "${{ matrix.package.id }}" \
-            --package-label "${{ matrix.package.label }}" \
-            --package-dir "${{ matrix.package.dir }}" \
-            --coverage-summary "${{ matrix.package.coverageDir }}/coverage-summary.json" \
-            --output "artifacts/coverage/${{ matrix.package.id }}.md"
-          cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload package coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vitest-${{ matrix.package.id }}-${{ github.run_id }}
-          path: |
-            ${{ matrix.package.coverageDir }}/coverage-summary.json
-            artifacts/coverage/${{ matrix.package.id }}.md
-          if-no-files-found: warn
-          retention-days: 30
+  backend-services-verification:
+    name: backend-services-verification
+    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/_reusable-test.yml
+    with:
+      scope: backend-services
+      backend_suite: full
+      coverage_mode: summary
+      trust_context: trusted
+    secrets: inherit
 
   # Critical invariant: no cross-tenant data access (secrets-free static lane)
   tenant-isolation-static-gate:
@@ -410,6 +351,7 @@ jobs:
             tests/security/api-tenant-isolation.test.ts \
             tests/security/supabase-rls-policy-matrix.test.ts \
             tests/security/agent-invocation-tenant-boundary.test.ts \
+            tests/compliance/security/tenant-isolation-verification.test.ts \
             packages/memory/tests/tenant-vector-isolation.test.ts \
             packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
             --reporter=verbose \
@@ -767,6 +709,7 @@ jobs:
       - tenant-isolation-gate
       - security-gate
       - accessibility-audit
+      - pr-fast-tests
     steps:
       - name: Enforce PR release blockers
         run: |
@@ -787,7 +730,8 @@ jobs:
             "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
+            "accessibility-audit:${{ needs.accessibility-audit.result }}" \
+            "pr-fast-tests:${{ needs.pr-fast-tests.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -806,6 +750,8 @@ jobs:
       - critical-workflows-gate
       - security-gate
       - accessibility-audit
+      - main-verification-tests
+      - backend-services-verification
     steps:
       - name: Enforce staging/deploy blockers
         env:
@@ -816,7 +762,9 @@ jobs:
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
+            "accessibility-audit:${{ needs.accessibility-audit.result }}" \
+            "main-verification-tests:${{ needs.main-verification-tests.result }}" \
+            "backend-services-verification:${{ needs.backend-services-verification.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
