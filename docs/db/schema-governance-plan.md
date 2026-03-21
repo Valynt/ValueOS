@@ -6,10 +6,10 @@
 
 - Canonical local migration directory: `infra/supabase/supabase/migrations/`.
 - Historical-only directories (not release canonical):
-  - `infra/supabase/supabase/migrations_archive/`
+  - `infra/supabase/supabase/migrations/archive/`
   - `infra/supabase/supabase/migrations/_deferred/`
-  - `infra/supabase/supabase/migrations/_deferred_archived/`
-  - `infra/supabase/supabase/migrations/_archived_monolith_20260213/`
+  - `infra/supabase/supabase/migrations/archive/deferred-superseded/`
+  - `infra/supabase/supabase/migrations/archive/monolith-20260213/`
 
 ### Naming/versioning baseline
 

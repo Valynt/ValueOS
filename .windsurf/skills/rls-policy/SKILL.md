@@ -66,7 +66,7 @@ CREATE POLICY <table_name>_tenant_delete
 
 If adding policies to a new environment, confirm the `security` schema and
 `user_has_tenant_access` function are present. If not, apply:
-`infra/supabase/supabase/migrations/_deferred_archived/20260205000000_canonical_tenant_authorization_rls.sql`
+`infra/supabase/supabase/migrations/archive/deferred-superseded/20260205000000_canonical_tenant_authorization_rls.sql`
 
 ### Step 4: Validate
 

@@ -4,7 +4,7 @@
  * CI guard: ensure only timestamped migration files exist in the migrations directory.
  *
  * Valid filenames: YYYYMMDDHHMMSS_description.sql
- * Directories starting with _ (e.g., _deferred_archived) are allowed.
+ * Archive directories (for example archive/) are allowed.
  *
  * Fails if any non-timestamp .sql file is found at the top level.
  */
@@ -28,7 +28,7 @@ const entries = readdirSync(MIGRATIONS_DIR, { withFileTypes: true });
 const violations = [];
 
 for (const entry of entries) {
-  // Allow directories (e.g., _deferred_archived)
+  // Allow directories (for example archive/)
   if (entry.isDirectory()) continue;
 
   // Allow non-SQL files

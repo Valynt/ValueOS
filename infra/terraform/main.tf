@@ -1,13 +1,11 @@
-# ValueOS Production Infrastructure — Terraform (ECS Fargate)
+# ValueOS Supporting Infrastructure — Terraform
 #
-# STATUS: The active deploy pipeline uses Kubernetes (kustomize + kubectl).
-# See: .github/workflows/deploy.yml and infra/k8s/
+# STATUS: Kubernetes is the only active shared-environment runtime.
+# See infra/README.md and DEPLOY.md for the canonical deployment contract.
 #
-# These ECS modules provision supporting infrastructure (VPC, RDS, ElastiCache,
-# CloudFront, monitoring) that the K8s cluster depends on. The ECS service
-# modules are retained for reference but are NOT used by the deploy workflow.
-# To switch to ECS, update deploy.yml to use `aws ecs update-service` instead
-# of kubectl.
+# This Terraform root provisions supporting cloud infrastructure (networking,
+# data, cache, monitoring, IAM-adjacent dependencies). Archived ECS service
+# modules remain available only as reference material behind enable_ecs=false.
 
 terraform {
   required_version = ">= 1.0"
@@ -113,10 +111,10 @@ module "cache" {
 
 # ECS Cluster — ARCHIVED: not used by active deploy pipeline (K8s).
 # Only provisioned when var.enable_ecs = true (default: false).
-# See modules/_archived/README.md.
+# See ../archive/terraform/ecs-reference/README.md.
 module "ecs" {
   count  = var.enable_ecs ? 1 : 0
-  source = "./modules/_archived/ecs"
+  source = "../archive/terraform/ecs-reference/ecs"
 
   name_prefix = local.name_prefix
 
@@ -127,7 +125,7 @@ module "ecs" {
 # Only provisioned when var.enable_ecs = true (default: false).
 module "frontend" {
   count  = var.enable_ecs ? 1 : 0
-  source = "./modules/_archived/ecs-service"
+  source = "../archive/terraform/ecs-reference/ecs-service"
 
   name_prefix            = "${local.name_prefix}-frontend"
   cluster_id             = module.ecs[0].cluster_id
@@ -160,7 +158,7 @@ module "frontend" {
 # Only provisioned when var.enable_ecs = true (default: false).
 module "backend" {
   count  = var.enable_ecs ? 1 : 0
-  source = "./modules/_archived/ecs-service"
+  source = "../archive/terraform/ecs-reference/ecs-service"
 
   name_prefix            = "${local.name_prefix}-backend"
   cluster_id             = module.ecs[0].cluster_id

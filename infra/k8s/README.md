@@ -1,10 +1,10 @@
 # ValueOS Kubernetes Deployment
 
-Complete Kubernetes deployment configuration for ValueOS using Kustomize.
+Kubernetes deployment configuration for the active ValueOS shared-environment runtime.
 
-> **Readiness Status:** These manifests are **aspirational** and have not been
-> validated against a live cluster for v1. Production deployment currently uses
-> Docker Compose (`ops/compose/`). See `DEPLOY.md` for the canonical deploy path.
+> **Authority:** Kubernetes is the active staging/production runtime. See `../README.md` for the canonical infrastructure classification and `../../DEPLOY.md` for the shared-environment deploy flow. Docker Compose remains local-only under `ops/compose/`.
+>
+> **Readiness note:** Individual manifests still carry varying validation maturity. Use the table below to understand which assets are production-proven versus still awaiting deeper load, operator, or cluster validation.
 
 ## Manifest Readiness
 
@@ -126,10 +126,10 @@ This check fails when any agent deployment:
 
 ## Prerequisites
 
-1. **EKS Cluster** running (created by Terraform)
+1. **Kubernetes cluster** running and reachable (`kubectl get nodes`)
 2. **kubectl** configured to access the cluster
 3. **Kustomize** installed
-4. **AWS ALB Ingress Controller** installed in cluster
+4. Required ingress/controller stack installed for the target cluster
 5. **Metrics Server** installed (for HPA)
 
 ## Quick Start

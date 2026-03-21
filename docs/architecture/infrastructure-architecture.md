@@ -22,7 +22,7 @@ ValueOS now has a single active shared-environment runtime target: **Kubernetes*
 | Shared-environment runtime | Kubernetes | `infra/k8s/base/` + overlays + `.github/workflows/deploy.yml` | Runs backend, frontend, workers, messaging, scheduled jobs, and runtime policy objects |
 | Supporting infrastructure | Terraform | `infra/terraform/`, `infra/terraform-new/`, `infra/environments/*/terraform/` | Provisions cloud resources and environment prerequisites the cluster depends on |
 | Local developer substrate | Docker Compose | `ops/compose/` | Runs local dependencies and optional workstation-only runtime experiments |
-| Archived historical runtime reference | Archived Terraform ECS modules | `infra/reference/terraform-archived-ecs/` | Retained for audit history and break-glass planning only |
+| Archived historical runtime reference | Archived Terraform ECS modules | `infra/archive/terraform/ecs-reference/` | Retained for audit history and break-glass planning only |
 
 ## Infrastructure boundary
 
@@ -68,11 +68,11 @@ This workflow does not define an alternate runtime platform.
 
 `.github/workflows/dr-validation.yml` validates disaster-recovery procedures around the same Kubernetes-first operating model.
 
-DR validation may exercise environment failover checks and supporting infrastructure, but it does not reintroduce ECS as an active deployment target.
+DR validation may exercise environment failover checks and supporting infrastructure, but it does not reintroduce archived ECS material into the shared-environment runtime.
 
 ## Archived ECS modules
 
-Archived ECS Terraform modules were moved out of active Terraform module paths into `infra/reference/terraform-archived-ecs/` to make their non-production status explicit.
+Archived ECS Terraform modules were moved out of active Terraform module paths into `infra/archive/terraform/ecs-reference/` to make their non-production status explicit.
 
 Guardrails:
 

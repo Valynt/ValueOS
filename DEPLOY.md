@@ -9,7 +9,7 @@ ValueOS shared-environment deployments are standardized on **Kubernetes**.
 
 | Concern | Local development | Staging | Production |
 | --- | --- | --- | --- |
-| Runtime substrate | Docker Compose (`ops/compose/compose.yml`) | Kubernetes | Kubernetes |
+| Runtime substrate | Local-only Docker Compose (`ops/compose/compose.yml`) | Kubernetes | Kubernetes |
 | Runtime source of truth | `ops/compose/` | `infra/k8s/base/` + `infra/k8s/overlays/staging/` | `infra/k8s/base/` + `infra/k8s/overlays/production/` |
 | Deployment workflow | developer-invoked local commands | `.github/workflows/deploy.yml` | `.github/workflows/deploy.yml` |
 | Cluster auth secret | n/a | `KUBE_CONFIG_STAGING` | `KUBE_CONFIG_PRODUCTION` |
@@ -26,7 +26,7 @@ If a change modifies how the application runs inside the cluster, it belongs und
 
 ## Archived ECS reference
 
-Archived ECS Terraform modules are retained only under `infra/reference/terraform-archived-ecs/`.
+Archived ECS Terraform modules are retained only under `infra/archive/terraform/ecs-reference/`.
 
 - They are non-production reference material.
 - No standard CI workflow may enable them.

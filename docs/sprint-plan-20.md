@@ -20,7 +20,7 @@
 
 The prior sprint plan (sprint-plan-20-23.md) described Sprint 20 as replacing stubs in `ValueCommitmentTrackingService`. That work is **partially done** — the write paths are real. What remains:
 
-1. **No active DB migration for commitment tables.** `value_commitments`, `commitment_milestones`, `commitment_metrics`, `commitment_risks`, `commitment_stakeholders`, `commitment_notes` exist only in `_deferred_archived/20231203000000_value_commitment_tracking.sql`. No active migration creates these tables. The backend service will throw on every call in a fresh environment.
+1. **No active DB migration for commitment tables.** `value_commitments`, `commitment_milestones`, `commitment_metrics`, `commitment_risks`, `commitment_stakeholders`, `commitment_notes` exist only in `archive/deferred-superseded/20231203000000_value_commitment_tracking.sql`. No active migration creates these tables. The backend service will throw on every call in a fresh environment.
 
 2. **Frontend stub methods not migrated.** `apps/ValyntApp/src/services/ValueCommitmentTrackingService.ts` has 8 methods that log `"not yet migrated to backend API"` and return empty objects: `addStakeholder`, `updateStakeholder`, `createMilestone`, `updateMilestoneProgress`, `createMetric`, `updateMetricValue`, `createRisk`, `updateRiskStatus`.
 

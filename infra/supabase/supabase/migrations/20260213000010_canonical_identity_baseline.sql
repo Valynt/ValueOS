@@ -4,7 +4,7 @@
 -- PURPOSE
 -- -------
 -- Active migrations (Sprint 10–15) depend on tables that were previously
--- created only by the archived monolith (_archived_monolith_20260213/).
+-- created only by the archived monolith (archive/monolith-20260213/).
 -- A fresh database that applies only the active migration chain is missing
 -- these tables, causing every subsequent migration to fail.
 --

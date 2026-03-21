@@ -4237,7 +4237,7 @@ The canonical migration lifecycle for ValueOS lives under `infra/supabase/supaba
    - Deferred files are still “live” governance scope (they are **not** archival) and are checked for duplicate intent/path drift.
 
 3. **Archived (approved archive folders)**
-   - Historical migrations live under archive paths such as `_deferred_archived/` or `_archived_*`.
+   - Historical migrations live under archive paths such as `archive/deferred-superseded/` or `_archived_*`.
    - Archive folders are immutable historical record and are excluded from active-path conflict enforcement.
 
 4. **Rollback pairing**
