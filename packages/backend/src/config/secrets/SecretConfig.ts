@@ -41,6 +41,13 @@ export interface SecretConfig {
       namespace: string;
       kubernetesRole?: string;
     };
+    infisical: {
+      siteUrl: string;
+      clientId: string;
+      clientSecret: string;
+      projectId: string;
+      environment: string;
+    };
   };
 
   // Validation settings
@@ -118,6 +125,13 @@ function loadSecretConfig(): SecretConfig {
         address: process.env.VAULT_ADDR || "",
         namespace: process.env.VAULT_NAMESPACE || "valuecanvas",
         kubernetesRole: process.env.VAULT_K8S_ROLE,
+      },
+      infisical: {
+        siteUrl: process.env.INFISICAL_SITE_URL || "https://app.infisical.com",
+        clientId: process.env.INFISICAL_CLIENT_ID || "",
+        clientSecret: process.env.INFISICAL_CLIENT_SECRET || "",
+        projectId: process.env.INFISICAL_PROJECT_ID || "",
+        environment: process.env.INFISICAL_ENVIRONMENT || "prod",
       },
     },
 
@@ -230,6 +244,7 @@ export function getMergedConfig(): SecretConfig {
     providers: {
       aws: { ...baseConfig.providers.aws, ...envConfig.providers?.aws },
       vault: { ...baseConfig.providers.vault, ...envConfig.providers?.vault },
+      infisical: { ...baseConfig.providers.infisical, ...envConfig.providers?.infisical },
     },
     validation: { ...baseConfig.validation, ...envConfig.validation },
     volumeWatcher: { ...baseConfig.volumeWatcher, ...envConfig.volumeWatcher },

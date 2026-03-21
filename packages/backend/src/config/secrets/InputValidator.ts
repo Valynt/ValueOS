@@ -149,35 +149,35 @@ export class InputValidator {
    * Validate tenant ID
    */
   static validateTenantId(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.tenantId, "tenantId");
+    return InputValidator.validateString(value, ValidationRules.tenantId, "tenantId");
   }
 
   /**
    * Validate secret key
    */
   static validateSecretKey(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.secretKey, "secretKey");
+    return InputValidator.validateString(value, ValidationRules.secretKey, "secretKey");
   }
 
   /**
    * Validate user ID
    */
   static validateUserId(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.userId, "userId");
+    return InputValidator.validateString(value, ValidationRules.userId, "userId");
   }
 
   /**
    * Validate version
    */
   static validateVersion(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.version, "version");
+    return InputValidator.validateString(value, ValidationRules.version, "version");
   }
 
   /**
    * Validate environment
    */
   static validateEnvironment(value: unknown): ValidationResult {
-    return this.validateString(
+    return InputValidator.validateString(
       value,
       ValidationRules.environment,
       "environment"
@@ -188,35 +188,35 @@ export class InputValidator {
    * Validate URL
    */
   static validateUrl(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.url, "url");
+    return InputValidator.validateString(value, ValidationRules.url, "url");
   }
 
   /**
    * Validate AWS region
    */
   static validateAwsRegion(value: unknown): ValidationResult {
-    return this.validateString(value, ValidationRules.awsRegion, "awsRegion");
+    return InputValidator.validateString(value, ValidationRules.awsRegion, "awsRegion");
   }
 
   /**
    * Validate port number
    */
   static validatePort(value: unknown): ValidationResult {
-    return this.validateNumber(value, ValidationRules.port, "port");
+    return InputValidator.validateNumber(value, ValidationRules.port, "port");
   }
 
   /**
    * Validate timeout
    */
   static validateTimeout(value: unknown): ValidationResult {
-    return this.validateNumber(value, ValidationRules.timeout, "timeout");
+    return InputValidator.validateNumber(value, ValidationRules.timeout, "timeout");
   }
 
   /**
    * Validate retry count
    */
   static validateRetryCount(value: unknown): ValidationResult {
-    return this.validateNumber(value, ValidationRules.retryCount, "retryCount");
+    return InputValidator.validateNumber(value, ValidationRules.retryCount, "retryCount");
   }
 
   /**

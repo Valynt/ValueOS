@@ -22,7 +22,7 @@ export interface SecretCacheCryptoOptions {
   cacheKey?: string;
   cacheKeyVersion?: string;
   previousCacheKeys?: string;
-  providerName: "aws" | "vault";
+  providerName: "aws" | "vault" | "infisical";
 }
 
 export class SecretCacheCrypto {

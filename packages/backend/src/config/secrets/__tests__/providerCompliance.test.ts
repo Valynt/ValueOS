@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AWSSecretProvider } from '../AWSSecretProvider.js'
+import { InfisicalSecretProvider } from '../InfisicalSecretProvider.js'
 import { createProviderFromEnv, providerFactory } from '../ProviderFactory.js'
 import { VaultSecretProvider } from '../VaultSecretProvider.js'
 
 let sendMock: ReturnType<typeof vi.fn>;
 let mockVaultClient: any;
+let mockFetch: ReturnType<typeof vi.fn>;
 
 // Mock fs for kubernetes auth check - placed early
 vi.mock('fs', () => ({
@@ -128,6 +130,57 @@ describe.each([
       return { provider, getSpy: mockVaultClient.read };
     },
   },
+  {
+    name: 'infisical',
+    setup: async () => {
+      const apiCallSpy = vi.fn();
+      mockFetch = vi.fn(async (url: string, opts?: any) => {
+        const urlStr = typeof url === 'string' ? url : String(url);
+
+        // Auth endpoint
+        if (urlStr.includes('/auth/universal-auth/login')) {
+          return {
+            ok: true,
+            json: async () => ({ accessToken: 'mock-token', expiresIn: 7200, tokenType: 'Bearer' }),
+          };
+        }
+
+        // Track non-auth API calls
+        apiCallSpy();
+
+        // List secrets
+        if (urlStr.includes('/api/v3/secrets/raw') && !urlStr.includes('/api/v3/secrets/raw/')) {
+          return {
+            ok: true,
+            json: async () => ({ secrets: [{ id: 's1', secretKey: 'api-key', secretValue: 'infisical-secret', version: 1, type: 'shared', environment: 'dev', secretPath: '/tenants/t-1' }] }),
+          };
+        }
+
+        // Get single secret
+        if (urlStr.includes('/api/v3/secrets/raw/')) {
+          return {
+            ok: true,
+            json: async () => ({ secret: { id: 's1', secretKey: 'api-key', secretValue: 'infisical-secret', version: 1, type: 'shared', environment: 'dev', secretPath: '/tenants/t-1' } }),
+          };
+        }
+
+        return { ok: true, json: async () => ({}) };
+      });
+
+      vi.stubGlobal('fetch', mockFetch);
+
+      const provider = new InfisicalSecretProvider({
+        siteUrl: 'https://app.infisical.com',
+        clientId: 'mock-client-id',
+        clientSecret: 'mock-client-secret',
+        projectId: 'mock-project-id',
+        environment: 'dev',
+        cacheTTL: 1_000,
+      });
+
+      return { provider, getSpy: apiCallSpy };
+    },
+  },
 ])('ISecretProvider compliance for $name', ({ setup }) => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -151,7 +204,7 @@ describe.each([
 
   it('reports correct provider name for switching', async () => {
     const { provider } = await setup();
-    expect(['aws', 'vault']).toContain(provider.getProviderName());
+    expect(['aws', 'vault', 'infisical']).toContain(provider.getProviderName());
   });
 });
 
@@ -168,5 +221,17 @@ describe('ProviderFactory from environment', () => {
     const provider = createProviderFromEnv();
 
     expect(provider.getProviderName()).toBe('vault');
+  });
+
+  it('creates infisical provider when SECRETS_PROVIDER=infisical', async () => {
+    process.env.SECRETS_PROVIDER = 'infisical';
+    process.env.INFISICAL_CLIENT_ID = 'test-client-id';
+    process.env.INFISICAL_CLIENT_SECRET = 'test-client-secret';
+    process.env.INFISICAL_PROJECT_ID = 'test-project-id';
+    process.env.INFISICAL_SITE_URL = 'https://app.infisical.com';
+
+    const provider = createProviderFromEnv();
+
+    expect(provider.getProviderName()).toBe('infisical');
   });
 });

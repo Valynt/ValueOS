@@ -2,11 +2,7 @@
  * Secret Provider Interface
  *
  * Provider-agnostic interface for secrets management.
- * Supported backends: AWS Secrets Manager, HashiCorp Vault.
- *
- * Azure Key Vault was planned but never implemented. Use AWS or Vault instead.
- * If Azure support is needed, implement AzureSecretProvider extending ISecretProvider
- * and register it in ProviderFactory before adding 'azure' back to ProviderConfig.
+ * Supported backends: AWS Secrets Manager, HashiCorp Vault, Infisical.
  */
 
 /**
@@ -53,14 +49,14 @@ export type AuditResult = 'SUCCESS' | 'FAILURE';
 
 /**
  * Provider-agnostic secret manager interface
- * 
+ *
  * All secret providers must implement this interface to ensure
  * consistent behavior across AWS, Vault, etc.
  */
 export interface ISecretProvider {
   /**
    * Get a secret value for a tenant
-   * 
+   *
    * @param tenantId - Tenant identifier for isolation
    * @param secretKey - Key identifying the secret
    * @param version - Optional version (for versioned providers)
@@ -76,7 +72,7 @@ export interface ISecretProvider {
 
   /**
    * Set a secret value for a tenant
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key for the secret
    * @param value - Secret value to store
@@ -94,7 +90,7 @@ export interface ISecretProvider {
 
   /**
    * Rotate a secret (generate new value)
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key for the secret to rotate
    * @param userId - User making the request
@@ -108,7 +104,7 @@ export interface ISecretProvider {
 
   /**
    * Delete a secret permanently
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key for the secret to delete
    * @param userId - User making the request
@@ -122,7 +118,7 @@ export interface ISecretProvider {
 
   /**
    * List all secrets for a tenant (keys only, not values)
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param userId - User making the request
    * @returns Array of secret keys
@@ -134,7 +130,7 @@ export interface ISecretProvider {
 
   /**
    * Get secret metadata without retrieving the value
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key for the secret
    * @param userId - User making the request
@@ -148,7 +144,7 @@ export interface ISecretProvider {
 
   /**
    * Check if a secret exists
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key to check
    * @param userId - User making the request
@@ -162,7 +158,7 @@ export interface ISecretProvider {
 
   /**
    * Audit log for compliance
-   * 
+   *
    * @param tenantId - Tenant identifier
    * @param secretKey - Key that was accessed
    * @param action - Action performed
@@ -196,13 +192,21 @@ export interface ISecretProvider {
  * Provider factory configuration
  */
 export interface ProviderConfig {
-  provider?: 'aws' | 'vault';
+  provider?: 'aws' | 'vault' | 'infisical';
   /** Alias for provider — accepted for backward compatibility. */
-  type?: 'aws' | 'vault';
+  type?: 'aws' | 'vault' | 'infisical';
   region?: string;
   environment?: string;
   vaultAddress?: string;
   vaultNamespace?: string;
+  /** Infisical site URL (e.g. https://app.infisical.com) */
+  infisicalSiteUrl?: string;
+  /** Infisical Machine Identity client ID */
+  infisicalClientId?: string;
+  /** Infisical Machine Identity client secret */
+  infisicalClientSecret?: string;
+  /** Infisical project ID */
+  infisicalProjectId?: string;
   cacheTTL?: number;
   auditEnabled?: boolean;
 }
@@ -213,7 +217,7 @@ export interface ProviderConfig {
 export interface IProviderFactory {
   /**
    * Create a secret provider based on configuration
-   * 
+   *
    * @param config - Provider configuration
    * @returns Secret provider instance
    */

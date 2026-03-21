@@ -2,16 +2,14 @@
  * Secret Provider Factory
  *
  * Factory for creating secret provider instances based on configuration.
- * Supported backends: AWS Secrets Manager, HashiCorp Vault.
- *
- * Azure Key Vault was planned but never implemented and has been removed.
- * See ISecretProvider.ts for the migration path if Azure support is needed.
+ * Supported backends: AWS Secrets Manager, HashiCorp Vault, Infisical.
  */
 
 import { logger } from "../../lib/logger.js"
 
 import { AWSSecretProvider } from "./AWSSecretProvider.js"
 import { FallbackSecretProvider } from "./FallbackSecretProvider.js"
+import { InfisicalSecretProvider } from "./InfisicalSecretProvider.js"
 import type {
   IProviderFactory,
   ISecretProvider,
@@ -63,6 +61,10 @@ export class ProviderFactory implements IProviderFactory {
 
       case "vault":
         provider = this.createVaultProvider(config);
+        break;
+
+      case "infisical":
+        provider = this.createInfisicalProvider(config);
         break;
 
       default:
@@ -129,6 +131,51 @@ export class ProviderFactory implements IProviderFactory {
   }
 
   /**
+   * Create Infisical provider
+   */
+  private createInfisicalProvider(config: ProviderConfig): InfisicalSecretProvider {
+    const siteUrl =
+      config.infisicalSiteUrl ||
+      process.env.INFISICAL_SITE_URL ||
+      "https://app.infisical.com";
+    const clientId =
+      config.infisicalClientId || process.env.INFISICAL_CLIENT_ID;
+    const clientSecret =
+      config.infisicalClientSecret || process.env.INFISICAL_CLIENT_SECRET;
+    const projectId =
+      config.infisicalProjectId || process.env.INFISICAL_PROJECT_ID;
+    const environment = config.environment || process.env.NODE_ENV || "prod";
+    const cacheTTL = config.cacheTTL || 300000;
+
+    if (!clientId || !clientSecret) {
+      throw new Error(
+        "Infisical credentials not configured. Set INFISICAL_CLIENT_ID and INFISICAL_CLIENT_SECRET."
+      );
+    }
+
+    if (!projectId) {
+      throw new Error(
+        "Infisical project ID not configured. Set INFISICAL_PROJECT_ID."
+      );
+    }
+
+    logger.info("Creating Infisical provider", {
+      siteUrl,
+      projectId,
+      environment,
+    });
+
+    return new InfisicalSecretProvider({
+      siteUrl,
+      clientId,
+      clientSecret,
+      projectId,
+      environment,
+      cacheTTL,
+    });
+  }
+
+  /**
    * Get provider key for caching
    */
   private getProviderKey(config: ProviderConfig): string {
@@ -137,8 +184,10 @@ export class ProviderFactory implements IProviderFactory {
         return `aws:${config.region || "us-east-1"}`;
       case "vault":
         return `vault:${config.vaultAddress}`;
+      case "infisical":
+        return `infisical:${config.infisicalSiteUrl || "cloud"}`;
       default:
-        return config.provider;
+        return config.provider ?? "unknown";
     }
   }
 
@@ -146,7 +195,7 @@ export class ProviderFactory implements IProviderFactory {
    * Get list of available providers
    */
   getAvailableProviders(): string[] {
-    return ["aws", "vault"];
+    return ["aws", "vault", "infisical"];
   }
 
   /**
@@ -173,7 +222,7 @@ export class ProviderFactory implements IProviderFactory {
  */
 export function createProviderFromEnv(): ISecretProvider {
   const primaryProviderType =
-    (process.env.SECRETS_PROVIDER as "aws" | "vault") || "aws";
+    (process.env.SECRETS_PROVIDER as "aws" | "vault" | "infisical") || "aws";
   const enableFallback = process.env.SECRETS_FALLBACK_ENABLED !== "false";
 
   const config: ProviderConfig = {
@@ -181,6 +230,10 @@ export function createProviderFromEnv(): ISecretProvider {
     region: process.env.AWS_REGION,
     vaultAddress: process.env.VAULT_ADDR,
     vaultNamespace: process.env.VAULT_NAMESPACE,
+    infisicalSiteUrl: process.env.INFISICAL_SITE_URL,
+    infisicalClientId: process.env.INFISICAL_CLIENT_ID,
+    infisicalClientSecret: process.env.INFISICAL_CLIENT_SECRET,
+    infisicalProjectId: process.env.INFISICAL_PROJECT_ID,
     cacheTTL: parseInt(process.env.SECRETS_CACHE_TTL || "300000", 10),
     auditEnabled: process.env.AUDIT_LOG_ENABLED !== "false",
   };
@@ -227,6 +280,22 @@ export function createProviderFromEnv(): ISecretProvider {
       fallbackProviders.push(vaultProvider);
     } catch (error) {
       logger.warn("Failed to create Vault fallback provider", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  // Add Infisical as fallback if not primary
+  if (primaryProviderType !== "infisical" && process.env.INFISICAL_CLIENT_ID) {
+    try {
+      const infisicalConfig: ProviderConfig = {
+        ...config,
+        provider: "infisical",
+      };
+      const infisicalProvider = factory.createProvider(infisicalConfig);
+      fallbackProviders.push(infisicalProvider);
+    } catch (error) {
+      logger.warn("Failed to create Infisical fallback provider", {
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

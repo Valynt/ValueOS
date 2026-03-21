@@ -24,6 +24,9 @@ function parseProviders() {
   if (process.env.VAULT_ADDR && process.env.VAULT_TOKEN && process.env.VAULT_SECRET_PATHS) {
     inferred.push('vault');
   }
+  if (process.env.INFISICAL_SITE_URL && process.env.INFISICAL_MACHINE_IDENTITY_TOKEN && process.env.INFISICAL_SECRET_PATHS) {
+    inferred.push('infisical');
+  }
   return inferred;
 }
 
@@ -194,7 +197,75 @@ async function collectProviderEvidence(provider, maxAgeDays) {
     return results;
   }
 
+  if (provider === 'infisical') {
+    const siteUrl = process.env.INFISICAL_SITE_URL;
+    const token = process.env.INFISICAL_MACHINE_IDENTITY_TOKEN;
+    const projectId = process.env.INFISICAL_PROJECT_ID;
+    const environment = process.env.INFISICAL_ENVIRONMENT || 'prod';
+    const secretPaths = parseList(process.env.INFISICAL_SECRET_PATHS);
+
+    if (!siteUrl) {
+      throw new Error('Infisical provider configured but INFISICAL_SITE_URL is not set.');
+    }
+    if (!token) {
+      throw new Error('Infisical provider configured but INFISICAL_MACHINE_IDENTITY_TOKEN is not set.');
+    }
+    if (!projectId) {
+      throw new Error('Infisical provider configured but INFISICAL_PROJECT_ID is not set.');
+    }
+    if (secretPaths.length === 0) {
+      throw new Error('Infisical provider configured but INFISICAL_SECRET_PATHS is empty.');
+    }
+
+    const results = [];
+    for (const secretPath of secretPaths) {
+      const metadata = await getInfisicalSecretMetadata(secretPath, siteUrl, token, projectId, environment);
+      const ageDays = daysSince(metadata.metadataTimestamp);
+      results.push({
+        ...metadata,
+        maxAgeDays,
+        ageDays: Number(ageDays.toFixed(2)),
+        compliant: ageDays <= maxAgeDays,
+      });
+    }
+    return results;
+  }
+
   throw new Error(`Unsupported provider: ${provider}`);
+}
+
+async function getInfisicalSecretMetadata(secretPath, siteUrl, token, projectId, environment) {
+  const parts = secretPath.split('/');
+  const secretName = parts.pop();
+  const folderPath = parts.join('/') || '/';
+  const url = new URL(`${siteUrl.replace(/\/$/, '')}/api/v3/secrets/raw/${encodeURIComponent(secretName)}`);
+  url.searchParams.set('workspaceId', projectId);
+  url.searchParams.set('environment', environment);
+  url.searchParams.set('secretPath', folderPath);
+
+  let payload;
+  try {
+    payload = await requestJson(url, {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    });
+  } catch (error) {
+    throw new Error(
+      `Infisical metadata request failed for ${secretPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const updatedAt = payload?.secret?.updatedAt || payload?.secret?.createdAt;
+  if (!updatedAt) {
+    throw new Error(`Infisical secret ${secretPath} did not include updatedAt/createdAt`);
+  }
+
+  return {
+    secretId: secretPath,
+    provider: 'infisical',
+    metadataTimestamp: new Date(updatedAt).toISOString(),
+    source: url.toString(),
+  };
 }
 
 async function main() {
