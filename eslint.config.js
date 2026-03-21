@@ -550,6 +550,7 @@ const strictNoAnyOverrides = {
     "packages/backend/src/middleware/securityHeaders.ts",
     "packages/backend/src/middleware/tenantContext.ts",
     "packages/backend/src/middleware/mfa.ts",
+    "packages/backend/src/middleware/llmRateLimiter.ts",
     // Auth services
     "packages/backend/src/services/AuthService.ts",
     "packages/backend/src/services/AuthDirectoryService.ts",
@@ -571,6 +572,14 @@ const strictNoAnyOverrides = {
     "packages/backend/src/lib/agent-fabric/MemorySystem.ts",
     // Runtime services
     "packages/backend/src/runtime/**/*.ts",
+    // Shared-library strict zones expanded after explicit-any cleanup
+    "packages/infra/eso/**/*.ts",
+    "packages/sdui/src/performance/PerformanceMonitor.ts",
+    "packages/sdui/src/migrations.ts",
+    "packages/sdui/src/theme/SDUITheme.ts",
+    "packages/sdui/src/components/Agent/ConfidenceDisplay.tsx",
+    "packages/sdui/src/LazyComponentRegistry.tsx",
+    "packages/sdui/src/SchemaStore.ts",
   ],
   rules: {
     "@typescript-eslint/no-explicit-any": "error",

@@ -13,7 +13,7 @@ export interface PerformanceMetric {
   value: number;
   unit: 'ms' | 'bytes' | 'count';
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -112,7 +112,7 @@ export class PerformanceMonitor {
   /**
    * Record metric
    */
-  public record(name: string, value: number, unit: 'ms' | 'bytes' | 'count' = 'ms', metadata?: Record<string, any>): void {
+  public record(name: string, value: number, unit: 'ms' | 'bytes' | 'count' = 'ms', metadata?: Record<string, unknown>): void {
     const metric: PerformanceMetric = {
       name,
       value,

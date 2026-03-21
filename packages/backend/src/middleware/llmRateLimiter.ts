@@ -8,6 +8,7 @@
 import { logger } from '@shared/lib/logger';
 import { getRedisClient } from '@shared/lib/redisClient';
 import { NextFunction, Request, RequestHandler, Response } from 'express';
+import type { Redis } from 'ioredis';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 
@@ -189,8 +190,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
       // rate-limit-redis v4 requires a sendCommand function, not a raw client.
       ...(client ? {
         store: new RedisStore({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sendCommand: (...args: string[]) => (client as any).call(...args),
+          sendCommand: (...args: string[]) => (client as Redis).call(...args),
           prefix: `rl:${tier}:`
         })
       } : {}),

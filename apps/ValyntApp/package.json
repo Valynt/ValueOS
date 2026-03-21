@@ -104,7 +104,7 @@
     "vite": "^6.1.6",
     "vitest": "^4.0.17"
   },
-  "tsErrorBaseline": 4240,
+  "tsErrorBaseline": 925,
   "valueos": {
     "classification": "production-runtime",
     "supportTier": "customer-critical",
