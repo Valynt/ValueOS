@@ -19,7 +19,7 @@
     "typecheck:strict:security": "tsc -p tsconfig.strict-zone.security.json --noEmit",
     "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
     "typecheck:strict:zones": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data",
-    "lint": "eslint src/ --max-warnings=2447",
+    "lint": "eslint src/ --max-warnings=2436",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
