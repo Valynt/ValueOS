@@ -6,6 +6,7 @@ import {
   Edit3,
   ExternalLink,
   FileText,
+  GitGraph,
   Loader2,
   Play,
   RotateCcw,
@@ -13,7 +14,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ValuePathCard } from "@valueos/sdui";
 import { useNarrativeDraft, useRunNarrativeAgent } from "@/hooks/useNarrative";
+import { useValueGraph } from "@/hooks/useValueGraph";
 import { cn } from "@/lib/utils";
 
 // Collapsible section
@@ -44,9 +47,17 @@ function Section({
   );
 }
 
-export function NarrativeStage({ caseId }: { caseId?: string }) {
+export function NarrativeStage({
+  caseId,
+  opportunityId,
+}: {
+  caseId?: string;
+  opportunityId?: string;
+}) {
   const { data: draft, isLoading, error } = useNarrativeDraft(caseId);
   const runAgent = useRunNarrativeAgent(caseId);
+  const { data: graphData } = useValueGraph(opportunityId ?? null);
+  const topPaths = graphData?.paths.slice(0, 3) ?? [];
 
   const formats = [
     { key: "executive" as const, label: "Executive Summary", desc: "Board-ready, impact-focused" },
@@ -195,6 +206,48 @@ export function NarrativeStage({ caseId }: { caseId?: string }) {
           })}
         </div>
       </div>
+
+      {/* Top value paths — business case summary */}
+      {topPaths.length > 0 && (
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <GitGraph className="w-4 h-4 text-orange-500" />
+            <h4 className="text-[13px] font-semibold text-zinc-900">Top Value Paths</h4>
+            <span className="text-[10px] text-zinc-400 ml-auto">by confidence</span>
+          </div>
+          <div className="space-y-3">
+            {topPaths.map((path, idx) => (
+              <ValuePathCard
+                key={`${path.use_case_id}-${path.value_driver.id}-${idx}`}
+                path={{
+                  path_confidence: path.path_confidence,
+                  use_case_id: path.use_case_id,
+                  capabilities: path.capabilities.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                  })),
+                  metrics: path.metrics.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    unit: m.unit,
+                    // evidence_tier and evidence_source_url are resolved
+                    // server-side in a future sprint; pass undefined for now
+                    // so ValuePathCard can render chips when data is present.
+                    evidence_tier: undefined,
+                    evidence_source_url: undefined,
+                  })),
+                  value_driver: {
+                    id: path.value_driver.id,
+                    name: path.value_driver.name,
+                    type: path.value_driver.type,
+                    estimated_impact_usd: path.value_driver.estimated_impact_usd,
+                  },
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

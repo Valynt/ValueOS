@@ -7,6 +7,11 @@ export interface HallucinationBadgeProps {
   grounding_score?: number | null;
   /** Additional detail string shown in the tooltip. */
   detail?: string;
+  /**
+   * Called when the badge is clicked, in addition to toggling the tooltip.
+   * Used by AgentResponseCard to activate the Reasoning tab.
+   */
+  onReasoningOpen?: () => void;
 }
 
 type BadgeState = "pass" | "fail" | "unknown";
@@ -49,6 +54,7 @@ export function HallucinationBadge({
   hallucination_check,
   grounding_score,
   detail,
+  onReasoningOpen,
 }: HallucinationBadgeProps) {
   const [open, setOpen] = useState(false);
   const state = resolveState(hallucination_check);
@@ -58,7 +64,10 @@ export function HallucinationBadge({
     <div className="relative inline-block">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          onReasoningOpen?.();
+        }}
         className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 ${cfg.bg} ${cfg.text}`}
         aria-label={`Hallucination check: ${cfg.label}`}
       >
