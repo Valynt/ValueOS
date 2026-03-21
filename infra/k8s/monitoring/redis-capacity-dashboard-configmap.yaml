@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-redis-capacity
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part-of: valueos
+  annotations:
+    dashboards.valueos.dev/purpose: redis-capacity
+    dashboards.valueos.dev/owner: sre
+    dashboards.valueos.dev/review-cadence: weekly
+    dashboards.valueos.dev/source: infra/k8s/monitoring/redis-capacity-dashboard-configmap.yaml
+data:
+  redis-capacity.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "id": null,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 1,
+          "targets": [
+            {
+              "expr": "100 * (redis_memory_used_bytes{instance=~\".*redis-cache.*\"} / clamp_min(redis_config_maxmemory{instance=~\".*redis-cache.*\"}, 1))",
+              "legendFormat": "{{ instance }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Cache Redis Memory %",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 75 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 2,
+          "targets": [
+            {
+              "expr": "100 * (redis_memory_used_bytes{instance=~\".*redis-control-plane.*\"} / clamp_min(redis_config_maxmemory{instance=~\".*redis-control-plane.*\"}, 1))",
+              "legendFormat": "{{ instance }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Control-Plane Redis Memory %",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 3,
+          "targets": [
+            {
+              "expr": "sum by (instance) (rate(redis_evicted_keys_total{instance=~\".*redis-cache.*\"}[15m]))",
+              "legendFormat": "{{ instance }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Cache Evictions / sec",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 2 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 4,
+          "targets": [
+            {
+              "expr": "1000 * (sum by (instance) (rate(redis_commands_duration_seconds_total[5m])) / clamp_min(sum by (instance) (rate(redis_commands_processed_total[5m])), 0.001))",
+              "legendFormat": "{{ instance }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Average Redis Command Latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 3 },
+                  { "color": "red", "value": 10 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+          "id": 5,
+          "targets": [
+            {
+              "expr": "sum by (role) (increase(valuecanvas_redis_client_reconnects_total[15m]))",
+              "legendFormat": "{{ role }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Redis Client Reconnects / 15m",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["redis", "capacity", "cache", "control-plane", "sre"],
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "title": "Redis Capacity and Fallback Dashboard",
+      "timezone": "UTC",
+      "version": 1
+    }

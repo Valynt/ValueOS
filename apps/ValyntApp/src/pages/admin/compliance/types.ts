@@ -1,8 +1,10 @@
+export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001" | "CCPA";
 export type ControlHealthStatus = "pass" | "warn" | "fail";
+export type ComplianceFrameworkAvailability = "available" | "gated";
 
 export interface ControlStatusRecord {
   control_id: string;
-  framework: "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
+  framework: ComplianceFramework;
   status: ControlHealthStatus;
   evidence_ts: string;
   tenant_id: string;
@@ -52,9 +54,19 @@ export interface DsrQueueItem {
   due_at: string;
 }
 
+export interface ComplianceFrameworkStatus {
+  framework: ComplianceFramework;
+  availability: ComplianceFrameworkAvailability;
+  selectable: boolean;
+  prerequisites_met: boolean;
+  gate_label: "prerequisite_gating";
+  missing_prerequisites: string[];
+}
+
 export interface ComplianceModeStatus {
   tenant_id: string;
-  active_modes: Array<"SOC2" | "GDPR" | "HIPAA">;
+  active_modes: ComplianceFramework[];
+  framework_statuses: ComplianceFrameworkStatus[];
   strict_enforcement: boolean;
   last_changed_at: string;
 }
