@@ -1,39 +1,59 @@
 {
   "scannerActions": [
     {
-      "id": "gitleaks",
-      "workflow": ".github/workflows/ci.yml",
+      "id": "gitleaks-pr-fast",
+      "workflow": ".github/workflows/pr-fast.yml",
       "uses": "gitleaks/gitleaks-action@v2"
     },
     {
-      "id": "semgrep",
-      "workflow": ".github/workflows/ci.yml",
+      "id": "semgrep-pr-fast",
+      "workflow": ".github/workflows/pr-fast.yml",
       "uses": "returntocorp/semgrep-action@v1"
     },
     {
-      "id": "trivy-filesystem",
-      "workflow": ".github/workflows/ci.yml",
+      "id": "trivy-pr-fast",
+      "workflow": ".github/workflows/pr-fast.yml",
       "uses": "aquasecurity/trivy-action@0.35.0"
     },
     {
-      "id": "trivy-image",
-      "workflow": ".github/workflows/ci.yml",
+      "id": "gitleaks-main-verify",
+      "workflow": ".github/workflows/main-verify.yml",
+      "uses": "gitleaks/gitleaks-action@v2"
+    },
+    {
+      "id": "semgrep-main-verify",
+      "workflow": ".github/workflows/main-verify.yml",
+      "uses": "returntocorp/semgrep-action@v1"
+    },
+    {
+      "id": "trivy-main-verify",
+      "workflow": ".github/workflows/main-verify.yml",
+      "uses": "aquasecurity/trivy-action@0.35.0"
+    },
+    {
+      "id": "gitleaks-nightly",
+      "workflow": ".github/workflows/nightly-governance.yml",
+      "uses": "gitleaks/gitleaks-action@v2"
+    },
+    {
+      "id": "semgrep-nightly",
+      "workflow": ".github/workflows/nightly-governance.yml",
+      "uses": "returntocorp/semgrep-action@v1"
+    },
+    {
+      "id": "trivy-nightly",
+      "workflow": ".github/workflows/nightly-governance.yml",
       "uses": "aquasecurity/trivy-action@0.35.0"
     },
     {
       "id": "codeql-init",
       "workflow": ".github/workflows/codeql.yml",
-      "uses": "github/codeql-action/init@v3"
+      "uses": "github/codeql-action/init@v4"
     },
     {
       "id": "codeql-analyze",
       "workflow": ".github/workflows/codeql.yml",
-      "uses": "github/codeql-action/analyze@v3"
+      "uses": "github/codeql-action/analyze@v4"
     }
-  ],
-  "ciWorkflowScannerRefs": [
-    "gitleaks/gitleaks-action@v2",
-    "returntocorp/semgrep-action@v1",
-    "aquasecurity/trivy-action@0.35.0"
   ]
 }

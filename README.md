@@ -4,27 +4,25 @@ AI-powered value engineering platform for B2B SaaS. ValueOS helps customer succe
 
 ## Repository Layout
 
-pnpm monorepo. Checked-in application workspaces live in `apps/`, while the primary production runtimes are `apps/ValyntApp` for the customer-facing frontend and `packages/backend` for the API.
+pnpm monorepo. Checked-in application workspaces live in `apps/`, while the primary production runtimes are `apps/ValyntApp` (`valynt-app`) for the customer-facing frontend, `apps/mcp-dashboard` (`mcp-dashboard`) for internal MCP observability, and `packages/backend` (`@valueos/backend`) for the API.
 
 ```text
 apps/
-  ValyntApp/        # Customer-facing web application (React + Vite + Tailwind)
-  mcp-dashboard/    # Internal MCP observability dashboard workspace
+  ValyntApp/        # Customer-facing web application (workspace: valynt-app)
+  mcp-dashboard/    # Internal MCP observability dashboard (workspace: mcp-dashboard)
 
 packages/
-  backend/          # API server (Express) — the primary backend runtime
-  shared/           # Canonical domain model (9 Zod-typed domain objects)
-  core-services/    # Canonical service implementations (migrated from app-local copies)
-  agent-fabric/     # Multi-agent framework primitives
-  components/       # Shared UI component library
-  config-v2/        # Shared configuration schemas
-  infra/            # Infrastructure utilities and queue abstractions
-  integrations/     # Third-party integrations (Stripe, CRM, etc.)
-  mcp/              # Model Context Protocol tooling
-  memory/           # Agent memory and vector store layer
-  sdui/             # Server-Driven UI renderer
-  sdui-types/       # Shared SDUI type system
-  test-utils/       # Shared test helpers and fixtures
+  backend/          # Express API runtime (workspace: @valueos/backend)
+  components/       # Shared UI component library (workspace: @valueos/components)
+  config-v2/        # Shared configuration schemas (workspace: @vos/config-v2)
+  infra/            # Infrastructure adapters and queue/storage helpers (workspace: @valueos/infra)
+  integrations/     # Third-party integration adapters (workspace: @valueos/integrations)
+  mcp/              # Model Context Protocol modules plus nested workspaces under packages/mcp/*
+  memory/           # Semantic, episodic, vector, and provenance memory layer (workspace: @valueos/memory)
+  sdui/             # Server-Driven UI engine (workspace: @valueos/sdui)
+  services/         # Service-specific packages and support assets under packages/services/*
+  shared/           # Runtime-agnostic shared types and validators (workspace: @valueos/shared)
+  test-utils/       # Shared test helpers and repo-level test utilities
 
 infra/
   k8s/              # Kubernetes manifests (blue-green, HPA, network policies)
@@ -45,7 +43,7 @@ Use these canonical documentation values when updating public-facing docs, examp
 - **Status:** `https://status.valueos.com`
 - **Support:** `support@valueos.com`
 - **Docs ownership:** `docs@valueos.com`
-- **Runtime inventory source of truth:** the checked-in `apps/` directory, summarized in [docs/architecture/README.md](docs/architecture/README.md)
+- **Runtime inventory source of truth:** the checked-in `apps/` and `packages/` directories, summarized in [docs/architecture/README.md](docs/architecture/README.md)
 
 Additional contributor guidance lives in the repository-root [AGENTS.md](AGENTS.md), the repository-wide [docs/AGENTS.md](docs/AGENTS.md), and scoped package guides such as [packages/backend/AGENTS.md](packages/backend/AGENTS.md) and [packages/shared/AGENTS.md](packages/shared/AGENTS.md).
 

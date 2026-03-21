@@ -17,6 +17,8 @@ import { logger } from "@shared/lib/logger";
 
 import { getSemanticThreshold, semanticMemoryConfig } from "../config/llm.js";
 import { supabase } from "../lib/supabase";
+import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
+import { normalizeCacheKeyPayload, resolveTenantScope } from "../cache/CachePolicy.js";
 
 // ============================================================================
 // Types
@@ -67,9 +69,6 @@ export interface SearchResult {
 // ============================================================================
 
 export class VectorSearchService {
-  private cache: Map<string, SearchResult[]> = new Map();
-  private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
-
   /**
    * Search semantic memory by query embedding
    */
@@ -87,71 +86,106 @@ export class VectorSearchService {
     } = options;
 
     try {
-      // Check cache
-      const cacheKey = this.getCacheKey(queryEmbedding, options);
-      if (useCache && this.cache.has(cacheKey)) {
-        logger.debug("Vector search cache hit", { cacheKey });
-        return this.cache.get(cacheKey)!;
-      }
-
       // Determine threshold
       const effectiveThreshold =
         threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
 
       // Build filter clause
       const filterClause = this.buildFilterClause(type, filters, requireLineage);
-
-      // Execute search
-      const startTime = Date.now();
-      const { data, error } = await supabase.rpc("search_semantic_memory", {
-        query_embedding: queryEmbedding,
-        match_threshold: effectiveThreshold,
-        match_count: limit,
-        filter_clause: filterClause,
+      const cacheDimensions = normalizeCacheKeyPayload({
+        type,
+        threshold: effectiveThreshold,
+        limit,
+        requireLineage,
+        filters,
+        embedding: this.hashEmbedding(queryEmbedding),
+      }) as Record<string, unknown>;
+      const tenantScope = resolveTenantScope({
+        tenantId:
+          typeof filters.tenant_id === "string"
+            ? filters.tenant_id
+            : undefined,
+        organizationId:
+          typeof filters.organization_id === "string"
+            ? filters.organization_id
+            : undefined,
+        "filters.tenant_id":
+          typeof filters.tenant_id === "string"
+            ? filters.tenant_id
+            : undefined,
+        "filters.organization_id":
+          typeof filters.organization_id === "string"
+            ? filters.organization_id
+            : undefined,
       });
 
-      const duration = Date.now() - startTime;
+      const executeSearch = async (): Promise<SearchResult[]> => {
+        const startTime = Date.now();
+        const { data, error } = await supabase.rpc("search_semantic_memory", {
+          query_embedding: queryEmbedding,
+          match_threshold: effectiveThreshold,
+          match_count: limit,
+          filter_clause: filterClause,
+        });
 
-      if (error) {
-        logger.error("Vector search failed", { error, duration });
-        throw error;
-      }
+        const duration = Date.now() - startTime;
 
-      // Format results
-      const results: SearchResult[] = (data || []).map((row: Record<string, unknown>) => {
-        const metadata = row.metadata as Record<string, unknown> | undefined;
-        const lineage = {
-          source_origin: metadata?.source_origin as string | undefined,
-          data_sensitivity_level: metadata?.data_sensitivity_level as string | undefined,
-        };
+        if (error) {
+          logger.error("Vector search failed", { error, duration });
+          throw error;
+        }
 
-        const evidenceLog = lineage.source_origin
-          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
-          : "Lineage unavailable";
+        return (data || []).map((row: Record<string, unknown>) => {
+          const metadata = row.metadata as Record<string, unknown> | undefined;
+          const lineage = {
+            source_origin: metadata?.source_origin as string | undefined,
+            data_sensitivity_level:
+              metadata?.data_sensitivity_level as string | undefined,
+          };
 
-        return {
-          memory: {
-            id: row.id as string,
-            type: row.type as SemanticMemory["type"],
-            content: row.content as string,
-            embedding: row.embedding as number[],
-            metadata: metadata || {},
-            created_at: row.created_at as string,
-          },
-          similarity: row.similarity as number,
-          lineage,
-          evidenceLog,
-        };
-      });
+          const evidenceLog = lineage.source_origin
+            ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
+            : "Lineage unavailable";
 
-      // Cache results
-      if (useCache) {
-        this.cache.set(cacheKey, results);
-        setTimeout(() => this.cache.delete(cacheKey), this.cacheTTL);
+          return {
+            memory: {
+              id: row.id as string,
+              type: row.type as SemanticMemory["type"],
+              content: row.content as string,
+              embedding: row.embedding as number[],
+              metadata: metadata || {},
+              created_at: row.created_at as string,
+            },
+            similarity: row.similarity as number,
+            lineage,
+            evidenceLog,
+          };
+        });
+      };
+
+      const results =
+        useCache && tenantScope
+          ? await ReadThroughCacheService.getOrLoad<SearchResult[]>(
+              {
+                endpoint: "vector-search",
+                namespace: "vector-search",
+                tenantId: tenantScope,
+                scope: type,
+                tier: "hot",
+                keyPayload: cacheDimensions,
+              },
+              executeSearch
+            )
+          : await executeSearch();
+
+      if (useCache && !tenantScope) {
+        logger.warn("Vector search cache bypassed because tenant scope was missing", {
+          type,
+          filters: Object.keys(filters),
+        });
       }
 
       logger.info("Vector search completed", {
-        duration,
         resultCount: results.length,
         threshold: effectiveThreshold,
         type,
@@ -412,8 +446,7 @@ export class VectorSearchService {
    * Clear cache
    */
   clearCache(): void {
-    this.cache.clear();
-    logger.debug("Vector search cache cleared");
+    logger.warn("Vector search cache invalidation requires tenant-scoped Redis invalidation");
   }
 
   // ============================================================================
@@ -503,19 +536,6 @@ export class VectorSearchService {
     });
 
     return conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  }
-
-  private getCacheKey(embedding: number[], options: SearchOptions): string {
-    // Create deterministic cache key
-    const embeddingHash = this.hashEmbedding(embedding);
-    const optionsHash = JSON.stringify({
-      type: options.type,
-      threshold: options.threshold,
-      limit: options.limit,
-      filters: options.filters,
-    });
-
-    return `${embeddingHash}:${optionsHash}`;
   }
 
   private hashEmbedding(embedding: number[]): string {

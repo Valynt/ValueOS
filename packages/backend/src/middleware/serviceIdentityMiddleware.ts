@@ -8,6 +8,8 @@ interface ServiceRequest extends Request {
   servicePrincipal?: string;
   serviceIssuer?: string;
   serviceAuthMethod?: string;
+  tenantId?: string;
+  organizationId?: string;
 }
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
@@ -398,11 +400,18 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       return void res.status(401).json({ error: 'Replay detected' });
     }
 
-    (req as ServiceRequest).serviceIdentityVerified = true;
-    (req as ServiceRequest).requestNonce = nonce;
-    (req as ServiceRequest).servicePrincipal = identity.principal;
-    (req as ServiceRequest).serviceIssuer = identity.issuer;
-    (req as ServiceRequest).serviceAuthMethod = identity.method;
+    const serviceReq = req as ServiceRequest;
+    serviceReq.serviceIdentityVerified = true;
+    serviceReq.requestNonce = nonce;
+    serviceReq.servicePrincipal = identity.principal;
+    serviceReq.serviceIssuer = identity.issuer;
+    serviceReq.serviceAuthMethod = identity.method;
+
+    const organizationHeader = req.header('x-organization-id');
+    if (organizationHeader) {
+      serviceReq.organizationId = organizationHeader;
+      serviceReq.tenantId = serviceReq.tenantId ?? organizationHeader;
+    }
     logger.info('Service identity verified', {
       servicePrincipal: identity.principal,
       issuer: identity.issuer,

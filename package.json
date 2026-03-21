@@ -1,6 +1,7 @@
 {
-  "name": "valueos-ui",
+  "name": "valueos",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -13,7 +14,7 @@
     "check": "turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:workflow-pnpm-contract && pnpm run build",
+    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:workflow-pnpm-contract && pnpm run check:valynt-browser-server-boundaries && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -39,7 +40,8 @@
     "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
     "security:scan": "bash scripts/security/scan.sh",
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
-    "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs"
+    "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
+    "check:valynt-browser-server-boundaries": "node scripts/ci/check-valynt-browser-server-boundaries.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -151,7 +153,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "^8.57.0",
     "vite": "^7.1.11",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   },
   "engines": {
     "npm": "please-use-pnpm",

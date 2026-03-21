@@ -7,14 +7,23 @@
  * - Census: US Census Bureau
  */
 
-export interface DataIngestionAdapter {
+export type ESOScalar = string | number | boolean | null;
+export type ESOValue = ESOScalar | ESOValue[] | { [key: string]: ESOValue };
+export type ESORecord = Record<string, ESOValue>;
+export type ESOQueryParams = Record<string, unknown>;
+
+export interface DataIngestionAdapter<
+  TRaw = unknown,
+  TTransformed = unknown,
+  TParams extends ESOQueryParams = ESOQueryParams,
+> {
   name: string;
-  fetchData(params?: Record<string, any>): Promise<any>;
-  transformData(rawData: any): Promise<any>;
+  fetchData(params?: TParams): Promise<TRaw>;
+  transformData(rawData: TRaw): Promise<TTransformed>;
   // Real-time streaming support
-  startStreaming?(params?: Record<string, any>): Promise<void>;
+  startStreaming?(params?: ESOQueryParams): Promise<void>;
   stopStreaming?(): Promise<void>;
-  onData?(callback: (data: any) => void): () => void;
+  onData?(callback: (data: TTransformed) => void): () => void;
 }
 
 export interface IngestionConfig {

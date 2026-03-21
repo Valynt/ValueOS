@@ -1,0 +1,69 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rate-limiter-alerts
+  labels:
+    app.kubernetes.io/component: rate-limiting
+spec:
+  groups:
+    - name: rate-limiting.degraded
+      interval: 30s
+      rules:
+        - alert: AuthRateLimiterFallbackActive
+          expr: |
+            sum(rate(auth_rate_limiter_fallback_active_total[5m])) > 0
+          for: 10m
+          labels:
+            severity: critical
+            component: auth
+            pager: primary
+          annotations:
+            summary: "Auth rate limiting has fallen back to per-pod memory enforcement"
+            description: >
+              auth_rate_limiter_fallback_active_total has been increasing for at
+              least 10 minutes. Login, signup, password reset, and MFA guarantees
+              are no longer globally enforced across pods.
+
+        - alert: AuthRateLimiterProtectiveBlocks
+          expr: |
+            sum(rate(auth_rate_limit_protective_503_total[5m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: auth
+            pager: primary
+          annotations:
+            summary: "Critical auth traffic is being blocked by degraded-mode protection"
+            description: >
+              Security-critical auth endpoints are returning protective 503
+              responses because the distributed rate-limit backend is unavailable.
+
+        - alert: GeneralRateLimiterBackendUnavailable
+          expr: |
+            sum(rate(rate_limit_backend_unavailable_total[5m])) > 0
+          for: 10m
+          labels:
+            severity: critical
+            component: api
+            pager: primary
+          annotations:
+            summary: "General distributed rate limiting is unavailable for protected routes"
+            description: >
+              rate_limit_backend_unavailable_total has been increasing for at
+              least 10 minutes. Admin or expensive write endpoints are no longer
+              able to rely on shared rate-limit state.
+
+        - alert: LlmRateLimiterBackendUnavailable
+          expr: |
+            sum(rate(llm_rate_limit_backend_unavailable_total[5m])) > 0
+          for: 10m
+          labels:
+            severity: critical
+            component: llm
+            pager: primary
+          annotations:
+            summary: "LLM distributed rate limiting backend is unavailable"
+            description: >
+              llm_rate_limit_backend_unavailable_total has been increasing for at
+              least 10 minutes. Expensive LLM write paths are either blocked or
+              degraded and require operator intervention.
