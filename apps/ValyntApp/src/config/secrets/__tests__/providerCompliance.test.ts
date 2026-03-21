@@ -68,7 +68,7 @@ vi.mock('../../../lib/logger', () => ({
   },
 }));
 
-vi.mock('../../../lib/supabase', () => {
+vi.mock('../../../lib/supabase.server', () => {
   const mockServerClient = {
     from: vi.fn(() => ({
       insert: vi.fn().mockResolvedValue({ error: null }),
@@ -78,11 +78,6 @@ vi.mock('../../../lib/supabase', () => {
   };
 
   return {
-    supabase: null,
-    createBrowserSupabaseClient: vi.fn(() => {
-      throw new Error('createBrowserSupabaseClient() is only available in browser tests');
-    }),
-    createRequestSupabaseClient: vi.fn(() => mockServerClient),
     createServerSupabaseClient: vi.fn(() => mockServerClient),
     getSupabaseClient: vi.fn(() => mockServerClient),
   };

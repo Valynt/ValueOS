@@ -1,12 +1,59 @@
 {
   "packageBudgets": {
+    "apps/ValyntApp": {
+      "baseline": 16,
+      "nextTarget": 12,
+      "scope": "production-runtime"
+    },
     "packages/backend": {
-      "baseline": 154,
-      "nextTarget": 130
+      "baseline": 47,
+      "nextTarget": 40,
+      "scope": "production-runtime"
     },
     "packages/shared": {
-      "baseline": 26,
-      "nextTarget": 20
+      "baseline": 0,
+      "nextTarget": 0,
+      "scope": "shared-libraries"
+    },
+    "packages/infra": {
+      "baseline": 0,
+      "nextTarget": 0,
+      "scope": "shared-libraries",
+      "paths": [
+        "packages/infra/eso"
+      ]
+    },
+    "packages/sdui": {
+      "baseline": 12,
+      "nextTarget": 8,
+      "scope": "shared-libraries"
+    }
+  },
+  "bucketBudgets": {
+    "production-runtime": {
+      "baseline": 63,
+      "nextTarget": 55,
+      "paths": [
+        "apps/ValyntApp/src",
+        "packages/backend/src"
+      ]
+    },
+    "shared-libraries": {
+      "baseline": 12,
+      "nextTarget": 8,
+      "paths": [
+        "packages/shared/src",
+        "packages/infra/eso",
+        "packages/sdui/src"
+      ]
+    },
+    "tests": {
+      "baseline": 558,
+      "nextTarget": 520,
+      "paths": [
+        "tests"
+      ],
+      "excludeTests": false
     }
   }
 }

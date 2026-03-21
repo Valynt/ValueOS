@@ -1,19 +1,22 @@
 /**
  * Vector Search Service
  *
- * Production-ready service for querying semantic_memory table with pgvector
+ * Production-ready service for querying semantic_memory table with pgvector.
  *
  * Features:
  * - Type-safe query methods
  * - Configurable thresholds
- * - Caching support
- * - Performance monitoring
+ * - Redis-backed shared caching in production
+ * - Per-query telemetry for durations, result counts, and cache outcomes
  * - Error handling
  */
 
 import { createHash } from "node:crypto";
 
+import { Counter, Histogram, metrics } from "@opentelemetry/api";
 import { logger } from "@shared/lib/logger";
+import { getRedisClient } from "@shared/lib/redisClient";
+import type { Redis } from "ioredis";
 
 import { getSemanticThreshold, semanticMemoryConfig } from "../config/llm.js";
 import { supabase } from "../lib/supabase";
@@ -37,6 +40,12 @@ export interface SemanticMemory {
   similarity?: number;
 }
 
+export type FilterScalar = string | number | boolean | null;
+export type FilterRangeValue = string | number;
+export type FilterRange = Partial<Record<"gt" | "gte" | "lt" | "lte", FilterRangeValue>>;
+export type FilterValue = FilterScalar | FilterScalar[] | FilterRange;
+export type SearchFilters = Record<string, FilterValue>;
+
 export interface SearchOptions {
   /** Memory type to filter */
   type?: SemanticMemory["type"];
@@ -50,6 +59,10 @@ export interface SearchOptions {
   useCache?: boolean;
   /** Require lineage metadata */
   requireLineage?: boolean;
+  /** Explicit tenant scope for cache and query isolation */
+  tenantId?: string;
+  /** Service name for telemetry correlation */
+  callerService?: string;
 }
 
 export interface SearchResult {
@@ -62,104 +75,187 @@ export interface SearchResult {
   evidenceLog?: string;
 }
 
+type CacheOutcome = "hit" | "miss" | "bypass";
+
+type NormalizedSearchOptions = {
+  callerService: string;
+  filters: SearchFilters;
+  limit: number;
+  organizationId: string | null;
+  requireLineage: boolean;
+  tenantId: string | null;
+  threshold?: number;
+  type?: SemanticMemory["type"];
+  useCache: boolean;
+};
+
+type SearchExecutionContext = {
+  cacheKey: string;
+  cacheOutcome: CacheOutcome;
+  callerService: string;
+  effectiveThreshold: number;
+  fingerprint: string;
+  limit: number;
+  organizationId: string | null;
+  redisCacheEnabled: boolean;
+  rpcFilters: SearchFilters;
+  tenantScope: string;
+};
+
+type VectorSearchRpcRow = {
+  content: string;
+  created_at: string;
+  embedding: number[];
+  id: string;
+  metadata: Record<string, unknown> | null;
+  similarity: number;
+  type: SemanticMemory["type"];
+};
+
 // ============================================================================
 // Vector Search Service
 // ============================================================================
 
 export class VectorSearchService {
-  private cache: Map<string, SearchResult[]> = new Map();
-  private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
+  private static readonly CACHE_PREFIX = "vector-search";
+  private static readonly CACHE_TTL_SECONDS = 5 * 60;
+  private static readonly QUERY_FINGERPRINT_LENGTH = 16;
+  private static readonly VALID_TYPES: ReadonlySet<string> = new Set([
+    "value_proposition",
+    "target_definition",
+    "opportunity",
+    "integrity_check",
+    "workflow_result",
+  ]);
+
+  private readonly meter = metrics.getMeter("valueos.vector-search");
+  private readonly queryDurationHistogram: Histogram = this.meter.createHistogram(
+    "vector_search_query_duration_ms",
+    {
+      description: "Duration of semantic vector search queries in milliseconds",
+      unit: "ms",
+    }
+  );
+  private readonly resultCountHistogram: Histogram = this.meter.createHistogram(
+    "vector_search_result_count",
+    {
+      description: "Number of results returned by semantic vector search queries",
+      unit: "{result}",
+    }
+  );
+  private readonly cacheEventsCounter: Counter = this.meter.createCounter(
+    "vector_search_cache_events_total",
+    {
+      description: "Cache hit and miss counts for semantic vector search queries",
+      unit: "{event}",
+    }
+  );
 
   /**
-   * Search semantic memory by query embedding
+   * Search semantic memory by query embedding.
    */
   async searchByEmbedding(
     queryEmbedding: number[],
     options: SearchOptions = {}
   ): Promise<SearchResult[]> {
+    const startedAt = Date.now();
     const {
       type,
-      threshold,
       limit = semanticMemoryConfig.maxResults,
-      filters = {},
       useCache = true,
       requireLineage = true,
     } = options;
 
     try {
-      // Check cache
-      const cacheKey = this.getCacheKey(queryEmbedding, options);
-      if (useCache && this.cache.has(cacheKey)) {
-        logger.debug("Vector search cache hit", { cacheKey });
-        return this.cache.get(cacheKey)!;
+      const normalizedOptions = this.normalizeSearchOptions({
+        ...options,
+        limit,
+        requireLineage,
+        useCache,
+      });
+      const effectiveThreshold =
+        options.threshold
+        ?? (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
+      const embeddingHash = this.hashEmbedding(queryEmbedding);
+      const fingerprint = this.buildQueryFingerprint(embeddingHash, normalizedOptions, effectiveThreshold);
+      const executionContext: SearchExecutionContext = {
+        cacheKey: this.buildCacheKey(embeddingHash, normalizedOptions, effectiveThreshold),
+        cacheOutcome: useCache ? "miss" : "bypass",
+        callerService: normalizedOptions.callerService,
+        effectiveThreshold,
+        fingerprint,
+        limit,
+        organizationId: normalizedOptions.organizationId,
+        redisCacheEnabled: this.isRedisCacheEnabled(useCache),
+        rpcFilters: normalizedOptions.filters,
+        tenantScope: normalizedOptions.tenantId ?? normalizedOptions.organizationId ?? "global",
+      };
+
+      if (executionContext.redisCacheEnabled) {
+        const cachedResults = await this.getCachedResults(executionContext.cacheKey);
+        if (cachedResults) {
+          executionContext.cacheOutcome = "hit";
+          const duration = Date.now() - startedAt;
+          this.recordQueryMetrics(executionContext, cachedResults.length, duration);
+          logger.debug("Vector search cache hit", {
+            cacheKey: executionContext.cacheKey,
+            callerService: executionContext.callerService,
+            queryFingerprint: executionContext.fingerprint,
+            tenantScope: executionContext.tenantScope,
+          });
+          return cachedResults;
+        }
       }
 
-      // Determine threshold
-      const effectiveThreshold =
-        threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
-
-      // Build filter clause
-      const filterClause = this.buildFilterClause(type, filters, requireLineage);
-
-      // Execute search
-      const startTime = Date.now();
-      const { data, error } = await supabase.rpc("search_semantic_memory", {
+      const { data, error } = await supabase.rpc("search_semantic_memory_filtered", {
         query_embedding: queryEmbedding,
         match_threshold: effectiveThreshold,
         match_count: limit,
-        filter_clause: filterClause,
+        p_type: type ?? null,
+        p_require_lineage: requireLineage,
+        p_metadata_filters: executionContext.rpcFilters,
+        p_organization_id: executionContext.organizationId,
+        p_tenant_id: normalizedOptions.tenantId,
       });
 
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - startedAt;
 
       if (error) {
-        logger.error("Vector search failed", { error, duration });
+        logger.error("Vector search failed", {
+          callerService: executionContext.callerService,
+          duration,
+          error,
+          queryFingerprint: executionContext.fingerprint,
+          tenantScope: executionContext.tenantScope,
+        });
         throw error;
       }
 
-      // Format results
-      const results: SearchResult[] = (data || []).map((row: Record<string, unknown>) => {
-        const metadata = row.metadata as Record<string, unknown> | undefined;
-        const lineage = {
-          source_origin: metadata?.source_origin as string | undefined,
-          data_sensitivity_level: metadata?.data_sensitivity_level as string | undefined,
-        };
+      const results = this.mapSearchResults((data as VectorSearchRpcRow[] | null) ?? []);
 
-        const evidenceLog = lineage.source_origin
-          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
-          : "Lineage unavailable";
-
-        return {
-          memory: {
-            id: row.id as string,
-            type: row.type as SemanticMemory["type"],
-            content: row.content as string,
-            embedding: row.embedding as number[],
-            metadata: metadata || {},
-            created_at: row.created_at as string,
-          },
-          similarity: row.similarity as number,
-          lineage,
-          evidenceLog,
-        };
-      });
-
-      // Cache results
-      if (useCache) {
-        this.cache.set(cacheKey, results);
-        setTimeout(() => this.cache.delete(cacheKey), this.cacheTTL);
+      if (executionContext.redisCacheEnabled) {
+        await this.setCachedResults(executionContext.cacheKey, results);
       }
 
+      this.recordQueryMetrics(executionContext, results.length, duration);
       logger.info("Vector search completed", {
+        cacheOutcome: executionContext.cacheOutcome,
+        callerService: executionContext.callerService,
         duration,
+        queryFingerprint: executionContext.fingerprint,
         resultCount: results.length,
+        tenantScope: executionContext.tenantScope,
         threshold: effectiveThreshold,
         type,
       });
 
       return results;
     } catch (error: unknown) {
-      logger.error("Vector search error", { error, options });
+      logger.error("Vector search error", {
+        callerService: options.callerService ?? "unknown",
+        error,
+        options,
+      });
       throw error;
     }
   }
@@ -171,29 +267,25 @@ export class VectorSearchService {
   async searchWithTenant(
     queryEmbedding: number[],
     tenantId: string,
-    options: Omit<SearchOptions, "filters"> & {
-      tier?: "tier_1_sec" | "tier_2_benchmark" | "tier_3_internal";
-      sourceUrl?: string;
+    options: Omit<SearchOptions, "filters" | "tenantId"> & {
       minDate?: string;
+      sourceUrl?: string;
+      tier?: "tier_1_sec" | "tier_2_benchmark" | "tier_3_internal";
     } = {}
   ): Promise<Array<SearchResult & {
     provenance: {
-      tier: string;
-      sourceUrl?: string;
       date: string;
       documentId: string;
+      sourceUrl?: string;
+      tier: string;
     };
   }>> {
     if (!tenantId) {
       throw new Error("tenantId is required for tenant-scoped search");
     }
 
-    const { tier, sourceUrl, minDate, ...searchOptions } = options;
-
-    // Build tenant-scoped filters
-    const filters: Record<string, unknown> = {
-      tenant_id: tenantId,
-    };
+    const { tier, sourceUrl, minDate, callerService, ...searchOptions } = options;
+    const filters: Record<string, unknown> = {};
 
     if (tier) {
       filters.tier = tier;
@@ -209,23 +301,24 @@ export class VectorSearchService {
 
     const results = await this.searchByEmbedding(queryEmbedding, {
       ...searchOptions,
+      callerService: callerService ?? "VectorSearchService.searchWithTenant",
       filters,
+      tenantId,
     });
 
-    // Map results with provenance metadata
     return results.map((result) => ({
       ...result,
       provenance: {
-        tier: (result.memory.metadata?.tier as string) || "tier_3_internal",
-        sourceUrl: result.memory.metadata?.source_url as string | undefined,
-        date: (result.memory.metadata?.date as string) || result.memory.created_at,
-        documentId: (result.memory.metadata?.document_id as string) || result.memory.id,
+        tier: (result.memory.metadata.tier as string) || "tier_3_internal",
+        sourceUrl: result.memory.metadata.source_url as string | undefined,
+        date: (result.memory.metadata.date as string) || result.memory.created_at,
+        documentId: (result.memory.metadata.document_id as string) || result.memory.id,
       },
     }));
   }
 
   /**
-   * Search by industry
+   * Search by industry.
    */
   async searchByIndustry(
     queryEmbedding: number[],
@@ -234,12 +327,13 @@ export class VectorSearchService {
   ): Promise<SearchResult[]> {
     return this.searchByEmbedding(queryEmbedding, {
       ...options,
+      callerService: options.callerService ?? "VectorSearchService.searchByIndustry",
       filters: { industry },
     });
   }
 
   /**
-   * Search within a specific workflow
+   * Search within a specific workflow.
    */
   async searchByWorkflow(
     queryEmbedding: number[],
@@ -248,19 +342,19 @@ export class VectorSearchService {
   ): Promise<SearchResult[]> {
     return this.searchByEmbedding(queryEmbedding, {
       ...options,
+      callerService: options.callerService ?? "VectorSearchService.searchByWorkflow",
       filters: { workflowId },
     });
   }
 
   /**
-   * Find similar memories to an existing memory
+   * Find similar memories to an existing memory.
    */
   async findSimilar(memoryId: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     try {
-      // Get the source memory
       const { data: sourceMemory, error } = await supabase
         .from("semantic_memory")
-        .select("embedding, type")
+        .select("embedding, type, organization_id, tenant_id")
         .eq("id", memoryId)
         .single();
 
@@ -268,10 +362,15 @@ export class VectorSearchService {
         throw new Error(`Memory ${memoryId} not found`);
       }
 
-      // Search for similar memories
       return this.searchByEmbedding(sourceMemory.embedding as number[], {
-        type: sourceMemory.type as SemanticMemory["type"],
         ...options,
+        callerService: options.callerService ?? "VectorSearchService.findSimilar",
+        filters: {
+          ...(options.filters ?? {}),
+          organization_id: (sourceMemory.organization_id as string | null) ?? undefined,
+        },
+        tenantId: options.tenantId ?? (sourceMemory.tenant_id as string | null) ?? undefined,
+        type: (options.type ?? sourceMemory.type) as SemanticMemory["type"],
       });
     } catch (error: unknown) {
       logger.error("Find similar memories failed", { error, memoryId });
@@ -280,7 +379,7 @@ export class VectorSearchService {
   }
 
   /**
-   * Check for duplicate or near-duplicate content
+   * Check for duplicate or near-duplicate content.
    */
   async checkDuplicate(
     queryEmbedding: number[],
@@ -288,9 +387,10 @@ export class VectorSearchService {
     duplicateThreshold: number = 0.95
   ): Promise<boolean> {
     const results = await this.searchByEmbedding(queryEmbedding, {
-      type,
+      callerService: "VectorSearchService.checkDuplicate",
       threshold: duplicateThreshold,
       limit: 1,
+      type,
       useCache: false,
     });
 
@@ -323,7 +423,7 @@ export class VectorSearchService {
       throw error;
     }
 
-    const result = data as { total: number; byType: Record<string, number>; recentCount: number } | null;
+    const result = data as { byType: Record<string, number>; recentCount: number; total: number } | null;
 
     return {
       total: result?.total ?? 0,
@@ -333,7 +433,7 @@ export class VectorSearchService {
   }
 
   /**
-   * Analyze similarity distribution for a query
+   * Analyze similarity distribution for a query.
    */
   async analyzeSimilarityDistribution(
     queryEmbedding: number[],
@@ -355,8 +455,8 @@ export class VectorSearchService {
     recommendedThreshold: number;
   }> {
     try {
-      // Get all similarities (no threshold)
       const results = await this.searchByEmbedding(queryEmbedding, {
+        callerService: "VectorSearchService.analyzeSimilarityDistribution",
         type,
         threshold: 0.0,
         limit: 100,
@@ -367,38 +467,34 @@ export class VectorSearchService {
         throw new Error("No memories found for analysis");
       }
 
-      const similarities = results.map((r) => r.similarity);
+      const similarities = results.map((result) => result.similarity);
       const sorted = similarities.slice().sort((a, b) => b - a);
-
-      // Calculate statistics
-      const sum = similarities.reduce((a, b) => a + b, 0);
+      const sum = similarities.reduce((accumulator, current) => accumulator + current, 0);
       const average = sum / similarities.length;
       const median = sorted[Math.floor(sorted.length / 2)];
-
       const variance =
-        similarities.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) /
-        similarities.length;
+        similarities.reduce(
+          (accumulator, current) => accumulator + Math.pow(current - average, 2),
+          0
+        ) / similarities.length;
       const stdDev = Math.sqrt(variance);
 
-      // Distribution buckets
       const distribution = {
-        veryHigh: similarities.filter((s) => s >= 0.9).length,
-        high: similarities.filter((s) => s >= 0.8 && s < 0.9).length,
-        medium: similarities.filter((s) => s >= 0.7 && s < 0.8).length,
-        low: similarities.filter((s) => s >= 0.6 && s < 0.7).length,
-        veryLow: similarities.filter((s) => s < 0.6).length,
+        veryHigh: similarities.filter((similarity) => similarity >= 0.9).length,
+        high: similarities.filter((similarity) => similarity >= 0.8 && similarity < 0.9).length,
+        medium: similarities.filter((similarity) => similarity >= 0.7 && similarity < 0.8).length,
+        low: similarities.filter((similarity) => similarity >= 0.6 && similarity < 0.7).length,
+        veryLow: similarities.filter((similarity) => similarity < 0.6).length,
       };
-
-      // Recommend threshold (average - 1 std dev, clamped to reasonable range)
       const recommendedThreshold = Math.max(0.5, Math.min(0.85, average - stdDev));
 
       return {
         count: results.length,
-        average: average!,
-        median: median!,
-        stdDev: stdDev!,
-        min: sorted[sorted.length - 1]!,
-        max: sorted[0]!,
+        average,
+        median: median ?? 0,
+        stdDev,
+        min: sorted[sorted.length - 1] ?? 0,
+        max: sorted[0] ?? 0,
         distribution,
         recommendedThreshold,
       };
@@ -409,122 +505,337 @@ export class VectorSearchService {
   }
 
   /**
-   * Clear cache
+   * Clear shared cache entries only when Redis caching is enabled.
    */
-  clearCache(): void {
-    this.cache.clear();
-    logger.debug("Vector search cache cleared");
+  async clearCache(): Promise<void> {
+    if (!this.isRedisCacheEnabled(true)) {
+      logger.debug("Vector search cache clear skipped because Redis caching is disabled");
+      return;
+    }
+
+    const redis = this.getRedis();
+    if (!redis) {
+      logger.warn("Vector search cache clear skipped because Redis is unavailable");
+      return;
+    }
+
+    const pattern = `${VectorSearchService.CACHE_PREFIX}:*`;
+    let cursor = "0";
+
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } while (cursor !== "0");
+
+    logger.debug("Vector search cache cleared", { pattern });
   }
 
   // ============================================================================
   // Private Helpers
   // ============================================================================
 
-  /**
-   * Escape a string for use as a SQL literal to prevent SQL injection.
-   * Doubles single quotes per SQL standard.
-   */
-  private escapeSqlLiteral(value: string): string {
-    return value.replace(/'/g, "''");
-  }
+  private normalizeSearchOptions(options: Required<Pick<SearchOptions, "limit" | "requireLineage" | "useCache">> & SearchOptions): NormalizedSearchOptions {
+    const extractedTenantId = this.normalizeScopeId(options.tenantId);
+    const normalizedFilterPayload = this.normalizeFilters(options.filters ?? {});
 
-  /**
-   * Validate that a key name is a safe SQL identifier (alphanumeric + underscores).
-   */
-  private isSafeIdentifier(key: string): boolean {
-    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
-  }
-
-  private static readonly VALID_TYPES: ReadonlySet<string> = new Set([
-    "value_proposition",
-    "target_definition",
-    "opportunity",
-    "integrity_check",
-    "workflow_result",
-  ]);
-
-  private buildFilterClause(
-    type?: SemanticMemory["type"],
-    filters: Record<string, unknown> = {},
-    requireLineage: boolean = true
-  ): string {
-    const conditions: string[] = [];
-
-    // Type filter — validate against known enum and escape for defense-in-depth
-    if (type) {
-      if (!VectorSearchService.VALID_TYPES.has(type)) {
-        throw new Error(`Invalid memory type: ${type}`);
-      }
-      conditions.push(`type = '${this.escapeSqlLiteral(type)}'`);
-    }
-
-    if (requireLineage) {
-      conditions.push("(metadata ? 'source_origin')");
-      conditions.push("(metadata ? 'data_sensitivity_level')");
-      conditions.push("metadata->>'source_origin' IS NOT NULL");
-      conditions.push("metadata->>'data_sensitivity_level' IS NOT NULL");
-      conditions.push("metadata->>'source_origin' <> ''");
-      conditions.push("metadata->>'data_sensitivity_level' <> ''");
-      conditions.push("LOWER(metadata->>'source_origin') <> 'unknown'");
-      conditions.push("LOWER(metadata->>'data_sensitivity_level') <> 'unknown'");
-      conditions.push("COALESCE(metadata->>'source_origin', '') <> ''");
-      conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
-    }
-
-    // Organization / tenant filter — escape value
-    if ("organization_id" in filters) {
-      const orgId = String(filters["organization_id"]);
-      conditions.push(`organization_id = '${this.escapeSqlLiteral(orgId)}'`);
-      delete filters["organization_id"];
-    }
-
-    // Metadata filters — escape all interpolated values
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value === null || value === undefined) return;
-
-      // Reject keys that aren't safe identifiers to prevent injection via key names
-      if (!this.isSafeIdentifier(key)) {
-        logger.warn("Skipping unsafe metadata filter key", { key });
-        return;
-      }
-
-      if (typeof value === "string") {
-        conditions.push(`metadata->>'${key}' = '${this.escapeSqlLiteral(value)}'`);
-      } else if (typeof value === "number") {
-        if (!Number.isFinite(value)) return;
-        conditions.push(`(metadata->>'${key}')::float = ${value}`);
-      } else if (typeof value === "boolean") {
-        conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
-      } else if (Array.isArray(value)) {
-        // Serialize via JSON.stringify (safe for jsonb cast) then escape the wrapper
-        const jsonStr = JSON.stringify(value);
-        conditions.push(`metadata->'${key}' @> '${this.escapeSqlLiteral(jsonStr)}'::jsonb`);
-      }
-    });
-
-    return conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  }
-
-  private getCacheKey(embedding: number[], options: SearchOptions): string {
-    // Create deterministic cache key
-    const embeddingHash = this.hashEmbedding(embedding);
-    const optionsHash = JSON.stringify({
-      type: options.type,
-      threshold: options.threshold,
+    return {
+      callerService: options.callerService?.trim() || "unknown",
+      filters: normalizedFilterPayload.filters,
       limit: options.limit,
-      filters: options.filters,
+      organizationId: normalizedFilterPayload.organizationId,
+      requireLineage: options.requireLineage,
+      tenantId: extractedTenantId ?? normalizedFilterPayload.tenantId,
+      threshold: options.threshold,
+      type: options.type,
+      useCache: options.useCache,
+    };
+  }
+
+  private normalizeFilters(filters: Record<string, unknown>): {
+    filters: SearchFilters;
+    organizationId: string | null;
+    tenantId: string | null;
+  } {
+    let organizationId: string | null = null;
+    let tenantId: string | null = null;
+    const normalizedEntries: Array<[string, FilterValue]> = [];
+
+    for (const [key, value] of Object.entries(filters).sort(([left], [right]) => left.localeCompare(right))) {
+      if (value === undefined) {
+        continue;
+      }
+
+      if (key === "organization_id") {
+        organizationId = this.normalizeScopeId(value);
+        continue;
+      }
+
+      if (key === "tenant_id") {
+        tenantId = this.normalizeScopeId(value);
+        continue;
+      }
+
+      const normalizedValue = this.normalizeFilterValue(value);
+      if (normalizedValue === undefined) {
+        logger.warn("Skipping unsupported vector search filter", { key, valueType: typeof value });
+        continue;
+      }
+
+      normalizedEntries.push([key, normalizedValue]);
+    }
+
+    return {
+      filters: Object.fromEntries(normalizedEntries),
+      organizationId,
+      tenantId,
+    };
+  }
+
+  private normalizeScopeId(value: unknown): string | null {
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private normalizeFilterValue(value: unknown): FilterValue | undefined {
+    if (value === null || typeof value === "string" || typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : undefined;
+    }
+
+    if (Array.isArray(value)) {
+      const normalizedArray = value
+        .map((entry) => this.normalizeFilterScalar(entry))
+        .filter((entry): entry is FilterScalar => entry !== undefined);
+      return normalizedArray;
+    }
+
+    if (!this.isPlainObject(value)) {
+      return undefined;
+    }
+
+    const normalizedRange: FilterRange = {};
+    const gt = this.normalizeFilterRangeValue(value.gt);
+    const gte = this.normalizeFilterRangeValue(value.gte);
+    const lt = this.normalizeFilterRangeValue(value.lt);
+    const lte = this.normalizeFilterRangeValue(value.lte);
+
+    if (gt !== undefined) {
+      normalizedRange.gt = gt;
+    }
+
+    if (gte !== undefined) {
+      normalizedRange.gte = gte;
+    }
+
+    if (lt !== undefined) {
+      normalizedRange.lt = lt;
+    }
+
+    if (lte !== undefined) {
+      normalizedRange.lte = lte;
+    }
+
+    return Object.keys(normalizedRange).length > 0 ? normalizedRange : undefined;
+  }
+
+  private normalizeFilterScalar(value: unknown): FilterScalar | undefined {
+    if (value === null || typeof value === "string" || typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : undefined;
+    }
+
+    return undefined;
+  }
+
+  private normalizeFilterRangeValue(value: unknown): FilterRangeValue | undefined {
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  private mapSearchResults(rows: VectorSearchRpcRow[]): SearchResult[] {
+    return rows.map((row) => {
+      const metadata = row.metadata ?? {};
+      const lineage = {
+        source_origin: metadata.source_origin as string | undefined,
+        data_sensitivity_level: metadata.data_sensitivity_level as string | undefined,
+      };
+      const evidenceLog = lineage.source_origin
+        ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
+        : "Lineage unavailable";
+
+      return {
+        memory: {
+          id: row.id,
+          type: row.type,
+          content: row.content,
+          embedding: row.embedding,
+          metadata,
+          created_at: row.created_at,
+        },
+        similarity: row.similarity,
+        lineage,
+        evidenceLog,
+      };
+    });
+  }
+
+  private buildCacheKey(
+    embeddingHash: string,
+    normalizedOptions: NormalizedSearchOptions,
+    effectiveThreshold: number
+  ): string {
+    const normalizedPayload = this.stableStringify({
+      embeddingHash,
+      filters: normalizedOptions.filters,
+      limit: normalizedOptions.limit,
+      organizationId: normalizedOptions.organizationId,
+      requireLineage: normalizedOptions.requireLineage,
+      tenantId: normalizedOptions.tenantId,
+      threshold: effectiveThreshold,
+      type: normalizedOptions.type ?? null,
     });
 
-    return `${embeddingHash}:${optionsHash}`;
+    return [
+      VectorSearchService.CACHE_PREFIX,
+      normalizedOptions.tenantId ?? normalizedOptions.organizationId ?? "global",
+      this.hashString(normalizedPayload),
+    ].join(":");
+  }
+
+  private buildQueryFingerprint(
+    embeddingHash: string,
+    normalizedOptions: NormalizedSearchOptions,
+    effectiveThreshold: number
+  ): string {
+    const normalizedPayload = this.stableStringify({
+      callerService: normalizedOptions.callerService,
+      embeddingHash,
+      filters: normalizedOptions.filters,
+      limit: normalizedOptions.limit,
+      requireLineage: normalizedOptions.requireLineage,
+      threshold: effectiveThreshold,
+      type: normalizedOptions.type ?? null,
+    });
+
+    return this.hashString(normalizedPayload).slice(0, VectorSearchService.QUERY_FINGERPRINT_LENGTH);
+  }
+
+  private stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((entry) => this.stableStringify(entry)).join(",")}]`;
+    }
+
+    if (this.isPlainObject(value)) {
+      const sortedEntries = Object.entries(value)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right));
+      return `{${sortedEntries.map(([key, entryValue]) => `${JSON.stringify(key)}:${this.stableStringify(entryValue)}`).join(",")}}`;
+    }
+
+    return JSON.stringify(value);
   }
 
   private hashEmbedding(embedding: number[]): string {
-    if (embedding.length === 0) return "empty";
-    // SHA-256 over the full embedding so that semantically distinct vectors
-    // never collide in the cache. Float32Array gives a stable binary
-    // representation regardless of JS number precision.
-    const buf = Buffer.from(new Float32Array(embedding).buffer);
-    return createHash("sha256").update(buf).digest("hex").slice(0, 16);
+    if (embedding.length === 0) {
+      return "empty";
+    }
+
+    const buffer = Buffer.from(new Float32Array(embedding).buffer);
+    return createHash("sha256").update(buffer).digest("hex").slice(0, 16);
+  }
+
+  private hashString(value: string): string {
+    return createHash("sha256").update(value).digest("hex");
+  }
+
+  private isRedisCacheEnabled(useCache: boolean): boolean {
+    return useCache && process.env.NODE_ENV === "production" && Boolean(process.env.REDIS_URL);
+  }
+
+  private getRedis(): Redis | null {
+    try {
+      return this.isRedisCacheEnabled(true) ? getRedisClient() : null;
+    } catch (error: unknown) {
+      logger.warn("Vector search Redis cache unavailable", { error });
+      return null;
+    }
+  }
+
+  private async getCachedResults(cacheKey: string): Promise<SearchResult[] | null> {
+    const redis = this.getRedis();
+    if (!redis) {
+      return null;
+    }
+
+    try {
+      const cachedValue = await redis.get(cacheKey);
+      if (!cachedValue) {
+        return null;
+      }
+
+      return this.parseCachedResults(cachedValue);
+    } catch (error: unknown) {
+      logger.warn("Vector search cache read failed", { cacheKey, error });
+      return null;
+    }
+  }
+
+  private async setCachedResults(cacheKey: string, results: SearchResult[]): Promise<void> {
+    const redis = this.getRedis();
+    if (!redis) {
+      return;
+    }
+
+    try {
+      await redis.setex(cacheKey, VectorSearchService.CACHE_TTL_SECONDS, JSON.stringify(results));
+    } catch (error: unknown) {
+      logger.warn("Vector search cache write failed", { cacheKey, error });
+    }
+  }
+
+  private parseCachedResults(cachedValue: string): SearchResult[] | null {
+    try {
+      const parsed = JSON.parse(cachedValue) as unknown;
+      return Array.isArray(parsed) ? (parsed as SearchResult[]) : null;
+    } catch (error: unknown) {
+      logger.warn("Vector search cache payload could not be parsed", { error });
+      return null;
+    }
+  }
+
+  private recordQueryMetrics(
+    executionContext: SearchExecutionContext,
+    resultCount: number,
+    duration: number
+  ): void {
+    const attributes = {
+      cache_outcome: executionContext.cacheOutcome,
+      caller_service: executionContext.callerService,
+      query_fingerprint: executionContext.fingerprint,
+    };
+
+    this.cacheEventsCounter.add(1, attributes);
+    this.queryDurationHistogram.record(duration, attributes);
+    this.resultCountHistogram.record(resultCount, attributes);
   }
 }
 

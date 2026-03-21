@@ -249,7 +249,7 @@ router.post(
       const { caseId } = req.params;
       const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
-      const userId = (req as { userId?: string }).userId ?? "unknown";
+      const userId = req.userId ?? "unknown";
 
       const body = HypothesisLoopRequestSchema.safeParse(req.body);
       const sessionId = (body.success && body.data.session_id)
