@@ -73,6 +73,10 @@ import { IntegrityScoreCard } from "./components/SDUI/IntegrityScoreCard";
 import { PlanComparison } from "./components/SDUI/PlanComparison";
 import { UsageMeter } from "./components/SDUI/UsageMeter";
 
+// Sprint 50 — Value Graph UI
+import { MetricCard } from "./components/SDUI/MetricCard";
+import { ValuePathCard } from "./components/SDUI/ValuePathCard";
+
 /**
  * Versioned component entry with compatibility information
  */
@@ -843,6 +847,24 @@ versionedRegistry.register({
   tags: ["ui", "billing", "plan"],
 });
 
+// Sprint 50 — Value Graph UI components
+versionedRegistry.register({
+  component: MetricCard,
+  version: 1,
+  description: "VgMetric card: baseline → target, evidence tier badge, measurement method.",
+  requiredProps: ["metric"],
+  optionalProps: ["evidenceTier"],
+  tags: ["ui", "value-graph", "metric"],
+});
+
+versionedRegistry.register({
+  component: ValuePathCard,
+  version: 1,
+  description: "Causal value path card: UseCase → Capability → Metric → ValueDriver with confidence and evidence chips.",
+  requiredProps: ["path"],
+  tags: ["ui", "value-graph", "path"],
+});
+
 // Register fallback components
 versionedRegistry.registerFallback({
   component: UnknownComponentFallback,
@@ -1069,6 +1091,19 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["scenarios"],
     description: "Selector for switching between named scenario configurations.",
+  },
+  // Sprint 50 — Value Graph UI
+  MetricCard: {
+    component: MetricCard,
+    versions: [1],
+    requiredProps: ["metric"],
+    description: "VgMetric card with baseline, target, evidence tier badge, and measurement method.",
+  },
+  ValuePathCard: {
+    component: ValuePathCard,
+    versions: [1],
+    requiredProps: ["path"],
+    description: "Causal value path card from UseCase to VgValueDriver with confidence and evidence chips.",
   },
   // Value Integrity Layer — Sprint 53/54
   IntegrityScoreCard: {

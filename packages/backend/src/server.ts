@@ -69,6 +69,7 @@ import { valueCasesRouter } from "./api/valueCases/index.js";
 import { integrityRouter } from "./api/integrity.js";
 import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
+import { valueGraphRouter } from "./api/valueGraph.js";
 import workflowRouter from "./api/workflow.js";
 import { getConfig } from "./config/environment.js";
 import {
@@ -612,6 +613,7 @@ app.use("/api/v1/cases", integrityRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
+app.use("/api/v1/opportunities", valueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
