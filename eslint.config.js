@@ -571,6 +571,8 @@ const strictNoAnyOverrides = {
     "packages/backend/src/lib/agent-fabric/MemorySystem.ts",
     // Runtime services
     "packages/backend/src/runtime/**/*.ts",
+    // Shared library zones ratcheted to error after hotspot cleanup
+    "packages/infra/eso/**/*.ts",
   ],
   rules: {
     "@typescript-eslint/no-explicit-any": "error",

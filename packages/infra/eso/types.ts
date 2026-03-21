@@ -7,14 +7,20 @@
  * - Census: US Census Bureau
  */
 
-export interface DataIngestionAdapter {
+export type AdapterPayload = unknown;
+
+export interface DataIngestionAdapter<
+  TParams extends Record<string, unknown> = Record<string, unknown>,
+  TRawData = AdapterPayload,
+  TTransformedData = AdapterPayload,
+> {
   name: string;
-  fetchData(params?: Record<string, any>): Promise<any>;
-  transformData(rawData: any): Promise<any>;
+  fetchData(params?: TParams): Promise<TRawData>;
+  transformData(rawData: TRawData): Promise<TTransformedData>;
   // Real-time streaming support
-  startStreaming?(params?: Record<string, any>): Promise<void>;
+  startStreaming?(params?: Record<string, unknown>): Promise<void>;
   stopStreaming?(): Promise<void>;
-  onData?(callback: (data: any) => void): () => void;
+  onData?(callback: (data: TTransformedData | TRawData) => void): () => void;
 }
 
 export interface IngestionConfig {
