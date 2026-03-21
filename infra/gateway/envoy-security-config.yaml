@@ -109,7 +109,43 @@ static_resources:
                     descriptor_key: "path"
               
               routes:
-              # Auth endpoints - strict rate limiting
+              # Critical auth endpoints - strict rate limiting
+              - match:
+                  prefix: "/auth/v1/token"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - generic_key:
+                        descriptor_value: "auth_login"
+              - match:
+                  prefix: "/auth/v1/signup"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - generic_key:
+                        descriptor_value: "auth_signup"
+              - match:
+                  prefix: "/auth/v1/recover"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - generic_key:
+                        descriptor_value: "auth_password_reset"
+              - match:
+                  prefix: "/auth/v1/otp"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - generic_key:
+                        descriptor_value: "auth_mfa"
               - match:
                   prefix: "/auth/"
                   runtime_fraction:
@@ -123,6 +159,33 @@ static_resources:
                     actions:
                     - generic_key:
                         descriptor_value: "auth_endpoint"
+
+              # Admin endpoints - security critical
+              - match:
+                  prefix: "/api/admin/"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - generic_key:
+                        descriptor_value: "admin_endpoint"
+
+              # Expensive write paths - cost protection
+              - match:
+                  safe_regex:
+                    google_re2: {}
+                    regex: "^/api/(llm|agents|artifacts|workflows|exports|imports)/.*"
+                route:
+                  cluster: backend_cluster
+                  rate_limits:
+                  - stage: 0
+                    actions:
+                    - request_headers:
+                        header_name: ":method"
+                        descriptor_key: "method"
+                    - generic_key:
+                        descriptor_value: "expensive_write"
               
               # API endpoints - moderate rate limiting
               - match:

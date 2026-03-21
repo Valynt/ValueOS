@@ -28,8 +28,8 @@ if [[ -f "$TEMPLATE" ]]; then
   cp "$TEMPLATE" "$DEST"
   chmod 600 "$DEST" 2>/dev/null || true
   echo "⚠️  Created $DEST from template (REVIEW AND CUSTOMIZE!)"
-  echo "⚠️  The template contains default/placeholder secrets."
-  echo "⚠️  Run: pnpm run dx:env --mode local --force for proper secrets"
+  echo "⚠️  The template leaves required secrets blank on purpose."
+  echo "⚠️  Set real local-only secrets before running docker compose or bootstrap."
   exit 0
 fi
 
