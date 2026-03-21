@@ -1,16 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode, useEffect } from "react";
 
 import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-    },
-  },
-});
+import { TrpcProvider, trpcQueryClient } from "../../lib/trpc";
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -23,7 +15,7 @@ export function AppProviders({ children }: AppProvidersProps) {
     }
 
     const clearQueryCache = () => {
-      queryClient.clear();
+      trpcQueryClient.clear();
     };
 
     window.addEventListener(TENANT_CACHE_CLEAR_EVENT, clearQueryCache);
@@ -32,5 +24,9 @@ export function AppProviders({ children }: AppProvidersProps) {
     };
   }, []);
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <TrpcProvider>
+      <QueryClientProvider client={trpcQueryClient}>{children}</QueryClientProvider>
+    </TrpcProvider>
+  );
 }
