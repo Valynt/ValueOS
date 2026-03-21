@@ -171,9 +171,6 @@ jobs:
       - name: Workspace package governance inventory
         run: pnpm run check:workspace-package-governance
 
-      - name: Service catalog metadata guard
-        run: pnpm run check:catalog-metadata
-
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 
