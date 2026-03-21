@@ -8,8 +8,14 @@ metadata:
     app.kubernetes.io/part-of: valynt
 data:
   # Redis configuration
-  redis-url: "rediss://redis:6379"
-  redis-tls-servername: "redis"
+  # `redis-url` is the legacy control-plane alias consumed by services that have not
+  # yet been migrated to role-specific Redis environment variables.
+  redis-url: "rediss://redis-control-plane:6379"
+  redis-control-plane-url: "rediss://redis-control-plane:6379"
+  redis-cache-url: "rediss://redis-cache:6379"
+  redis-tls-servername: "redis-control-plane"
+  redis-control-plane-tls-servername: "redis-control-plane"
+  redis-cache-tls-servername: "redis-cache"
   redis-tls-reject-unauthorized: "true"
   redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
 

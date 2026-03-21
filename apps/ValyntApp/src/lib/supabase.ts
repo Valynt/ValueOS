@@ -2,22 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 
 import { logger } from "./logger";
 
+import { settings as publicSettings } from "@/config/settings";
+
 const logPrefix = "[Supabase]";
 const isBrowser = typeof window !== "undefined";
+const { VITE_SUPABASE_URL: supabaseUrl, VITE_SUPABASE_ANON_KEY: supabaseAnonKey } = publicSettings;
 
-const getEnv = (key: string): string | undefined => {
-  if (typeof process !== "undefined" && process.env?.[key]) {
-    return process.env[key];
-  }
-
-  const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
-  return viteEnv?.[key];
-};
-
-const supabaseUrl = getEnv("VITE_SUPABASE_URL");
-const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY");
-
-logger.info(`${logPrefix} Initializing clients...`);
+logger.info(`${logPrefix} Initializing browser-safe clients...`);
 logger.info(`${logPrefix} Runtime: ${isBrowser ? "browser" : "node"}`);
 logger.info(`${logPrefix} URL configured: ${supabaseUrl ? "YES" : "NO"}`);
 logger.info(`${logPrefix} Anon key configured: ${supabaseAnonKey ? "YES" : "NO"}`);

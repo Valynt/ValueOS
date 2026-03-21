@@ -50,7 +50,7 @@ Each rule includes `slo_dashboard` metadata pointing to the corresponding Grafan
 - Inputs:
   - Budgets: `infra/observability/query-fingerprint-budgets.json`
   - Latest snapshot: `infra/observability/query-fingerprint-latest.json`
-- CI workflow hook: `.github/workflows/ci.yml` (`Query fingerprint perf budget gate` step)
+- CI workflow hook: `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` (`Query fingerprint perf budget gate` step)
 
 Failure criteria:
 

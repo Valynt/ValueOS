@@ -2,6 +2,9 @@
 # switch, update scaleTargetRef.name to point to the newly active deployment
 # (e.g., backend-green / frontend-green).
 #
+# Canonical route/alert mapping source of truth:
+#   docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+#
 # Latency classes:
 # - Interactive API routes scale on completion p95 < 200ms.
 # - Orchestration / LLM routes scale on acknowledgment p95 < 200ms with a
@@ -12,6 +15,9 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: backend-hpa
   namespace: valynt
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/route-classification: interactive default; orchestration for /api/llm/*, /api/billing/*, /api/queue/*
   labels:
     app: backend
     component: api
@@ -19,6 +25,11 @@ metadata:
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: valynt
+    scaling.valueos.io/default-route-class: interactive
+    scaling.valueos.io/orchestration-routes-present: "true"
+    monitoring.valueos.dev/interactive-completion-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -77,9 +88,10 @@ spec:
           value: "200"
   behavior:
     scaleDown:
-      # Interactive request/response traffic was validated for no request thrash,
-      # so scale-in can happen faster than async workers.
-      stabilizationWindowSeconds: 120
+      # The operational tuning baseline now validates a 90s backend scale-in
+      # window for mixed interactive/orchestration API traffic without request
+      # thrash, while workers remain slower for in-flight queue drain.
+      stabilizationWindowSeconds: 90
       selectPolicy: Min
       policies:
         - type: Percent
@@ -104,6 +116,8 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: frontend-hpa
   namespace: valynt
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
   labels:
     app: frontend
     component: web
@@ -111,6 +125,8 @@ metadata:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: valynt
+    scaling.valueos.io/default-route-class: interactive
+    monitoring.valueos.dev/interactive-completion-p95-ms: "200"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

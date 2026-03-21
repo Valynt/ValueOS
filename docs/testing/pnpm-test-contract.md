@@ -8,7 +8,8 @@ Engineers should treat the following files as the canonical enforcement points f
 
 - `vitest.config.ts`
 - `packages/backend/vitest.config.ts`
-- `.github/workflows/test.yml`
+- `.github/workflows/pr-fast.yml`
+- `.github/workflows/main-verify.yml`
 
 Those files define what the default CI/unit lane runs and what it must exclude.
 
@@ -53,4 +54,4 @@ To prevent that regression:
 
 1. `packages/backend/vitest.config.ts` excludes non-unit backend suites.
 2. `scripts/ci/check-backend-unit-test-scope.mjs` verifies those exclusions still cover the known backend non-unit patterns.
-3. `.github/workflows/test.yml` runs the guard before the main Vitest invocation.
+3. `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` run the guard before the main Vitest invocation.
