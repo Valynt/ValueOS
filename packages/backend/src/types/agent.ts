@@ -152,6 +152,12 @@ export interface AgentOutputMetadata {
   correlation_id?: string;
   retry_count?: number;
   prompt_version_refs?: PromptVersionReference[];
+  /**
+   * ID of the reasoning_traces row created by secureInvoke for this invocation.
+   * Present on every successful LLM call. Used by ReasoningTracePanel to fetch
+   * the full trace without a separate lookup.
+   */
+  trace_id?: string;
 }
 
 export interface PromptVersionReference {
