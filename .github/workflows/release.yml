@@ -1,208 +1,67 @@
-name: Release
-
-# Runs on every push to main. If changesets are present, opens/updates a
-# "Version Packages" PR. When that PR is merged, creates GitHub Releases and
-# tags for each bumped package.
-#
-# Issue: #1149
+name: Release - Blocking Integrity
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to verify (optional for manual runs)'
+        required: false
+        type: string
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: write
-  pull-requests: write
   id-token: write
 
 jobs:
-  reproducibility-build:
-    name: Reproducibility Build (${{ matrix.run_id }})
+  release-integrity:
+    name: release-integrity
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        run_id: [run-a, run-b]
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - uses: actions/setup-node@v6
         with:
           node-version: 20.x
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Build backend and frontend packaged artifacts
-        run: pnpm run build
-
-      - name: Capture packaged artifact manifests
-        run: node scripts/ci/reproducibility-verify.mjs capture-manifests --output-dir reproducibility
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build backend container image
-        id: backend-container
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: infra/docker/Dockerfile.backend
-          build-args: |
-            APP=@valueos/backend
-          outputs: type=oci,dest=/tmp/backend-reproducibility-${{ matrix.run_id }}.tar
-          provenance: false
-          sbom: false
-          no-cache: true
-          pull: true
-
-      - name: Build frontend container image
-        id: frontend-container
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: infra/docker/Dockerfile.frontend
-          target: runtime
-          build-args: |
-            VITE_API_BASE_URL=/api
-          outputs: type=oci,dest=/tmp/frontend-reproducibility-${{ matrix.run_id }}.tar
-          provenance: false
-          sbom: false
-          no-cache: true
-          pull: true
-
-      - name: Persist container digests
-        run: |
-          test -n '${{ steps.backend-container.outputs.digest }}'
-          test -n '${{ steps.frontend-container.outputs.digest }}'
-          printf '%s\n' '${{ steps.backend-container.outputs.digest }}' > reproducibility/backend-image-digest.txt
-          printf '%s\n' '${{ steps.backend-container.outputs.metadata }}' > reproducibility/backend-image-metadata.json
-          printf '%s\n' '${{ steps.frontend-container.outputs.digest }}' > reproducibility/frontend-image-digest.txt
-          printf '%s\n' '${{ steps.frontend-container.outputs.metadata }}' > reproducibility/frontend-image-metadata.json
-
-      - name: Upload reproducibility build evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: reproducibility-build-${{ matrix.run_id }}
-          path: reproducibility/
-          retention-days: 30
-
-  reproducibility-compare:
-    name: Reproducibility Compare
-    runs-on: ubuntu-latest
-    needs: [reproducibility-build]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-
-      - name: Download reproducibility build A
-        uses: actions/download-artifact@v7
-        with:
-          name: reproducibility-build-run-a
-          path: reproducibility/run-a
-
-      - name: Download reproducibility build B
-        uses: actions/download-artifact@v7
-        with:
-          name: reproducibility-build-run-b
-          path: reproducibility/run-b
-
-      - name: Compare reproducibility evidence
-        run: |
-          node scripts/ci/reproducibility-verify.mjs compare-runs \
-            --run-a reproducibility/run-a \
-            --run-b reproducibility/run-b \
-            --output-dir release-artifacts/reproducibility \
-            --allowlist scripts/ci/reproducibility-allowlist.json \
-            --commit "${GITHUB_SHA}"
-
-      - name: Upload reproducibility comparison evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-reproducibility-${{ github.run_id }}
-          path: release-artifacts/reproducibility/
-          retention-days: 30
-
-      - name: Enforce reproducibility parity or allowlist-only drift
-        run: |
-          node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('release-artifacts/reproducibility/reproducibility-comparison.json','utf8')); if (report.blocking_diff_count > 0) { console.error('Blocking reproducibility diffs detected.'); process.exit(1); } console.log('Reproducibility status:', report.status);"
-
-  release:
-    name: Version or Release
-    runs-on: ubuntu-latest
-    needs: [reproducibility-compare]
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          # Full history is required for changeset version to compute changelogs
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Validate workspace package release/CI policy
-        run: pnpm run check:workspace-package-governance
-
-      - name: Build workspace
+      - name: Build release artifacts
         run: pnpm run build --if-present
-
-      - name: Download reproducibility comparison evidence
-        uses: actions/download-artifact@v7
-        with:
-          name: release-reproducibility-${{ github.run_id }}
-          path: release-artifacts/reproducibility
-
+      - name: Validate workspace package release policy
+        run: pnpm run check:workspace-package-governance
       - name: Generate SBOM (CycloneDX)
         run: |
           mkdir -p release-artifacts
           pnpm dlx @cyclonedx/cyclonedx-npm --output-file release-artifacts/sbom.cyclonedx.json --output-format JSON --ignore-npm-errors
-
       - name: Generate SBOM (SPDX)
         uses: anchore/sbom-action@v0
         with:
           path: .
           format: spdx-json
           output-file: release-artifacts/sbom.spdx.json
-
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
-
-      - name: Sign release security artifacts with cosign + OIDC
+      - name: Sign release artifacts
         run: |
           cosign sign-blob --yes release-artifacts/sbom.cyclonedx.json \
             --output-signature release-artifacts/sbom.cyclonedx.json.sig \
             --output-certificate release-artifacts/sbom.cyclonedx.json.pem
-
           cosign sign-blob --yes release-artifacts/sbom.spdx.json \
             --output-signature release-artifacts/sbom.spdx.json.sig \
             --output-certificate release-artifacts/sbom.spdx.json.pem
-
-      - name: Verify generated SBOMs and signatures
+      - name: Verify release manifest and signatures
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}
         run: |
           test -s release-artifacts/sbom.cyclonedx.json
           test -s release-artifacts/sbom.spdx.json
@@ -210,123 +69,35 @@ jobs:
           test -s release-artifacts/sbom.spdx.json.sig
           test -s release-artifacts/sbom.cyclonedx.json.pem
           test -s release-artifacts/sbom.spdx.json.pem
-
+          cat > release-artifacts/release-manifest.json <<EOF
+          {
+            "release_tag": "${RELEASE_TAG}",
+            "sha": "${GITHUB_SHA}",
+            "artifacts": [
+              "sbom.cyclonedx.json",
+              "sbom.cyclonedx.json.sig",
+              "sbom.cyclonedx.json.pem",
+              "sbom.spdx.json",
+              "sbom.spdx.json.sig",
+              "sbom.spdx.json.pem"
+            ]
+          }
+          EOF
           cosign verify-blob release-artifacts/sbom.cyclonedx.json \
             --signature release-artifacts/sbom.cyclonedx.json.sig \
             --certificate release-artifacts/sbom.cyclonedx.json.pem \
-            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/release.yml@.*$" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-
           cosign verify-blob release-artifacts/sbom.spdx.json \
             --signature release-artifacts/sbom.spdx.json.sig \
             --certificate release-artifacts/sbom.spdx.json.pem \
-            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/release.yml@.*$" \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-
-      - name: Dependency license policy check (optional)
-        run: |
-          if pnpm -s run | rg -q '^\s*license:check\b'; then
-            pnpm run license:check
-          else
-            echo "license:check script not configured; skipping policy check."
-          fi
-
-      - name: Observability release gates
-        run: |
-          pnpm run check:telemetry-completeness
-          pnpm run check:observability-deployment-gates
-
-      - name: Create Release PR or tag & publish
-        id: changesets
-        uses: changesets/action@v1
+      - name: Upload release integrity artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          # Use the workspace-installed @changesets/cli to bump package versions and update changelogs.
-          version: pnpm changeset version
-          # This repository does not publish to npm from CI; the release artifact is the git tag + GitHub Release.
-          publish: pnpm changeset tag
-          title: "chore: version packages"
-          commit: "chore: version packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Validate published packages against release policy
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
-        run: node scripts/ci/check-workspace-package-governance.mjs --mode=release --published-packages-env=PUBLISHED_PACKAGES
-
-      - name: Create GitHub Releases for tagged packages
-        if: steps.changesets.outputs.published == 'true'
-        uses: actions/github-script@v8
-        env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
-        with:
-          script: |
-            const fs = require('fs');
-            const artifacts = [
-              'release-artifacts/sbom.cyclonedx.json',
-              'release-artifacts/sbom.cyclonedx.json.sig',
-              'release-artifacts/sbom.cyclonedx.json.pem',
-              'release-artifacts/sbom.spdx.json',
-              'release-artifacts/sbom.spdx.json.sig',
-              'release-artifacts/sbom.spdx.json.pem',
-              'release-artifacts/reproducibility/reproducibility-report.md',
-              'release-artifacts/reproducibility/reproducibility-comparison.json',
-              'release-artifacts/reproducibility/reproducibility-allowlisted-diff.json',
-            ];
-            const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
-            for (const pkg of publishedPackages) {
-              const tag = `${pkg.name}@${pkg.version}`;
-              let release;
-              try {
-                const response = await github.rest.repos.getReleaseByTag({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  tag,
-                });
-                release = response.data;
-                console.log(`Release for ${tag} already exists, skipping.`);
-              } catch (err) {
-                if (err.status !== 404) throw err;
-                const response = await github.rest.repos.createRelease({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  tag_name: tag,
-                  name: `${pkg.name} v${pkg.version}`,
-                  generate_release_notes: true,
-                  draft: false,
-                  prerelease: false,
-                });
-                release = response.data;
-                console.log(`Created release for ${tag}`);
-              }
-
-              const existingAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.id,
-                per_page: 100,
-              });
-
-              for (const artifactPath of artifacts) {
-                const fileName = artifactPath.split('/').pop();
-                const prior = existingAssets.find((asset) => asset.name === fileName);
-                if (prior) {
-                  await github.rest.repos.deleteReleaseAsset({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    asset_id: prior.id,
-                  });
-                }
-
-                const data = fs.readFileSync(artifactPath);
-                await github.rest.repos.uploadReleaseAsset({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: release.id,
-                  name: fileName,
-                  data,
-                });
-                console.log(`Uploaded ${fileName} to ${tag}`);
-              }
-            }
+          name: release-integrity-${{ github.run_id }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 30

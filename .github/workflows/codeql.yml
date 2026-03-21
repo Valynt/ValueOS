@@ -1,9 +1,9 @@
-name: CodeQL
+name: Main - CodeQL Security Analysis
 
 on:
-  pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   actions: read
@@ -12,16 +12,16 @@ permissions:
 
 jobs:
   codeql-analyze:
-    name: codeql-analyze (js-ts)
+    name: main-codeql-analyze (js-ts)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3

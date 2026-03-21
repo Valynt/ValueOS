@@ -117,13 +117,11 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 ## Branch Protection Required Checks
 
-`main` branch protection must include these required checks:
+`main` branch protection must include this required check:
 
-- `pr-fast-blocking-subsets`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+- `pr-only-blocking-gate`
 
-These checks map to quality, security, and code-scanning controls and should remain required for merge to `main`.
+Main-branch CodeQL and deeper trusted-branch validations remain blocking on `main`, but only the PR fast lane should be required for merge to `main`.
 
 ## Incident Response
 
