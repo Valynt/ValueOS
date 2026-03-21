@@ -71,11 +71,12 @@ This DevContainer provides a **100% Linux-to-production parity** development env
    cd ValueOS
    ```
 
-2. **Copy environment template**:
+2. **Copy environment template and set required local secrets**:
 
    ```bash
    cp .devcontainer/.env.template .devcontainer/.env
-   # Edit .devcontainer/.env if you need to change ports or secrets
+   # Fill in the required blank secrets before starting the stack.
+   # Generate a 32-byte hex key with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 
 3. **Open in VS Code**:
@@ -175,8 +176,25 @@ Use this file as the single source of truth for updating pinned versions (for ex
 - `.env.ports` is the canonical port mapping file for local/devcontainer compose flows.
 - `.env.ports.example` contains default non-secret port values.
 - `.env.local` is for secrets only (API keys, tokens, connection strings) and should not define port mappings.
-- `.devcontainer/.env.template` - Template for the fully containerized environment
-- `.devcontainer/.env` - Your local environment overrides (copy from template)
+- `.devcontainer/.env.template` - Template for the fully containerized environment with required secret fields intentionally left blank.
+- `.devcontainer/.env` - Your local environment overrides (copy from template and populate with real local-only secrets).
+
+### Required secret bootstrap values
+
+`docker compose` interpolation and the devcontainer preflight both require these values before the stack starts:
+
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `JWT_SECRET`
+- `SECRET_KEY_BASE`
+- `TCT_SECRET`
+- `WEB_SCRAPER_ENCRYPTION_KEY`
+
+The startup preflight also rejects placeholder/demo values and validates optional encryption keys such as `ENCRYPTION_KEY`, `APP_ENCRYPTION_KEY`, and `CACHE_ENCRYPTION_KEY` when they are provided. Run the check manually with:
+
+```bash
+bash .devcontainer/scripts/validate-devcontainer-secrets.sh
+```
 
 > Troubleshooting: if DevContainer startup fails with an interpolation error such as
 > `required variable SUPABASE_SERVICE_ROLE_KEY is missing a value`, Docker Compose
@@ -184,7 +202,7 @@ Use this file as the single source of truth for updating pinned versions (for ex
 > shell or a `.env` file in the compose project directory — it does **not** read
 > service `env_file` entries for interpolation.
 >
-> Quick fix: `cp .devcontainer/.env.template .devcontainer/.env`
+> Quick fix: `cp .devcontainer/.env.template .devcontainer/.env`, then populate the required blank secrets.
 
 ## Environment Variables
 
@@ -199,7 +217,18 @@ All configuration is in `.devcontainer/.env`. Key variables:
 | `STUDIO_PORT`     | 54324     | Supabase Studio port             |
 | `REDIS_PORT`      | 6379      | Redis port                       |
 | `PGPASSWORD`      | postgres  | PostgreSQL password              |
-| `JWT_SECRET`      | (default) | JWT signing secret               |
+| `JWT_SECRET`      | required  | JWT signing secret (32+ chars)   |
+| `SECRET_KEY_BASE` | required  | Realtime/Phoenix secret (32+ chars) |
+| `TCT_SECRET`      | required  | Backend secret (32+ chars)       |
+| `WEB_SCRAPER_ENCRYPTION_KEY` | required | 64-character hex encryption key |
+
+## Local HTTP-only Caddy exception
+
+The devcontainer Caddy instances remain HTTP-only **only** for this localhost-scoped development profile:
+
+- `.devcontainer/caddy/Caddyfile` keeps `auto_https off` because the ingress is intentionally local-only and does not provision trusted certificates inside the devcontainer.
+- `.devcontainer/frontend/Caddyfile` now uses an explicit `http://` site address instead of a global `auto_https off` switch, keeping the HTTP-only behavior scoped to the frontend container itself.
+- This exception must not be copied into shared, staging, or production Caddy profiles without a separate review.
 
 ## Troubleshooting
 
@@ -277,8 +306,8 @@ To use a cloud Supabase instance instead of local:
 
    ```
    SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   SUPABASE_ANON_KEY=<your-project-anon-key>
+   SUPABASE_SERVICE_ROLE_KEY=<your-project-service-role-key>
    ```
 
 2. Disable local Supabase services by editing `docker-compose.devcontainer.yml`
