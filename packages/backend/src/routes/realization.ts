@@ -1,12 +1,12 @@
 /**
- * Realization API Routes (FIXED)
+ * Realization API Routes (FINAL RECONCILED)
  *
  * Key fixes:
- * - Resolved merge conflicts
+ * - Resolved all merge conflicts
  * - Enforced authentication consistently
  * - Enforced tenant context validation centrally
  * - Removed silent fallbacks ("?? ''")
- * - Standardized error handling
+ * - Standardized handler structure
  */
 
 import { Request, Response, Router } from "express";
@@ -16,7 +16,6 @@ import { RealizationService } from "../services/realization/RealizationService.j
 
 const router: Router = Router();
 const realizationService = new RealizationService();
-
 const requireTenantAccess = tenantContextMiddleware(true);
 
 const ensureTenantId = (req: Request, res: Response): string | null => {
@@ -34,7 +33,8 @@ const ensureTenantId = (req: Request, res: Response): string | null => {
 };
 
 /**
- * GET baseline
+ * GET /api/cases/:caseId/realization/baseline
+ * Get promise baseline for a case.
  */
 router.get(
   "/api/cases/:caseId/realization/baseline",
@@ -55,18 +55,22 @@ router.get(
         });
       }
 
-      res.json({ success: true, data: baseline });
+      return res.json({
+        success: true,
+        data: baseline,
+      });
     } catch (error: unknown) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: { message: error instanceof Error ? error.message : "Unknown error" },
       });
     }
-  }
+  },
 );
 
 /**
- * POST baseline
+ * POST /api/cases/:caseId/realization/baseline
+ * Create promise baseline (called when case is approved).
  */
 router.post(
   "/api/cases/:caseId/realization/baseline",
@@ -87,18 +91,22 @@ router.post(
         scenarioName,
         kpiTargets,
         assumptions,
-        handoffNotes
+        handoffNotes,
       );
 
-      res.status(201).json({ success: true, data: { id: baselineId } });
+      return res.status(201).json({
+        success: true,
+        data: { id: baselineId },
+      });
     } catch (error) {
-      next(error);
+      return next(error);
     }
-  }
+  },
 );
 
 /**
- * GET checkpoints
+ * GET /api/cases/:caseId/realization/checkpoints
+ * Get checkpoints for a case.
  */
 router.get(
   "/api/cases/:caseId/realization/checkpoints",
@@ -112,15 +120,19 @@ router.get(
 
       const checkpoints = await realizationService.getCheckpoints(caseId, organizationId);
 
-      res.json({ success: true, data: checkpoints });
+      return res.json({
+        success: true,
+        data: checkpoints,
+      });
     } catch (error) {
-      next(error);
+      return next(error);
     }
-  }
+  },
 );
 
 /**
- * POST checkpoint measurement
+ * POST /api/realization/checkpoints/:checkpointId/measure
+ * Record a checkpoint measurement.
  */
 router.post(
   "/api/realization/checkpoints/:checkpointId/measure",
@@ -138,18 +150,22 @@ router.post(
         checkpointId,
         organizationId,
         actualValue,
-        notes
+        notes,
       );
 
-      res.json({ success: true, data: { measured: true } });
+      return res.json({
+        success: true,
+        data: { measured: true },
+      });
     } catch (error) {
-      next(error);
+      return next(error);
     }
-  }
+  },
 );
 
 /**
- * GET KPI targets
+ * GET /api/cases/:caseId/realization/kpi-targets
+ * Get KPI targets for a case.
  */
 router.get(
   "/api/cases/:caseId/realization/kpi-targets",
@@ -163,15 +179,20 @@ router.get(
 
       const targets = await realizationService.getKpiTargets(caseId, organizationId);
 
-      res.json({ success: true, data: targets });
+      return res.json({
+        success: true,
+        data: targets,
+      });
     } catch (error) {
-      next(error);
+      return next(error);
     }
-  }
+  },
 );
 
 /**
- * GET realization report
+ * GET /api/cases/:caseId/realization
+ * Get the latest realization report for a case.
+ * Returns KPI variance, milestones, risks, and intervention recommendations.
  */
 router.get(
   "/api/cases/:caseId/realization",
@@ -192,12 +213,16 @@ router.get(
         });
       }
 
-      res.json({ success: true, data: report });
+      return res.json({
+        success: true,
+        data: report,
+      });
     } catch (error) {
-      next(error);
+      return next(error);
     }
-  }
+  },
 );
 
 export default router;
+
 
