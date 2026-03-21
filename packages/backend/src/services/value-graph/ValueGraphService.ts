@@ -23,6 +23,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
 import { supabase as defaultSupabase } from "../../lib/supabase.js";
+import {
+  EDGE_TYPE_CONSTRAINTS,
+  EdgeConstraintViolationError,
+} from "@valueos/shared";
 import type {
   VgCapability,
   VgMetric,
@@ -426,9 +430,25 @@ export class ValueGraphService {
    * On conflict (same org + opp + from + to + edge_type), updates
    * confidence_score, evidence_ids, and updated_at.
    *
+   * Validates the (from_entity_type, edge_type, to_entity_type) triple against
+   * EDGE_TYPE_CONSTRAINTS before writing. Throws EdgeConstraintViolationError
+   * on mismatch so agents' safeWrite can catch and log it immediately.
+   *
    * Agents call this after writing nodes to establish relationships.
    */
   async writeEdge(input: WriteEdgeInput): Promise<ValueGraphEdge> {
+    const constraint = EDGE_TYPE_CONSTRAINTS[input.edge_type];
+    if (
+      input.from_entity_type !== constraint.from ||
+      input.to_entity_type !== constraint.to
+    ) {
+      throw new EdgeConstraintViolationError(
+        input.edge_type,
+        input.from_entity_type,
+        input.to_entity_type,
+      );
+    }
+
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("value_graph_edges")

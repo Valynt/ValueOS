@@ -89,6 +89,8 @@ This document tracks the state of database migrations and explains any intention
 
 ### 11. Security Hardening (202609)
 - `20260917000000_rls_and_search_path_remediation` - RLS and search_path remediation (Supabase linter errors 0007, 0011, 0013)
+- `20260918000000_value_graph` - Value Graph ontology: vg_capabilities, vg_metrics, vg_value_drivers, value_graph_edges tables (Sprint 47)
+- `20260919000000_value_graph_edge_types` - Extend value_graph_edges CHECK constraints: 5 new edge types + narrative entity type (Sprint 49)
 
 ### 12. Deferred Migrations (`_deferred/`)
 These migrations are intentionally deferred for post-launch:

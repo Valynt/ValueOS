@@ -17,6 +17,14 @@ import { z } from 'zod';
 import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
 import { getAdvancedCausalEngine } from '../../../services/reasoning/AdvancedCausalEngine.js';
+import {
+  BaseGraphWriter,
+  valueGraphService as defaultValueGraphService,
+} from '../../../services/value-graph/index.js';
+import {
+  mapCategoryToValueDriverType,
+  mapUnitToVgMetricUnit,
+} from '../../../services/value-graph/valueDriverUtils.js';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import type {
   AgentOutput,
@@ -133,6 +141,7 @@ export class TargetAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private causalEngine = getAdvancedCausalEngine();
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
@@ -175,6 +184,9 @@ export class TargetAgent extends BaseAgent {
 
     // Step 4: Store KPI targets and model inputs in memory for downstream agents
     await this.storeTargetsInMemory(context, analysis, causalResults);
+
+    // Step 4c: Write KPI metrics and target_quantifies_driver edges to Value Graph (fire-and-forget)
+    await this.writeKpisToGraph(analysis.kpi_definitions, causalResults, context);
 
     // Step 4b: Persist value driver tree to DB for frontend reads
     const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
@@ -715,6 +727,82 @@ export class TargetAgent extends BaseAgent {
         case_id: caseId,
         error: (err as Error).message,
       });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Value Graph writes
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes VgMetric nodes (upsert) and target_quantifies_driver edges for each
+   * KPI definition. Per-KPI isolation: one failure does not abort others.
+   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   */
+  private async writeKpisToGraph(
+    kpis: KPIDefinition[],
+    causalResults: CausalTrace[],
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    if (!opportunityId) return;
+
+    const organizationId = context.organization_id;
+    const safeCtx = { opportunityId, organizationId, agentName: 'TargetAgent' };
+    const vgs = this.valueGraphService ?? defaultValueGraphService;
+
+    for (let i = 0; i < kpis.length; i++) {
+      const kpi = kpis[i];
+      const causal = causalResults[i];
+
+      try {
+        // 1. Upsert VgMetric node
+        const metric = await this.graphWriter['safeWrite'](
+          () => vgs.writeMetric({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            name: kpi.name,
+            unit: mapUnitToVgMetricUnit(kpi.unit),
+            baseline_value: kpi.baseline.value,
+            target_value: kpi.target.value,
+            impact_timeframe_months: kpi.target.timeframe_months,
+          }),
+          safeCtx,
+        );
+        if (!metric) continue;
+
+        // 2. Look up or create a VgValueDriver for this KPI's category
+        const driverType = mapCategoryToValueDriverType(kpi.category);
+        const driver = await this.graphWriter['safeWrite'](
+          () => vgs.writeValueDriver({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            type: driverType,
+            name: kpi.name,
+            description: kpi.description,
+          }),
+          safeCtx,
+        );
+        if (!driver) continue;
+
+        // 3. Write target_quantifies_driver edge: VgMetric → VgValueDriver
+        await this.graphWriter['safeWrite'](
+          () => vgs.writeEdge({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            from_entity_type: 'vg_metric',
+            from_entity_id: metric.id,
+            to_entity_type: 'vg_value_driver',
+            to_entity_id: driver.id,
+            edge_type: 'target_quantifies_driver',
+            confidence_score: causal?.confidence ?? kpi.target.confidence,
+            created_by_agent: 'TargetAgent',
+          }),
+          safeCtx,
+        );
+      } catch {
+        // Per-KPI isolation: log via safeWrite above; continue to next KPI
+      }
     }
   }
 
