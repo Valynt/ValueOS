@@ -28,24 +28,15 @@ interface DsrAssetCoverage {
   excluded: Array<{ asset: string; reason: string }>;
 }
 
-interface DsrEraseRpcSummary {
+interface EraseUserPiiResponse {
+  request_type: "erase";
   anonymized_to: string;
   erased_at: string;
+  request_token: string;
+  idempotent_replay: boolean;
   pii_assets_included: string[];
   pii_assets_excluded: Array<{ asset: string; reason: string }>;
-  scrubbed_counts: Record<string, number>;
-  deleted_counts: Record<string, number>;
-  idempotent_replay?: boolean;
-}
-
-interface DsrEraseRequestRecord {
-  tenant_id: string;
-  user_id: string;
-  request_token: string;
-  request_type: "erase";
-  status: "pending" | "completed" | "failed";
-  result_summary: DsrEraseRpcSummary | null;
-  last_error: string | null;
+  coverage?: Record<string, unknown>;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +44,21 @@ interface DsrEraseRequestRecord {
 /** One-way hash for PII identifiers used in logs and audit records. */
 function hashEmail(email: string): string {
   return createHash("sha256").update(email).digest("hex").slice(0, 16);
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function buildErasureRequestToken(tenantId: string, email: string, rawToken?: string): string {
+  const explicitToken = rawToken?.trim();
+  if (explicitToken) {
+    return explicitToken;
+  }
+
+  return createHash("sha256")
+    .update(`${tenantId}:erase:${normalizeEmail(email)}`)
+    .digest("hex");
 }
 
 async function resolveUserId(
@@ -103,6 +109,41 @@ async function gatherFootprint(
   return { footprint, coverage };
 }
 
+async function findErasureReplay(
+  supabase: SupabaseClient,
+  tenantId: string,
+  requestToken: string,
+  emailHash: string,
+): Promise<EraseUserPiiResponse | null> {
+  const { data, error } = await supabase
+    .from("dsr_erasure_requests")
+    .select("result_summary")
+    .eq("tenant_id", tenantId)
+    .eq("request_token", requestToken)
+    .eq("target_email_hash", emailHash)
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (error) {
+    logger.warn("DSR erase replay lookup failed", {
+      error: error.message,
+      tenantId,
+      requestToken,
+    });
+    return null;
+  }
+
+  if (!data?.result_summary) {
+    return null;
+  }
+
+  return {
+    ...(data.result_summary as EraseUserPiiResponse),
+    idempotent_replay: true,
+    request_token: requestToken,
+  };
+}
+
 async function auditDsr(
   supabase: SupabaseClient,
   action: string,
@@ -135,85 +176,6 @@ async function auditDsr(
 
   if (insertError) {
     throw new Error(`DSR audit insert failed: ${insertError.message} (code: ${insertError.code})`);
-  }
-}
-
-async function getEraseRequestRecord(
-  supabase: SupabaseClient,
-  tenantId: string,
-  requestToken: string,
-): Promise<DsrEraseRequestRecord | null> {
-  const { data, error } = await supabase
-    .from("dsr_erasure_requests")
-    .select("tenant_id, user_id, request_token, request_type, status, result_summary, last_error")
-    .eq("tenant_id", tenantId)
-    .eq("request_type", "erase")
-    .eq("request_token", requestToken)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`DSR request lookup failed: ${error.message} (code: ${error.code})`);
-  }
-
-  return data as DsrEraseRequestRecord | null;
-}
-
-async function reserveEraseRequest(
-  supabase: SupabaseClient,
-  tenantId: string,
-  userId: string,
-  requestToken: string,
-) {
-  const existing = await getEraseRequestRecord(supabase, tenantId, requestToken);
-
-  if (existing?.status === "completed" && existing.result_summary) {
-    return existing;
-  }
-
-  const { error } = await supabase.from("dsr_erasure_requests").upsert(
-    {
-      tenant_id: tenantId,
-      user_id: userId,
-      request_token: requestToken,
-      request_type: "erase",
-      status: "pending",
-      last_error: null,
-    },
-    {
-      onConflict: "tenant_id,request_type,request_token",
-      ignoreDuplicates: false,
-    },
-  );
-
-  if (error) {
-    throw new Error(`DSR request reservation failed: ${error.message} (code: ${error.code})`);
-  }
-
-  return getEraseRequestRecord(supabase, tenantId, requestToken);
-}
-
-async function markEraseRequestFailed(
-  supabase: SupabaseClient,
-  tenantId: string,
-  requestToken: string,
-  errorMessage: string,
-) {
-  const { error } = await supabase
-    .from("dsr_erasure_requests")
-    .update({
-      status: "failed",
-      last_error: errorMessage,
-    })
-    .eq("tenant_id", tenantId)
-    .eq("request_type", "erase")
-    .eq("request_token", requestToken);
-
-  if (error) {
-    logger.warn("DSR request failure status update failed", {
-      tenantId,
-      requestToken,
-      error: error.message,
-    });
   }
 }
 
@@ -319,66 +281,56 @@ router.post(
       }
 
       const supabase = req.supabase;
+      const rawIdempotencyKey = Array.isArray(req.headers["idempotency-key"])
+        ? req.headers["idempotency-key"][0]
+        : req.headers["idempotency-key"];
+      const requestToken = buildErasureRequestToken(tenantId, email, rawIdempotencyKey);
+
+      const replay = await findErasureReplay(supabase, tenantId, requestToken, emailHash);
+      if (replay) {
+        logger.info("DSR erasure replay served from idempotency record", {
+          emailHash,
+          tenantId,
+          requestId,
+          requestToken,
+        });
+
+        return res.json({ email, ...replay });
+      }
+
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const requestTokenHeader = req.headers["idempotency-key"];
-      const requestToken = typeof requestTokenHeader === "string" && requestTokenHeader.trim().length > 0
-        ? requestTokenHeader.trim()
-        : requestId;
-
-      const reservedRequest = await reserveEraseRequest(supabase, tenantId, userId, requestToken);
-      if (reservedRequest?.status === "completed" && reservedRequest.result_summary) {
-        const summary = reservedRequest.result_summary;
-        logger.info("DSR erasure replay served from idempotency record", {
-          emailHash,
-          tenantId,
-          requestToken,
-        });
-
-        return res.json({
-          request_type: "erase",
-          email,
-          anonymized_to: summary.anonymized_to,
-          erased_at: summary.erased_at,
-          pii_assets_included: summary.pii_assets_included,
-          pii_assets_excluded: summary.pii_assets_excluded,
-          idempotent_replay: true,
-        });
-      }
-
       const redactedTs = new Date().toISOString();
-      const { data: rpcSummary, error: rpcError } = await supabase.rpc("erase_user_pii", {
+      const { data: eraseResult, error: eraseError } = await supabase.rpc("erase_user_pii", {
         p_tenant_id: tenantId,
         p_user_id: userId,
         p_redacted_ts: redactedTs,
         p_request_token: requestToken,
+        p_target_email_hash: emailHash,
       });
 
-      if (rpcError) {
-        await markEraseRequestFailed(supabase, tenantId, requestToken, rpcError.message);
-        throw new Error(`erase_user_pii failed: ${rpcError.message} (code: ${rpcError.code})`);
+      if (eraseError) {
+        throw new Error(`Erase RPC failed: ${eraseError.message}`);
       }
 
-      const summary = rpcSummary as DsrEraseRpcSummary | null;
-      if (!summary) {
-        await markEraseRequestFailed(supabase, tenantId, requestToken, "RPC returned no summary");
-        throw new Error("erase_user_pii returned no summary");
+      const typedResult = eraseResult as EraseUserPiiResponse | null;
+      if (!typedResult) {
+        throw new Error("Erase RPC returned no payload");
       }
 
       try {
         await auditDsr(supabase, "erase", actorId, email, tenantId, requestId, {
+          anonymized_to: typedResult.anonymized_to,
           request_token: requestToken,
-          anonymized_to: summary.anonymized_to,
-          tables_scrubbed: summary.pii_assets_included,
-          scrubbed_counts: summary.scrubbed_counts,
-          deleted_counts: summary.deleted_counts,
-          pii_assets_included: summary.pii_assets_included,
-          pii_assets_excluded: summary.pii_assets_excluded,
-          idempotent_replay: summary.idempotent_replay ?? false,
+          idempotent_replay: typedResult.idempotent_replay,
+          tables_scrubbed: typedResult.pii_assets_included,
+          pii_assets_included: typedResult.pii_assets_included,
+          pii_assets_excluded: typedResult.pii_assets_excluded,
+          coverage: typedResult.coverage ?? null,
         });
       } catch (auditErr) {
         // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
@@ -387,16 +339,11 @@ router.post(
         });
       }
 
-      logger.info("DSR erasure completed", { emailHash, tenantId });
+      logger.info("DSR erasure completed", { emailHash, tenantId, requestToken });
 
       return res.json({
-        request_type: "erase",
         email,
-        anonymized_to: summary.anonymized_to,
-        erased_at: summary.erased_at,
-        pii_assets_included: summary.pii_assets_included,
-        pii_assets_excluded: summary.pii_assets_excluded,
-        idempotent_replay: summary.idempotent_replay ?? false,
+        ...typedResult,
       });
     } catch (err) {
       logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { emailHash });
