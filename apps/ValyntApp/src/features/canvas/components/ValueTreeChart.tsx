@@ -4,7 +4,9 @@ import { useCallback, useState } from "react";
 import { Treemap } from "recharts";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Example data structure for a value tree node
 export interface ValueTreeNode {
@@ -34,11 +36,11 @@ function findPathToNode(root: ValueTreeNode, targetId: string, path: ValueTreeNo
 
 export function ValueTreeChart({ data }: ValueTreeChartProps) {
   // Real-time data binding for value tree data
-  const { value: boundData, loading } = useDataBinding(data, {
+  const { value: boundData, loading } = useDataBinding(data as any, {
     resolver: {
-      resolve: async (binding: unknown) => ({ success: true, value: binding, cached: false, timestamp: null }),
-    },
-    context: {},
+      resolve: async (binding: unknown) => ({ success: true, value: binding as any, cached: false, timestamp: new Date().toISOString(), source: "static" }),
+    } as any,
+    context: { organizationId: "default", projectId: "default" } as any,
     enableRefresh: true,
   });
 
@@ -57,7 +59,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
   // When hovering a node, find the path from root to that node
   const handleNodeMouseEnter = useCallback((nodeId: string) => {
     setHoveredNodeId(nodeId);
-    setHoverPath(findPathToNode(boundData, nodeId));
+    setHoverPath(findPathToNode(boundData as any, nodeId));
   }, [boundData]);
   const handleNodeMouseLeave = useCallback(() => {
     setHoveredNodeId(null);
@@ -65,44 +67,88 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
   }, []);
 
   // Render a node with hover trail effect
-  const renderNode = useCallback(({ x, y, node }: { x: number; y: number; node: ValueTreeNode }) => {
+  const renderNode = useCallback((props: any) => {
+    const { x, y, width, height, node, children } = props;
+    if (!node) return null;
+
     const isInTrail = hoverPath?.some((n) => n.id === node.id);
+
     return (
-      <g
-        transform={`translate(${x},${y})`}
-        onMouseEnter={() => handleNodeMouseEnter(node.id)}
-        onMouseLeave={handleNodeMouseLeave}
-        style={{ cursor: "pointer" }}
-      >
-        <rect
-          width={120}
-          height={40}
-          rx={8}
-          fill={isInTrail ? "#6366f1" : "#0FBF9B"}
-          opacity={isInTrail ? 0.7 : 1}
-          style={{
-            filter: isInTrail ? "drop-shadow(0 0 8px #818cf8)" : undefined,
-            transition: "fill 0.2s, filter 0.2s, opacity 0.2s",
-          }}
-        />
-        <text x={60} y={20} textAnchor="middle" fill="#fff" fontSize={14} fontWeight={600}>
-          {node.label}
-        </text>
-        {typeof node.value === "number" && (
-          <text x={60} y={35} textAnchor="middle" fill="#E6EEF3" fontSize={12}>
-            {node.value}
+      <g>
+        {/* Render links to children before the node itself so they appear behind */}
+        {children && children.length > 0 && children.map((child: any) => {
+          if (!child.node) return null;
+
+          const isChildInTrail = hoverPath?.some((n) => n.id === child.node.id);
+          const isLinkHighlighted = isInTrail && isChildInTrail;
+
+          // Parent node center
+          const startX = x + 60; // 120 / 2
+          const startY = y + 20; // 40 / 2
+
+          // Child node center
+          const endX = child.x + 60;
+          const endY = child.y + 20;
+
+          return (
+            <line
+              key={`link-${node.id}-${child.node.id}`}
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={isLinkHighlighted ? "#6366f1" : "#cbd5e1"}
+              strokeWidth={isLinkHighlighted ? 2 : 1}
+              style={{
+                transition: "stroke 0.2s, stroke-width 0.2s",
+                filter: isLinkHighlighted ? "drop-shadow(0 0 4px #818cf8)" : undefined,
+                pointerEvents: "none", // Prevent links from interfering with node hover
+              }}
+            />
+          );
+        })}
+
+        <g
+          transform={`translate(${x},${y})`}
+          onMouseEnter={() => handleNodeMouseEnter(node.id)}
+          onMouseLeave={handleNodeMouseLeave}
+          style={{ cursor: "pointer" }}
+        >
+          <rect
+            width={120}
+            height={40}
+            rx={8}
+            fill={isInTrail ? "#6366f1" : "#0FBF9B"}
+            opacity={isInTrail ? 0.7 : 1}
+            style={{
+              filter: isInTrail ? "drop-shadow(0 0 8px #818cf8)" : undefined,
+              transition: "fill 0.2s, filter 0.2s, opacity 0.2s",
+            }}
+          />
+          <text x={60} y={20} textAnchor="middle" fill="#fff" fontSize={14} fontWeight={600}>
+            {node.label}
           </text>
-        )}
-        {typeof node.confidence === "number" && (
-          <Tooltip content={`Confidence: ${(node.confidence * 100).toFixed(0)}%`}>
-            <circle cx={110} cy={10} r={8} fill="#16A34A" />
-          </Tooltip>
-        )}
+          {typeof node.value === "number" && (
+            <text x={60} y={35} textAnchor="middle" fill="#E6EEF3" fontSize={12}>
+              {node.value}
+            </text>
+          )}
+          {typeof node.confidence === "number" && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <circle cx={110} cy={10} r={8} fill="#16A34A" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Confidence: ${(node.confidence * 100).toFixed(0)}%</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </g>
       </g>
     );
   }, [hoverPath, handleNodeMouseEnter, handleNodeMouseLeave]);
-
-  // TODO: If using custom link rendering, highlight links in the path as well
 
   if (loading) {
     return <div className="h-96 flex items-center justify-center animate-pulse text-muted-foreground">Loading value tree...</div>;
@@ -139,7 +185,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
           width={600}
           height={400}
           data={Array.isArray(boundData) ? boundData : [boundData]}
-          content={renderNode}
+          content={renderNode as any}
         />
       </div>
       <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">
