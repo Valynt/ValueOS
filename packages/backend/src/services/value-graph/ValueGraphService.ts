@@ -139,7 +139,8 @@ export class ValueGraphService {
   // -------------------------------------------------------------------------
 
   /**
-   * Loads the full Value Graph for an opportunity: all nodes and edges.
+   * Loads the Value Graph view for an opportunity: vg_capabilities,
+   * vg_metrics, vg_value_drivers, and all associated edges.
    * Tenant-scoped — only data matching organization_id is returned.
    */
   async getGraphForOpportunity(
