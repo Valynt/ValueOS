@@ -169,17 +169,16 @@ echo ""
 echo "Step 7: CI/CD Configuration"
 echo "---------------------------"
 
-if [[ -f "${REPO_ROOT}/.github/workflows/ci.yml" ]]; then
-    pass "CI workflow exists"
-    
-    # Check for devcontainer job
-    if grep -q "devcontainer-build" "${REPO_ROOT}/.github/workflows/ci.yml"; then
-        pass "CI has devcontainer-build job"
+if [[ -f "${REPO_ROOT}/.github/workflows/pr-fast.yml" ]] && [[ -f "${REPO_ROOT}/.github/workflows/main-verify.yml" ]]; then
+    pass "PR and main CI workflows exist"
+
+    if grep -q "devcontainer-build" "${REPO_ROOT}/.github/workflows/main-verify.yml"; then
+        pass "Main verify has devcontainer-build job"
     else
-        fail "CI missing devcontainer-build job"
+        fail "Main verify missing devcontainer-build job"
     fi
 else
-    fail "CI workflow missing"
+    fail "Required CI workflows missing"
 fi
 
 # Step 8: Verify migration system

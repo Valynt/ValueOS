@@ -117,10 +117,10 @@ If any of those artifacts are missing, treat release-note evidence as incomplete
 
 Production approval is **No-Go** unless the exact upstream jobs/checks below are green for the release SHA. This list is the deployment contract mirrored in `scripts/ci/release-gate-manifest.json` and enforced by `.github/workflows/deploy.yml` via the `release-gate-contract` job.
 
-- `unit-component-schema` (`.github/workflows/ci.yml`; check name `unit/component/schema`) — lint, typecheck, unit/integration suites, and workflow DAG validation.
-- `tenant-isolation-gate` (`.github/workflows/ci.yml`) — RLS, tenant-isolation, vector-memory boundary, and DSR suites.
-- `security-gate` (`.github/workflows/ci.yml`) — SAST, SCA, secret scanning, SBOM export, and Trivy image/filesystem scans.
-- `staging-deploy-release-gates` (`.github/workflows/ci.yml`) — canonical CI aggregation proving the release-blocking CI lanes are green.
+- `unit-component-schema` (`.github/workflows/main-verify.yml`; check name `unit/component/schema`) — lint, typecheck, unit/integration suites, and workflow DAG validation.
+- `tenant-isolation-gate` (`.github/workflows/main-verify.yml`) — RLS, tenant-isolation, vector-memory boundary, and DSR suites.
+- `security-gate` (`.github/workflows/main-verify.yml`) — SAST, SCA, secret scanning, SBOM export, and Trivy image/filesystem scans.
+- `staging-deploy-release-gates` (`.github/workflows/main-verify.yml`) — canonical CI aggregation proving the release-blocking CI lanes are green.
 - `codeql-analyze (js-ts)` (`.github/workflows/codeql.yml`) — dedicated CodeQL requirement for production promotion.
 - `dast-gate` (`.github/workflows/deploy.yml`) — deploy-time DAST scan against the staging target.
 - `release-gate-contract` (`.github/workflows/deploy.yml`) — waits on the manifest-defined gate set and blocks if any required check is missing, skipped, pending past timeout, or failed.
