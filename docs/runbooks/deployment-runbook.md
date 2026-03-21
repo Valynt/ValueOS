@@ -59,17 +59,13 @@ status: deprecated
 
 `deploy-production` is allowed to start only after the following upstream jobs/checks are green for the same commit SHA:
 
-1. **`unit-component-schema`** (`.github/workflows/ci.yml`, check name `unit/component/schema`) — covers lint, typecheck, unit/integration suites, and workflow DAG validation.
-2. **`tenant-isolation-gate`** (`.github/workflows/ci.yml`) — covers RLS, tenant-isolation, vector-memory boundary, and DSR suites.
-3. **`security-gate`** (`.github/workflows/ci.yml`) — covers SAST, SCA, secret scanning, SBOM generation, and Trivy image/filesystem scans.
-4. **`staging-deploy-release-gates`** (`.github/workflows/ci.yml`) — the canonical CI release aggregator that proves the upstream CI gate set is green.
-5. **`codeql-analyze (js-ts)`** (`.github/workflows/codeql.yml`) — dedicated CodeQL analysis required by branch protection and release promotion.
-6. **`dast-gate`** (`.github/workflows/deploy.yml`) — deploy-time OWASP ZAP baseline gate for the staging target.
-7. **`release-gate-contract`** (`.github/workflows/deploy.yml`) — manifest-driven verifier that waits for the external GitHub checks above and fails if any required gate is missing, pending past timeout, skipped, or unsuccessful.
+1. **`main-verify`** (`.github/workflows/ci.yml`) — the durable post-merge CI aggregate that proves the canonical release-blocking CI lanes are green.
+2. **`dast-gate`** (`.github/workflows/deploy.yml`) — deploy-time OWASP ZAP baseline gate for the staging target.
+3. **`release-readiness`** (`.github/workflows/deploy.yml`) — manifest-driven verifier that waits for the external GitHub checks above and fails if any required gate is missing, pending past timeout, skipped, or unsuccessful.
 
 After the canonical release gate contract is green, `deploy-production` still requires these direct upstream deploy jobs to finish successfully: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `build-images`, `verify-supply-chain`, `stability-seal`, and `emergency-skip-audit`.
 
-- **Production deployments require the canonical release gate contract to succeed.** `.github/workflows/deploy.yml` now routes production promotion through `release-gate-contract`, which evaluates `scripts/ci/release-gate-manifest.json` and blocks until every required upstream CI/security check for the target SHA is green.
+- **Production deployments require `release-readiness` to succeed.** `.github/workflows/deploy.yml` now routes production promotion through `release-readiness`, which evaluates `scripts/ci/release-gate-manifest.json` and blocks until every required upstream CI/security check for the target SHA is green.
 - **Emergency bypass (`skip_tests`) is non-production only.** Use of `skip_tests=true` is blocked for production targets and remains available only for staging emergency recovery.
 - **Production bypass requires break-glass workflow.** Any production exception to the canonical release gate set must be executed through a separate break-glass workflow with protected-environment reviewer approval and mandatory post-deploy evidence capture.
 

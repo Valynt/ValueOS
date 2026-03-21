@@ -9,6 +9,8 @@ const WORKFLOW_DIR = '.github/workflows';
 const CHECK_SECTION_HEADINGS = new Set([
   '## Branch Protection Required Checks',
   '## Required Status Checks',
+  '## Target Branch-Protection Contract',
+  '## Post-Merge / Release Governance Checks',
 ]);
 
 function resolveFromRoot(relativePath) {
@@ -113,7 +115,7 @@ function extractRequiredCheckSections(file) {
         break;
       }
 
-      const bulletMatch = trimmed.match(/^- `([^`]+)`$/u);
+      const bulletMatch = trimmed.match(/^- `([^`]+)`/u);
       if (bulletMatch) {
         checks.push({ name: bulletMatch[1], lineNumber: innerIndex + 1 });
       }
@@ -154,7 +156,7 @@ if (documentedChecks.length === 0) {
 for (const documentedCheck of documentedChecks) {
   if (!workflowJobNames.has(documentedCheck.name)) {
     failures.push(
-      `- ${documentedCheck.file}:${documentedCheck.lineNumber} documents required check \`${documentedCheck.name}\`, but no workflow job emits that exact \`name:\` value.`,
+      `- ${documentedCheck.file}:${documentedCheck.lineNumber} documents check \`${documentedCheck.name}\` in \`${documentedCheck.heading}\`, but no workflow job emits that exact \`name:\` value.`,
     );
   }
 }

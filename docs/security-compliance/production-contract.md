@@ -26,7 +26,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
 | Code review required | Branch protection on `main` | `.github/CODEOWNERS`, repo settings |
-| CI gates before merge | Lint, typecheck, tests, tenant isolation gate, security gate, and CodeQL | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, branch protection required checks |
+| CI gates before merge | Durable PR aggregates (`pr-fast`, conditional `infra-plan`) with CodeQL advisory by default | `.github/workflows/ci.yml`, `.github/workflows/terraform.yml`, `.github/workflows/codeql.yml`, branch protection settings |
 | Dependency updates | Dependabot + Renovate | `.github/dependabot.yml`, `renovate.json` |
 
 ### CC2 — Communication and Information
@@ -42,7 +42,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 |---------|---------------|----------|
 | Secret scanning | Gitleaks in CI + pre-commit | `.gitleaks.toml`, `.github/workflows/ci.yml` (`security-gate` job) |
 | Dependency vulnerability scanning | `pnpm audit` (high/critical fail), Trivy filesystem + image scan (HIGH/CRITICAL fail), Dependabot alerts | `.github/workflows/ci.yml` (`security-gate`), `.github/dependabot.yml` |
-| SAST and code scanning | Semgrep in CI + dedicated CodeQL workflow for JS/TS | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml` |
+| SAST and code scanning | Semgrep in CI + dedicated CodeQL workflow for JS/TS (advisory unless leadership marks it blocking) | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml` |
 
 ### CC5 — Control Activities
 
@@ -115,15 +115,16 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | PII filtering in logs | Sanitization before logging | `packages/backend/src/lib/piiFilter.ts` (referenced by audit service) |
 | DSR compliance tests | Automated test suite | `tests/compliance/dsr-workflow.test.ts` |
 
-## Branch Protection Required Checks
+## Target Branch-Protection Contract
 
-`main` branch protection must include these required checks:
+`main` pull requests should require no more than these checks:
 
-- `pr-fast-blocking-subsets`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+- `pr-fast`
+- `infra-plan` *(only when Terraform-owned paths change and the Terraform workflow runs)*
 
-These checks map to quality, security, and code-scanning controls and should remain required for merge to `main`.
+`codeql` should remain advisory by default. If leadership decides CodeQL must block merges, repository settings may add `codeql` as an explicit required check without changing the broader PR contract.
+
+Post-merge and release governance should rely on separate non-PR checks: `main-verify`, `release-readiness`, `deploy-staging`, and `deploy-production`.
 
 ## Incident Response
 
