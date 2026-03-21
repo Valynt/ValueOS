@@ -3,11 +3,18 @@ kind: ScaledObject
 metadata:
   name: company-intelligence-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: company-intelligence-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: company-intelligence-agent
@@ -29,11 +36,18 @@ kind: ScaledObject
 metadata:
   name: value-mapping-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: value-mapping-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: value-mapping-agent
@@ -55,11 +69,18 @@ kind: ScaledObject
 metadata:
   name: system-mapper-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: system-mapper-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: system-mapper-agent
@@ -81,11 +102,18 @@ kind: ScaledObject
 metadata:
   name: intervention-designer-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: intervention-designer-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: intervention-designer-agent
@@ -107,11 +135,18 @@ kind: ScaledObject
 metadata:
   name: outcome-engineer-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: outcome-engineer-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: outcome-engineer-agent
@@ -133,11 +168,18 @@ kind: ScaledObject
 metadata:
   name: coordinator-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: coordinator-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: coordinator-agent
@@ -159,11 +201,18 @@ kind: ScaledObject
 metadata:
   name: value-eval-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: value-eval-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: value-eval-agent
@@ -185,11 +234,18 @@ kind: ScaledObject
 metadata:
   name: communicator-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: communicator-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: communicator-agent
@@ -211,11 +267,18 @@ kind: ScaledObject
 metadata:
   name: benchmark-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: benchmark-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: benchmark-agent
@@ -237,11 +300,18 @@ kind: ScaledObject
 metadata:
   name: narrative-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: narrative-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: narrative-agent
@@ -263,18 +333,25 @@ kind: ScaledObject
 metadata:
   name: groundtruth-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: scale-to-zero async-only; deny interactive routing unless the canonical matrix, request-path label, and minReplicaCount are all updated together
   labels:
     app: groundtruth-agent
+    autoscaling.valueos.dev/profile: scale-to-zero-async-agent
     scaling.valueos.io/class: low-frequency-queue
     scaling.valueos.io/request-path-policy: async-only
     scaling.valueos.io/cold-start-class: scale-to-zero-async
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     name: groundtruth-agent
   pollingInterval: 15
   cooldownPeriod: 180
   minReplicaCount: 0
-  maxReplicaCount: 8
+  maxReplicaCount: 10
   triggers:
     - type: prometheus
       metadata:

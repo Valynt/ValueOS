@@ -6,7 +6,7 @@
  */
 
 import { logger } from "@shared/lib/logger";
-import React, { ComponentType, lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 
@@ -359,8 +359,10 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
 };
 
 // Component load cache
-const componentCache = new Map<string, React.ComponentType<any>>();
-const loadingPromises = new Map<string, Promise<React.ComponentType<any>>>();
+type RegistryComponent = RegistryEntry["component"];
+
+const componentCache = new Map<string, RegistryComponent>();
+const loadingPromises = new Map<string, Promise<RegistryComponent>>();
 
 // Loading fallback component
 const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => (
@@ -473,8 +475,8 @@ export class LazyComponentRegistry {
    */
   private static async loadComponent(
     componentName: string,
-    lazyLoader: React.LazyExoticComponent<React.ComponentType<any>>
-  ): Promise<React.ComponentType<any>> {
+    lazyLoader: React.LazyExoticComponent<RegistryComponent>
+  ): Promise<RegistryComponent> {
     try {
       // Trigger the lazy load
       const Component = lazyLoader;
@@ -605,7 +607,7 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
     </Suspense>
   );
   return {
-    component: WrappedComponent as React.ComponentType<any>,
+    component: WrappedComponent as RegistryComponent,
     ...metadata,
   };
 }

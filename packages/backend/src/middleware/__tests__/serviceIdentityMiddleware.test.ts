@@ -90,6 +90,63 @@ describe('serviceIdentityMiddleware', () => {
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
   });
 
+  it('normalizes x-organization-id into trusted request properties only after service identity verification', async () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
+    const now = Date.now();
+    const nonce = 'nonce-org';
+    const body = { ping: true };
+    const bodyHash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+    const payload = ['POST', '/internal', bodyHash, String(now), nonce].join('\n');
+    const signature = createHmac('sha256', 'super-secret').update(payload).digest('hex');
+
+    const req = {
+      method: 'POST',
+      url: '/internal',
+      originalUrl: '/internal',
+      body,
+      header: vi.fn((name: string) => {
+        switch (name.toLowerCase()) {
+          case 'x-service-id':
+            return 'agent-api';
+          case 'x-key-id':
+            return 'k1';
+          case 'x-service-audience':
+            return 'valueos-backend';
+          case 'x-request-signature':
+            return signature;
+          case 'x-request-timestamp':
+            return now.toString();
+          case 'x-request-nonce':
+            return nonce;
+          case 'x-body-sha256':
+            return bodyHash;
+          case 'x-organization-id':
+            return 'trusted-org';
+          default:
+            return undefined;
+        }
+      }),
+    } as any;
+
+    const res = mockRes();
+
+    await new Promise<void>((resolve) => {
+      serviceIdentityMiddleware(req, res as any, () => {
+        resolve();
+      });
+      setTimeout(resolve, 25);
+    });
+
+    expect(req.serviceIdentityVerified).toBe(true);
+    expect(req.organizationId).toBe('trusted-org');
+    expect(req.tenantId).toBe('trusted-org');
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+  });
+
   it('rejects forged x-spiffe-id without signed ingress attestation', () => {
     process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
       expectedAudience: 'valueos-backend',

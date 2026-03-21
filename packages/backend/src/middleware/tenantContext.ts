@@ -285,6 +285,10 @@ export const tenantContextMiddleware = (enforce = true) => {
 
     const attachContext = () => {
       (req as TenantRequest).tenantId = resolvedTenantId;
+      (req as TenantRequest).organizationId =
+        (req as TenantRequest).organizationId ??
+        (req as TenantRequest).user?.organization_id ??
+        resolvedTenantId;
       (req as TenantRequest).tenantSource = tenantSource;
       next();
     };

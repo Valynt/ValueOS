@@ -17,7 +17,7 @@ export interface HealthCheckResult {
 /**
  * Circuit breaker states
  */
-enum CircuitState {
+export enum CircuitState {
   CLOSED = "closed", // Normal operation
   OPEN = "open", // Failing, skip checks
   HALF_OPEN = "half_open", // Testing recovery
@@ -26,7 +26,7 @@ enum CircuitState {
 /**
  * Circuit breaker for health checks
  */
-class CircuitBreaker {
+export class CircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
   private failureCount = 0;
   private lastFailureTime = 0;

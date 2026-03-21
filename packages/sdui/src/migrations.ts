@@ -103,7 +103,7 @@ export interface MigrationCheckpoint {
   originalSchema: SDUIPageDefinition;
   originalHash: string;
   appliedMigrations: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -584,7 +584,7 @@ export class MigrationRunner {
     schema: SDUIPageDefinition,
     fromVersion: number,
     toVersion: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): MigrationCheckpoint {
     const checkpoint: MigrationCheckpoint = {
       id: this.generateCheckpointId(),

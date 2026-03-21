@@ -71,6 +71,13 @@ spec:
                   matchLabels:
                     app: opportunity-agent
                 topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: opportunity-agent
       containers:
         - name: opportunity-agent
           image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
@@ -121,7 +128,17 @@ spec:
                 configMapKeyRef:
                   name: agent-config
                   key: latency-sensitive-max-concurrent-requests
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-config
+                  key: latency-sensitive-max-concurrent-requests
             - name: DB_CONNECTION_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-config
+                  key: latency-sensitive-db-connection-pool-size
+            - name: DATABASE_POOL_MAX
               valueFrom:
                 configMapKeyRef:
                   name: agent-config
@@ -171,6 +188,13 @@ spec:
             - name: opa-http
               containerPort: 8181
               protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 200m
+              memory: 192Mi
           readinessProbe:
             httpGet:
               path: /health?plugins
@@ -230,6 +254,13 @@ spec:
                 configMapKeyRef:
                   name: agent-sidecar-config
                   key: jwt_audience
+          resources:
+            requests:
+              cpu: 75m
+              memory: 160Mi
+            limits:
+              cpu: 250m
+              memory: 320Mi
           readinessProbe:
             httpGet:
               path: /ready

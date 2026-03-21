@@ -4,7 +4,7 @@ Single source of truth for AI coding agents. Tool-specific configs (`.github/cop
 
 ## Architecture
 
-pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). Libraries and services in `packages/` (agents, agent-fabric, backend, components, infra, integrations, mcp, memory, sdui, sdui-types, services, shared, test-utils, config-v2).
+pnpm monorepo. Frontend apps in `apps/` are `ValyntApp` (`valynt-app`) and `mcp-dashboard` (`mcp-dashboard`). Top-level directories under `packages/` are `backend`, `components`, `config-v2`, `infra`, `integrations`, `mcp`, `memory`, `sdui`, `services`, `shared`, and `test-utils`; workspace packages among them include `@valueos/backend`, `@valueos/components`, `@vos/config-v2`, `@valueos/infra`, `@valueos/integrations`, `@valueos/mcp`, `@valueos/memory`, `@valueos/sdui`, and `@valueos/shared`.
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 

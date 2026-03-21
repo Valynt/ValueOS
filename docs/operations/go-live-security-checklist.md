@@ -122,7 +122,7 @@
 | `apps/ValyntApp/src/services/ValueFabricService.ts` | 676 | Monolith service — split by domain (capabilities, use-cases, benchmarks) |
 | `apps/ValyntApp/src/services/UsageTrackingService.ts` | 489 | Approaching threshold; contains server-role client in browser code |
 | `packages/backend/src/server.ts` | 623 | Main server — extract middleware setup, route registration, WebSocket setup |
-| `.github/workflows/ci.yml` | 799 | Large CI config — extract reusable workflows |
+| `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/nightly-governance.yml` | split | CI entry points separated by trust level and schedule responsibility |
 | `.github/workflows/deploy.yml` | 859 | Large deploy config — extract reusable workflows |
 | `packages/backend/src/services/TenantProvisioning.ts` | ~1200+ | Very large — high-risk module; split provisioning, deprovisioning, archival |
 
@@ -138,7 +138,7 @@
 | CSP enabled with nonce support | **Pass** | Production config uses `strict-dynamic`, `object-src 'none'`, `frame-ancestors 'none'` |
 | Helmet middleware in use | **Pass** | Multiple entry points use `helmet()` |
 | Dev routes double-gated | **Pass** | Requires `NODE_ENV !== production` + `ENABLE_DEV_ROUTES=true` + host allowlist |
-| CI runs `check:browser-provider-secrets` | **Pass** | `.github/workflows/ci.yml:74-75` |
+| CI runs `check:browser-provider-secrets` | **Pass** | `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` |
 | CI runs RLS tenant isolation tests | **Pass** | `pnpm run test:rls` documented and tested |
 | Emergency deploy bypass requires approval + incident ticket | **Pass** | `.github/workflows/deploy.yml:57-80` |
 | Secret env vars use `?:` (required) syntax | **Partial** | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `PGPASSWORD` are required; `DATABASE_URL` has unsafe fallback |
@@ -167,7 +167,7 @@
 - [ ] Bind Postgres port to `127.0.0.1` in compose
 - [ ] Add startup assertion: reject `ENABLE_DEV_ROUTES=true` when `NODE_ENV=production`
 - [ ] Split oversized files: `TenantProvisioning.ts` (~1200+ lines), `server.ts` (623 lines), `ValueFabricService.ts` (676 lines)
-- [ ] Extract reusable GitHub Actions workflows from `ci.yml` (799 lines) and `deploy.yml` (859 lines)
+- [x] Split the monolithic CI entry point into `pr-fast.yml`, `main-verify.yml`, and `nightly-governance.yml`; continue tracking future reusable-workflow extraction separately.
 - [ ] Add build-time dead-code assertion that `dev.ts` (exec import) is not in production bundle
 
 ### Nice-to-Have (Backlog)

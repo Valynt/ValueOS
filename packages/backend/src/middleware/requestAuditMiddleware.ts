@@ -11,6 +11,7 @@ interface AuditRequest extends AuthenticatedRequest {
   _auditMiddlewareAttached?: boolean;
   requestId?: string;
   organizationId?: string;
+  tenantId?: string;
 }
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
@@ -27,6 +28,26 @@ function getRequestId(req: Request): string {
     return headerId[0];
   }
   return (headerId as string) || randomUUID();
+}
+
+function getTrustedOrganizationId(req: Request): string | undefined {
+  const auditReq = req as AuditRequest;
+  return (
+    auditReq.organizationId ??
+    (typeof auditReq.user?.organization_id === "string" ? auditReq.user.organization_id : undefined) ??
+    auditReq.tenantId ??
+    (typeof auditReq.user?.tenant_id === "string" ? auditReq.user.tenant_id : undefined)
+  );
+}
+
+function getTrustedTenantId(req: Request): string | undefined {
+  const auditReq = req as AuditRequest;
+  return (
+    auditReq.tenantId ??
+    auditReq.organizationId ??
+    (typeof auditReq.user?.tenant_id === "string" ? auditReq.user.tenant_id : undefined) ??
+    (typeof auditReq.user?.organization_id === "string" ? auditReq.user.organization_id : undefined)
+  );
 }
 
 function getActor(req: Request): { id?: string; label: string } {
@@ -67,10 +88,8 @@ export async function emitRequestAuditEvent(
     eventType,
     eventData: {
       method: req.method,
-      org: sanitizeForLogging(
-        (req.headers["x-organization-id"] as string) || (req as AuditRequest).organizationId
-      ),
-      tenantId: sanitizeForLogging((req as AuditRequest).tenantId),
+      org: sanitizeForLogging(getTrustedOrganizationId(req)),
+      tenantId: sanitizeForLogging(getTrustedTenantId(req)),
       routeParams: sanitizeForLogging(req.params),
       query: sanitizeForLogging(req.query),
       ...eventData,
@@ -128,10 +147,8 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
             severity: res.statusCode >= 500 ? "high" : "medium",
             eventData: {
               duration_ms: Date.now() - startedAt,
-              org: sanitizeForLogging(
-                (req.headers["x-organization-id"] as string) || (req as AuditRequest).organizationId
-              ),
-              tenantId: sanitizeForLogging((req as AuditRequest).tenantId),
+              org: sanitizeForLogging(getTrustedOrganizationId(req)),
+              tenantId: sanitizeForLogging(getTrustedTenantId(req)),
               routeParams: sanitizeForLogging(req.params),
               query: sanitizeForLogging(req.query),
             },

@@ -462,7 +462,14 @@ function createCacheBackend(): CacheBackend {
     return new MemoryCacheBackend();
   }
 
-  return new RedisCacheBackend(getRedisClient() as Redis as RedisCacheClient);
+  try {
+    return new RedisCacheBackend(getRedisClient('cache') as Redis as RedisCacheClient);
+  } catch (error) {
+    logger.warn('Redis-backed ESO cache unavailable, falling back to in-memory cache', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new MemoryCacheBackend();
+  }
 }
 
 export class Cache extends ESOCache {

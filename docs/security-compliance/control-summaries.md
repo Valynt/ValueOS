@@ -17,7 +17,7 @@ This document provides a high-level summary of ValueOS security and compliance c
 ## Data Security and Privacy
 
 - Encryption in transit using TLS and encryption at rest in managed data stores.
-- Tenant-aware authorization controls to support logical isolation.
+- Tenant-aware authorization controls to support logical isolation, backed by fork-safe migration checks and trusted runtime tenant-isolation tests.
 - Data handling processes aligned to classification and environment boundaries.
 
 ## Logging, Monitoring, and Incident Response

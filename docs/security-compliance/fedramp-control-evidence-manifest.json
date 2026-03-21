@@ -1,6 +1,6 @@
 {
   "document_id": "valueos-fedramp-control-evidence-manifest",
-  "version": "2026-03-19",
+  "version": "2026-03-21",
   "framework": "FedRAMP Moderate / NIST SP 800-53 Rev. 5",
   "mapping_document": "docs/security-compliance/fedramp-control-mapping.md",
   "controls": [
@@ -8,44 +8,46 @@
       "control_id": "AC-3",
       "control_name": "Access Enforcement",
       "status": "implemented",
-      "implementation_summary": "Tenant isolation and access enforcement are validated through automated RLS tests and tenant-bound schema migrations.",
+      "implementation_summary": "Tenant isolation and access enforcement are validated through the trusted runtime tenant-isolation suites and the fork-safe static tenant-control lane.",
       "workflow_artifacts": [
         {
           "artifact_path": "evidence/rls/rls-validation.json",
           "artifact_type": "vitest-json",
           "produced_by": ".github/workflows/compliance-evidence-export.yml",
-          "source_test": "tests/security/rls-tenant-isolation.test.ts"
+          "source_test": "tests/compliance/security/tenant-isolation-verification.test.ts (with tests/security/rls-tenant-isolation.test.ts in the same tenant-isolation-gate lane)"
         }
       ],
       "static_evidence": [
         "docs/security-compliance/evidence-index.md",
-        "docs/security-compliance/production-contract.md"
+        "docs/security-compliance/production-contract.md",
+        ".github/workflows/ci.yml"
       ],
       "migration_lineage": [
         "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",
-        "infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql"
+        "infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql"
       ]
     },
     {
       "control_id": "AC-6",
       "control_name": "Least Privilege",
       "status": "implemented",
-      "implementation_summary": "Least-privilege access is enforced through tenant-scoped authorization patterns and RLS foundations backed by automated isolation validation.",
+      "implementation_summary": "Least-privilege access is enforced through tenant-scoped authorization patterns, tenant mismatch rejection, tenant-column immutability checks, and hot-path index coverage.",
       "workflow_artifacts": [
         {
           "artifact_path": "evidence/rls/rls-validation.json",
           "artifact_type": "vitest-json",
           "produced_by": ".github/workflows/compliance-evidence-export.yml",
-          "source_test": "tests/security/rls-tenant-isolation.test.ts"
+          "source_test": "tests/compliance/security/tenant-isolation-verification.test.ts (with tests/security/rls-tenant-isolation.test.ts in the same tenant-isolation-gate lane)"
         }
       ],
       "static_evidence": [
         "docs/security-compliance/production-contract.md",
-        "docs/security-compliance/security-overview.md"
+        "docs/security-compliance/security-overview.md",
+        "docs/security-compliance/evidence-index.md"
       ],
       "migration_lineage": [
         "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",
-        "infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql"
+        "infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql"
       ]
     },
     {
