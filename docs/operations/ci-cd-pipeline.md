@@ -73,7 +73,7 @@ Detailed test stages (within or adjacent to `ci:verify`):
 5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
 6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
 7. Security gate lanes in `.github/workflows/ci.yml`: `security-gate` + `dast-gate` (OWASP ZAP baseline against deterministic staging target) are required blockers for both PR and staging/deploy gate jobs. Within `security-gate`, SBOM generation is a required merge check and the lane fails if `sbom.json` is missing or empty.
-8. Deployment promotion checks in `.github/workflows/deploy.yml`: `dast-gate` must pass before `build-images`, is required by `preprod-launch-gate`, and is therefore a pre-production blocker before `deploy-production`.
+8. Deployment promotion checks in `.github/workflows/deploy.yml`: `release-manifest-gate` downloads the `release.yml` bundle for the target SHA, `dast-gate` scans the deployed staging URL, `preprod-launch-gate` validates deploy-context staging evidence, and `deploy-production` promotes only the recorded immutable image digests after `verify-supply-chain`, SLO/error-budget, and secret-rotation gates pass.
 
 Architecture & operational notes:
 
