@@ -10,14 +10,16 @@
  * Reference: openspec/changes/deal-assembly-pipeline/tasks.md §8
  */
 
-import { Router, type IRouter } from "express";
+import { EVENT_TOPICS } from "@shared/types/events";
+import { type IRouter, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
+import { logger } from "../lib/logger";
 import { requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { getEventProducer } from "../realtime/EventProducer.js";
 import { DealAssemblyService } from "../services/deal/DealAssemblyService";
-import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -72,9 +74,40 @@ router.post(
         userId,
       });
 
-      // TODO: Trigger DealAssemblyAgent workflow
-      // For now, return accepted status with job ID
-      const jobId = `assembly-${Date.now()}-${caseId}`;
+      const correlationId = uuidv4();
+      const jobId = correlationId;
+
+      const producer = getEventProducer();
+      await producer.publish(EVENT_TOPICS.AGENT_REQUESTS, {
+        type: "agent.request",
+        correlationId,
+        meta: {
+          eventId: correlationId,
+          timestamp: new Date().toISOString(),
+          source: "deal-assembly-api",
+        },
+        payload: {
+          agentId: "DealAssemblyAgent",
+          userId: userId || "unknown",
+          sessionId: caseId,
+          tenantId,
+          query: "assemble_deal_context",
+          context: {
+            caseId,
+            organizationId,
+            opportunity_id: body.opportunity_id,
+            crm_connection_id: body.crm_connection_id,
+            transcript_ids: body.transcript_ids,
+            note_ids: body.note_ids,
+            skip_enrichment: body.skip_enrichment,
+          },
+          parameters: {
+            requestedAt: new Date().toISOString(),
+          },
+          priority: "high",
+          timeout: 300000,
+        },
+      });
 
       res.status(202).json({
         message: "Deal assembly initiated",
