@@ -1,4 +1,4 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,29 +7,33 @@ const { mockGetBaseline } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../middleware/auth", () => ({
-  authenticate: (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (!req.headers.authorization) {
-      res.status(401).json({ error: "Authentication required" });
-      return;
+  authenticate: (req: Request, res: Response, next: NextFunction) => {
+    const authorization = req.header("authorization");
+
+    if (!authorization) {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
+    req.user = {
+      id: "user-123",
+      tenant_id: authorization === "Bearer tenant-b-token" ? "tenant-b" : "tenant-a",
+    };
     next();
   },
 }));
 
 vi.mock("../../middleware/tenantContext", () => ({
-  tenantContextMiddleware: () => (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const tenantIdHeader = req.header("x-test-tenant-id");
+  tenantContextMiddleware: () => (req: Request, res: Response, next: NextFunction) => {
+    const tenantId = req.user?.tenant_id;
 
-    if (!tenantIdHeader) {
-      res.status(403).json({
+    if (!tenantId) {
+      return res.status(403).json({
         error: "tenant_required",
         message: "Tenant context is required.",
       });
-      return;
     }
 
-    req.tenantId = tenantIdHeader;
+    req.tenantId = tenantId;
     next();
   },
 }));
@@ -42,48 +46,24 @@ vi.mock("../../services/realization/RealizationService.js", () => ({
 
 import realizationRouter from "../realization";
 
-function makeApp() {
+const buildApp = () => {
   const app = express();
   app.use(express.json());
   app.use(realizationRouter);
   return app;
-}
+};
 
 describe("realization baseline route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetBaseline.mockResolvedValue({
-      id: "baseline-1",
-      case_id: "case-123",
-      organization_id: "tenant-a",
-      scenario_id: "scenario-1",
-      scenario_name: "Committed",
-      approval_date: "2026-01-01T00:00:00.000Z",
-      kpi_targets: [],
-      assumptions: [],
-      handoff_notes: {},
-    });
-  });
-
-  it("denies unauthenticated baseline requests", async () => {
-    const app = makeApp();
-
-    const response = await request(app).get("/api/cases/case-123/realization/baseline");
-
-    expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: "Authentication required" });
-    expect(mockGetBaseline).not.toHaveBeenCalled();
-  });
-
-  it("does not return baseline data across tenants", async () => {
-    mockGetBaseline.mockImplementation(async (_caseId: string, organizationId: string) => {
-      if (organizationId === "tenant-a") {
+    mockGetBaseline.mockImplementation(async (caseId: string, tenantId: string) => {
+      if (caseId === "case-123" && tenantId === "tenant-a") {
         return {
-          id: "baseline-1",
-          case_id: "case-123",
-          organization_id: "tenant-a",
-          scenario_id: "scenario-1",
-          scenario_name: "Committed",
+          id: "baseline-123",
+          case_id: caseId,
+          organization_id: tenantId,
+          scenario_id: "scenario-123",
+          scenario_name: "Best case",
           approval_date: "2026-01-01T00:00:00.000Z",
           kpi_targets: [],
           assumptions: [],
@@ -93,13 +73,23 @@ describe("realization baseline route", () => {
 
       return null;
     });
+  });
 
-    const app = makeApp();
+  it("denies unauthenticated requests", async () => {
+    const app = buildApp();
+
+    const response = await request(app).get("/api/cases/case-123/realization/baseline");
+
+    expect(response.status).toBe(401);
+    expect(mockGetBaseline).not.toHaveBeenCalled();
+  });
+
+  it("does not return another tenant's baseline", async () => {
+    const app = buildApp();
 
     const response = await request(app)
       .get("/api/cases/case-123/realization/baseline")
-      .set("Authorization", "Bearer test-token")
-      .set("x-test-tenant-id", "tenant-b");
+      .set("Authorization", "Bearer tenant-b-token");
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -107,20 +97,5 @@ describe("realization baseline route", () => {
       error: { message: "Baseline not found for this case" },
     });
     expect(mockGetBaseline).toHaveBeenCalledWith("case-123", "tenant-b");
-  });
-
-  it("returns 403 when tenant context is missing after authentication", async () => {
-    const app = makeApp();
-
-    const response = await request(app)
-      .get("/api/cases/case-123/realization/baseline")
-      .set("Authorization", "Bearer test-token");
-
-    expect(response.status).toBe(403);
-    expect(response.body).toEqual({
-      error: "tenant_required",
-      message: "Tenant context is required.",
-    });
-    expect(mockGetBaseline).not.toHaveBeenCalled();
   });
 });

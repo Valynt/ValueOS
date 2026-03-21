@@ -2,13 +2,12 @@
  * Analytics Router
  * Provides dashboard statistics and insights with tenant isolation
  */
+import { createRequestSupabaseClient, type RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createRequestSupabaseClient, type RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
-import type { AcademyContext } from "../trpc.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { type AcademyContext, protectedProcedure, router } from "../trpc.js";
 
 // ============================================================================
 // Helpers
@@ -49,7 +48,7 @@ function getOrganizationId(ctx: Pick<AcademyContext, "tenantId" | "user">): stri
   return organizationId;
 }
 
-const pillarBreakdownItemSchema = z.object({
+const pillarBreakdownSchema = z.object({
   pillarId: z.number().int(),
   pillarName: z.string(),
   attempts: z.number().int().nonnegative(),
@@ -59,10 +58,12 @@ const pillarBreakdownItemSchema = z.object({
 
 const quizStatsRpcSchema = z.object({
   totalQuizzes: z.number().int().nonnegative(),
+  passedAttempts: z.number().int().nonnegative().default(0),
   averageScore: z.number().int().nonnegative(),
   passRate: z.number().int().nonnegative(),
+  distinctUserCompletionCount: z.number().int().nonnegative().default(0),
   completionRate: z.number().int().nonnegative(),
-  pillarBreakdown: z.array(pillarBreakdownItemSchema),
+  pillarBreakdown: z.array(pillarBreakdownSchema),
 });
 
 const certificationStatsRpcSchema = z.object({
@@ -77,6 +78,7 @@ const certificationStatsRpcSchema = z.object({
 
 const simulationStatsRpcSchema = z.object({
   totalAttempts: z.number().int().nonnegative(),
+  passedAttempts: z.number().int().nonnegative().default(0),
   averageScore: z.number().int().nonnegative(),
   passRate: z.number().int().nonnegative(),
 });
@@ -192,8 +194,8 @@ export const analyticsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
-      const cutoffDate = getDateRangeCutoff(input.dateRange);
       const organizationId = getOrganizationId(ctx);
+      const cutoffDate = getDateRangeCutoff(input.dateRange);
 
       try {
         const { data, error } = await client.rpc("get_academy_quiz_stats", {
@@ -234,8 +236,8 @@ export const analyticsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
-      const cutoffDate = getDateRangeCutoff(input.dateRange);
       const organizationId = getOrganizationId(ctx);
+      const cutoffDate = getDateRangeCutoff(input.dateRange);
 
       try {
         const { data, error } = await client.rpc("get_academy_certification_stats", {
@@ -275,8 +277,8 @@ export const analyticsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const client = getSupabaseClient(ctx);
-      const cutoffDate = getDateRangeCutoff(input.dateRange);
       const organizationId = getOrganizationId(ctx);
+      const cutoffDate = getDateRangeCutoff(input.dateRange);
 
       try {
         const { data, error } = await client.rpc("get_academy_simulation_stats", {

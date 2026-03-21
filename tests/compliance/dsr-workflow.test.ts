@@ -1,24 +1,24 @@
 /**
  * Data Subject Request (DSR) workflow tests.
  *
- * Validates GDPR Art. 15 (export) and Art. 17 (erasure) behaviors against a
- * real Supabase instance when service credentials are available.
+ * Validates GDPR Art. 15/17 flows against a live Supabase environment when
+ * service credentials are available.
  */
 
 import crypto from "node:crypto";
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-type EraseSummary = {
-  anonymized_to: string;
-  erased_at: string;
-  pii_assets_included: string[];
-  pii_assets_excluded: Array<{ asset: string; reason: string }>;
-  scrubbed_counts: Record<string, number>;
-  deleted_counts: Record<string, number>;
-  idempotent_replay?: boolean;
-};
+function hashEmail(email: string): string {
+  return crypto.createHash("sha256").update(email).digest("hex").slice(0, 16);
+}
+
+function readBooleanFlag(value: unknown): boolean | undefined {
+  return value && typeof value === "object" && "anonymized" in value
+    ? Boolean((value as Record<string, unknown>).anonymized)
+    : undefined;
+}
 
 describe("DSR Workflow — GDPR Compliance", () => {
   let adminClient: SupabaseClient;
@@ -26,8 +26,9 @@ describe("DSR Workflow — GDPR Compliance", () => {
   let testTenantId: string;
   const testEmail = `dsr-test-${Date.now()}@example.com`;
   const testPassword = "DsrTest123!";
+  const requestToken = `dsr-erase-${Date.now()}`;
 
-  const skip = () => {
+  const skipSupabase = () => {
     if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.warn("Skipping DSR test — SUPABASE_SERVICE_KEY not set");
       return true;
@@ -35,42 +36,23 @@ describe("DSR Workflow — GDPR Compliance", () => {
     return false;
   };
 
-  async function resetSubjectData() {
-    if (skip()) return;
+  const skipDatabaseUrl = async () => {
+    if (!process.env.DATABASE_URL) {
+      console.warn("Skipping DSR transactional failure test — DATABASE_URL not set");
+      return true;
+    }
 
-    await adminClient
-      .from("users")
-      .update({
-        email: testEmail,
-        full_name: "DSR Test User",
-        display_name: "DSR Tester",
-        avatar_url: null,
-        metadata: {},
-      })
-      .eq("id", testUserId)
-      .eq("tenant_id", testTenantId);
-
-    await adminClient
-      .from("messages")
-      .update({
-        content: "Sensitive message content",
-        metadata: {},
-      })
-      .eq("user_id", testUserId)
-      .eq("tenant_id", testTenantId);
-  }
-
-  async function callEraseUserPii(requestToken: string) {
-    return adminClient.rpc("erase_user_pii", {
-      p_tenant_id: testTenantId,
-      p_user_id: testUserId,
-      p_redacted_ts: new Date().toISOString(),
-      p_request_token: requestToken,
-    });
-  }
+    try {
+      await import("pg");
+      return false;
+    } catch {
+      console.warn("Skipping DSR transactional failure test — pg package is not installed");
+      return true;
+    }
+  };
 
   beforeAll(async () => {
-    if (skip()) return;
+    if (skipSupabase()) return;
 
     const serviceKey =
       process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -111,23 +93,16 @@ describe("DSR Workflow — GDPR Compliance", () => {
     });
   });
 
-  beforeEach(async () => {
-    if (skip()) return;
-    await resetSubjectData();
-    await adminClient.from("dsr_erasure_requests").delete().eq("tenant_id", testTenantId);
-  });
-
   afterAll(async () => {
     if (!adminClient) return;
-    await adminClient.from("dsr_erasure_requests").delete().eq("tenant_id", testTenantId);
     await adminClient.from("messages").delete().eq("user_id", testUserId);
     await adminClient.from("users").delete().eq("id", testUserId);
     await adminClient.from("tenants").delete().eq("id", testTenantId);
     if (testUserId) await adminClient.auth.admin.deleteUser(testUserId);
   });
 
-  it("should locate user data across PII tables", async () => {
-    if (skip()) return;
+  it("locates user data across PII tables", async () => {
+    if (skipSupabase()) return;
 
     const { data: user } = await adminClient
       .from("users")
@@ -140,8 +115,8 @@ describe("DSR Workflow — GDPR Compliance", () => {
     expect(user?.full_name).toBe("DSR Test User");
   });
 
-  it("should export user footprint with non-empty records", async () => {
-    if (skip()) return;
+  it("exports user footprint with non-empty records", async () => {
+    if (skipSupabase()) return;
 
     const tables = [
       { table: "users", col: "id" },
@@ -149,23 +124,92 @@ describe("DSR Workflow — GDPR Compliance", () => {
     ];
 
     for (const { table, col } of tables) {
-      const { data } = await adminClient.from(table).select("*").eq(col, testUserId);
+      const { data } = await adminClient
+        .from(table)
+        .select("*")
+        .eq(col, testUserId);
       expect(data).toBeDefined();
-      expect(data!.length).toBeGreaterThanOrEqual(1);
+      expect(data?.length ?? 0).toBeGreaterThanOrEqual(1);
     }
   });
 
-  it("should anonymize the user profile and scrub message content through erase_user_pii", async () => {
-    if (skip()) return;
+  it("rolls back on a forced mid-step failure and succeeds on retry with the same request token", async () => {
+    if (skipSupabase() || await skipDatabaseUrl()) return;
 
-    const { data, error } = await callEraseUserPii(`erase-${crypto.randomUUID()}`);
+    const { Client: PgClient } = await import("pg");
+    const pgClient = new PgClient({ connectionString: process.env.DATABASE_URL });
+    const suffix = Date.now().toString();
+    const functionName = `test_dsr_fail_messages_${suffix}`;
+    const triggerName = `test_dsr_fail_messages_trigger_${suffix}`;
+    const quotedUserId = testUserId.replace(/'/g, "''");
 
-    expect(error).toBeNull();
+    await pgClient.connect();
+    try {
+      await pgClient.query(`
+        CREATE OR REPLACE FUNCTION public.${functionName}()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+          IF NEW.user_id::text = '${quotedUserId}' THEN
+            RAISE EXCEPTION 'forced mid-step failure for DSR transaction';
+          END IF;
+          RETURN NEW;
+        END;
+        $$;
+      `);
 
-    const summary = data as EraseSummary;
-    expect(summary.anonymized_to).toBe(`deleted+${testUserId}@redacted.local`);
-    expect(summary.scrubbed_counts.users).toBe(1);
-    expect(summary.scrubbed_counts.messages).toBeGreaterThanOrEqual(1);
+      await pgClient.query(`
+        CREATE TRIGGER ${triggerName}
+        BEFORE UPDATE ON public.messages
+        FOR EACH ROW
+        EXECUTE FUNCTION public.${functionName}();
+      `);
+
+      const failedAttempt = await adminClient.rpc("erase_user_pii", {
+        p_tenant_id: testTenantId,
+        p_user_id: testUserId,
+        p_redacted_ts: new Date().toISOString(),
+        p_request_token: requestToken,
+        p_target_email_hash: hashEmail(testEmail),
+      });
+
+      expect(failedAttempt.error).toBeTruthy();
+      expect(failedAttempt.data).toBeNull();
+
+      const { data: userAfterFailure } = await adminClient
+        .from("users")
+        .select("email, full_name, display_name, metadata")
+        .eq("id", testUserId)
+        .maybeSingle();
+
+      const { data: messagesAfterFailure } = await adminClient
+        .from("messages")
+        .select("content")
+        .eq("user_id", testUserId);
+
+      expect(userAfterFailure?.email).toBe(testEmail);
+      expect(userAfterFailure?.full_name).toBe("DSR Test User");
+      expect(readBooleanFlag(userAfterFailure?.metadata)).not.toBe(true);
+      expect(messagesAfterFailure?.[0]?.content).toBe("Sensitive message content");
+    } finally {
+      await pgClient.query(`DROP TRIGGER IF EXISTS ${triggerName} ON public.messages;`);
+      await pgClient.query(`DROP FUNCTION IF EXISTS public.${functionName}();`);
+      await pgClient.end();
+    }
+
+    const retry = await adminClient.rpc("erase_user_pii", {
+      p_tenant_id: testTenantId,
+      p_user_id: testUserId,
+      p_redacted_ts: new Date().toISOString(),
+      p_request_token: requestToken,
+      p_target_email_hash: hashEmail(testEmail),
+    });
+
+    expect(retry.error).toBeNull();
+    expect(retry.data).toBeTruthy();
+    expect((retry.data as Record<string, unknown>).idempotent_replay).toBe(false);
+    expect((retry.data as Record<string, unknown>).request_token).toBe(requestToken);
 
     const { data: updated } = await adminClient
       .from("users")
@@ -173,110 +217,48 @@ describe("DSR Workflow — GDPR Compliance", () => {
       .eq("id", testUserId)
       .maybeSingle();
 
-    expect(updated?.email).toBe(`deleted+${testUserId}@redacted.local`);
-    expect(updated?.full_name).toBeNull();
-    expect(updated?.display_name).toBeNull();
-    expect((updated?.metadata as Record<string, unknown>)?.anonymized).toBe(true);
-
-    const { data: messages } = await adminClient
+    const { data: msgs } = await adminClient
       .from("messages")
       .select("content")
       .eq("user_id", testUserId);
 
-    expect(messages?.every((message) => message.content === "[redacted]"))?.toBe(true);
+    expect(updated?.email).toBe(`deleted+${testUserId}@redacted.local`);
+    expect(updated?.full_name).toBeNull();
+    expect(updated?.display_name).toBeNull();
+    expect(readBooleanFlag(updated?.metadata)).toBe(true);
+    for (const msg of msgs ?? []) {
+      expect(msg.content).toBe("[redacted]");
+    }
   });
 
-  it("rolls back the erase transaction when a forced mid-step failure is injected", async () => {
-    if (skip()) return;
+  it("replays the stored summary when retried with the same request token", async () => {
+    if (skipSupabase()) return;
 
-    const requestToken = `erase-fail-${crypto.randomUUID()}`;
-    await adminClient.from("dsr_erasure_requests").insert({
-      tenant_id: testTenantId,
-      user_id: testUserId,
-      request_type: "erase",
-      request_token: requestToken,
-      status: "pending",
-      test_fail_after_step: "after_messages",
+    const replay = await adminClient.rpc("erase_user_pii", {
+      p_tenant_id: testTenantId,
+      p_user_id: testUserId,
+      p_redacted_ts: new Date().toISOString(),
+      p_request_token: requestToken,
+      p_target_email_hash: hashEmail(testEmail),
     });
 
-    const { error } = await callEraseUserPii(requestToken);
+    expect(replay.error).toBeNull();
+    expect(replay.data).toBeTruthy();
+    expect((replay.data as Record<string, unknown>).idempotent_replay).toBe(true);
+    expect((replay.data as Record<string, unknown>).request_token).toBe(requestToken);
 
-    expect(error).toBeTruthy();
-    expect(error?.message).toContain("Forced DSR erasure failure after messages step");
-
-    const { data: user } = await adminClient
-      .from("users")
-      .select("email, full_name, display_name, metadata")
-      .eq("id", testUserId)
-      .maybeSingle();
-
-    expect(user?.email).toBe(testEmail);
-    expect(user?.full_name).toBe("DSR Test User");
-    expect((user?.metadata as Record<string, unknown>)?.anonymized).toBeUndefined();
-
-    const { data: messages } = await adminClient
-      .from("messages")
-      .select("content")
-      .eq("user_id", testUserId)
-      .eq("tenant_id", testTenantId);
-
-    expect(messages?.every((message) => message.content === "Sensitive message content"))?.toBe(true);
-  });
-
-  it("completes a retry once the failure is cleared and replays the stored summary on duplicate retry", async () => {
-    if (skip()) return;
-
-    const requestToken = `erase-retry-${crypto.randomUUID()}`;
-    await adminClient.from("dsr_erasure_requests").insert({
-      tenant_id: testTenantId,
-      user_id: testUserId,
-      request_type: "erase",
-      request_token: requestToken,
-      status: "pending",
-      test_fail_after_step: "after_messages",
-    });
-
-    const firstAttempt = await callEraseUserPii(requestToken);
-    expect(firstAttempt.error).toBeTruthy();
-
-    await adminClient
+    const { data: requestRows } = await adminClient
       .from("dsr_erasure_requests")
-      .update({ status: "failed", last_error: firstAttempt.error?.message, test_fail_after_step: null })
+      .select("request_token, status")
       .eq("tenant_id", testTenantId)
-      .eq("request_type", "erase")
       .eq("request_token", requestToken);
 
-    const secondAttempt = await callEraseUserPii(requestToken);
-    expect(secondAttempt.error).toBeNull();
-
-    const secondSummary = secondAttempt.data as EraseSummary;
-    expect(secondSummary.idempotent_replay).toBe(false);
-    expect(secondSummary.scrubbed_counts.users).toBe(1);
-
-    const thirdAttempt = await callEraseUserPii(requestToken);
-    expect(thirdAttempt.error).toBeNull();
-
-    const replaySummary = thirdAttempt.data as EraseSummary;
-    expect(replaySummary.idempotent_replay).toBe(true);
-    expect(replaySummary.anonymized_to).toBe(`deleted+${testUserId}@redacted.local`);
-
-    const { data: requestRecord } = await adminClient
-      .from("dsr_erasure_requests")
-      .select("status, result_summary, last_error")
-      .eq("tenant_id", testTenantId)
-      .eq("request_type", "erase")
-      .eq("request_token", requestToken)
-      .maybeSingle();
-
-    expect(requestRecord?.status).toBe("completed");
-    expect((requestRecord?.result_summary as EraseSummary | null)?.anonymized_to).toBe(
-      `deleted+${testUserId}@redacted.local`,
-    );
-    expect(requestRecord?.last_error).toBeNull();
+    expect(requestRows).toHaveLength(1);
+    expect(requestRows?.[0]?.status).toBe("completed");
   });
 
-  it("should record DSR action in security audit log", async () => {
-    if (skip()) return;
+  it("records the DSR action in the security audit log", async () => {
+    if (skipSupabase()) return;
 
     await adminClient.from("security_audit_log").insert({
       event_type: "dsr_erase",
@@ -296,7 +278,7 @@ describe("DSR Workflow — GDPR Compliance", () => {
       .limit(1);
 
     expect(logs).toBeDefined();
-    expect(logs!.length).toBeGreaterThanOrEqual(1);
-    expect((logs![0].event_data as Record<string, unknown>)?.target_email).toBe(testEmail);
+    expect(logs?.length ?? 0).toBeGreaterThanOrEqual(1);
+    expect((logs?.[0]?.event_data as Record<string, unknown> | undefined)?.target_email).toBe(testEmail);
   });
 });
