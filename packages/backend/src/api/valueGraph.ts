@@ -4,13 +4,15 @@
  * REST endpoints for reading and mutating the Value Graph for an opportunity.
  * All routes require authentication and tenant-scoped access.
  *
- * Mount point: /api/v1/graph
+ * Mount points:
+ *   /api/v1/graph              — full CRUD API (Sprint 49)
+ *   /api/v1/opportunities      — read-only graph + paths endpoint (Sprint 50)
  *
- * Middleware chain on every route:
+ * Middleware chain on /api/v1/graph routes:
  *   requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware()
  *   → validateOpportunityAccess
  *
- * Routes:
+ * Routes (/api/v1/graph):
  *   GET  /:opportunityId/summary          — node/edge counts by type
  *   GET  /:opportunityId/nodes            — paginated nodes (?entity_type=)
  *   GET  /:opportunityId/export           — full graph JSON
@@ -18,13 +20,17 @@
  *   POST /:opportunityId/edges            — manually create an edge
  *   PATCH  /:opportunityId/nodes/:nodeId  — update node metadata
  *   DELETE /:opportunityId/nodes/:nodeId  — remove a node (audit logged)
+ *
+ * Routes (/api/v1/opportunities):
+ *   GET  /:opportunityId/value-graph      — graph + sorted paths (Sprint 50)
  */
 
 import { createLogger } from "@shared/lib/logger";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
+import { logger as rootLogger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
@@ -37,20 +43,16 @@ import {
 
 const logger = createLogger({ component: "valueGraph.router" });
 
-export const valueGraphRouter = Router();
-
 // ---------------------------------------------------------------------------
-// Shared middleware chain — applied to all routes via router.use
+// UUID validation helper (used by the Sprint 50 endpoint)
 // ---------------------------------------------------------------------------
 
-valueGraphRouter.use(
-  requireAuth,
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// validateOpportunityAccess is applied per-route (after params are parsed)
-const withOpportunityAccess = [validateOpportunityAccess];
+function isValidUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
 
 // ---------------------------------------------------------------------------
 // Zod schemas for write endpoints
@@ -96,6 +98,22 @@ const UpdateNodeBodySchema = z.object({
 function getTenantId(req: Request): string {
   return req.tenantId ?? (req.user?.tenant_id as string) ?? "";
 }
+
+// ===========================================================================
+// Sprint 49 router — full CRUD API, mounted at /api/v1/graph
+// ===========================================================================
+
+export const valueGraphRouter = Router();
+
+// Shared middleware chain — applied to all routes via router.use
+valueGraphRouter.use(
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+);
+
+// validateOpportunityAccess is applied per-route (after params are parsed)
+const withOpportunityAccess = [validateOpportunityAccess];
 
 // ---------------------------------------------------------------------------
 // GET /:opportunityId/summary
@@ -422,6 +440,64 @@ valueGraphRouter.delete(
         error: (err as Error).message,
       });
       res.status(500).json({ error: "Failed to delete node." });
+    }
+  },
+);
+
+// ===========================================================================
+// Sprint 50 router — read-only graph + paths, mounted at /api/v1/opportunities
+// ===========================================================================
+
+export const opportunityValueGraphRouter = Router();
+
+/**
+ * GET /api/v1/opportunities/:opportunityId/value-graph
+ *
+ * Returns the full graph (nodes + edges) and all traversable value paths for
+ * the given opportunity, sorted by path_confidence descending.
+ */
+opportunityValueGraphRouter.get(
+  "/:opportunityId/value-graph",
+  requireAuth,
+  tenantContextMiddleware(),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const { opportunityId } = req.params;
+    const organizationId = req.tenantId;
+
+    if (!isValidUuid(opportunityId)) {
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "opportunityId must be a valid UUID",
+      });
+      return;
+    }
+
+    if (!organizationId) {
+      res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "Tenant context required",
+      });
+      return;
+    }
+
+    try {
+      const [graph, paths] = await Promise.all([
+        valueGraphService.getGraphForOpportunity(opportunityId, organizationId),
+        valueGraphService.getValuePaths(opportunityId, organizationId),
+      ]);
+
+      const sortedPaths = [...paths].sort(
+        (a, b) => b.path_confidence - a.path_confidence,
+      );
+
+      res.json({ graph, paths: sortedPaths });
+    } catch (err) {
+      rootLogger.error("ValueGraph API: failed to load graph", {
+        opportunityId,
+        organizationId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      next(err);
     }
   },
 );

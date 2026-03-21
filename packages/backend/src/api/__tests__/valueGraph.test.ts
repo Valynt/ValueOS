@@ -1,11 +1,12 @@
 /**
  * Value Graph API router tests
  *
- * Covers authentication, tenant isolation, and handler behaviour for all
- * 7 endpoints.
+ * Covers authentication, tenant isolation, and handler behaviour for:
+ *   - Sprint 49: full CRUD API (7 endpoints, /api/v1/graph)
+ *   - Sprint 50: read-only graph + paths endpoint (/api/v1/opportunities)
  */
 
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -107,7 +108,6 @@ vi.mock("../../services/value-graph/ValueGraphService.js", () => ({
     getGraphForOpportunity: mockGetGraphForOpportunity,
     getValuePaths: mockGetValuePaths,
     writeEdge: mockWriteEdge,
-
   },
   ValueGraphService: class {},
 }));
@@ -124,16 +124,29 @@ vi.mock("../../services/security/AuditLogService.js", () => ({
 // App setup
 // ---------------------------------------------------------------------------
 
-import { valueGraphRouter } from "../valueGraph.js";
+import { opportunityValueGraphRouter, valueGraphRouter } from "../valueGraph.js";
 
 function buildApp() {
   const app = express();
   app.use(express.json());
   app.use("/api/v1/graph", valueGraphRouter);
+  app.use("/api/v1/opportunities", opportunityValueGraphRouter);
+  // Minimal error handler so next(err) returns 500
+  app.use(
+    (err: Error, _req: Request, res: Response, _next: NextFunction) => {
+      res.status(500).json({ error: err.message });
+    },
+  );
   return app;
 }
 
 const OPP_ID = "770e8400-e29b-41d4-a716-446655440002";
+const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+
+const MOCK_PATHS = [
+  { path_confidence: 0.8, use_case_id: "uc-1", edges: [], metrics: [], capabilities: [], value_driver: { id: "vd-1", name: "Cost Reduction", type: "cost_reduction" } },
+  { path_confidence: 0.5, use_case_id: "uc-2", edges: [], metrics: [], capabilities: [], value_driver: { id: "vd-2", name: "Revenue Growth", type: "revenue_growth" } },
+];
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -173,9 +186,9 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Authentication
-  // -------------------------------------------------------------------------
+  // =========================================================================
+  // Sprint 49 — /api/v1/graph
+  // =========================================================================
 
   describe("authentication", () => {
     it("returns 401 when requireAuth rejects", async () => {
@@ -187,10 +200,6 @@ describe("Value Graph API", () => {
       expect(res.status).toBe(401);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Tenant isolation
-  // -------------------------------------------------------------------------
 
   describe("tenant isolation", () => {
     it("returns 403 when validateOpportunityAccess denies access", async () => {
@@ -208,10 +217,6 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // GET /summary
-  // -------------------------------------------------------------------------
-
   describe("GET /:opportunityId/summary", () => {
     it("returns node and edge counts", async () => {
       const res = await request(app).get(`/api/v1/graph/${OPP_ID}/summary`);
@@ -223,10 +228,6 @@ describe("Value Graph API", () => {
       expect(res.body.edge_counts.total).toBe(1);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // GET /nodes
-  // -------------------------------------------------------------------------
 
   describe("GET /:opportunityId/nodes", () => {
     it("returns paginated nodes", async () => {
@@ -248,10 +249,6 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // GET /export
-  // -------------------------------------------------------------------------
-
   describe("GET /:opportunityId/export", () => {
     it("returns full graph with nodes and edges", async () => {
       const res = await request(app).get(`/api/v1/graph/${OPP_ID}/export`);
@@ -263,10 +260,6 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // GET /paths
-  // -------------------------------------------------------------------------
-
   describe("GET /:opportunityId/paths", () => {
     it("returns value paths", async () => {
       mockGetValuePaths.mockResolvedValue([{ id: "path-1" }]);
@@ -277,10 +270,6 @@ describe("Value Graph API", () => {
       expect(res.body.paths).toHaveLength(1);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // POST /edges
-  // -------------------------------------------------------------------------
 
   describe("POST /:opportunityId/edges", () => {
     const validEdge = {
@@ -317,10 +306,6 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // PATCH /nodes/:nodeId
-  // -------------------------------------------------------------------------
-
   describe("PATCH /:opportunityId/nodes/:nodeId", () => {
     it("returns 200 with updated node on success", async () => {
       const res = await request(app)
@@ -333,7 +318,6 @@ describe("Value Graph API", () => {
     });
 
     it("returns 404 when node does not exist in any table", async () => {
-      // Override the supabase mock so all three table updates return no data
       mockSupabaseChain.from.mockReturnValue({
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnThis(),
@@ -374,10 +358,6 @@ describe("Value Graph API", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // DELETE /nodes/:nodeId
-  // -------------------------------------------------------------------------
-
   describe("DELETE /:opportunityId/nodes/:nodeId", () => {
     it("returns 204 and writes an audit log entry", async () => {
       const { auditLogService } = await import(
@@ -393,6 +373,103 @@ describe("Value Graph API", () => {
           resourceId: "cap-1",
         }),
       );
+    });
+  });
+
+  // =========================================================================
+  // Sprint 50 — GET /api/v1/opportunities/:opportunityId/value-graph
+  // =========================================================================
+
+  describe("GET /api/v1/opportunities/:opportunityId/value-graph", () => {
+    beforeEach(() => {
+      mockGetGraphForOpportunity.mockResolvedValue(MOCK_GRAPH);
+      mockGetValuePaths.mockResolvedValue(MOCK_PATHS);
+    });
+
+    describe("input validation", () => {
+      it("returns 400 for a non-UUID opportunityId", async () => {
+        const res = await request(app).get(
+          "/api/v1/opportunities/not-a-uuid/value-graph",
+        );
+        expect(res.status).toBe(400);
+        expect(res.body).toMatchObject({
+          error: "VALIDATION_ERROR",
+          message: expect.stringContaining("UUID"),
+        });
+      });
+
+      it("returns 400 for a short invalid id", async () => {
+        const res = await request(app).get(
+          "/api/v1/opportunities/abc123/value-graph",
+        );
+        expect(res.status).toBe(400);
+      });
+    });
+
+    describe("tenant context", () => {
+      it("returns 401 when tenantId is absent", async () => {
+        const noTenantApp = express();
+        noTenantApp.use(express.json());
+        noTenantApp.get(
+          `/api/v1/opportunities/${VALID_UUID}/value-graph`,
+          (_req: Request, res: Response) => {
+            res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+          },
+        );
+
+        const res = await request(noTenantApp).get(
+          `/api/v1/opportunities/${VALID_UUID}/value-graph`,
+        );
+        expect(res.status).toBe(401);
+        expect(res.body).toMatchObject({ error: "UNAUTHORIZED" });
+      });
+    });
+
+    describe("happy path", () => {
+      it("returns 200 with graph and paths", async () => {
+        const res = await request(app).get(
+          `/api/v1/opportunities/${VALID_UUID}/value-graph`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty("graph");
+        expect(res.body).toHaveProperty("paths");
+      });
+
+      it("calls getGraphForOpportunity with opportunityId and organizationId", async () => {
+        await request(app).get(`/api/v1/opportunities/${VALID_UUID}/value-graph`);
+        expect(mockGetGraphForOpportunity).toHaveBeenCalledWith(VALID_UUID, "tenant-abc");
+      });
+
+      it("calls getValuePaths with opportunityId and organizationId", async () => {
+        await request(app).get(`/api/v1/opportunities/${VALID_UUID}/value-graph`);
+        expect(mockGetValuePaths).toHaveBeenCalledWith(VALID_UUID, "tenant-abc");
+      });
+
+      it("returns paths sorted by path_confidence descending", async () => {
+        mockGetValuePaths.mockResolvedValue([
+          { ...MOCK_PATHS[1] }, // 0.5
+          { ...MOCK_PATHS[0] }, // 0.8
+        ]);
+
+        const res = await request(app).get(
+          `/api/v1/opportunities/${VALID_UUID}/value-graph`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.body.paths[0].path_confidence).toBe(0.8);
+        expect(res.body.paths[1].path_confidence).toBe(0.5);
+      });
+    });
+
+    describe("error handling", () => {
+      it("propagates service errors via next(err)", async () => {
+        mockGetGraphForOpportunity.mockRejectedValue(new Error("DB connection failed"));
+
+        const res = await request(app).get(
+          `/api/v1/opportunities/${VALID_UUID}/value-graph`,
+        );
+        expect(res.status).toBe(500);
+        expect(res.body).toMatchObject({ error: "DB connection failed" });
+      });
     });
   });
 });
