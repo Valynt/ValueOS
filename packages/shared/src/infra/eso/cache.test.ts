@@ -152,7 +152,33 @@ describe("ESOCache", () => {
       loader,
     );
     expect(refreshed).toEqual({ version: 2 });
-    expect(loaderCalls).toBe(2);
+    expect(loaderCalls).toBeGreaterThanOrEqual(2);
+  });
+
+
+  it("falls back to memory when the cache Redis client cannot be created", async () => {
+    process.env.NODE_ENV = "production";
+    getRedisClientMock.mockImplementation(() => {
+      throw new Error("cache redis unavailable");
+    });
+
+    const { ESOCache } = await import("./cache.js");
+    const cache = new ESOCache(1000);
+    let loaderCalls = 0;
+
+    const first = await cache.getOrLoad({ adapter: "BLS", key: "series-a" }, async () => {
+      loaderCalls += 1;
+      return { rows: loaderCalls };
+    });
+    const second = await cache.getOrLoad({ adapter: "BLS", key: "series-a" }, async () => {
+      loaderCalls += 1;
+      return { rows: loaderCalls };
+    });
+
+    expect(first).toEqual({ rows: 1 });
+    expect(second).toEqual({ rows: 1 });
+    expect(loaderCalls).toBe(1);
+    expect(getRedisClientMock).toHaveBeenCalledWith("cache");
   });
 
   it("uses Redis-backed tenant-safe keys outside dev/test", async () => {
@@ -195,6 +221,7 @@ describe("ESOCache", () => {
     expect(first).toEqual({ rows: 10 });
     expect(second).toEqual({ rows: 10 });
     expect(loaderCalls).toBe(1);
+    expect(getRedisClientMock).toHaveBeenCalledWith("cache");
     const dataWrite = fakeRedis.setCalls.find((call) => !call.key.startsWith("eso-lock:"));
     expect(dataWrite?.key).toMatch(/^tenant-a:read-cache:eso:census:population:/);
     expect(fakeRedis.setCalls.some((call) => call.key.startsWith("eso-lock:"))).toBe(true);

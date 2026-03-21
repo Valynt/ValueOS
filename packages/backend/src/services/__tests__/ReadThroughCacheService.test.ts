@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  mockGetRedisClient,
   mockGet,
   mockSet,
   mockScan,
@@ -12,6 +13,7 @@ const {
   unlinkExecResults,
   delExecResults,
 } = vi.hoisted(() => ({
+  mockGetRedisClient: vi.fn(),
   mockGet: vi.fn(),
   mockSet: vi.fn(),
   mockScan: vi.fn(),
@@ -25,7 +27,7 @@ const {
 }));
 
 vi.mock("../../lib/redisClient.js", () => ({
-  getRedisClient: vi.fn().mockResolvedValue({
+  getRedisClient: mockGetRedisClient.mockResolvedValue({
     get: mockGet,
     set: mockSet,
     scan: mockScan,
@@ -88,6 +90,7 @@ function createPipeline() {
 
 describe("ReadThroughCacheService.getOrLoad", () => {
   beforeEach(() => {
+    mockGetRedisClient.mockClear();
     mockGet.mockReset();
     mockSet.mockReset();
     readCacheEventsTotalInc.mockReset();
@@ -105,12 +108,24 @@ describe("ReadThroughCacheService.getOrLoad", () => {
 
     expect(result).toEqual({ value: 42 });
     expect(loader).not.toHaveBeenCalled();
+    expect(mockGetRedisClient).toHaveBeenCalledWith('cache');
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
       cache_name: `read-through:${ENDPOINT}`,
       cache_namespace: ENDPOINT,
       cache_layer: "redis",
       outcome: "hit",
     });
+  });
+
+  it("bypasses Redis and serves the loader result when the cache client is unavailable", async () => {
+    mockGetRedisClient.mockResolvedValueOnce(null);
+    const loader = vi.fn().mockResolvedValue({ value: 55 });
+
+    const result = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
+
+    expect(result).toEqual({ value: 55 });
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(readCacheEventsTotalInc).toHaveBeenCalledWith({ endpoint: ENDPOINT, event: "bypass" });
   });
 
   it("coalesces concurrent misses onto a single loader", async () => {
