@@ -1,6 +1,6 @@
 import { logger } from "@valueos/shared";
 
-import { DataIngestionAdapter, IngestionConfig } from "../types.js";
+import { AdapterPayload, DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
@@ -61,12 +61,16 @@ class MarketDataStreamAdapter {
   }
 }
 
-export class SECAdapter implements DataIngestionAdapter {
+type SECFetchParams = { cik?: string; type?: string };
+
+type SECDataPayload = Record<string, unknown> | unknown[];
+
+export class SECAdapter implements DataIngestionAdapter<SECFetchParams, SECDataPayload, AdapterPayload> {
   name = "SEC";
   private rateLimiter?: RateLimiter;
-  private cache?: Cache;
+  private cache?: Cache<SECDataPayload>;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: unknown) => void> = new Set();
+  private dataCallbacks: Set<(data: SECDataPayload | MarketDataPoint) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private marketDataAdapter: MarketDataStreamAdapter;
@@ -81,7 +85,7 @@ export class SECAdapter implements DataIngestionAdapter {
     this.marketDataAdapter = new MarketDataStreamAdapter(config.marketData || {}, config.apiKey);
   }
 
-  async fetchData(params: { cik?: string; type?: string } = {}): Promise<unknown> {
+  async fetchData(params: SECFetchParams = {}): Promise<SECDataPayload> {
     const cacheKey = `sec-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -110,7 +114,7 @@ export class SECAdapter implements DataIngestionAdapter {
       throw new Error(`SEC API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as SECDataPayload;
 
     if (this.cache) {
       this.cache.set(cacheKey, data);
@@ -119,12 +123,7 @@ export class SECAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: unknown): Promise<{
-    source: "SEC-EDGAR";
-    ingestionType: "sec_filing";
-    data: unknown;
-    timestamp: string;
-  }> {
+  async transformData(rawData: SECDataPayload): Promise<AdapterPayload> {
     return {
       source: "SEC-EDGAR",
       ingestionType: "sec_filing",
@@ -166,12 +165,12 @@ export class SECAdapter implements DataIngestionAdapter {
     this.isStreaming = false;
   }
 
-  onData(callback: (data: unknown) => void): () => void {
+  onData(callback: (data: SECDataPayload | MarketDataPoint) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: unknown) {
+  private notifyDataCallbacks(data: SECDataPayload | MarketDataPoint) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

@@ -1,12 +1,25 @@
-import { DataIngestionAdapter, IngestionConfig } from "../types.js";
+import { AdapterPayload, DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
-export class CensusAdapter implements DataIngestionAdapter {
+type CensusParams = {
+  dataset: string;
+  variables: string[];
+  geography?: string;
+};
+
+type CensusStreamingParams = {
+  datasets?: CensusParams[];
+  pollInterval?: number;
+};
+
+type CensusDataPayload = Record<string, unknown> | unknown[];
+
+export class CensusAdapter implements DataIngestionAdapter<CensusParams, CensusDataPayload, AdapterPayload> {
   name = "Census";
   private rateLimiter?: RateLimiter;
-  private cache?: Cache;
-  private dataCallbacks: Set<(data: unknown) => void> = new Set();
+  private cache?: Cache<CensusDataPayload>;
+  private dataCallbacks: Set<(data: AdapterPayload) => void> = new Set();
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
   private lastDataTimestamps: Map<string, string> = new Map();
@@ -20,11 +33,7 @@ export class CensusAdapter implements DataIngestionAdapter {
     }
   }
 
-  async fetchData(params: {
-    dataset: string;
-    variables: string[];
-    geography?: string;
-  }): Promise<unknown> {
+  async fetchData(params: CensusParams): Promise<CensusDataPayload> {
     const cacheKey = `census-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -50,7 +59,7 @@ export class CensusAdapter implements DataIngestionAdapter {
       throw new Error(`Census API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as CensusDataPayload;
 
     if (this.cache) {
       this.cache.set(cacheKey, data);
@@ -59,11 +68,7 @@ export class CensusAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: unknown): Promise<{
-    source: "Census";
-    data: unknown;
-    timestamp: string;
-  }> {
+  async transformData(rawData: CensusDataPayload): Promise<AdapterPayload> {
     // Transform Census data to standardized format
     return {
       source: "Census",
@@ -73,10 +78,7 @@ export class CensusAdapter implements DataIngestionAdapter {
   }
 
   async startStreaming(
-    params: {
-      datasets?: Array<{ dataset: string; variables: string[]; geography?: string }>;
-      pollInterval?: number;
-    } = {}
+    params: CensusStreamingParams = {}
   ): Promise<void> {
     if (this.isStreaming) return;
 
@@ -105,11 +107,8 @@ export class CensusAdapter implements DataIngestionAdapter {
           // In production, you'd check for actual data changes
           if (!lastTimestamp || Date.now() - new Date(lastTimestamp).getTime() > pollInterval) {
             this.lastDataTimestamps.set(dataKey, currentTimestamp);
-            this.notifyDataCallbacks(
-              typeof data === "object" && data !== null
-                ? { ...data, dataset: dataset.dataset }
-                : { data, dataset: dataset.dataset }
-            );
+            const payload = Array.isArray(data) ? { rows: data, dataset: dataset.dataset } : { ...data, dataset: dataset.dataset };
+            this.notifyDataCallbacks(payload);
           }
         }
       } catch (error) {
@@ -132,12 +131,12 @@ export class CensusAdapter implements DataIngestionAdapter {
     }
   }
 
-  onData(callback: (data: unknown) => void): () => void {
+  onData(callback: (data: AdapterPayload) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: unknown) {
+  private notifyDataCallbacks(data: AdapterPayload) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

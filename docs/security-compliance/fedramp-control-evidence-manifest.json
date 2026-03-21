@@ -75,7 +75,7 @@
         "docs/security-compliance/control-traceability-matrix.md"
       ],
       "migration_lineage": [
-        "infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql",
+        "infra/supabase/supabase/migrations/archive/deferred-superseded/20231103000000_create_security_audit_log.sql",
         "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
       ]
     },
@@ -98,7 +98,7 @@
         "docs/security-compliance/evidence-index.md"
       ],
       "migration_lineage": [
-        "infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql",
+        "infra/supabase/supabase/migrations/archive/deferred-superseded/20231103000000_create_security_audit_log.sql",
         "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
       ]
     },

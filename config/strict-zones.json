@@ -20,16 +20,10 @@
     "packages/backend/src/services/billing",
     "packages/backend/src/api/auth.ts",
     "packages/backend/src/api/admin.ts",
-    "packages/infra/eso",
-    "packages/sdui/src/performance/PerformanceMonitor.ts",
-    "packages/sdui/src/migrations.ts",
-    "packages/sdui/src/theme/SDUITheme.ts",
-    "packages/sdui/src/components/Agent/ConfidenceDisplay.tsx",
-    "packages/sdui/src/LazyComponentRegistry.tsx",
-    "packages/sdui/src/SchemaStore.ts"
+    "packages/infra/eso"
   ],
-  "comment": "Strict islands phase 2: expanded to shared, sdui-types, and mcp packages (all at 0 TS errors). ESLint strict-any zones now ratchet production runtime first, then newly cleaned shared-library modules in infra/eso and SDUI.",
-  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig. Expand eslint_strict_any_zones after each debt-reduction PR lowers explicit-any counts in production-runtime and shared-library buckets.",
+  "comment": "Strict islands phase 2: expanded to shared, sdui-types, and mcp packages (all at 0 TS errors). ESLint strict-any zones now also cover cleaned shared-library hotspots in packages/infra/eso.",
+  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig. ESLint strict-any zones are expanded independently -- see eslint.config.js strictNoAnyOverrides.",
   "ratchet": {
     "baseline_file": ".quality/tsc-baseline.json",
     "command": "pnpm exec tsc --noEmit --pretty false"

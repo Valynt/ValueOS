@@ -11,7 +11,7 @@ For initial release hardening, the historical pre-release chain was archived and
 
 Archived to:
 
-- `infra/supabase/supabase/migrations_archive/2026-03-pre-initial-release/`
+- `infra/supabase/supabase/migrations/archive/pre-initial-release-2026-03/`
 
 Ordered files:
 

@@ -1,7 +1,7 @@
 import { getEnvVar } from "../lib/env";
 
-import { serverSettings } from "./settings.server";
+import { settings } from "./settings.server";
 
 export function getDatabaseUrl(): string | undefined {
-  return serverSettings.DATABASE_URL ?? getEnvVar("DATABASE_URL");
+  return settings.DATABASE_URL ?? getEnvVar("DATABASE_URL");
 }

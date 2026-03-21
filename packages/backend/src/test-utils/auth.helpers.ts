@@ -5,6 +5,8 @@
  * setup, and teardown utilities.
  */
 
+import type { NextFunction, Request, Response } from "express";
+
 import { assertCapability, assertTenantMember, deny } from "../services/auth/AuthPolicy.js";
 import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
 
@@ -33,8 +35,14 @@ export function createMockAuthContext(userType: keyof typeof TEST_USERS = 'membe
   };
 }
 
+type MockRequest = Request & {
+  user?: (typeof TEST_USERS)[keyof typeof TEST_USERS];
+  tenant?: (typeof TEST_TENANTS)[keyof typeof TEST_TENANTS];
+  auth?: MockAuthContext;
+};
+
 export function mockAuthMiddleware(userType: keyof typeof TEST_USERS = 'member') {
-  return (req: any, res: any, next: any) => {
+  return (req: MockRequest, _res: Response, next: NextFunction) => {
     req.user = TEST_USERS[userType];
     req.tenant = TEST_TENANTS.primary;
     req.auth = createMockAuthContext(userType);
@@ -144,7 +152,7 @@ export async function waitForAuth(timeoutMs = 1000): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, timeoutMs));
 }
 
-export function expectAuthError(error: any, expectedCode: string) {
+export function expectAuthError(error: { code?: string } | null | undefined, expectedCode: string) {
   if (!error || error.code !== expectedCode) {
     throw new Error(`Expected auth error with code ${expectedCode}, got: ${error?.code}`);
   }
