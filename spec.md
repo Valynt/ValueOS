@@ -1,204 +1,199 @@
-# Spec: Address Test Suite Failures
+# Spec: Sprint 49 — Test Stabilization + Value Graph Agent Integration + API
 
 ## Problem Statement
 
-The workspace test suite has ~1,194 failing tests across 6 packages. Failures fall into distinct, diagnosable root causes — not widespread logic bugs. This spec covers all of them.
+Three distinct gaps block Sprint 49 delivery:
 
----
+1. **~120 backend test files crash at module-init time** because their `vi.mock` for the logger omits `createLogger`. Source files call `createLogger({ component: '...' })` at the top level; when a transitive import hits a mock that doesn't export `createLogger`, Vitest throws before any test runs. This is a pre-existing infrastructure gap that must be resolved before Sprint 49 agent tests can be written.
 
-## Packages in Scope
+2. **Five agents have no Value Graph integration.** `NarrativeAgent`, `TargetAgent`, `RealizationAgent`, `ExpansionAgent`, and `ComplianceAuditorAgent` do not read from or write to `ValueGraphService`. Sprint 48 identified two classes of silent failure in the first two agents: (a) wrong context key used to extract `opportunity_id`, causing writes to the wrong entity; (b) non-UUID string fallbacks hitting UUID Postgres columns and crashing writes silently. A shared `BaseGraphWriter` utility must enforce these invariants so the five new agents cannot repeat the same bugs.
 
-| Package | Failing Tests | Root Cause Category |
-|---|---|---|
-| `@valueos/backend` | 1,174 | Module-load Supabase guard (99 suites) + mock mismatches + contract drift |
-| `mcp-ground-truth` | 9 | API contract drift + missing env var in test setup |
-| `@valueos/components` | 5 | Tests assert against stale text/aria-labels |
-| `@valueos/shared` | 3 | Missing export + error message regex mismatch |
-| `domain-validator` | 0 tests run | Package not in pnpm workspace → deps not linked |
-| `@valueos/infra` | 1 suite fails to load | Missing `@valueos/shared` alias in root vitest config |
+3. **The 7 Value Graph API endpoints do not exist.** Sprint 49 requires a new router at `/api/v1/graph/:opportunityId/` with authentication, tenant context, and an explicit opportunity-ownership check before any handler executes.
 
 ---
 
 ## Requirements
 
-### 1. `@valueos/backend` — Lazy-init Supabase in `ComplianceControlStatusService`
+### 1. Global Logger Mock in `packages/backend/src/test/setup.ts`
 
-**Root cause:** `ComplianceControlStatusService` declares `private readonly supabase = createServerSupabaseClient()` as a class field initializer. This runs at `new ComplianceControlStatusService()` time, which happens when the module-level singleton `complianceControlStatusService` is created at line 425. Any test that imports from `src/services/security/index.ts` (directly or transitively) triggers this, hitting `assertRealSupabaseAllowed()` and throwing before any test runs.
+**Behaviour:** Add a global `vi.mock` for both logger module paths that provides `createLogger` as a `vi.fn()` returning a full mock logger object. The mock must be **overridable** — per-test `vi.mock` calls in individual files continue to take precedence, preserving existing high-fidelity assertions (e.g. `GuestAccessService.test.ts`).
 
-**Fix:** Change the field initializer to lazy initialization — only call `createServerSupabaseClient()` on first use.
+**Paths to mock globally:**
+- `../../lib/logger` (and `.js` variant) — the backend's own structured logger
+- `@shared/lib/logger` — the shared package logger
+
+**Mock shape** (must match both loggers' exported surface):
 
 ```typescript
-// Before
-private readonly supabase = createServerSupabaseClient();
-
-// After
-private _supabase: ServiceRoleSupabaseClient | undefined;
-private get supabase(): ServiceRoleSupabaseClient {
-  if (!this._supabase) this._supabase = createServerSupabaseClient();
-  return this._supabase;
+{
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  createLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
 }
 ```
 
-**Acceptance criteria:**
-- Running any backend test that previously failed with `"Unexpected Supabase client creation during tests (createServerSupabaseClient)"` no longer throws at suite collection time.
-- The 99 previously-blocked suites now collect and run.
+**Reset:** `vi.clearAllMocks()` already runs in `afterEach` — no additional reset needed.
+
+**Constraint:** Do not remove or modify any existing per-test `vi.mock` calls. The global mock is a safety net, not a replacement.
 
 ---
 
-### 2. `@valueos/backend` — Triage remaining ~156 failing files
+### 2. `BaseGraphWriter` Utility
 
-After the lazy-init fix, re-run the backend suite and categorize remaining failures. Fix the following clear-cut categories:
+**Location:** `packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts`
 
-**2a. Mock export mismatches — `createLogger` not in mock factory**
+**Purpose:** A class that agents compose to write nodes and edges to the Value Graph. It enforces three invariants that prevented silent failures in Sprint 48.
 
-Several tests mock `lib/logger.js` with only `{ logger: { ... } }` but the module under test also calls `createLogger(...)`. The mock factory must include `createLogger`.
+#### 2a. Canonical Context Extraction
 
-Affected files include:
-- `src/services/security/__tests__/audit-logger-server-side-delivery.unit.test.ts`
-- `src/services/__tests__/EventConsumer.test.ts`
-- Any other file with `[vitest] No "createLogger" export is defined on the "...logger" mock`
+Expose a `protected getSafeContext(context: LifecycleContext): { opportunityId: string; organizationId: string }` method.
 
-**Fix:** Add `createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }))` to each affected mock factory.
+- Extract `opportunity_id` from `context.user_inputs` or `context.metadata`. If missing or not a valid UUID v4, throw `LifecycleContextError` with a descriptive message — never fall back to `workspace_id` or any other key.
+- Extract `organization_id` from `context.organization_id`. If missing or not a valid UUID v4, throw.
 
-**2b. Mock export mismatches — `createServiceRoleSupabaseClient` not in mock factory**
+#### 2b. Safe UUID Generation
 
-Two test files mock `@shared/lib/supabase.js` but omit `createServiceRoleSupabaseClient`.
+Expose a `protected generateNodeId(deterministicInput?: string): string` helper.
 
-**Fix:** Add the missing export to the mock factory in each affected file.
+- If `deterministicInput` is provided and is already a valid UUID v4, return it as-is.
+- Otherwise, call `crypto.randomUUID()` — never pass a raw string fallback to a UUID column.
 
-**2c. Contract drift — remaining failures after the above**
+#### 2c. Atomic Write Isolation
 
-After fixing 2a and 2b, re-run and assess. Fix any remaining failures where the fix is unambiguous (wrong assertion value, renamed method, etc.). Document any failures that require deeper investigation as known issues rather than leaving them silently broken.
+Expose a `protected async safeWriteBatch(writes: Array<() => Promise<unknown>>): Promise<{ succeeded: number; failed: number; errors: Error[] }>` method.
 
-**Acceptance criteria:**
-- All `[vitest] No "X" export is defined on the "Y" mock` errors are resolved.
-- Net failing test count in `@valueos/backend` is materially reduced from 1,174.
+- Uses `Promise.allSettled` internally so one failed write does not abort the remaining writes.
+- Logs each failure with `logger.error` including the write index and error message.
+- Returns a summary object; callers decide whether to surface partial failure to the agent output.
 
----
+#### 2d. Convenience write methods
 
-### 3. `mcp-ground-truth` — Two distinct fixes
+Thin wrappers over `ValueGraphService` that call `getSafeContext` before delegating:
 
-**3a. `GroundTruthIntegrationService.ingestSECData` — update tests to new contract**
+- `writeCapability(context, input: Omit<WriteCapabilityInput, 'opportunity_id' | 'organization_id'>): Promise<VgCapability>`
+- `writeMetric(context, input: Omit<WriteMetricInput, 'opportunity_id' | 'organization_id'>): Promise<VgMetric>`
+- `writeValueDriver(context, input: Omit<WriteValueDriverInput, 'opportunity_id' | 'organization_id'>): Promise<VgValueDriver>`
+- `writeEdge(context, input: Omit<WriteEdgeInput, 'opportunity_id' | 'organization_id'>): Promise<ValueGraphEdge>`
 
-The implementation was changed to return a `SECIngestionAggregateResult` object (with fields `cik`, `period`, `tenantId`, `metricsRequested`, `metricsPersisted`, `metricFailures`, `success`) instead of a `ModuleResponse[]` array. The tests in `services/__tests__/GroundTruthIntegrationService.test.ts` still assert the old array contract.
+**Dependencies:** `ValueGraphService` injected via constructor for testability; defaults to the singleton `valueGraphService`.
 
-**Fix:** Update the 4 failing tests to assert against the new object shape:
-- Empty metrics → `{ success: true, metricsRequested: [], metricsPersisted: [], metricFailures: [] }`
-- All succeed → `success: true`, `metricsPersisted.length === metrics.length`
-- Partial failure → `success: false`, `metricFailures` contains the failed metric
-- Non-Error throw → `success: false`, `metricFailures[0].error` contains the string
-
-**3b. `WebSocketServer.validateAuthToken` — fix env var name in test setup**
-
-The test sets `process.env.WS_AUTH_JWT_SECRET` but `WebSocketServer.validateAuthToken()` reads `process.env.SUPABASE_JWT_SECRET ?? process.env.JWT_SECRET`. When neither is set, the method logs a warning and returns `null` instead of validating.
-
-**Fix:** In `WebSocketServer.test.ts` `beforeEach`, also set `process.env.SUPABASE_JWT_SECRET` to the test signing key, and clear it in `afterEach`. The `jwtVerifyMock` is already set up to control outcomes.
-
-**3c. `MCPServer.security.test.ts` — fix invalid assignment syntax**
-
-Lines 86 and 95 use `require("crypto") = undefined` which is an invalid assignment target in ESM/esbuild. This file fails to compile entirely.
-
-**Fix:** Replace with `vi.mock("crypto", ...)` or use `vi.spyOn` to simulate the crypto failure, removing the invalid `require()` assignment.
-
-**Acceptance criteria:**
-- All 9 `mcp-ground-truth` failures resolved.
-- `MCPServer.security.test.ts` compiles and runs.
+**Error type:** Export `LifecycleContextError extends Error` from the same file.
 
 ---
 
-### 4. `@valueos/components` — Fix tests to match current component behavior
+### 3. Five Agent Integrations (Sprint 49 KR 1)
 
-**4a. `ConfidenceBadge` — threshold boundary**
+Wire each of the five agents to the Value Graph using `BaseGraphWriter`. Each agent:
 
-The component uses `score >= 0.8` for "High". Score `0.75` is "Medium". The test at `it("includes aria-label with confidence info")` asserts `"Confidence: 75% - High confidence"` — this is wrong.
+- Composes `BaseGraphWriter` (not extends — agents already extend `BaseAgent`).
+- Calls `getSafeContext(context)` at the start of its graph-write phase.
+- Uses `safeWriteBatch` for all node/edge writes.
+- Has a unit test asserting expected node types and edge types are written after a successful run (mock `ValueGraphService`).
 
-**Fix:** Change the assertion to `"Confidence: 75% - Medium confidence"`.
+**Per-agent graph writes:**
 
-**4b. `ProvenancePanel` — text and aria-label drift**
-
-The component renders:
-- `<h2>Data Lineage</h2>` (not "Provenance")
-- `aria-label="Close panel"` (not "Close provenance panel")
-
-Three tests assert the stale strings.
-
-**Fix:** Update the three failing tests:
-- `getByText("Provenance")` → `getByText("Data Lineage")`
-- `getByLabelText("Close provenance panel")` → `getByLabelText("Close panel")`
-- Loading/error state tests: verify they still render correctly with the updated selectors
-
-**Acceptance criteria:**
-- All 5 `@valueos/components` failures resolved with no component source changes.
+| Agent | Writes |
+|---|---|
+| `NarrativeAgent` | `VgValueDriver` nodes; `metric_maps_to_value_driver` edges |
+| `TargetAgent` | `VgMetric` nodes (KPI targets); `capability_impacts_metric` edges |
+| `RealizationAgent` | `VgMetric` nodes (actuals vs targets); `metric_maps_to_value_driver` edges |
+| `ExpansionAgent` | `VgCapability` nodes; `use_case_enabled_by_capability` edges |
+| `ComplianceAuditorAgent` | `VgValueDriver` nodes (compliance risk drivers); `hypothesis_claims_metric` edges |
 
 ---
 
-### 5. `@valueos/shared` — Export and error message fixes
+### 4. Value Graph API Router (Sprint 49 KR 2)
 
-**5a. Missing export: `createRequestRlsSupabaseClient`**
+**File:** `packages/backend/src/api/valueGraph.ts`
 
-The test imports `createRequestRlsSupabaseClient` from `./supabase` but the function does not exist in `packages/shared/src/lib/supabase.ts`. The existing equivalent is `createRequestSupabaseClient` (takes `{ accessToken }`) which has a different signature.
+**Mount point:** `/api/v1/graph` in `server.ts`
 
-**Fix:** Add `createRequestRlsSupabaseClient` as a named export that accepts `{ headers: { authorization?: string } }`, extracts the bearer token, throws with message matching `/will not fall back to anon or service-role credentials/` when no valid token is present, and delegates to `createRequestSupabaseClient` when a token is found.
+**Middleware chain on all routes:**
 
-**5b. Error message regex mismatch**
-
-Test expects: `/service role key is required for elevated server-side operations/`
-Actual message: `"Supabase service role key is required for server-side operations"`
-
-**Fix:** Update the error message in `createServiceRoleSupabaseClient()` to: `"Supabase service role key is required for elevated server-side operations"`.
-
-**Acceptance criteria:**
-- All 3 `@valueos/shared` failures resolved.
-
----
-
-### 6. `domain-validator` — Add to pnpm workspace
-
-**Root cause:** `packages/services/domain-validator` is not matched by the `"packages/*"` glob in `pnpm-workspace.yaml` because it is nested one level deeper under `packages/services/`. As a result, `winston` and `supertest` are declared as dependencies but never linked into the package's `node_modules`.
-
-**Fix:** Add `"packages/services/*"` to `pnpm-workspace.yaml`, then run `pnpm install` to link the dependencies.
-
-**Acceptance criteria:**
-- `pnpm --filter @valuecanvas/domain-validator vitest run` collects and runs all 3 test files without import errors.
-
----
-
-### 7. `@valueos/infra` — Add `@valueos/shared` alias to root vitest config
-
-**Root cause:** The root `vitest.config.ts` defines the `infra` project inline without a `resolve.alias` block. The package-local `packages/infra/vitest.config.ts` has the alias, but the root workspace runner uses its own inline definition which lacks it. `packages/infra/eso/sec/index.ts` imports `@valueos/shared` which cannot be resolved.
-
-**Fix:** Add a `resolve.alias` block to the `"packages/infra"` inline project definition in the root `vitest.config.ts`:
-
-```typescript
-resolve: {
-  alias: {
-    "@valueos/shared": path.resolve(root, "packages/shared/src/index.ts"),
-  },
-},
+```
+requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware() → validateOpportunityAccess
 ```
 
-**Acceptance criteria:**
-- `pnpm vitest run --project infra` runs all 4 infra test files without `ERR_MODULE_NOT_FOUND` for `@valueos/shared`.
+#### 4a. `validateOpportunityAccess` middleware
+
+**File:** `packages/backend/src/middleware/validateOpportunityAccess.ts`
+
+- Reads `req.params.opportunityId`.
+- Queries `value_cases` for `{ organization_id }` where `id = opportunityId`, using `req.supabase` (tenant-scoped client set by `tenantDbContextMiddleware`).
+- Returns `403 { error: "Access to this Value Graph is denied." }` if not found or `organization_id !== req.tenantId`.
+- On success, attaches `req.opportunityId = opportunityId`.
+- Add `opportunityId: string` to `packages/backend/src/types/express.d.ts`.
+
+#### 4b. The 7 endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/graph/:opportunityId/summary` | Node/edge counts by type from `getGraphForOpportunity` |
+| `GET` | `/api/v1/graph/:opportunityId/nodes` | Paginated nodes; `?entity_type=` filter supported |
+| `GET` | `/api/v1/graph/:opportunityId/export` | Full graph JSON (nodes + edges) |
+| `GET` | `/api/v1/graph/:opportunityId/paths` | Value paths from `getValuePaths()` |
+| `POST` | `/api/v1/graph/:opportunityId/edges` | Manually create an edge; Zod-validated body |
+| `PATCH` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Update node metadata; Zod-validated body |
+| `DELETE` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Remove node; writes audit log entry via `AuditLogger` |
+
+All responses include `organization_id` and `opportunity_id`.
+
+**OpenAPI:** Update `packages/backend/openapi.yaml` with all 7 paths.
+
+---
+
+## Acceptance Criteria
+
+### Item 1 — Global Logger Mock
+- `pnpm --filter backend test` produces zero `[vitest] No "createLogger" export is defined` errors.
+- `GuestAccessService.test.ts` and other tests with custom `vi.hoisted` logger spies continue to pass with their spy assertions intact.
+- Net failing test count in `@valueos/backend` is materially reduced from ~284.
+
+### Item 2 — `BaseGraphWriter`
+- `LifecycleContextError` is thrown (not swallowed) when `opportunity_id` is missing or not a UUID.
+- `generateNodeId` never returns a non-UUID string.
+- `safeWriteBatch` with one failing write commits the remaining writes and returns `{ succeeded: N-1, failed: 1, errors: [...] }`.
+- Unit tests for all three invariants pass.
+
+### Item 3 — Five Agent Integrations
+- Each agent has a test asserting expected node and edge types are written after a successful run.
+- No agent calls `ValueGraphService` methods directly — all writes go through `BaseGraphWriter`.
+- `pnpm test` green for all five agent test files.
+
+### Item 4 — Value Graph API
+- All 7 endpoints return `401` when unauthenticated.
+- All 7 endpoints return `403` when `opportunityId` belongs to a different tenant.
+- Read endpoints return correct data shapes from `ValueGraphService`.
+- Write/mutate endpoints return `400` on invalid Zod input.
+- `DELETE /nodes/:nodeId` writes an audit log entry.
+- `pnpm test` green for the new router test file.
+- `openapi.yaml` updated with all 7 paths.
 
 ---
 
 ## Implementation Order
 
-1. **`@valueos/infra`** — root vitest config alias (1 file, unblocks infra suite immediately)
-2. **`domain-validator`** — add `packages/services/*` to pnpm-workspace.yaml + `pnpm install`
-3. **`@valueos/shared`** — add `createRequestRlsSupabaseClient` export + fix error message
-4. **`@valueos/components`** — update ConfidenceBadge + ProvenancePanel tests
-5. **`mcp-ground-truth`** — update ingestSECData tests + fix WebSocket env + fix MCPServer.security.test.ts
-6. **`@valueos/backend`** — lazy-init `ComplianceControlStatusService` (highest-impact single change)
-7. **`@valueos/backend`** — re-run suite, fix all `createLogger` and `createServiceRoleSupabaseClient` mock mismatches
-8. **`@valueos/backend`** — re-run suite, triage and fix remaining clear-cut failures
-9. **Verify** — run full workspace `pnpm test` and confirm net improvement
+1. **Global logger mock in `setup.ts`** — verify zero `createLogger` errors before proceeding.
+2. **`LifecycleContextError` + `BaseGraphWriter`** — implement and unit-test all three invariants.
+3. **`NarrativeAgent` graph integration** — first agent, establishes the composition pattern.
+4. **`TargetAgent`, `RealizationAgent`, `ExpansionAgent`, `ComplianceAuditorAgent` graph integrations** — follow the same pattern.
+5. **`validateOpportunityAccess` middleware** — implement and unit-test in isolation.
+6. **Value Graph API router** — implement all 7 endpoints, wire middleware chain, mount in `server.ts`.
+7. **Update `express.d.ts`** — add `opportunityId: string` to `Request`.
+8. **Update `openapi.yaml`** — add all 7 paths.
+9. **Run `pnpm test`** — verify green across all new and modified files.
 
 ---
 
 ## Out of Scope
 
-- `@valueos/sdui` `AccessibilityCompliance.test.tsx` jsdom collection failure (affects valynt-app too — separate investigation needed)
-- `@valueos/sdui` `performance.benchmark.test.ts` flaky timing assertion
-- `@valueos/backend` failures that require deeper investigation after triage in step 8
-- `auth_leaked_password_protection` and `extension_in_public` Supabase linter warnings (project-level settings, not fixable via migration)
+- Sprint 50 UI components (`ValueGraphVisualization`, `ValuePathCard`, `MetricCard`).
+- `IntegrityAgentService` TypeScript errors (12 errors in `post-v1/IntegrityAgentService.ts`) — separate fix.
+- `ComplianceControlStatusService` lazy-init Supabase fix — separate fix.
+- Other pre-existing backend test failures not caused by the `createLogger` mock gap.

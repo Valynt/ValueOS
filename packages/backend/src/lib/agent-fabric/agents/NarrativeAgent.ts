@@ -43,6 +43,7 @@ import { MemorySystem } from "../MemorySystem.js";
 import { escapePromptInterpolation } from "../promptUtils.js";
 
 import { BaseAgent } from "./BaseAgent.js";
+import { BaseGraphWriter } from "../BaseGraphWriter.js";
 
 // ---------------------------------------------------------------------------
 // Zod schema for LLM output
@@ -512,6 +513,51 @@ export class NarrativeAgent extends BaseAgent {
         });
         // Continue with legacy narrative output even if artifact generation fails
       }
+    }
+
+    // Step 3b: Write Value Graph nodes — VgValueDriver + metric_maps_to_value_driver edges
+    try {
+      const { opportunityId } = this.graphWriter.getSafeContext(context);
+      const writes: Array<() => Promise<unknown>> = [];
+
+      for (const kpi of kpis) {
+        const driverName = String(kpi.name ?? kpi.kpi_name ?? "Value Driver");
+        const driverId = this.graphWriter.generateNodeId(kpi.id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeValueDriver(context, {
+            id: driverId,
+            name: driverName,
+            description: String(kpi.description ?? narrativeOutput.value_proposition),
+            category: "revenue",
+          })
+        );
+
+        const metricId = this.graphWriter.generateNodeId(kpi.metric_id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeEdge(context, {
+            from_entity_id: metricId,
+            from_entity_type: "vg_metric",
+            to_entity_id: driverId,
+            to_entity_type: "vg_value_driver",
+            edge_type: "metric_maps_to_value_driver",
+          })
+        );
+      }
+
+      if (writes.length > 0) {
+        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
+        logger.info("NarrativeAgent: graph write complete", {
+          succeeded,
+          failed,
+          opportunity_id: opportunityId,
+        });
+      }
+    } catch (err) {
+      // LifecycleContextError (missing opportunity_id) is logged but does not
+      // fail the agent — graph writes are best-effort for Sprint 49.
+      logger.warn("NarrativeAgent: graph write skipped", {
+        reason: (err as Error).message,
+      });
     }
 
     // Step 4: Store in memory for downstream agents

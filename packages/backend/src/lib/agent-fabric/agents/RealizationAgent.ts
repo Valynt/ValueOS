@@ -31,6 +31,7 @@ import { resolvePromptTemplate } from '../promptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -252,6 +253,42 @@ export class RealizationAgent extends BaseAgent {
           error: (feedbackErr as Error).message,
         });
       }
+    }
+
+    // Write Value Graph nodes — VgMetric (actuals) + metric_maps_to_value_driver edges
+    try {
+      const writes: Array<() => Promise<unknown>> = [];
+      for (const pp of analysis.proof_points) {
+        const metricId = this.graphWriter.generateNodeId(pp.kpi_id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeMetric(context, {
+            id: metricId,
+            name: String(pp.kpi_name ?? 'KPI'),
+            description: `Realized: ${pp.realized_value} ${pp.unit ?? ''} (${pp.direction})`,
+            baseline_value: pp.committed_value as number | undefined,
+            target_value: pp.realized_value as number | undefined,
+            unit: pp.unit as string | undefined,
+          })
+        );
+        const driverId = this.graphWriter.generateNodeId(pp.value_driver_id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeEdge(context, {
+            from_entity_id: metricId,
+            from_entity_type: 'vg_metric',
+            to_entity_id: driverId,
+            to_entity_type: 'vg_value_driver',
+            edge_type: 'metric_maps_to_value_driver',
+            created_by_agent: 'RealizationAgent',
+            confidence_score: pp.confidence as number | undefined,
+          })
+        );
+      }
+      if (writes.length > 0) {
+        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
+        logger.info('RealizationAgent: graph write complete', { succeeded, failed });
+      }
+    } catch (err) {
+      logger.warn('RealizationAgent: graph write skipped', { reason: (err as Error).message });
     }
 
     // Publish a milestone event for each proof point so the RecommendationEngine
