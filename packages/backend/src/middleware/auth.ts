@@ -400,6 +400,7 @@ async function recordFallbackActivation(alertContext: Record<string, unknown>): 
   const threshold = Number(getEnvVar(AUTH_FALLBACK_ALERT_THRESHOLD) || '5');
   const windowSeconds = Number(getEnvVar(AUTH_FALLBACK_ALERT_WINDOW_SECONDS) || '300');
   const windowMs = windowSeconds * 1000;
+  const allowProcessLocalCounter = getEnvVar("NODE_ENV") !== "production";
 
   let activationsInWindow: number;
 
@@ -418,24 +419,36 @@ async function recordFallbackActivation(alertContext: Record<string, unknown>): 
       await redis.zadd(FALLBACK_COUNTER_REDIS_KEY, now, member);
       await redis.expireat(FALLBACK_COUNTER_REDIS_KEY, expireAtSeconds);
       activationsInWindow = await redis.zcard(FALLBACK_COUNTER_REDIS_KEY);
+    } else if (allowProcessLocalCounter) {
+      // Redis unavailable — use the process-local counter only outside production.
+      fallbackActivations.push(now);
+      while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
+        fallbackActivations.shift();
+      }
+      activationsInWindow = fallbackActivations.length;
     } else {
-      // Redis unavailable — fall back to in-process array (single-instance only).
+      logger.error('recordFallbackActivation: Redis unavailable in production; skipping process-local counter', undefined, {
+        ...alertContext,
+      });
+      activationsInWindow = threshold;
+    }
+  } catch (err) {
+    if (!allowProcessLocalCounter) {
+      logger.error('recordFallbackActivation: Redis error in production; skipping process-local counter', undefined, {
+        error: err instanceof Error ? err.message : String(err),
+        ...alertContext,
+      });
+      activationsInWindow = threshold;
+    } else {
+      logger.warn('recordFallbackActivation: Redis error, using in-process counter', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       fallbackActivations.push(now);
       while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
         fallbackActivations.shift();
       }
       activationsInWindow = fallbackActivations.length;
     }
-  } catch (err) {
-    // Redis error — degrade to in-process counter rather than dropping the alert.
-    logger.warn('recordFallbackActivation: Redis error, using in-process counter', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    fallbackActivations.push(now);
-    while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
-      fallbackActivations.shift();
-    }
-    activationsInWindow = fallbackActivations.length;
   }
 
   if (activationsInWindow >= threshold) {

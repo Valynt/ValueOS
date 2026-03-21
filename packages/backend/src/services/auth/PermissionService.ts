@@ -10,9 +10,16 @@ import {
 } from "../../lib/rbacInvalidation.js";
 
 import { getRedisClient } from "../../lib/redisClient.js";
+import {
+  cacheFallbackModeTotal,
+  cacheFillDurationMs,
+  cacheHitRate,
+  cacheRequestsTotal,
+} from "../../lib/metrics/cacheMetrics.js";
 
 import { AuthorizationError, NotFoundError } from "./errors.js"
 import { TenantAwareService } from "./TenantAwareService.js"
+import { getNearCacheTtlSeconds } from "../cache/CachePolicy.js";
 
 // Re-export Permission type for backward compatibility
 export type { Permission };
@@ -44,6 +51,7 @@ export class PermissionService extends TenantAwareService {
   private roleCache: Map<string, CachedRole> = new Map();
   private readonly cacheTTL: number;
   private unsubscribeRbac?: () => Promise<void>;
+  private cacheStats = { hits: 0, misses: 0 };
 
   constructor(cacheTTL: number = ROLE_CACHE_TTL_MS) {
     super("PermissionService");
@@ -115,9 +123,23 @@ export class PermissionService extends TenantAwareService {
 
   private async getCachedRole(roleId: string): Promise<Role | null> {
     const now = Date.now();
-    const cached = this.roleCache.get(roleId);
+    const labels = this.cacheMetricLabels();
+    let redisAvailable = true;
+    try {
+      await getRedisClient();
+    } catch {
+      redisAvailable = false;
+    }
+    const cached = redisAvailable ? this.roleCache.get(roleId) : undefined;
 
     if (cached && cached.expiresAt > now) {
+      this.cacheStats.hits += 1;
+      cacheRequestsTotal.inc({
+        ...labels,
+        cache_layer: "near",
+        outcome: "hit",
+      });
+      this.updateCacheHitRate();
       return cached.role;
     }
 
@@ -127,36 +149,61 @@ export class PermissionService extends TenantAwareService {
       const redis = await getRedisClient();
       const serialized = await redis.get(this.getRoleCacheKey(roleId));
       if (!serialized) {
+        this.cacheStats.misses += 1;
+        cacheRequestsTotal.inc({
+          ...labels,
+          cache_layer: "redis",
+          outcome: "miss",
+        });
+        this.updateCacheHitRate();
         return null;
       }
 
       const role = JSON.parse(serialized) as Role;
       this.roleCache.set(roleId, {
         role,
-        expiresAt: now + this.cacheTTL,
+        expiresAt: now + getNearCacheTtlSeconds(this.cacheTTL / 1000) * 1000,
       });
+      this.cacheStats.hits += 1;
+      cacheRequestsTotal.inc({
+        ...labels,
+        cache_layer: "redis",
+        outcome: "hit",
+      });
+      this.updateCacheHitRate();
       return role;
     } catch {
+      cacheFallbackModeTotal.inc({
+        ...labels,
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
       return null;
     }
   }
 
   private async setCachedRole(roleId: string, role: Role): Promise<void> {
-    this.roleCache.set(roleId, {
-      role,
-      expiresAt: Date.now() + this.cacheTTL,
-    });
-
     try {
+      const labels = this.cacheMetricLabels();
       const redis = await getRedisClient();
+      this.roleCache.set(roleId, {
+        role,
+        expiresAt: Date.now() + getNearCacheTtlSeconds(this.cacheTTL / 1000) * 1000,
+      });
+      const fillStartedAt = Date.now();
       await redis.set(
         this.getRoleCacheKey(roleId),
         JSON.stringify(role),
         'EX',
         Math.max(1, Math.ceil(this.cacheTTL / 1000))
       );
+      cacheFillDurationMs.observe(labels, Date.now() - fillStartedAt);
     } catch {
-      // Redis write failure is non-fatal; local TTL cache still provides fallback coverage.
+      cacheFallbackModeTotal.inc({
+        ...this.cacheMetricLabels(),
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
     }
   }
 
@@ -192,6 +239,24 @@ export class PermissionService extends TenantAwareService {
         // Best-effort invalidation only.
       }
     })();
+  }
+
+  private cacheMetricLabels(): {
+    cache_name: string;
+    cache_namespace: string;
+  } {
+    return {
+      cache_name: "permission-service",
+      cache_namespace: "role-cache",
+    };
+  }
+
+  private updateCacheHitRate(): void {
+    const total = this.cacheStats.hits + this.cacheStats.misses;
+    cacheHitRate.set(
+      this.cacheMetricLabels(),
+      total > 0 ? this.cacheStats.hits / total : 0
+    );
   }
 
   /**

@@ -9,11 +9,20 @@ import {
 
 import {
   cacheCoalescedWaitersTotal,
+  cacheEvictionsTotal,
+  cacheFallbackModeTotal,
+  cacheFillDurationMs,
+  cacheHitRate,
   cacheLoaderDurationMs,
   cacheRequestsTotal,
 } from "../../lib/metrics/cacheMetrics.js";
 import { readCacheEventsTotal } from "../../lib/metrics/httpMetrics.js";
-import { getRedisClient } from "../../lib/redisClient.js";
+import { getRedisClient } from "../../lib/redis.js";
+import {
+  CacheMetricLabels,
+  getNearCacheTtlSeconds,
+  normalizeCacheKeyPayload,
+} from "./CachePolicy.js";
 
 interface RedisDeletionPipeline {
   unlink: (key: string) => RedisDeletionPipeline;
@@ -34,6 +43,7 @@ interface RedisWithScanAndMulti {
 interface NearCacheEntry {
   value: string;
   expiresAt: number;
+  labels: CacheMetricLabels;
 }
 
 export interface ReadCacheNearCacheConfig {
@@ -52,11 +62,6 @@ export interface ReadCacheConfig {
   nearCache?: ReadCacheNearCacheConfig;
 }
 
-interface CacheMetricLabels {
-  cache_name: string;
-  cache_namespace: string;
-}
-
 export class ReadThroughCacheService {
   private static readonly INVALIDATION_SCAN_BATCH_SIZE = 100;
   private static readonly INVALIDATION_DELETE_BATCH_SIZE = 100;
@@ -64,6 +69,7 @@ export class ReadThroughCacheService {
   private static readonly DEFAULT_NEAR_CACHE_MAX_ENTRIES = 128;
   private static readonly inFlightLoads = new Map<string, Promise<unknown>>();
   private static readonly nearCache = new Map<string, NearCacheEntry>();
+  private static readonly stats = new Map<string, { hits: number; misses: number }>();
 
   private static async deleteKeysWithCommand(
     keys: string[],
@@ -113,7 +119,7 @@ export class ReadThroughCacheService {
   }
 
   private static hashPayload(payload: unknown): string {
-    const serialized = JSON.stringify(payload ?? {});
+    const serialized = JSON.stringify(normalizeCacheKeyPayload(payload ?? {}));
     return crypto.createHash("sha1").update(serialized).digest("hex");
   }
 
@@ -137,11 +143,30 @@ export class ReadThroughCacheService {
   private static getNearCacheSettings(config: ReadCacheConfig): Required<ReadCacheNearCacheConfig> {
     return {
       enabled: config.nearCache?.enabled ?? false,
-      ttlSeconds:
-        config.nearCache?.ttlSeconds ?? this.DEFAULT_NEAR_CACHE_TTL_SECONDS,
+      ttlSeconds: getNearCacheTtlSeconds(
+        config.nearCache?.ttlSeconds ?? this.DEFAULT_NEAR_CACHE_TTL_SECONDS
+      ),
       maxEntries:
         config.nearCache?.maxEntries ?? this.DEFAULT_NEAR_CACHE_MAX_ENTRIES,
     };
+  }
+
+  private static updateHitRate(
+    labels: CacheMetricLabels,
+    outcome: "hit" | "miss"
+  ): void {
+    const key = `${labels.cache_name}:${labels.cache_namespace}`;
+    const current = this.stats.get(key) ?? { hits: 0, misses: 0 };
+
+    if (outcome === "hit") {
+      current.hits += 1;
+    } else {
+      current.misses += 1;
+    }
+
+    this.stats.set(key, current);
+    const total = current.hits + current.misses;
+    cacheHitRate.set(labels, total > 0 ? current.hits / total : 0);
   }
 
   private static getNearCachedValue<T>(
@@ -171,6 +196,7 @@ export class ReadThroughCacheService {
       cache_layer: "near",
       outcome: "hit",
     });
+    this.updateHitRate(labels, "hit");
     return JSON.parse(cached.value) as T;
   }
 
@@ -192,11 +218,18 @@ export class ReadThroughCacheService {
         break;
       }
       this.nearCache.delete(oldestKey);
+      cacheEvictionsTotal.inc({
+        cache_name: `read-through:${config.endpoint}`,
+        cache_namespace: config.namespace ?? config.endpoint,
+        cache_layer: "near",
+        reason: "capacity",
+      });
     }
 
     this.nearCache.set(key, {
       value,
       expiresAt: Date.now() + settings.ttlSeconds * 1000,
+      labels: this.cacheMetricLabels(config),
     });
   }
 
@@ -205,6 +238,11 @@ export class ReadThroughCacheService {
     for (const [key, entry] of this.nearCache.entries()) {
       if (entry.expiresAt < now) {
         this.nearCache.delete(key);
+        cacheEvictionsTotal.inc({
+          ...entry.labels,
+          cache_layer: "near",
+          reason: "ttl",
+        });
       }
     }
   }
@@ -233,39 +271,9 @@ export class ReadThroughCacheService {
     config: ReadCacheConfig,
     loader: () => Promise<T>
   ): Promise<T> {
-    const redis = (await getRedisClient('cache')) as RedisWithScanAndMulti | null;
     const key = this.createKey(config);
     const labels = this.cacheMetricLabels(config);
-
-    const nearCached = this.getNearCachedValue<T>(key, config, labels);
-    if (nearCached !== null) {
-      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
-      return nearCached;
-    }
-
-    if (!redis) {
-      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
-      return loader();
-    }
-
-    let cached: string | null = null;
-    try {
-      cached = await redis.get(key);
-    } catch {
-      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
-      return loader();
-    }
-
-    if (cached) {
-      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
-      cacheRequestsTotal.inc({
-        ...labels,
-        cache_layer: "redis",
-        outcome: "hit",
-      });
-      this.setNearCachedValue(key, cached, config);
-      return JSON.parse(cached) as T;
-    }
+    const redis = (await getRedisClient()) as RedisWithScanAndMulti | null;
 
     const inFlightLoad = this.inFlightLoads.get(key) as Promise<T> | undefined;
     if (inFlightLoad) {
@@ -278,12 +286,62 @@ export class ReadThroughCacheService {
       return inFlightLoad;
     }
 
+    if (!redis) {
+      cacheFallbackModeTotal.inc({
+        ...labels,
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
+      const loadPromise = (async () => {
+        const startedAt = Date.now();
+        try {
+          return await loader();
+        } finally {
+          cacheLoaderDurationMs.observe(labels, Date.now() - startedAt);
+          this.inFlightLoads.delete(key);
+        }
+      })();
+      this.inFlightLoads.set(key, loadPromise);
+      return loadPromise;
+    }
+
+    const nearCached = this.getNearCachedValue<T>(key, config, labels);
+    if (nearCached !== null) {
+      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
+      return nearCached;
+    }
+
+    const cached = await redis.get(key);
+    if (cached) {
+      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
+      cacheRequestsTotal.inc({
+        ...labels,
+        cache_layer: "redis",
+        outcome: "hit",
+      });
+      this.updateHitRate(labels, "hit");
+      this.setNearCachedValue(key, cached, config);
+      return JSON.parse(cached) as T;
+    }
+
     readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "miss" });
     cacheRequestsTotal.inc({
       ...labels,
       cache_layer: "redis",
       outcome: "miss",
     });
+    this.updateHitRate(labels, "miss");
+
+    const coalescedAfterMiss = this.inFlightLoads.get(key) as Promise<T> | undefined;
+    if (coalescedAfterMiss) {
+      cacheCoalescedWaitersTotal.inc(labels);
+      cacheRequestsTotal.inc({
+        ...labels,
+        cache_layer: "process",
+        outcome: "coalesced",
+      });
+      return coalescedAfterMiss;
+    }
 
     const loadPromise = (async () => {
       const startedAt = Date.now();
@@ -293,11 +351,8 @@ export class ReadThroughCacheService {
         if (loaded !== undefined) {
           const serialized = JSON.stringify(loaded);
           const ttl = CACHE_TTL_TIERS_SECONDS[config.tier];
-          try {
-            await redis.set(key, serialized, { EX: ttl });
-          } catch {
-            readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
-          }
+          await redis.set(key, serialized, { EX: ttl });
+          cacheFillDurationMs.observe(labels, Date.now() - startedAt);
           this.setNearCachedValue(key, serialized, config);
         } else {
           this.deleteNearCachedKey(key);
@@ -318,20 +373,35 @@ export class ReadThroughCacheService {
     tenantId: string,
     endpoint: string
   ): Promise<number> {
-    const redis = (await getRedisClient('cache')) as RedisWithScanAndMulti | null;
+    const redis = (await getRedisClient()) as RedisWithScanAndMulti | null;
     const pattern = tenantReadCachePattern({ tenantId, endpoint });
     let cursor = "0";
-    let deleted = this.deleteNearCachedEndpoint(tenantId, endpoint);
+    const nearDeleted = this.deleteNearCachedEndpoint(tenantId, endpoint);
+    let redisDeleted = 0;
 
-    if (!redis) {
-      if (deleted) {
-        readCacheEventsTotal.inc({ endpoint, event: 'eviction' }, deleted);
-      }
-      return deleted;
+    if (nearDeleted > 0) {
+      cacheEvictionsTotal.inc(
+        {
+          cache_name: `read-through:${endpoint}`,
+          cache_namespace: endpoint,
+          cache_layer: "near",
+          reason: "invalidation",
+        },
+        nearDeleted
+      );
     }
 
-    try {
-      do {
+    if (!redis) {
+      cacheFallbackModeTotal.inc({
+        cache_name: `read-through:${endpoint}`,
+        cache_namespace: endpoint,
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
+      return nearDeleted;
+    }
+
+    do {
       const [nextCursor, keys] = await redis.scan(cursor, {
         MATCH: pattern,
         COUNT: this.INVALIDATION_SCAN_BATCH_SIZE,
@@ -342,17 +412,25 @@ export class ReadThroughCacheService {
         continue;
       }
 
-        deleted += await this.deleteKeys(redis, keys);
-      } while (cursor !== "0");
-    } catch {
-      return deleted;
-    }
+      redisDeleted += await this.deleteKeys(redis, keys);
+    } while (cursor !== "0");
+
+    const deleted = nearDeleted + redisDeleted;
 
     if (!deleted) {
       return 0;
     }
 
     readCacheEventsTotal.inc({ endpoint, event: "eviction" }, deleted);
+    cacheEvictionsTotal.inc(
+      {
+        cache_name: `read-through:${endpoint}`,
+        cache_namespace: endpoint,
+        cache_layer: "redis",
+        reason: "invalidation",
+      },
+      redisDeleted
+    );
     return deleted;
   }
 

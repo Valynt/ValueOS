@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  mockGetRedisClient,
   mockGet,
   mockSet,
   mockScan,
@@ -9,11 +8,15 @@ const {
   readCacheEventsTotalInc,
   cacheRequestsTotalInc,
   cacheLoaderDurationObserve,
+  cacheFillDurationObserve,
   cacheCoalescedWaitersTotalInc,
+  cacheFallbackModeTotalInc,
+  cacheEvictionsTotalInc,
+  cacheHitRateSet,
   unlinkExecResults,
   delExecResults,
+  redisClientRef,
 } = vi.hoisted(() => ({
-  mockGetRedisClient: vi.fn(),
   mockGet: vi.fn(),
   mockSet: vi.fn(),
   mockScan: vi.fn(),
@@ -21,18 +24,18 @@ const {
   readCacheEventsTotalInc: vi.fn(),
   cacheRequestsTotalInc: vi.fn(),
   cacheLoaderDurationObserve: vi.fn(),
+  cacheFillDurationObserve: vi.fn(),
   cacheCoalescedWaitersTotalInc: vi.fn(),
+  cacheFallbackModeTotalInc: vi.fn(),
+  cacheEvictionsTotalInc: vi.fn(),
+  cacheHitRateSet: vi.fn(),
   unlinkExecResults: [] as Array<Array<number | null>>,
   delExecResults: [] as Array<Array<number | null>>,
+  redisClientRef: { current: null as null | Record<string, unknown> },
 }));
 
-vi.mock("../../lib/redisClient.js", () => ({
-  getRedisClient: mockGetRedisClient.mockResolvedValue({
-    get: mockGet,
-    set: mockSet,
-    scan: mockScan,
-    multi: mockMulti,
-  }),
+vi.mock("../../lib/redis.js", () => ({
+  getRedisClient: vi.fn().mockImplementation(async () => redisClientRef.current),
 }));
 
 vi.mock("../../lib/metrics/httpMetrics.js", () => ({
@@ -42,7 +45,11 @@ vi.mock("../../lib/metrics/httpMetrics.js", () => ({
 vi.mock("../../lib/metrics/cacheMetrics.js", () => ({
   cacheRequestsTotal: { inc: cacheRequestsTotalInc },
   cacheLoaderDurationMs: { observe: cacheLoaderDurationObserve },
+  cacheFillDurationMs: { observe: cacheFillDurationObserve },
   cacheCoalescedWaitersTotal: { inc: cacheCoalescedWaitersTotalInc },
+  cacheFallbackModeTotal: { inc: cacheFallbackModeTotalInc },
+  cacheEvictionsTotal: { inc: cacheEvictionsTotalInc },
+  cacheHitRate: { set: cacheHitRateSet },
 }));
 
 import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
@@ -90,13 +97,22 @@ function createPipeline() {
 
 describe("ReadThroughCacheService.getOrLoad", () => {
   beforeEach(() => {
-    mockGetRedisClient.mockClear();
+    redisClientRef.current = {
+      get: mockGet,
+      set: mockSet,
+      scan: mockScan,
+      multi: mockMulti,
+    };
     mockGet.mockReset();
     mockSet.mockReset();
     readCacheEventsTotalInc.mockReset();
     cacheRequestsTotalInc.mockReset();
     cacheLoaderDurationObserve.mockReset();
+    cacheFillDurationObserve.mockReset();
     cacheCoalescedWaitersTotalInc.mockReset();
+    cacheFallbackModeTotalInc.mockReset();
+    cacheEvictionsTotalInc.mockReset();
+    cacheHitRateSet.mockReset();
     ReadThroughCacheService.clearNearCacheForTesting();
   });
 
@@ -108,24 +124,12 @@ describe("ReadThroughCacheService.getOrLoad", () => {
 
     expect(result).toEqual({ value: 42 });
     expect(loader).not.toHaveBeenCalled();
-    expect(mockGetRedisClient).toHaveBeenCalledWith('cache');
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
       cache_name: `read-through:${ENDPOINT}`,
       cache_namespace: ENDPOINT,
       cache_layer: "redis",
       outcome: "hit",
     });
-  });
-
-  it("bypasses Redis and serves the loader result when the cache client is unavailable", async () => {
-    mockGetRedisClient.mockResolvedValueOnce(null);
-    const loader = vi.fn().mockResolvedValue({ value: 55 });
-
-    const result = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
-
-    expect(result).toEqual({ value: 55 });
-    expect(loader).toHaveBeenCalledTimes(1);
-    expect(readCacheEventsTotalInc).toHaveBeenCalledWith({ endpoint: ENDPOINT, event: "bypass" });
   });
 
   it("coalesces concurrent misses onto a single loader", async () => {
@@ -161,11 +165,42 @@ describe("ReadThroughCacheService.getOrLoad", () => {
       },
       expect.any(Number)
     );
+    expect(cacheFillDurationObserve).toHaveBeenCalledWith(
+      {
+        cache_name: `read-through:${ENDPOINT}`,
+        cache_namespace: ENDPOINT,
+      },
+      expect.any(Number)
+    );
+  });
+
+  it("bypasses caching when Redis is unavailable", async () => {
+    redisClientRef.current = null;
+    const loader = vi.fn().mockResolvedValue({ value: 12 });
+
+    const result = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, loader);
+
+    expect(result).toEqual({ value: 12 });
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockSet).not.toHaveBeenCalled();
+    expect(cacheFallbackModeTotalInc).toHaveBeenCalledWith({
+      cache_name: `read-through:${ENDPOINT}`,
+      cache_namespace: ENDPOINT,
+      fallback_mode: "bypass",
+      reason: "redis_unavailable",
+    });
   });
 });
 
 describe("ReadThroughCacheService.invalidateEndpoint", () => {
   beforeEach(() => {
+    redisClientRef.current = {
+      get: mockGet,
+      set: mockSet,
+      scan: mockScan,
+      multi: mockMulti,
+    };
     mockScan.mockReset();
     mockMulti.mockReset();
     readCacheEventsTotalInc.mockReset();
