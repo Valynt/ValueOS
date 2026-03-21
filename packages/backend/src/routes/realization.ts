@@ -22,7 +22,7 @@ const realizationService = new RealizationService();
 router.get("/api/cases/:caseId/realization/baseline", async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params;
-    const organizationId = req.tenantId || "";
+    const organizationId = req.tenantId ?? "";
 
     const baseline = await realizationService.getBaseline(caseId, organizationId);
 
@@ -117,9 +117,7 @@ router.post(
       const { checkpointId } = req.params;
       const { actualValue, notes } = req.body;
 
-      const organizationId = req.tenantId ?? "";
-
-      await realizationService.recordCheckpoint(checkpointId, organizationId, actualValue, notes);
+      await realizationService.recordCheckpoint(checkpointId, actualValue, notes);
 
       res.json({
         success: true,
@@ -169,7 +167,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenantId ?? "";
+      const organizationId = req.tenantId ?? req.tenant?.id ?? "";
 
       const report = await realizationService.getLatestReport(caseId, organizationId);
 
