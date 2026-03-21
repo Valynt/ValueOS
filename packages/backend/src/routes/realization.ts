@@ -1,12 +1,8 @@
 /**
- * Realization API Routes (FINAL RECONCILED)
+ * Realization API Routes
  *
- * Key fixes:
- * - Resolved all merge conflicts
- * - Enforced authentication consistently
- * - Enforced tenant context validation centrally
- * - Removed silent fallbacks ("?? ''")
- * - Standardized handler structure
+ * Routes for post-sale value realization tracking.
+ * Reference: openspec/specs/promise-baseline/spec.md
  */
 
 import { Request, Response, Router } from "express";
@@ -14,14 +10,13 @@ import { authenticate } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { RealizationService } from "../services/realization/RealizationService.js";
 
-const router: Router = Router();
-const realizationService = new RealizationService();
 const requireTenantAccess = tenantContextMiddleware(true);
 
-const ensureTenantId = (req: Request, res: Response): string | null => {
-  const organizationId = req.tenantId;
+const router: Router = Router();
+const realizationService = new RealizationService();
 
-  if (!organizationId) {
+const getTenantIdOrReject = (req: Request, res: Response): string | null => {
+  if (!req.tenantId) {
     res.status(400).json({
       success: false,
       error: { message: "Tenant context is required." },
@@ -29,12 +24,12 @@ const ensureTenantId = (req: Request, res: Response): string | null => {
     return null;
   }
 
-  return organizationId;
+  return req.tenantId;
 };
 
 /**
  * GET /api/cases/:caseId/realization/baseline
- * Get promise baseline for a case.
+ * Get promise baseline for a case
  */
 router.get(
   "/api/cases/:caseId/realization/baseline",
@@ -43,8 +38,10 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
+      const organizationId = getTenantIdOrReject(req, res);
+      if (!organizationId) {
+        return;
+      }
 
       const baseline = await realizationService.getBaseline(caseId, organizationId);
 
@@ -55,12 +52,12 @@ router.get(
         });
       }
 
-      return res.json({
+      res.json({
         success: true,
         data: baseline,
       });
     } catch (error: unknown) {
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         error: { message: error instanceof Error ? error.message : "Unknown error" },
       });
@@ -70,7 +67,7 @@ router.get(
 
 /**
  * POST /api/cases/:caseId/realization/baseline
- * Create promise baseline (called when case is approved).
+ * Create promise baseline (called when case is approved)
  */
 router.post(
   "/api/cases/:caseId/realization/baseline",
@@ -79,9 +76,10 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
-
+      const organizationId = getTenantIdOrReject(req, res);
+      if (!organizationId) {
+        return;
+      }
       const { scenarioId, scenarioName, kpiTargets, assumptions, handoffNotes } = req.body;
 
       const baselineId = await realizationService.createBaseline(
@@ -94,19 +92,19 @@ router.post(
         handoffNotes,
       );
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
         data: { id: baselineId },
       });
     } catch (error) {
-      return next(error);
+      next(error);
     }
   },
 );
 
 /**
  * GET /api/cases/:caseId/realization/checkpoints
- * Get checkpoints for a case.
+ * Get checkpoints for a case
  */
 router.get(
   "/api/cases/:caseId/realization/checkpoints",
@@ -115,24 +113,26 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
+      const organizationId = getTenantIdOrReject(req, res);
+      if (!organizationId) {
+        return;
+      }
 
       const checkpoints = await realizationService.getCheckpoints(caseId, organizationId);
 
-      return res.json({
+      res.json({
         success: true,
         data: checkpoints,
       });
     } catch (error) {
-      return next(error);
+      next(error);
     }
   },
 );
 
 /**
  * POST /api/realization/checkpoints/:checkpointId/measure
- * Record a checkpoint measurement.
+ * Record a checkpoint measurement
  */
 router.post(
   "/api/realization/checkpoints/:checkpointId/measure",
@@ -141,31 +141,23 @@ router.post(
   async (req, res, next) => {
     try {
       const { checkpointId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
-
       const { actualValue, notes } = req.body;
 
-      await realizationService.recordCheckpoint(
-        checkpointId,
-        organizationId,
-        actualValue,
-        notes,
-      );
+      await realizationService.recordCheckpoint(checkpointId, actualValue, notes);
 
-      return res.json({
+      res.json({
         success: true,
         data: { measured: true },
       });
     } catch (error) {
-      return next(error);
+      next(error);
     }
   },
 );
 
 /**
  * GET /api/cases/:caseId/realization/kpi-targets
- * Get KPI targets for a case.
+ * Get KPI targets for a case
  */
 router.get(
   "/api/cases/:caseId/realization/kpi-targets",
@@ -174,17 +166,19 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
+      const organizationId = getTenantIdOrReject(req, res);
+      if (!organizationId) {
+        return;
+      }
 
       const targets = await realizationService.getKpiTargets(caseId, organizationId);
 
-      return res.json({
+      res.json({
         success: true,
         data: targets,
       });
     } catch (error) {
-      return next(error);
+      next(error);
     }
   },
 );
@@ -193,6 +187,7 @@ router.get(
  * GET /api/cases/:caseId/realization
  * Get the latest realization report for a case.
  * Returns KPI variance, milestones, risks, and intervention recommendations.
+ * Used by the RealizationDashboard component.
  */
 router.get(
   "/api/cases/:caseId/realization",
@@ -201,8 +196,10 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = ensureTenantId(req, res);
-      if (!organizationId) return;
+      const organizationId = getTenantIdOrReject(req, res);
+      if (!organizationId) {
+        return;
+      }
 
       const report = await realizationService.getLatestReport(caseId, organizationId);
 
@@ -213,16 +210,14 @@ router.get(
         });
       }
 
-      return res.json({
+      res.json({
         success: true,
         data: report,
       });
     } catch (error) {
-      return next(error);
+      next(error);
     }
   },
 );
 
 export default router;
-
-
