@@ -32,6 +32,7 @@ export const KpiTargetSchema = z.object({
 export const CheckpointSchema = z.object({
   id: z.string().uuid(),
   case_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
   kpi_id: z.string().uuid(),
   date: z.string().datetime(),
   expected_range_min: z.number(),
@@ -65,6 +66,7 @@ export const PromiseBaselineSchema = z.object({
 export type KpiTarget = z.infer<typeof KpiTargetSchema>;
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
 export type PromiseBaseline = z.infer<typeof PromiseBaselineSchema>;
+type KpiTargetInput = Omit<KpiTarget, "id" | "case_id"> & { id?: string };
 
 // ---------------------------------------------------------------------------
 // Service
@@ -79,7 +81,7 @@ export class RealizationService {
     organizationId: string,
     scenarioId: string,
     scenarioName: string,
-    kpiTargets: Omit<KpiTarget, "id" | "case_id">[],
+    kpiTargets: KpiTargetInput[],
     assumptions: unknown[],
     handoffNotes: PromiseBaseline["handoff_notes"],
   ): Promise<string> {
@@ -107,7 +109,7 @@ export class RealizationService {
     }
 
     // Auto-generate checkpoints from KPI targets
-    await this.generateCheckpoints(caseId, kpiTargets);
+    await this.generateCheckpoints(caseId, organizationId, kpiTargets);
 
     logger.info("Promise baseline created", { id: data.id, case_id: caseId });
     return data.id as string;
@@ -118,9 +120,10 @@ export class RealizationService {
    */
   private async generateCheckpoints(
     caseId: string,
-    kpiTargets: Omit<KpiTarget, "id" | "case_id">[],
+    organizationId: string,
+    kpiTargets: KpiTargetInput[],
   ): Promise<void> {
-    const checkpoints: Omit<Checkpoint, "id" | "status">[] = [];
+    const checkpoints: Array<Omit<Checkpoint, "id" | "status">> = [];
 
     for (const target of kpiTargets) {
       const start = new Date(target.timeline_start);
@@ -138,6 +141,7 @@ export class RealizationService {
 
         checkpoints.push({
           case_id: caseId,
+          organization_id: organizationId,
           kpi_id: target.id || crypto.randomUUID(),
           date: checkpointDate.toISOString(),
           expected_range_min: expectedValue - variance,
@@ -204,6 +208,7 @@ export class RealizationService {
    */
   async recordCheckpoint(
     checkpointId: string,
+    organizationId: string,
     actualValue: number,
     notes?: string,
   ): Promise<void> {
@@ -211,6 +216,7 @@ export class RealizationService {
       .from("checkpoints")
       .select("*")
       .eq("id", checkpointId)
+      .eq("organization_id", organizationId)
       .single();
 
     if (fetchError || !checkpoint) {
@@ -235,7 +241,8 @@ export class RealizationService {
         notes: notes || null,
         measured_at: new Date().toISOString(),
       })
-      .eq("id", checkpointId);
+      .eq("id", checkpointId)
+      .eq("organization_id", organizationId);
 
     if (error) {
       logger.error("RealizationService.recordCheckpoint failed", { checkpoint_id: checkpointId, error: error.message });
@@ -243,17 +250,18 @@ export class RealizationService {
     }
 
     // Update KPI progress
-    await this.updateKpiProgress(checkpoint.kpi_id);
+    await this.updateKpiProgress(checkpoint.kpi_id, organizationId);
   }
 
   /**
    * Update KPI progress based on latest checkpoint.
    */
-  private async updateKpiProgress(kpiId: string): Promise<void> {
+  private async updateKpiProgress(kpiId: string, organizationId: string): Promise<void> {
     const { data: checkpoints } = await supabase
       .from("checkpoints")
       .select("*")
       .eq("kpi_id", kpiId)
+      .eq("organization_id", organizationId)
       .order("date", { ascending: false })
       .limit(1);
 
@@ -261,7 +269,11 @@ export class RealizationService {
       const latest = checkpoints[0];
       const progress = latest.status === "measured" || latest.status === "exceeded" ? latest.progress || 0 : 0;
 
-      await supabase.from("kpi_targets").update({ progress }).eq("id", kpiId);
+      await supabase
+        .from("kpi_targets")
+        .update({ progress })
+        .eq("id", kpiId)
+        .eq("organization_id", organizationId);
     }
   }
 
