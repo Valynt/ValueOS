@@ -9,11 +9,11 @@ status: active
 
 Documented baselines from load test runs against staging. Used to detect regressions and validate SLO compliance before production deployments.
 
-SLO reference: `docs/operations/slo-sli.md`.
+Canonical classification matrix: `docs/operations/slo-sli.md`.
 
 ## Latency classes
 
-ValueOS uses exactly two latency classes in load tests, dashboards, scaling policy, and runbooks.
+ValueOS load tests must reuse the canonical class mapping from `docs/operations/slo-sli.md#canonical-classification-and-policy-matrix`.
 
 | Latency class | Source-of-truth target | Allowed exception policy | Route guidance |
 |---|---|---|---|
@@ -23,9 +23,9 @@ ValueOS uses exactly two latency classes in load tests, dashboards, scaling poli
 ### Route classification guidance
 
 - Keep routes in the **interactive completion** class only when the full response is expected to complete within the 200 ms p95 budget.
-- Treat `/api/llm/chat`, `/api/billing`, and `/api/queue` as **orchestration acknowledgment/completion** routes unless a specific endpoint is proven to be cache-friendly and synchronous.
-- If an endpoint under those prefixes cannot reliably finish within 200 ms, migrate it to streaming or async polling semantics and measure **acknowledgment p95 < 200 ms** with **completion p95 < 3000 ms** as the only allowed exception policy.
-- Do **not** apply a universal 200 ms completion target to provider-bound LLM calls, queue submissions, invoice generation, reconciliation, or similar orchestration flows.
+- Treat `/api/llm/*`, `/api/billing/*`, `/api/queue/*`, and any provider-bound or queue-backed workflow submission as **orchestration acknowledgment/completion** routes.
+- Only workloads labeled `scaling.valueos.io/request-path-policy=interactive-allowlisted` may be counted toward interactive route capacity when an agent participates in the request path.
+- Scale-to-zero agents labeled `scaling.valueos.io/request-path-policy=async-only` remain orchestration-only; they must never be used to satisfy interactive latency expectations.
 
 ## Tool
 
@@ -41,11 +41,11 @@ k6 run \
 
 ---
 
-## Targets (v2.1)
+## Targets (v2.2)
 
 | Route class / endpoint | Load profile | p50 | p95 | p99 | Error rate |
 |---|---|---|---|---|---|
-| Interactive completion (`GET /health`, `GET /api/health/ready`, `GET /api/teams`) | 50 VU, 5 min | < 100 ms | < 200 ms | < 400 ms | < 0.1% |
+| Interactive completion (`GET /health`, `GET /api/health/ready`, auth/session checks, `GET /api/teams`) | 50 VU, 5 min | < 100 ms | < 200 ms | < 400 ms | < 0.1% |
 | Orchestration acknowledgment (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`) | 20 VU, 5 min | < 100 ms | < 200 ms | < 400 ms | < 0.1% |
 | Orchestration completion exception (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`) | 20 VU, 5 min | < 1500 ms | < 3000 ms | < 5000 ms | < 1% |
 | `GET /health` | 100 VU, 5 min | < 50 ms | < 100 ms | < 200 ms | 0% |
@@ -109,5 +109,6 @@ If orchestration completion p95 exceeds 3000 ms, track it as an orchestration ex
 - Postgres: Supabase Pro (2 vCPU, 4 GB RAM), Redis: single-node 1 GB
 - Backend: 2 replicas, 1 vCPU / 512 MB each, CDN: Cloudflare
 - HPA guardrails assume interactive completion p95 `< 200 ms`; orchestration routes are scaled and alerted on acknowledgment p95 `< 200 ms`, with completion p95 `< 3000 ms` treated as the only allowed exception policy.
+- Warm interactive agents use `180s` scale-down stabilization; backend API uses `90s`; queue workers use `240s`; KEDA scale-to-zero agents keep `180s` cooldown.
 
 Adjust targets if the deployment topology changes significantly.

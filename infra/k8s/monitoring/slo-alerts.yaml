@@ -1,13 +1,14 @@
 ---
-# SLO burn-rate alerting rules
+# SLO burn-rate and latency-policy alerting rules.
 #
-# Fires when error budget is being consumed faster than sustainable.
-# Multi-window, multi-burn-rate approach (Google SRE Workbook ch.5).
+# Fires when the canonical latency/error budget policy from
+# docs/operations/slo-sli.md is violated.
 #
-# SLO targets (from docs/operations/slo-sli.md):
-#   SLO-1: API availability   99.9%  (error budget 0.1%)
-#   SLO-2: Case creation p95  ≤2000ms
-#   SLO-3: Agent invocation p95 ≤10000ms
+# SLO targets:
+#   SLO-1: API availability                          99.9%  (error budget 0.1%)
+#   SLO-2: Interactive completion latency p95       <= 200ms
+#   SLO-3: Orchestration acknowledgment latency p95 <= 200ms
+#   SLO-3: Orchestration completion exception p95   <= 3000ms
 
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -61,98 +62,187 @@ spec:
               API error rate is consuming the 30-day error budget at 6× the
               sustainable rate. Current 6h ratio: {{ $value | humanizePercentage }}.
 
-    # ── SLO-2: Case Creation Latency (p95 ≤ 2000ms) ─────────────────────────
-    - name: slo.case_creation_latency
+    # ── SLO-2: Interactive Completion Latency (p95 <= 200ms) ────────────────
+    - name: slo.interactive_completion_latency
       rules:
-        - alert: SLO2CaseCreationLatencyFastBurn
+        - alert: SLO2InteractiveCompletionLatencyFastBurn
           expr: |
             (
               histogram_quantile(0.95,
-                rate(http_request_duration_seconds_bucket{
-                  job="valueos-api",
-                  route=~"/api/v1/cases.*",
-                  method="POST"
-                }[1h])
-              ) > 2.0
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="interactive"
+                  }[1h])
+                )
+              ) > 0.2
             ) and (
               histogram_quantile(0.95,
-                rate(http_request_duration_seconds_bucket{
-                  job="valueos-api",
-                  route=~"/api/v1/cases.*",
-                  method="POST"
-                }[5m])
-              ) > 2.0
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="interactive"
+                  }[5m])
+                )
+              ) > 0.2
             )
           for: 2m
           labels:
             severity: critical
-            slo: case_creation_latency
+            slo: interactive_completion_latency
+            latency_class: interactive
           annotations:
-            summary: "Case creation p95 latency exceeds 2s SLO (fast burn)"
+            summary: "Interactive completion p95 exceeds 200ms (fast burn)"
             description: >
-              POST /api/v1/cases p95 latency has exceeded 2000ms in both the
-              1h and 5m windows. Current 5m p95: {{ $value | humanizeDuration }}.
+              Interactive route completion latency has exceeded the 200ms p95
+              policy in both the 1h and 5m windows. Current 5m p95:
+              {{ $value | humanizeDuration }}.
 
-        - alert: SLO2CaseCreationLatencySlowBurn
+        - alert: SLO2InteractiveCompletionLatencySlowBurn
           expr: |
             histogram_quantile(0.95,
-              rate(http_request_duration_seconds_bucket{
-                job="valueos-api",
-                route=~"/api/v1/cases.*",
-                method="POST"
-              }[6h])
-            ) > 2.0
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  job="valueos-api",
+                  latency_class="interactive"
+                }[6h])
+              )
+            ) > 0.2
           for: 15m
           labels:
             severity: warning
-            slo: case_creation_latency
+            slo: interactive_completion_latency
+            latency_class: interactive
           annotations:
-            summary: "Case creation p95 latency exceeds 2s SLO (slow burn)"
+            summary: "Interactive completion p95 exceeds 200ms (slow burn)"
             description: >
-              POST /api/v1/cases p95 latency has exceeded 2000ms over the last
-              6 hours. Current 6h p95: {{ $value | humanizeDuration }}.
+              Interactive route completion latency has exceeded the 200ms p95
+              policy over the last 6 hours. Current 6h p95:
+              {{ $value | humanizeDuration }}.
 
-    # ── SLO-3: Agent Invocation Latency (p95 ≤ 10000ms) ─────────────────────
-    - name: slo.agent_invocation_latency
+    # ── SLO-3: Orchestration Acknowledgment Latency (p95 <= 200ms) ──────────
+    - name: slo.orchestration_acknowledgment_latency
       rules:
-        - alert: SLO3AgentInvocationLatencyFastBurn
+        - alert: SLO3OrchestrationAcknowledgmentLatencyFastBurn
           expr: |
             (
               histogram_quantile(0.95,
-                rate(agent_invocation_duration_seconds_bucket{
-                  job="valueos-api"
-                }[1h])
-              ) > 10.0
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="orchestration",
+                    latency_phase="acknowledgment"
+                  }[1h])
+                )
+              ) > 0.2
             ) and (
               histogram_quantile(0.95,
-                rate(agent_invocation_duration_seconds_bucket{
-                  job="valueos-api"
-                }[5m])
-              ) > 10.0
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="orchestration",
+                    latency_phase="acknowledgment"
+                  }[5m])
+                )
+              ) > 0.2
             )
           for: 2m
           labels:
             severity: critical
-            slo: agent_invocation_latency
+            slo: orchestration_acknowledgment_latency
+            latency_class: orchestration
+            latency_phase: acknowledgment
           annotations:
-            summary: "Agent invocation p95 latency exceeds 10s SLO (fast burn)"
+            summary: "Orchestration acknowledgment p95 exceeds 200ms (fast burn)"
             description: >
-              Agent invocation p95 latency has exceeded 10000ms in both the
-              1h and 5m windows. Current 5m p95: {{ $value | humanizeDuration }}.
+              Orchestration acknowledgment latency has exceeded the 200ms p95
+              policy in both the 1h and 5m windows. Current 5m p95:
+              {{ $value | humanizeDuration }}.
 
-        - alert: SLO3AgentInvocationLatencySlowBurn
+        - alert: SLO3OrchestrationAcknowledgmentLatencySlowBurn
           expr: |
             histogram_quantile(0.95,
-              rate(agent_invocation_duration_seconds_bucket{
-                job="valueos-api"
-              }[6h])
-            ) > 10.0
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  job="valueos-api",
+                  latency_class="orchestration",
+                  latency_phase="acknowledgment"
+                }[6h])
+              )
+            ) > 0.2
           for: 15m
           labels:
             severity: warning
-            slo: agent_invocation_latency
+            slo: orchestration_acknowledgment_latency
+            latency_class: orchestration
+            latency_phase: acknowledgment
           annotations:
-            summary: "Agent invocation p95 latency exceeds 10s SLO (slow burn)"
+            summary: "Orchestration acknowledgment p95 exceeds 200ms (slow burn)"
             description: >
-              Agent invocation p95 latency has exceeded 10000ms over the last
-              6 hours. Current 6h p95: {{ $value | humanizeDuration }}.
+              Orchestration acknowledgment latency has exceeded the 200ms p95
+              policy over the last 6 hours. Current 6h p95:
+              {{ $value | humanizeDuration }}.
+
+    # ── Exception Policy: Orchestration Completion (p95 <= 3000ms) ──────────
+    - name: slo.orchestration_completion_exception_policy
+      rules:
+        - alert: OrchestrationCompletionExceptionPolicyFastBurn
+          expr: |
+            (
+              histogram_quantile(0.95,
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="orchestration",
+                    latency_phase="completion"
+                  }[1h])
+                )
+              ) > 3.0
+            ) and (
+              histogram_quantile(0.95,
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{
+                    job="valueos-api",
+                    latency_class="orchestration",
+                    latency_phase="completion"
+                  }[5m])
+                )
+              ) > 3.0
+            )
+          for: 5m
+          labels:
+            severity: critical
+            slo: orchestration_completion_exception_policy
+            latency_class: orchestration
+            latency_phase: completion
+          annotations:
+            summary: "Orchestration completion p95 exceeds 3000ms exception policy"
+            description: >
+              Orchestration completion latency has exceeded the allowed 3000ms
+              p95 exception policy in both the 1h and 5m windows. This is an
+              orchestration-class regression, not an interactive latency SLO.
+              Current 5m p95: {{ $value | humanizeDuration }}.
+
+        - alert: OrchestrationCompletionExceptionPolicySlowBurn
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  job="valueos-api",
+                  latency_class="orchestration",
+                  latency_phase="completion"
+                }[6h])
+              )
+            ) > 3.0
+          for: 15m
+          labels:
+            severity: warning
+            slo: orchestration_completion_exception_policy
+            latency_class: orchestration
+            latency_phase: completion
+          annotations:
+            summary: "Orchestration completion p95 exceeds 3000ms exception policy (slow burn)"
+            description: >
+              Orchestration completion latency has exceeded the allowed 3000ms
+              p95 exception policy over the last 6 hours. Current 6h p95:
+              {{ $value | humanizeDuration }}.
