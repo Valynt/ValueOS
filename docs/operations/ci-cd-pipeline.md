@@ -60,9 +60,9 @@ This runbook documents the CI testing process and introduces checks to keep test
 
 CI pipeline entry point:
 
-- Standard workflow runs `pnpm run ci:verify`.
-- The command executes checks in this order: lint → typecheck → test → build.
-- Additional CI-only checks (legacy route validation, docs path linting, typecheck telemetry) are included inside `ci:verify`.
+- Protected merge automation is anchored in `.github/workflows/ci.yml`, which enforces the governance command `pnpm run typecheck:signal --verify` and the broader CI contract.
+- Repository workflows standardize on `actions/checkout@v6`, `actions/setup-node@v6`, `actions/cache@v5`, and `actions/upload-artifact@v7` for shared maintenance policy.
+- The legacy unified deployment workflow definition is archived at `docs/archive/workflows/unified-deployment-pipeline.reference.yml` for reference only; active deployment automation lives in `.github/workflows/deploy.yml` and `.github/workflows/release.yml`.
 
 Detailed test stages (within or adjacent to `ci:verify`):
 
@@ -72,8 +72,8 @@ Detailed test stages (within or adjacent to `ci:verify`):
 4. Build: `pnpm run build` — production build validation
 5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
 6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
-7. Security gate lanes in `.github/workflows/ci.yml`: `security-gate` + `dast-gate` (OWASP ZAP baseline against deterministic staging target) are required blockers for both PR and staging/deploy gate jobs. Within `security-gate`, SBOM generation is a required merge check and the lane fails if `sbom.json` is missing or empty.
-8. Deployment promotion checks in `.github/workflows/deploy.yml`: `dast-gate` must pass before `build-images`, is required by `preprod-launch-gate`, and is therefore a pre-production blocker before `deploy-production`.
+7. Security gate lanes in `.github/workflows/ci.yml`: `security-gate` is a PR and release-blocking CI lane. Within `security-gate`, SBOM generation is a required merge check and the lane fails if `sbom.json` is missing or empty.
+8. Deployment promotion checks in `.github/workflows/deploy.yml`: `dast-gate` is the deploy-time OWASP ZAP baseline gate. It must pass before `build-images`, is required by `preprod-launch-gate`, and is therefore a pre-production blocker before `deploy-production`.
 
 Architecture & operational notes:
 

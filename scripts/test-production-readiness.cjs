@@ -99,9 +99,9 @@ test("CircuitBreakerMonitor.ts exists", () => {
 });
 
 // Test 4: Deployment Pipeline Files Exist
-test("Unified deployment pipeline exists", () => {
+test("Archived unified deployment reference exists", () => {
   return fs.existsSync(
-    path.join(__dirname, "../.github/workflows/unified-deployment-pipeline.yml")
+    path.join(__dirname, "../docs/archive/workflows/unified-deployment-pipeline.reference.yml")
   );
 });
 
@@ -208,26 +208,19 @@ test("Environment files use secret placeholders", () => {
   );
 });
 
-test("Deployment pipeline has all phases", () => {
+test("Archived unified deployment reference is clearly marked inactive", () => {
   const content = fs.readFileSync(
     path.join(
       __dirname,
-      "../.github/workflows/unified-deployment-pipeline.yml"
+      "../docs/archive/workflows/unified-deployment-pipeline.reference.yml"
     ),
     "utf8"
   );
-  const phases = [
-    "Phase 1: Validation and Quality Gates",
-    "Phase 2: Build and Security Scanning",
-    "Phase 3: Environment Validation",
-    "Phase 4: Infrastructure Validation",
-    "Phase 5: Deployment Gates and Approvals",
-    "Phase 6: Deploy to Environment",
-    "Phase 7: Post-Deployment Validation",
-    "Phase 8: Cleanup and Notification",
-  ];
-
-  return phases.every((phase) => content.includes(phase));
+  return (
+    content.includes('ARCHIVED REFERENCE ONLY') &&
+    content.includes('NOT AN ACTIVE GITHUB ACTIONS WORKFLOW') &&
+    content.includes('Canonical active deployment workflows live under .github/workflows/')
+  );
 });
 
 // Test 8: Security Configuration

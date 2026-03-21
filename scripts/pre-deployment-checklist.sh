@@ -287,11 +287,15 @@ else
     check_fail "Docker files missing"
 fi
 
-# Check unified deployment pipeline
-if [ -f ".github/workflows/unified-deployment-pipeline.yml" ]; then
-    check_pass "Unified deployment pipeline exists"
+# Check canonical deployment workflow and archived reference material
+if [ -f ".github/workflows/deploy.yml" ]; then
+    check_pass "Canonical deploy workflow exists"
 else
-    check_warn "Unified deployment pipeline not found"
+    check_fail "Canonical deploy workflow missing"
+fi
+
+if [ -f "docs/archive/workflows/unified-deployment-pipeline.reference.yml" ]; then
+    check_info "Archived unified deployment reference retained under docs/archive/workflows/"
 fi
 
 # Environment-specific checks

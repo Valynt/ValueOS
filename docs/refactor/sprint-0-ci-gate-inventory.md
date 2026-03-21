@@ -62,28 +62,28 @@
 
 ---
 
-## ci.yml — Job: `ui-localization-gate`
+## ci.yml — Current Job: `accessibility-audit` (replaces the former standalone localization lane)
 
 | Gate | Classification | Rationale | Refactor Action |
 |---|---|---|---|
-| Localization checks (i18n key coverage, pseudo-localization) | nice-to-have | Useful for internationalization but not a core product invariant for the current stage. | Demote to advisory. Remove from PR blocking gate. |
-| Localization visual smoke | nice-to-have | Visual regression for localization overflow. Fragile (Playwright binary conditional). | Remove. Replace with a real visual regression suite if localization becomes a product priority. |
+| Accessibility + localization checks (WCAG 2.2 AA, i18n key coverage, pseudo-localization, UX budgets) | critical-invariant | Current merge protection uses `accessibility-audit` as a blocking lane because it packages accessibility, localization evidence, and route-performance budgets together. | Keep blocking while these controls remain consolidated in the current lane. |
+| Accessibility trend + severity budgets | critical-invariant | Trend/severity evidence is part of the current release gate contract and active CI control matrix. | Keep permanently unless replaced by an explicitly documented successor control. |
 
 ---
 
-## ci.yml — Job: `migration-verification`
+## ci.yml — Historical Mapping: former `migration-verification` responsibilities now run inside `unit-component-schema`
 
 | Gate | Classification | Rationale | Refactor Action |
 |---|---|---|---|
-| Critical architecture migrations | critical-invariant | Validates that DB migrations are consistent and apply cleanly. Domain model consistency is one of the 3 critical product paths. | Keep permanently. |
+| Critical architecture migrations | critical-invariant | Migration hygiene, schema consistency, rollback validation, and critical migration verification are now step-level checks inside `unit-component-schema`. | Keep permanently inside the canonical CI lane. |
 
 ---
 
-## ci.yml — Job: `nightly-node-chaos-replay` (schedule only)
+## ci.yml — Historical Mapping: former `nightly-node-chaos-replay` schedule-only lane
 
 | Gate | Classification | Rationale | Refactor Action |
 |---|---|---|---|
-| Chaos + replay workload (multi-node) | nice-to-have | Nightly chaos across Node 20 and 22. Useful signal but not a PR blocker. | Keep as nightly-only. Simplify after orchestrator deletion. |
+| Scheduled CI replay/chaos-style workload | nice-to-have | The current `ci.yml` still has a nightly schedule, but the historical standalone lane name is no longer current documentation. | Keep nightly/advisory scheduling only if the implementation remains valuable. |
 | Security flows integration test | critical-invariant | Validates security flows end-to-end. | Keep permanently. |
 | Message bus communication test | compensating-control | Tests the legacy MessageBus. Only relevant while the current messaging architecture exists. | Remove after MessageBus is replaced by the domain event bus in Sprint 8. |
 
@@ -93,8 +93,8 @@
 
 | Gate | Classification | Rationale | Refactor Action |
 |---|---|---|---|
-| `pr-fast-blocking-subsets` (blocks PRs on: unit/schema, tenant-isolation, localization, migration) | critical-invariant | The PR gate aggregator. Currently blocks on localization which is nice-to-have. | Keep; remove localization from the blocking set. |
-| `staging-deploy-release-gates` (blocks deploy on: tenant-isolation, critical-workflows, migration) | critical-invariant | The deploy gate aggregator. Correct set of dependencies. | Keep permanently. |
+| `pr-fast-blocking-subsets` (blocks PRs on: unit/schema, tenant isolation, security, accessibility) | critical-invariant | The current PR gate aggregator. It now reflects the active blocking set in `ci.yml`. | Keep and update whenever branch-protection requirements change. |
+| `staging-deploy-release-gates` (blocks promotion on: tenant isolation, critical workflows, security, accessibility) | critical-invariant | The current staging/release aggregation gate in `ci.yml`. | Keep permanently. |
 
 ---
 

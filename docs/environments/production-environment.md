@@ -434,11 +434,12 @@ done
 echo "No drift detected"
 ```
 
-### 4.3 Unified Deployment Pipeline
+### 4.3 Archived Unified Deployment Pipeline Reference
 
-**File:** `.github/workflows/unified-deployment-pipeline.yml`
+**Reference file:** `docs/archive/workflows/unified-deployment-pipeline.reference.yml`
 
 ```yaml
+# ARCHIVED REFERENCE ONLY — NOT AN ACTIVE GITHUB ACTIONS WORKFLOW
 name: Unified Deployment Pipeline
 
 on:

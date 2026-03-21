@@ -249,22 +249,29 @@ Migration files in `supabase/migrations/`. RLS enforced on all tenant-scoped tab
 
 ## CI/CD Workflows (`.github/workflows/`)
 
-### Active (8)
+### Active (14)
 
-| Workflow | Trigger | Key Jobs |
+| Workflow | Trigger | Key Jobs / Purpose |
 |---|---|---|
-| `ci.yml` | PR + push to main/develop | lint, typecheck, vitest (60% coverage), migration hygiene, docs integrity |
-| `deploy.yml` | Push to main + weekly + manual | 12 jobs: staging perf, tenant isolation gate, supply chain verification, SLO burn rate guard, emergency bypass |
-| `test.yml` | Manual | Full test suite |
-| `terraform.yml` | Push + PR | Terraform plan/apply |
-| `migration-chain-integrity.yml` | Migration file changes | Migration chain validation |
-| `compliance-evidence-export.yml` | Scheduled | Compliance evidence export |
-| `access-review-automation.yml` | Scheduled | Access review |
-| `oncall-drill-scorecard.yml` | Scheduled | On-call drill scoring |
+| `ci.yml` | PR + push to main/develop + tags + release + nightly + manual | canonical CI; quality, tenant isolation, accessibility, security, release aggregation |
+| `codeql.yml` | PR + push to main | dedicated CodeQL analysis |
+| `deploy.yml` | Push to main + weekly + manual | promotion, DAST, release-gate contract, rollback |
+| `release.yml` | Release + manual | reproducibility, release packaging, SBOM/signing, publish automation |
+| `test.yml` | Manual | supplemental/full test workflow |
+| `terraform.yml` | Push + PR | Terraform validation and policy checks |
+| `migration-chain-integrity.yml` | Migration file changes + manual | migration ordering and chain validation |
+| `compliance-evidence-export.yml` | Scheduled + manual | compliance evidence export bundle |
+| `access-review-automation.yml` | Scheduled + manual | access review evidence |
+| `dependency-outdated.yml` | PR + scheduled + manual | dependency freshness triage |
+| `oncall-drill-scorecard.yml` | Scheduled + manual | on-call drill scorecard publication |
+| `secret-rotation-verification.yml` | Scheduled + manual | secret age verification evidence |
+| `dr-validation.yml` | Scheduled + manual | disaster recovery validation evidence |
+| `v1-core-services-test.yml` | Backend service path changes | legacy backend service suite |
 
-### Archived (65, in `.github/workflows/.archive/`)
+### Archived / reference-only workflow material
 
-Canary deploy, chaos testing, database backup, design system CI, drift detection, k8s deploy, nightly quality, RLS coverage, Terraform deploy variants, PR preview environments, and more.
+- `docs/archive/workflows/accessibility.deprecated.yml.disabled` — historical accessibility workflow retained for audit history only.
+- `docs/archive/workflows/unified-deployment-pipeline.reference.yml` — archived deployment reference, not executable automation.
 
 ---
 

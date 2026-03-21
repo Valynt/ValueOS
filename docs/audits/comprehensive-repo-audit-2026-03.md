@@ -137,7 +137,7 @@ All modules show zero delta from baseline -- burn-down has not started. The any-
 
 - Only **3 TODO/FIXME/HACK/XXX** comments found in backend production source (excluding tests) -- excellent discipline.
 - CI includes a `TODO metadata guard` that blocks untracked TODOs in production paths.
-- Multiple legacy/deprecated files exist (e.g., `infra/legacy/`, `.github/workflows/.archive/`, `accessibility.deprecated.yml.disabled`) -- these should be periodically pruned.
+- Multiple legacy/deprecated files exist (e.g., `infra/legacy/`, `.github/workflows/.archive/`, `docs/archive/workflows/accessibility.deprecated.yml.disabled`) -- these should be periodically pruned.
 
 ### Modularity
 
@@ -278,7 +278,7 @@ The platform follows a **modular monolith with clear extraction boundaries**:
 
 ### Build Pipeline (GitHub Actions)
 
-The CI pipeline at [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (679 lines) implements a **lane-based architecture** with 7 jobs:
+The CI pipeline at [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (927 lines as of 2026-03-21) implements a **lane-based architecture** with 11 jobs:
 
 | Lane                           | Purpose                                                                           | PR Blocking?    |
 | ------------------------------ | --------------------------------------------------------------------------------- | --------------- |
@@ -299,7 +299,7 @@ Additional CI features:
 
 ### Deployment Strategy
 
-From [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (1,125 lines):
+From [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (1,167 lines as of 2026-03-21):
 
 - **Blue-green deployments** on Kubernetes (kustomize + kubectl).
 - Container images published to GHCR (`ghcr.io`).

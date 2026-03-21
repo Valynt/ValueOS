@@ -42,7 +42,7 @@ status: deprecated
 
 ## Pre-Flight Checklist
 1. Feature freeze announced in `#releases` (no new merges after cutoff).
-2. Verify pipeline status is green on `main`: https://github.com/ValueCanvas/ValueCanvas/actions/workflows/deploy.yml
+2. Verify the latest `ci.yml`, `codeql.yml`, and `deploy.yml` runs are green on `main` in GitHub Actions.
 3. Confirm changelog and migration list with Feature Owners.
 4. Ensure backup completed within last 24h (see `docs/backup-and-dr-playbook.md`).
 5. Validate secrets and runtime config: `./scripts/verify-env.sh production`.
@@ -90,7 +90,7 @@ After the canonical release gate contract is green, `deploy-production` still re
 ## Deployment Steps
 1. **Tag and build**
    - Create release tag: `git tag -a v<version> -m "Release v<version>" && git push origin v<version>`
-   - Trigger deploy workflow (GitHub Actions "Deploy"): https://github.com/ValueCanvas/ValueCanvas/actions/workflows/deploy.yml
+   - Trigger the `Deploy` workflow from GitHub Actions (`.github/workflows/deploy.yml`).
 2. **Database migrations (ordered)**
    - If migration requires duplicate-tree synchronization, use a dedicated commit containing `[migration-sync]` and mirrored path changes under both backend service trees before tagging release.
    - Apply backward-compatible migrations first:

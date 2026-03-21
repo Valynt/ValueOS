@@ -40,7 +40,7 @@ validates that all referenced files exist and are non-empty.
 | Image signatures verified on release | `.github/workflows/ci.yml` (job: `image-signature-verify`) | CI |
 | Changelog managed | `.changeset/` | Manual |
 | Localization checked before release | `scripts/ci/check-i18n-keys.mjs` | CI |
-| Accessibility tested | `.github/workflows/accessibility.deprecated.yml.disabled` | Manual audit |
+| Accessibility tested | `.github/workflows/ci.yml` (job: `accessibility-audit`) | CI |
 
 ## Compliance
 

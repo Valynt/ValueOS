@@ -1,3 +1,7 @@
+# ARCHIVED REFERENCE ONLY — NOT AN ACTIVE GITHUB ACTIONS WORKFLOW.
+# Accessibility automation was consolidated into .github/workflows/ci.yml (job: accessibility-audit).
+# This archived definition is retained only for audit history and must not be restored without an owner + rollback plan.
+
 # DEPRECATED: Accessibility checks were consolidated into ci.yml (job: accessibility-audit).
 # This file is intentionally disabled (suffix .disabled) and retained for audit history.
 

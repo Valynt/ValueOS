@@ -1,3 +1,7 @@
+# ARCHIVED REFERENCE ONLY — NOT AN ACTIVE GITHUB ACTIONS WORKFLOW.
+# This file was moved from .github/ so GitHub Actions cannot execute it.
+# Canonical active deployment workflows live under .github/workflows/ (primarily deploy.yml and release.yml).
+
 # Unified Deployment Pipeline for Zero-Downtime Migrations
 
 name: Unified Deployment Pipeline

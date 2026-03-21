@@ -122,8 +122,8 @@
 | `apps/ValyntApp/src/services/ValueFabricService.ts` | 676 | Monolith service — split by domain (capabilities, use-cases, benchmarks) |
 | `apps/ValyntApp/src/services/UsageTrackingService.ts` | 489 | Approaching threshold; contains server-role client in browser code |
 | `packages/backend/src/server.ts` | 623 | Main server — extract middleware setup, route registration, WebSocket setup |
-| `.github/workflows/ci.yml` | 799 | Large CI config — extract reusable workflows |
-| `.github/workflows/deploy.yml` | 859 | Large deploy config — extract reusable workflows |
+| `.github/workflows/ci.yml` | 927 | Large CI config — extract reusable workflows |
+| `.github/workflows/deploy.yml` | 1167 | Large deploy config — extract reusable workflows |
 | `packages/backend/src/services/TenantProvisioning.ts` | ~1200+ | Very large — high-risk module; split provisioning, deprovisioning, archival |
 
 ---
@@ -167,7 +167,7 @@
 - [ ] Bind Postgres port to `127.0.0.1` in compose
 - [ ] Add startup assertion: reject `ENABLE_DEV_ROUTES=true` when `NODE_ENV=production`
 - [ ] Split oversized files: `TenantProvisioning.ts` (~1200+ lines), `server.ts` (623 lines), `ValueFabricService.ts` (676 lines)
-- [ ] Extract reusable GitHub Actions workflows from `ci.yml` (799 lines) and `deploy.yml` (859 lines)
+- [ ] Extract reusable GitHub Actions workflows from `ci.yml` (927 lines) and `deploy.yml` (1167 lines)
 - [ ] Add build-time dead-code assertion that `dev.ts` (exec import) is not in production bundle
 
 ### Nice-to-Have (Backlog)
