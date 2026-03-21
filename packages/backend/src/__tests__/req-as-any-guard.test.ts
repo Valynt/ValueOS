@@ -19,15 +19,16 @@ type GuardConfig = {
   baselineViolations: Set<string>;
   description: string;
   pattern: string;
+  searchPaths?: string[];
 };
 
-async function findViolations({ pattern }: GuardConfig): Promise<string[]> {
+async function findViolations({ pattern, searchPaths = ['src'] }: GuardConfig): Promise<string[]> {
   let stdout = '';
 
   try {
     const result = await execFileAsync('rg', [
       pattern,
-      'src',
+      ...searchPaths,
       '--glob',
       '*.ts',
       '--glob',
@@ -93,6 +94,16 @@ describe('backend request typing guardrails', () => {
       description:
         'does not allow unnecessary typed request casts like `req as { tenantId?: string }` in non-test files',
       baselineViolations: BASELINE_REQ_TYPED_CAST_VIOLATIONS,
+    },
+    {
+      pattern: 'req as unknown as \\{[^}]*\\}',
+      description:
+        'does not allow `req as unknown as { ... }` request casts in the realization and deal assembly routes',
+      baselineViolations: BASELINE_REQ_TYPED_CAST_VIOLATIONS,
+      searchPaths: [
+        'src/routes/realization.ts',
+        'src/routes/deal-assembly.ts',
+      ],
     },
   ];
 

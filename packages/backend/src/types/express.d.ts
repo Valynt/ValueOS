@@ -34,6 +34,10 @@ declare global {
         [key: string]: unknown;
       };
       tenantId?: string;
+      tenant?: {
+        id: string;
+        [key: string]: unknown;
+      };
       tenantSource?: string;
       tenantContext?: unknown;
       tenantSettings?: {

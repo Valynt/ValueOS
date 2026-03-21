@@ -25,7 +25,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId ?? "";
 
       const context = await dealAssemblyService.getContext(caseId, organizationId);
 
@@ -57,7 +57,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId ?? "";
       const {
         account_name,
         stakeholders,
@@ -101,7 +101,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId, gapId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId ?? "";
       const { value } = req.body;
       const userId = req.user!.id;
 
@@ -128,7 +128,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId ?? "";
 
       await dealAssemblyService.confirmAssembly(caseId, organizationId);
 
@@ -153,7 +153,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = (req as any).tenantId;
+      const organizationId = req.tenantId ?? "";
 
       await dealAssemblyService.triggerReassembly(caseId, organizationId);
 
