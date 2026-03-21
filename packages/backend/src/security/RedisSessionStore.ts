@@ -252,8 +252,15 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
+        // Batch-fetch all session metadata concurrently to avoid N+1 Redis round-trips
+        const metadataEntries = await Promise.all(
+          sessionIds.map(async (sid: string) => ({
+            sessionId: sid,
+            metadata: await this.get(sid, tenantId),
+          }))
+        );
+
+        for (const { sessionId, metadata } of metadataEntries) {
           await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
           invalidatedSessionIds.add(sessionId);
         }
@@ -292,8 +299,15 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getDeviceIndexKey(deviceId, tenantId));
 
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
+        // Batch-fetch all session metadata concurrently to avoid N+1 Redis round-trips
+        const metadataEntries = await Promise.all(
+          sessionIds.map(async (sid: string) => ({
+            sessionId: sid,
+            metadata: await this.get(sid, tenantId),
+          }))
+        );
+
+        for (const { sessionId, metadata } of metadataEntries) {
           await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
           invalidatedSessionIds.add(sessionId);
         }
