@@ -85,6 +85,7 @@ import {
 import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { validateAuditLogEncryptionConfig } from "./services/agents/AuditLogEncryptionConfig.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
+import { appTrpcMiddleware } from "./api/trpc/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
 import { createServerSupabaseClient } from "./lib/supabase.js";
 import { supabase } from "./lib/supabase.js";
@@ -624,6 +625,8 @@ app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/opportunities", opportunityValueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
+
+app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
 
 // Academy tRPC endpoint (mounted under /api/academy)
 app.use("/api/academy", requireAuth, tenantContextMiddleware(), academyTrpcMiddleware);
