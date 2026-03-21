@@ -4,15 +4,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const deployWorkflow = readFileSync(resolve(ROOT, '.github/workflows/deploy.yml'), 'utf8');
 const manifest = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci/release-gate-manifest.json'), 'utf8'));
+const workflowPath = manifest.deployWorkflow.workflowPath;
+const deployWorkflow = readFileSync(resolve(ROOT, workflowPath), 'utf8');
 
 function extractJobBlock(jobId) {
   const pattern = new RegExp(`^  ${jobId}:\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)`, 'm');
   const match = deployWorkflow.match(pattern);
 
   if (!match) {
-    throw new Error(`Job \`${jobId}\` was not found in .github/workflows/deploy.yml.`);
+    throw new Error(`Job \`${jobId}\` was not found in ${workflowPath}.`);
   }
 
   return match[0];
@@ -58,8 +59,12 @@ for (const requiredNeed of manifest.deployWorkflow.productionNeedsMustInclude) {
 
 for (const forbiddenNeed of manifest.deployWorkflow.productionNeedsMustExclude) {
   if (productionNeeds.includes(forbiddenNeed)) {
-    failures.push(`- deploy-production must not depend on \`${forbiddenNeed}\`; it should consume the canonical aggregate gate instead.`);
+    failures.push(`- deploy-production must not depend on \`${forbiddenNeed}\`; production promotion should consume explicit immutable promotion inputs instead.`);
   }
+}
+
+if (/github\.event_name == 'push'/.test(deployWorkflow)) {
+  failures.push("- deploy-production.yml must not retain push-based production guards; promotion must be driven only by release/workflow_dispatch triggers.");
 }
 
 if (!/needs\.release-gate-contract\.result == 'success'/.test(deployWorkflow)) {
@@ -76,4 +81,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('✅ Deploy workflow release-gate consistency verified.');
+console.log(`✅ Deploy workflow release-gate consistency verified for ${workflowPath}.`);
