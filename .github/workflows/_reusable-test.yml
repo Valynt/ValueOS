@@ -1,0 +1,399 @@
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      scope:
+        description: Test scope selector (affected, full, backend-services, adhoc-filter)
+        required: true
+        type: string
+      coverage_mode:
+        description: Coverage mode (summary or off)
+        required: false
+        default: summary
+        type: string
+      trust_context:
+        description: Trust context (trusted or untrusted)
+        required: false
+        default: trusted
+        type: string
+      adhoc_filter:
+        description: Optional Vitest filter used when scope is adhoc-filter
+        required: false
+        default: ''
+        type: string
+      backend_suite:
+        description: Backend services suite selector (standard, integration, security, full)
+        required: false
+        default: full
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package-matrix-config:
+    name: vitest/package-matrix
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scope == 'affected' || inputs.scope == 'full' }}
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      has_matrix: ${{ steps.matrix.outputs.has_matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Emit Vitest package matrix
+        id: matrix
+        env:
+          TEST_SCOPE: ${{ inputs.scope }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          MATRIX=$(node scripts/ci/emit-reusable-test-matrix.mjs \
+            --scope "$TEST_SCOPE" \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA")
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          node -e 'const matrix = JSON.parse(process.argv[1]); console.log(`Selected ${matrix.length} Vitest package lane(s).`); console.log(`has_matrix=${matrix.length > 0}`);' "$MATRIX"
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_matrix=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_matrix=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  vitest-package:
+    name: vitest/${{ matrix.package.label }}
+    runs-on: ubuntu-latest
+    if: ${{ (inputs.scope == 'affected' || inputs.scope == 'full') && needs.package-matrix-config.outputs.has_matrix == 'true' }}
+    needs: package-matrix-config
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.package-matrix-config.outputs.matrix) }}
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+      TRUST_CONTEXT: ${{ inputs.trust_context }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+
+      - name: Run package tests
+        env:
+          COVERAGE_MODE: ${{ inputs.coverage_mode }}
+        run: |
+          ARGS=(
+            --root "${{ matrix.package.dir }}"
+            --config vitest.config.ts
+          )
+
+          if [ "$COVERAGE_MODE" = "summary" ]; then
+            ARGS+=(
+              --coverage
+              --coverage.provider=v8
+              --coverage.reporter=json-summary
+              --coverage.reporter=text-summary
+              --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
+            )
+          fi
+
+          echo "Running package lane in $TRUST_CONTEXT context: npx vitest run ${ARGS[*]}"
+          npx vitest run "${ARGS[@]}"
+
+      - name: Write coverage summary
+        if: ${{ inputs.coverage_mode == 'summary' }}
+        run: |
+          node scripts/ci/write-vitest-coverage-summary.mjs \
+            --package-id "${{ matrix.package.id }}" \
+            --package-label "${{ matrix.package.label }}" \
+            --package-dir "${{ matrix.package.dir }}" \
+            --coverage-summary "${{ matrix.package.coverageDir }}/coverage-summary.json" \
+            --output "artifacts/coverage/${{ matrix.package.id }}.md"
+          cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload package coverage artifacts
+        if: ${{ always() && inputs.coverage_mode == 'summary' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-${{ inputs.scope }}-${{ matrix.package.id }}-${{ github.run_id }}
+          path: |
+            ${{ matrix.package.coverageDir }}/coverage-summary.json
+            artifacts/coverage/${{ matrix.package.id }}.md
+          if-no-files-found: warn
+          retention-days: 30
+
+  adhoc-vitest:
+    name: vitest/ad-hoc
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scope == 'adhoc-filter' && inputs.adhoc_filter != '' }}
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+      TRUST_CONTEXT: ${{ inputs.trust_context }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+
+      - name: Run filtered tests
+        env:
+          COVERAGE_MODE: ${{ inputs.coverage_mode }}
+          FILTER: ${{ inputs.adhoc_filter }}
+        run: |
+          ARGS=()
+          if [ "$COVERAGE_MODE" = "summary" ]; then
+            ARGS+=(
+              --coverage
+              --coverage.provider=v8
+              --coverage.reporter=json-summary
+              --coverage.reporter=text-summary
+            )
+          fi
+          ARGS+=(-- "$FILTER")
+          echo "Running ad-hoc lane in $TRUST_CONTEXT context: npx vitest run ${ARGS[*]}"
+          npx vitest run "${ARGS[@]}"
+
+      - name: Upload ad-hoc coverage artifacts
+        if: ${{ always() && inputs.coverage_mode == 'summary' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-adhoc-filter-${{ github.run_id }}
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 30
+
+  backend-services-security-hardening:
+    name: backend-services/security-hardening
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scope == 'backend-services' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run remediation critical issues script
+        run: |
+          chmod +x scripts/remediation-critical-issues.sh
+          ./scripts/remediation-critical-issues.sh
+
+      - name: Check for hardcoded secrets in backend services
+        run: |
+          if rg --glob '*.ts' --glob '!**/*test*' --glob '!**/*mock*' --glob '!**/*fixture*' '(password|secret|key).*[:=]\s*["\'"'"'][^"\'"'"']+["\'"'"']' packages/backend/src/services; then
+            echo '❌ Potential hardcoded secrets found in backend services source.'
+            exit 1
+          fi
+
+      - name: Validate secureInvoke-only ESLint guardrail
+        run: |
+          pnpm --filter @valueos/backend exec eslint src/services/ --ext .ts --rule 'no-restricted-imports: [error, {paths: [{name: "llmGateway", message: "Use secureInvoke only"}]}]'
+
+  backend-services-tests:
+    name: backend-services/${{ inputs.backend_suite }}
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scope == 'backend-services' }}
+    needs: backend-services-security-hardening
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_KEY: test-key
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'false'
+      OPENAI_API_KEY: test-openai-key
+      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+      TRUST_CONTEXT: ${{ inputs.trust_context }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve backend services suite targets
+        id: suite
+        env:
+          BACKEND_SUITE: ${{ inputs.backend_suite }}
+        run: |
+          case "$BACKEND_SUITE" in
+            standard)
+              TARGETS='src/services/__tests__/value/HypothesisGenerator.test.ts src/services/__tests__/value/ScenarioBuilder.test.ts src/services/__tests__/value/SensitivityAnalyzer.test.ts src/services/__tests__/integrity/ReadinessScorer.test.ts src/services/__tests__/integrity/PlausibilityClassifier.test.ts src/services/__tests__/integrity/HallucinationChecker.test.ts src/services/__tests__/export/ArtifactGeneratorService.test.ts src/services/__tests__/export/ArtifactEditService.test.ts src/services/__tests__/deal/CRMConnector.test.ts src/services/__tests__/deal/TranscriptParser.test.ts src/services/__tests__/realization/PromiseBaselineService.test.ts src/services/__tests__/realization/CheckpointScheduler.test.ts src/services/__tests__/integrity/SECEdgarClient.test.ts'
+              ;;
+            integration)
+              TARGETS='src/services/__tests__/integration/'
+              ;;
+            security)
+              TARGETS='src/services/__tests__/security/'
+              ;;
+            full)
+              TARGETS='src/services/__tests__/value/HypothesisGenerator.test.ts src/services/__tests__/value/ScenarioBuilder.test.ts src/services/__tests__/value/SensitivityAnalyzer.test.ts src/services/__tests__/integrity/ReadinessScorer.test.ts src/services/__tests__/integrity/PlausibilityClassifier.test.ts src/services/__tests__/integrity/HallucinationChecker.test.ts src/services/__tests__/export/ArtifactGeneratorService.test.ts src/services/__tests__/export/ArtifactEditService.test.ts src/services/__tests__/deal/CRMConnector.test.ts src/services/__tests__/deal/TranscriptParser.test.ts src/services/__tests__/realization/PromiseBaselineService.test.ts src/services/__tests__/realization/CheckpointScheduler.test.ts src/services/__tests__/integrity/SECEdgarClient.test.ts src/services/__tests__/integration/ src/services/__tests__/security/'
+              ;;
+            *)
+              echo "Unsupported backend suite: $BACKEND_SUITE" >&2
+              exit 1
+              ;;
+          esac
+
+          printf 'targets=%s\n' "$TARGETS" >> "$GITHUB_OUTPUT"
+
+      - name: Run backend services tests
+        env:
+          COVERAGE_MODE: ${{ inputs.coverage_mode }}
+          TARGETS: ${{ steps.suite.outputs.targets }}
+        run: |
+          ARGS=()
+          if [ "$COVERAGE_MODE" = "summary" ]; then
+            ARGS+=(
+              --coverage
+              --coverage.provider=v8
+              --coverage.reporter=json-summary
+              --coverage.reporter=text-summary
+              --coverage.reportsDirectory="$GITHUB_WORKSPACE/artifacts/coverage/backend-services/${{ inputs.backend_suite }}"
+            )
+          fi
+
+          read -r -a TARGET_ARRAY <<< "$TARGETS"
+          echo "Running backend services lane in $TRUST_CONTEXT context: pnpm --filter @valueos/backend exec vitest run ${TARGET_ARRAY[*]} ${ARGS[*]}"
+          pnpm --filter @valueos/backend exec vitest run "${TARGET_ARRAY[@]}" "${ARGS[@]}"
+
+      - name: Append backend services coverage summary
+        if: ${{ inputs.coverage_mode == 'summary' }}
+        run: |
+          SUMMARY_PATH="artifacts/coverage/backend-services/${{ inputs.backend_suite }}/coverage-summary.json"
+          node -e 'const fs = require("fs"); const summaryPath = process.argv[1]; const suite = process.argv[2]; const data = JSON.parse(fs.readFileSync(summaryPath, "utf8")); const total = data.total ?? {}; const fmt = (metric) => `${metric?.pct ?? 0}% (${metric?.covered ?? 0}/${metric?.total ?? 0})`; const lines = [`# backend-services/${suite}`, '', `- Lines: ${fmt(total.lines)}`, `- Functions: ${fmt(total.functions)}`, `- Branches: ${fmt(total.branches)}`, `- Statements: ${fmt(total.statements)}`]; fs.mkdirSync("artifacts/coverage", { recursive: true }); fs.writeFileSync(`artifacts/coverage/backend-services-${suite}.md`, `${lines.join("\n")}\n`);' "$SUMMARY_PATH" "${{ inputs.backend_suite }}"
+          cat "artifacts/coverage/backend-services-${{ inputs.backend_suite }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload backend services coverage artifacts
+        if: ${{ always() && inputs.coverage_mode == 'summary' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-backend-services-${{ inputs.backend_suite }}-${{ github.run_id }}
+          path: |
+            artifacts/coverage/backend-services/${{ inputs.backend_suite }}/coverage-summary.json
+            artifacts/coverage/backend-services-${{ inputs.backend_suite }}.md
+          if-no-files-found: warn
+          retention-days: 30
+
+  complete:
+    name: reusable-test/complete
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs:
+      - package-matrix-config
+      - vitest-package
+      - adhoc-vitest
+      - backend-services-security-hardening
+      - backend-services-tests
+    steps:
+      - name: Validate reusable workflow result
+        env:
+          PACKAGE_MATRIX_CONFIG: ${{ needs.package-matrix-config.result }}
+          VITEST_PACKAGE: ${{ needs.vitest-package.result }}
+          ADHOC_VITEST: ${{ needs.adhoc-vitest.result }}
+          BACKEND_SECURITY: ${{ needs.backend-services-security-hardening.result }}
+          BACKEND_TESTS: ${{ needs.backend-services-tests.result }}
+        run: |
+          for lane in \
+            "package-matrix-config:$PACKAGE_MATRIX_CONFIG" \
+            "vitest-package:$VITEST_PACKAGE" \
+            "adhoc-vitest:$ADHOC_VITEST" \
+            "backend-services-security-hardening:$BACKEND_SECURITY" \
+            "backend-services-tests:$BACKEND_TESTS"; do
+            echo "$lane"
+            status="${lane#*:}"
+            if [ "$status" = "failure" ] || [ "$status" = "cancelled" ]; then
+              echo "Reusable test workflow failed because $lane" >&2
+              exit 1
+            fi
+          done
+
+          echo "Reusable test workflow completed for scope=${{ inputs.scope }}, trust_context=${{ inputs.trust_context }}, coverage_mode=${{ inputs.coverage_mode }}."
