@@ -5,6 +5,7 @@ metadata:
   namespace: valynt
   labels:
     app: backend
+    workload: backend
     component: api
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
@@ -27,6 +28,7 @@ spec:
     metadata:
       labels:
         app: backend
+        workload: backend
         component: api
         version: v1
       annotations:
@@ -59,6 +61,8 @@ spec:
               value: "3001"
             - name: DATABASE_POOL_ROLE
               value: "api"
+            - name: OBSERVABILITY_DEPLOYMENT
+              value: "backend"
             - name: LOG_FORMAT
               value: "json"
             - name: LOG_LEVEL

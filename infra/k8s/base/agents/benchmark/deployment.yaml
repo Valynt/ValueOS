@@ -4,6 +4,7 @@ metadata:
   name: benchmark-agent
   labels:
     app: benchmark-agent
+    workload: benchmark-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: benchmark-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: benchmark-agent
+        workload: benchmark-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: benchmark-agent

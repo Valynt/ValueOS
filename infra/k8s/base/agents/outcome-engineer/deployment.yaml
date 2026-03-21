@@ -4,6 +4,7 @@ metadata:
   name: outcome-engineer-agent
   labels:
     app: outcome-engineer-agent
+    workload: outcome-engineer-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: outcome-engineer-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: outcome-engineer-agent
+        workload: outcome-engineer-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: outcome-engineer-agent

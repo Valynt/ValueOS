@@ -5,7 +5,6 @@
   "license": "MIT",
   "scripts": {
     "dev:frontend": "pnpm --filter valynt-app dev",
-
     "dev:backend": "pnpm --filter @valueos/backend dev",
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
@@ -27,6 +26,7 @@
     "check:workflow-pnpm-contract": "node scripts/ci/check-workflow-pnpm-contract.mjs",
     "check:runtime-platform-contract": "node scripts/ci/check-runtime-platform-contract.mjs",
     "check:archived-ecs-guardrails": "node scripts/ci/check-archived-ecs-guardrails.mjs",
+    "check:catalog-metadata": "node scripts/ci/check-catalog-metadata.mjs",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "db:migrate": "bash scripts/db/apply-migrations.sh",

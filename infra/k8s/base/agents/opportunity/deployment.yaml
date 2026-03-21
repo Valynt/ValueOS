@@ -4,6 +4,7 @@ metadata:
   name: opportunity-agent
   labels:
     app: opportunity-agent
+    workload: opportunity-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: opportunity-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: opportunity-agent
+        workload: opportunity-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: opportunity-agent

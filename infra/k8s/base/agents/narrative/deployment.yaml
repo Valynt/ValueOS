@@ -4,6 +4,7 @@ metadata:
   name: narrative-agent
   labels:
     app: narrative-agent
+    workload: narrative-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: narrative-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: narrative-agent
+        workload: narrative-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: narrative-agent

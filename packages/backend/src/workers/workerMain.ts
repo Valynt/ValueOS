@@ -12,11 +12,27 @@
  */
 
 import { createLogger } from '../lib/logger.js';
+import { getQueueHealth } from '../observability/queueMetrics.js';
 
-import { createArtifactGenerationWorker } from './ArtifactGenerationWorker.js';
-import { initCrmWorkers } from './crmWorker.js';
-import { initResearchWorker } from './researchWorker.js';
-import { getCertificateGenerationWorker } from './CertificateGenerationWorker.js';
+import {
+  ARTIFACT_GENERATION_QUEUE_NAME,
+  createArtifactGenerationWorker,
+  getArtifactGenerationQueue,
+} from './ArtifactGenerationWorker.js';
+import {
+  CRM_PREFETCH_QUEUE,
+  CRM_SYNC_QUEUE,
+  CRM_WEBHOOK_QUEUE,
+  getCrmSyncQueue,
+  getCrmWebhookQueue,
+  getPrefetchQueue,
+  initCrmWorkers,
+} from './crmWorker.js';
+import {
+  getCertificateGenerationQueue,
+  getCertificateGenerationWorker,
+} from './CertificateGenerationWorker.js';
+import { getResearchQueue, initResearchWorker, RESEARCH_QUEUE_NAME } from './researchWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -60,6 +76,41 @@ try {
     error: err instanceof Error ? err.message : String(err),
   });
 }
+
+const queueSamplerIntervalMs = 30_000;
+const queueHealthSamplers = [
+  { queue: getResearchQueue, queueName: RESEARCH_QUEUE_NAME, workerClass: 'research-worker' },
+  { queue: getCrmSyncQueue, queueName: CRM_SYNC_QUEUE, workerClass: 'crm-sync-worker' },
+  { queue: getCrmWebhookQueue, queueName: CRM_WEBHOOK_QUEUE, workerClass: 'crm-webhook-worker' },
+  { queue: getPrefetchQueue, queueName: CRM_PREFETCH_QUEUE, workerClass: 'crm-prefetch-worker' },
+  {
+    queue: getArtifactGenerationQueue,
+    queueName: ARTIFACT_GENERATION_QUEUE_NAME,
+    workerClass: 'artifact-generation-worker',
+  },
+  {
+    queue: getCertificateGenerationQueue,
+    queueName: 'certificate-generation',
+    workerClass: 'certificate-generation-worker',
+  },
+] as const;
+
+const sampleQueueHealth = async () => {
+  await Promise.allSettled(
+    queueHealthSamplers.map(({ queue, queueName, workerClass }) =>
+      getQueueHealth(queue(), queueName, {
+        deployment: process.env.OBSERVABILITY_DEPLOYMENT ?? 'worker',
+        workerClass,
+      }),
+    ),
+  );
+};
+
+void sampleQueueHealth();
+const queueSampler = setInterval(() => {
+  void sampleQueueHealth();
+}, queueSamplerIntervalMs);
+queueSampler.unref();
 
 // Minimal health endpoint for K8s liveness/readiness probes
 const HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT) || 8081;

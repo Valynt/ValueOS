@@ -19,6 +19,10 @@ data:
   enable-metrics: "true"
   enable-health-checks: "true"
 
+  # Performance settings
+  # Review monthly against the operational tuning loop baselines.
+  max-concurrent-requests: "10"
+
   # Workload profiles
   # Interactive agents keep moderate per-pod fan-out so CPU-bound request paths
   # stay responsive without forcing every burst into an HPA event.
@@ -34,7 +38,6 @@ data:
   # Keeping pools small prevents connection storms when scale-to-zero classes wake up.
   low-frequency-async-max-concurrent-requests: "2"
   low-frequency-async-db-connection-pool-size: "2"
-
   request-timeout-ms: "30000"
 
   # Agent-specific defaults

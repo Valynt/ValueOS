@@ -18,6 +18,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
+import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 
 const logger = createLogger({ component: 'CrmWorker' });
@@ -242,6 +243,11 @@ export function initCrmSyncWorker(): Worker {
     }
   });
 
+  attachQueueMetrics(_syncWorker, CRM_SYNC_QUEUE, {
+    workerClass: 'crm-sync-worker',
+    concurrency: 3,
+  });
+
   logger.info(`[crm-sync] Worker listening on queue "${CRM_SYNC_QUEUE}"`);
   return _syncWorker;
 }
@@ -307,6 +313,11 @@ export function initCrmWebhookWorker(): Worker {
     }
   });
 
+  attachQueueMetrics(_webhookWorker, CRM_WEBHOOK_QUEUE, {
+    workerClass: 'crm-webhook-worker',
+    concurrency: 5,
+  });
+
   logger.info(`[crm-webhook] Worker listening on queue "${CRM_WEBHOOK_QUEUE}"`);
   return _webhookWorker;
 }
@@ -361,6 +372,11 @@ export function initCrmPrefetchWorker(): Worker {
     if (job && job.attemptsMade >= MAX_ATTEMPTS) {
       moveToDeadLetter(job, err);
     }
+  });
+
+  attachQueueMetrics(_prefetchWorker, CRM_PREFETCH_QUEUE, {
+    workerClass: 'crm-prefetch-worker',
+    concurrency: 3,
   });
 
   logger.info(`[crm-prefetch] Worker listening on queue "${CRM_PREFETCH_QUEUE}"`);

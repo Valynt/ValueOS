@@ -2,6 +2,8 @@
 title: Deployment Runbook
 authoritative: true
 owner: team-platform
+backstage_owner: team:platform-engineering
+backstage_system: value-engineering-platform
 review_cadence: monthly
 last_reviewed: 2026-02-13
 tags: [runbook, operations, deployment, ownership:team-platform, cadence:monthly]

@@ -1,3 +1,13 @@
+---
+title: Incident Severity, Paging, and Communications Policy
+owner: team-platform
+backstage_owner: team:platform-engineering
+backstage_system: value-engineering-platform
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Incident Severity, Paging, and Communications Policy
 
 ## 1) Incident severity model

@@ -29,15 +29,20 @@ metadata:
     - monorepo
 
   links:
+    - url: https://app.valueos.com
+      title: Production Application
+    - url: https://grafana.valueos.com/d/valueos-mission-control
+      title: Grafana Mission Control Dashboard
+      icon: dashboard
     - url: https://github.com/Valynt/ValueOS/blob/main/docs/operations/incident-response.md
-      title: Canonical Security Runbook
+      title: Incident Response Playbook
+      icon: docs
+    - url: https://github.com/Valynt/ValueOS/blob/main/docs/operations/runbooks/deployment-runbook.md
+      title: Deployment Runbook
       icon: docs
     - url: https://github.com/Valynt/ValueOS/blob/main/docs/runbooks/disaster-recovery.md
       title: Disaster Recovery Runbook
       icon: docs
-    - url: https://github.com/Valynt/ValueOS/blob/main/infra/observability/grafana/dashboards/mission-control.json
-      title: Mission Control Dashboard
-      icon: dashboard
 
   annotations:
     # [auto] Derived from GitHub repository path

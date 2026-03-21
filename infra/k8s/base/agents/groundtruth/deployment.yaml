@@ -4,6 +4,7 @@ metadata:
   name: groundtruth-agent
   labels:
     app: groundtruth-agent
+    workload: groundtruth-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: groundtruth-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: groundtruth-agent
+        workload: groundtruth-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: groundtruth-agent

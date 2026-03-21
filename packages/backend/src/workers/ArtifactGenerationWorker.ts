@@ -15,7 +15,7 @@
  * failure and can retry according to the queue's retry policy.
  */
 
-import { Worker, type Job } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 
 import { NarrativeAgent } from '../lib/agent-fabric/agents/NarrativeAgent.js';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
@@ -24,6 +24,7 @@ import { CircuitBreaker } from '../lib/resilience/CircuitBreaker.js';
 import { logger } from '../lib/logger.js';
 import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
+import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { ArtifactJobRepository } from '../services/artifacts/ArtifactJobRepository.js';
 import { ArtifactRepository } from '../services/artifacts/ArtifactRepository.js';
 import type { LifecycleContext } from '../types/agent.js';
@@ -306,9 +307,28 @@ export function createArtifactGenerationWorker(): Worker<ArtifactGenerationJobPa
     });
   });
 
+  attachQueueMetrics(worker, QUEUE_NAME, {
+    workerClass: 'artifact-generation-worker',
+    concurrency: 3,
+  });
+
   logger.info('ArtifactGenerationWorker: started', { queue: QUEUE_NAME });
 
   return worker;
+}
+
+let _queue: Queue<ArtifactGenerationJobPayload> | null = null;
+
+export function getArtifactGenerationQueue(): Queue<ArtifactGenerationJobPayload> {
+  if (!_queue) {
+    const config = getAgentMessageQueueConfig();
+    const redisUrl = config.redis.url ?? 'redis://localhost:6379';
+    _queue = new Queue<ArtifactGenerationJobPayload>(QUEUE_NAME, {
+      connection: { url: redisUrl },
+    });
+  }
+
+  return _queue;
 }
 
 export { QUEUE_NAME as ARTIFACT_GENERATION_QUEUE_NAME };
