@@ -2,11 +2,32 @@
 set -euo pipefail
 
 DIST_DIR=${1:-dist}
+SOURCE_DIR=${2:-apps/ValyntApp/src}
+
+if [ ! -d "$SOURCE_DIR" ]; then
+  echo "❌ Frontend source directory missing: $SOURCE_DIR"
+  exit 1
+fi
 
 if [ ! -d "$DIST_DIR" ]; then
   echo "❌ Frontend build directory missing: $DIST_DIR"
   exit 1
 fi
+
+echo "🔍 Scanning frontend source paths for privileged Supabase helpers..."
+
+source_patterns=(
+  "createServerSupabaseClient"
+  "createServiceRoleSupabaseClient"
+  "getSupabaseServerConfig"
+)
+
+for pattern in "${source_patterns[@]}"; do
+  if rg -n "$pattern" "$SOURCE_DIR"; then
+    echo "❌ Found privileged Supabase helper reference ($pattern) in frontend source"
+    exit 1
+  fi
+done
 
 echo "🔍 Scanning frontend bundle for server-only secrets..."
 

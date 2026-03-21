@@ -8,28 +8,33 @@
 import { logger } from '@shared/lib/logger';
 import { getRedisClient } from '@shared/lib/redisClient';
 import { NextFunction, Request, RequestHandler, Response } from 'express';
+import type { Redis } from 'ioredis';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 
+import { createCounter } from '../lib/observability/index.js';
 import { RateLimitKeyService } from '../services/post-v1/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/post-v1/RedisCircuitBreaker';
-
-
-// Extended Request interface for rate limiting
-interface RateLimitRequest extends Request {
-  user?: {
-    id: string;
-    subscription_tier?: 'free' | 'pro' | 'enterprise';
-    role?: string;
-  };
-  rateLimitTier?: string;
-}
 
 // We'll use `getRedisClient()` which connects lazily and uses the
 // testcontainers-provided REDIS_URL during tests.
 
 // Cache for rate limiters to prevent re-instantiation on every request
 const limiterPromises = new Map<string, Promise<RequestHandler>>();
+let llmDistributedBackendHealthy = false;
+
+const llmRateLimitBackendUnavailableCounter = createCounter(
+  'llm_rate_limit_backend_unavailable_total',
+  'LLM requests that could not reach the distributed rate-limit backend'
+);
+const llmRateLimitProtective503Counter = createCounter(
+  'llm_rate_limit_protective_503_total',
+  'LLM requests blocked because distributed rate limiting was required but unavailable'
+);
+const llmRateLimitMemoryFallbackCounter = createCounter(
+  'llm_rate_limit_memory_fallback_total',
+  'LLM requests handled with in-memory rate limiting while the distributed backend was unavailable'
+);
 
 /**
  * Rate limit configuration for different user tiers
@@ -87,6 +92,94 @@ function keyGenerator(req: Request): string {
     service: 'llm',
     tier: tier
   });
+}
+
+type LlmRateLimitRisk = 'security-critical' | 'expensive-write' | 'low-risk';
+
+function classifyLlmEndpointRisk(
+  req: Request,
+  tier: keyof typeof RATE_LIMITS
+): LlmRateLimitRisk {
+  const path = req.path.toLowerCase();
+  const method = req.method.toUpperCase();
+
+  if (req.user?.role === 'admin' || tier === 'admin') {
+    return 'security-critical';
+  }
+
+  if (
+    tier === 'anonymous' ||
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ||
+    /\/(generate|complete|chat|stream|analyze|invoke|execute)(\/|$)/.test(path)
+  ) {
+    return 'expensive-write';
+  }
+
+  return 'low-risk';
+}
+
+function requiresDistributedLlmProtection(risk: LlmRateLimitRisk): boolean {
+  if (process.env.LLM_RATE_LIMIT_DISTRIBUTED === 'false') {
+    return false;
+  }
+
+  if (risk === 'low-risk') {
+    return false;
+  }
+
+  return (
+    process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED_BACKEND === 'true' ||
+    process.env.RATE_LIMIT_DISTRIBUTED === 'true' ||
+    process.env.NODE_ENV === 'production'
+  );
+}
+
+async function getDistributedRateLimitClient(): Promise<import('ioredis').Redis | null> {
+  const client = await redisCircuitBreaker.execute({
+    operation: () => getRedisClient(),
+    operationName: 'redis-get-client-llm-rate-limit',
+    timeout: 5000,
+    fallback: () => null,
+  }) as unknown as import('ioredis').Redis | null;
+
+  llmDistributedBackendHealthy = client !== null;
+  return client;
+}
+
+async function enforceDistributedLlmProtection(
+  req: Request,
+  res: Response,
+  tier: keyof typeof RATE_LIMITS
+): Promise<boolean> {
+  const risk = classifyLlmEndpointRisk(req, tier);
+  const requireDistributed = requiresDistributedLlmProtection(risk);
+  const client = await getDistributedRateLimitClient();
+
+  if (!client) {
+    llmRateLimitBackendUnavailableCounter.inc();
+
+    if (requireDistributed) {
+      logger.error('Blocking LLM request because distributed rate limiting is unavailable', {
+        path: req.path,
+        method: req.method,
+        tier,
+        risk,
+      });
+      llmRateLimitProtective503Counter.inc();
+      res.setHeader('X-RateLimit-Enforcement', 'degraded-protective');
+      res.status(503).json({
+        error: 'Service Unavailable',
+        code: 'LLM_RATE_LIMIT_DEGRADED_PROTECTION',
+        message:
+          'This LLM endpoint is temporarily unavailable because distributed rate limiting is required for expensive or privileged traffic.',
+      });
+      return false;
+    }
+
+    llmRateLimitMemoryFallbackCounter.inc();
+  }
+
+  return true;
 }
 
 /**
@@ -168,15 +261,11 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
   const config = RATE_LIMITS[tier];
 
   try {
-    const client = await (redisCircuitBreaker.execute({
-      operation: () => getRedisClient(),
-      operationName: 'redis-get-client',
-      timeout: 5000,
-      fallback: () => {
-        logger.warn('Redis unavailable, falling back to in-memory rate limiting');
-        return null;
-      }
-    }) as unknown as Promise<import('ioredis').Redis | null>);
+    const client = await getDistributedRateLimitClient();
+
+    if (!client) {
+      logger.warn('Redis unavailable, falling back to in-memory rate limiting', { tier });
+    }
 
     return rateLimit({
       windowMs: config.windowMs,
@@ -189,8 +278,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
       // rate-limit-redis v4 requires a sendCommand function, not a raw client.
       ...(client ? {
         store: new RedisStore({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sendCommand: (...args: string[]) => (client as any).call(...args),
+          sendCommand: (...args: string[]) => (client as Redis).call(...args),
           prefix: `rl:${tier}:`
         })
       } : {}),
@@ -222,6 +310,10 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
 export const llmRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
   const tier = getUserTier(req);
 
+  if (!(await enforceDistributedLlmProtection(req, res, tier))) {
+    return;
+  }
+
   let limiterPromise = limiterPromises.get(tier);
   if (!limiterPromise) {
     limiterPromise = createTierRateLimiter(tier);
@@ -243,15 +335,11 @@ let strictLimiterPromise: Promise<RequestHandler> | null = null;
  */
 async function createStrictRateLimiter() {
   try {
-    const client = await redisCircuitBreaker.execute({
-      operation: () => getRedisClient(),
-      operationName: 'redis-get-client-strict',
-      timeout: 5000,
-      fallback: () => {
-        logger.warn('Redis unavailable for strict limiter, using in-memory');
-        return null;
-      }
-    });
+    const client = await getDistributedRateLimitClient();
+
+    if (!client) {
+      logger.warn('Redis unavailable for strict limiter, using in-memory');
+    }
 
     return rateLimit({
       windowMs: 60 * 60 * 1000, // 1 hour
@@ -289,6 +377,10 @@ async function createStrictRateLimiter() {
  * (e.g., long-form content generation, complex analysis)
  */
 export const strictLlmRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
+  if (!(await enforceDistributedLlmProtection(req, res, 'admin'))) {
+    return;
+  }
+
   if (!strictLimiterPromise) {
     strictLimiterPromise = createStrictRateLimiter();
   }
@@ -386,3 +478,20 @@ export async function resetRateLimit(userId: string): Promise<void> {
     throw error;
   }
 }
+
+export function getLlmRateLimitBackendStatus(): {
+  required: boolean;
+  healthy: boolean;
+  mode: 'distributed' | 'memory-fallback';
+} {
+  return {
+    required:
+      process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED_BACKEND === 'true' ||
+      process.env.RATE_LIMIT_DISTRIBUTED === 'true' ||
+      process.env.NODE_ENV === 'production',
+    healthy: llmDistributedBackendHealthy,
+    mode: llmDistributedBackendHealthy ? 'distributed' : 'memory-fallback',
+  };
+}
+
+export { classifyLlmEndpointRisk };
