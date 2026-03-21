@@ -22,7 +22,14 @@ const ROOT = resolve(__dirname, "../..");
 
 const CANONICAL_MIGRATIONS_DIR = "infra/supabase/supabase/migrations";
 const CANONICAL_RUNNER = resolve(ROOT, "scripts/db/apply-migrations.sh");
-const DEPLOY_WORKFLOW = resolve(ROOT, ".github/workflows/deploy.yml");
+const STAGING_DEPLOY_WORKFLOW = resolve(
+  ROOT,
+  ".github/workflows/deploy-staging.yml"
+);
+const PRODUCTION_DEPLOY_WORKFLOW = resolve(
+  ROOT,
+  ".github/workflows/deploy-production.yml"
+);
 const CI_WORKFLOW = resolve(ROOT, ".github/workflows/ci.yml");
 const MIGRATION_INTEGRITY_WORKFLOW = resolve(
   ROOT,
@@ -71,7 +78,7 @@ describe("environment_migration_contract_is_consistent", () => {
   });
 
   it("staging deploy applies migrations from the canonical directory", () => {
-    const workflow = readText(DEPLOY_WORKFLOW);
+    const workflow = readText(STAGING_DEPLOY_WORKFLOW);
     // Extract the staging migration step's run block via regex so the
     // extraction is anchored to the step structure, not positional slicing.
     const stagingMatch = workflow.match(
@@ -88,7 +95,7 @@ describe("environment_migration_contract_is_consistent", () => {
   });
 
   it("production deploy applies migrations from the canonical directory", () => {
-    const workflow = readText(DEPLOY_WORKFLOW);
+    const workflow = readText(PRODUCTION_DEPLOY_WORKFLOW);
     const productionMatch = workflow.match(
       /- name: Run database migrations \(production\)\s[\s\S]*?run:\s*\|([\s\S]*?)(?=\n\s{6}- name:)/
     );
@@ -100,13 +107,14 @@ describe("environment_migration_contract_is_consistent", () => {
   });
 
   it("staging and production use the same migration tool and target directory", () => {
-    const workflow = readText(DEPLOY_WORKFLOW);
+    const stagingWorkflow = readText(STAGING_DEPLOY_WORKFLOW);
+    const productionWorkflow = readText(PRODUCTION_DEPLOY_WORKFLOW);
 
     // Extract the run block for each environment
-    const stagingMatch = workflow.match(
+    const stagingMatch = stagingWorkflow.match(
       /Run database migrations \(staging\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n {6}- name:)/
     );
-    const productionMatch = workflow.match(
+    const productionMatch = productionWorkflow.match(
       /Run database migrations \(production\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n {6}- name:)/
     );
 
@@ -150,7 +158,12 @@ describe("environment_migration_contract_is_consistent", () => {
   });
 
   it("no environment-specific migration directory override is present in workflow env blocks", () => {
-    const workflows = [DEPLOY_WORKFLOW, CI_WORKFLOW, MIGRATION_INTEGRITY_WORKFLOW];
+    const workflows = [
+      STAGING_DEPLOY_WORKFLOW,
+      PRODUCTION_DEPLOY_WORKFLOW,
+      CI_WORKFLOW,
+      MIGRATION_INTEGRITY_WORKFLOW,
+    ];
     const violations: string[] = [];
 
     for (const wfPath of workflows) {
@@ -247,12 +260,15 @@ describe("critical_architecture_controls_are_present_in_all_environments", () =>
   it("verify-critical-architecture-migrations.mjs is invoked in CI", () => {
     // This script validates the manifest against the filesystem — it must run in CI.
     const ciWorkflow = readText(CI_WORKFLOW);
-    const deployWorkflow = readText(DEPLOY_WORKFLOW);
+    const stagingWorkflow = readText(STAGING_DEPLOY_WORKFLOW);
+    const productionWorkflow = readText(PRODUCTION_DEPLOY_WORKFLOW);
     const isInCI = ciWorkflow.includes("verify-critical-architecture-migrations.mjs");
-    const isInDeploy = deployWorkflow.includes("verify-critical-architecture-migrations.mjs");
+    const isInDeploy =
+      stagingWorkflow.includes("verify-critical-architecture-migrations.mjs") ||
+      productionWorkflow.includes("verify-critical-architecture-migrations.mjs");
     expect(
       isInCI || isInDeploy,
-      "verify-critical-architecture-migrations.mjs must be invoked in ci.yml or deploy.yml"
+      "verify-critical-architecture-migrations.mjs must be invoked in ci.yml, deploy-staging.yml, or deploy-production.yml"
     ).toBe(true);
   });
 

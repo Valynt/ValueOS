@@ -1,0 +1,95 @@
+name: Reliability Weekly
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  weekly-reliability-report:
+    name: Weekly Reliability Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate weekly SLO and incident report
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "PROMETHEUS_PRODUCTION_URL and ALERTMANAGER_PRODUCTION_URL are required"
+            exit 1
+          fi
+
+          prom_query() {
+            local query="$1"
+            local auth_header=()
+            if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
+              auth_header=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
+            fi
+            curl -fsSL "${auth_header[@]}" --get --data-urlencode "query=${query}" "${PROMETHEUS_URL%/}/api/v1/query"
+          }
+
+          auth_header=()
+          if [ -n "${ALERTMANAGER_TOKEN:-}" ]; then
+            auth_header=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+          fi
+
+          API_AVAIL=$(prom_query 'slo:api_availability:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          INTERACTIVE_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          ORCHESTRATION_ACK_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration",latency_phase="acknowledgment"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          ORCHESTRATION_COMPLETION_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
+
+          ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
+
+          INCIDENTS_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+          INCIDENTS_PREV_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[14d])) - sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+
+          REPORT_PATH="weekly-reliability-report.md"
+          RUN_DATE=$(date -u +%Y-%m-%d)
+
+          cat > "${REPORT_PATH}" <<REPORT
+          # Weekly Reliability Report (${RUN_DATE})
+
+          ## Current SLO Status (1h rolling)
+          - API Availability: ${API_AVAIL}
+          - Interactive Completion SLO Ratio (P95 <= 200ms): ${API_LATENCY}
+          - Authentication Success: ${AUTH_SUCCESS}
+          - Queue Health: ${QUEUE_HEALTH}
+
+          ## Burn-Rate Alert Status
+          - Active SLO burn-rate alerts: ${ACTIVE_BURN_ALERTS}
+
+          ## Incident Trend
+          - Incidents triggered in last 7d: ${INCIDENTS_7D}
+          - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
+
+          ## Weekly Latency Trend
+          - Interactive completion 7d p95 (ms): ${INTERACTIVE_P95_WEEK}
+          - Orchestration acknowledgment 7d p95 (ms): ${ORCHESTRATION_ACK_P95_WEEK}
+          - Orchestration completion 7d p95 (ms): ${ORCHESTRATION_COMPLETION_P95_WEEK}
+
+          ## Latency SLO Budget Burn-down
+          - Burn ratio (0 = healthy, >0 means over budget): ${LATENCY_BUDGET_BURN}
+          - Target threshold: interactive completion p95 <= 200ms
+          - Allowed orchestration exception: completion p95 <= 3000ms after acknowledgment p95 <= 200ms
+
+          ## Notes
+          - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
+          - Burn-down is computed from 7d interactive completion p95 against the 200ms source-of-truth target.
+          REPORT
+
+      - name: Upload reliability report artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: weekly-reliability-report-${{ github.run_id }}
+          path: weekly-reliability-report.md

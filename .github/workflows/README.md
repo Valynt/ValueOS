@@ -36,7 +36,7 @@ To prevent accidental regressions, CI includes `pnpm run ci:governance:self-chec
 - if `ci:verify` is present, it still contains `pnpm run typecheck:signal --verify`, and
 - the authoritative protected workflow (`ci.yml`) includes either `pnpm run ci:verify` or the direct governance command.
 
-Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only when present and may be absent without failing the governance self-check.
+Optional workflows (`test.yml`, `deploy-staging.yml`, `deploy-production.yml`, `reliability-weekly.yml`, `release.yml`) are checked only when present and may be absent without failing the governance self-check.
 
 ## Tenant isolation CI policy (fork-safe)
 
