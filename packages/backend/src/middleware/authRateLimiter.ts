@@ -31,6 +31,14 @@ const authRateLimiterFallbackCounter = createCounter(
   "auth_rate_limiter_fallback_active_total",
   "Requests handled by in-memory fallback when Redis is unavailable"
 );
+const authRateLimiterProtective503Counter = createCounter(
+  "auth_rate_limit_protective_503_total",
+  "Security-critical auth requests blocked because distributed rate limiting was unavailable"
+);
+const authRateLimiterBackendUnavailableCounter = createCounter(
+  "auth_rate_limit_backend_unavailable_total",
+  "Security-critical auth requests that could not reach the distributed rate-limit backend"
+);
 
 const authRateLimit429Counter = createCounter(
   "auth_rate_limit_429_total",
@@ -61,6 +69,18 @@ interface AttemptRecord {
   failures: number;
   windowStart: number;
   lockedUntil: number | null;
+}
+
+type AuthEndpointRisk = "security-critical" | "low-risk";
+
+interface AuthRateLimitOptions {
+  requireDistributedStore?: boolean;
+}
+
+interface AuthEndpointPolicy {
+  action: string;
+  risk: AuthEndpointRisk;
+  failClosed: boolean;
 }
 
 // Redis key helpers — all keys are namespaced under auth:rl: to avoid collisions.
@@ -100,7 +120,24 @@ const AUTH_CONFIGS: Record<string, AuthRateLimitConfig> = {
     progressiveDelayMs: 1000,
     maxDelayMs: 10000,
   },
+  mfa: {
+    maxAttempts: 6,
+    windowMs: 15 * 60 * 1000,
+    lockoutThreshold: 8,
+    lockoutDurationMs: 30 * 60 * 1000,
+    progressiveDelayMs: 1000,
+    maxDelayMs: 10000,
+  },
 };
+
+function requiresDistributedAuthProtection(): boolean {
+  return (
+    process.env.AUTH_RATE_LIMIT_DISTRIBUTED !== "false" &&
+    (process.env.RATE_LIMIT_DISTRIBUTED === "true" ||
+      process.env.NODE_ENV === "production" ||
+      process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED_BACKEND === "true")
+  );
+}
 
 /**
  * Distributed auth rate limit store backed by Redis.
@@ -194,6 +231,25 @@ export class AuthRateLimitStore {
     }
   }
 
+  isDistributedBackendHealthy(): boolean {
+    return this.redisReady && this.redis !== null;
+  }
+
+  private handleDistributedBackendUnavailable(
+    operation: "increment" | "recordFailure" | "isLocked" | "getProgressiveDelay",
+    options?: AuthRateLimitOptions
+  ): never {
+    if (options?.requireDistributedStore && requiresDistributedAuthProtection()) {
+      authRateLimiterBackendUnavailableCounter.inc();
+      throw new Error(
+        `Distributed auth rate limiting unavailable during ${operation}`
+      );
+    }
+
+    authRateLimiterFallbackCounter.inc();
+    throw new Error("__AUTH_RATE_LIMIT_MEMORY_FALLBACK__");
+  }
+
   // ── Redis helpers ──────────────────────────────────────────────────────────
 
   private async redisIncr(key: string, windowMs: number): Promise<number> {
@@ -233,7 +289,8 @@ export class AuthRateLimitStore {
   async increment(
     ip: string,
     email: string | undefined,
-    config: AuthRateLimitConfig
+    config: AuthRateLimitConfig,
+    options?: AuthRateLimitOptions
   ): Promise<{ ipRecord: AttemptRecord; emailRecord: AttemptRecord | null }> {
     if (this.redisReady && this.redis) {
       try {
@@ -264,14 +321,23 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
-    authRateLimiterFallbackCounter.inc();
+
+    try {
+      this.handleDistributedBackendUnavailable("increment", options);
+    } catch (error) {
+      if (error instanceof Error && error.message !== "__AUTH_RATE_LIMIT_MEMORY_FALLBACK__") {
+        throw error;
+      }
+    }
+
     return this.incrementInMemory(ip, email, config);
   }
 
   async recordFailure(
     ip: string,
     email: string | undefined,
-    config: AuthRateLimitConfig
+    config: AuthRateLimitConfig,
+    options?: AuthRateLimitOptions
   ): Promise<void> {
     if (this.redisReady && this.redis) {
       try {
@@ -309,11 +375,23 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
-    authRateLimiterFallbackCounter.inc();
+
+    try {
+      this.handleDistributedBackendUnavailable("recordFailure", options);
+    } catch (error) {
+      if (error instanceof Error && error.message !== "__AUTH_RATE_LIMIT_MEMORY_FALLBACK__") {
+        throw error;
+      }
+    }
+
     this.recordFailureInMemory(ip, email, config);
   }
 
-  async isLocked(ip: string, email: string | undefined): Promise<boolean> {
+  async isLocked(
+    ip: string,
+    email: string | undefined,
+    options?: AuthRateLimitOptions
+  ): Promise<boolean> {
     if (this.redisReady && this.redis) {
       try {
         if (await this.redisIsLocked(redisKey('lockout', 'ip', ip))) return true;
@@ -327,14 +405,23 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
-    authRateLimiterFallbackCounter.inc();
+
+    try {
+      this.handleDistributedBackendUnavailable("isLocked", options);
+    } catch (error) {
+      if (error instanceof Error && error.message !== "__AUTH_RATE_LIMIT_MEMORY_FALLBACK__") {
+        throw error;
+      }
+    }
+
     return this.isLockedInMemory(ip, email);
   }
 
   async getProgressiveDelay(
     ip: string,
     email: string | undefined,
-    config: AuthRateLimitConfig
+    config: AuthRateLimitConfig,
+    options?: AuthRateLimitOptions
   ): Promise<number> {
     let maxFailures = 0;
 
@@ -354,11 +441,21 @@ export class AuthRateLimitStore {
         this.onRedisSuccess();
       } catch (err) {
         this.onRedisError(err);
+        if (options?.requireDistributedStore && requiresDistributedAuthProtection()) {
+          authRateLimiterBackendUnavailableCounter.inc();
+          throw new Error("Distributed auth rate limiting unavailable during getProgressiveDelay");
+        }
+        authRateLimiterFallbackCounter.inc();
         // Preserve any Redis-sourced count already in maxFailures; take the
         // higher of that and the in-memory count so we never undercount.
         maxFailures = Math.max(maxFailures, this.getProgressiveDelayInMemory(ip, email));
       }
     } else {
+      if (options?.requireDistributedStore && requiresDistributedAuthProtection()) {
+        authRateLimiterBackendUnavailableCounter.inc();
+        throw new Error("Distributed auth rate limiting unavailable during getProgressiveDelay");
+      }
+      authRateLimiterFallbackCounter.inc();
       maxFailures = this.getProgressiveDelayInMemory(ip, email);
     }
 
@@ -500,8 +597,22 @@ function resolveAction(path: string): string {
   if (path.includes("/login")) return "login";
   if (path.includes("/signup")) return "signup";
   if (path.includes("/password/reset")) return "passwordReset";
+  if (path.includes("/mfa") || path.includes("/otp") || path.includes("/verify")) return "mfa";
   if (path.includes("/verify/resend")) return "verifyResend";
   return "login"; // default to strictest
+}
+
+function classifyAuthEndpoint(action: string): AuthEndpointPolicy {
+  switch (action) {
+    case "login":
+    case "signup":
+    case "passwordReset":
+    case "mfa":
+      return { action, risk: "security-critical", failClosed: true };
+    case "verifyResend":
+    default:
+      return { action, risk: "low-risk", failClosed: false };
+  }
 }
 
 function extractEmail(req: Request): string | undefined {
@@ -528,22 +639,55 @@ export function authRateLimiter(
   return async (req: Request, res: Response, next: NextFunction) => {
     const action = actionOverride ?? resolveAction(req.path);
     const config = AUTH_CONFIGS[action] ?? AUTH_CONFIGS.login;
+    const endpointPolicy = classifyAuthEndpoint(action);
     const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
     const email = extractEmail(req);
 
-    // Check lockout first (cross-pod via Redis)
-    if (await store.isLocked(ip, email)) {
-      authRateLimit429Counter.inc();
-      logger.warn("Auth request blocked: account/IP locked", { ip, action });
-      return res.status(429).json({
-        error: "Too Many Requests",
-        message: "Account temporarily locked due to too many failed attempts. Try again later.",
-        retryAfter: Math.ceil(config.lockoutDurationMs / 1000),
-      });
-    }
+    let ipRecord: AttemptRecord;
+    let emailRecord: AttemptRecord | null;
 
-    // Increment counters (cross-pod via Redis)
-    const { ipRecord, emailRecord } = await store.increment(ip, email, config);
+    try {
+      // Check lockout first (cross-pod via Redis)
+      if (
+        await store.isLocked(ip, email, {
+          requireDistributedStore: endpointPolicy.failClosed,
+        })
+      ) {
+        authRateLimit429Counter.inc();
+        logger.warn("Auth request blocked: account/IP locked", { ip, action });
+        return res.status(429).json({
+          error: "Too Many Requests",
+          message: "Account temporarily locked due to too many failed attempts. Try again later.",
+          retryAfter: Math.ceil(config.lockoutDurationMs / 1000),
+        });
+      }
+
+      // Increment counters (cross-pod via Redis)
+      ({ ipRecord, emailRecord } = await store.increment(ip, email, config, {
+        requireDistributedStore: endpointPolicy.failClosed,
+      }));
+    } catch (error) {
+      logger.error("Auth rate limiter degraded-mode protection triggered", error as Error, {
+        action,
+        ip,
+        risk: endpointPolicy.risk,
+        failClosed: endpointPolicy.failClosed,
+        distributedBackendHealthy: store.isDistributedBackendHealthy(),
+      });
+
+      if (endpointPolicy.failClosed) {
+        authRateLimiterProtective503Counter.inc();
+        res.setHeader("X-RateLimit-Enforcement", "degraded-protective");
+        return res.status(503).json({
+          error: "Service Unavailable",
+          code: "AUTH_RATE_LIMIT_DEGRADED_PROTECTION",
+          message:
+            "Authentication is temporarily unavailable because distributed rate limiting is required for this security-critical endpoint.",
+        });
+      }
+
+      throw error;
+    }
 
     // Check IP-based limit
     if (ipRecord.count > config.maxAttempts) {
@@ -580,7 +724,9 @@ export function authRateLimiter(
     }
 
     // Apply progressive delay
-    const delay = await store.getProgressiveDelay(ip, email, config);
+    const delay = await store.getProgressiveDelay(ip, email, config, {
+      requireDistributedStore: endpointPolicy.failClosed,
+    });
     if (delay > 0) {
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -597,16 +743,35 @@ export function authRateLimiter(
 export function recordAuthFailure(req: Request, action?: string): void {
   const resolvedAction = action ?? resolveAction(req.path);
   const config = AUTH_CONFIGS[resolvedAction] ?? AUTH_CONFIGS.login;
+  const endpointPolicy = classifyAuthEndpoint(resolvedAction);
   const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
   const email = extractEmail(req);
 
-  store.recordFailure(ip, email, config).catch((err) => {
+  store.recordFailure(ip, email, config, {
+    requireDistributedStore: endpointPolicy.failClosed,
+  }).catch((err) => {
     logger.warn("recordAuthFailure: failed to persist failure record", {
       error: err instanceof Error ? err.message : String(err),
+      action: resolvedAction,
+      failClosed: endpointPolicy.failClosed,
     });
   });
 }
 
 /** Exposed for testing */
 export const authRateLimitStore = store;
-export { AUTH_CONFIGS, authRateLimiterFallbackCounter };
+export function getAuthRateLimitBackendStatus(): {
+  required: boolean;
+  healthy: boolean;
+  mode: "distributed" | "memory-fallback";
+} {
+  const healthy = store.isDistributedBackendHealthy();
+
+  return {
+    required: requiresDistributedAuthProtection(),
+    healthy,
+    mode: healthy ? "distributed" : "memory-fallback",
+  };
+}
+
+export { AUTH_CONFIGS, authRateLimiterFallbackCounter, classifyAuthEndpoint };

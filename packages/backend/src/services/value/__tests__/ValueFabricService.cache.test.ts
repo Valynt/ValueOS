@@ -25,9 +25,10 @@ describe("ValueFabricService distributed cache configuration", () => {
 
   it("routes capability list reads through tenant-scoped Redis caching with a short near-cache", async () => {
     getOrLoadMock.mockImplementation(async (_config, loader) => loader());
+    const selectMock = vi.fn().mockReturnThis();
     const service = new ValueFabricService({
       from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnThis(),
+        select: selectMock,
         eq: vi.fn().mockReturnThis(),
         contains: vi.fn().mockReturnThis(),
         ilike: vi.fn().mockReturnThis(),
@@ -37,6 +38,10 @@ describe("ValueFabricService distributed cache configuration", () => {
     } as never);
 
     await service.getCapabilities(organizationId, { category: "ai", page: 2, pageSize: 25 });
+
+    expect(selectMock).toHaveBeenCalledWith(
+      "id, name, description, tags, category, is_active, created_at, updated_at"
+    );
 
     expect(getOrLoadMock).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,5 +1,8 @@
 # Caddyfile for ValueOS Development Environment
-# Single ingress entrypoint with path-based routing to internal services
+# Single ingress entrypoint with path-based routing to internal services.
+# Devcontainer-only exception: HTTP is intentionally retained for this local-only
+# profile because the stack is exposed on localhost for development and does not
+# provision or trust certificates inside the devcontainer.
 
 {
     # Global options
@@ -12,7 +15,7 @@
     }
 }
 
-# Primary ingress (host-exposed via 80/443 only)
+# Primary ingress (devcontainer-local only; host-exposed via localhost ports)
 :80, :443 {
     # Health check endpoint
     handle /health {

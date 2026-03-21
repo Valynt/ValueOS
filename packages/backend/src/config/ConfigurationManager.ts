@@ -138,7 +138,7 @@ export class ConfigurationManager {
     organizationId: string,
     userId: string,
     userRole: 'tenant_admin' | 'vendor_admin' | 'user',
-    updates: Record<string, any>
+    updates: Record<string, unknown>
   ): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = [];
 

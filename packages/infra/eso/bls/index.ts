@@ -2,12 +2,23 @@ import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
+interface BLSApiResponse {
+  Results?: {
+    series?: Array<{
+      data?: Array<{
+        year?: string;
+        period?: string;
+      }>;
+    }>;
+  };
+}
+
 export class BLSAdapter implements DataIngestionAdapter {
   name = "BLS";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: any) => void> = new Set();
+  private dataCallbacks: Set<(data: unknown) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
@@ -26,7 +37,7 @@ export class BLSAdapter implements DataIngestionAdapter {
     seriesId: string;
     startYear?: string;
     endYear?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const cacheKey = `bls-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -62,7 +73,11 @@ export class BLSAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: any): Promise<any> {
+  async transformData(rawData: unknown): Promise<{
+    source: "BLS";
+    data: unknown;
+    timestamp: string;
+  }> {
     // Transform BLS data to standardized format
     return {
       source: "BLS",
@@ -89,12 +104,11 @@ export class BLSAdapter implements DataIngestionAdapter {
         const seriesIds = params.seriesIds || ["CES0000000001"]; // Default: Total nonfarm employment
 
         for (const seriesId of seriesIds) {
-          const data = await this.fetchData({ seriesId });
+          const data = (await this.fetchData({ seriesId })) as BLSApiResponse;
 
           // Check if data has been updated
-          const latestTimestamp =
-            data?.Results?.series?.[0]?.data?.[0]?.year +
-            data?.Results?.series?.[0]?.data?.[0]?.period;
+          const latestDataPoint = data.Results?.series?.[0]?.data?.[0];
+          const latestTimestamp = `${latestDataPoint?.year ?? ""}${latestDataPoint?.period ?? ""}`;
           const lastTimestamp = this.lastDataTimestamps.get(seriesId);
 
           if (latestTimestamp !== lastTimestamp) {
@@ -127,12 +141,12 @@ export class BLSAdapter implements DataIngestionAdapter {
     }
   }
 
-  onData(callback: (data: any) => void): () => void {
+  onData(callback: (data: unknown) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: any) {
+  private notifyDataCallbacks(data: unknown) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

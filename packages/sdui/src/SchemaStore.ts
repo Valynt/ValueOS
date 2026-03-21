@@ -49,7 +49,7 @@ interface SchemaState {
   // Queries
   canUndo: () => boolean;
   canRedo: () => boolean;
-  getSectionById: (sectionId: string) => any;
+  getSectionById: (sectionId: string) => SDUIPageDefinition["sections"][number] | undefined;
 }
 
 export const useSchemaStore = create<SchemaState>()(
@@ -246,7 +246,7 @@ export const useSchemaStore = create<SchemaState>()(
         canRedo: () => get().historyIndex < get().history.length - 1,
         getSectionById: (sectionId) => {
           const schema = get().current;
-          if (!schema) return null;
+          if (!schema) return undefined;
           return schema.sections.find((section) => "id" in section && (section as Record<string, unknown>).id === sectionId);
         },
       }),
