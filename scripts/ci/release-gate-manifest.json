@@ -81,6 +81,7 @@
     "aggregateJobId": "release-gate-contract",
     "aggregateJobName": "Release Gate Contract",
     "localNeeds": [
+      "release-manifest-gate",
       "dast-gate",
       "emergency-skip-audit"
     ],
@@ -90,14 +91,16 @@
       "staging-performance-benchmarks",
       "preprod-slo-guard",
       "preprod-launch-gate",
-      "build-images",
+      "release-manifest-gate",
+      "secret-rotation-gate",
       "verify-supply-chain",
-      "stability-seal",
       "emergency-skip-audit"
     ],
     "productionNeedsMustExclude": [
+      "dast-gate",
+      "build-images",
       "quality-gate",
-      "dast-gate"
+      "stability-seal"
     ]
   }
 }

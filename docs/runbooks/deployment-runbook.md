@@ -35,10 +35,10 @@ status: deprecated
 - **On-Call SRE:** Monitors health/alerts, executes infrastructure commands, approves rollback if needed.
 - **Feature Owners:** Validate smoke tests for their surface areas; provide sign-off on risky migrations.
 - **Pre-Production Launch Gate Owners:**
-  - **Billing + Entitlements Owner (Revenue Platform):** owns regression test health and sign-off for billing/entitlements checks.
-  - **Localization Owner (Product Engineering):** owns localization smoke checks and release-locale readiness.
-  - **Tenant Controls Owner (Platform):** owns tenant/region feature-toggle validation outcomes.
-  - **Brand Experience Owner (Design Systems):** owns tenant branding render verification and release evidence artifacts.
+  - **Release Engineering:** owns release-manifest integrity and staging verification artifact review.
+  - **On-Call SRE:** owns deployed staging smoke evidence and rollout readiness review.
+  - **Platform:** owns DAST, SLO, and error-budget gate outcomes before promotion.
+  - **Platform Security:** owns secret-rotation verification evidence.
 
 ## Pre-Flight Checklist
 1. Feature freeze announced in `#releases` (no new merges after cutoff).
@@ -65,9 +65,10 @@ status: deprecated
 4. **`staging-deploy-release-gates`** (`.github/workflows/ci.yml`) — the canonical CI release aggregator that proves the upstream CI gate set is green.
 5. **`codeql-analyze (js-ts)`** (`.github/workflows/codeql.yml`) — dedicated CodeQL analysis required by branch protection and release promotion.
 6. **`dast-gate`** (`.github/workflows/deploy.yml`) — deploy-time OWASP ZAP baseline gate for the staging target.
-7. **`release-gate-contract`** (`.github/workflows/deploy.yml`) — manifest-driven verifier that waits for the external GitHub checks above and fails if any required gate is missing, pending past timeout, skipped, or unsuccessful.
+7. **`release-manifest-gate`** (`.github/workflows/deploy.yml`) — downloads the `release.yml` manifest bundle for the target SHA, verifies its recorded upstream check conclusions, and exposes immutable image refs for deploy jobs.
+8. **`release-gate-contract`** (`.github/workflows/deploy.yml`) — manifest-driven verifier that fails if any required deploy-local gate or recorded upstream release check is missing, skipped, pending past timeout, or unsuccessful.
 
-After the canonical release gate contract is green, `deploy-production` still requires these direct upstream deploy jobs to finish successfully: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `build-images`, `verify-supply-chain`, `stability-seal`, and `emergency-skip-audit`.
+After the canonical release gate contract is green, `deploy-production` still requires these direct upstream deploy jobs to finish successfully: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `release-manifest-gate`, `secret-rotation-gate`, `verify-supply-chain`, and `emergency-skip-audit`.
 
 - **Production deployments require the canonical release gate contract to succeed.** `.github/workflows/deploy.yml` now routes production promotion through `release-gate-contract`, which evaluates `scripts/ci/release-gate-manifest.json` and blocks until every required upstream CI/security check for the target SHA is green.
 - **Emergency bypass (`skip_tests`) is non-production only.** Use of `skip_tests=true` is blocked for production targets and remains available only for staging emergency recovery.
@@ -124,15 +125,14 @@ After the canonical release gate contract is green, `deploy-production` still re
    - Workflow job: **Pre-Production Launch Gate** in `.github/workflows/deploy.yml`.
    - This gate runs after staging deploy + pre-prod SLO guard and is required by the production deploy job.
    - Required checks:
-     - Entitlements + billing regression tests.
-     - Localization smoke checks.
-     - Tenant/region feature-toggle validation.
-     - Tenant branding render verification via `node scripts/ci/verify-tenant-branding-render.mjs`, with release evidence attached as `artifacts/branding/tenant-branding-summary.{json,md}`, `artifacts/branding/tenant-branding-playwright-report.json`, and `artifacts/branding/tenant-branding-preview.png`.
+     - Staging operational verification artifact matches the release-manifest SHA and immutable image ref.
+     - Staging smoke-test evidence has already been published by `deploy-staging`.
+     - `dast-gate`, `preprod-slo-guard`, and `error-budget-policy-gate` are green for the deployed staging environment.
    - Ownership:
-     - Revenue Platform team owns billing/entitlements regressions.
-     - Product Engineering owns localization checks.
-     - Platform team owns tenant/region toggle validation.
-     - Design Systems owns tenant branding render verification.
+     - Release Engineering owns release-manifest and staging verification evidence review.
+     - On-Call SRE owns smoke-test readiness review.
+     - Platform owns DAST and SLO/error-budget outcomes.
+     - Platform Security owns the separate `secret-rotation-gate` evidence required before production promotion.
 6. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
    - Validate SLO panels and burn-rate alerts from `docs/operations/monitoring-observability.md#production-slo-framework`:

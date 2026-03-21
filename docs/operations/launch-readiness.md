@@ -78,7 +78,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 ## Go/No-Go Checklist
 
 - [ ] Pre-production launch gate passed in CI (`.github/workflows/deploy.yml` → `preprod-launch-gate` job).
-- [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and tenant branding render evidence.
+- [ ] Gate owners reviewed and approved deploy-context evidence for staging smoke verification, DAST, SLO/error-budget status, and secret rotation.
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
@@ -123,9 +123,10 @@ Production approval is **No-Go** unless the exact upstream jobs/checks below are
 - `staging-deploy-release-gates` (`.github/workflows/ci.yml`) — canonical CI aggregation proving the release-blocking CI lanes are green.
 - `codeql-analyze (js-ts)` (`.github/workflows/codeql.yml`) — dedicated CodeQL requirement for production promotion.
 - `dast-gate` (`.github/workflows/deploy.yml`) — deploy-time DAST scan against the staging target.
-- `release-gate-contract` (`.github/workflows/deploy.yml`) — waits on the manifest-defined gate set and blocks if any required check is missing, skipped, pending past timeout, or failed.
+- `release-manifest-gate` (`.github/workflows/deploy.yml`) — downloads the `release.yml` manifest bundle for the target SHA, verifies the recorded upstream check conclusions, and exposes the immutable backend/frontend image refs for deploy jobs.
+- `release-gate-contract` (`.github/workflows/deploy.yml`) — validates that the deploy-local gates plus the downloaded release manifest are green before production promotion.
 
-`deploy-production` then also requires successful completion of these direct upstream deploy jobs: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `build-images`, `verify-supply-chain`, `stability-seal`, and `emergency-skip-audit`.
+`deploy-production` then also requires successful completion of these direct upstream deploy jobs: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `release-manifest-gate`, `secret-rotation-gate`, `verify-supply-chain`, and `emergency-skip-audit`.
 
 ## Pre-Production Launch Gate (CI Blocking Control)
 
@@ -133,20 +134,16 @@ Production promotion is blocked unless the **Pre-Production Launch Gate** job su
 
 ### Gate checks
 
-1. **Entitlements + billing regression tests**
-   - Backend billing regression coverage must pass before production promotion.
-   - Owner: **Revenue Platform**.
-2. **Localization smoke checks**
-   - Pseudo-localization smoke check must pass and emit an artifact for audit trail.
-   - Owner: **Product Engineering**.
-3. **Tenant/region feature-toggle validation**
-   - Tenant isolation and feature-toggle behavior checks must pass.
+1. **Staging operational verification artifact**
+   - The gate downloads the `post-deploy-verification-staging-<run_id>` artifact and verifies that the recorded environment, commit SHA, and deployed backend image ref match the release manifest for the promotion candidate.
+   - Owner: **Release Engineering**.
+2. **Deploy-context staging smoke evidence**
+   - Staging smoke checks remain blocking, but the execution lives in `deploy-staging`; `preprod-launch-gate` validates the published evidence instead of rerunning CI-grade suites.
+   - Owner: **On-Call SRE**.
+3. **DAST + SLO/error-budget prerequisites**
+   - The gate only runs after `dast-gate`, `preprod-slo-guard`, and `error-budget-policy-gate` succeed for the deployed staging environment.
    - Owner: **Platform**.
-4. **Tenant branding render verification**
-   - The launch gate runs `node scripts/ci/verify-tenant-branding-render.mjs` against `apps/ValyntApp` and fails if tenant logos, favicon assets, or configured brand colors do not render in the expected Organization Settings preview surfaces.
-   - Required release evidence is published as `artifacts/branding/tenant-branding-summary.{json,md}`, `artifacts/branding/tenant-branding-playwright-report.json`, and `artifacts/branding/tenant-branding-preview.png`.
-   - Owner: **Design Systems**.
-5. **Secret rotation metadata age verification**
+4. **Secret rotation metadata age verification**
    - `scripts/security/verify-secret-rotation.mjs` must pass against the production environment's configured AWS Secrets Manager and/or Vault metadata sources.
    - The workflow must publish `secret-rotation-evidence-production-<run_id>` with both machine-readable JSON evidence and the text execution log.
    - Owner: **Platform Security**.
