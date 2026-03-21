@@ -51,6 +51,10 @@ spec:
               value: "production"
             - name: WORKER_HEALTH_PORT
               value: "8081"
+            - name: DATABASE_POOL_ROLE
+              value: "worker"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "4"
             - name: OBSERVABILITY_DEPLOYMENT
               value: "worker"
             - name: SUPABASE_URL
@@ -92,7 +96,7 @@ spec:
                   optional: true
             - name: AGENT_QUEUE_CONCURRENCY
               value: "4"
-            - name: DATABASE_POOL_SIZE
+            - name: DATABASE_POOL_MAX
               value: "4"
 
           resources:

@@ -64,6 +64,8 @@ spec:
               value: "3001"
             - name: DATABASE_POOL_ROLE
               value: "api"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
             - name: OBSERVABILITY_DEPLOYMENT
               value: "backend-blue"
             - name: LOG_FORMAT
