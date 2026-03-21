@@ -252,9 +252,14 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        for (const sessionId of sessionIds) {
+        const invalidationPromises = sessionIds.map(async (sessionId) => {
           const metadata = await this.get(sessionId, tenantId);
           await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+          return sessionId;
+        });
+
+        const results = await Promise.all(invalidationPromises);
+        for (const sessionId of results) {
           invalidatedSessionIds.add(sessionId);
         }
 
@@ -292,9 +297,14 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getDeviceIndexKey(deviceId, tenantId));
 
-        for (const sessionId of sessionIds) {
+        const invalidationPromises = sessionIds.map(async (sessionId) => {
           const metadata = await this.get(sessionId, tenantId);
           await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+          return sessionId;
+        });
+
+        const results = await Promise.all(invalidationPromises);
+        for (const sessionId of results) {
           invalidatedSessionIds.add(sessionId);
         }
       }
@@ -384,8 +394,10 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
+        const metadataPromises = sessionIds.map((sessionId) => this.get(sessionId, tenantId));
+        const results = await Promise.all(metadataPromises);
+
+        for (const metadata of results) {
           if (metadata) {
             sessions.push(metadata);
           }
