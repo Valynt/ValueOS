@@ -14,9 +14,19 @@ export interface Histogram {
 }
 
 export interface ObservableGauge {
+  set(labels: Record<string, string | number>, value: number): void;
   set(value: number): void;
 }
 
-export function createCounter(name: string, help?: string): Counter;
-export function createHistogram(name: string, help?: string, buckets?: number[]): Histogram;
-export function createObservableGauge(name: string, help?: string): ObservableGauge;
+export function createCounter(name: string, help?: string, labelNames?: string[]): Counter;
+export function createHistogram(
+  name: string,
+  help?: string,
+  buckets?: number[],
+  labelNames?: string[],
+): Histogram;
+export function createObservableGauge(
+  name: string,
+  help?: string,
+  labelNames?: string[],
+): ObservableGauge;

@@ -4,6 +4,7 @@ metadata:
   name: coordinator-agent
   labels:
     app: coordinator-agent
+    workload: coordinator-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: coordinator-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: coordinator-agent
+        workload: coordinator-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: coordinator-agent

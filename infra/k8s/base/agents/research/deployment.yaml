@@ -4,6 +4,7 @@ metadata:
   name: research-agent
   labels:
     app: research-agent
+    workload: research-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: research-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: research-agent
+        workload: research-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: research-agent

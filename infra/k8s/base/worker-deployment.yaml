@@ -5,6 +5,7 @@ metadata:
   namespace: valynt
   labels:
     app: worker
+    workload: worker
     component: background-jobs
     app.kubernetes.io/name: worker
     app.kubernetes.io/component: background-jobs
@@ -23,6 +24,7 @@ spec:
     metadata:
       labels:
         app: worker
+        workload: worker
         component: background-jobs
     spec:
       serviceAccountName: valynt-backend
@@ -49,6 +51,8 @@ spec:
               value: "production"
             - name: WORKER_HEALTH_PORT
               value: "8081"
+            - name: OBSERVABILITY_DEPLOYMENT
+              value: "worker"
             - name: SUPABASE_URL
               valueFrom:
                 secretKeyRef:

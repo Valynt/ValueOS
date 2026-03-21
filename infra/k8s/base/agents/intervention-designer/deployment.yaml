@@ -4,6 +4,7 @@ metadata:
   name: intervention-designer-agent
   labels:
     app: intervention-designer-agent
+    workload: intervention-designer-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: intervention-designer-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: intervention-designer-agent
+        workload: intervention-designer-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: intervention-designer-agent

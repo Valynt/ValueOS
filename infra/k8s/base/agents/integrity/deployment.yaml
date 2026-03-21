@@ -4,6 +4,7 @@ metadata:
   name: integrity-agent
   labels:
     app: integrity-agent
+    workload: integrity-agent
     component: agent
     tier: backend
     app.kubernetes.io/name: integrity-agent
@@ -22,6 +23,7 @@ spec:
     metadata:
       labels:
         app: integrity-agent
+        workload: integrity-agent
         component: agent
         tier: backend
         app.kubernetes.io/name: integrity-agent

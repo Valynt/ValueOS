@@ -25,6 +25,7 @@ interface Histogram {
 }
 
 interface ObservableGauge {
+  set(labels: Labels, value: number): void;
   set(value: number): void;
 }
 
@@ -36,13 +37,13 @@ function sanitizeMetricName(name: string): string {
 /**
  * Create a counter metric registered on the shared prom-client registry.
  */
-export function createCounter(name: string, help?: string): Counter {
+export function createCounter(name: string, help?: string, labelNames: string[] = []): Counter {
   name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   const base = existing ?? new client.Counter({
     name,
     help: help || name,
-    labelNames: [] as string[],
+    labelNames,
     registers: [registry],
   });
   const counter = base as unknown as Counter;
@@ -55,13 +56,19 @@ export function createCounter(name: string, help?: string): Counter {
 /**
  * Create a histogram metric registered on the shared prom-client registry.
  */
-export function createHistogram(name: string, help?: string, buckets?: number[]): Histogram {
+export function createHistogram(
+  name: string,
+  help?: string,
+  buckets?: number[],
+  labelNames: string[] = [],
+): Histogram {
   name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   const base = existing ?? new client.Histogram({
     name,
     help: help || name,
     buckets: buckets || [5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000],
+    labelNames,
     registers: [registry],
   });
   const histogram = base as unknown as Histogram;
@@ -74,7 +81,11 @@ export function createHistogram(name: string, help?: string, buckets?: number[])
 /**
  * Create a gauge metric registered on the shared prom-client registry.
  */
-export function createObservableGauge(name: string, help?: string): ObservableGauge {
+export function createObservableGauge(
+  name: string,
+  help?: string,
+  labelNames: string[] = [],
+): ObservableGauge {
   name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   if (existing) return existing as unknown as ObservableGauge;
@@ -82,6 +93,7 @@ export function createObservableGauge(name: string, help?: string): ObservableGa
   const gauge = new client.Gauge({
     name,
     help: help || name,
+    labelNames,
     registers: [registry],
   });
   return gauge as unknown as ObservableGauge;
