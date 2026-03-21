@@ -5,6 +5,9 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.stubEnv('SUPABASE_URL', 'http://localhost:54321');
+vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-key');
+
 import { domainDatabase } from '../src/database';
 import { app } from '../src/server';
 import { domainValidator } from '../src/validator';
