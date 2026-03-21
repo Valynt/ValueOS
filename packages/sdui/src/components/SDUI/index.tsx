@@ -571,6 +571,8 @@ export { KPIForm } from "./KPIForm";
 export { InteractiveChart } from "./InteractiveChart";
 export { ValueTreeCard } from "./ValueTreeCard";
 export { NarrativeBlock } from "./NarrativeBlock";
+export { IntegrityScoreCard } from "./IntegrityScoreCard";
+export type { IntegrityScoreCardProps, IntegrityViolation } from "./IntegrityScoreCard";
 
 export interface UnknownComponentFallbackProps {
   componentName?: string;

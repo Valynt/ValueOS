@@ -37,7 +37,7 @@ export * from "./VgCapability.js";
 export * from "./VgMetric.js";
 export * from "./VgValueDriver.js";
 export * from "./ValueGraphEdge.js";
-<<<<<<< HEAD
 export * from "./GraphIntegrityGap.js";
-=======
->>>>>>> origin/main
+
+// Value Integrity Layer — Sprint 53
+export * from "./Violation.js";

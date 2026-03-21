@@ -152,3 +152,104 @@ The system SHALL explain the lineage of every calculated figure.
 - GIVEN a financial figure is displayed in the UI
 - WHEN the user clicks or inspects the figure
 - THEN the system reveals: raw data source, formula used, agent responsible, assumptions involved, and benchmark reference where applicable
+
+---
+
+## Value Integrity Layer — Sprint 53/54
+
+### Requirement: Cross-agent contradiction detection
+
+The system SHALL detect four contradiction types across agent outputs for a business case.
+
+#### Contradiction types
+
+| Type | Key | Severity |
+|---|---|---|
+| Two agents assert different numeric values for the same metric (>20% relative diff) | `SCALAR_CONFLICT` | critical |
+| Single agent output fails financial plausibility thresholds | `FINANCIAL_SANITY` | critical (ROI >10x, payback <1mo) / warning (range >5x) |
+| Agent A's implied condition is negated by Agent B | `LOGIC_CHAIN_BREAK` | critical |
+| Two agents use incompatible units or magnitude scales for the same metric | `UNIT_MISMATCH` | critical (currency) / warning (1000x magnitude) |
+
+#### Scenario: Contradiction detected after agent run
+
+- GIVEN a business case has received outputs from two or more agents
+- WHEN `ValueIntegrityService.detectContradictions` runs after an agent completes
+- THEN all four contradiction types are evaluated
+- AND any detected violations are persisted to `value_integrity_violations`
+- AND a `integrity.contradiction.detected` CloudEvent is emitted on the `integrity` channel
+- AND the event payload includes `organizationId`, `caseId`, `trace_id`, and the violation array
+
+#### Scenario: Status gate blocks in_review transition
+
+- GIVEN a business case has one or more OPEN violations with severity `critical`
+- WHEN a PATCH request sets `status: 'in_review'`
+- THEN the API returns HTTP 422 with `blocked: true` and the list of blocking violations
+- AND the status is NOT updated
+
+#### Scenario: Warnings do not block
+
+- GIVEN a business case has only OPEN violations with severity `warning` or `info`
+- WHEN a PATCH request sets `status: 'in_review'`
+- THEN the transition proceeds
+- AND the response includes `soft_warnings` listing the non-blocking violations
+
+### Requirement: Integrity score
+
+The system SHALL maintain a composite `integrity_score` (0–1) on each business case.
+
+#### Formula
+
+```
+integrity_score = 0.5 * defense_readiness_score
+                + 0.5 * (1 - sum(violation_penalties))
+
+penalties: critical=0.20, warning=0.05, info=0.01
+dismissed violations: critical=-0.05, warning=-0.01 (transparency penalty)
+clamped to [0, 1]
+```
+
+#### Scenario: Score recomputed after agent run
+
+- GIVEN an agent run completes for a business case
+- WHEN `ValueIntegrityService.recomputeScore` is called
+- THEN `integrity_score` is updated on `business_cases`
+- AND the score reflects both `defense_readiness_score` and current open violations
+
+### Requirement: Integrity API
+
+#### `GET /api/v1/cases/:caseId/integrity`
+
+Returns the current integrity state for a business case.
+
+**Response:**
+```json
+{
+  "integrity_score": 0.72,
+  "defense_readiness_score": 0.85,
+  "violations": [...],
+  "hard_blocked": false,
+  "soft_warnings": [...]
+}
+```
+
+- Requires authentication and tenant context.
+- All violations are scoped to `organization_id`.
+
+#### `POST /api/v1/cases/:caseId/integrity/resolve/:id`
+
+Resolves a violation by re-evaluation or human dismissal.
+
+**Request body:**
+```json
+{
+  "resolution_type": "RE_EVALUATE" | "DISMISS",
+  "reason_code": "string (required for DISMISS)",
+  "comment": "string (required for DISMISS)"
+}
+```
+
+**Behaviour:**
+- `RE_EVALUATE`: re-runs detection for the violation's nodes; marks `RESOLVED_AUTO` if clean.
+- `DISMISS`: marks `DISMISSED`, stores `reason_code` + `comment`, applies transparency penalty to `integrity_score`.
+- Dismissal of `SCALAR_CONFLICT` or `LOGIC_CHAIN_BREAK` critical violations returns HTTP 422.
+- Requires authentication and tenant context.
