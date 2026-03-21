@@ -3,7 +3,7 @@ export type BrandThemeOptions = {
   secondary?: string;
 };
 
-export const VALYNT_BRAND_PRIMARY = "#18C3A5";
+export const VALYNT_BRAND_PRIMARY = "#0F766E";
 export const VALYNT_BRAND_SECONDARY = "#27E1C1";
 
 const BRAND_PRIMARY = VALYNT_BRAND_PRIMARY;

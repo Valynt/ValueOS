@@ -77,6 +77,7 @@ export default defineConfig({
       "@hooks": path.resolve(__dirname, "./src/hooks"),
       "@types": path.resolve(__dirname, "./src/types"),
       "@assets": path.resolve(__dirname, "./src/assets"),
+      "@sdui": path.resolve(__dirname, "../../packages/sdui/src"),
       "@valueos/shared": path.resolve(__dirname, "../../packages/shared/src"),
       "@valueos/sdui": path.resolve(__dirname, "../../packages/sdui/src"),
       "@valueos/components": path.resolve(__dirname, "../../packages/components"),

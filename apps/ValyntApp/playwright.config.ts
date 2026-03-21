@@ -20,7 +20,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'APP_ENV=cloud-dev pnpm exec vite --host 0.0.0.0 --port 5174',
+    command: 'VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=playwright-anon-key VITE_APP_URL=http://localhost:5174 VITE_API_BASE_URL=/api APP_ENV=cloud-dev pnpm exec vite --host 0.0.0.0 --port 5174',
     url: 'http://localhost:5174',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
