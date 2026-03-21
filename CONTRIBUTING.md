@@ -92,6 +92,8 @@ pnpm run check
 pnpm test
 ```
 
+`pnpm test` is the canonical repo-wide Vitest workspace run from the root `vitest.config.ts`. Use that root command for full maintained-suite coverage; package-local test commands are for intentionally scoped runs only.
+
 If your change touches data access, authz, or RLS policies, also run:
 
 ```sh
