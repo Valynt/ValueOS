@@ -6,7 +6,7 @@ export class CensusAdapter implements DataIngestionAdapter {
   name = "Census";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
-  private dataCallbacks: Set<(data: any) => void> = new Set();
+  private dataCallbacks: Set<(data: unknown) => void> = new Set();
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
   private lastDataTimestamps: Map<string, string> = new Map();
@@ -24,7 +24,7 @@ export class CensusAdapter implements DataIngestionAdapter {
     dataset: string;
     variables: string[];
     geography?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const cacheKey = `census-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -59,7 +59,11 @@ export class CensusAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: any): Promise<any> {
+  async transformData(rawData: unknown): Promise<{
+    source: "Census";
+    data: unknown;
+    timestamp: string;
+  }> {
     // Transform Census data to standardized format
     return {
       source: "Census",
@@ -101,7 +105,11 @@ export class CensusAdapter implements DataIngestionAdapter {
           // In production, you'd check for actual data changes
           if (!lastTimestamp || Date.now() - new Date(lastTimestamp).getTime() > pollInterval) {
             this.lastDataTimestamps.set(dataKey, currentTimestamp);
-            this.notifyDataCallbacks({ ...data, dataset: dataset.dataset });
+            this.notifyDataCallbacks(
+              typeof data === "object" && data !== null
+                ? { ...data, dataset: dataset.dataset }
+                : { data, dataset: dataset.dataset }
+            );
           }
         }
       } catch (error) {
@@ -124,12 +132,12 @@ export class CensusAdapter implements DataIngestionAdapter {
     }
   }
 
-  onData(callback: (data: any) => void): () => void {
+  onData(callback: (data: unknown) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: any) {
+  private notifyDataCallbacks(data: unknown) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

@@ -4,11 +4,18 @@ import { Redis } from 'ioredis';
 
 import { createLogger } from './logger.js';
 
+export type RedisClientRole = 'control-plane' | 'cache';
+
 const logger = createLogger({ component: 'redis-client' });
 
-let client: Redis | null = null;
+const clients = new Map<RedisClientRole, Redis>();
 
 const REDIS_URL_FALLBACK = 'redis://localhost:6379';
+
+function getRoleEnv(role: RedisClientRole, suffix: string): string | undefined {
+  const normalizedRole = role.replace(/-/g, '_').toUpperCase();
+  return process.env[`REDIS_${normalizedRole}_${suffix}`];
+}
 
 function isNonDevEnvironment(nodeEnv: string | undefined): boolean {
   return nodeEnv === 'staging' || nodeEnv === 'production';
@@ -31,19 +38,20 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
-function loadRedisTlsCa(): string | undefined {
-  const caCertPath = process.env.REDIS_TLS_CA_CERT_PATH?.trim();
+function loadRedisTlsCa(role: RedisClientRole): string | undefined {
+  const caCertPath = getRoleEnv(role, 'TLS_CA_CERT_PATH')?.trim()
+    ?? process.env.REDIS_TLS_CA_CERT_PATH?.trim();
   if (caCertPath) {
     return readFileSync(caCertPath, 'utf8');
   }
 
-  return process.env.REDIS_TLS_CA_CERT?.trim() || undefined;
+  return getRoleEnv(role, 'TLS_CA_CERT')?.trim() || process.env.REDIS_TLS_CA_CERT?.trim() || undefined;
 }
 
-function buildRedisConnectionConfig(): { url: string; tls?: { servername: string; ca: string; rejectUnauthorized: boolean } } {
+function buildRedisConnectionConfig(role: RedisClientRole): { url: string; tls?: { servername: string; ca: string; rejectUnauthorized: boolean } } {
   const nodeEnv = process.env.NODE_ENV;
   const requireSecureTransport = isNonDevEnvironment(nodeEnv);
-  const redisUrl = process.env.REDIS_URL ?? REDIS_URL_FALLBACK;
+  const redisUrl = getRoleEnv(role, 'URL') ?? process.env.REDIS_URL ?? REDIS_URL_FALLBACK;
 
   let parsedUrl: URL;
   try {
@@ -58,9 +66,12 @@ function buildRedisConnectionConfig(): { url: string; tls?: { servername: string
     );
   }
 
-  const tlsServername = process.env.REDIS_TLS_SERVERNAME?.trim();
-  const tlsCa = loadRedisTlsCa();
-  const tlsRejectUnauthorized = parseBooleanEnv(process.env.REDIS_TLS_REJECT_UNAUTHORIZED);
+  const tlsServername = getRoleEnv(role, 'TLS_SERVERNAME')?.trim()
+    ?? process.env.REDIS_TLS_SERVERNAME?.trim();
+  const tlsCa = loadRedisTlsCa(role);
+  const tlsRejectUnauthorized = parseBooleanEnv(
+    getRoleEnv(role, 'TLS_REJECT_UNAUTHORIZED') ?? process.env.REDIS_TLS_REJECT_UNAUTHORIZED,
+  );
 
   if (!requireSecureTransport) {
     if (parsedUrl.protocol !== 'rediss:') {
@@ -106,19 +117,23 @@ function buildRedisConnectionConfig(): { url: string; tls?: { servername: string
   };
 }
 
-export function getRedisClient(): Redis {
-  if (!client) {
-    const { url, tls } = buildRedisConnectionConfig();
-    client = tls ? new Redis(url, { tls }) : new Redis(url);
-
-    client.on('error', (err: Error) => {
-      logger.error('Redis client error', err);
-    });
-
-    client.on('connect', () => {
-      logger.info('Redis client connected');
-    });
+export function getRedisClient(role: RedisClientRole = 'control-plane'): Redis {
+  const existing = clients.get(role);
+  if (existing) {
+    return existing;
   }
 
+  const { url, tls } = buildRedisConnectionConfig(role);
+  const client = tls ? new Redis(url, { tls }) : new Redis(url);
+
+  client.on('error', (err: Error) => {
+    logger.error('Redis client error', err, { role, url });
+  });
+
+  client.on('connect', () => {
+    logger.info('Redis client connected', { role, url });
+  });
+
+  clients.set(role, client);
   return client;
 }

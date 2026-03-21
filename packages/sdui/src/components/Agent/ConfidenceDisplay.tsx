@@ -6,7 +6,7 @@ export interface ConfidenceData {
   label?: string;
   trend?: "up" | "down" | "stable";
   previousScore?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ConfidenceDisplayProps {

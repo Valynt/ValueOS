@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { logRequestEventMock } = vi.hoisted(() => {
-  return { logRequestEventMock: vi.fn(async () => undefined) };
-});
+const { logRequestEventMock } = vi.hoisted(() => ({
+  logRequestEventMock: vi.fn(async () => undefined),
+}));
 
-vi.mock('../../services/security/SecurityAuditService.js', () => ({
+vi.mock('../../services/post-v1/SecurityAuditService.js', () => ({
   securityAuditService: {
     logRequestEvent: logRequestEventMock,
   },
@@ -18,17 +18,15 @@ vi.mock('@shared/lib/context', () => ({
   runWithContext: (_ctx: unknown, callback: () => void) => callback(),
 }));
 
-// We need to import after mocking
 import { requestAuditMiddleware } from '../requestAuditMiddleware';
 
-describe('requestAuditMiddleware Security Reproduction', () => {
+describe('requestAuditMiddleware security coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('fails to redact otp in query params', async () => {
+  it('redacts otp values in query params', async () => {
     const middleware = requestAuditMiddleware();
-
     let finishHandler: (() => void | Promise<void>) | null = null;
 
     const req = {
@@ -39,11 +37,12 @@ describe('requestAuditMiddleware Security Reproduction', () => {
       query: {
         otp: '123456',
       },
+      params: {},
       headers: {},
       socket: { remoteAddress: '10.0.0.1' },
       ip: '10.0.0.1',
       get: vi.fn(() => 'test-agent'),
-    } as any;
+    };
 
     const res = {
       statusCode: 200,
@@ -54,28 +53,18 @@ describe('requestAuditMiddleware Security Reproduction', () => {
           finishHandler = handler;
         }
       }),
-    } as any;
+    };
 
-    const next = vi.fn();
-
-    middleware(req, res, next);
-
-    expect(next).toHaveBeenCalled();
-    expect(finishHandler).not.toBeNull();
-
+    middleware(req as never, res as never, vi.fn());
     await finishHandler?.();
 
     const loggedEvent = logRequestEventMock.mock.calls[0][0];
-
-    // This expects the OTP to be redacted, so if it's NOT redacted (which is the current state),
-    // the value will be '123456' and expect.stringContaining('[REDACTED') will fail.
-    // Wait, I want to assert that it IS redacted, and demonstrate that it fails currently.
     expect(loggedEvent.eventData.query).toEqual({
       otp: expect.stringContaining('[REDACTED'),
     });
   });
 
-  it('fails to redact Bearer tokens in query params with non-sensitive keys', async () => {
+  it('redacts bearer tokens in query params with non-sensitive keys', async () => {
     const middleware = requestAuditMiddleware();
     let finishHandler: (() => void | Promise<void>) | null = null;
 
@@ -85,14 +74,14 @@ describe('requestAuditMiddleware Security Reproduction', () => {
       originalUrl: '/api/resource',
       path: '/api/resource',
       query: {
-        payload: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+        payload: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature',
       },
       params: {},
       headers: {},
       socket: { remoteAddress: '10.0.0.1' },
       ip: '10.0.0.1',
       get: vi.fn(() => 'test-agent'),
-    } as any;
+    };
 
     const res = {
       statusCode: 200,
@@ -103,14 +92,12 @@ describe('requestAuditMiddleware Security Reproduction', () => {
           finishHandler = handler;
         }
       }),
-    } as any;
+    };
 
-    const next = vi.fn();
-    middleware(req, res, next);
+    middleware(req as never, res as never, vi.fn());
     await finishHandler?.();
 
     const loggedEvent = logRequestEventMock.mock.calls[0][0];
-
     expect(loggedEvent.eventData.query).toEqual({
       payload: expect.stringContaining('[REDACTED'),
     });

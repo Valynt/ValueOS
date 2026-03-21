@@ -9,6 +9,15 @@ data:
   # Same rate limits as production to catch limit-related bugs before deploy
   api-rate-limit: "100"          # requests per minute per tenant
   agent-rate-limit: "30"         # agent invocations per minute per tenant
-  auth-rate-limit: "20"          # auth attempts per minute per IP
+  auth-rate-limit: "20"          # generic auth attempts per minute per IP
+  auth-login-rate-limit: "5"     # login attempts per minute per IP
+  auth-signup-rate-limit: "3"    # signup attempts per minute per IP
+  auth-password-reset-rate-limit: "3"
+  auth-mfa-rate-limit: "6"       # OTP / MFA attempts per minute per IP
+  admin-rate-limit: "10"         # admin mutations per minute per actor
+  expensive-write-rate-limit: "5"
   sse-connection-limit: "10"     # concurrent SSE connections per tenant
   burst-multiplier: "2"          # burst allowance (2x sustained rate)
+  require-distributed-backend: "true"
+  block-rollout-without-distributed-backend: "true"
+  page-on-degraded-mode: "true"

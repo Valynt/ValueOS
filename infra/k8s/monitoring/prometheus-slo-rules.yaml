@@ -82,48 +82,54 @@ data:
             expr: vector(1)
             labels:
               agent: opportunity-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: target-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: integrity-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: expansion-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: realization-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: financial-modeling-agent
-              cold_start_class: interactive-warm
-              request_path_class: synchronous
+              cold_start_class: warm-interactive
+              request_path_class: interactive
+              autoscaling_profile: warm-interactive-agent
               warm_capacity: required
 
           - record: valueos:agent_capacity_profile
@@ -131,95 +137,107 @@ data:
             labels:
               agent: research-agent
               cold_start_class: async-warm
-              request_path_class: async
+              request_path_class: orchestration
+              autoscaling_profile: async-warm-agent
               warm_capacity: provisioned
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: company-intelligence-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: value-mapping-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: system-mapper-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: intervention-designer-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: outcome-engineer-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: coordinator-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: value-eval-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: communicator-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: benchmark-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: narrative-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           - record: valueos:agent_capacity_profile
             expr: vector(1)
             labels:
               agent: groundtruth-agent
-              cold_start_class: async-scale-to-zero
-              request_path_class: async
+              cold_start_class: scale-to-zero-async
+              request_path_class: orchestration
+              autoscaling_profile: scale-to-zero-async-agent
               warm_capacity: none
 
           # API availability SLI (non-5xx over total)

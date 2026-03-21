@@ -66,7 +66,8 @@ export interface RateLimitConfig {
 
 interface RouteFailClosedPolicy {
   failClosed: boolean;
-  reason: "auth" | "admin" | "write-heavy" | "default";
+  risk: "security-critical" | "expensive-write" | "low-risk";
+  reason: "auth" | "admin" | "expensive-write" | "default";
 }
 
 function isSensitiveMemoryFallbackOverrideEnabled(): boolean {
@@ -97,23 +98,46 @@ const rateLimitSensitiveOverrideCounter = createCounter(
   "Total sensitive requests allowed to use memory fallback via operator override"
 );
 
-function getRouteFailClosedPolicy(req: Request): RouteFailClosedPolicy {
+function isExpensiveWritePath(path: string): boolean {
+  return [
+    /^\/(api\/)?agents?(\/|$)/,
+    /^\/(api\/)?llm(\/|$)/,
+    /^\/(api\/)?artifacts?(\/|$)/,
+    /^\/(api\/)?workflows?(\/|$)/,
+    /^\/(api\/)?exports?(\/|$)/,
+    /^\/(api\/)?imports?(\/|$)/,
+    /^\/(api\/)?billing(\/|$)/,
+  ].some((pattern) => pattern.test(path));
+}
+
+function getRouteFailClosedPolicy(
+  req: Request,
+  tier: RateLimitTierValue
+): RouteFailClosedPolicy {
   const path = req.path.toLowerCase();
   const method = req.method.toUpperCase();
 
   if (/^\/(api\/)?auth(\/|$)/.test(path)) {
-    return { failClosed: true, reason: "auth" };
+    return { failClosed: true, risk: "security-critical", reason: "auth" };
   }
 
   if (/^\/(api\/)?admin(\/|$)/.test(path)) {
-    return { failClosed: true, reason: "admin" };
+    return { failClosed: true, risk: "security-critical", reason: "admin" };
   }
 
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    return { failClosed: true, reason: "write-heavy" };
+  if (
+    tier === RateLimitTier.STRICT ||
+    (["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
+      isExpensiveWritePath(path))
+  ) {
+    return {
+      failClosed: true,
+      risk: "expensive-write",
+      reason: "expensive-write",
+    };
   }
 
-  return { failClosed: false, reason: "default" };
+  return { failClosed: false, risk: "low-risk", reason: "default" };
 }
 
 /**
@@ -364,7 +388,7 @@ export function createRateLimiter(
       return next();
     }
 
-    const routePolicy = getRouteFailClosedPolicy(req);
+    const routePolicy = getRouteFailClosedPolicy(req, tier);
     const failClosed = routePolicy.failClosed || (config.failClosed ?? false);
 
     // Use unified key service
@@ -423,6 +447,7 @@ export function createRateLimiter(
         path: req.path,
         failClosed,
         policyReason: routePolicy.reason,
+        policyRisk: routePolicy.risk,
         degradedMode: true,
         redisAvailable: store.isRedisAvailable(),
       });
@@ -514,6 +539,24 @@ export function resetRateLimit(
   });
   logger.info("Rate limit reset", { userId, tenantId });
 }
+
+export function getGeneralRateLimitBackendStatus(): {
+  required: boolean;
+  healthy: boolean;
+  mode: "distributed" | "memory-fallback";
+} {
+  const healthy = store.isRedisAvailable();
+
+  return {
+    required:
+      process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED_BACKEND === "true" ||
+      isDistributedRateLimitMode(),
+    healthy,
+    mode: healthy ? "distributed" : "memory-fallback",
+  };
+}
+
+export { getRouteFailClosedPolicy };
 
 /**
  * Get rate limit status for a user
