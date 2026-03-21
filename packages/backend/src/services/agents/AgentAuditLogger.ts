@@ -5,11 +5,11 @@
  * database persistence and query capabilities.
  */
 
+import { decrypt, encrypt } from "../../lib/crypto/CryptoUtils";
 import {
-  decrypt,
-  encrypt,
-  generateEncryptionKey,
-} from "../../lib/crypto/CryptoUtils";
+  resolveAuditLogEncryptionKey,
+  validateAuditLogEncryptionConfig,
+} from "./AuditLogEncryptionConfig.js";
 import { logger } from "../../lib/logger.js"
 import { supabase } from "../../lib/supabase.js"
 import { AgentContext, AgentType } from "../agent-types.js"
@@ -222,45 +222,20 @@ export class AgentAuditLogger {
    * Initialize encryption key and configuration
    */
   private initializeEncryption(): void {
-    try {
-      // Get encryption key from environment or generate one
-      this.encryptionKey =
-        process.env.AUDIT_LOG_ENCRYPTION_KEY || this.generateEncryptionKey();
-
-      if (!this.encryptionKey) {
-        logger.warn(
-          "Failed to initialize audit log encryption key, encryption disabled"
-        );
-        this.encryptionEnabled = false;
-        return;
-      }
-
-      logger.info("Audit log encryption initialized");
-    } catch (error) {
-      logger.error(
-        "Failed to initialize audit log encryption",
-        error instanceof Error ? error : undefined
-      );
-      this.encryptionEnabled = false;
+    const validationErrors = validateAuditLogEncryptionConfig(process.env);
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.join(" "));
     }
-  }
 
-  /**
-   * Generate a new encryption key for audit logs
-   */
-  private generateEncryptionKey(): string {
-    try {
-      const key = generateEncryptionKey();
-      // In production, this key should be stored securely (KMS, vault, etc.)
-      // For now, we'll use it directly
-      return key;
-    } catch (error) {
-      logger.error(
-        "Failed to generate encryption key",
-        error instanceof Error ? error : undefined
+    const configuredKey = resolveAuditLogEncryptionKey(process.env);
+    if (!configuredKey) {
+      throw new Error(
+        "Audit log encryption could not be initialized because AUDIT_LOG_ENCRYPTION_KEY is not configured."
       );
-      return "";
     }
+
+    this.encryptionKey = configuredKey;
+    logger.info("Audit log encryption initialized with configured key material");
   }
 
   /**
@@ -347,25 +322,25 @@ export class AgentAuditLogger {
     // Encrypt sensitive response data
     if (sanitized.response_data) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_data = (await this.encryptSensitiveData(sanitized.response_data)) as any;
+      sanitized.response_data = await this.encryptSensitiveData(sanitized.response_data);
     }
 
     // Encrypt sensitive context
     if (sanitized.context) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.context = (await this.encryptSensitiveData(sanitized.context)) as any;
+      sanitized.context = await this.encryptSensitiveData(sanitized.context);
     }
 
     // Encrypt sensitive metadata
     if (sanitized.metadata) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.metadata = (await this.encryptSensitiveData(sanitized.metadata)) as any;
+      sanitized.metadata = await this.encryptSensitiveData(sanitized.metadata);
     }
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sanitized.response_metadata = (await this.encryptSensitiveData(sanitized.response_metadata)) as any;
+      sanitized.response_metadata = await this.encryptSensitiveData(sanitized.response_metadata);
     }
 
     return sanitized;
