@@ -79,14 +79,11 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenantId;
+      const organizationId = ensureTenantId(req, res);
       const { scenarioId, scenarioName, kpiTargets, assumptions, handoffNotes } = req.body;
 
       if (!organizationId) {
-        return res.status(400).json({
-          success: false,
-          error: { message: "Tenant context is required." },
-        });
+        return;
       }
 
       const baselineId = await realizationService.createBaseline(
