@@ -87,7 +87,12 @@ vi.mock('../../../lib/agent-fabric/CircuitBreaker', () => ({
 }));
 
 const mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
-vi.mock('../../../lib/logger', () => ({ logger: mockLogger }));
+vi.mock('../../../lib/logger', () => ({
+  logger: mockLogger,
+  createLogger: vi.fn(() => mockLogger),
+  log: mockLogger,
+  default: mockLogger,
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers

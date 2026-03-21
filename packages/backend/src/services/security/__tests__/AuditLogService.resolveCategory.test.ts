@@ -24,6 +24,7 @@ vi.mock("../SecurityEventStreamingService.js", () => ({
 }));
 vi.mock("../../../lib/logger.js", () => ({
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 import { vi } from "vitest";

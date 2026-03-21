@@ -12,6 +12,7 @@ const { loggerMock, publishMessageMock } = vi.hoisted(() => ({
 
 vi.mock("../../lib/logger.js", () => ({
   logger: loggerMock,
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../AgentAuditLogger.js", () => ({

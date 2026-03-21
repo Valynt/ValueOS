@@ -10,6 +10,7 @@ vi.mock('../../../lib/logger.js', () => ({
     info: vi.fn(),
     debug: vi.fn(),
   },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 // Mock the TogetherClient singleton so tests don't need a real API key

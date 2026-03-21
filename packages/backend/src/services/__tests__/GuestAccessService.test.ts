@@ -26,6 +26,9 @@ vi.mock('../../lib/supabase', () => ({
 
 vi.mock('../../lib/logger', () => ({
   logger: mockLogger,
+  createLogger: vi.fn(() => mockLogger),
+  log: mockLogger,
+  default: mockLogger,
 }));
 
 import { logger } from '../../lib/logger.js'

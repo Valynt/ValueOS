@@ -22,6 +22,7 @@ vi.mock("../../../../lib/logger.js", () => ({
     error: vi.fn(),
     warn: vi.fn(),
   },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 describe("Service Integration Tests", () => {

@@ -41,6 +41,7 @@ vi.mock('../../lib/logger.js', () => ({
     info: vi.fn(),
     warn: vi.fn(),
   },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock('@supabase/supabase-js', () => {
