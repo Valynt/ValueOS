@@ -63,6 +63,7 @@ import onboardingRouter from "./api/onboarding.js";
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
+import { secretAuditRouter } from "./api/secretAudit.js";
 import teamsRouter from "./api/teams.js";
 import { tenantContextRouter } from "./api/tenantContext.js";
 import { usageRouter } from "./api/usage.js";
@@ -624,6 +625,7 @@ app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/opportunities", opportunityValueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
+app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
