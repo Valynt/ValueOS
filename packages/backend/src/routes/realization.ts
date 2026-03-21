@@ -213,13 +213,6 @@ router.get(
       const { caseId } = req.params;
       const organizationId = req.tenantId;
 
-      if (!organizationId) {
-        return res.status(400).json({
-          success: false,
-          error: { message: "Tenant context is required." },
-        });
-      }
-
       const report = await realizationService.getLatestReport(caseId, organizationId);
 
       if (!report) {
