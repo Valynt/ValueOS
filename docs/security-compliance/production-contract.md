@@ -50,8 +50,8 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 |---------|---------------|----------|
 | Authentication | Supabase Auth + JWT verification | `packages/backend/src/middleware/auth.ts` |
 | Authorization (RBAC) | Permission-based middleware | `packages/backend/src/middleware/rbac.ts` |
-| Tenant isolation (RLS) | PostgreSQL RESTRICTIVE policies | `infra/supabase/supabase/migrations/20260212000002_rls.sql` |
-| RLS integration tests | CI job against live Supabase | `.github/workflows/ci.yml` (rls-and-compliance job) |
+| Tenant isolation (RLS) | Membership-aware tenant policies plus tenant-column hot-path indexes | `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql`, `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` |
+| RLS integration tests | Fork-safe static tenant gate plus trusted live-Supabase runtime lane | `.github/workflows/ci.yml` (`tenant-isolation-static-gate`, `tenant-isolation-gate`) |
 | CSRF protection | Double-submit cookie (server-generated) | `packages/backend/src/middleware/securityMiddleware.ts` |
 | Rate limiting | Tiered, fail-closed on auth routes | `packages/backend/src/middleware/rateLimiter.ts` |
 | Input validation | Zod schemas + sanitization | `packages/backend/src/middleware/inputValidation.ts` |

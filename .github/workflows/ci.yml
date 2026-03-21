@@ -351,6 +351,7 @@ jobs:
             tests/security/api-tenant-isolation.test.ts \
             tests/security/supabase-rls-policy-matrix.test.ts \
             tests/security/agent-invocation-tenant-boundary.test.ts \
+            tests/compliance/security/tenant-isolation-verification.test.ts \
             packages/memory/tests/tenant-vector-isolation.test.ts \
             packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
             --reporter=verbose \
