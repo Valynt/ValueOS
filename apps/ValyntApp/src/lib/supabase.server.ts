@@ -2,19 +2,33 @@ import { createClient } from "@supabase/supabase-js";
 
 import { logger } from "./logger";
 
-import { serverSettings } from "@/config/settings.server";
-
 const logPrefix = "[Supabase]";
 const isBrowser = typeof window !== "undefined";
-const { VITE_SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey } =
-  serverSettings;
+
+const getServerEnv = (key: string): string | undefined => {
+  if (typeof process !== "undefined" && process.env?.[key]) {
+    return process.env[key];
+  }
+
+  return undefined;
+};
+
+const supabaseUrl =
+  getServerEnv("VITE_SUPABASE_URL") ||
+  getServerEnv("SUPABASE_PUBLIC_URL") ||
+  getServerEnv("SUPABASE_URL") ||
+  getServerEnv("SUPABASE_INTERNAL_URL");
+const supabaseAnonKey =
+  getServerEnv("VITE_SUPABASE_ANON_KEY") || getServerEnv("SUPABASE_ANON_KEY");
 
 let serviceRoleClient: ReturnType<typeof createClient> | null = null;
 
-export function createServerSupabaseClient() {
+export const createServerSupabaseClient = () => {
   if (isBrowser) {
     throw new Error("createServerSupabaseClient() is only available in Node/server runtime.");
   }
+
+  const supabaseServiceRoleKey = getServerEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     const diagnostics = [
@@ -39,8 +53,32 @@ export function createServerSupabaseClient() {
   }
 
   return serviceRoleClient;
-}
+};
 
-export function getSupabaseClient() {
-  return createServerSupabaseClient();
-}
+export const createRequestSupabaseClient = (accessToken: string) => {
+  if (isBrowser) {
+    throw new Error("createRequestSupabaseClient() is only available in Node/server runtime.");
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Missing Supabase request-scoped credentials. Expected VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
+    );
+  }
+
+  if (!accessToken) {
+    throw new Error("createRequestSupabaseClient requires a bearer access token.");
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};

@@ -148,4 +148,54 @@ const fetchExceptionConfig = {
   },
 };
 
-export default [ignoresConfig, valyntAppConfig, testConfig, fetchExceptionConfig];
+const browserBoundaryConfig = {
+  files: [
+    "src/*.{ts,tsx}",
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/AppRoutes.tsx",
+    "src/api/**/*.{ts,tsx}",
+    "src/app/**/*.{ts,tsx}",
+    "src/components/**/*.{ts,tsx}",
+    "src/contexts/**/*.{ts,tsx}",
+    "src/dashboards/**/*.{ts,tsx}",
+    "src/features/**/*.{ts,tsx}",
+    "src/hooks/**/*.{ts,tsx}",
+    "src/lib/**/*.{ts,tsx}",
+    "src/pages/**/*.{ts,tsx}",
+    "src/repositories/**/*.{ts,tsx}",
+    "src/views/**/*.{ts,tsx}",
+  ],
+  ignores: ["src/**/*.server.ts", "src/**/*.server.tsx", "src/**/__tests__/**/*", "src/**/*.test.*", "src/**/*.spec.*"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["@valueos/backend", "@valueos/backend/*"],
+            message: "Backend imports forbidden - use HTTP API",
+          },
+          { group: ["@valueos/shared/lib/logger"], message: "Node-only - use local logger" },
+          {
+            group: ["@valueos/shared/lib/redisClient", "@valueos/shared/lib/redisKeys"],
+            message: "Node-only",
+          },
+          {
+            group: ["**/*.server", "**/*.server.*"],
+            message:
+              "Browser entrypoints and browser libraries must not import server-only modules. Use browser-safe config/lib modules instead.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
+export default [
+  ignoresConfig,
+  valyntAppConfig,
+  testConfig,
+  fetchExceptionConfig,
+  browserBoundaryConfig,
+];

@@ -2,13 +2,18 @@ import { createClient } from "@supabase/supabase-js";
 
 import { logger } from "./logger";
 
-import { settings as publicSettings } from "@/config/settings";
-
 const logPrefix = "[Supabase]";
 const isBrowser = typeof window !== "undefined";
-const { VITE_SUPABASE_URL: supabaseUrl, VITE_SUPABASE_ANON_KEY: supabaseAnonKey } = publicSettings;
 
-logger.info(`${logPrefix} Initializing browser-safe clients...`);
+const getBrowserEnv = (key: "VITE_SUPABASE_URL" | "VITE_SUPABASE_ANON_KEY") => {
+  const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+  return viteEnv?.[key];
+};
+
+const supabaseUrl = getBrowserEnv("VITE_SUPABASE_URL");
+const supabaseAnonKey = getBrowserEnv("VITE_SUPABASE_ANON_KEY");
+
+logger.info(`${logPrefix} Initializing browser client...`);
 logger.info(`${logPrefix} Runtime: ${isBrowser ? "browser" : "node"}`);
 logger.info(`${logPrefix} URL configured: ${supabaseUrl ? "YES" : "NO"}`);
 logger.info(`${logPrefix} Anon key configured: ${supabaseAnonKey ? "YES" : "NO"}`);
@@ -44,26 +49,3 @@ export const createBrowserSupabaseClient = () => {
 
 export const supabase = isBrowser ? createBrowserSupabaseClient() : null;
 
-export function createRequestSupabaseClient(accessToken: string) {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase request-scoped credentials. Expected VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
-    );
-  }
-
-  if (!accessToken) {
-    throw new Error("createRequestSupabaseClient requires a bearer access token.");
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-}

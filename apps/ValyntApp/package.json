@@ -9,6 +9,7 @@
     "build:strict": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:boundaries": "node ./scripts/check-server-boundaries.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
