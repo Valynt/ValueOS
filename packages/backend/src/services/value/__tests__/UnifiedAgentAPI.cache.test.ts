@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { agentCacheGetMock, agentCacheSetMock } = vi.hoisted(() => ({
+const { agentCacheGetMock, agentCacheSetMock, agentCacheConfigs } = vi.hoisted(() => ({
   agentCacheGetMock: vi.fn().mockResolvedValue(null),
   agentCacheSetMock: vi.fn().mockResolvedValue(undefined),
+  agentCacheConfigs: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("../../cache/AgentCache.js", () => ({
   AgentCache: class MockAgentCache {
+    constructor(config?: Record<string, unknown>) {
+      if (config) {
+        agentCacheConfigs.push(config);
+      }
+    }
     get = agentCacheGetMock;
     set = agentCacheSetMock;
     shutdown = vi.fn();
@@ -50,6 +56,7 @@ describe("UnifiedAgentAPI distributed idempotency cache", () => {
     agentCacheSetMock.mockReset();
     agentCacheGetMock.mockResolvedValue(null);
     agentCacheSetMock.mockResolvedValue(undefined);
+    agentCacheConfigs.length = 0;
   });
 
   it("stores idempotency responses with tenant-scoped keys and TTL", async () => {
@@ -86,5 +93,14 @@ describe("UnifiedAgentAPI distributed idempotency cache", () => {
 
     expect(agentCacheGetMock).toHaveBeenCalledWith("tenant-42:idem-1");
     expect(result).toEqual({ success: true });
+  });
+
+  it("disables process-local near-cache for idempotency responses", () => {
+    new UnifiedAgentAPI();
+
+    expect(agentCacheConfigs[0]).toMatchObject({
+      namespace: "unified-agent-idempotency",
+      nearCacheEnabled: false,
+    });
   });
 });
