@@ -137,16 +137,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache-key-suffix: deploy-quality
 
       - name: Lint + Typecheck + Test
         run: |
@@ -348,9 +342,8 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # 2. Build and push container images
   # ──────────────────────────────────────────────────────────────────────────
-  build-images:
-    name: Build Container Images
-    runs-on: ubuntu-latest
+  backend-image:
+    name: Build Backend Image
     needs: [quality-gate, dast-gate, emergency-bypass-authorization, emergency-skip-audit]
     if: >-
       github.event_name != 'schedule' &&
@@ -359,105 +352,41 @@ jobs:
       (needs.dast-gate.result == 'success' || (needs.dast-gate.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.environment != 'production')) &&
       (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped') &&
       (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
-    outputs:
-      image_tag: ${{ steps.backend-meta.outputs.version }}
-      image_digest: ${{ steps.backend-build.outputs.digest }}
-      image_ref: ${{ steps.backend-image-ref.outputs.image_ref }}
-      frontend_image_ref: ${{ steps.frontend-image-ref.outputs.image_ref }}
-    steps:
-      - uses: actions/checkout@v6
+    uses: ./.github/workflows/_reusable-image-build-sign.yml
+    with:
+      registry: ${{ env.REGISTRY }}
+      image_name: ${{ env.BACKEND_IMAGE_NAME }}
+      dockerfile: infra/docker/Dockerfile.backend
+      build_args: |
+        APP=@valueos/backend
+      artifact_name: backend-image-build-${{ github.run_id }}
+    secrets: inherit
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # ── Backend ──────────────────────────────────────────────────────────
-      - name: Backend Docker metadata
-        id: backend-meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push backend image
-        id: backend-build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: infra/docker/Dockerfile.backend
-          build-args: |
-            APP=@valueos/backend
-          push: true
-          tags: ${{ steps.backend-meta.outputs.tags }}
-          labels: ${{ steps.backend-meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Resolve backend immutable image reference
-        id: backend-image-ref
-        run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
-          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign backend image (keyless)
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
-
-      # ── Frontend ─────────────────────────────────────────────────────────
-      - name: Frontend Docker metadata
-        id: frontend-meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push frontend image
-        id: frontend-build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: infra/docker/Dockerfile.frontend
-          target: runtime
-          build-args: |
-            VITE_API_BASE_URL=/api
-          push: true
-          tags: ${{ steps.frontend-meta.outputs.tags }}
-          labels: ${{ steps.frontend-meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Resolve frontend immutable image reference
-        id: frontend-image-ref
-        run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
-          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
-
-      - name: Sign frontend image (keyless)
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
+  frontend-image:
+    name: Build Frontend Image
+    needs: [quality-gate, dast-gate, emergency-bypass-authorization, emergency-skip-audit]
+    if: >-
+      github.event_name != 'schedule' &&
+      always() &&
+      (needs.quality-gate.result == 'success' || (needs.quality-gate.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.environment != 'production')) &&
+      (needs.dast-gate.result == 'success' || (needs.dast-gate.result == 'skipped' && github.event_name == 'workflow_dispatch' && inputs.environment != 'production')) &&
+      (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped') &&
+      (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
+    uses: ./.github/workflows/_reusable-image-build-sign.yml
+    with:
+      registry: ${{ env.REGISTRY }}
+      image_name: ${{ env.FRONTEND_IMAGE_NAME }}
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: runtime
+      build_args: |
+        VITE_API_BASE_URL=/api
+      artifact_name: frontend-image-build-${{ github.run_id }}
+    secrets: inherit
 
   verify-supply-chain:
     name: Verify Supply Chain Artifacts
     runs-on: ubuntu-latest
-    needs: [build-images]
+    needs: [backend-image, frontend-image]
     if: github.event_name != 'schedule'
     steps:
       - name: Install Cosign
@@ -466,21 +395,21 @@ jobs:
       - name: Verify signed backend image
         env:
           COSIGN_EXPERIMENTAL: "true"
-          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+          IMAGE_REF: ${{ needs.backend-image.outputs.image_ref }}
         run: |
           cosign verify \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/_reusable-image-build-sign.yml@.*$" \
             "${IMAGE_REF}"
 
       - name: Verify signed frontend image
         env:
           COSIGN_EXPERIMENTAL: "true"
-          IMAGE_REF: ${{ needs.build-images.outputs.frontend_image_ref }}
+          IMAGE_REF: ${{ needs.frontend-image.outputs.image_ref }}
         run: |
           cosign verify \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/_reusable-image-build-sign.yml@.*$" \
             "${IMAGE_REF}"
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -490,21 +419,15 @@ jobs:
   stability-seal:
     name: Stability Seal
     runs-on: ubuntu-latest
-    needs: [build-images, verify-supply-chain]
+    needs: [backend-image, frontend-image, verify-supply-chain]
     if: ${{ github.event_name != 'schedule' }}
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache-key-suffix: deploy-stability
 
       - name: Run stability seal
         run: pnpm run stability-seal
@@ -522,127 +445,27 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build-images, verify-supply-chain, emergency-skip-audit]
+    needs: [backend-image, frontend-image, verify-supply-chain, emergency-skip-audit]
     if: github.event_name != 'schedule'
-    environment:
-      name: staging
-      url: https://staging.valueos.app
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install Supabase CLI
-        run: pnpm add -g supabase@2.67.1
-
-      - name: Run database migrations (staging)
-        env:
-          # [Secret] STAGING_DATABASE_URL: Staging DB connection string for migrations and app config
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-        run: |
-          if [ -z "${DATABASE_URL}" ]; then
-            echo "::error::STAGING_DATABASE_URL secret is required for staging deploys"
-            exit 1
-          fi
-          cd infra/supabase/supabase
-          supabase db push --db-url "${DATABASE_URL}"
-
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          # [Secret] KUBE_CONFIG_STAGING: Base64-encoded kubeconfig for staging cluster authentication
-          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
-
-      - name: Deploy with kustomize (blue-green)
-        run: |
-          cd infra/k8s
-          IMAGE_TAG="${{ needs.build-images.outputs.image_tag }}"
-
-          # Update image tags in staging overlay
-          cd overlays/staging
-          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
-          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${IMAGE_TAG}"
-          kustomize build . | kubectl apply -f -
-
-          # Wait for rollout
-          kubectl -n valynt-staging rollout status deployment/backend-staging --timeout=300s
-          kubectl -n valynt-staging rollout status deployment/worker-staging --timeout=300s
-
-      - name: Smoke test staging
-        run: |
-          for i in $(seq 1 10); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://staging.valueos.app/api/health || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Staging health check passed"
-              exit 0
-            fi
-            echo "Attempt $i: status=$STATUS, retrying..."
-            sleep 10
-          done
-          echo "Staging health check failed"
-          exit 1
-
-
-      - name: Capture staging operational verification artifact
-        env:
-          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
-          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
-          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from datetime import datetime, timezone
-
-          artifact = {
-            "environment": "staging",
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "run_id": "${{ github.run_id }}",
-            "run_attempt": "${{ github.run_attempt }}",
-            "sha": "${{ github.sha }}",
-            "image_ref": os.environ.get("IMAGE_REF", ""),
-            "mandatory_verification_checklist": {
-              "health": {"endpoint": "https://staging.valueos.app/api/health", "status": "passed"},
-              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
-              "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
-            },
-            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
-          }
-
-          with open("post-deploy-verification-staging-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
-            json.dump(artifact, handle, indent=2)
-
-          with open("post-deploy-verification-staging-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
-            handle.write("\n".join([
-              "# Post-Deploy Mandatory Verification Checklist (Staging)",
-              "",
-              "- [x] Health check: https://staging.valueos.app/api/health returned 200",
-              "- [x] Rollback readiness confirmed (blue-green)",
-              "- [x] Key metrics captured (load test + SLO alert baseline)",
-              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
-            ]))
-          PY
-
-      - name: Upload staging operational verification artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: post-deploy-verification-staging-${{ github.run_id }}
-          path: |
-            post-deploy-verification-staging-${{ github.run_id }}.json
-            post-deploy-verification-staging-${{ github.run_id }}.md
-
+    uses: ./.github/workflows/_reusable-environment-deploy.yml
+    with:
+      node_version: ${{ env.NODE_VERSION }}
+      environment_name: staging
+      environment_url: https://staging.valueos.app
+      registry: ${{ env.REGISTRY }}
+      backend_image_name: ${{ env.BACKEND_IMAGE_NAME }}
+      frontend_image_name: ${{ env.FRONTEND_IMAGE_NAME }}
+      image_tag: ${{ needs.backend-image.outputs.version }}
+      image_ref: ${{ needs.backend-image.outputs.image_ref }}
+      kustomize_overlay: overlays/staging
+      namespace: valynt-staging
+      rollout_targets: |
+        deployment/backend-staging
+        deployment/worker-staging
+      smoke_url: https://staging.valueos.app/api/health
+    secrets:
+      kubeconfig_b64: ${{ secrets.KUBE_CONFIG_STAGING }}
+      database_url: ${{ secrets.STAGING_DATABASE_URL }}
 
   staging-performance-benchmarks:
     name: Staging Performance Benchmarks
@@ -868,234 +691,113 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
+    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, backend-image, frontend-image, verify-supply-chain, stability-seal, emergency-skip-audit]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push') && needs.release-gate-contract.result == 'success'
-    environment:
-      name: production
-      url: https://app.valueos.app
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Enforce production gate preconditions
-        run: |
-          if [ "${{ needs.release-gate-contract.result }}" != "success" ]; then
-            echo "Production deployment blocked: the canonical release gate contract must succeed." >&2
-            exit 1
-          fi
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install Supabase CLI
-        run: pnpm add -g supabase@2.67.1
-
-      - name: Run database migrations (production)
-        env:
-          # [Secret] PRODUCTION_DATABASE_URL: Production DB connection string for migrations and app config
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: |
-          if [ -z "${DATABASE_URL}" ]; then
-            echo "::error::PRODUCTION_DATABASE_URL secret is required for production deploys"
-            exit 1
-          fi
-          cd infra/supabase/supabase
-          supabase db push --db-url "${DATABASE_URL}"
-
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          # [Secret] KUBE_CONFIG_PRODUCTION: Base64-encoded kubeconfig for production cluster authentication
-          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
-
-      - name: Blue-green deploy
-        run: |
-          cd infra/k8s
-          IMAGE_TAG="${{ needs.build-images.outputs.image_tag }}"
-
-          # Deploy to green (inactive) slot
-          cd overlays/production
-          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
-          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${IMAGE_TAG}"
-          kustomize build . | kubectl apply -f -
-
-          # Wait for green rollout
-          kubectl -n valynt rollout status deployment/backend-green-production --timeout=300s
-
-          # Switch active services to green
-          kubectl -n valynt patch service backend-active-production \
-            -p '{"spec":{"selector":{"slot":"green"}}}'
-          kubectl -n valynt patch service frontend-active-production \
-            -p '{"spec":{"selector":{"slot":"green"}}}'
-
-          echo "Production deploy complete — green slot is now active"
-
-      - name: Smoke test production
-        run: |
-          for i in $(seq 1 10); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://app.valueos.app/api/health || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Production health check passed"
-              exit 0
-            fi
-            echo "Attempt $i: status=$STATUS, retrying..."
-            sleep 10
-          done
-          echo "Production health check failed — consider rollback"
-          exit 1
-
-
-      - name: Capture production operational verification artifact
-        env:
-          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
-          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
-          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from datetime import datetime, timezone
-
-          artifact = {
-            "environment": "production",
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "run_id": "${{ github.run_id }}",
-            "run_attempt": "${{ github.run_attempt }}",
-            "sha": "${{ github.sha }}",
-            "image_ref": os.environ.get("IMAGE_REF", ""),
-            "mandatory_verification_checklist": {
-              "health": {"endpoint": "https://app.valueos.app/api/health", "status": "passed"},
-              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
-              "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
-            },
-            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
-          }
-
-          with open("post-deploy-verification-production-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
-            json.dump(artifact, handle, indent=2)
-
-          with open("post-deploy-verification-production-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
-            handle.write("\n".join([
-              "# Post-Deploy Mandatory Verification Checklist (Production)",
-              "",
-              "- [x] Health check: https://app.valueos.app/api/health returned 200",
-              "- [x] Rollback readiness confirmed (blue-green)",
-              "- [x] Key metrics captured (preprod SLO guard + alert baseline)",
-              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
-            ]))
-          PY
-
-      - name: Upload production operational verification artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: post-deploy-verification-production-${{ github.run_id }}
-          path: |
-            post-deploy-verification-production-${{ github.run_id }}.json
-            post-deploy-verification-production-${{ github.run_id }}.md
-
+    uses: ./.github/workflows/_reusable-environment-deploy.yml
+    with:
+      node_version: ${{ env.NODE_VERSION }}
+      environment_name: production
+      environment_url: https://app.valueos.app
+      registry: ${{ env.REGISTRY }}
+      backend_image_name: ${{ env.BACKEND_IMAGE_NAME }}
+      frontend_image_name: ${{ env.FRONTEND_IMAGE_NAME }}
+      image_tag: ${{ needs.backend-image.outputs.version }}
+      image_ref: ${{ needs.backend-image.outputs.image_ref }}
+      kustomize_overlay: overlays/production
+      namespace: valynt
+      rollout_targets: |
+        deployment/backend-green-production
+      post_apply_script: |
+        kubectl -n valynt patch service backend-active-production -p '{"spec":{"selector":{"slot":"green"}}}'
+        kubectl -n valynt patch service frontend-active-production -p '{"spec":{"selector":{"slot":"green"}}}'
+      smoke_url: https://app.valueos.app/api/health
+    secrets:
+      kubeconfig_b64: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+      database_url: ${{ secrets.PRODUCTION_DATABASE_URL }}
 
   weekly-reliability-report:
     name: Weekly Reliability Report
-    runs-on: ubuntu-latest
     if: github.event_name == 'schedule'
-    steps:
-      - name: Generate weekly SLO and incident report
-        env:
-          # [Secret] PROMETHEUS_PRODUCTION_URL: Production Prometheus endpoint for monitoring integration
-          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
-          # [Secret] PROMETHEUS_PRODUCTION_TOKEN: Production Prometheus API token for authentication
-          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
-          # [Secret] ALERTMANAGER_PRODUCTION_URL: Production Alertmanager endpoint for notifications
-          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
-          # [Secret] ALERTMANAGER_PRODUCTION_TOKEN: Production Alertmanager API token for authentication
-          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
-        run: |
-          set -euo pipefail
+    uses: ./.github/workflows/_reusable-ops-report.yml
+    with:
+      artifact_name: weekly-reliability-report
+      artifact_path: weekly-reliability-report.md
+      artifact_retention_days: 30
+      run_script: |
+        set -euo pipefail
 
-          if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
-            echo "PROMETHEUS_PRODUCTION_URL and ALERTMANAGER_PRODUCTION_URL are required"
-            exit 1
+        PROMETHEUS_URL='${{ secrets.PROMETHEUS_PRODUCTION_URL }}'
+        PROMETHEUS_TOKEN='${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}'
+        ALERTMANAGER_URL='${{ secrets.ALERTMANAGER_PRODUCTION_URL }}'
+        ALERTMANAGER_TOKEN='${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}'
+
+        if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
+          echo 'PROMETHEUS_PRODUCTION_URL and ALERTMANAGER_PRODUCTION_URL are required'
+          exit 1
+        fi
+
+        prom_query() {
+          local query="$1"
+          local auth_header=()
+          if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
+            auth_header=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
           fi
+          curl -fsSL "${auth_header[@]}" --get --data-urlencode "query=${query}" "${PROMETHEUS_URL%/}/api/v1/query"
+        }
 
-          prom_query() {
-            local query="$1"
-            local auth_header=()
-            if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
-              auth_header=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
-            fi
-            curl -fsSL "${auth_header[@]}" --get --data-urlencode "query=${query}" "${PROMETHEUS_URL%/}/api/v1/query"
-          }
+        auth_header=()
+        if [ -n "${ALERTMANAGER_TOKEN:-}" ]; then
+          auth_header=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+        fi
 
-          auth_header=()
-          if [ -n "${ALERTMANAGER_TOKEN:-}" ]; then
-            auth_header=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
-          fi
+        API_AVAIL=$(prom_query 'slo:api_availability:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+        API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+        AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+        QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+        INTERACTIVE_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+        ORCHESTRATION_ACK_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration",latency_phase="acknowledgment"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+        ORCHESTRATION_COMPLETION_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+        LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
+        ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
+        INCIDENTS_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+        INCIDENTS_PREV_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[14d])) - sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
 
-          API_AVAIL=$(prom_query 'slo:api_availability:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
-          API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
-          AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
-          QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
-          INTERACTIVE_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
-          ORCHESTRATION_ACK_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration",latency_phase="acknowledgment"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
-          ORCHESTRATION_COMPLETION_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
-          LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
+        REPORT_PATH='weekly-reliability-report.md'
+        RUN_DATE=$(date -u +%Y-%m-%d)
 
-          ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
+        cat > "${REPORT_PATH}" <<REPORT
+        # Weekly Reliability Report (${RUN_DATE})
 
-          INCIDENTS_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
-          INCIDENTS_PREV_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[14d])) - sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+        ## Current SLO Status (1h rolling)
+        - API Availability: ${API_AVAIL}
+        - Interactive Completion SLO Ratio (P95 <= 200ms): ${API_LATENCY}
+        - Authentication Success: ${AUTH_SUCCESS}
+        - Queue Health: ${QUEUE_HEALTH}
 
-          REPORT_PATH="weekly-reliability-report.md"
-          RUN_DATE=$(date -u +%Y-%m-%d)
+        ## Burn-Rate Alert Status
+        - Active SLO burn-rate alerts: ${ACTIVE_BURN_ALERTS}
 
-          cat > "${REPORT_PATH}" <<REPORT
-          # Weekly Reliability Report (${RUN_DATE})
+        ## Incident Trend
+        - Incidents triggered in last 7d: ${INCIDENTS_7D}
+        - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
 
-          ## Current SLO Status (1h rolling)
-          - API Availability: ${API_AVAIL}
-          - Interactive Completion SLO Ratio (P95 <= 200ms): ${API_LATENCY}
-          - Authentication Success: ${AUTH_SUCCESS}
-          - Queue Health: ${QUEUE_HEALTH}
+        ## Weekly Latency Trend
+        - Interactive completion 7d p95 (ms): ${INTERACTIVE_P95_WEEK}
+        - Orchestration acknowledgment 7d p95 (ms): ${ORCHESTRATION_ACK_P95_WEEK}
+        - Orchestration completion 7d p95 (ms): ${ORCHESTRATION_COMPLETION_P95_WEEK}
 
-          ## Burn-Rate Alert Status
-          - Active SLO burn-rate alerts: ${ACTIVE_BURN_ALERTS}
+        ## Latency SLO Budget Burn-down
+        - Burn ratio (0 = healthy, >0 means over budget): ${LATENCY_BUDGET_BURN}
+        - Target threshold: interactive completion p95 <= 200ms
+        - Allowed orchestration exception: completion p95 <= 3000ms after acknowledgment p95 <= 200ms
 
-          ## Incident Trend
-          - Incidents triggered in last 7d: ${INCIDENTS_7D}
-          - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
+        ## Notes
+        - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
+        - Burn-down is computed from 7d interactive completion p95 against the 200ms source-of-truth target.
+        REPORT
+    secrets: inherit
 
-          ## Weekly Latency Trend
-          - Interactive completion 7d p95 (ms): ${INTERACTIVE_P95_WEEK}
-          - Orchestration acknowledgment 7d p95 (ms): ${ORCHESTRATION_ACK_P95_WEEK}
-          - Orchestration completion 7d p95 (ms): ${ORCHESTRATION_COMPLETION_P95_WEEK}
-
-          ## Latency SLO Budget Burn-down
-          - Burn ratio (0 = healthy, >0 means over budget): ${LATENCY_BUDGET_BURN}
-          - Target threshold: interactive completion p95 <= 200ms
-          - Allowed orchestration exception: completion p95 <= 3000ms after acknowledgment p95 <= 200ms
-
-          ## Notes
-          - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
-          - Burn-down is computed from 7d interactive completion p95 against the 200ms source-of-truth target.
-          REPORT
-
-      - name: Upload reliability report artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: weekly-reliability-report-${{ github.run_id }}
-          path: weekly-reliability-report.md
-
-   # ──────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────────
   # 5. Rollback (manual trigger)
   # ──────────────────────────────────────────────────────────────────────────
   rollback:

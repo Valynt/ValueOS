@@ -1,0 +1,54 @@
+name: _Reusable Ops Report
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        required: false
+        type: string
+        default: '20.x'
+      setup_node:
+        required: false
+        type: boolean
+        default: false
+      cache_key_suffix:
+        required: false
+        type: string
+        default: ops-report
+      run_script:
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string
+      artifact_path:
+        required: true
+        type: string
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 30
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-node-pnpm
+        if: ${{ inputs.setup_node }}
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache-key-suffix: ${{ inputs.cache_key_suffix }}
+
+
+      - name: Generate scheduled report artifacts
+        run: ${{ inputs.run_script }}
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}-${{ github.run_id }}
+          path: ${{ inputs.artifact_path }}
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}

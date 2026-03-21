@@ -1,0 +1,168 @@
+name: _Reusable Image Build Sign
+
+on:
+  workflow_call:
+    inputs:
+      registry:
+        required: false
+        type: string
+        default: ghcr.io
+      image_name:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      build_context:
+        required: false
+        type: string
+        default: .
+      build_args:
+        required: false
+        type: string
+        default: ''
+      target:
+        required: false
+        type: string
+        default: ''
+      push:
+        required: false
+        type: boolean
+        default: true
+      sign:
+        required: false
+        type: boolean
+        default: true
+      tag_latest:
+        required: false
+        type: boolean
+        default: true
+      provenance:
+        required: false
+        type: boolean
+        default: false
+      sbom:
+        required: false
+        type: boolean
+        default: false
+      outputs_spec:
+        required: false
+        type: string
+        default: ''
+      artifact_name:
+        required: false
+        type: string
+        default: ''
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 30
+    outputs:
+      version:
+        description: Primary version/tag emitted by docker/metadata-action.
+        value: ${{ jobs.image.outputs.version }}
+      digest:
+        description: Built image digest.
+        value: ${{ jobs.image.outputs.digest }}
+      image_ref:
+        description: Immutable image reference when pushed.
+        value: ${{ jobs.image.outputs.image_ref }}
+      metadata_json:
+        description: Docker build metadata JSON output.
+        value: ${{ jobs.image.outputs.metadata_json }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      digest: ${{ steps.build.outputs.digest }}
+      image_ref: ${{ steps.image-ref.outputs.image_ref }}
+      metadata_json: ${{ steps.build.outputs.metadata }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.registry }}/${{ inputs.image_name }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ inputs.tag_latest }}
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.build_context }}
+          file: ${{ inputs.dockerfile }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ inputs.build_args }}
+          target: ${{ inputs.target }}
+          provenance: ${{ inputs.provenance }}
+          sbom: ${{ inputs.sbom }}
+          outputs: ${{ inputs.outputs_spec }}
+          cache-from: type=gha,scope=${{ inputs.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}
+
+      - name: Resolve immutable image reference
+        id: image-ref
+        shell: bash
+        run: |
+          if [ "${{ inputs.push }}" = 'true' ] && [ -n '${{ steps.build.outputs.digest }}' ]; then
+            echo "image_ref=${{ inputs.registry }}/${{ inputs.image_name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          else
+            echo 'image_ref=' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Cosign
+        if: ${{ inputs.push && inputs.sign }}
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless)
+        if: ${{ inputs.push && inputs.sign }}
+        env:
+          COSIGN_EXPERIMENTAL: 'true'
+        run: cosign sign --yes "${{ steps.image-ref.outputs.image_ref }}"
+
+      - name: Persist build evidence
+        if: ${{ always() && inputs.artifact_name != '' }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/image-build
+          printf '%s\n' '${{ steps.build.outputs.digest }}' > artifacts/image-build/digest.txt
+          printf '%s\n' '${{ steps.meta.outputs.tags }}' > artifacts/image-build/tags.txt
+          printf '%s\n' '${{ steps.build.outputs.metadata }}' > artifacts/image-build/metadata.json
+          if [ -n '${{ steps.image-ref.outputs.image_ref }}' ]; then
+            printf '%s\n' '${{ steps.image-ref.outputs.image_ref }}' > artifacts/image-build/image-ref.txt
+          fi
+
+      - name: Upload build evidence
+        if: ${{ always() && inputs.artifact_name != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            artifacts/image-build/**
+            /tmp/*.tar
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}
