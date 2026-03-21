@@ -68,7 +68,7 @@ vi.mock('../../../lib/logger', () => ({
   },
 }));
 
-vi.mock('../../../lib/supabase', () => {
+vi.mock('../../../lib/supabase.server', () => {
   const mockServerClient = {
     from: vi.fn(() => ({
       insert: vi.fn().mockResolvedValue({ error: null }),
