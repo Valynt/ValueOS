@@ -9,6 +9,8 @@
 import { z } from "zod";
 
 import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
+import { reasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import type { ReasoningTraceWrite } from "@valueos/shared";
 import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
 import type { AgentType } from "../../../services/agent-types.js";
 import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
@@ -148,6 +150,8 @@ export abstract class BaseAgent {
       suggested_next_actions?: string[];
       warnings?: string[];
       prompt_version_refs?: PromptVersionReference[];
+      /** Reasoning trace ID from the most recent secureInvoke call. */
+      trace_id?: string;
     }
   ): AgentOutput {
     const metadata: AgentOutputMetadata = {
@@ -155,6 +159,7 @@ export abstract class BaseAgent {
       model_version: this.version,
       timestamp: new Date().toISOString(),
       prompt_version_refs: extra?.prompt_version_refs,
+      trace_id: extra?.trace_id,
     };
     return {
       agent_id: this.name,
@@ -284,6 +289,17 @@ export abstract class BaseAgent {
        * Defaults to "system" only for background/cron invocations.
        */
       userId?: string;
+      /**
+       * Optional agent-supplied reasoning trace sections.
+       * When provided, these enrich the persisted ReasoningTrace row.
+       * All fields are optional — existing callers require no changes.
+       */
+      trace?: {
+        transformations?: string[];
+        assumptions?: string[];
+        confidence_breakdown?: Record<string, number>;
+        evidence_links?: string[];
+      };
     } = {}
   ): Promise<
     T & {
@@ -295,6 +311,12 @@ export abstract class BaseAgent {
         output_tokens: number;
         total_tokens: number;
       };
+      /**
+       * ID of the reasoning_traces row written for this invocation.
+       * Returned directly from secureInvoke so callers can pass it to
+       * buildOutput without relying on shared instance state.
+       */
+      _trace_id?: string;
     }
   > {
     const {
@@ -303,6 +325,7 @@ export abstract class BaseAgent {
       context = {},
       idempotencyKey,
       userId,
+      trace: traceOptions,
     } = options;
 
     // Resolve userId once, before the kill-switch check, so the same value
@@ -322,8 +345,8 @@ export abstract class BaseAgent {
       );
     }
 
-    // Reset per-invocation state so refs from a prior execute() call don't
-    // bleed into this one when the agent instance is reused.
+    // Reset per-invocation state so refs from a prior execute() call
+    // don't bleed into this one when the agent instance is reused.
     this._promptVersionRefs = [];
 
     // Kill switch — admin can disable an agent at runtime without a deploy.
@@ -483,11 +506,51 @@ export abstract class BaseAgent {
           });
         });
 
+      // Persist reasoning trace (non-blocking — failure must not propagate).
+      // value_case_id is the primary anchor; falls back to sessionId for
+      // background invocations that run outside a case context.
+      const reasoningTracePayload: ReasoningTraceWrite = {
+        organization_id: this.organizationId,
+        session_id: sessionId,
+        value_case_id:
+          typeof context.value_case_id === "string"
+            ? context.value_case_id
+            : sessionId,
+        opportunity_id:
+          typeof context.opportunity_id === "string"
+            ? context.opportunity_id
+            : null,
+        agent_name: this.name,
+        agent_version: this.version,
+        trace_id: traceId,
+        inputs: sanitizedContext,
+        transformations: traceOptions?.transformations ?? [],
+        assumptions: traceOptions?.assumptions ?? [],
+        confidence_breakdown: traceOptions?.confidence_breakdown ?? {},
+        evidence_links: traceOptions?.evidence_links ?? [],
+        grounding_score: hallucinationResult.groundingScore,
+        latency_ms: Date.now() - invokeStartMs,
+        token_usage: tokenUsage ?? null,
+      };
+
+      void reasoningTraceRepository
+        .create(reasoningTracePayload)
+        .catch((err: unknown) => {
+          logger.warn("secureInvoke: reasoning trace write failed", {
+            agent: this.name,
+            session_id: sessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
       return {
         ...parsed,
         hallucination_check: hallucinationResult.passed,
         hallucination_details: hallucinationResult,
         token_usage: tokenUsage,
+        // Returned directly so callers can pass to buildOutput without
+        // relying on shared instance state (safe under concurrent invocations).
+        _trace_id: traceId,
       };
     });
   }

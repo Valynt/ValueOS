@@ -37,3 +37,7 @@ export * from "./VgCapability.js";
 export * from "./VgMetric.js";
 export * from "./VgValueDriver.js";
 export * from "./ValueGraphEdge.js";
+
+// Reasoning Trace — Sprint 51
+// Persisted record of agent reasoning for every secureInvoke call.
+export * from "./ReasoningTrace.js";

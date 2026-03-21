@@ -67,6 +67,7 @@ import { tenantContextRouter } from "./api/tenantContext.js";
 import { usageRouter } from "./api/usage.js";
 import { valueCasesRouter } from "./api/valueCases/index.js";
 import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
+import { reasoningTracesRouter } from "./api/reasoningTraces.js";
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
 import { getConfig } from "./config/environment.js";
@@ -607,6 +608,8 @@ app.use("/api/v1/audit-logs", auditLogsRouter);
 app.use("/api/v1/cases", valueCasesRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
+// Reasoning traces — Sprint 52
+app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);

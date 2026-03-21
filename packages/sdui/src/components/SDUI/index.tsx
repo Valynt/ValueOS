@@ -1,14 +1,28 @@
 import { AlertTriangle, ChevronDown, ChevronRight, X } from "lucide-react";
 import React, { useState } from "react";
 
+import { ReasoningTracePanel } from "./ReasoningTracePanel";
+import { HallucinationBadge } from "./HallucinationBadge";
+
 export interface AgentResponseCardProps {
   title?: string;
   response?: string;
   reasoning?: string;
   confidence?: number;
   showReasoning?: boolean;
+  /** Hallucination check result — passed to HallucinationBadge. */
+  hallucination_check?: boolean | null;
+  /** Grounding score 0–1 — passed to HallucinationBadge. */
+  grounding_score?: number | null;
+  /**
+   * Reasoning trace ID from AgentOutput.metadata.trace_id.
+   * When present, a "Reasoning" tab is rendered that loads ReasoningTracePanel.
+   */
+  trace_id?: string;
   className?: string;
 }
+
+type ActiveTab = "output" | "reasoning";
 
 export function AgentResponseCard({
   title = "Agent Response",
@@ -16,25 +30,91 @@ export function AgentResponseCard({
   reasoning,
   confidence,
   showReasoning = false,
+  hallucination_check,
+  grounding_score,
+  trace_id,
   className = "",
 }: AgentResponseCardProps) {
-  const [expanded, setExpanded] = useState(showReasoning);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("output");
+  // Legacy reasoning toggle (kept for backward compat when trace_id is absent)
+  const [legacyExpanded, setLegacyExpanded] = useState(showReasoning);
+
+  const hasReasoningTab = !!trace_id;
 
   return (
     <article className={`bg-card border border-border rounded-lg p-4 space-y-2 ${className}`}>
       <header className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">{title}</h3>
-        {typeof confidence === "number" ? <ConfidenceIndicator value={confidence} size="sm" /> : null}
-      </header>
-      <p className="text-sm text-muted-foreground">{response ?? "No response provided."}</p>
-      {reasoning ? (
-        <div>
-          <button className="text-xs text-primary" onClick={() => setExpanded((v) => !v)} type="button">
-            {expanded ? "Hide reasoning" : "Show reasoning"}
-          </button>
-          {expanded ? <p className="mt-1 text-xs text-muted-foreground">{reasoning}</p> : null}
+        <div className="flex items-center gap-2">
+          {typeof confidence === "number" ? <ConfidenceIndicator value={confidence} size="sm" /> : null}
+          {(hallucination_check !== undefined || grounding_score !== undefined) && (
+            <HallucinationBadge
+              hallucination_check={hallucination_check}
+              grounding_score={grounding_score}
+              onReasoningOpen={hasReasoningTab ? () => setActiveTab("reasoning") : undefined}
+            />
+          )}
         </div>
-      ) : null}
+      </header>
+
+      {/* Tab bar — only rendered when trace_id is present */}
+      {hasReasoningTab && (
+        <div role="tablist" className="flex gap-0 border-b border-border -mx-4 px-4">
+          <button
+            role="tab"
+            aria-selected={activeTab === "output"}
+            type="button"
+            onClick={() => setActiveTab("output")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeTab === "output"
+                ? "border-b-2 border-primary text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Output
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "reasoning"}
+            type="button"
+            onClick={() => setActiveTab("reasoning")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeTab === "reasoning"
+                ? "border-b-2 border-primary text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Reasoning
+          </button>
+        </div>
+      )}
+
+      {/* Output tab content */}
+      {(!hasReasoningTab || activeTab === "output") && (
+        <>
+          <p className="text-sm text-muted-foreground">{response ?? "No response provided."}</p>
+          {/* Legacy reasoning toggle — shown when no trace_id */}
+          {!hasReasoningTab && reasoning ? (
+            <div>
+              <button
+                className="text-xs text-primary"
+                onClick={() => setLegacyExpanded((v) => !v)}
+                type="button"
+              >
+                {legacyExpanded ? "Hide reasoning" : "Show reasoning"}
+              </button>
+              {legacyExpanded ? (
+                <p className="mt-1 text-xs text-muted-foreground">{reasoning}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* Reasoning tab content */}
+      {hasReasoningTab && activeTab === "reasoning" && (
+        <ReasoningTracePanel trace_id={trace_id} className="pt-1" />
+      )}
     </article>
   );
 }

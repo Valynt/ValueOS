@@ -48,6 +48,8 @@ tags:
     description: Value loop analytics and metrics
   - name: MCP
     description: Model Context Protocol discovery
+  - name: Reasoning Traces
+    description: Agent reasoning trace retrieval
 paths:
 
   # ---------------------------------------------------------------------------
@@ -2591,6 +2593,83 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ---------------------------------------------------------------------------
+  # Reasoning Traces (Sprint 52)
+  # ---------------------------------------------------------------------------
+
+  /api/v1/cases/{caseId}/reasoning-traces:
+    get:
+      summary: Get reasoning traces for a case
+      operationId: getCaseReasoningTraces
+      tags: [Reasoning Traces]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated reasoning traces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReasoningTrace"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      pageSize:
+                        type: integer
+                      total:
+                        type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/reasoning-traces/{traceId}:
+    get:
+      summary: Get a single reasoning trace by ID
+      operationId: getReasoningTrace
+      tags: [Reasoning Traces]
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Reasoning trace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ReasoningTrace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/billing/subscriptions:
     get:
       tags: [Billing]
@@ -3456,6 +3535,104 @@ components:
           type: array
           items:
             type: object
+        created_at:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------------------------------
+    # Reasoning Trace (Sprint 52)
+    # -------------------------------------------------------------------------
+    ReasoningTrace:
+      type: object
+      required:
+        - id
+        - organization_id
+        - session_id
+        - value_case_id
+        - agent_name
+        - agent_version
+        - trace_id
+        - inputs
+        - transformations
+        - assumptions
+        - confidence_breakdown
+        - evidence_links
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        value_case_id:
+          type: string
+          format: uuid
+          description: FK to value_cases.id — maps to :caseId route parameter
+        opportunity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional parent graph anchor (opportunities.id)
+        agent_name:
+          type: string
+        agent_version:
+          type: string
+        trace_id:
+          type: string
+          format: uuid
+          description: Propagated from context.trace_id; attached to AgentOutput.metadata.trace_id
+        inputs:
+          type: object
+          additionalProperties: true
+          description: Sanitized agent input context (PII-redacted)
+        transformations:
+          type: array
+          items:
+            type: string
+          description: Ordered transformation steps the agent applied
+        assumptions:
+          type: array
+          items:
+            type: string
+          description: Named assumptions the agent relied on
+        confidence_breakdown:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+            maximum: 1
+          description: Agent-populated confidence scores by dimension (0–1). Rendered as inline bar chart.
+        evidence_links:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs linking to supporting evidence
+        grounding_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+          description: Aggregate grounding score from hallucination detection
+        latency_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Wall-clock LLM latency in milliseconds
+        token_usage:
+          nullable: true
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            total_tokens:
+              type: integer
         created_at:
           type: string
           format: date-time
