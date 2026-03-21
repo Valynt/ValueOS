@@ -17,8 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCase, useCreateCase } from "@/hooks/useCases";
+import { useIntegrityScore } from "@/hooks/useIntegrityScore";
 import { apiClient } from "@/api/client/unified-api-client";
 import { cn } from "@/lib/utils";
+import { IntegrityScoreCard } from "@sdui/components/SDUI/IntegrityScoreCard";
 
 // ---------------------------------------------------------------------------
 // Wizard state
@@ -299,6 +301,53 @@ function NewCaseWizard() {
 }
 
 // ---------------------------------------------------------------------------
+// Case summary sidebar
+// ---------------------------------------------------------------------------
+
+/**
+ * CaseSummarySidebar
+ *
+ * Right-hand sidebar for the business case workspace.
+ * Hierarchy (spec):
+ *   1. Status Badge        — rendered in the parent header
+ *   2. DefenseReadinessCard — shown via IntegrityScoreCard sub-component
+ *   3. IntegrityScoreCard  — composite integrity score + violations
+ *   4. Financial Summary   — future sprint
+ *   5. Agent Activity      — future sprint
+ */
+function CaseSummarySidebar({ caseId }: { caseId: string }) {
+  const { data, isLoading, resolveViolation } = useIntegrityScore(caseId);
+
+  if (isLoading) {
+    return (
+      <div className="w-72 flex-shrink-0">
+        <div className="bg-card border rounded-lg p-4 animate-pulse">
+          <div className="h-4 bg-slate-200 rounded w-1/2 mb-3" />
+          <div className="h-24 bg-slate-100 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-72 flex-shrink-0 space-y-3">
+      <IntegrityScoreCard
+        integrityScore={data?.integrity_score ?? null}
+        defenseReadinessScore={data?.defense_readiness_score ?? null}
+        violations={data?.violations ?? []}
+        hardBlocked={data?.hard_blocked ?? false}
+        onResolveLatestWarning={(id) =>
+          resolveViolation({
+            violationId: id,
+            resolution_type: "RE_EVALUATE",
+          })
+        }
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Existing case view
 // ---------------------------------------------------------------------------
 
@@ -360,7 +409,7 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
 
   // Minimal case view — full canvas is in ValueCaseCanvas (/opportunities/:oppId/cases/:caseId)
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto">
       <Link
         to="/app/cases"
         className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 mb-6"
@@ -381,11 +430,20 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
         </span>
       </div>
 
-      <Card className="p-6">
-        <p className="text-sm text-slate-500">
-          {valueCase.description ?? "No description provided."}
-        </p>
-      </Card>
+      {/* Two-column layout: main content + summary sidebar */}
+      <div className="flex gap-6 items-start">
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <Card className="p-6">
+            <p className="text-sm text-slate-500">
+              {valueCase.description ?? "No description provided."}
+            </p>
+          </Card>
+        </div>
+
+        {/* Summary sidebar */}
+        <CaseSummarySidebar caseId={caseId} />
+      </div>
     </div>
   );
 }

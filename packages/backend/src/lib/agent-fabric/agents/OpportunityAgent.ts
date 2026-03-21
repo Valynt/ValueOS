@@ -10,6 +10,8 @@
  * page schema that the frontend renders directly.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import { z } from 'zod';
 
 import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
@@ -31,6 +33,7 @@ import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { mapCategoryToValueDriverType } from '../../../services/value-graph/valueDriverUtils.js';
 
 
 // ---------------------------------------------------------------------------
@@ -167,6 +170,9 @@ export class OpportunityAgent extends BaseAgent {
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
       ?? context.workspace_id;
     await this.publishOpportunityUpdated(context, opportunityId, analysis, avgConfidence);
+
+    // Step 6: Write hypotheses to the Value Graph (fire-and-forget)
+    await this.writeHypothesesToGraph(analysis.hypotheses, context);
 
     return this.buildOutput(result, 'success', confidenceLevel, startTime, {
       prompt_version_refs: promptRefs,
@@ -616,6 +622,93 @@ export class OpportunityAgent extends BaseAgent {
         organization_id: context.organization_id,
         error: (err as Error).message,
       });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Value Graph integration
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes hypothesis nodes and edges to the Value Graph.
+   * Fire-and-forget: failures are logged but never propagated.
+   *
+   * Per hypothesis writes:
+   *   1. VgCapability node
+   *   2. VgValueDriver node
+   *   3. use_case_enabled_by_capability edge (UseCase → VgCapability)
+   *   4. hypothesis_claims_value_driver edge (ValueHypothesis → VgValueDriver)
+   */
+  private async writeHypothesesToGraph(
+    hypotheses: ValueHypothesis[],
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = (context.user_inputs?.value_case_id as string | undefined)
+      ?? context.workspace_id;
+    const organizationId = context.organization_id;
+
+    if (!opportunityId || !organizationId) {
+      return;
+    }
+
+    for (const hypothesis of hypotheses) {
+      try {
+        const driverType = mapCategoryToValueDriverType(hypothesis.category);
+        // hypothesis.id is a human-readable slug (e.g. "cost_reduction-1"), not a UUID.
+        // Generate a fresh UUID for the graph edge — the slug is for prompt/analytics use only.
+        const hypothesisId = randomUUID();
+
+        // 1. Write VgCapability node
+        const capability = await this.valueGraphService.writeCapability({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: hypothesis.title,
+          description: hypothesis.description,
+          category: 'other',
+        });
+
+        // 2. Write VgValueDriver node
+        const valueDriver = await this.valueGraphService.writeValueDriver({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          type: driverType,
+          name: hypothesis.title,
+          description: hypothesis.description,
+        });
+
+        // 3. use_case_enabled_by_capability: UseCase → VgCapability
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: 'use_case',
+          from_entity_id: opportunityId, // proxy until use case IDs are resolved
+          to_entity_type: 'vg_capability',
+          to_entity_id: capability.id,
+          edge_type: 'use_case_enabled_by_capability',
+          confidence_score: hypothesis.confidence,
+          created_by_agent: 'OpportunityAgent',
+        });
+
+        // 4. hypothesis_claims_value_driver: ValueHypothesis → VgValueDriver
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: 'value_hypothesis',
+          from_entity_id: hypothesisId,
+          to_entity_type: 'vg_value_driver',
+          to_entity_id: valueDriver.id,
+          edge_type: 'hypothesis_claims_value_driver',
+          confidence_score: hypothesis.confidence,
+          created_by_agent: 'OpportunityAgent',
+        });
+      } catch (err) {
+        logger.warn('OpportunityAgent: failed to write hypothesis to Value Graph', {
+          opportunityId,
+          organizationId,
+          hypothesisTitle: hypothesis.title,
+          error: (err as Error).message,
+        });
+      }
     }
   }
 

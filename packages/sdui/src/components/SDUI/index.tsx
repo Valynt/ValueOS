@@ -650,7 +650,14 @@ export { DiscoveryCard } from "./DiscoveryCard";
 export { KPIForm } from "./KPIForm";
 export { InteractiveChart } from "./InteractiveChart";
 export { ValueTreeCard } from "./ValueTreeCard";
+// Sprint 50 — Value Graph UI
+export { MetricCard } from "./MetricCard";
+export type { MetricCardProps, MetricCardMetric, EvidenceTier as MetricCardEvidenceTier } from "./MetricCard";
+export { ValuePathCard } from "./ValuePathCard";
+export type { ValuePathCardProps, ValuePathCardPath } from "./ValuePathCard";
 export { NarrativeBlock } from "./NarrativeBlock";
+export { IntegrityScoreCard } from "./IntegrityScoreCard";
+export type { IntegrityScoreCardProps, IntegrityViolation } from "./IntegrityScoreCard";
 
 export interface UnknownComponentFallbackProps {
   componentName?: string;
