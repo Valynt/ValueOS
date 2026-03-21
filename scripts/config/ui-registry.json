@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Intent-based UI registry configuration for ValueCanvas",
   "defaultFallback": "JsonViewer",
-
   "intents": [
     {
       "intentType": "visualize_graph",
@@ -395,10 +394,19 @@
         "metric": "data.metric",
         "evidenceTier": "data.evidenceTier"
       }
+    },
+    {
+      "intentType": "show_reasoning_trace",
+      "component": "ReasoningTracePanel",
+      "fallback": "JsonViewer",
+      "description": "Display agent reasoning trace: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links.",
+      "propMappings": {
+        "trace_id": "data.trace_id",
+        "trace": "data.trace",
+        "onClose": "actions.onClose"
+      }
     }
   ],
-
-
   "tenantOverrides": {
     "enterprise-demo": [
       {
@@ -408,31 +416,42 @@
       }
     ]
   },
-
   "agentMappings": {
     "SystemMapperAgent": {
       "primaryIntent": "visualize_graph",
-      "secondaryIntents": ["display_list"]
+      "secondaryIntents": [
+        "display_list"
+      ]
     },
     "InterventionDesignerAgent": {
       "primaryIntent": "input_form",
-      "secondaryIntents": ["show_agent_response"]
+      "secondaryIntents": [
+        "show_agent_response"
+      ]
     },
     "OutcomeEngineerAgent": {
       "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["show_confidence"]
+      "secondaryIntents": [
+        "show_confidence"
+      ]
     },
     "RealizationLoopAgent": {
       "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["visualize_timeline"]
+      "secondaryIntents": [
+        "visualize_timeline"
+      ]
     },
     "ValueEvalAgent": {
       "primaryIntent": "display_metric",
-      "secondaryIntents": ["show_confidence"]
+      "secondaryIntents": [
+        "show_confidence"
+      ]
     },
     "CoordinatorAgent": {
       "primaryIntent": "show_agent_progress",
-      "secondaryIntents": ["show_info"]
+      "secondaryIntents": [
+        "show_info"
+      ]
     }
   }
 }

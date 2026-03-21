@@ -43,6 +43,7 @@ import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
 import { EvidenceGapList } from "./components/SDUI/EvidenceGapList";
 import { GapResolution } from "./components/SDUI/GapResolution";
 import { HallucinationBadge } from "./components/SDUI/HallucinationBadge";
+import { ReasoningTracePanel } from "./components/SDUI/ReasoningTracePanel";
 import { HypothesisCard } from "./components/SDUI/HypothesisCard";
 import { InlineEditor } from "./components/SDUI/InlineEditor";
 import { InteractiveChart } from "./components/SDUI/InteractiveChart";
@@ -708,6 +709,14 @@ versionedRegistry.register({
   tags: ["ui", "agent", "trust", "badge"],
 });
 
+versionedRegistry.register({
+  component: ReasoningTracePanel,
+  version: 1,
+  description: "Displays the 5 reasoning trace sections for an agent invocation: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links. Fetches by trace_id or accepts a pre-loaded trace.",
+  optionalProps: ["trace_id", "trace", "onClose", "className"],
+  tags: ["ui", "agent", "reasoning", "trust"],
+});
+
 // V1 Surface Widgets - Deal Assembly
 versionedRegistry.register({
   component: StakeholderMap,
@@ -942,6 +951,12 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["issues", "onResolve", "onDismiss"],
     description: "Integrity review panel with issue list, severity colors, and resolve modal.",
+  },
+  ReasoningTracePanel: {
+    component: ReasoningTracePanel,
+    versions: [1],
+    requiredProps: [],
+    description: "Displays agent reasoning trace sections: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links.",
   },
   // Layout components
   ComponentPreview: {

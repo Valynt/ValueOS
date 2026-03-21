@@ -41,3 +41,7 @@ export * from "./GraphIntegrityGap.js";
 
 // Value Integrity Layer — Sprint 53
 export * from "./Violation.js";
+
+// Reasoning Trace — Sprint 51
+// Persisted record of agent reasoning for every secureInvoke call.
+export * from "./ReasoningTrace.js";
