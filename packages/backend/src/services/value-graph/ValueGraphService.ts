@@ -404,17 +404,23 @@ export class ValueGraphService {
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("vg_value_drivers")
-      .insert({
-        organization_id: input.organization_id,
-        opportunity_id: input.opportunity_id,
-        type: input.type,
-        name: input.name,
-        description: input.description,
-        estimated_impact_usd: input.estimated_impact_usd ?? null,
-        ontology_version: input.ontology_version ?? "1.0",
-        created_at: now,
-        updated_at: now,
-      })
+      .upsert(
+        {
+          organization_id: input.organization_id,
+          opportunity_id: input.opportunity_id,
+          type: input.type,
+          name: input.name,
+          description: input.description,
+          estimated_impact_usd: input.estimated_impact_usd ?? null,
+          ontology_version: input.ontology_version ?? "1.0",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          onConflict: "organization_id,opportunity_id,type",
+          ignoreDuplicates: false,
+        }
+      )
       .select()
       .single();
 
