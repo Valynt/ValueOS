@@ -46,7 +46,7 @@ Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only wh
   - `node scripts/ci/check-supabase-tenant-controls.mjs`
   - `node scripts/ci/check-migration-schema-consistency.mjs`
   - `bash scripts/ci/check-permissive-rls.sh`
-- `tenant-isolation-gate` (**secret-backed runtime tests**) runs in trusted contexts (push/release/workflow_dispatch and same-repo PRs) and executes full Vitest tenant isolation + compliance suites with Supabase secrets.
+- `tenant-isolation-gate` (**secret-backed runtime tests**) runs in trusted contexts (push/release/workflow_dispatch and same-repo PRs) and executes the live Supabase tenant boundary suites, including `tests/security/rls-tenant-isolation.test.ts` and `tests/compliance/security/tenant-isolation-verification.test.ts`, with Supabase secrets.
 
 ### Merge gating behavior for PRs
 
