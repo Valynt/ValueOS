@@ -233,7 +233,7 @@ export class ReadThroughCacheService {
     config: ReadCacheConfig,
     loader: () => Promise<T>
   ): Promise<T> {
-    const redis = (await getRedisClient()) as RedisWithScanAndMulti;
+    const redis = (await getRedisClient('cache')) as RedisWithScanAndMulti | null;
     const key = this.createKey(config);
     const labels = this.cacheMetricLabels(config);
 
@@ -243,7 +243,19 @@ export class ReadThroughCacheService {
       return nearCached;
     }
 
-    const cached = await redis.get(key);
+    if (!redis) {
+      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
+      return loader();
+    }
+
+    let cached: string | null = null;
+    try {
+      cached = await redis.get(key);
+    } catch {
+      readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
+      return loader();
+    }
+
     if (cached) {
       readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
       cacheRequestsTotal.inc({
@@ -281,7 +293,11 @@ export class ReadThroughCacheService {
         if (loaded !== undefined) {
           const serialized = JSON.stringify(loaded);
           const ttl = CACHE_TTL_TIERS_SECONDS[config.tier];
-          await redis.set(key, serialized, { EX: ttl });
+          try {
+            await redis.set(key, serialized, { EX: ttl });
+          } catch {
+            readCacheEventsTotal.inc({ endpoint: config.endpoint, event: 'bypass' });
+          }
           this.setNearCachedValue(key, serialized, config);
         } else {
           this.deleteNearCachedKey(key);
@@ -302,12 +318,20 @@ export class ReadThroughCacheService {
     tenantId: string,
     endpoint: string
   ): Promise<number> {
-    const redis = (await getRedisClient()) as RedisWithScanAndMulti;
+    const redis = (await getRedisClient('cache')) as RedisWithScanAndMulti | null;
     const pattern = tenantReadCachePattern({ tenantId, endpoint });
     let cursor = "0";
     let deleted = this.deleteNearCachedEndpoint(tenantId, endpoint);
 
-    do {
+    if (!redis) {
+      if (deleted) {
+        readCacheEventsTotal.inc({ endpoint, event: 'eviction' }, deleted);
+      }
+      return deleted;
+    }
+
+    try {
+      do {
       const [nextCursor, keys] = await redis.scan(cursor, {
         MATCH: pattern,
         COUNT: this.INVALIDATION_SCAN_BATCH_SIZE,
@@ -318,8 +342,11 @@ export class ReadThroughCacheService {
         continue;
       }
 
-      deleted += await this.deleteKeys(redis, keys);
-    } while (cursor !== "0");
+        deleted += await this.deleteKeys(redis, keys);
+      } while (cursor !== "0");
+    } catch {
+      return deleted;
+    }
 
     if (!deleted) {
       return 0;

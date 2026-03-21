@@ -106,8 +106,70 @@ If orchestration completion p95 exceeds 3000 ms, track it as an orchestration ex
 
 ## Infrastructure assumptions
 
-- Postgres: Supabase Pro (2 vCPU, 4 GB RAM), Redis: single-node 1 GB
-- Backend: 2 replicas, 1 vCPU / 512 MB each, CDN: Cloudflare
+- Postgres: Supabase Pro (2 vCPU, 4 GB RAM).
+- Redis topology target: **two logical roles** even when both endpoints are backed by the same provider account:
+  - `REDIS_CACHE_URL` / cache Redis for latency-sensitive read caches with eviction enabled.
+  - `REDIS_CONTROL_PLANE_URL` / control-plane Redis for idempotency, RBAC invalidation, rate limiting, and agent state with `noeviction`.
+- Backend: 2 replicas, 1 vCPU / 512 MB each, CDN: Cloudflare.
 - HPA guardrails assume interactive completion p95 `< 200 ms`; orchestration routes are scaled and alerted on acknowledgment p95 `< 200 ms`, with completion p95 `< 3000 ms` treated as the only allowed exception policy.
 
 Adjust targets if the deployment topology changes significantly.
+
+## Redis dependency classification
+
+### Hard dependency paths
+
+| Feature | Functions / paths | Why it is a hard dependency | Failure mode when Redis is unavailable |
+|---|---|---|---|
+| Idempotency | `IdempotencyGuard.execute()`, `IdempotencyGuard.hasBeenProcessed()`, `IdempotencyGuard.getCachedResult()` | Duplicate-suppression correctness depends on the shared key existing across retries and pods. | Fail closed. Reject or retry the protected workflow instead of running the side effect twice. |
+| Agent state | `SessionContextLedger.appendMessage()`, `appendCalculation()`, `getSessionContext()`, `clearSession()` | Multi-step orchestration expects session scratchpad continuity across pods. | Fail closed for workflows that require prior session context; do not silently continue with partial state. |
+
+### Graceful-degradation paths
+
+| Feature | Functions / paths | Degraded behavior | Notes |
+|---|---|---|---|
+| Read cache | `ReadThroughCacheService.getOrLoad()`, `ReadThroughCacheService.invalidateEndpoint()`, shared ESO cache | Bypass Redis and serve the loader result; keep per-process near-cache only when present. | This protects correctness and keeps interactive reads available at the cost of higher origin latency. |
+| RBAC invalidation | `publishRbacInvalidation()`, `subscribeRbacInvalidation()` | In-process caches continue until TTL expiry; warn and increment `rbac_redis_unavailable_total`. | Security-sensitive because revocations can remain stale up to the local TTL. |
+| Rate limiting | `AuthRateLimitStore`, `llmRateLimiter`, `NonceStore.consumeOnce()` when Redis is not required | Fall back to per-pod memory limits or replay cache. | Effective limit becomes `N x per-pod limit`; alerting must stay on. |
+| Queue health telemetry | `getQueueHealth()` | Return zeros instead of failing the health endpoint. | Operationally degraded but keeps readiness surfaces responsive. |
+
+## Per-feature Redis fallback policy
+
+| Feature | Redis role | Keyspace characteristics | Fallback policy | Operator action |
+|---|---|---|---|---|
+| Read cache | Cache Redis | High-churn, eviction-tolerant, TTL-bound (`read-cache:*`, ESO cache keys) | **Graceful degrade.** Bypass Redis, preserve correctness, allow latency regression, and keep near-cache enabled per pod. | Investigate cache latency/hit-rate regressions before they spill into the interactive p95 budget. |
+| Idempotency | Control-plane Redis | Low-cardinality, correctness-critical, 24h TTL | **Fail closed.** Do not execute duplicate-prone workflows when Redis cannot be trusted. | Page backend on-call, restore Redis, then replay with the original idempotency key. |
+| RBAC invalidation | Control-plane Redis | Small pub/sub channel (`rbac:invalidate`) | **Graceful but security-degraded.** Continue serving traffic, log loudly, and rely on TTL expiry of local permission caches. | If revocations are urgent, set `RBAC_CACHE_TTL_SECONDS=0` or restart pods after Redis is restored. |
+| Rate limiting | Control-plane Redis | Many small counters with short TTLs | **Graceful degrade.** Fall back to per-pod memory counters and keep alerts on because aggregate protection weakens. | Reduce per-pod thresholds or scale in if attack traffic is active. |
+| Agent state | Control-plane Redis | Session-scoped ledger, moderate TTL, overwrite-heavy | **Fail closed.** New work that requires prior session context should stop rather than continue with missing context. | Drain/retry queued workflows after Redis recovers; do not silently resume with blank state. |
+
+## Capacity targets and alert wiring
+
+The following targets are the Redis capacity SLOs for staging and production. Dashboard and alert wiring lives in:
+
+- `infra/k8s/monitoring/redis-capacity-dashboard-configmap.yaml`
+- `infra/k8s/monitoring/redis-capacity-alerts.yaml`
+
+| Signal | Target | Alert threshold | Notes |
+|---|---|---|---|
+| Cache Redis memory use | `< 70%` of `maxmemory` sustained | Warning at `>= 70%` for 15m, critical at `>= 85%` for 15m | Leave headroom for replication/AOF rewrite and bursty read-cache growth. |
+| Control-plane Redis memory use | `< 60%` of `maxmemory` sustained | Warning at `>= 60%` for 15m, critical at `>= 75%` for 15m | Control-plane Redis must not rely on eviction to stay healthy. |
+| Cache eviction rate | `<= 1 key/s` 15-minute average | Warning above `1 key/s`, critical above `5 key/s` | Higher rates indicate the cache is thrashing rather than absorbing reads. |
+| Redis command latency | `<= 2 ms` average over 5m | Warning above `2 ms`, critical above `5 ms` | Calculated from Redis exporter command-duration counters. |
+| Client reconnect rate | `<= 1 reconnect / hour / role` | Warning above `3 reconnects / 15m`, critical above `10 reconnects / 15m` | Uses `valuecanvas_redis_client_reconnects_total` from backend clients. |
+
+## Single-node Redis safe envelope
+
+If production still runs both logical roles on a single Redis node, treat the following as the maximum safe envelope before moving to managed multi-node Redis or provider clustering:
+
+- Reserve **at least 35%** of `maxmemory` for non-cache workloads, allocator fragmentation, replication backlog, and AOF rewrite headroom.
+- Cap **latency-sensitive cache footprint at 45% of node `maxmemory`**. Example: a 1 GiB node should keep cache data at or below roughly **460 MiB**.
+- Keep combined control-plane working set **below 20% of node `maxmemory`**. Example: on a 1 GiB node, keep idempotency + rate limits + RBAC + agent state below roughly **200 MiB**.
+- Scale out or adopt managed clustering when any of the following are sustained for more than 15 minutes:
+  - Interactive read traffic is consistently above **1,500 requests/second** with cache hit rate below **85%**.
+  - Cache eviction rate stays above **1 key/second**.
+  - Average Redis command latency exceeds **2 ms**.
+  - Redis client reconnects exceed **3 per 15 minutes** for either logical role.
+  - Memory utilization crosses the warning thresholds above and cannot be reduced by TTL tuning alone.
+
+Under that single-node profile, cache TTLs should stay short (`hot=30s`, `warm=120s`, `cold=600s`) and control-plane keys must remain bounded by TTL. If the cache tier needs more than ~460 MiB or the request profile exceeds ~1,500 read req/s, do **not** keep sharing the node: split cache/control-plane onto separate managed instances or move to clustered Redis.
