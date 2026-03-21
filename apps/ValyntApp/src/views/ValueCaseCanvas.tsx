@@ -19,6 +19,7 @@ import { IntegrityStage } from "./canvas/IntegrityStage";
 import { ModelStage } from "./canvas/ModelStage";
 import { NarrativeStage } from "./canvas/NarrativeStage";
 import { RealizationStage } from "./canvas/RealizationStage";
+import { ValueGraphStage } from "./canvas/ValueGraphStage";
 
 import { useToast } from "@/components/ui/use-toast";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
@@ -35,6 +36,7 @@ const stages = [
   { key: "narrative", label: "Narrative", color: "bg-pink-500", description: "Assemble & export" },
   { key: "realization", label: "Realization", color: "bg-emerald-500", description: "Track & prove" },
   { key: "expansion", label: "Expansion", color: "bg-violet-400", description: "Grow & expand" },
+  { key: "value-graph", label: "Value Graph", color: "bg-orange-500", description: "Causal graph" },
 ];
 
 export default function ValueCaseCanvas() {
@@ -76,9 +78,10 @@ export default function ValueCaseCanvas() {
     hypothesis: <HypothesisStage onRunStarted={handleRunStarted} />,
     model: <ModelStage />,
     integrity: <IntegrityStage caseId={caseId} />,
-    narrative: <NarrativeStage caseId={caseId} />,
+    narrative: <NarrativeStage caseId={caseId} opportunityId={oppId} />,
     realization: <RealizationStage caseId={caseId} />,
     expansion: <ExpansionStage caseId={caseId} />,
+    "value-graph": <ValueGraphStage opportunityId={oppId} />,
   };
 
   const currentStage = stages.find((s) => s.key === activeStage);

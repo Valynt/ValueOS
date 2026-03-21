@@ -50,6 +50,10 @@ export { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
 export { KPIForm } from "./components/SDUI/KPIForm";
 export { InteractiveChart } from "./components/SDUI/InteractiveChart";
 export { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
+export { MetricCard } from "./components/SDUI/MetricCard";
+export type { MetricCardProps, MetricCardMetric } from "./components/SDUI/MetricCard";
+export { ValuePathCard } from "./components/SDUI/ValuePathCard";
+export type { ValuePathCardProps, ValuePathCardPath } from "./components/SDUI/ValuePathCard";
 export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
 export {
   DashboardPanel,
