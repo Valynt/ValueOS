@@ -18,7 +18,9 @@ import { createClient } from "@supabase/supabase-js";
 import { Request, Response, Router } from "express";
 
 import { validateEnv } from "../../config/validateEnv.js"
-import { rateLimiters } from "../../middleware/rateLimiter.js"
+import { getAuthRateLimitBackendStatus } from "../../middleware/authRateLimiter.js"
+import { getLlmRateLimitBackendStatus } from "../../middleware/llmRateLimiter.js"
+import { getGeneralRateLimitBackendStatus, rateLimiters } from "../../middleware/rateLimiter.js"
 import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware.js"
 import { securityHeadersMiddleware } from "../../middleware/securityHeaders.js"
 import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware.js"
@@ -342,6 +344,37 @@ async function checkRedis(): Promise<HealthStatus> {
   }
 }
 
+function checkRateLimitingBackends(): HealthStatus {
+  const general = getGeneralRateLimitBackendStatus();
+  const auth = getAuthRateLimitBackendStatus();
+  const llm = getLlmRateLimitBackendStatus();
+  const requiredBackends = [general, auth, llm].filter((backend) => backend.required);
+  const allRequiredHealthy = requiredBackends.every((backend) => backend.healthy);
+
+  if (requiredBackends.length === 0) {
+    return {
+      status: "not_configured",
+      message: "Distributed rate limiting not required in this environment",
+      lastChecked: new Date().toISOString(),
+    };
+  }
+
+  if (allRequiredHealthy) {
+    return {
+      status: "healthy",
+      message: "Distributed rate-limiting backends are healthy",
+      lastChecked: new Date().toISOString(),
+    };
+  }
+
+  return {
+    status: "unhealthy",
+    message:
+      "One or more required distributed rate-limiting backends are unavailable; rollout must remain blocked.",
+    lastChecked: new Date().toISOString(),
+  };
+}
+
 /**
  * Comprehensive health check
  */
@@ -362,6 +395,7 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
   if (enabledChecks.togetherAI) checkPromises.push(checkTogetherAI());
   if (enabledChecks.openAI) checkPromises.push(checkOpenAI());
   if (enabledChecks.redis) checkPromises.push(checkRedis());
+  checkPromises.push(Promise.resolve(checkRateLimitingBackends()));
 
   const results = await Promise.all(checkPromises);
 
@@ -373,12 +407,14 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
   if (enabledChecks.togetherAI) checks.togetherAI = results[idx++];
   if (enabledChecks.openAI) checks.openAI = results[idx++];
   if (enabledChecks.redis) checks.redis = results[idx++];
+  checks.rateLimiting = results[idx++];
 
   // Determine overall status
   const criticalChecks = [
     enabledChecks.database ? checks.database : null,
     enabledChecks.supabase ? checks.supabase : null,
     enabledChecks.togetherAI ? checks.togetherAI : null,
+    checks.rateLimiting,
   ].filter(Boolean) as HealthStatus[];
 
   const hasUnhealthy = criticalChecks.some(
@@ -487,21 +523,24 @@ router.get("/ready", async (_req: Request, res: Response) => {
       checkDatabase(),
       checkRedis(),
     ]);
+    const rateLimiting = checkRateLimitingBackends();
 
     const isReady =
-      database.status !== "unhealthy" && redis.status !== "unhealthy";
+      database.status !== "unhealthy" &&
+      redis.status !== "unhealthy" &&
+      rateLimiting.status !== "unhealthy";
 
     if (isReady) {
       res.status(200).json({
         status: "ready",
         timestamp: new Date().toISOString(),
-        checks: { database, redis },
+        checks: { database, redis, rateLimiting },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
         timestamp: new Date().toISOString(),
-        checks: { database, redis },
+        checks: { database, redis, rateLimiting },
       });
     }
   } catch (error) {
@@ -541,21 +580,24 @@ router.get("/health/ready", async (_req: Request, res: Response) => {
       checkDatabase(),
       checkRedis(),
     ]);
+    const rateLimiting = checkRateLimitingBackends();
 
     const isReady =
-      database.status !== "unhealthy" && redis.status !== "unhealthy";
+      database.status !== "unhealthy" &&
+      redis.status !== "unhealthy" &&
+      rateLimiting.status !== "unhealthy";
 
     if (isReady) {
       res.status(200).json({
         status: "ready",
         timestamp: new Date().toISOString(),
-        checks: { database, redis },
+        checks: { database, redis, rateLimiting },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
         timestamp: new Date().toISOString(),
-        checks: { database, redis },
+        checks: { database, redis, rateLimiting },
       });
     }
   } catch (error) {
@@ -608,6 +650,7 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
   if (enabledChecks.togetherAI) checkPromises.push(checkTogetherAI());
   if (enabledChecks.openAI) checkPromises.push(checkOpenAI());
   if (enabledChecks.redis) checkPromises.push(checkRedis());
+  checkPromises.push(Promise.resolve(checkRateLimitingBackends()));
 
   const results = await Promise.all(checkPromises);
 
@@ -619,6 +662,7 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
   if (enabledChecks.togetherAI) checks.togetherAI = results[idx++];
   if (enabledChecks.openAI) checks.openAI = results[idx++];
   if (enabledChecks.redis) checks.redis = results[idx++];
+  checks.rateLimiting = results[idx++];
 
   // Data freshness — T1 tables. Uses a representative system org ID for the
   // cross-tenant freshness check; individual tenant freshness is tracked by

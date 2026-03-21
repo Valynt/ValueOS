@@ -1,0 +1,21 @@
+# Rate limiting configuration for production.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rate-limiting-config
+  namespace: valynt
+data:
+  api-rate-limit: "100"
+  agent-rate-limit: "30"
+  auth-rate-limit: "20"
+  auth-login-rate-limit: "5"
+  auth-signup-rate-limit: "3"
+  auth-password-reset-rate-limit: "3"
+  auth-mfa-rate-limit: "6"
+  admin-rate-limit: "10"
+  expensive-write-rate-limit: "5"
+  sse-connection-limit: "10"
+  burst-multiplier: "2"
+  require-distributed-backend: "true"
+  block-rollout-without-distributed-backend: "true"
+  page-on-degraded-mode: "true"
