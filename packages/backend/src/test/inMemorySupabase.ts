@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type Row = Record<string, any>;
-type QueryResult<T = any> = { data: T; error: SupabaseError | null; count?: number | null; status?: number };
+type Row = Record<string, unknown>;
+type QueryResult<T = unknown> = { data: T; error: SupabaseError | null; count?: number | null; status?: number };
 
 type SupabaseError = {
   code?: string;
@@ -121,7 +121,7 @@ function validateInsert(table: string, row: Row, rows: Row[]): SupabaseError | n
   return null;
 }
 
-class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
+class InMemoryQueryBuilder implements PromiseLike<QueryResult<unknown>> {
   private readonly filters: Filter[] = [];
   private selectedColumns: string | null = null;
   private orderBy: { column: string; ascending: boolean } | null = null;
@@ -194,7 +194,7 @@ class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
     return this;
   }
 
-  async insert(payload: Row | Row[]): Promise<QueryResult<any>> {
+  async insert(payload: Row | Row[]): Promise<QueryResult<Row | Row[] | null>> {
     const rows = this.state.get(this.table) ?? [];
     const incoming = Array.isArray(payload) ? payload : [payload];
 
@@ -210,7 +210,7 @@ class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
     return { data: clone(payload), error: null, status: 201 };
   }
 
-  async single(): Promise<QueryResult<any>> {
+  async single(): Promise<QueryResult<Row | null>> {
     const result = await this.execute();
     const rows = Array.isArray(result.data) ? result.data : [];
     return {
@@ -220,7 +220,7 @@ class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
     };
   }
 
-  async maybeSingle(): Promise<QueryResult<any>> {
+  async maybeSingle(): Promise<QueryResult<Row | null>> {
     const result = await this.execute();
     const rows = Array.isArray(result.data) ? result.data : [];
     return {
@@ -230,14 +230,14 @@ class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
     };
   }
 
-  then<TResult1 = QueryResult<any>, TResult2 = never>(
-    onfulfilled?: ((value: QueryResult<any>) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+  then<TResult1 = QueryResult<unknown>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult<unknown>) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
 
-  private async execute(): Promise<QueryResult<any>> {
+  private async execute(): Promise<QueryResult<unknown>> {
     const rows = this.state.get(this.table) ?? [];
     const matchingRows = rows.filter((row) => matchesFilters(row, this.filters));
 

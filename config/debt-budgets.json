@@ -1,0 +1,88 @@
+{
+  "entries": [
+    {
+      "id": "valyntapp-ts-errors",
+      "label": "ValyntApp TypeScript errors",
+      "bucket": "production-runtime",
+      "metric": "tsErrors",
+      "baseline": 4239,
+      "nextTarget": 4200,
+      "command": "pnpm --filter valynt-app exec tsc --noEmit --pretty false"
+    },
+    {
+      "id": "backend-eslint-warnings",
+      "label": "Backend ESLint warnings",
+      "bucket": "production-runtime",
+      "metric": "eslintWarnings",
+      "baseline": 2426,
+      "nextTarget": 2400,
+      "command": "pnpm --filter @valueos/backend exec eslint src/ -f json"
+    },
+    {
+      "id": "backend-explicit-any",
+      "label": "Backend runtime explicit-any",
+      "bucket": "production-runtime",
+      "metric": "explicitAny",
+      "baseline": 48,
+      "nextTarget": 40,
+      "path": "packages/backend/src"
+    },
+    {
+      "id": "valyntapp-explicit-any",
+      "label": "ValyntApp explicit-any",
+      "bucket": "production-runtime",
+      "metric": "explicitAny",
+      "baseline": 16,
+      "nextTarget": 14,
+      "path": "apps/ValyntApp/src"
+    },
+    {
+      "id": "infra-eso-explicit-any",
+      "label": "Infra ESO explicit-any",
+      "bucket": "shared-libraries",
+      "metric": "explicitAny",
+      "baseline": 0,
+      "nextTarget": 0,
+      "path": "packages/infra/eso"
+    },
+    {
+      "id": "sdui-runtime-explicit-any",
+      "label": "SDUI runtime explicit-any",
+      "bucket": "shared-libraries",
+      "metric": "explicitAny",
+      "baseline": 17,
+      "nextTarget": 14,
+      "path": "packages/sdui/src"
+    },
+    {
+      "id": "backend-test-explicit-any",
+      "label": "Backend test harness explicit-any",
+      "bucket": "tests",
+      "metric": "explicitAny",
+      "baseline": 0,
+      "nextTarget": 0,
+      "path": "packages/backend/src/test",
+      "includeTests": true
+    },
+    {
+      "id": "backend-test-utils-explicit-any",
+      "label": "Backend test utils explicit-any",
+      "bucket": "tests",
+      "metric": "explicitAny",
+      "baseline": 0,
+      "nextTarget": 0,
+      "path": "packages/backend/src/test-utils",
+      "includeTests": true
+    },
+    {
+      "id": "sdui-test-explicit-any",
+      "label": "SDUI test explicit-any",
+      "bucket": "tests",
+      "metric": "explicitAny",
+      "baseline": 72,
+      "nextTarget": 60,
+      "path": "packages/sdui/src/__tests__",
+      "includeTests": true
+    }
+  ]
+}

@@ -1,24 +1,29 @@
-import { DataIngestionAdapter, IngestionConfig } from "../types.js";
+import { AdapterPayload, DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
-interface BLSApiResponse {
+type BLSParams = {
+  seriesId: string;
+  startYear?: string;
+  endYear?: string;
+};
+
+type BLSStreamingParams = { seriesIds?: string[]; pollInterval?: number };
+
+type BLSDataPayload = Record<string, unknown> & {
   Results?: {
     series?: Array<{
-      data?: Array<{
-        year?: string;
-        period?: string;
-      }>;
+      data?: Array<{ year?: string; period?: string }>;
     }>;
   };
-}
+};
 
-export class BLSAdapter implements DataIngestionAdapter {
+export class BLSAdapter implements DataIngestionAdapter<BLSParams, BLSDataPayload, AdapterPayload> {
   name = "BLS";
   private rateLimiter?: RateLimiter;
-  private cache?: Cache;
+  private cache?: Cache<BLSDataPayload>;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: unknown) => void> = new Set();
+  private dataCallbacks: Set<(data: AdapterPayload) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
@@ -33,11 +38,7 @@ export class BLSAdapter implements DataIngestionAdapter {
     }
   }
 
-  async fetchData(params: {
-    seriesId: string;
-    startYear?: string;
-    endYear?: string;
-  }): Promise<unknown> {
+  async fetchData(params: BLSParams): Promise<BLSDataPayload> {
     const cacheKey = `bls-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -64,7 +65,7 @@ export class BLSAdapter implements DataIngestionAdapter {
       throw new Error(`BLS API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as BLSDataPayload;
 
     if (this.cache) {
       this.cache.set(cacheKey, data);
@@ -73,11 +74,7 @@ export class BLSAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: unknown): Promise<{
-    source: "BLS";
-    data: unknown;
-    timestamp: string;
-  }> {
+  async transformData(rawData: BLSDataPayload): Promise<AdapterPayload> {
     // Transform BLS data to standardized format
     return {
       source: "BLS",
@@ -87,7 +84,7 @@ export class BLSAdapter implements DataIngestionAdapter {
   }
 
   async startStreaming(
-    params: { seriesIds?: string[]; pollInterval?: number } = {}
+    params: BLSStreamingParams = {}
   ): Promise<void> {
     if (this.isStreaming) return;
 
@@ -104,11 +101,11 @@ export class BLSAdapter implements DataIngestionAdapter {
         const seriesIds = params.seriesIds || ["CES0000000001"]; // Default: Total nonfarm employment
 
         for (const seriesId of seriesIds) {
-          const data = (await this.fetchData({ seriesId })) as BLSApiResponse;
+          const data = await this.fetchData({ seriesId });
 
           // Check if data has been updated
-          const latestDataPoint = data.Results?.series?.[0]?.data?.[0];
-          const latestTimestamp = `${latestDataPoint?.year ?? ""}${latestDataPoint?.period ?? ""}`;
+          const latestPoint = data.Results?.series?.[0]?.data?.[0];
+          const latestTimestamp = `${latestPoint?.year ?? ""}${latestPoint?.period ?? ""}`;
           const lastTimestamp = this.lastDataTimestamps.get(seriesId);
 
           if (latestTimestamp !== lastTimestamp) {
@@ -141,12 +138,12 @@ export class BLSAdapter implements DataIngestionAdapter {
     }
   }
 
-  onData(callback: (data: unknown) => void): () => void {
+  onData(callback: (data: AdapterPayload) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: unknown) {
+  private notifyDataCallbacks(data: AdapterPayload) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);
