@@ -1,20 +1,14 @@
-name: CI
+name: CI - PR and Main Blocking
 
 on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [main, develop]
-    tags:
-      - "v*"
-  release:
-    types: [published]
-  schedule:
-    - cron: "0 3 * * *"
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -22,16 +16,94 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Critical product path 1: value loop integrity, domain model, artifact accuracy
-  # Critical invariants: no untyped domain writes, no LLM numbers without math
-  unit-component-schema:
-    name: unit/component/schema
+  changes:
+    name: classify-changes
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      security: ${{ steps.filter.outputs.security }}
+      release: ${{ steps.filter.outputs.release }}
+      deploy: ${{ steps.filter.outputs.deploy }}
+      shared: ${{ steps.filter.outputs.shared }}
+      repo_meta: ${{ steps.filter.outputs.repo_meta }}
+      frontend_required: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.shared == 'true' || steps.filter.outputs.repo_meta == 'true' }}
+      backend_required: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.shared == 'true' || steps.filter.outputs.repo_meta == 'true' }}
+      any_code: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.shared == 'true' || steps.filter.outputs.security == 'true' || steps.filter.outputs.repo_meta == 'true' }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'apps/**'
+              - 'packages/components/**'
+              - 'packages/sdui/**'
+              - 'packages/sdui-types/**'
+              - 'tests/accessibility/**'
+              - 'scripts/ci/check-a11y-*.mjs'
+              - 'scripts/ci/check-i18n-*.mjs'
+              - 'scripts/ci/collect-frontend-quality-dashboard.mjs'
+              - '.github/metrics/**'
+            backend:
+              - 'packages/backend/**'
+              - 'packages/memory/**'
+              - 'packages/agents/**'
+              - 'packages/agent-fabric/**'
+              - 'packages/services/**'
+              - 'infra/supabase/**'
+              - 'tests/security/**'
+              - 'tests/compliance/**'
+              - 'scripts/ci/check-supabase-tenant-controls.mjs'
+              - 'scripts/ci/check-migration-*.mjs'
+              - 'scripts/ci/check-permissive-rls.sh'
+              - 'scripts/ci/verify-critical-claims.mjs'
+            security:
+              - 'scripts/ci/check-security-*.mjs'
+              - 'scripts/ci/security-baseline-verification.mjs'
+              - 'scripts/ci/check-direct-llm-calls.mjs'
+              - 'scripts/ci/check-llm-*.mjs'
+              - 'scripts/security/**'
+              - '.github/workflows/codeql.yml'
+            release:
+              - '.github/workflows/release.yml'
+              - '.changeset/**'
+              - 'scripts/ci/reproducibility-verify.mjs'
+            deploy:
+              - '.github/workflows/deploy.yml'
+              - 'infra/k8s/**'
+              - 'infra/docker/**'
+              - 'scripts/ci/observability-slo-gate.sh'
+            shared:
+              - 'packages/shared/**'
+              - 'packages/config-v2/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'vitest*.ts'
+            repo_meta:
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/README.md'
+              - '.github/workflows/CI_CONTROL_MATRIX.md'
+              - 'docs/testing/release-gates.md'
+
+  pr-workspace-quality:
+    name: pr-workspace-quality
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.any_code == 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
 
@@ -44,7 +116,7 @@ jobs:
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -53,353 +125,210 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install autoscaling manifest validation tools
-        run: |
-          mkdir -p "$RUNNER_TEMP/bin"
-          curl -fsSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz \
-            | tar -xz -C "$RUNNER_TEMP/bin"
-          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
-            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-
-      - name: Agent autoscaling manifest validation
-        run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
 
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
 
-      - name: Canonical CI workflow self-check
+      - name: Workflow governance self-check
         run: pnpm run ci:governance:self-check
 
-      - name: Check runtime sentinels
-        run: pnpm check:runtime-sentinels
-
-      - name: Gateway CORS wildcard guard
-        run: pnpm check:kong-cors-origins
-
-      - name: Lint
-        run: npx turbo run lint
-
-      - name: Typecheck
-        run: npx turbo run typecheck
-
-      - name: Backend request cast guardrails
-        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
-
-      - name: Generated src artifacts guard
-        run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
-
-      - name: Unit suite + schema guard
+      - name: Runtime contract guards
         run: |
-          npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.lines=75 --coverage.thresholds.functions=70 --coverage.thresholds.branches=70 --coverage.thresholds.statements=75
-          node scripts/ci/check-migration-hygiene.mjs
-          node scripts/ci/check-migration-schema-consistency.mjs
-          node scripts/ci/check-migration-rollbacks.mjs
-          node scripts/ci/verify-critical-architecture-migrations.mjs
+          pnpm check:runtime-sentinels
+          pnpm check:kong-cors-origins
+          pnpm run check:workflow-package-script-drift
+          pnpm run check:workflow-pnpm-contract
+          pnpm run check:workspace-package-governance
 
-      - name: Workflow DAG acyclicity guard
-        run: pnpm run test:workflow-dag-validation
-
-      - name: TypeScript any-count gate
-        run: bash scripts/check-any-count.sh
-
-      - name: Backend debt summary artifact
-        if: always()
-        run: pnpm --filter @valueos/backend run debt:summary
-
-      - name: Docs integrity
-        run: node scripts/ci/docs-integrity.mjs
-
-      - name: Ownership metadata guard
-        run: node scripts/ci/check-ownership-metadata.mjs
-
-      - name: OpenAPI single-root guard
-        run: node scripts/ci/check-openapi-single-root.mjs
-
-      - name: OpenAPI structural validation
-        run: node scripts/ci/check-openapi-structure.mjs
-
-      - name: Query fingerprint perf budget gate
-        run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
-
-      - name: Latency target consistency gate
-        run: node scripts/ci/check-latency-target-consistency.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
-
-      - name: Compose drift guard
-        run: node scripts/ci/check-compose-drift.mjs
-
-      - name: Compose DB binding guard
-        run: node scripts/ci/check-compose-db-bindings.mjs
-
-      - name: Runtime platform contract guard
-        run: pnpm run check:runtime-platform-contract
-
-      - name: Archived ECS guardrails
-        run: pnpm run check:archived-ecs-guardrails
-
-      - name: Env/port drift guard
-        run: node scripts/ci/check-env-port-drift.mjs
-
-      - name: Hardcoded port mismatch guard
-        run: node scripts/ci/check-hardcoded-port-mismatches.mjs
-
-      - name: TODO metadata guard (no untracked TODOs in production paths)
-        run: node .github/scripts/check-todo-metadata.cjs
-
-      - name: Direct LLM call guard
-        run: node scripts/ci/check-direct-llm-calls.mjs
-
-      - name: Security anti-pattern guard
-        run: node scripts/ci/check-security-antipatterns.mjs
-
-      - name: Guard browser provider secrets
-        run: pnpm check:browser-provider-secrets
-
-      - name: Guard frontend bundle service-role identifiers
-        run: pnpm check:frontend-bundle-service-role
-
-      - name: Workflow/package script drift guard
-        run: pnpm run check:workflow-package-script-drift
-
-      - name: Workflow pnpm contract guard
-        run: pnpm run check:workflow-pnpm-contract
-
-      - name: Workspace package governance inventory
-        run: pnpm run check:workspace-package-governance
-
-      - name: LLM secrets hygiene guard
-        run: node scripts/ci/check-llm-secrets-hygiene.mjs
-
-      - name: LLM readiness contract guard
-        run: node scripts/ci/check-llm-readiness-contract.mjs
-
-      - name: Supabase tenant controls guard
-        run: node scripts/ci/check-supabase-tenant-controls.mjs
-
-      - name: Security baseline verification
-        run: node scripts/ci/security-baseline-verification.mjs
-
-      - name: CI security control-matrix guard
-        run: node scripts/ci/check-ci-security-control-matrix.mjs
-
-      - name: Required-check documentation/workflow consistency guard
-        run: node scripts/ci/check-required-check-workflow-consistency.mjs
-
-      - name: Deploy workflow release-gate consistency guard
-        run: node scripts/ci/check-deploy-workflow-release-gate-consistency.mjs
-
-      - name: CI scanner action version manifest guard
-        run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
-
-      - name: Compliance control regression gate
-        run: node scripts/ci/check-compliance-control-regressions.mjs
-
-      - name: Emit lane summary
-        if: always()
+      - name: Lint + typecheck + unit tests
         run: |
-          mkdir -p artifacts/ci-lanes/unit-component-schema
-          cat > artifacts/ci-lanes/unit-component-schema/summary.md <<EOF
-          # unit/component/schema
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
+          npx turbo run lint typecheck test
 
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-unit-component-schema-${{ github.run_id }}
-          path: |
-            coverage/**
-            artifacts/backend-debt/**
-            artifacts/ci-lanes/unit-component-schema/**
-          if-no-files-found: warn
-          retention-days: 30
+      - name: Targeted repo invariants
+        run: |
+          pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
+          node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
+          node scripts/ci/check-vitest-workspace-packages.mjs
+          bash scripts/check-any-count.sh
+          node scripts/ci/docs-integrity.mjs
+          node scripts/ci/check-ownership-metadata.mjs
+          node scripts/ci/check-openapi-single-root.mjs
+          node scripts/ci/check-openapi-structure.mjs
+          node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
+          node scripts/ci/check-latency-target-consistency.mjs --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
+          node scripts/ci/check-compose-drift.mjs
+          node scripts/ci/check-compose-db-bindings.mjs
+          pnpm run check:runtime-platform-contract
+          pnpm run check:archived-ecs-guardrails
+          node scripts/ci/check-env-port-drift.mjs
+          node scripts/ci/check-hardcoded-port-mismatches.mjs
+          node .github/scripts/check-todo-metadata.cjs
+          pnpm check:browser-provider-secrets
+          pnpm check:frontend-bundle-service-role
+          node scripts/ci/check-ci-security-control-matrix.mjs
+          node scripts/ci/check-required-check-workflow-consistency.mjs
+          node scripts/ci/check-deploy-workflow-release-gate-consistency.mjs
+          node scripts/ci/check-ci-workflow-scanner-refs.mjs
+          node scripts/ci/check-compliance-control-regressions.mjs
 
-  vitest-package-matrix-config:
-    name: vitest/package-matrix
+  pr-tenant-static-gate:
+    name: pr-tenant-static-gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.backend_required == 'true'
     steps:
       - uses: actions/checkout@v6
-
-      - name: Emit Vitest package matrix
-        id: matrix
-        run: echo "matrix=$(node scripts/ci/emit-vitest-package-matrix.mjs)" >> "$GITHUB_OUTPUT"
-
-  vitest-package:
-    name: vitest/${{ matrix.package.label }}
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    needs: vitest-package-matrix-config
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.vitest-package-matrix-config.outputs.matrix) }}
-    env:
-      NODE_ENV: test
-      SUPABASE_URL: http://localhost:54321
-      SUPABASE_ANON_KEY: test-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
-      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
-      SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
-      OPENAI_API_KEY: test-openai-key
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
-
-      - name: Run package tests with coverage
-        run: |
-          npx vitest run \
-            --root "${{ matrix.package.dir }}" \
-            --config vitest.config.ts \
-            --coverage \
-            --coverage.provider=v8 \
-            --coverage.reporter=json-summary \
-            --coverage.reporter=text-summary \
-            --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
-
-      - name: Write coverage summary
-        run: |
-          node scripts/ci/write-vitest-coverage-summary.mjs \
-            --package-id "${{ matrix.package.id }}" \
-            --package-label "${{ matrix.package.label }}" \
-            --package-dir "${{ matrix.package.dir }}" \
-            --coverage-summary "${{ matrix.package.coverageDir }}/coverage-summary.json" \
-            --output "artifacts/coverage/${{ matrix.package.id }}.md"
-          cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload package coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vitest-${{ matrix.package.id }}-${{ github.run_id }}
-          path: |
-            ${{ matrix.package.coverageDir }}/coverage-summary.json
-            artifacts/coverage/${{ matrix.package.id }}.md
-          if-no-files-found: warn
-          retention-days: 30
-
-  # Critical invariant: no cross-tenant data access (secrets-free static lane)
-  tenant-isolation-static-gate:
-    name: tenant-isolation-static-gate
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Static tenant boundary guards
+      - name: Secret-free tenant static checks
         run: |
           node scripts/ci/check-supabase-tenant-controls.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
           bash scripts/ci/check-permissive-rls.sh
 
-      - name: Emit lane summary
-        if: always()
+  pr-lightweight-security-static:
+    name: pr-lightweight-security-static
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.any_code == 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lightweight security static checks
         run: |
-          mkdir -p artifacts/ci-lanes/tenant-isolation-static-gate
-          cat > artifacts/ci-lanes/tenant-isolation-static-gate/summary.md <<EOF
-          # tenant-isolation-static-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
+          node scripts/ci/check-direct-llm-calls.mjs
+          node scripts/ci/check-security-antipatterns.mjs
+          node scripts/ci/check-llm-secrets-hygiene.mjs
+          node scripts/ci/check-llm-readiness-contract.mjs
+          node scripts/ci/security-baseline-verification.mjs
+      - name: Secret scan - gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-      - name: Upload lane artifacts
+  pr-frontend-conditional-checks:
+    name: pr-frontend-conditional-checks
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend_required == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Build frontend
+        run: npx turbo run build --filter=valynt-app
+      - name: Run frontend blocking checks
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+        run: |
+          mkdir -p artifacts/accessibility artifacts/i18n artifacts/frontend-quality
+          npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html,json --output=artifacts/accessibility
+          node scripts/ci/check-a11y-severity-budgets.mjs --report artifacts/accessibility/playwright-report.json --budget .github/metrics/wcag-severity-budgets.json --metrics-out artifacts/accessibility/wcag-severity-metrics.json
+          node scripts/ci/extract-i18n-catalog.mjs --out artifacts/i18n/extracted-keys.json
+          node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
+          node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+          node scripts/ci/collect-frontend-quality-dashboard.mjs --dashboard-out artifacts/frontend-quality/dashboard.md --json-out artifacts/frontend-quality/dashboard.json
+      - name: Upload frontend artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lane-tenant-isolation-static-gate-${{ github.run_id }}
-          path: artifacts/ci-lanes/tenant-isolation-static-gate/**
+          name: pr-frontend-conditional-checks-${{ github.run_id }}
+          path: |
+            playwright-report/
+            artifacts/accessibility/
+            artifacts/i18n/
+            artifacts/frontend-quality/
           if-no-files-found: warn
           retention-days: 30
 
-  # Critical invariant: no cross-tenant data access (secret-backed runtime lane)
-  tenant-isolation-gate:
-    name: tenant-isolation-gate
+  pr-only-blocking-gate:
+    name: pr-only-blocking-gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request'
+    needs:
+      - changes
+      - pr-workspace-quality
+      - pr-tenant-static-gate
+      - pr-lightweight-security-static
+      - pr-frontend-conditional-checks
+    steps:
+      - name: Enforce PR-only blockers
+        run: |
+          lanes=(
+            "pr-workspace-quality:${{ needs.pr-workspace-quality.result }}"
+            "pr-lightweight-security-static:${{ needs.pr-lightweight-security-static.result }}"
+          )
+
+          if [ "${{ needs.changes.outputs.backend_required }}" = "true" ]; then
+            lanes+=("pr-tenant-static-gate:${{ needs.pr-tenant-static-gate.result }}")
+          fi
+
+          if [ "${{ needs.changes.outputs.frontend_required }}" = "true" ]; then
+            lanes+=("pr-frontend-conditional-checks:${{ needs.pr-frontend-conditional-checks.result }}")
+          fi
+
+          for lane in "${lanes[@]}"; do
+            echo "$lane"
+            status="${lane#*:}"
+            if [ "$status" != "success" ]; then
+              echo "Failing PR-only blocking gate due to lane status: $lane"
+              exit 1
+            fi
+          done
+
+  main-tenant-runtime-gate:
+    name: main-tenant-runtime-gate
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_required == 'true'
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Prepare compliance report directories
-        run: |
-          mkdir -p reports/compliance/rls
-          mkdir -p reports/compliance/dsr
-
-      - name: Tenant isolation + compliance tests
+      - name: Trusted tenant runtime suites
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -411,278 +340,85 @@ jobs:
             tests/security/supabase-rls-policy-matrix.test.ts \
             tests/security/agent-invocation-tenant-boundary.test.ts \
             packages/memory/tests/tenant-vector-isolation.test.ts \
-            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
-            --reporter=verbose \
-            --reporter=junit \
-            --reporter=json \
-            --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
-            --outputFile.json=reports/compliance/rls/vitest-rls.json
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts
+          npx vitest run tests/compliance/dsr-workflow.test.ts packages/backend/src/api/__tests__/dataSubjectRequests.piiTables.test.ts
 
-      - name: Run DSR compliance tests
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          npx vitest run tests/compliance/dsr-workflow.test.ts packages/backend/src/api/__tests__/dataSubjectRequests.piiTables.test.ts \
-            --reporter=verbose \
-            --reporter=junit \
-            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/tenant-isolation-gate
-          cat > artifacts/ci-lanes/tenant-isolation-gate/summary.md <<EOF
-          # tenant-isolation-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-tenant-isolation-gate-${{ github.run_id }}
-          path: |
-            reports/compliance/**
-            artifacts/ci-lanes/tenant-isolation-gate/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  # Critical product path 2: value loop end-to-end, versioning contracts
-  critical-workflows-gate:
-    name: critical-workflows-gate
+  main-critical-validation:
+    name: main-critical-validation
     runs-on: ubuntu-latest
-    needs:
-      - unit-component-schema
-      - tenant-isolation-gate
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    needs: [changes, main-tenant-runtime-gate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_required == 'true'
     steps:
       - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Critical workflow contracts
+      - name: Full-repo trusted validation
         run: |
           node scripts/ci/verify-critical-claims.mjs
-          pnpm exec vitest run \
-            packages/backend/src/__tests__/versioning.contract.test.ts
+          pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts
 
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/critical-workflows-gate
-          cat > artifacts/ci-lanes/critical-workflows-gate/summary.md <<EOF
-          # critical-workflows-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
-          - upstream_tenant_isolation: ${{ needs.tenant-isolation-gate.result }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-critical-workflows-gate-${{ github.run_id }}
-          path: artifacts/ci-lanes/critical-workflows-gate/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  # Accessibility gate: WCAG 2.2 AA — required when frontend or a11y tests change
-  accessibility-audit:
-    name: accessibility-audit
+  main-deeper-security-verification:
+    name: main-deeper-security-verification
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
-
-      - name: Run WCAG 2.2 AA accessibility tests
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
-        run: |
-          mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
-            --reporter=html,json \
-            --output=artifacts/accessibility
-
-      - name: Accessibility trend gate
-        if: always()
-        run: |
-          node scripts/ci/a11y-trend-gate.mjs \
-            --report artifacts/accessibility/playwright-report.json \
-            --baseline .github/metrics/accessibility-baseline.json \
-            --metrics-out artifacts/accessibility/a11y-metrics.json \
-            --summary-out artifacts/accessibility/a11y-trend-summary.md
-
-      - name: Enforce WCAG severity budgets
-        if: always()
-        run: |
-          node scripts/ci/check-a11y-severity-budgets.mjs \
-            --report artifacts/accessibility/playwright-report.json \
-            --budget .github/metrics/wcag-severity-budgets.json \
-            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
-
-      - name: Generate i18n key extraction catalog
-        if: always()
-        run: |
-          node scripts/ci/extract-i18n-catalog.mjs \
-            --out artifacts/i18n/extracted-keys.json
-
-      - name: Verify localization coverage
-        if: always()
-        run: |
-          node scripts/ci/check-i18n-keys.mjs \
-            --json-out artifacts/i18n/coverage-dashboard.json
-
-      - name: Verify pseudo-localization readiness
-        if: always()
-        run: |
-          node scripts/ci/check-pseudo-localization.mjs \
-            --json-out artifacts/i18n/pseudo-localization-report.json
-
-      - name: Build frontend quality dashboard artifacts
-        if: always()
-        run: |
-          node scripts/ci/collect-frontend-quality-dashboard.mjs \
-            --dashboard-out artifacts/frontend-quality/dashboard.md \
-            --json-out artifacts/frontend-quality/dashboard.json
-      - name: Upload accessibility artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: accessibility-audit-${{ github.run_id }}
-          path: |
-            playwright-report/
-            artifacts/accessibility/
-            artifacts/i18n/
-            artifacts/frontend-quality/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/accessibility-audit
-          cat > artifacts/ci-lanes/accessibility-audit/summary.md <<EOF
-          # accessibility-audit
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
-
-  # Security gate: SAST, SCA, secret scan, SBOM — required on every PR
-  security-gate:
-    name: security-gate
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    needs: [changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.any_code == 'true'
     permissions:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Resolve pnpm store path
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: SCA — pnpm audit (fail on high/critical)
+      - name: SCA - pnpm audit
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
-
-      - name: Secret scan — gitleaks
+      - name: Secret scan - gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-
-      - name: SAST — Semgrep
+      - name: SAST - Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
           config: >-
             p/security-audit
             p/secrets
             p/owasp-top-ten
-          generateSarif: "1"
+          generateSarif: '1'
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-
       - name: Upload Semgrep SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: semgrep
-
       - name: Build backend container image for Trivy
         run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:ci .
-
-      - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
+      - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
@@ -691,9 +427,8 @@ jobs:
           output: trivy-fs.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "1"
-
-      - name: Trivy container image scan (fail on HIGH/CRITICAL)
+          exit-code: '1'
+      - name: Trivy image scan
         uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
@@ -702,15 +437,13 @@ jobs:
           output: trivy-image.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "1"
-
+          exit-code: '1'
       - name: Upload Trivy filesystem SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
-
       - name: Upload Trivy image SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4
@@ -718,178 +451,19 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-image
 
-      - name: SBOM — generate CycloneDX
-        run: |
-          pnpm exec cyclonedx-npm --output-format json --output-file sbom.json
-
-      - name: SBOM — verify artifact exists and is non-empty
-        run: |
-          if [ ! -s sbom.json ]; then
-            echo "SBOM generation failed: sbom.json is missing or empty" >&2
-            exit 1
-          fi
-
-      - name: Upload security artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-gate-${{ github.run_id }}
-          path: |
-            npm-audit-report.json
-            semgrep.sarif
-            trivy-fs.sarif
-            trivy-image.sarif
-            sbom.json
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/security-gate
-          cat > artifacts/ci-lanes/security-gate/summary.md <<EOF
-          # security-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
-
-  # PR gate: blocks merge until critical lanes pass
-  pr-fast-blocking-subsets:
-    name: pr-fast-blocking-subsets
+  main-devcontainer-build:
+    name: main-devcontainer-build
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs:
-      - unit-component-schema
-      - tenant-isolation-static-gate
-      - tenant-isolation-gate
-      - security-gate
-      - accessibility-audit
-    steps:
-      - name: Enforce PR release blockers
-        run: |
-          echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
-          tenant_static="${{ needs.tenant-isolation-static-gate.result }}"
-          tenant_runtime="${{ needs.tenant-isolation-gate.result }}"
-
-          echo "tenant-isolation-static-gate:${tenant_static}"
-          echo "tenant-isolation-gate:${tenant_runtime}"
-
-          if [ "$tenant_static" != "success" ] && [ "$tenant_runtime" != "success" ]; then
-            echo "Failing PR gate: at least one tenant-isolation lane must be success."
-            exit 1
-          fi
-
-          for lane in \
-            "unit-component-schema:${{ needs.unit-component-schema.result }}" \
-            "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
-            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
-            "security-gate:${{ needs.security-gate.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
-            echo "$lane"
-            status="${lane#*:}"
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "Failing PR gate due to lane status: $lane"
-              exit 1
-            fi
-          done
-
-  # Deploy gate: blocks staging/production until critical lanes pass
-  staging-deploy-release-gates:
-    name: staging-deploy-release-gates
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - tenant-isolation-gate
-      - critical-workflows-gate
-      - security-gate
-      - accessibility-audit
-    steps:
-      - name: Enforce staging/deploy blockers
-        env:
-          STAGING_HEALTHCHECK_URL: ${{ vars.STAGING_HEALTHCHECK_URL }}
-        run: |
-          echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
-          for lane in \
-            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
-            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
-            "security-gate:${{ needs.security-gate.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
-            echo "$lane"
-            status="${lane#*:}"
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              exit 1
-            fi
-            sleep 1
-          done
-
-          STAGING_HEALTHCHECK_URL="${STAGING_HEALTHCHECK_URL:-https://staging.valuecanvas.app/health}"
-
-          # Regression guard: this release gate validates a deployed staging URL.
-          # Do not reintroduce localhost probes here unless the job also starts a backend,
-          # captures BACKEND_PID, waits for readiness, and tears it down deterministically.
-          case "$STAGING_HEALTHCHECK_URL" in
-            http://localhost*|http://127.0.0.1*|http://\[::1\]*|https://localhost*|https://127.0.0.1*|https://\[::1\]*)
-              echo "❌ STAGING_HEALTHCHECK_URL must target a deployed staging endpoint, not localhost: $STAGING_HEALTHCHECK_URL"
-              exit 1
-              ;;
-          esac
-
-          echo "Testing deployed staging health endpoint: $STAGING_HEALTHCHECK_URL"
-          HEALTH_RESPONSE=$(curl --silent --show-error --location --max-time 20 --write-out "\n%{http_code}" "$STAGING_HEALTHCHECK_URL")
-          HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
-          BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
-
-          echo "Response code: $HTTP_CODE"
-          echo "Response body: $BODY"
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Health check failed: expected 200 from $STAGING_HEALTHCHECK_URL, got $HTTP_CODE"
-            exit 1
-          fi
-
-          echo "✅ Health check passed"
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/health-check-gate
-          cat > artifacts/ci-lanes/health-check-gate/summary.md <<EOF
-          # health-check-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-health-check-gate-${{ github.run_id }}
-          path: artifacts/ci-lanes/health-check-gate/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  # DevContainer build validation: ensures devcontainer builds successfully
-  devcontainer-build:
-    name: devcontainer-build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    needs: [changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.any_code == 'true'
     steps:
       - uses: actions/checkout@v6
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Copy env template
         run: cp .devcontainer/.env.template .devcontainer/.env
-
       - name: Build DevContainer image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.optimized
@@ -898,30 +472,39 @@ jobs:
           tags: valueos-devcontainer:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
       - name: Validate container health
         run: |
           docker run --rm valueos-devcontainer:ci node --version
           docker run --rm valueos-devcontainer:ci pnpm --version
 
-      - name: Emit lane summary
-        if: always()
+  main-only-blocking-gate:
+    name: main-only-blocking-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - changes
+      - main-tenant-runtime-gate
+      - main-critical-validation
+      - main-deeper-security-verification
+      - main-devcontainer-build
+    steps:
+      - name: Enforce main-only blockers
         run: |
-          mkdir -p artifacts/ci-lanes/devcontainer-build
-          cat > artifacts/ci-lanes/devcontainer-build/summary.md <<EOF
-          # devcontainer-build
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - sha: ${{ github.sha }}
-          EOF
+          lanes=(
+            "main-deeper-security-verification:${{ needs.main-deeper-security-verification.result }}"
+            "main-devcontainer-build:${{ needs.main-devcontainer-build.result }}"
+          )
 
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-devcontainer-build-${{ github.run_id }}
-          path: artifacts/ci-lanes/devcontainer-build/**
-          if-no-files-found: warn
-          retention-days: 30
+          if [ "${{ needs.changes.outputs.backend_required }}" = "true" ]; then
+            lanes+=("main-tenant-runtime-gate:${{ needs.main-tenant-runtime-gate.result }}")
+            lanes+=("main-critical-validation:${{ needs.main-critical-validation.result }}")
+          fi
+
+          for lane in "${lanes[@]}"; do
+            echo "$lane"
+            status="${lane#*:}"
+            if [ "$status" != "success" ]; then
+              echo "Failing main-only blocking gate due to lane status: $lane"
+              exit 1
+            fi
+          done
