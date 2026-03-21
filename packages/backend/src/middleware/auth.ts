@@ -40,9 +40,13 @@ const AUTH_FALLBACK_EMERGENCY_MODE_FLAG = 'AUTH_FALLBACK_EMERGENCY_MODE';
 const LEGACY_LOCAL_JWT_FALLBACK_FLAG = 'ALLOW_LOCAL_JWT_FALLBACK';
 const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
 const AUTH_FALLBACK_INCIDENT_ID = 'AUTH_FALLBACK_INCIDENT_ID';
+const AUTH_FALLBACK_INCIDENT_SEVERITY = 'AUTH_FALLBACK_INCIDENT_SEVERITY';
+const AUTH_FALLBACK_INCIDENT_STARTED_AT = 'AUTH_FALLBACK_INCIDENT_STARTED_AT';
 const AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS = 'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS';
 const AUTH_FALLBACK_ALERT_THRESHOLD = 'AUTH_FALLBACK_ALERT_THRESHOLD';
 const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
+const AUTH_FALLBACK_ALLOWED_ROUTES = 'AUTH_FALLBACK_ALLOWED_ROUTES';
+const AUTH_FALLBACK_ALLOWED_ROLES = 'AUTH_FALLBACK_ALLOWED_ROLES';
 
 // In-process fallback: used only when Redis is unavailable.
 // Accurate only within a single process instance — do not rely on this for
@@ -85,7 +89,64 @@ type VerifiedAuth = {
 
 type FallbackEmergencyConfig = {
   incidentId: string;
+  incidentSeverity: string;
+  incidentStartedAt: string;
+  allowedRoutes: string[];
+  allowedRoles: string[];
+  requireAuthoritativeRevocation: boolean;
 };
+
+type RevocationCheckResult = {
+  revoked: boolean;
+  authoritative: boolean;
+};
+
+function matchesAllowedValue(candidate: string | undefined, allowlist: string[]): boolean {
+  if (!candidate || allowlist.length === 0) {
+    return false;
+  }
+
+  return allowlist.some((allowedValue) => {
+    if (allowedValue.endsWith('*')) {
+      return candidate.startsWith(allowedValue.slice(0, -1));
+    }
+    return candidate === allowedValue;
+  });
+}
+
+function extractRolesFromClaims(claims: JwtPayload): string[] {
+  const roleValues = new Set<string>();
+
+  if (typeof claims.role === 'string' && claims.role.length > 0) {
+    roleValues.add(claims.role);
+  }
+
+  if (Array.isArray(claims.role)) {
+    for (const role of claims.role) {
+      if (typeof role === 'string' && role.length > 0) {
+        roleValues.add(role);
+      }
+    }
+  }
+
+  const appMetadataRoles = claims.app_metadata && typeof claims.app_metadata === 'object'
+    ? (claims.app_metadata as { roles?: unknown }).roles
+    : undefined;
+
+  if (typeof appMetadataRoles === 'string' && appMetadataRoles.length > 0) {
+    roleValues.add(appMetadataRoles);
+  }
+
+  if (Array.isArray(appMetadataRoles)) {
+    for (const role of appMetadataRoles) {
+      if (typeof role === 'string' && role.length > 0) {
+        roleValues.add(role);
+      }
+    }
+  }
+
+  return [...roleValues];
+}
 
 function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
   const legacyFallbackEnabled = getEnvVar(LEGACY_LOCAL_JWT_FALLBACK_FLAG) === 'true';
@@ -95,7 +156,14 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
       logger.warn('Using legacy local JWT fallback flag outside production', {
         flag: LEGACY_LOCAL_JWT_FALLBACK_FLAG,
       });
-      return { incidentId: 'legacy-local-jwt-fallback' };
+      return {
+        incidentId: 'legacy-local-jwt-fallback',
+        incidentSeverity: 'development',
+        incidentStartedAt: new Date(Date.now()).toISOString(),
+        allowedRoutes: ['*'],
+        allowedRoles: [],
+        requireAuthoritativeRevocation: false,
+      };
     }
     return null;
   }
@@ -152,8 +220,64 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     return null;
   }
 
+  const incidentSeverity = getEnvVar(AUTH_FALLBACK_INCIDENT_SEVERITY);
+  if (!incidentSeverity) {
+    logger.error('Fallback emergency mode requires incident severity metadata', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_SEVERITY,
+    });
+    return null;
+  }
+
+  const incidentStartedAt = getEnvVar(AUTH_FALLBACK_INCIDENT_STARTED_AT);
+  if (!incidentStartedAt) {
+    logger.error('Fallback emergency mode requires incident start timestamp metadata', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_STARTED_AT,
+    });
+    return null;
+  }
+
+  const incidentStartedAtDate = new Date(incidentStartedAt);
+  if (Number.isNaN(incidentStartedAtDate.getTime())) {
+    logger.error('Invalid incident start timestamp; refusing local JWT fallback', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_STARTED_AT,
+      value: sanitizeForLogging(incidentStartedAt),
+    });
+    return null;
+  }
+
+  if (incidentStartedAtDate.getTime() > Date.now()) {
+    logger.error('Incident start timestamp cannot be in the future', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_STARTED_AT,
+      value: sanitizeForLogging(incidentStartedAt),
+    });
+    return null;
+  }
+
+  if (incidentStartedAtDate.getTime() > ttlDate.getTime()) {
+    logger.error('Incident start timestamp must be before emergency TTL expiry', undefined, {
+      startedAt: sanitizeForLogging(incidentStartedAt),
+      ttlUntil: sanitizeForLogging(ttlUntil),
+    });
+    return null;
+  }
+
+  const allowedRoutes = parseStringListEnv(AUTH_FALLBACK_ALLOWED_ROUTES);
+  const allowedRoles = parseStringListEnv(AUTH_FALLBACK_ALLOWED_ROLES);
+  if (allowedRoutes.length === 0 && allowedRoles.length === 0) {
+    logger.error('Fallback emergency mode requires route or role allowlist metadata', undefined, {
+      routeFlag: AUTH_FALLBACK_ALLOWED_ROUTES,
+      roleFlag: AUTH_FALLBACK_ALLOWED_ROLES,
+    });
+    return null;
+  }
+
   return {
     incidentId,
+    incidentSeverity,
+    incidentStartedAt,
+    allowedRoutes,
+    allowedRoles,
+    requireAuthoritativeRevocation: true,
   };
 }
 
@@ -186,7 +310,7 @@ function parseStringListEnv(varName: string): string[] {
 
 function validateFallbackClaims(claims: JwtPayload): { ok: boolean; reason?: string } {
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const maxTokenAgeSeconds = Number(getEnvVar('AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS') || '86400');
+  const maxTokenAgeSeconds = Number(getEnvVar('AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS') || '300');
   const allowedClockSkewSeconds = Number(getEnvVar('AUTH_FALLBACK_CLOCK_SKEW_SECONDS') || '60');
 
   const allowedIssuers = parseStringListEnv('SUPABASE_JWT_ISSUER');
@@ -231,11 +355,24 @@ function validateFallbackClaims(claims: JwtPayload): { ok: boolean; reason?: str
   return { ok: true };
 }
 
-async function isTokenRevoked(token: string, claims: JwtPayload): Promise<boolean> {
+function isFallbackAccessAllowed(
+  claims: JwtPayload,
+  context: VerificationContext,
+  emergencyConfig: FallbackEmergencyConfig,
+): boolean {
+  const routeAllowed = matchesAllowedValue(context.route, emergencyConfig.allowedRoutes);
+  const roleAllowed = extractRolesFromClaims(claims).some((role) =>
+    matchesAllowedValue(role, emergencyConfig.allowedRoles)
+  );
+
+  return routeAllowed || roleAllowed;
+}
+
+async function isTokenRevoked(token: string, claims: JwtPayload): Promise<RevocationCheckResult> {
   const redis = await getRedisClient();
   if (!redis) {
     logger.warn('Redis unavailable for token revocation checks in fallback mode');
-    return false;
+    return { revoked: false, authoritative: false };
   }
 
   const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -248,10 +385,13 @@ async function isTokenRevoked(token: string, claims: JwtPayload): Promise<boolea
 
   try {
     const revokedCount = await redis.exists(revocationKeys);
-    return revokedCount > 0;
+    return {
+      revoked: revokedCount > 0,
+      authoritative: true,
+    };
   } catch (error) {
     logger.warn('Revocation check failed during fallback validation', sanitizeForLogging(error) as LogContext);
-    return false;
+    return { revoked: false, authoritative: false };
   }
 }
 
@@ -315,6 +455,8 @@ async function emitFallbackAuditEvent(context: {
   tenantId?: string;
   reason: string;
   incidentId: string;
+  incidentSeverity: string;
+  incidentStartedAt: string;
 }) {
   const details = {
     severity: 'critical',
@@ -323,6 +465,8 @@ async function emitFallbackAuditEvent(context: {
     tenantId: sanitizeForLogging(context.tenantId || 'unknown'),
     reason: context.reason,
     incidentId: sanitizeForLogging(context.incidentId),
+    incidentSeverity: sanitizeForLogging(context.incidentSeverity),
+    incidentStartedAt: sanitizeForLogging(context.incidentStartedAt),
     fallbackMode: true,
   };
 
@@ -341,6 +485,8 @@ async function emitFallbackAuditEvent(context: {
       details: {
         reason: context.reason,
         incidentId: context.incidentId,
+        incidentSeverity: context.incidentSeverity,
+        incidentStartedAt: context.incidentStartedAt,
         tenantId: context.tenantId,
         route: context.route,
         method: context.method,
@@ -359,6 +505,8 @@ async function emitFallbackAuditEvent(context: {
         severity: 'high',
         reason: context.reason,
         incidentId: context.incidentId,
+        incidentSeverity: context.incidentSeverity,
+        incidentStartedAt: context.incidentStartedAt,
         tenantId: context.tenantId,
         route: context.route,
         method: context.method,
@@ -606,8 +754,24 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
       return null;
     }
 
-    const revoked = await isTokenRevoked(token, claims);
-    if (revoked) {
+    if (!isFallbackAccessAllowed(claims, context, emergencyConfig)) {
+      logger.warn('Local fallback rejected token outside configured emergency allowlist', {
+        route: sanitizeForLogging(context.route),
+        roles: extractRolesFromClaims(claims).map((role) => sanitizeForLogging(role)),
+      });
+      return null;
+    }
+
+    const revocationStatus = await isTokenRevoked(token, claims);
+    if (emergencyConfig.requireAuthoritativeRevocation && !revocationStatus.authoritative) {
+      logger.warn('Local fallback rejected token because revocation state is not authoritative', {
+        route: sanitizeForLogging(context.route),
+        incidentId: sanitizeForLogging(emergencyConfig.incidentId),
+      });
+      return null;
+    }
+
+    if (revocationStatus.revoked) {
       logger.warn('Local fallback rejected revoked token', {
         route: sanitizeForLogging(context.route),
         tokenSubject: sanitizeForLogging(claims.sub),
@@ -621,6 +785,8 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
       tenantId: extractTenantId(claims),
       reason: 'idp_unavailable_emergency_mode',
       incidentId: emergencyConfig.incidentId,
+      incidentSeverity: emergencyConfig.incidentSeverity,
+      incidentStartedAt: emergencyConfig.incidentStartedAt,
     });
 
     const session = buildSessionFromClaims(token, claims);
