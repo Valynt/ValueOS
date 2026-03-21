@@ -1,0 +1,142 @@
+name: _Reusable Security Static
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        required: false
+        type: string
+        default: '20.x'
+      fetch_depth:
+        required: false
+        type: number
+        default: 0
+      audit_level:
+        required: false
+        type: string
+        default: high
+      run_audit:
+        required: false
+        type: boolean
+        default: true
+      run_gitleaks:
+        required: false
+        type: boolean
+        default: true
+      run_semgrep:
+        required: false
+        type: boolean
+        default: true
+      run_sbom:
+        required: false
+        type: boolean
+        default: true
+      upload_sarif:
+        required: false
+        type: boolean
+        default: false
+      artifact_prefix:
+        required: false
+        type: string
+        default: security-static
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 30
+    secrets:
+      semgrep_app_token:
+        required: false
+      gitleaks_license:
+        required: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    outputs:
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      artifact_dir: ${{ steps.meta.outputs.artifact_dir }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: ${{ inputs.fetch_depth }}
+
+      - name: Prepare artifact metadata
+        id: meta
+        run: |
+          echo "artifact_name=${{ inputs.artifact_prefix }}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+          echo "artifact_dir=artifacts/security-static" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache-key-suffix: security-static
+
+      - name: Prepare security artifact directory
+        run: mkdir -p artifacts/security-static
+
+      - name: SCA — pnpm audit
+        if: ${{ inputs.run_audit }}
+        shell: bash
+        run: |
+          set +e
+          pnpm audit --audit-level=${{ inputs.audit_level }} --json > artifacts/security-static/pnpm-audit.json
+          audit_exit_code=$?
+          set -e
+          printf '%s\n' "$audit_exit_code" > artifacts/security-static/pnpm-audit.exit-code
+          exit "$audit_exit_code"
+
+      - name: Secret scan — gitleaks
+        if: ${{ inputs.run_gitleaks }}
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.gitleaks_license }}
+
+      - name: SAST — Semgrep
+        if: ${{ inputs.run_semgrep }}
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: '1'
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.semgrep_app_token }}
+
+      - name: Collect Semgrep SARIF
+        if: ${{ always() && inputs.run_semgrep }}
+        shell: bash
+        run: |
+          if [ -f semgrep.sarif ]; then
+            cp semgrep.sarif artifacts/security-static/semgrep.sarif
+          else
+            echo 'Semgrep SARIF output not found.' > artifacts/security-static/semgrep-missing.txt
+          fi
+
+      - name: Upload Semgrep SARIF
+        if: ${{ always() && inputs.run_semgrep && inputs.upload_sarif }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: SBOM — generate CycloneDX
+        if: ${{ inputs.run_sbom }}
+        run: pnpm exec cyclonedx-npm --output-format json --output-file artifacts/security-static/sbom.cyclonedx.json
+
+      - name: SBOM — verify artifact exists and is non-empty
+        if: ${{ inputs.run_sbom }}
+        run: test -s artifacts/security-static/sbom.cyclonedx.json
+
+      - name: Upload static security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: artifacts/security-static/**
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}

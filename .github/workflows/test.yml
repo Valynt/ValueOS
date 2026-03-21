@@ -29,157 +29,41 @@ jobs:
   vitest-package-matrix-config:
     name: vitest/package-matrix
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          install: 'false'
+          cache-key-suffix: vitest-matrix
 
       - name: Emit Vitest package matrix
         id: matrix
         run: echo "matrix=$(node scripts/ci/emit-vitest-package-matrix.mjs)" >> "$GITHUB_OUTPUT"
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
 
   vitest-package:
     name: vitest/${{ matrix.package.label }}
-    runs-on: ubuntu-latest
     needs: vitest-package-matrix-config
     strategy:
       fail-fast: false
       matrix:
         package: ${{ fromJson(needs.vitest-package-matrix-config.outputs.matrix) }}
-
-    env:
-      NODE_ENV: test
-      SUPABASE_URL: http://localhost:54321
-      SUPABASE_ANON_KEY: test-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
-      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
-      SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
-      OPENAI_API_KEY: test-openai-key
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
-
-      - name: Run package tests with coverage
-        run: |
-          npx vitest run \
-            --root "${{ matrix.package.dir }}" \
-            --config vitest.config.ts \
-            --coverage \
-            --coverage.provider=v8 \
-            --coverage.reporter=json-summary \
-            --coverage.reporter=text-summary \
-            --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
-
-      - name: Write coverage summary
-        run: |
-          node scripts/ci/write-vitest-coverage-summary.mjs \
-            --package-id "${{ matrix.package.id }}" \
-            --package-label "${{ matrix.package.label }}" \
-            --package-dir "${{ matrix.package.dir }}" \
-            --coverage-summary "${{ matrix.package.coverageDir }}/coverage-summary.json" \
-            --output "artifacts/coverage/${{ matrix.package.id }}.md"
-          cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload package coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: vitest-${{ matrix.package.id }}-${{ github.run_id }}
-          path: |
-            ${{ matrix.package.coverageDir }}/coverage-summary.json
-            artifacts/coverage/${{ matrix.package.id }}.md
-          retention-days: 14
+    uses: ./.github/workflows/_reusable-test.yml
+    with:
+      package_id: ${{ matrix.package.id }}
+      package_label: ${{ matrix.package.label }}
+      package_dir: ${{ matrix.package.dir }}
+      coverage_dir: ${{ matrix.package.coverageDir }}
+      coverage: true
+      artifact_prefix: vitest
 
   adhoc-vitest:
     name: vitest/ad-hoc
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.filter != '' }}
-    runs-on: ubuntu-latest
-    env:
-      NODE_ENV: test
-      SUPABASE_URL: http://localhost:54321
-      SUPABASE_ANON_KEY: test-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
-      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
-      SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
-      OPENAI_API_KEY: test-openai-key
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
-
-      - name: Run filtered tests
-        env:
-          FILTER: ${{ github.event.inputs.filter }}
-          COVERAGE: ${{ github.event.inputs.coverage }}
-        run: |
-          ARGS=()
-          if [ "$COVERAGE" = "true" ]; then
-            ARGS+=(--coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary)
-          fi
-          ARGS+=(-- "$FILTER")
-          echo "Running: npx vitest run ${ARGS[*]}"
-          npx vitest run "${ARGS[@]}"
-
-      - name: Upload ad-hoc coverage
-        if: ${{ github.event.inputs.coverage == 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: adhoc-coverage-${{ github.run_id }}
-          path: coverage/
-          retention-days: 14
+    uses: ./.github/workflows/_reusable-test.yml
+    with:
+      filter: ${{ github.event.inputs.filter }}
+      coverage: ${{ github.event.inputs.coverage == 'true' }}
+      artifact_prefix: adhoc-coverage

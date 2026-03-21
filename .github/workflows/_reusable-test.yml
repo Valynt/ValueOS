@@ -1,0 +1,114 @@
+name: _Reusable Test
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        required: false
+        type: string
+        default: '20.x'
+      package_id:
+        required: false
+        type: string
+        default: ''
+      package_label:
+        required: false
+        type: string
+        default: ''
+      package_dir:
+        required: false
+        type: string
+        default: ''
+      coverage_dir:
+        required: false
+        type: string
+        default: coverage
+      filter:
+        required: false
+        type: string
+        default: ''
+      coverage:
+        required: false
+        type: boolean
+        default: true
+      artifact_prefix:
+        required: false
+        type: string
+        default: vitest
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 14
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache-key-suffix: vitest
+
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+
+      - name: Run Vitest workload
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=()
+
+          if [ "${{ inputs.coverage }}" = 'true' ]; then
+            ARGS+=(--coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary)
+          fi
+
+          if [ -n "${{ inputs.package_dir }}" ]; then
+            ARGS+=(--root "${{ inputs.package_dir }}" --config vitest.config.ts)
+          fi
+
+          if [ -n "${{ inputs.coverage_dir }}" ] && [ "${{ inputs.coverage }}" = 'true' ]; then
+            ARGS+=(--coverage.reportsDirectory=${{ inputs.coverage_dir }})
+          fi
+
+          if [ -n "${{ inputs.filter }}" ]; then
+            ARGS+=(-- "${{ inputs.filter }}")
+          fi
+
+          echo "Running: npx vitest run ${ARGS[*]}"
+          npx vitest run "${ARGS[@]}"
+
+      - name: Write coverage summary
+        if: ${{ inputs.coverage && inputs.package_id != '' }}
+        run: |
+          node scripts/ci/write-vitest-coverage-summary.mjs \
+            --package-id "${{ inputs.package_id }}" \
+            --package-label "${{ inputs.package_label }}" \
+            --package-dir "${{ inputs.package_dir }}" \
+            --coverage-summary "${{ inputs.coverage_dir }}/coverage-summary.json" \
+            --output "artifacts/coverage/${{ inputs.package_id }}.md"
+          cat "artifacts/coverage/${{ inputs.package_id }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Vitest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ inputs.package_id != '' && inputs.package_id || 'adhoc' }}-${{ github.run_id }}
+          path: |
+            ${{ inputs.coverage_dir }}/coverage-summary.json
+            artifacts/coverage/${{ inputs.package_id }}.md
+            coverage/
+          if-no-files-found: warn
+          retention-days: ${{ inputs.artifact_retention_days }}

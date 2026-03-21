@@ -1,0 +1,58 @@
+name: Setup Node + pnpm
+
+description: Standardized checkout, Node, pnpm, cache, and install for ValueOS GitHub Actions jobs.
+
+inputs:
+  node-version:
+    description: Node.js version to install.
+    required: false
+    default: '20.x'
+  fetch-depth:
+    description: Deprecated compatibility input; callers should set checkout depth explicitly.
+    required: false
+    default: '1'
+  install:
+    description: Whether to run pnpm install --frozen-lockfile.
+    required: false
+    default: 'true'
+  cache-key-suffix:
+    description: Optional suffix appended to the shared pnpm cache key.
+    required: false
+    default: default
+  cache-dependency-path:
+    description: Lockfiles or manifests that should invalidate the pnpm cache.
+    required: false
+    default: pnpm-lock.yaml
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        run_install: false
+
+    - name: Resolve pnpm store path
+      id: pnpm-store
+      shell: bash
+      run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.store_path }}
+        key: ${{ runner.os }}-pnpm-store-${{ inputs.node-version }}-${{ inputs.cache-key-suffix }}-${{ hashFiles(inputs.cache-dependency-path) }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-${{ inputs.node-version }}-${{ inputs.cache-key-suffix }}-
+          ${{ runner.os }}-pnpm-store-${{ inputs.node-version }}-
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      if: ${{ inputs.install == 'true' }}
+      shell: bash
+      run: pnpm install --frozen-lockfile

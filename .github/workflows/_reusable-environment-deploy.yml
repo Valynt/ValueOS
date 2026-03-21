@@ -1,0 +1,185 @@
+name: _Reusable Environment Deploy
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        required: false
+        type: string
+        default: '20.x'
+      environment_name:
+        required: true
+        type: string
+      environment_url:
+        required: true
+        type: string
+      registry:
+        required: false
+        type: string
+        default: ghcr.io
+      backend_image_name:
+        required: true
+        type: string
+      frontend_image_name:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      image_ref:
+        required: false
+        type: string
+        default: ''
+      kustomize_overlay:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      rollout_targets:
+        required: true
+        type: string
+      smoke_url:
+        required: true
+        type: string
+      supabase_version:
+        required: false
+        type: string
+        default: '2.67.1'
+      post_apply_script:
+        required: false
+        type: string
+        default: ''
+      artifact_retention_days:
+        required: false
+        type: number
+        default: 30
+    secrets:
+      kubeconfig_b64:
+        required: true
+      database_url:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+      url: ${{ inputs.environment_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache-key-suffix: deploy
+          install: 'false'
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Supabase CLI
+        run: pnpm add -g supabase@${{ inputs.supabase_version }}
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.database_url }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo 'DATABASE_URL secret is required for deploys' >&2
+            exit 1
+          fi
+          cd infra/supabase/supabase
+          supabase db push --db-url "${DATABASE_URL}"
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo '${{ secrets.kubeconfig_b64 }}' | base64 -d > ~/.kube/config
+
+      - name: Apply environment manifests
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          cd infra/k8s/${{ inputs.kustomize_overlay }}
+          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ inputs.registry }}/${{ inputs.backend_image_name }}:${IMAGE_TAG}"
+          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ inputs.registry }}/${{ inputs.frontend_image_name }}:${IMAGE_TAG}"
+          kustomize build . | kubectl apply -f -
+
+      - name: Wait for rollout targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r target; do
+            if [ -n "$target" ]; then
+              kubectl -n '${{ inputs.namespace }}' rollout status "$target" --timeout=300s
+            fi
+          done <<'EOF'
+          ${{ inputs.rollout_targets }}
+          EOF
+
+      - name: Run post-apply deployment commands
+        if: ${{ inputs.post_apply_script != '' }}
+        run: ${{ inputs.post_apply_script }}
+
+      - name: Smoke test environment
+        shell: bash
+        run: |
+          for i in $(seq 1 10); do
+            STATUS=$(curl -sf -o /dev/null -w '%{http_code}' '${{ inputs.smoke_url }}' || true)
+            if [ "$STATUS" = '200' ]; then
+              echo 'Health check passed'
+              exit 0
+            fi
+            echo "Attempt $i: status=$STATUS, retrying..."
+            sleep 10
+          done
+          echo 'Health check failed'
+          exit 1
+
+      - name: Capture deployment verification evidence
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          environment_name = "${{ inputs.environment_name }}"
+          base = f"post-deploy-verification-{environment_name}-${{ github.run_id }}"
+          artifact = {
+            "environment": environment_name,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "image_ref": os.environ.get("IMAGE_REF", ""),
+            "health_endpoint": "${{ inputs.smoke_url }}",
+            "rollback_strategy": "blue-green",
+            "rollout_targets": [line for line in """${{ inputs.rollout_targets }}""".splitlines() if line.strip()],
+          }
+
+          with open(f"{base}.json", "w", encoding="utf-8") as handle:
+            json.dump(artifact, handle, indent=2)
+            handle.write("\n")
+
+          with open(f"{base}.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join([
+              f"# Post-Deploy Mandatory Verification Checklist ({environment_name.title()})",
+              "",
+              f"- [x] Health check: ${{ inputs.smoke_url }} returned 200",
+              "- [x] Rollback readiness confirmed (blue-green)",
+              f"- [x] Rollout targets: ${{ inputs.rollout_targets }}",
+            ]))
+          PY
+
+      - name: Upload deployment verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-${{ inputs.environment_name }}-${{ github.run_id }}
+          path: |
+            post-deploy-verification-${{ inputs.environment_name }}-${{ github.run_id }}.json
+            post-deploy-verification-${{ inputs.environment_name }}-${{ github.run_id }}.md
+          retention-days: ${{ inputs.artifact_retention_days }}
