@@ -66,6 +66,7 @@ export const PromiseBaselineSchema = z.object({
 export type KpiTarget = z.infer<typeof KpiTargetSchema>;
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
 export type PromiseBaseline = z.infer<typeof PromiseBaselineSchema>;
+type KpiTargetInput = Omit<KpiTarget, "id" | "case_id"> & { id?: string };
 
 // ---------------------------------------------------------------------------
 // Service
@@ -80,7 +81,7 @@ export class RealizationService {
     organizationId: string,
     scenarioId: string,
     scenarioName: string,
-    kpiTargets: Omit<KpiTarget, "id" | "case_id">[],
+    kpiTargets: KpiTargetInput[],
     assumptions: unknown[],
     handoffNotes: PromiseBaseline["handoff_notes"],
   ): Promise<string> {
@@ -120,9 +121,9 @@ export class RealizationService {
   private async generateCheckpoints(
     caseId: string,
     organizationId: string,
-    kpiTargets: Omit<KpiTarget, "id" | "case_id">[],
+    kpiTargets: KpiTargetInput[],
   ): Promise<void> {
-    const checkpoints: Omit<Checkpoint, "id" | "status">[] = [];
+    const checkpoints: Array<Omit<Checkpoint, "id" | "status">> = [];
 
     for (const target of kpiTargets) {
       const start = new Date(target.timeline_start);

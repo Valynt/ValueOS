@@ -15,55 +15,35 @@ const requireTenantAccess = tenantContextMiddleware(true);
 const router: Router = Router();
 const realizationService = new RealizationService();
 
-const getTenantIdOrReject = (req: Request, res: Response): string | null => {
-  if (!req.tenantId) {
-    res.status(400).json({
-      success: false,
-      error: { message: "Tenant context is required." },
-    });
-    return null;
-  }
-
-  return req.tenantId;
-};
-
 /**
  * GET /api/cases/:caseId/realization/baseline
  * Get promise baseline for a case
  */
-router.get(
-  "/api/cases/:caseId/realization/baseline",
-  authenticate,
-  requireTenantAccess,
-  async (req: Request, res: Response) => {
-    try {
-      const { caseId } = req.params;
-      const organizationId = getTenantIdOrReject(req, res);
-      if (!organizationId) {
-        return;
-      }
+router.get("/api/cases/:caseId/realization/baseline", async (req: Request, res: Response) => {
+  try {
+    const { caseId } = req.params;
+    const organizationId = req.tenantId || "";
 
-      const baseline = await realizationService.getBaseline(caseId, organizationId);
+    const baseline = await realizationService.getBaseline(caseId, organizationId);
 
-      if (!baseline) {
-        return res.status(404).json({
-          success: false,
-          error: { message: "Baseline not found for this case" },
-        });
-      }
-
-      res.json({
-        success: true,
-        data: baseline,
-      });
-    } catch (error: unknown) {
-      res.status(500).json({
+    if (!baseline) {
+      return res.status(404).json({
         success: false,
-        error: { message: error instanceof Error ? error.message : "Unknown error" },
+        error: { message: "Baseline not found for this case" },
       });
     }
-  },
-);
+
+    res.json({
+      success: true,
+      data: baseline,
+    });
+  } catch (error: unknown) {
+    res.status(500).json({
+      success: false,
+      error: { message: error instanceof Error ? error.message : "Unknown error" },
+    });
+  }
+});
 
 /**
  * POST /api/cases/:caseId/realization/baseline
@@ -76,10 +56,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = getTenantIdOrReject(req, res);
-      if (!organizationId) {
-        return;
-      }
+      const organizationId = req.tenantId ?? "";
       const { scenarioId, scenarioName, kpiTargets, assumptions, handoffNotes } = req.body;
 
       const baselineId = await realizationService.createBaseline(
@@ -113,10 +90,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = getTenantIdOrReject(req, res);
-      if (!organizationId) {
-        return;
-      }
+      const organizationId = req.tenantId ?? "";
 
       const checkpoints = await realizationService.getCheckpoints(caseId, organizationId);
 
@@ -143,7 +117,9 @@ router.post(
       const { checkpointId } = req.params;
       const { actualValue, notes } = req.body;
 
-      await realizationService.recordCheckpoint(checkpointId, actualValue, notes);
+      const organizationId = req.tenantId ?? "";
+
+      await realizationService.recordCheckpoint(checkpointId, organizationId, actualValue, notes);
 
       res.json({
         success: true,
@@ -166,10 +142,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = getTenantIdOrReject(req, res);
-      if (!organizationId) {
-        return;
-      }
+      const organizationId = req.tenantId ?? "";
 
       const targets = await realizationService.getKpiTargets(caseId, organizationId);
 
@@ -196,10 +169,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = getTenantIdOrReject(req, res);
-      if (!organizationId) {
-        return;
-      }
+      const organizationId = req.tenantId ?? "";
 
       const report = await realizationService.getLatestReport(caseId, organizationId);
 
