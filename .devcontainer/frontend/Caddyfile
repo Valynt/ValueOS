@@ -1,58 +1,56 @@
 # Caddyfile for ValueOS Frontend Container
-# Serves static assets with SPA routing support
+# Serves static assets with SPA routing support.
+# Devcontainer-only exception: this file is bound to loopback-only local compose ports,
+# so it intentionally serves HTTP without automatic certificate management.
 
 {
-    auto_https off
     admin off
 }
 
-:{$EXPOSE_PORT:3001} {
+http://:{$EXPOSE_PORT:3001} {
     root * /srv/dist
-    
+
     # Enable file server
     file_server
-    
+
     # Health check endpoint
     handle /health {
         respond "OK" 200
     }
-    
+
     # SPA routing - serve index.html for all routes
     try_files {path} /index.html
-    
+
     # Security headers
     header {
-        # Enable HSTS
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        
         # Prevent clickjacking
         X-Frame-Options "SAMEORIGIN"
-        
+
         # Prevent MIME type sniffing
         X-Content-Type-Options "nosniff"
-        
+
         # Enable XSS protection
         X-XSS-Protection "1; mode=block"
-        
+
         # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
-        
+
         # Content Security Policy
         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://kong:8000 ws://kong:8000;"
-        
+
         # Remove server header
         -Server
     }
-    
+
     # Compression
     encode gzip zstd
-    
+
     # Cache static assets
     @static {
         path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
     }
     header @static Cache-Control "public, max-age=31536000, immutable"
-    
+
     # Logging
     log {
         output stdout
