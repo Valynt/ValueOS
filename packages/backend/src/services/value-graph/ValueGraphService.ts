@@ -477,7 +477,6 @@ export class ValueGraphService {
           evidence_ids: input.evidence_ids ?? [],
           created_by_agent: input.created_by_agent,
           ontology_version: input.ontology_version ?? "1.0",
-          created_at: now,
           updated_at: now,
         },
         {
