@@ -1,20 +1,15 @@
 /**
- * Chaos: Queue outage and delayed consumer.
+ * Chaos: Redis / BullMQ unavailability.
  *
  * Success criteria:
- * - Job enters DLQ after max delivery attempts
- * - UI-visible state is accurate (queued/failed — not success)
- * - Retry count is bounded
- * - Audit log contains trace_id and organization_id
+ * - Jobs are not silently dropped when Redis is unavailable
+ * - The system records retry intent while preserving the job in a recoverable backlog
+ * - Exhausted jobs move to a DLQ with traceability metadata
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// ---------------------------------------------------------------------------
-// Minimal in-test stubs
-// ---------------------------------------------------------------------------
-
-type JobStatus = "queued" | "processing" | "completed" | "failed" | "dlq";
+type JobStatus = "queued" | "retry_pending" | "processing" | "completed" | "failed" | "dlq";
 
 interface Job {
   id: string;
@@ -29,16 +24,32 @@ interface QueueResult {
   delivered: boolean;
   dlq: boolean;
   attempts: number;
+  status: JobStatus;
 }
 
+class RedisUnavailableError extends Error {
+  constructor(message = "Redis unavailable") {
+    super(message);
+    this.name = "RedisUnavailableError";
+  }
+}
+
+const DEFAULT_MAX_ATTEMPTS = 3;
+
+const backlog = new Map<string, Job>();
+const deadLetterQueue = new Map<string, Job>();
+const backlogHistory: JobStatus[] = [];
 const auditLog: Array<{ event: string; traceId: string; organizationId: string; metadata: Record<string, unknown> }> = [];
 
 const mockLogger = {
   error: vi.fn((msg: string, meta: Record<string, unknown>) => {
-    auditLog.push({ event: msg, traceId: meta["traceId"] as string, organizationId: meta["organizationId"] as string, metadata: meta });
+    auditLog.push({
+      event: msg,
+      traceId: String(meta.traceId),
+      organizationId: String(meta.organizationId),
+      metadata: meta,
+    });
   }),
-  warn: vi.fn(),
-  info: vi.fn(),
 };
 
 const mockQueue = {
@@ -46,55 +57,46 @@ const mockQueue = {
   publishToDLQ: vi.fn<[Job], Promise<void>>(),
 };
 
-// ---------------------------------------------------------------------------
-// Queue delivery stub with DLQ routing
-// ---------------------------------------------------------------------------
-
-async function deliverWithRetry(
-  job: Job,
-  maxAttempts = 3,
-): Promise<QueueResult> {
+async function deliverWithRetry(job: Job, maxAttempts = 3): Promise<QueueResult> {
   let attempts = 0;
+  backlog.set(job.id, { ...job, status: "queued", attempts: 0 });
 
   while (attempts < maxAttempts) {
-    attempts++;
+    attempts += 1;
+
     try {
-      await mockQueue.publish({ ...job, attempts });
-      return { delivered: true, dlq: false, attempts };
-    } catch (err) {
-      mockLogger.error("Queue delivery failed", {
+      await mockQueue.publish({ ...job, attempts, status: "processing" });
+      backlog.delete(job.id);
+      return { delivered: true, dlq: false, attempts, status: "processing" };
+    } catch (error) {
+      backlog.set(job.id, { ...job, attempts, status: "retry_pending" });
+      backlogHistory.push("retry_pending");
+      mockLogger.error("Redis/BullMQ publish failed", {
         traceId: job.traceId,
         organizationId: job.organizationId,
         jobId: job.id,
         attempt: attempts,
-        error: (err as Error).message,
+        error: error instanceof Error ? error.message : "unknown",
       });
     }
   }
 
-  // All attempts exhausted — route to DLQ.
-  await mockQueue.publishToDLQ({ ...job, status: "dlq", attempts });
-  mockLogger.error("Job moved to DLQ", {
+  const dlqJob = { ...job, attempts, status: "dlq" as const };
+  backlog.delete(job.id);
+  deadLetterQueue.set(job.id, dlqJob);
+  await mockQueue.publishToDLQ(dlqJob);
+
+  mockLogger.error("Job moved to DLQ after Redis outage", {
     traceId: job.traceId,
     organizationId: job.organizationId,
     jobId: job.id,
     attempts,
   });
 
-  return { delivered: false, dlq: true, attempts };
+  return { delivered: false, dlq: true, attempts, status: "dlq" };
 }
 
-function getUIStatus(result: QueueResult): "queued" | "failed" {
-  if (result.dlq) return "failed";
-  if (!result.delivered) return "queued";
-  return "queued"; // Still processing.
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe("Chaos: Queue outage + delayed consumer", () => {
+describe("Chaos: Redis / BullMQ unavailability", () => {
   const baseJob: Job = {
     id: "job-chaos-001",
     organizationId: "org-chaos",
@@ -105,6 +107,9 @@ describe("Chaos: Queue outage + delayed consumer", () => {
   };
 
   beforeEach(() => {
+    backlog.clear();
+    deadLetterQueue.clear();
+    backlogHistory.length = 0;
     auditLog.length = 0;
     vi.clearAllMocks();
   });
@@ -113,64 +118,56 @@ describe("Chaos: Queue outage + delayed consumer", () => {
     vi.restoreAllMocks();
   });
 
-  it("job enters DLQ after max delivery attempts", async () => {
-    mockQueue.publish.mockRejectedValue(new Error("queue broker unavailable"));
+  it("keeps the job in a recoverable backlog when Redis is unavailable", async () => {
+    mockQueue.publish.mockRejectedValueOnce(new RedisUnavailableError());
+    mockQueue.publish.mockResolvedValueOnce(undefined);
 
-    const result = await deliverWithRetry(baseJob, 3);
+    const result = await deliverWithRetry(baseJob, DEFAULT_MAX_ATTEMPTS);
+
+    expect(result.delivered).toBe(true);
+    expect(result.attempts).toBe(2);
+    expect(backlogHistory).toContain("retry_pending");
+    expect(backlog.has(baseJob.id)).toBe(false);
+    expect(deadLetterQueue.size).toBe(0);
+  });
+
+  it("does not silently drop jobs while Redis remains unavailable", async () => {
+    mockQueue.publish.mockRejectedValue(new RedisUnavailableError());
+
+    const result = await deliverWithRetry(baseJob, DEFAULT_MAX_ATTEMPTS);
 
     expect(result.dlq).toBe(true);
+    expect(result.status).toBe("dlq");
+    expect(deadLetterQueue.get(baseJob.id)).toMatchObject({
+      id: baseJob.id,
+      status: "dlq",
+      attempts: DEFAULT_MAX_ATTEMPTS,
+    });
+    expect(mockQueue.publish).toHaveBeenCalledTimes(DEFAULT_MAX_ATTEMPTS);
     expect(mockQueue.publishToDLQ).toHaveBeenCalledTimes(1);
   });
 
-  it("UI shows accurate failed state — not success — when job enters DLQ", async () => {
-    mockQueue.publish.mockRejectedValue(new Error("queue broker unavailable"));
+  it("captures trace_id and organization_id on Redis/BullMQ failures", async () => {
+    mockQueue.publish.mockRejectedValue(new RedisUnavailableError());
 
-    const result = await deliverWithRetry(baseJob, 3);
-    const uiStatus = getUIStatus(result);
+    await deliverWithRetry(baseJob, 1);
 
-    expect(uiStatus).toBe("failed");
-    expect(uiStatus).not.toBe("completed");
+    expect(auditLog[0]).toMatchObject({
+      event: "Redis/BullMQ publish failed",
+      traceId: baseJob.traceId,
+      organizationId: baseJob.organizationId,
+    });
   });
 
-  it("retry count is bounded at maxAttempts", async () => {
-    mockQueue.publish.mockRejectedValue(new Error("queue broker unavailable"));
+  it("retains the original job id in the DLQ for replay", async () => {
+    mockQueue.publish.mockRejectedValue(new RedisUnavailableError());
 
-    const result = await deliverWithRetry(baseJob, 3);
+    await deliverWithRetry(baseJob, 2);
 
-    expect(result.attempts).toBe(3);
-    expect(mockQueue.publish).toHaveBeenCalledTimes(3);
-  });
-
-  it("succeeds on retry when queue recovers before max attempts", async () => {
-    mockQueue.publish
-      .mockRejectedValueOnce(new Error("queue broker unavailable"))
-      .mockResolvedValueOnce(undefined);
-
-    const result = await deliverWithRetry(baseJob, 3);
-
-    expect(result.delivered).toBe(true);
-    expect(result.dlq).toBe(false);
-    expect(result.attempts).toBe(2);
-    expect(mockQueue.publishToDLQ).not.toHaveBeenCalled();
-  });
-
-  it("audit log contains trace_id and organization_id on queue failure", async () => {
-    mockQueue.publish.mockRejectedValue(new Error("queue broker unavailable"));
-
-    await deliverWithRetry(baseJob, 3);
-
-    const failureEntries = auditLog.filter((e) => e.traceId === baseJob.traceId);
-    expect(failureEntries.length).toBeGreaterThan(0);
-    expect(failureEntries[0].organizationId).toBe(baseJob.organizationId);
-  });
-
-  it("DLQ entry carries the job id for traceability", async () => {
-    mockQueue.publish.mockRejectedValue(new Error("queue broker unavailable"));
-
-    await deliverWithRetry(baseJob, 3);
-
-    const dlqCall = mockQueue.publishToDLQ.mock.calls[0][0];
-    expect(dlqCall.id).toBe(baseJob.id);
-    expect(dlqCall.status).toBe("dlq");
+    expect(deadLetterQueue.get(baseJob.id)).toMatchObject({
+      id: baseJob.id,
+      status: "dlq",
+      attempts: 2,
+    });
   });
 });
