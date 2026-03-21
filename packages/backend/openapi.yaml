@@ -3428,6 +3428,266 @@ paths:
                   breakdown: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  # ---------------------------------------------------------------------------
+  # Value Graph — Sprint 49
+  # ---------------------------------------------------------------------------
+
+  /api/v1/cases/{caseId}/graph:
+    get:
+      summary: Get full Value Graph for a case
+      description: Returns all nodes and edges in the Value Graph for the given case.
+      operationId: getValueGraph
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Full graph
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraph"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/paths:
+    get:
+      summary: Get ordered value paths for a case
+      description: Returns traversable paths from use cases through capabilities and metrics to value drivers, ordered by path_confidence descending.
+      operationId: getValueGraphPaths
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Ordered value paths
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValuePath"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/nodes:
+    get:
+      summary: Get all graph nodes for a case
+      description: Returns all nodes. Use the optional `type` query parameter to filter by entity type.
+      operationId: getValueGraphNodes
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ValueGraphEntityType"
+          description: Filter nodes by entity type
+      responses:
+        "200":
+          description: Graph nodes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValueGraphNode"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/nodes/{nodeId}:
+    get:
+      summary: Get a single graph node by entity ID
+      operationId: getValueGraphNode
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Graph node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraphNode"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/edges:
+    get:
+      summary: Get all graph edges for a case
+      description: Returns all edges. Use the optional `edge_type` query parameter to filter.
+      operationId: getValueGraphEdges
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: edge_type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ValueGraphEdgeType"
+          description: Filter edges by type
+      responses:
+        "200":
+          description: Graph edges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValueGraphEdge"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    post:
+      summary: Create a graph edge manually
+      description: |
+        Creates a typed edge between two graph entities. The (from_entity_type, edge_type,
+        to_entity_type) triple is validated against the canonical EDGE_TYPE_CONSTRAINTS
+        allowlist. Returns 422 if the triple is invalid.
+      operationId: createValueGraphEdge
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - from_entity_type
+                - from_entity_id
+                - to_entity_type
+                - to_entity_id
+                - edge_type
+              properties:
+                from_entity_type:
+                  $ref: "#/components/schemas/ValueGraphEntityType"
+                from_entity_id:
+                  type: string
+                  format: uuid
+                to_entity_type:
+                  $ref: "#/components/schemas/ValueGraphEntityType"
+                to_entity_id:
+                  type: string
+                  format: uuid
+                edge_type:
+                  $ref: "#/components/schemas/ValueGraphEdgeType"
+                confidence_score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.5
+                evidence_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  default: []
+                created_by_agent:
+                  type: string
+                  default: human
+      responses:
+        "201":
+          description: Edge created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraphEdge"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          description: Edge triple violates EDGE_TYPE_CONSTRAINTS
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error:
+                    type: object
+                    properties:
+                      message: { type: string }
+
+  /api/v1/cases/{caseId}/graph/integrity:
+    get:
+      summary: Get Value Graph integrity gap report
+      description: |
+        Returns a gap report identifying hypothesis_claims_value_driver edges that have
+        no evidence_supports_metric counterpart in the graph. Used by IntegrityAgent
+        and the frontend to surface unverified claims.
+      operationId: getValueGraphIntegrity
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Integrity gap report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      gaps:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hypothesis_entity_id: { type: string, format: uuid }
+                            value_driver_entity_id: { type: string, format: uuid }
+                            edge_id: { type: string, format: uuid }
+                            gap_type:
+                              type: string
+                              enum: [no_evidence_supports_metric]
+                      total_claims: { type: integer }
+                      covered_claims: { type: integer }
+                      gap_count: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3473,6 +3733,160 @@ components:
         type: string
         format: uuid
   schemas:
+    # -------------------------------------------------------------------------
+    # Value Graph (Sprint 49)
+    # -------------------------------------------------------------------------
+    ValueGraphEntityType:
+      type: string
+      enum:
+        - account
+        - stakeholder
+        - use_case
+        - vg_capability
+        - vg_metric
+        - vg_value_driver
+        - evidence
+        - value_hypothesis
+        - narrative
+
+    ValueGraphEdgeType:
+      type: string
+      enum:
+        - company_has_persona
+        - persona_executes_use_case
+        - use_case_enabled_by_capability
+        - capability_impacts_metric
+        - metric_maps_to_value_driver
+        - evidence_supports_metric
+        - hypothesis_claims_value_driver
+        - narrative_explains_hypothesis
+        - target_quantifies_driver
+        - realization_tracks_target
+        - expansion_extends_node
+        - audit_verifies_node
+
+    ValueGraphNode:
+      type: object
+      required: [entity_type, entity_id, data]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        entity_id:
+          type: string
+          format: uuid
+        data:
+          type: object
+          description: Entity-specific fields (VgCapability, VgMetric, VgValueDriver, etc.)
+
+    ValueGraphEdge:
+      type: object
+      required:
+        - id
+        - organization_id
+        - opportunity_id
+        - from_entity_type
+        - from_entity_id
+        - to_entity_type
+        - to_entity_id
+        - edge_type
+        - confidence_score
+        - evidence_ids
+        - created_by_agent
+        - ontology_version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        from_entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        from_entity_id:
+          type: string
+          format: uuid
+        to_entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        to_entity_id:
+          type: string
+          format: uuid
+        edge_type:
+          $ref: "#/components/schemas/ValueGraphEdgeType"
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_by_agent:
+          type: string
+        ontology_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ValueGraph:
+      type: object
+      required: [opportunity_id, organization_id, ontology_version, nodes, edges]
+      properties:
+        opportunity_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        ontology_version:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphEdge"
+
+    ValuePath:
+      type: object
+      required: [edges, path_confidence, value_driver, use_case_id, metrics, capabilities]
+      properties:
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphEdge"
+        path_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        value_driver:
+          type: object
+          description: VgValueDriver entity at the end of the path
+        use_case_id:
+          type: string
+          format: uuid
+        metrics:
+          type: array
+          items:
+            type: object
+            description: VgMetric entities along the path
+        capabilities:
+          type: array
+          items:
+            type: object
+            description: VgCapability entities along the path
+
     # -------------------------------------------------------------------------
     # Financial Model Snapshot (Sprint 45)
     # -------------------------------------------------------------------------
