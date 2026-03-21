@@ -43,6 +43,7 @@ import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
 import { EvidenceGapList } from "./components/SDUI/EvidenceGapList";
 import { GapResolution } from "./components/SDUI/GapResolution";
 import { HallucinationBadge } from "./components/SDUI/HallucinationBadge";
+import { ReasoningTracePanel } from "./components/SDUI/ReasoningTracePanel";
 import { HypothesisCard } from "./components/SDUI/HypothesisCard";
 import { InlineEditor } from "./components/SDUI/InlineEditor";
 import { InteractiveChart } from "./components/SDUI/InteractiveChart";
@@ -63,6 +64,7 @@ import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
 
 // V1 Surface Widgets - Integrity
 import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
+import { IntegrityScoreCard } from "./components/SDUI/IntegrityScoreCard";
 
 // V1 Surface Widgets - Executive Output
 
@@ -71,6 +73,10 @@ import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
 // V1 Surface Widgets - Billing
 import { PlanComparison } from "./components/SDUI/PlanComparison";
 import { UsageMeter } from "./components/SDUI/UsageMeter";
+
+// Sprint 50 — Value Graph UI
+import { MetricCard } from "./components/SDUI/MetricCard";
+import { ValuePathCard } from "./components/SDUI/ValuePathCard";
 
 /**
  * Versioned component entry with compatibility information
@@ -703,6 +709,14 @@ versionedRegistry.register({
   tags: ["ui", "agent", "trust", "badge"],
 });
 
+versionedRegistry.register({
+  component: ReasoningTracePanel,
+  version: 1,
+  description: "Displays the 5 reasoning trace sections for an agent invocation: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links. Fetches by trace_id or accepts a pre-loaded trace.",
+  optionalProps: ["trace_id", "trace", "onClose", "className"],
+  tags: ["ui", "agent", "reasoning", "trust"],
+});
+
 // V1 Surface Widgets - Deal Assembly
 versionedRegistry.register({
   component: StakeholderMap,
@@ -769,6 +783,14 @@ versionedRegistry.register({
 });
 
 versionedRegistry.register({
+  component: IntegrityScoreCard,
+  version: 1,
+  description: "Composite integrity score card with circular gauge, violation chips (critical/warning/info), hard-block pulse state, and resolve quick-action. Sprint 53/54.",
+  optionalProps: ["integrityScore", "defenseReadinessScore", "violations", "hardBlocked", "onReviewViolations", "onResolveLatestWarning"],
+  tags: ["ui", "integrity", "score", "violations"],
+});
+
+versionedRegistry.register({
   component: EvidenceGapList,
   version: 1,
   description: "List of claims with insufficient evidence showing current tier, required tier, and suggested action.",
@@ -832,6 +854,24 @@ versionedRegistry.register({
   requiredProps: ["plans", "currentPlanId"],
   optionalProps: ["onUpgrade"],
   tags: ["ui", "billing", "plan"],
+});
+
+// Sprint 50 — Value Graph UI components
+versionedRegistry.register({
+  component: MetricCard,
+  version: 1,
+  description: "VgMetric card: baseline → target, evidence tier badge, measurement method.",
+  requiredProps: ["metric"],
+  optionalProps: ["evidenceTier"],
+  tags: ["ui", "value-graph", "metric"],
+});
+
+versionedRegistry.register({
+  component: ValuePathCard,
+  version: 1,
+  description: "Causal value path card: UseCase → Capability → Metric → ValueDriver with confidence and evidence chips.",
+  requiredProps: ["path"],
+  tags: ["ui", "value-graph", "path"],
 });
 
 // Register fallback components
@@ -911,6 +951,12 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["issues", "onResolve", "onDismiss"],
     description: "Integrity review panel with issue list, severity colors, and resolve modal.",
+  },
+  ReasoningTracePanel: {
+    component: ReasoningTracePanel,
+    versions: [1],
+    requiredProps: [],
+    description: "Displays agent reasoning trace sections: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links.",
   },
   // Layout components
   ComponentPreview: {
@@ -1060,6 +1106,26 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["scenarios"],
     description: "Selector for switching between named scenario configurations.",
+  },
+  // Sprint 50 — Value Graph UI
+  MetricCard: {
+    component: MetricCard,
+    versions: [1],
+    requiredProps: ["metric"],
+    description: "VgMetric card with baseline, target, evidence tier badge, and measurement method.",
+  },
+  ValuePathCard: {
+    component: ValuePathCard,
+    versions: [1],
+    requiredProps: ["path"],
+    description: "Causal value path card from UseCase to VgValueDriver with confidence and evidence chips.",
+  },
+  // Value Integrity Layer — Sprint 53/54
+  IntegrityScoreCard: {
+    component: IntegrityScoreCard,
+    versions: [1],
+    requiredProps: [],
+    description: "Composite integrity score card with circular gauge, violation chips (critical/warning/info), hard-block pulse state, and resolve quick-action.",
   },
 };
 

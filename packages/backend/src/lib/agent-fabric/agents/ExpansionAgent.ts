@@ -18,6 +18,10 @@
 import { z } from 'zod';
 
 import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
+import {
+  BaseGraphWriter,
+  valueGraphService as defaultValueGraphService,
+} from '../../../services/value-graph/index.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -91,7 +95,7 @@ type ExpansionAnalysis = z.infer<typeof ExpansionAnalysisSchema>;
 export class ExpansionAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
-  private readonly graphWriter = new BaseGraphWriter();
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
@@ -128,6 +132,9 @@ export class ExpansionAgent extends BaseAgent {
 
     // Step 4: Store expansion opportunities as seeds for new cycles
     await this.storeExpansionInMemory(context, analysis);
+
+    // Step 4c: Write expansion_extends_node edges to Value Graph (fire-and-forget)
+    await this.writeExpansionToGraph(analysis.opportunities, context);
 
     // Step 4b: Persist to expansion_opportunities table (non-fatal)
     if (context.value_case_id && context.organization_id) {
@@ -379,7 +386,7 @@ export class ExpansionAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         ExpansionAnalysisSchema,
-         
+
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
@@ -583,6 +590,82 @@ export class ExpansionAgent extends BaseAgent {
     }
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Value Graph writes
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes VgCapability nodes and expansion_extends_node edges for each
+   * expansion opportunity of type 'new_use_case' or 'upsell'.
+   * Skips capabilities that already exist in the graph (by name).
+   * Per-opportunity isolation: one failure does not abort others.
+   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   */
+  private async writeExpansionToGraph(
+    opportunities: Array<{ title: string; description: string; type: string; confidence: number }>,
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    if (!opportunityId) return;
+
+    const organizationId = context.organization_id;
+    const safeCtx = { opportunityId, organizationId, agentName: 'ExpansionAgent' };
+    const vgs = this.valueGraphService ?? defaultValueGraphService;
+
+    // Load existing capability nodes to avoid duplicates
+    let existingCapabilityNames = new Set<string>();
+    try {
+      const graph = await vgs.getGraphForOpportunity(opportunityId, organizationId);
+      existingCapabilityNames = new Set(
+        graph.nodes
+          .filter(n => n.entity_type === 'vg_capability')
+          .map(n => ((n.data as Record<string, unknown>).name as string | undefined)?.toLowerCase() ?? ''),
+      );
+    } catch {
+      // Can't check for duplicates — proceed anyway (safeWrite will handle write errors)
+    }
+
+    for (const opp of opportunities) {
+      if (opp.type !== 'new_use_case' && opp.type !== 'upsell') continue;
+
+      // Skip if capability with same name already exists
+      if (existingCapabilityNames.has(opp.title.toLowerCase())) continue;
+
+      try {
+        // 1. Write VgCapability node for the new capability
+        const capability = await this.graphWriter['safeWrite'](
+          () => vgs.writeCapability({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            name: opp.title,
+            description: opp.description,
+            category: 'other',
+          }),
+          safeCtx,
+        );
+        if (!capability) continue;
+
+        // 2. Write expansion_extends_node edge: UseCase → VgCapability
+        await this.graphWriter['safeWrite'](
+          () => vgs.writeEdge({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            from_entity_type: 'use_case',
+            from_entity_id: opportunityId,
+            to_entity_type: 'vg_capability',
+            to_entity_id: capability.id,
+            edge_type: 'expansion_extends_node',
+            confidence_score: opp.confidence,
+            created_by_agent: 'ExpansionAgent',
+          }),
+          safeCtx,
+        );
+      } catch {
+        // Per-opportunity isolation — continue to next
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

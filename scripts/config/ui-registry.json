@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Intent-based UI registry configuration for ValueCanvas",
   "defaultFallback": "JsonViewer",
-
   "intents": [
     {
       "intentType": "visualize_graph",
@@ -366,10 +365,48 @@
         "reasoning": "data.reasoning",
         "agentName": "data.agentName"
       }
+    },
+    {
+      "intentType": "show_value_graph",
+      "component": "ValueGraphVisualization",
+      "fallback": "JsonViewer",
+      "description": "Interactive ReactFlow canvas of the Value Graph for an opportunity. Color-coded nodes by entity type; click to inspect.",
+      "propMappings": {
+        "opportunityId": "data.opportunityId",
+        "organizationId": "data.organizationId"
+      }
+    },
+    {
+      "intentType": "show_value_path_card",
+      "component": "ValuePathCard",
+      "fallback": "TextBlock",
+      "description": "Renders a single causal path from UseCase to VgValueDriver with confidence score and evidence tier chips.",
+      "propMappings": {
+        "path": "data.path"
+      }
+    },
+    {
+      "intentType": "show_metric_card",
+      "component": "MetricCard",
+      "fallback": "MetricBadge",
+      "description": "Renders a VgMetric with baseline, target, unit-formatted values, evidence tier badge, and measurement method.",
+      "propMappings": {
+        "metric": "data.metric",
+        "evidenceTier": "data.evidenceTier"
+      }
+    },
+    {
+      "intentType": "show_reasoning_trace",
+      "component": "ReasoningTracePanel",
+      "fallback": "JsonViewer",
+      "description": "Display agent reasoning trace: Inputs, Transformations, Assumptions, Confidence Breakdown, Evidence Links.",
+      "propMappings": {
+        "trace_id": "data.trace_id",
+        "trace": "data.trace",
+        "onClose": "actions.onClose"
+      }
     }
   ],
-
-
   "tenantOverrides": {
     "enterprise-demo": [
       {
@@ -379,31 +416,42 @@
       }
     ]
   },
-
   "agentMappings": {
     "SystemMapperAgent": {
       "primaryIntent": "visualize_graph",
-      "secondaryIntents": ["display_list"]
+      "secondaryIntents": [
+        "display_list"
+      ]
     },
     "InterventionDesignerAgent": {
       "primaryIntent": "input_form",
-      "secondaryIntents": ["show_agent_response"]
+      "secondaryIntents": [
+        "show_agent_response"
+      ]
     },
     "OutcomeEngineerAgent": {
       "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["show_confidence"]
+      "secondaryIntents": [
+        "show_confidence"
+      ]
     },
     "RealizationLoopAgent": {
       "primaryIntent": "display_metrics_grid",
-      "secondaryIntents": ["visualize_timeline"]
+      "secondaryIntents": [
+        "visualize_timeline"
+      ]
     },
     "ValueEvalAgent": {
       "primaryIntent": "display_metric",
-      "secondaryIntents": ["show_confidence"]
+      "secondaryIntents": [
+        "show_confidence"
+      ]
     },
     "CoordinatorAgent": {
       "primaryIntent": "show_agent_progress",
-      "secondaryIntents": ["show_info"]
+      "secondaryIntents": [
+        "show_info"
+      ]
     }
   }
 }

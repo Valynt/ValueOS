@@ -23,6 +23,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
 import { supabase as defaultSupabase } from "../../lib/supabase.js";
+import {
+  EDGE_TYPE_CONSTRAINTS,
+  EdgeConstraintViolationError,
+} from "@valueos/shared";
 import type {
   VgCapability,
   VgMetric,
@@ -135,7 +139,8 @@ export class ValueGraphService {
   // -------------------------------------------------------------------------
 
   /**
-   * Loads the full Value Graph for an opportunity: all nodes and edges.
+   * Loads the Value Graph view for an opportunity: vg_capabilities,
+   * vg_metrics, vg_value_drivers, and all associated edges.
    * Tenant-scoped — only data matching organization_id is returned.
    */
   async getGraphForOpportunity(
@@ -326,16 +331,21 @@ export class ValueGraphService {
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("vg_capabilities")
-      .insert({
-        organization_id: input.organization_id,
-        opportunity_id: input.opportunity_id,
-        name: input.name,
-        description: input.description,
-        category: input.category,
-        ontology_version: input.ontology_version ?? "1.0",
-        created_at: now,
-        updated_at: now,
-      })
+      .upsert(
+        {
+          organization_id: input.organization_id,
+          opportunity_id: input.opportunity_id,
+          name: input.name,
+          description: input.description,
+          category: input.category,
+          ontology_version: input.ontology_version ?? "1.0",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          onConflict: "organization_id,opportunity_id,name",
+        },
+      )
       .select()
       .single();
 
@@ -395,17 +405,23 @@ export class ValueGraphService {
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("vg_value_drivers")
-      .insert({
-        organization_id: input.organization_id,
-        opportunity_id: input.opportunity_id,
-        type: input.type,
-        name: input.name,
-        description: input.description,
-        estimated_impact_usd: input.estimated_impact_usd ?? null,
-        ontology_version: input.ontology_version ?? "1.0",
-        created_at: now,
-        updated_at: now,
-      })
+      .upsert(
+        {
+          organization_id: input.organization_id,
+          opportunity_id: input.opportunity_id,
+          type: input.type,
+          name: input.name,
+          description: input.description,
+          estimated_impact_usd: input.estimated_impact_usd ?? null,
+          ontology_version: input.ontology_version ?? "1.0",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          onConflict: "organization_id,opportunity_id,type",
+          ignoreDuplicates: false,
+        }
+      )
       .select()
       .single();
 
@@ -426,9 +442,25 @@ export class ValueGraphService {
    * On conflict (same org + opp + from + to + edge_type), updates
    * confidence_score, evidence_ids, and updated_at.
    *
+   * Validates the (from_entity_type, edge_type, to_entity_type) triple against
+   * EDGE_TYPE_CONSTRAINTS before writing. Throws EdgeConstraintViolationError
+   * on mismatch so agents' safeWrite can catch and log it immediately.
+   *
    * Agents call this after writing nodes to establish relationships.
    */
   async writeEdge(input: WriteEdgeInput): Promise<ValueGraphEdge> {
+    const constraint = EDGE_TYPE_CONSTRAINTS[input.edge_type];
+    if (
+      input.from_entity_type !== constraint.from ||
+      input.to_entity_type !== constraint.to
+    ) {
+      throw new EdgeConstraintViolationError(
+        input.edge_type,
+        input.from_entity_type,
+        input.to_entity_type,
+      );
+    }
+
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from("value_graph_edges")
@@ -445,7 +477,6 @@ export class ValueGraphService {
           evidence_ids: input.evidence_ids ?? [],
           created_by_agent: input.created_by_agent,
           ontology_version: input.ontology_version ?? "1.0",
-          created_at: now,
           updated_at: now,
         },
         {

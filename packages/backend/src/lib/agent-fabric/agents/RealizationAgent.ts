@@ -18,6 +18,10 @@ import { z } from 'zod';
 
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
+import {
+  BaseGraphWriter,
+  valueGraphService as defaultValueGraphService,
+} from '../../../services/value-graph/index.js';
 import type {
   AgentOutput,
   LifecycleContext,
@@ -99,7 +103,7 @@ export class RealizationAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private readonly realizationRepo = new RealizationReportRepository();
-  private readonly graphWriter = new BaseGraphWriter();
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -136,6 +140,9 @@ export class RealizationAgent extends BaseAgent {
 
     // Step 5: Store proof points and variance in memory for ExpansionAgent
     await this.storeRealizationInMemory(context, analysis);
+
+    // Step 5b: Write evidence_supports_metric edges to Value Graph (fire-and-forget)
+    await this.writeProofPointsToGraph(analysis.proof_points, context);
 
     // Step 6: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis);
@@ -763,6 +770,67 @@ export class RealizationAgent extends BaseAgent {
     }
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Value Graph writes
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes evidence_supports_metric edges for each proof point.
+   * Looks up VgMetric nodes by kpi_id match; falls back to first metric if none found.
+   * Per-proof-point isolation: one failure does not abort others.
+   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   */
+  private async writeProofPointsToGraph(
+    proofPoints: Array<{ kpi_id: string; kpi_name: string; confidence: number }>,
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    if (!opportunityId) return;
+
+    const organizationId = context.organization_id;
+    const safeCtx = { opportunityId, organizationId, agentName: 'RealizationAgent' };
+    const vgs = this.valueGraphService ?? defaultValueGraphService;
+
+    // Load existing metrics to match proof points against
+    let graph;
+    try {
+      graph = await vgs.getGraphForOpportunity(opportunityId, organizationId);
+    } catch {
+      // Can't resolve metric IDs without the graph — skip writes
+      return;
+    }
+
+    const metricNodes = graph.nodes.filter(n => n.entity_type === 'vg_metric');
+
+    for (const proofPoint of proofPoints) {
+      // Match metric by kpi_id or kpi_name; fall back to first metric
+      const matchedNode = metricNodes.find(n => {
+        const data = n.data as Record<string, unknown>;
+        return (
+          data.id === proofPoint.kpi_id ||
+          (data.name as string | undefined)?.toLowerCase() === proofPoint.kpi_name.toLowerCase()
+        );
+      }) ?? metricNodes[0];
+
+      if (!matchedNode) continue;
+
+      await this.graphWriter['safeWrite'](
+        () => vgs.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: 'evidence',
+          from_entity_id: this.graphWriter['newEntityId'](),
+          to_entity_type: 'vg_metric',
+          to_entity_id: matchedNode.entity_id,
+          edge_type: 'evidence_supports_metric',
+          confidence_score: proofPoint.confidence,
+          created_by_agent: 'RealizationAgent',
+        }),
+        safeCtx,
+      );
+    }
   }
 
   // -------------------------------------------------------------------------

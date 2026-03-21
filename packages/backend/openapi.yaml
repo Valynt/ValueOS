@@ -48,6 +48,8 @@ tags:
     description: Value loop analytics and metrics
   - name: MCP
     description: Model Context Protocol discovery
+  - name: Reasoning Traces
+    description: Agent reasoning trace retrieval
 paths:
 
   # ---------------------------------------------------------------------------
@@ -2591,6 +2593,83 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ---------------------------------------------------------------------------
+  # Reasoning Traces (Sprint 52)
+  # ---------------------------------------------------------------------------
+
+  /api/v1/cases/{caseId}/reasoning-traces:
+    get:
+      summary: Get reasoning traces for a case
+      operationId: getCaseReasoningTraces
+      tags: [Reasoning Traces]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated reasoning traces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReasoningTrace"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      pageSize:
+                        type: integer
+                      total:
+                        type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/reasoning-traces/{traceId}:
+    get:
+      summary: Get a single reasoning trace by ID
+      operationId: getReasoningTrace
+      tags: [Reasoning Traces]
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Reasoning trace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ReasoningTrace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/billing/subscriptions:
     get:
       tags: [Billing]
@@ -3350,18 +3429,97 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ---------------------------------------------------------------------------
-  # Value Graph API — Sprint 49
+  # Value Graph — Sprint 49
   # ---------------------------------------------------------------------------
 
-  /api/v1/graph/{opportunityId}/summary:
+  /api/v1/cases/{caseId}/graph:
     get:
-      summary: Value Graph summary
-      description: Returns node and edge counts by type for the opportunity's Value Graph.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
+      summary: Get full Value Graph for a case
+      description: Returns all nodes and edges in the Value Graph for the given case.
+      operationId: getValueGraph
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
       parameters:
-        - name: opportunityId
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Full graph
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraph"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/paths:
+    get:
+      summary: Get ordered value paths for a case
+      description: Returns traversable paths from use cases through capabilities and metrics to value drivers, ordered by path_confidence descending.
+      operationId: getValueGraphPaths
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Ordered value paths
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValuePath"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/nodes:
+    get:
+      summary: Get all graph nodes for a case
+      description: Returns all nodes. Use the optional `type` query parameter to filter by entity type.
+      operationId: getValueGraphNodes
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ValueGraphEntityType"
+          description: Filter nodes by entity type
+      responses:
+        "200":
+          description: Graph nodes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValueGraphNode"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cases/{caseId}/graph/nodes/{nodeId}:
+    get:
+      summary: Get a single graph node by entity ID
+      operationId: getValueGraphNode
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+        - name: nodeId
           in: path
           required: true
           schema:
@@ -3369,160 +3527,99 @@ paths:
             format: uuid
       responses:
         "200":
-          description: Graph summary
+          description: Graph node
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  node_counts:
-                    type: object
-                    properties:
-                      capabilities: { type: integer }
-                      metrics: { type: integer }
-                      value_drivers: { type: integer }
-                      total: { type: integer }
-                  edge_counts:
-                    type: object
-                    properties:
-                      by_type: { type: object, additionalProperties: { type: integer } }
-                      total: { type: integer }
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraphNode"
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
-  /api/v1/graph/{opportunityId}/nodes:
+  /api/v1/cases/{caseId}/graph/edges:
     get:
-      summary: List Value Graph nodes
-      description: Returns paginated nodes for the opportunity's Value Graph. Supports filtering by entity_type.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
+      summary: Get all graph edges for a case
+      description: Returns all edges. Use the optional `edge_type` query parameter to filter.
+      operationId: getValueGraphEdges
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
       parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: entity_type
+        - $ref: "#/components/parameters/CaseId"
+        - name: edge_type
           in: query
+          required: false
           schema:
-            type: string
-            enum: [vg_capability, vg_metric, vg_value_driver, use_case, value_hypothesis]
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
-        - name: limit
-          in: query
-          schema: { type: integer, default: 50, maximum: 100 }
+            $ref: "#/components/schemas/ValueGraphEdgeType"
+          description: Filter edges by type
       responses:
         "200":
-          description: Paginated node list
+          description: Graph edges
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  nodes: { type: array, items: { type: object } }
-                  pagination:
-                    type: object
-                    properties:
-                      page: { type: integer }
-                      limit: { type: integer }
-                      total: { type: integer }
-                      pages: { type: integer }
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValueGraphEdge"
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
-  /api/v1/graph/{opportunityId}/export:
-    get:
-      summary: Export full Value Graph
-      description: Returns all nodes and edges for the opportunity as a JSON graph suitable for D3 or visualization.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200":
-          description: Full graph export
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  nodes: { type: array, items: { type: object } }
-                  edges: { type: array, items: { type: object } }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-
-  /api/v1/graph/{opportunityId}/paths:
-    get:
-      summary: Get Value Graph paths
-      description: Returns ordered value paths from UseCase nodes to VgValueDriver nodes.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200":
-          description: Value paths
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  paths: { type: array, items: { type: object } }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-
-  /api/v1/graph/{opportunityId}/edges:
     post:
-      summary: Create a Value Graph edge
-      description: Manually creates a typed edge between two graph entities (human-in-the-loop).
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
+      summary: Create a graph edge manually
+      description: |
+        Creates a typed edge between two graph entities. The (from_entity_type, edge_type,
+        to_entity_type) triple is validated against the canonical EDGE_TYPE_CONSTRAINTS
+        allowlist. Returns 422 if the triple is invalid.
+      operationId: createValueGraphEdge
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
       parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CaseId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [from_entity_id, from_entity_type, to_entity_id, to_entity_type, edge_type]
+              required:
+                - from_entity_type
+                - from_entity_id
+                - to_entity_type
+                - to_entity_id
+                - edge_type
               properties:
-                from_entity_id: { type: string, format: uuid }
                 from_entity_type:
+                  $ref: "#/components/schemas/ValueGraphEntityType"
+                from_entity_id:
                   type: string
-                  enum: [account, stakeholder, use_case, vg_capability, vg_metric, vg_value_driver, evidence, value_hypothesis]
-                to_entity_id: { type: string, format: uuid }
+                  format: uuid
                 to_entity_type:
+                  $ref: "#/components/schemas/ValueGraphEntityType"
+                to_entity_id:
                   type: string
-                  enum: [account, stakeholder, use_case, vg_capability, vg_metric, vg_value_driver, evidence, value_hypothesis]
+                  format: uuid
                 edge_type:
+                  $ref: "#/components/schemas/ValueGraphEdgeType"
+                confidence_score:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.5
+                evidence_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  default: []
+                created_by_agent:
                   type: string
-                  enum: [use_case_enabled_by_capability, capability_impacts_metric, metric_maps_to_value_driver, hypothesis_claims_metric]
-                confidence_score: { type: number, minimum: 0, maximum: 1 }
-                evidence_ids: { type: array, items: { type: string, format: uuid } }
-                created_by_agent: { type: string, default: human }
+                  default: human
       responses:
         "201":
           description: Edge created
@@ -3531,78 +3628,64 @@ paths:
               schema:
                 type: object
                 properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  edge: { type: object }
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/ValueGraphEdge"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-
-  /api/v1/graph/{opportunityId}/nodes/{nodeId}:
-    patch:
-      summary: Update a Value Graph node
-      description: Updates metadata fields on a capability, metric, or value driver node.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: nodeId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name: { type: string }
-                description: { type: string }
-                baseline_value: { type: number }
-                target_value: { type: number }
-                unit: { type: string }
-                category: { type: string }
-                ontology_version: { type: string }
-      responses:
-        "200":
-          description: Node updated
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          description: Edge triple violates EDGE_TYPE_CONSTRAINTS
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  opportunity_id: { type: string, format: uuid }
-                  organization_id: { type: string }
-                  node: { type: object }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-    delete:
-      summary: Delete a Value Graph node
-      description: Removes an agent-generated node and writes an audit log entry.
-      tags: [Value Graph]
-      security:
-        - bearerAuth: []
+                  success: { type: boolean, example: false }
+                  error:
+                    type: object
+                    properties:
+                      message: { type: string }
+
+  /api/v1/cases/{caseId}/graph/integrity:
+    get:
+      summary: Get Value Graph integrity gap report
+      description: |
+        Returns a gap report identifying hypothesis_claims_value_driver edges that have
+        no evidence_supports_metric counterpart in the graph. Used by IntegrityAgent
+        and the frontend to surface unverified claims.
+      operationId: getValueGraphIntegrity
+      tags: [ValueGraph]
+      security: [{ bearerAuth: [] }]
       parameters:
-        - name: opportunityId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: nodeId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CaseId"
       responses:
-        "204":
-          description: Node deleted
+        "200":
+          description: Integrity gap report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      gaps:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            hypothesis_entity_id: { type: string, format: uuid }
+                            value_driver_entity_id: { type: string, format: uuid }
+                            edge_id: { type: string, format: uuid }
+                            gap_type:
+                              type: string
+                              enum: [no_evidence_supports_metric]
+                      total_claims: { type: integer }
+                      covered_claims: { type: integer }
+                      gap_count: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
 components:
@@ -3650,6 +3733,160 @@ components:
         type: string
         format: uuid
   schemas:
+    # -------------------------------------------------------------------------
+    # Value Graph (Sprint 49)
+    # -------------------------------------------------------------------------
+    ValueGraphEntityType:
+      type: string
+      enum:
+        - account
+        - stakeholder
+        - use_case
+        - vg_capability
+        - vg_metric
+        - vg_value_driver
+        - evidence
+        - value_hypothesis
+        - narrative
+
+    ValueGraphEdgeType:
+      type: string
+      enum:
+        - company_has_persona
+        - persona_executes_use_case
+        - use_case_enabled_by_capability
+        - capability_impacts_metric
+        - metric_maps_to_value_driver
+        - evidence_supports_metric
+        - hypothesis_claims_value_driver
+        - narrative_explains_hypothesis
+        - target_quantifies_driver
+        - realization_tracks_target
+        - expansion_extends_node
+        - audit_verifies_node
+
+    ValueGraphNode:
+      type: object
+      required: [entity_type, entity_id, data]
+      properties:
+        entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        entity_id:
+          type: string
+          format: uuid
+        data:
+          type: object
+          description: Entity-specific fields (VgCapability, VgMetric, VgValueDriver, etc.)
+
+    ValueGraphEdge:
+      type: object
+      required:
+        - id
+        - organization_id
+        - opportunity_id
+        - from_entity_type
+        - from_entity_id
+        - to_entity_type
+        - to_entity_id
+        - edge_type
+        - confidence_score
+        - evidence_ids
+        - created_by_agent
+        - ontology_version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        from_entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        from_entity_id:
+          type: string
+          format: uuid
+        to_entity_type:
+          $ref: "#/components/schemas/ValueGraphEntityType"
+        to_entity_id:
+          type: string
+          format: uuid
+        edge_type:
+          $ref: "#/components/schemas/ValueGraphEdgeType"
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_by_agent:
+          type: string
+        ontology_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ValueGraph:
+      type: object
+      required: [opportunity_id, organization_id, ontology_version, nodes, edges]
+      properties:
+        opportunity_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        ontology_version:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphEdge"
+
+    ValuePath:
+      type: object
+      required: [edges, path_confidence, value_driver, use_case_id, metrics, capabilities]
+      properties:
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueGraphEdge"
+        path_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        value_driver:
+          type: object
+          description: VgValueDriver entity at the end of the path
+        use_case_id:
+          type: string
+          format: uuid
+        metrics:
+          type: array
+          items:
+            type: object
+            description: VgMetric entities along the path
+        capabilities:
+          type: array
+          items:
+            type: object
+            description: VgCapability entities along the path
+
     # -------------------------------------------------------------------------
     # Financial Model Snapshot (Sprint 45)
     # -------------------------------------------------------------------------
@@ -3712,6 +3949,104 @@ components:
           type: array
           items:
             type: object
+        created_at:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------------------------------
+    # Reasoning Trace (Sprint 52)
+    # -------------------------------------------------------------------------
+    ReasoningTrace:
+      type: object
+      required:
+        - id
+        - organization_id
+        - session_id
+        - value_case_id
+        - agent_name
+        - agent_version
+        - trace_id
+        - inputs
+        - transformations
+        - assumptions
+        - confidence_breakdown
+        - evidence_links
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        value_case_id:
+          type: string
+          format: uuid
+          description: FK to value_cases.id — maps to :caseId route parameter
+        opportunity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional parent graph anchor (opportunities.id)
+        agent_name:
+          type: string
+        agent_version:
+          type: string
+        trace_id:
+          type: string
+          format: uuid
+          description: Propagated from context.trace_id; attached to AgentOutput.metadata.trace_id
+        inputs:
+          type: object
+          additionalProperties: true
+          description: Sanitized agent input context (PII-redacted)
+        transformations:
+          type: array
+          items:
+            type: string
+          description: Ordered transformation steps the agent applied
+        assumptions:
+          type: array
+          items:
+            type: string
+          description: Named assumptions the agent relied on
+        confidence_breakdown:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+            maximum: 1
+          description: Agent-populated confidence scores by dimension (0–1). Rendered as inline bar chart.
+        evidence_links:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs linking to supporting evidence
+        grounding_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+          description: Aggregate grounding score from hallucination detection
+        latency_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Wall-clock LLM latency in milliseconds
+        token_usage:
+          nullable: true
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            total_tokens:
+              type: integer
         created_at:
           type: string
           format: date-time

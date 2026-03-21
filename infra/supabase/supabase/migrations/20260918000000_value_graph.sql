@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS public.value_graph_edges (
                                       'capability_impacts_metric',
                                       'metric_maps_to_value_driver',
                                       'evidence_supports_metric',
-                                      'hypothesis_claims_metric'
+                                      'hypothesis_claims_value_driver'
                                   )),
     confidence_score  NUMERIC     NOT NULL DEFAULT 0.5
                                   CHECK (confidence_score >= 0 AND confidence_score <= 1),
@@ -216,9 +216,9 @@ CREATE TABLE IF NOT EXISTS public.value_graph_edges (
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Prevent duplicate edges of the same type between the same pair of entities
+-- Prevent duplicate edges of the same type between the same pair of typed entities
 CREATE UNIQUE INDEX IF NOT EXISTS idx_value_graph_edges_unique_pair
-    ON public.value_graph_edges (organization_id, opportunity_id, from_entity_id, to_entity_id, edge_type);
+    ON public.value_graph_edges (organization_id, opportunity_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, edge_type);
 
 CREATE INDEX IF NOT EXISTS idx_value_graph_edges_org_opp
     ON public.value_graph_edges (organization_id, opportunity_id);

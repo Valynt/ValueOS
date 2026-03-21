@@ -41,6 +41,7 @@ import { resolvePromptTemplate } from '../promptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { mapCategoryToValueDriverType, mapUnitToVgMetricUnit } from '../../../services/value-graph/valueDriverUtils.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -204,6 +205,9 @@ export class FinancialModelingAgent extends BaseAgent {
       average_confidence: avgConfidence,
       sdui_sections: sduiSections,
     };
+
+    // Step 8: Write models to the Value Graph (fire-and-forget)
+    await this.writeModelsToGraph(computedModels, context);
 
     return this.buildOutput(result, 'success', this.toConfidenceLevel(avgConfidence), startTime, {
       reasoning: `Built ${computedModels.length} financial models from ${hypotheses.length} hypotheses. ` +
@@ -927,4 +931,139 @@ export class FinancialModelingAgent extends BaseAgent {
   // -------------------------------------------------------------------------
 
   // ...existing code...
+
+  // -------------------------------------------------------------------------
+  // Value Graph integration
+  // -------------------------------------------------------------------------
+
+  /**
+   * Writes computed financial models to the Value Graph.
+   * Fire-and-forget: failures are logged but never propagated.
+   *
+   * Per model writes:
+   *   1. VgMetric node
+   *   2. capability_impacts_metric edge (VgCapability → VgMetric)
+   *   3. metric_maps_to_value_driver edge (VgMetric → VgValueDriver)
+   *
+   * Looks up existing VgCapability and VgValueDriver nodes written by
+   * OpportunityAgent. If none found, skips the edge or creates a new
+   * VgValueDriver node as needed.
+   */
+  private async writeModelsToGraph(
+    models: ComputedModel[],
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = (context.user_inputs?.value_case_id as string | undefined)
+      ?? context.workspace_id;
+    const organizationId = context.organization_id;
+
+    if (!opportunityId || !organizationId) {
+      return;
+    }
+
+    try {
+      // Load existing graph nodes written by OpportunityAgent
+      const graph = await this.valueGraphService.getGraphForOpportunity(opportunityId, organizationId);
+
+      const capabilityNodes = graph.nodes.filter(n => n.entity_type === 'vg_capability');
+      const valueDriverNodes = graph.nodes.filter(n => n.entity_type === 'vg_value_driver');
+
+      for (const model of models) {
+        const driverType = mapCategoryToValueDriverType(model.category);
+
+        // 1. Write VgMetric node
+        const metric = await this.valueGraphService.writeMetric({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: model.hypothesis_description,
+          unit: mapUnitToVgMetricUnit('usd'),
+          baseline_value: model.total_investment > 0 ? model.total_investment : null,
+          target_value: model.total_benefit > 0 ? model.total_benefit : null,
+          impact_timeframe_months: model.cash_flows.length > 0
+            ? model.cash_flows.length - 1  // period 0 = investment; remaining = returns
+            : null,
+        });
+
+        // 2. capability_impacts_metric: VgCapability → VgMetric
+        // Match capability by name similarity. Falls back to the first capability
+        // when no name match is found — this is a best-effort heuristic until
+        // source_hypothesis_id is added to VgCapability (Sprint 49).
+        const nameMatchedCap = capabilityNodes.find(n => {
+          const data = n.data as { name?: string };
+          return data.name && model.hypothesis_description.toLowerCase()
+            .includes(data.name.toLowerCase().split(' ')[0]);
+        });
+        if (!nameMatchedCap && capabilityNodes.length > 0) {
+          logger.warn('FinancialModelingAgent: no name-matched VgCapability for model; falling back to first node', {
+            opportunityId,
+            organizationId,
+            hypothesisDescription: model.hypothesis_description,
+            fallbackCapabilityId: capabilityNodes[0].entity_id,
+          });
+        }
+        const matchedCap = nameMatchedCap ?? capabilityNodes[0];
+
+        if (matchedCap) {
+          await this.valueGraphService.writeEdge({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            from_entity_type: 'vg_capability',
+            from_entity_id: matchedCap.entity_id,
+            to_entity_type: 'vg_metric',
+            to_entity_id: metric.id,
+            edge_type: 'capability_impacts_metric',
+            confidence_score: model.confidence,
+            created_by_agent: 'FinancialModelingAgent',
+          });
+        } else {
+          logger.warn('FinancialModelingAgent: no VgCapability node found for model', {
+            opportunityId,
+            organizationId,
+            hypothesisId: model.hypothesis_id,
+          });
+        }
+
+        // 3. metric_maps_to_value_driver: VgMetric → VgValueDriver
+        // Match value driver by type; create one if none found
+        const matchedDriver = valueDriverNodes.find(n => {
+          const data = n.data as { type?: string };
+          return data.type === driverType;
+        });
+
+        let driverNodeId: string;
+        if (matchedDriver) {
+          driverNodeId = matchedDriver.entity_id;
+        } else {
+          // No driver node from OpportunityAgent — create one
+          const newDriver = await this.valueGraphService.writeValueDriver({
+            opportunity_id: opportunityId,
+            organization_id: organizationId,
+            type: driverType,
+            name: model.hypothesis_description,
+            description: `Financial model: ${model.hypothesis_description}`,
+            estimated_impact_usd: model.total_benefit,
+          });
+          driverNodeId = newDriver.id;
+        }
+
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: 'vg_metric',
+          from_entity_id: metric.id,
+          to_entity_type: 'vg_value_driver',
+          to_entity_id: driverNodeId,
+          edge_type: 'metric_maps_to_value_driver',
+          confidence_score: model.confidence,
+          created_by_agent: 'FinancialModelingAgent',
+        });
+      }
+    } catch (err) {
+      logger.warn('FinancialModelingAgent: failed to write models to Value Graph', {
+        opportunityId,
+        organizationId,
+        error: (err as Error).message,
+      });
+    }
+  }
 }

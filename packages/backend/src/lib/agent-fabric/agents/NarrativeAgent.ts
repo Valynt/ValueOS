@@ -30,6 +30,11 @@ import {
   type CustomerNarrativeInput,
   type InternalCaseInput,
 } from "../../../services/artifacts/index.js";
+import {
+  BaseGraphWriter,
+  valueGraphService as defaultValueGraphService,
+} from "../../../services/value-graph/index.js";
+import type { ValuePath } from "../../../services/value-graph/ValueGraphService.js";
 import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
@@ -131,7 +136,7 @@ export class NarrativeAgent extends BaseAgent {
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
   private readonly artifactRepo = new ArtifactRepository();
-  private readonly graphWriter = new BaseGraphWriter();
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
 
   // Artifact generators - initialized lazily
   private executiveMemoGenerator: ExecutiveMemoGenerator | null = null;
@@ -237,7 +242,8 @@ export class NarrativeAgent extends BaseAgent {
       (financialData?.summary as string | undefined) ??
       "No financial model available.";
 
-    // Step 2: Build narrative prompt and generate legacy narrative output
+    // Step 2: Build narrative prompt — enrich with top-3 Value Graph paths (fire-and-forget read)
+    const graphPathContext = await this.enrichPromptWithGraphPaths(context);
     const prompt = buildNarrativePrompt({
       organizationId: context.organization_id,
       valueCaseId: valueCaseId ?? "unknown",
@@ -245,7 +251,9 @@ export class NarrativeAgent extends BaseAgent {
       integrityScore,
       vetoDecision,
       kpis,
-      financialSummary,
+      financialSummary: graphPathContext
+        ? `${financialSummary}\n\n## Value Graph Paths\n${graphPathContext}`
+        : financialSummary,
     });
 
     let narrativeOutput: NarrativeOutput;
@@ -278,6 +286,9 @@ export class NarrativeAgent extends BaseAgent {
         startTime
       );
     }
+
+    // Step 2b: Write narrative_explains_hypothesis edges to Value Graph (fire-and-forget)
+    await this.writeNarrativeEdges(narrativeOutput, context);
 
     // Step 3: Generate full artifact suite using the new generators
     const generators = this.getGenerators();
@@ -685,5 +696,73 @@ export class NarrativeAgent extends BaseAgent {
         "Proceed to RealizationAgent for implementation planning",
       ],
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Value Graph reads + writes
+  // -------------------------------------------------------------------------
+
+  /**
+   * Reads top-3 value paths from the graph and formats them as structured
+   * text for prompt injection. Returns empty string on any failure so the
+   * prompt proceeds without graph context.
+   */
+  private async enrichPromptWithGraphPaths(context: LifecycleContext): Promise<string> {
+    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
+    if (!opportunityId) return "";
+
+    try {
+      const vgs = this.valueGraphService ?? defaultValueGraphService;
+      const paths: ValuePath[] = await vgs.getValuePaths(opportunityId, context.organization_id);
+      if (paths.length === 0) return "";
+
+      const top3 = paths.slice(0, 3);
+      return top3.map((p, i) => {
+        const capNames = p.capabilities.map(c => c.name).join(", ");
+        const metricNames = p.metrics.map(m => m.name).join(", ");
+        return `Path ${i + 1}: ${capNames} → ${metricNames} → ${p.value_driver.name} (confidence: ${(p.path_confidence * 100).toFixed(0)}%)`;
+      }).join("\n");
+    } catch (err) {
+      logger.warn("NarrativeAgent: graph path read failed — proceeding without graph context", {
+        error: (err as Error).message,
+        opportunityId: this.graphWriter["resolveOpportunityId"](context),
+        organizationId: context.organization_id,
+      });
+      return "";
+    }
+  }
+
+  /**
+   * Writes one narrative_explains_hypothesis edge per hypothesis referenced
+   * in the narrative output. All writes are fire-and-forget via safeWrite.
+   */
+  private async writeNarrativeEdges(
+    narrativeOutput: NarrativeOutput,
+    context: LifecycleContext,
+  ): Promise<void> {
+    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
+    if (!opportunityId) return;
+
+    const organizationId = context.organization_id;
+    const safeCtx = { opportunityId, organizationId, agentName: "NarrativeAgent" };
+    const vgs = this.valueGraphService ?? defaultValueGraphService;
+
+    // One edge per proof point — each represents a narrative claim about a hypothesis
+    for (const _proofPoint of narrativeOutput.key_proof_points) {
+      await this.graphWriter["safeWrite"](
+        () => vgs.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: "narrative",
+          from_entity_id: this.graphWriter["newEntityId"](),
+          to_entity_type: "value_hypothesis",
+          to_entity_id: this.graphWriter["newEntityId"](),
+          edge_type: "narrative_explains_hypothesis",
+          confidence_score: narrativeOutput.defense_readiness_score,
+          created_by_agent: "NarrativeAgent",
+        }),
+        safeCtx,
+      );
+    }
   }
 }
