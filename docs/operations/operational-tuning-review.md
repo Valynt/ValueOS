@@ -33,11 +33,19 @@ Before starting, have all of the following ready:
 ### 2. Memory RSS review
 
 - [ ] Review `valueos:deployment_memory_rss_bytes` against the manifest request/limit baseline.
-- [ ] If RSS regularly exceeds **80% of request**, raise the request so the scheduler sees real demand.
-- [ ] If RSS regularly exceeds **85% of limit** or any OOM/restart signal appears, raise the limit before raising concurrency.
-- [ ] If RSS stays far below request for a full month, consider lowering memory requests.
+- [ ] Split any memory investigation into app and sidecar views with `valueos:deployment_app_memory_rss_bytes` and `valueos:deployment_sidecar_memory_rss_bytes`.
+- [ ] If total RSS regularly exceeds **80% of request**, determine whether the pressure is coming from the app container or the Envoy/OPA sidecars before changing pod budgets.
+- [ ] If RSS regularly exceeds **85% of limit** or any OOM/restart signal appears, raise the relevant limit before raising concurrency.
+- [ ] If app RSS stays far below request but sidecar RSS share is elevated for a full month, review sidecar budgets instead of increasing the app request.
 
-### 3. Queue lag vs. effective concurrency review
+### 3. Sidecar-heavy pod review
+
+- [ ] Review `valueos:deployment_sidecar_memory_share` for all agent deployments.
+- [ ] Review `valueos:deployment_sidecar_heavy_memory_pressure` and treat any sustained non-zero series as a required follow-up.
+- [ ] For low-request agents (`target`, `integrity`, `communicator`, and other low-frequency async classes), verify whether Envoy/OPA are carrying most of the pod memory footprint during quiet periods.
+- [ ] If a pod is sidecar-heavy, check proxy/auth config drift before changing app memory requests or replica minimums.
+
+### 4. Queue lag vs. effective concurrency review
 
 - [ ] Compare `valueos:workload_queue_lag_jobs` and `valueos:workload_effective_concurrency` for every worker and agent class.
 - [ ] Review `valueos:workload_queue_saturation_ratio`.
@@ -47,21 +55,21 @@ Before starting, have all of the following ready:
   - or make HPA/KEDA scale up sooner.
 - [ ] If lag is near-zero while effective concurrency remains high for most of the month, consider lowering concurrency or reducing min replicas.
 
-### 4. Job duration review
+### 5. Job duration review
 
 - [ ] Review `valueos:workload_job_duration_seconds:p95` by class.
 - [ ] If p95 duration rose materially but lag did not, investigate job payload changes before increasing concurrency.
 - [ ] If p95 duration and lag both rose, prefer resource tuning first, then concurrency changes.
 - [ ] Re-run or schedule a targeted load test whenever p95 duration changes enough to invalidate current HPA queue thresholds.
 
-### 5. HPA and KEDA review
+### 6. HPA and KEDA review
 
 - [ ] Confirm backend HPA targets still match observed demand (`RPS`, `p95 latency`, CPU, memory).
 - [ ] Confirm worker HPA queue targets still match the observed per-pod throughput.
 - [ ] Confirm each agent HPA/KEDA queue threshold reflects observed saturation, not guesswork.
 - [ ] For any class that frequently oscillates, widen stabilization windows before increasing max replicas.
 
-### 6. Baseline and audit updates
+### 7. Baseline and audit updates
 
 - [ ] Update `docs/operations/operational-tuning-baselines.md` in the same PR as any manifest/config change.
 - [ ] Add a dated audit entry describing the trigger, evidence window, and expected outcome.
@@ -73,7 +81,8 @@ Before starting, have all of the following ready:
 Use these guardrails when more than one lever could solve the issue:
 
 1. **Fix throttling and memory pressure before raising concurrency.**
-2. **Fix queue saturation before raising replica minimums.**
-3. **Prefer evidence from a full month plus a fresh load test over one-off spikes.**
-4. **Change one primary lever at a time** (`MAX_CONCURRENT_REQUESTS`, requests/limits, or HPA/KEDA targets) unless an incident requires a bundle.
-5. **Document every change in the baseline file** so later rollbacks have an audit trail.
+2. **Fix sidecar-heavy memory pressure before raising app memory requests.**
+3. **Fix queue saturation before raising replica minimums.**
+4. **Prefer evidence from a full month plus a fresh load test over one-off spikes.**
+5. **Change one primary lever at a time** (`MAX_CONCURRENT_REQUESTS`, requests/limits, sidecar budgets, or HPA/KEDA targets) unless an incident requires a bundle.
+6. **Document every change in the baseline file** so later rollbacks have an audit trail.
