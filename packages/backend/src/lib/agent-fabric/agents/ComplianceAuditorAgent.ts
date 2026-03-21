@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
+import { logger } from '../../logger.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -23,15 +25,13 @@ export class ComplianceAuditorAgent extends BaseAgent {
   public override readonly version = '1.0.0';
   public override readonly name = 'compliance-auditor';
 
+  private readonly graphWriter = new BaseGraphWriter();
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const start = Date.now();
     const valid = await this.validateInput(context);
     if (!valid) {
       throw new Error('Invalid compliance auditor context');
-    }
-
-    if (context.organization_id !== this.organizationId) {
-      throw new Error('Tenant mismatch for ComplianceAuditorAgent execution');
     }
 
     const sources = ['opportunity', 'target', 'financial-modeling', 'integrity', 'realization', 'expansion'];
@@ -80,6 +80,49 @@ export class ComplianceAuditorAgent extends BaseAgent {
         },
       },
     );
+
+    // Write Value Graph nodes — VgValueDriver (compliance risk) + hypothesis_claims_metric edges
+    try {
+      const writes: Array<() => Promise<unknown>> = [];
+      for (const gap of deterministicCoverage.controlGaps) {
+        const driverId = this.graphWriter.generateNodeId();
+        writes.push(() =>
+          this.graphWriter.writeValueDriver(context, {
+            id: driverId,
+            name: gap,
+            description: `Compliance risk driver: ${gap}`,
+            category: 'risk',
+          })
+        );
+        // Write a metric node representing the compliance gap measurement so
+        // the hypothesis_claims_metric edge has a valid target node.
+        const metricId = this.graphWriter.generateNodeId();
+        writes.push(() =>
+          this.graphWriter.writeMetric(context, {
+            id: metricId,
+            name: `${gap} (metric)`,
+            description: `Compliance gap metric for: ${gap}`,
+          })
+        );
+        writes.push(() =>
+          this.graphWriter.writeEdge(context, {
+            from_entity_id: metricId,
+            from_entity_type: 'vg_metric',
+            to_entity_id: driverId,
+            to_entity_type: 'vg_value_driver',
+            edge_type: 'metric_maps_to_value_driver',
+            created_by_agent: 'ComplianceAuditorAgent',
+            confidence_score: deterministicCoverage.controlCoverageScore,
+          })
+        );
+      }
+      if (writes.length > 0) {
+        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
+        logger.info('ComplianceAuditorAgent: graph write complete', { succeeded, failed });
+      }
+    } catch (err) {
+      logger.warn('ComplianceAuditorAgent: graph write skipped', { reason: (err as Error).message });
+    }
 
     await this.memorySystem.storeSemanticMemory(
       context.workspace_id,

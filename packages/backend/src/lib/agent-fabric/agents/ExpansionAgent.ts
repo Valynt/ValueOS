@@ -29,6 +29,7 @@ import { resolvePromptTemplate } from '../promptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 
 // ---------------------------------------------------------------------------
@@ -89,6 +90,8 @@ type ExpansionAnalysis = z.infer<typeof ExpansionAnalysisSchema>;
 
 export class ExpansionAgent extends BaseAgent {
   public override readonly version = "1.0.0";
+
+  private readonly graphWriter = new BaseGraphWriter();
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
@@ -166,6 +169,40 @@ export class ExpansionAgent extends BaseAgent {
           error: (err as Error).message,
         });
       }
+    }
+
+    // Step 4c: Write Value Graph nodes — VgCapability + use_case_enabled_by_capability edges
+    try {
+      const writes: Array<() => Promise<unknown>> = [];
+      for (const opp of analysis.opportunities) {
+        const capabilityId = this.graphWriter.generateNodeId(opp.id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeCapability(context, {
+            id: capabilityId,
+            name: String(opp.title ?? 'Expansion Capability'),
+            description: String(opp.description ?? ''),
+            category: 'expansion',
+          })
+        );
+        const useCaseId = this.graphWriter.generateNodeId(opp.source_kpi_id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeEdge(context, {
+            from_entity_id: useCaseId,
+            from_entity_type: 'use_case',
+            to_entity_id: capabilityId,
+            to_entity_type: 'vg_capability',
+            edge_type: 'use_case_enabled_by_capability',
+            created_by_agent: 'ExpansionAgent',
+            confidence_score: opp.confidence as number | undefined,
+          })
+        );
+      }
+      if (writes.length > 0) {
+        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
+        logger.info('ExpansionAgent: graph write complete', { succeeded, failed });
+      }
+    } catch (err) {
+      logger.warn('ExpansionAgent: graph write skipped', { reason: (err as Error).message });
     }
 
     // Step 5: Build SDUI sections

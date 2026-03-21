@@ -52,6 +52,7 @@ import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
+import { valueGraphRouter } from "./api/valueGraph.js";
 import groundtruthRouter from "./api/groundtruth.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
@@ -603,6 +604,7 @@ app.use("/api/crm", crmRouter);
 app.use("/api/value-drivers", valueDriversRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/v1/graph", valueGraphRouter);
 app.use("/api/v1/audit-logs", auditLogsRouter);
 app.use("/api/v1/cases", valueCasesRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases

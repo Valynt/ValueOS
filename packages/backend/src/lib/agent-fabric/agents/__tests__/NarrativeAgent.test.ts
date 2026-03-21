@@ -17,6 +17,7 @@ const { mockStoreSemanticMemory, mockComplete, mockCreateDraft, mockPublish } = 
 
 vi.mock("../../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../LLMGateway.js", () => ({
@@ -44,6 +45,36 @@ vi.mock("../../../../repositories/NarrativeDraftRepository.js", () => ({
   NarrativeDraftRepository: class {
     createDraft = mockCreateDraft;
   },
+}));
+
+const { mockWriteValueDriver, mockWriteEdge, mockGetSafeContext, mockGenerateNodeId, mockSafeWriteBatch } = vi.hoisted(() => {
+  const mockWriteValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+  const mockWriteEdge = vi.fn().mockResolvedValue({ id: "edge-1" });
+  const mockGetSafeContext = vi.fn().mockReturnValue({
+    opportunityId: "770e8400-e29b-41d4-a716-446655440002",
+    organizationId: "660e8400-e29b-41d4-a716-446655440001",
+  });
+  const mockGenerateNodeId = vi.fn().mockReturnValue("550e8400-e29b-41d4-a716-446655440000");
+  const mockSafeWriteBatch = vi.fn().mockImplementation(
+    async (writes: Array<() => Promise<unknown>>) => {
+      await Promise.all(writes.map((fn) => fn()));
+      return { succeeded: writes.length, failed: 0, errors: [] };
+    },
+  );
+  return { mockWriteValueDriver, mockWriteEdge, mockGetSafeContext, mockGenerateNodeId, mockSafeWriteBatch };
+});
+
+vi.mock("../../BaseGraphWriter.js", () => ({
+  BaseGraphWriter: class {
+    getSafeContext = mockGetSafeContext;
+    generateNodeId = mockGenerateNodeId;
+    safeWriteBatch = mockSafeWriteBatch;
+    writeValueDriver = mockWriteValueDriver;
+    writeEdge = mockWriteEdge;
+    writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
+    writeMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+  },
+  LifecycleContextError: class extends Error {},
 }));
 
 vi.mock("../../../../events/DomainEventBus.js", () => ({
@@ -270,6 +301,60 @@ describe("NarrativeAgent", () => {
       expect(publishedPayload).not.toHaveProperty("organization_id");
       expect(publishedPayload).not.toHaveProperty("value_case_id");
       expect(publishedPayload).not.toHaveProperty("defense_readiness_score");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Value Graph integration
+  // -------------------------------------------------------------------------
+
+  describe("Value Graph writes", () => {
+    const VALID_OPP_ID = "770e8400-e29b-41d4-a716-446655440002";
+    const VALID_ORG_ID = "660e8400-e29b-41d4-a716-446655440001";
+
+    function makeGraphContext(): LifecycleContext {
+      return makeContext({
+        user_inputs: {
+          value_case_id: "case-abc",
+          format: "executive_summary",
+          opportunity_id: VALID_OPP_ID,
+        },
+        previous_stage_outputs: {
+          target: {
+            kpi_targets: [{ name: "Revenue Growth", target: 20, unit: "%" }],
+          },
+        },
+      });
+    }
+
+    it("writes VgValueDriver nodes and metric_maps_to_value_driver edges when opportunity_id is present", async () => {
+      mockComplete.mockResolvedValue(llmResponse(VALID_LLM_RESPONSE));
+
+      await agent.execute(makeGraphContext());
+
+      // writeValueDriver is called as this.graphWriter.writeValueDriver(context, input)
+      expect(mockWriteValueDriver).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }), // context arg
+        expect.objectContaining({ name: "Revenue Growth" }),      // input arg
+      );
+      // writeEdge is called with (context, edgeInput)
+      expect(mockWriteEdge).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }),
+        expect.objectContaining({ edge_type: "metric_maps_to_value_driver" }),
+      );
+    });
+
+    it("succeeds without graph writes when opportunity_id is absent", async () => {
+      mockComplete.mockResolvedValue(llmResponse(VALID_LLM_RESPONSE));
+      // Simulate getSafeContext throwing when opportunity_id is missing
+      mockGetSafeContext.mockImplementationOnce(() => {
+        throw new Error("opportunity_id is missing");
+      });
+
+      const output = await agent.execute(makeContext());
+
+      expect(output.status).toBe("success");
+      expect(mockWriteValueDriver).not.toHaveBeenCalled();
     });
   });
 });

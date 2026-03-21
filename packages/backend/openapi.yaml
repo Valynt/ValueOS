@@ -3349,6 +3349,262 @@ paths:
                   breakdown: { type: object }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  # ---------------------------------------------------------------------------
+  # Value Graph API — Sprint 49
+  # ---------------------------------------------------------------------------
+
+  /api/v1/graph/{opportunityId}/summary:
+    get:
+      summary: Value Graph summary
+      description: Returns node and edge counts by type for the opportunity's Value Graph.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Graph summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  node_counts:
+                    type: object
+                    properties:
+                      capabilities: { type: integer }
+                      metrics: { type: integer }
+                      value_drivers: { type: integer }
+                      total: { type: integer }
+                  edge_counts:
+                    type: object
+                    properties:
+                      by_type: { type: object, additionalProperties: { type: integer } }
+                      total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/graph/{opportunityId}/nodes:
+    get:
+      summary: List Value Graph nodes
+      description: Returns paginated nodes for the opportunity's Value Graph. Supports filtering by entity_type.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            enum: [vg_capability, vg_metric, vg_value_driver, use_case, value_hypothesis]
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 100 }
+      responses:
+        "200":
+          description: Paginated node list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  nodes: { type: array, items: { type: object } }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      pages: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/graph/{opportunityId}/export:
+    get:
+      summary: Export full Value Graph
+      description: Returns all nodes and edges for the opportunity as a JSON graph suitable for D3 or visualization.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Full graph export
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  nodes: { type: array, items: { type: object } }
+                  edges: { type: array, items: { type: object } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/graph/{opportunityId}/paths:
+    get:
+      summary: Get Value Graph paths
+      description: Returns ordered value paths from UseCase nodes to VgValueDriver nodes.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Value paths
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  paths: { type: array, items: { type: object } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/graph/{opportunityId}/edges:
+    post:
+      summary: Create a Value Graph edge
+      description: Manually creates a typed edge between two graph entities (human-in-the-loop).
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_entity_id, from_entity_type, to_entity_id, to_entity_type, edge_type]
+              properties:
+                from_entity_id: { type: string, format: uuid }
+                from_entity_type:
+                  type: string
+                  enum: [account, stakeholder, use_case, vg_capability, vg_metric, vg_value_driver, evidence, value_hypothesis]
+                to_entity_id: { type: string, format: uuid }
+                to_entity_type:
+                  type: string
+                  enum: [account, stakeholder, use_case, vg_capability, vg_metric, vg_value_driver, evidence, value_hypothesis]
+                edge_type:
+                  type: string
+                  enum: [use_case_enabled_by_capability, capability_impacts_metric, metric_maps_to_value_driver, hypothesis_claims_metric]
+                confidence_score: { type: number, minimum: 0, maximum: 1 }
+                evidence_ids: { type: array, items: { type: string, format: uuid } }
+                created_by_agent: { type: string, default: human }
+      responses:
+        "201":
+          description: Edge created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  edge: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/graph/{opportunityId}/nodes/{nodeId}:
+    patch:
+      summary: Update a Value Graph node
+      description: Updates metadata fields on a capability, metric, or value driver node.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: nodeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                baseline_value: { type: number }
+                target_value: { type: number }
+                unit: { type: string }
+                category: { type: string }
+                ontology_version: { type: string }
+      responses:
+        "200":
+          description: Node updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opportunity_id: { type: string, format: uuid }
+                  organization_id: { type: string }
+                  node: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a Value Graph node
+      description: Removes an agent-generated node and writes an audit log entry.
+      tags: [Value Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: nodeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Node deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:

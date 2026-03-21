@@ -77,6 +77,8 @@ declare global {
       featureFlagVariant?: string | null;
       featureFlagConfig?: Record<string, unknown> | null;
       _auditMiddlewareAttached?: boolean;
+      /** Set by validateOpportunityAccess after ownership is confirmed. */
+      opportunityId?: string;
     }
   }
 }

@@ -13,6 +13,7 @@ const { mockRetrieve, mockStoreSemanticMemory, mockComplete, mockInferCausal } =
 
 vi.mock("../../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../LLMGateway.js", () => ({
@@ -37,6 +38,36 @@ vi.mock("../../CircuitBreaker.js", () => ({
     constructor() {}
     execute = vi.fn().mockImplementation((fn: () => Promise<any>) => fn());
   },
+}));
+
+const { mockWriteMetric: mockTargetWriteMetric, mockWriteEdge: mockTargetWriteEdge, mockGetSafeContext: mockTargetGetSafeContext, mockGenerateNodeId: mockTargetGenerateNodeId, mockSafeWriteBatch: mockTargetSafeWriteBatch } = vi.hoisted(() => {
+  const mockWriteMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+  const mockWriteEdge = vi.fn().mockResolvedValue({ id: "edge-1" });
+  const mockGetSafeContext = vi.fn().mockReturnValue({
+    opportunityId: "770e8400-e29b-41d4-a716-446655440002",
+    organizationId: "660e8400-e29b-41d4-a716-446655440001",
+  });
+  const mockGenerateNodeId = vi.fn().mockReturnValue("550e8400-e29b-41d4-a716-446655440000");
+  const mockSafeWriteBatch = vi.fn().mockImplementation(
+    async (writes: Array<() => Promise<unknown>>) => {
+      await Promise.all(writes.map((fn) => fn()));
+      return { succeeded: writes.length, failed: 0, errors: [] };
+    },
+  );
+  return { mockWriteMetric, mockWriteEdge, mockGetSafeContext, mockGenerateNodeId, mockSafeWriteBatch };
+});
+
+vi.mock("../../BaseGraphWriter.js", () => ({
+  BaseGraphWriter: class {
+    getSafeContext = mockTargetGetSafeContext;
+    generateNodeId = mockTargetGenerateNodeId;
+    safeWriteBatch = mockTargetSafeWriteBatch;
+    writeMetric = mockTargetWriteMetric;
+    writeEdge = mockTargetWriteEdge;
+    writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
+    writeValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+  },
+  LifecycleContextError: class extends Error {},
 }));
 
 vi.mock("../../../../services/reasoning/AdvancedCausalEngine.js", () => ({
@@ -458,4 +489,34 @@ describe("TargetAgent", () => {
     ).rejects.toThrow(/tenant context mismatch/i);
   });
 
+  describe("Value Graph writes", () => {
+    beforeEach(() => {
+      mockTargetWriteMetric.mockClear();
+      mockTargetWriteEdge.mockClear();
+    });
+
+    it("writes VgMetric nodes and capability_impacts_metric edges after successful execution", async () => {
+      await agent.execute(makeContext());
+
+      expect(mockTargetWriteMetric).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }),
+        expect.objectContaining({ name: expect.any(String) }),
+      );
+      expect(mockTargetWriteEdge).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: "org-456" }),
+        expect.objectContaining({ edge_type: "capability_impacts_metric" }),
+      );
+    });
+
+    it("does not propagate graph write errors to agent output", async () => {
+      // Simulate getSafeContext throwing — agent should still succeed
+      mockTargetGetSafeContext.mockImplementationOnce(() => {
+        throw new Error("opportunity_id is missing");
+      });
+
+      const result = await agent.execute(makeContext());
+      // Agent succeeds even when graph write context extraction fails
+      expect(result.status).not.toBe("failure");
+    });
+  });
 });

@@ -31,6 +31,7 @@ import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 
 // ---------------------------------------------------------------------------
@@ -133,6 +134,7 @@ export class TargetAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private causalEngine = getAdvancedCausalEngine();
+  private readonly graphWriter = new BaseGraphWriter();
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
@@ -182,6 +184,41 @@ export class TargetAgent extends BaseAgent {
       await this.persistValueTree(valueCaseId, context.organization_id, analysis.value_driver_tree);
       // Also persist financial model snapshots for crash recovery
       await this.persistFinancialModelSnapshots(valueCaseId, context.organization_id, analysis);
+    }
+
+    // Step 4c: Write Value Graph nodes — VgMetric + capability_impacts_metric edges
+    try {
+      const writes: Array<() => Promise<unknown>> = [];
+      for (const kpi of analysis.kpi_definitions) {
+        const metricId = this.graphWriter.generateNodeId(kpi.id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeMetric(context, {
+            id: metricId,
+            name: String(kpi.name ?? kpi.kpi_name ?? 'KPI'),
+            description: String(kpi.description ?? kpi.rationale ?? ''),
+            baseline_value: kpi.baseline as number | undefined,
+            target_value: kpi.target as number | undefined,
+            unit: kpi.unit as string | undefined,
+          })
+        );
+        const capabilityId = this.graphWriter.generateNodeId(kpi.capability_id as string | undefined);
+        writes.push(() =>
+          this.graphWriter.writeEdge(context, {
+            from_entity_id: capabilityId,
+            from_entity_type: 'vg_capability',
+            to_entity_id: metricId,
+            to_entity_type: 'vg_metric',
+            edge_type: 'capability_impacts_metric',
+            created_by_agent: 'TargetAgent',
+          })
+        );
+      }
+      if (writes.length > 0) {
+        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
+        logger.info('TargetAgent: graph write complete', { succeeded, failed });
+      }
+    } catch (err) {
+      logger.warn('TargetAgent: graph write skipped', { reason: (err as Error).message });
     }
 
     // Step 5: Build SDUI sections
