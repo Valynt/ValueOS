@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 
+import { apiClient } from '../../api/client/unified-api-client';
 import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
 
 export type SecretAuditAction = 'READ' | 'WRITE' | 'ROTATE' | 'DELETE' | 'LIST';
 
@@ -57,34 +57,18 @@ export class StructuredSecretAuditLogger implements AuditLogger {
 
   private async logToDatabase(event: SecretAuditEvent): Promise<void> {
     try {
-      // Handle LIST action mapping to READ + metadata
-      let dbAction = event.action as string;
-      const dbMetadata = { ...(event.metadata || {}) };
-
-      if (event.action === 'LIST') {
-        dbAction = 'READ';
-        dbMetadata.operation = 'LIST';
-      }
-
-      // Truncate secret key to 255 chars, do NOT mask
-      const dbSecretKey = event.secretKey.length > 255
-        ? event.secretKey.substring(0, 255)
-        : event.secretKey;
-
-      const supabase = createServerSupabaseClient();
-      const { error: dbError } = await supabase.from('secret_audit_logs').insert({
-        tenant_id: event.tenantId,
-        user_id: event.userId,
-        secret_key: dbSecretKey,
-        action: dbAction,
+      const response = await apiClient.post('v1/secrets/audit', {
+        tenantId: event.tenantId,
+        userId: event.userId,
+        secretKey: event.secretKey,
+        action: event.action,
         result: event.result,
-        error_message: event.error || event.reason,
-        metadata: dbMetadata,
-        timestamp: new Date().toISOString()
+        error: event.error || event.reason,
+        metadata: event.metadata ?? {},
       });
 
-      if (dbError) {
-        logger.error('Failed to write secret audit log to database', dbError, {
+      if (!response.success) {
+        logger.error('Failed to write secret audit log via backend API', new Error(response.error?.message || 'Unknown secret audit API error'), {
           tenantId: event.tenantId,
           action: event.action
         });

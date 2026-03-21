@@ -17,9 +17,38 @@ export const cacheLoaderDurationMs = new client.Histogram({
   registers: [registry],
 });
 
+export const cacheFillDurationMs = new client.Histogram({
+  name: "valuecanvas_cache_fill_duration_ms",
+  help: "Duration of cache fills in milliseconds",
+  labelNames: ["cache_name", "cache_namespace"],
+  buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
+  registers: [registry],
+});
+
 export const cacheCoalescedWaitersTotal = new client.Counter({
   name: "valuecanvas_cache_coalesced_waiters_total",
   help: "Total cache requests that joined an in-flight single-flight load",
+  labelNames: ["cache_name", "cache_namespace"],
+  registers: [registry],
+});
+
+export const cacheEvictionsTotal = new client.Counter({
+  name: "valuecanvas_cache_evictions_total",
+  help: "Total cache evictions by namespace and layer",
+  labelNames: ["cache_name", "cache_namespace", "cache_layer", "reason"],
+  registers: [registry],
+});
+
+export const cacheFallbackModeTotal = new client.Counter({
+  name: "valuecanvas_cache_fallback_mode_total",
+  help: "Total cache requests that entered a Redis fallback mode",
+  labelNames: ["cache_name", "cache_namespace", "fallback_mode", "reason"],
+  registers: [registry],
+});
+
+export const cacheHitRate = new client.Gauge({
+  name: "valuecanvas_cache_hit_rate",
+  help: "Rolling cache hit rate by namespace",
   labelNames: ["cache_name", "cache_namespace"],
   registers: [registry],
 });

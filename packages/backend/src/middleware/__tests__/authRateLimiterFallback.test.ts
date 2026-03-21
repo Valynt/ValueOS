@@ -84,11 +84,24 @@ describe("AuthRateLimitStore — degraded mode fallback counter", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it("fails closed for login when distributed auth protection is required", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    await expect(
+      store.increment("10.0.0.1", "user@example.com", AUTH_CONFIGS.login, {
+        requireDistributedStore: true,
+      })
+    ).rejects.toThrow(/Distributed auth rate limiting unavailable/);
+
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
   it("does NOT increment fallback counter when Redis is available", async () => {
     // Provide a mock Redis client with pipeline support matching the store's usage.
     const pipeline = {
       incr: vi.fn().mockReturnThis(),
-      pExpire: vi.fn().mockReturnThis(),
+      pexpire: vi.fn().mockReturnThis(),
       exec: vi.fn().mockResolvedValue([1, 1]),
     };
     const mockRedis = {

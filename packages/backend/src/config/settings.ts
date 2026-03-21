@@ -176,6 +176,7 @@ const SettingsSchema = z.object({
   DATABASE_POOL_ROLE: DatabasePoolRoleSchema.optional(),
   DATABASE_EXPECTED_CONCURRENCY: z.coerce.number().int().min(1).max(200).optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).optional(),
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(50).optional(),
   DATABASE_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
   DATABASE_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
   DATABASE_POOL_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
@@ -262,6 +263,7 @@ const resolvedEnv = {
   DATABASE_POOL_ROLE: readEnv("DATABASE_POOL_ROLE"),
   DATABASE_EXPECTED_CONCURRENCY: readEnv("DATABASE_EXPECTED_CONCURRENCY"),
   DATABASE_POOL_MAX: readEnv("DATABASE_POOL_MAX"),
+  DATABASE_POOL_SIZE: readEnv("DATABASE_POOL_SIZE"),
   DATABASE_POOL_IDLE_TIMEOUT_MS: readEnv("DATABASE_POOL_IDLE_TIMEOUT_MS"),
   DATABASE_POOL_CONNECTION_TIMEOUT_MS: readEnv("DATABASE_POOL_CONNECTION_TIMEOUT_MS"),
   DATABASE_POOL_STATEMENT_TIMEOUT_MS: readEnv("DATABASE_POOL_STATEMENT_TIMEOUT_MS"),
@@ -298,7 +300,7 @@ const appEnv = parsedSettings.APP_ENV ?? inferAppEnv(parsedSettings.NODE_ENV);
 const databasePoolSizing = deriveDatabasePoolSizing({
   appEnv,
   role: parsedSettings.DATABASE_POOL_ROLE ?? "api",
-  configuredMax: parsedSettings.DATABASE_POOL_MAX,
+  configuredMax: parsedSettings.DATABASE_POOL_MAX ?? parsedSettings.DATABASE_POOL_SIZE,
   expectedConcurrency: parsedSettings.DATABASE_EXPECTED_CONCURRENCY,
 });
 

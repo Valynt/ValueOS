@@ -13,7 +13,7 @@ tests/compliance/
 ├── privacy/
 │   └── pii-masking.test.ts               # GDPR Article 32 - PII protection
 └── security/
-    └── (future security compliance tests)
+    └── tenant-isolation-verification.test.ts  # SOC2 CC6.1 - Tenant isolation verification
 ```
 
 ## Implemented Tests
@@ -199,6 +199,9 @@ npm test -- tests/compliance/audit/audit-log-immutability.test.ts --run
 
 # PII masking tests
 npm test -- tests/compliance/privacy/pii-masking.test.ts --run
+
+# Tenant isolation verification (static fallback + trusted runtime lane)
+pnpm vitest run --config tests/security/vitest.security.config.ts tests/compliance/security/tenant-isolation-verification.test.ts
 ```
 
 ### Run with Coverage
@@ -234,7 +237,7 @@ If environment variables are absent, selected suites self-skip by design and CI 
 | Data Portability | ✅ Implemented | 25+ | 100% | ~642 |
 | Data Retention | ✅ Implemented | 30+ | 100% | ~520 |
 | Regional Residency | ✅ Implemented | 25+ | 100% | ~602 |
-| Tenant Isolation | ⏳ Planned | - | - | - |
+| Tenant Isolation | ✅ Implemented | 9+ | Static fallback + trusted runtime lane | ~430 |
 
 ---
 
@@ -254,10 +257,10 @@ If environment variables are absent, selected suites self-skip by design and CI 
    - Metering accuracy
 
 ### Day 5: Tenant Isolation
-1. Implement `tests/compliance/security/tenant-isolation-verification.test.ts`
-   - Cross-tenant access blocked
-   - RLS policies enforced
-   - Data isolation verified
+1. Keep `tests/compliance/security/tenant-isolation-verification.test.ts` green in both CI lanes
+   - Static fallback validates migration-backed tenant controls with no secrets
+   - Trusted runtime lane verifies JWT-scoped Supabase clients against the live schema
+   - Index coverage is validated statically everywhere and at runtime when `DATABASE_URL` is available
 
 ---
 
@@ -269,10 +272,10 @@ If environment variables are absent, selected suites self-skip by design and CI 
 |-------------|---------------|--------|
 | CC6.8 - Audit Logging | ✅ Audit Log Immutability | Ready |
 | CC6.7 - Data Protection | ✅ PII Masking | Ready |
-| CC6.1 - Access Control | ⏳ Tenant Isolation | Pending |
+| CC6.1 - Access Control | ✅ Tenant Isolation | Ready |
 | CC6.6 - Logical Access | ⏳ Authentication Tests | Pending |
 
-**Current SOC2 Readiness:** 50% (2/4 critical tests implemented)
+**Current SOC2 Readiness:** 75% (3/4 critical tests implemented)
 
 ### GDPR Requirements
 
