@@ -43,6 +43,7 @@ const { mockGeminiProxy, mockConversationHistory, mockContextFabric, mockRetrySe
 
 vi.mock("../../lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock("../../lib/agent-fabric/LLMGateway", () => ({

@@ -34,6 +34,7 @@ vi.mock("../redis.js", () => ({
 
 vi.mock("../logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 // createCounter is called at module level in rbacInvalidation.ts — must be

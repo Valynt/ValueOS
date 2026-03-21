@@ -7,7 +7,12 @@ vi.mock('../../../observability/valueLoopMetrics', () => ({
   recordAgentInvocation: vi.fn(),
   recordLoopCompletion: vi.fn(),
 }));
-vi.mock('../../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
+vi.mock('../../../lib/logger', () => ({
+  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
     from: vi.fn(function () {

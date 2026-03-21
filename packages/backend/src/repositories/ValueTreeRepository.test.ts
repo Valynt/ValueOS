@@ -20,6 +20,7 @@ vi.mock('../lib/logger.js', () => ({
     info: loggerInfo,
     error: loggerError,
   },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 import { supabase } from '../lib/supabase.js';
