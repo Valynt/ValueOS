@@ -409,7 +409,7 @@ export function validateEnvironment(
   const nodeEnv = env.NODE_ENV || "development";
   const errors: string[] = [];
   const warnings: string[] = [];
-  let safeDefaults: Record<string, any> = {};
+  let safeDefaults: Record<string, unknown> = {};
 
   writeStdout(`🔍 Validating environment configuration for ${nodeEnv}...`);
 
@@ -555,7 +555,7 @@ export function validateEnvironment(
  * This is the main function to use in application code
  */
 export function getValidatedEnvironment(): EnvValidationResult & {
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 } {
   const result = validateEnvironment();
 

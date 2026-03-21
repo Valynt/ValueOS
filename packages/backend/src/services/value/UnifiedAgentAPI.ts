@@ -23,6 +23,7 @@ import { logger } from "../lib/logger.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import type { LifecycleContext } from "../types/agent.js";
 import { AgentCache } from "../cache/AgentCache.js";
+import { normalizeCacheKeyPayload } from "../cache/CachePolicy.js";
 
 import { AgentType } from "./agent-types.js"
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
@@ -267,7 +268,7 @@ export class UnifiedAgentAPI {
 
     this.idempotencyCache = new AgentCache({
       namespace: "unified-agent-idempotency",
-      nearCacheEnabled: true,
+      nearCacheEnabled: false,
       nearCacheMaxEntries: 128,
       nearCacheMaxSizeMb: 8,
       nearCacheDefaultTtl: 15,
@@ -1045,14 +1046,26 @@ export class UnifiedAgentAPI {
   /**
    * Generate a cache key for agent requests
    */
-  private generateAgentCacheKey(request: UnifiedAgentRequest): string {
-    // Create a deterministic key from agent type, query, and normalized context
-    const normalizedContext = this.normalizeContextForCache(request.context);
-    const contextStr = JSON.stringify(normalizedContext);
-
-    // Simple hash of the combined inputs
-    const combined = `${request.agent}:${request.query}:${contextStr}`;
-    return this.simpleHash(combined);
+  private generateAgentCacheKey(request: UnifiedAgentRequest): Record<string, unknown> {
+    return normalizeCacheKeyPayload({
+      agent: request.agent,
+      query: request.query,
+      context: this.normalizeContextForCache(request.context),
+      parameters: this.normalizeContextForCache(request.parameters),
+      groundtruth: request.groundtruth
+        ? {
+            enabled: request.groundtruth.enabled ?? true,
+            endpoint: request.groundtruth.endpoint,
+            mergeKey: request.groundtruth.mergeKey,
+            payload: this.normalizeContextForCache(
+              request.groundtruth.payload as Record<string, any> | undefined
+            ),
+            requestOptions: this.normalizeContextForCache(
+              request.groundtruth.requestOptions as Record<string, any> | undefined
+            ),
+          }
+        : undefined,
+    }) as Record<string, unknown>;
   }
 
   /**
@@ -1077,19 +1090,6 @@ export class UnifiedAgentAPI {
         },
         {} as Record<string, any>
       );
-  }
-
-  /**
-   * Simple hash function for cache keys
-   */
-  private simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
   }
 
   private resolveTenantId(request: UnifiedAgentRequest): string {

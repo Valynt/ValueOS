@@ -20,6 +20,25 @@ x-common: &common
       max-file: "3"
 
 services:
+  secret-preflight:
+    restart: "no"
+    image: bash:5.2
+    container_name: valueos-secret-preflight
+    working_dir: /workspace/ValueOS
+    command: ["bash", ".devcontainer/scripts/validate-devcontainer-secrets.sh"]
+    environment:
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env}
+      TCT_SECRET: ${TCT_SECRET:?Set TCT_SECRET in .env}
+      WEB_SCRAPER_ENCRYPTION_KEY: ${WEB_SCRAPER_ENCRYPTION_KEY:?Set WEB_SCRAPER_ENCRYPTION_KEY in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-}
+      CACHE_ENCRYPTION_KEY: ${CACHE_ENCRYPTION_KEY:-}
+    volumes:
+      - ..:/workspace/ValueOS:ro
+
   # ============================================================================
   # DEVELOPMENT WORKSPACE
   # ============================================================================
@@ -80,6 +99,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../infra/supabase/supabase/init-scripts:/docker-entrypoint-initdb.d
+    depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres} -d ${PGDATABASE:-valueos}"]
       interval: 10s
@@ -148,6 +170,8 @@ services:
       retries: 5
       start_period: 15s
     depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       mailhog:
@@ -168,6 +192,8 @@ services:
       PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${KONG_PROXY_PORT:-54321}
     depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
 
@@ -187,11 +213,13 @@ services:
       DB_PASSWORD: ${PGPASSWORD:-postgres}
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-UP501zJgO9sOoCVlU9xM4u1NRFv3ZP5d1H9X8s2O9qQ2gK9k7tQ4v1e9v9r8s7}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env}
       FLY_ALLOC_ID: realtime
       FLY_APP_NAME: realtime
       FLY_REGION: local
     depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
 
@@ -206,8 +234,8 @@ services:
     environment:
       DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
-      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
+      ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env}
+      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
       TENANT_ID: valueos
@@ -215,6 +243,8 @@ services:
       GLOBAL_S3_BUCKET: valueos-bucket
       PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       rest:
@@ -300,12 +330,14 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SUPABASE_URL: http://kong:8000
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
       VERIFY_JWT: "true"
     volumes:
       - ../supabase/functions:/home/deno/functions:ro
     depends_on:
+      secret-preflight:
+        condition: service_completed_successfully
       kong:
         condition: service_started
 

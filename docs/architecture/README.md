@@ -6,7 +6,7 @@ system: valueos-platform
 
 # Architecture
 
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-03-21
 
 ---
 
@@ -29,10 +29,10 @@ Use this section as the canonical reference when updating repository-level docs,
 
 The checked-in application workspaces under `apps/` are:
 
-- `apps/ValyntApp` — customer-facing frontend runtime
-- `apps/mcp-dashboard` — internal MCP observability dashboard workspace
+- `apps/ValyntApp` (`valynt-app`) — customer-facing frontend runtime
+- `apps/mcp-dashboard` (`mcp-dashboard`) — internal MCP observability dashboard workspace
 
-The primary API runtime remains `packages/backend`. If a repository summary claims a different `apps/` inventory, treat the filesystem and this section as the source of truth and update the stale document.
+The primary API runtime remains `packages/backend` (`@valueos/backend`). The current top-level directories under `packages/` are `backend`, `components`, `config-v2`, `infra`, `integrations`, `mcp`, `memory`, `sdui`, `services`, `shared`, and `test-utils`. If a repository summary claims a different `apps/` or `packages/` inventory, treat the filesystem and this section as the source of truth and update the stale document.
 
 ### Canonical file locations
 

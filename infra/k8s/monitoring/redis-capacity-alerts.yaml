@@ -1,0 +1,144 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: redis-capacity-alerts
+  labels:
+    app.kubernetes.io/component: redis
+spec:
+  groups:
+    - name: redis.capacity
+      rules:
+        - alert: RedisCacheMemoryHigh
+          expr: |
+            100 * (
+              redis_memory_used_bytes{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}
+              /
+              clamp_min(redis_config_maxmemory{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}, 1)
+            ) >= 70
+          for: 15m
+          labels:
+            severity: warning
+            component: redis
+            redis_role: cache
+          annotations:
+            summary: "Cache Redis memory usage above 70%"
+            description: "Cache Redis is using {{ $value }}% of configured maxmemory for 15 minutes."
+        - alert: RedisCacheMemoryCritical
+          expr: |
+            100 * (
+              redis_memory_used_bytes{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}
+              /
+              clamp_min(redis_config_maxmemory{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}, 1)
+            ) >= 85
+          for: 15m
+          labels:
+            severity: critical
+            component: redis
+            redis_role: cache
+          annotations:
+            summary: "Cache Redis memory usage above 85%"
+            description: "Cache Redis is nearly full and eviction pressure is likely to increase."
+        - alert: RedisControlPlaneMemoryHigh
+          expr: |
+            100 * (
+              redis_memory_used_bytes{job=~"redis-control-plane|redis-exporter",instance=~".*redis-control-plane.*"}
+              /
+              clamp_min(redis_config_maxmemory{job=~"redis-control-plane|redis-exporter",instance=~".*redis-control-plane.*"}, 1)
+            ) >= 60
+          for: 15m
+          labels:
+            severity: warning
+            component: redis
+            redis_role: control-plane
+          annotations:
+            summary: "Control-plane Redis memory usage above 60%"
+            description: "Control-plane Redis has consumed {{ $value }}% of maxmemory for 15 minutes."
+        - alert: RedisControlPlaneMemoryCritical
+          expr: |
+            100 * (
+              redis_memory_used_bytes{job=~"redis-control-plane|redis-exporter",instance=~".*redis-control-plane.*"}
+              /
+              clamp_min(redis_config_maxmemory{job=~"redis-control-plane|redis-exporter",instance=~".*redis-control-plane.*"}, 1)
+            ) >= 75
+          for: 15m
+          labels:
+            severity: critical
+            component: redis
+            redis_role: control-plane
+          annotations:
+            summary: "Control-plane Redis memory usage above 75%"
+            description: "Control-plane Redis is approaching a fail-closed condition and should be scaled immediately."
+        - alert: RedisCacheEvictionRateHigh
+          expr: |
+            sum by (instance) (
+              rate(redis_evicted_keys_total{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}[15m])
+            ) > 1
+          for: 15m
+          labels:
+            severity: warning
+            component: redis
+            redis_role: cache
+          annotations:
+            summary: "Cache Redis eviction rate above 1 key/sec"
+            description: "Cache Redis is evicting {{ $value }} keys/sec over 15 minutes."
+        - alert: RedisCacheEvictionRateCritical
+          expr: |
+            sum by (instance) (
+              rate(redis_evicted_keys_total{job=~"redis-cache|redis-exporter",instance=~".*redis-cache.*"}[15m])
+            ) > 5
+          for: 15m
+          labels:
+            severity: critical
+            component: redis
+            redis_role: cache
+          annotations:
+            summary: "Cache Redis eviction rate above 5 keys/sec"
+            description: "Cache Redis is thrashing and interactive latency is at risk."
+        - alert: RedisCommandLatencyHigh
+          expr: |
+            (
+              sum by (instance) (rate(redis_commands_duration_seconds_total[5m]))
+              /
+              clamp_min(sum by (instance) (rate(redis_commands_processed_total[5m])), 0.001)
+            ) > 0.002
+          for: 10m
+          labels:
+            severity: warning
+            component: redis
+          annotations:
+            summary: "Average Redis command latency above 2 ms"
+            description: "Average Redis command latency is {{ $value }} seconds over the last 5 minutes."
+        - alert: RedisCommandLatencyCritical
+          expr: |
+            (
+              sum by (instance) (rate(redis_commands_duration_seconds_total[5m]))
+              /
+              clamp_min(sum by (instance) (rate(redis_commands_processed_total[5m])), 0.001)
+            ) > 0.005
+          for: 10m
+          labels:
+            severity: critical
+            component: redis
+          annotations:
+            summary: "Average Redis command latency above 5 ms"
+            description: "Redis command latency is above the critical threshold."
+        - alert: RedisClientReconnectRateHigh
+          expr: |
+            sum by (role) (increase(valuecanvas_redis_client_reconnects_total[15m])) > 3
+          for: 15m
+          labels:
+            severity: warning
+            component: redis
+          annotations:
+            summary: "Redis client reconnect rate is elevated for role {{ $labels.role }}"
+            description: "Backend Redis clients for role {{ $labels.role }} reconnected {{ $value }} times in 15 minutes."
+        - alert: RedisClientReconnectRateCritical
+          expr: |
+            sum by (role) (increase(valuecanvas_redis_client_reconnects_total[15m])) > 10
+          for: 15m
+          labels:
+            severity: critical
+            component: redis
+          annotations:
+            summary: "Redis client reconnect storm for role {{ $labels.role }}"
+            description: "Backend Redis clients for role {{ $labels.role }} reconnected {{ $value }} times in 15 minutes."

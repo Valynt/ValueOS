@@ -86,6 +86,8 @@ export class NonceStore {
   ): Promise<boolean> {
     const key = this.buildKey(issuer, nonce);
     const redisClient = await this.ensureRedisClient();
+    const requireDistributedNonceStore =
+      options.requireRedis ?? process.env.NODE_ENV === "production";
 
     if (redisClient) {
       const ttlSeconds = Math.ceil(this.ttlMs / 1000);
@@ -97,11 +99,11 @@ export class NonceStore {
         return result === 'OK';
       } catch (error) {
         this.redisError = error as Error;
-        if (options.requireRedis) {
+        if (requireDistributedNonceStore) {
           throw new NonceStoreUnavailableError('Redis unavailable for nonce replay protection');
         }
       }
-    } else if (options.requireRedis) {
+    } else if (requireDistributedNonceStore) {
       const reason = this.redisConfigured
         ? 'Redis unavailable for nonce replay protection'
         : 'Redis not configured for nonce replay protection';

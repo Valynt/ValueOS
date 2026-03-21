@@ -58,6 +58,88 @@ spec:
               )
             )
 
+        - record: valueos:deployment_memory_request_bytes
+          expr: |
+            sum by (namespace, workload) (
+              kube_pod_container_resource_requests{namespace=~"valynt|valynt-agents", resource="memory", unit="byte"}
+              * on(namespace, pod) group_left(workload)
+              label_replace(
+                max by (namespace, pod, label_workload) (
+                  kube_pod_labels{namespace=~"valynt|valynt-agents", label_workload!=""}
+                ),
+                "workload",
+                "$1",
+                "label_workload",
+                "(.*)"
+              )
+            )
+
+        - record: valueos:deployment_app_memory_rss_bytes
+          expr: |
+            sum by (namespace, workload) (
+              container_memory_rss{
+                namespace=~"valynt|valynt-agents",
+                container!="",
+                container!~"POD|opa-ext-authz|auth-proxy",
+                pod!=""
+              }
+              * on(namespace, pod) group_left(workload)
+              label_replace(
+                max by (namespace, pod, label_workload) (
+                  kube_pod_labels{namespace=~"valynt|valynt-agents", label_workload!=""}
+                ),
+                "workload",
+                "$1",
+                "label_workload",
+                "(.*)"
+              )
+            )
+
+        - record: valueos:deployment_sidecar_memory_rss_bytes
+          expr: |
+            sum by (namespace, workload) (
+              container_memory_rss{
+                namespace=~"valynt|valynt-agents",
+                container=~"opa-ext-authz|auth-proxy",
+                pod!=""
+              }
+              * on(namespace, pod) group_left(workload)
+              label_replace(
+                max by (namespace, pod, label_workload) (
+                  kube_pod_labels{namespace=~"valynt|valynt-agents", label_workload!=""}
+                ),
+                "workload",
+                "$1",
+                "label_workload",
+                "(.*)"
+              )
+            )
+
+        - record: valueos:deployment_sidecar_memory_share
+          expr: |
+            valueos:deployment_sidecar_memory_rss_bytes
+            /
+            clamp_min(valueos:deployment_memory_rss_bytes, 1)
+
+        - record: valueos:deployment_sidecar_heavy_memory_pressure
+          expr: |
+            (
+              valueos:deployment_memory_rss_bytes
+              / clamp_min(valueos:deployment_memory_request_bytes, 1)
+              > bool 0.8
+            )
+            * on(namespace, workload)
+            (
+              valueos:deployment_app_memory_rss_bytes
+              / clamp_min(valueos:deployment_memory_request_bytes, 1)
+              < bool 0.4
+            )
+            * on(namespace, workload)
+            (
+              valueos:deployment_sidecar_memory_share
+              > bool 0.35
+            )
+
         - record: valueos:worker_queue_lag_jobs
           expr: |
             label_replace(

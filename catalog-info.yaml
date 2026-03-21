@@ -1,39 +1,21 @@
-# Backstage catalog descriptor — RFC-2024-023 compliant
-# Auto-generated fields are marked [auto]. Fields needing human input are marked TODO.
 apiVersion: backstage.io/v1alpha1
 kind: Component
-
 metadata:
-  # [auto] Derived from repository name, lowercased
   name: valueos
-
-  # [auto] Summarized from README (122 chars)
   description: >-
     AI-powered value engineering platform for B2B SaaS with multi-agent
-    orchestration and tenant-isolated lifecycle workflows.
-
+    orchestration, a React frontend, and a tenant-isolated Express API.
   tags:
-    # --- Required tags (RFC-2024-023) ---
-    # [auto] Primary language: TypeScript throughout (frontend, backend, agents, infra)
     - typescript
-    # [auto] Component category: Express API + React frontend + agent workers
-    - api
-    # [auto] Visibility: proprietary license, private repository
-    - internal
-    # --- Optional tags ---
+    - monorepo
     - react
     - express
     - supabase
     - ai-agents
-    - b2b-saas
-    - monorepo
-
+    - internal
   links:
     - url: https://app.valueos.com
       title: Production Application
-    - url: https://grafana.valueos.com/d/valueos-mission-control
-      title: Grafana Mission Control Dashboard
-      icon: dashboard
     - url: https://github.com/Valynt/ValueOS/blob/main/docs/operations/incident-response.md
       title: Incident Response Playbook
       icon: docs
@@ -43,34 +25,16 @@ metadata:
     - url: https://github.com/Valynt/ValueOS/blob/main/docs/runbooks/disaster-recovery.md
       title: Disaster Recovery Runbook
       icon: docs
-
   annotations:
-    # [auto] Derived from GitHub repository path
     github.com/project-slug: Valynt/ValueOS
-    # TODO: Add PagerDuty service ID if applicable
-    # pagerduty.com/service-id: PXXXXXXX
-    # TODO: Add SonarQube project key if applicable
-    # sonarqube.org/project-key: valueos
-
 spec:
-  # [auto] Full-stack platform with Express API, React frontend, BullMQ workers
   type: service
-
-  # [auto] Active daily development (2800+ commits in 2025), K8s + Terraform
-  # deployment infrastructure in place. Version is 0.1.0 — change to
-  # 'experimental' if not yet serving production traffic with SLA commitments.
   lifecycle: production
-
-  # Backstage-registered owning team and system for operational accountability.
-  owner: group:team-platform
+  owner: team:platform-engineering
   system: valueos-platform
-
-  # [auto] Known infrastructure dependencies
   dependsOn:
     - resource:supabase-postgres
     - resource:redis
-    - resource:kafka
-
 
 ---
 apiVersion: backstage.io/v1alpha1
@@ -79,17 +43,17 @@ metadata:
   name: valueos-platform
   description: Canonical ValueOS platform system spanning application, data, security, and observability controls.
 spec:
-  owner: group:team-platform
+  owner: team:platform-engineering
 
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
-  name: team-platform
+  name: platform-engineering
   description: Platform engineering team accountable for ValueOS runtime ownership, deployment controls, and operational governance.
 spec:
   type: team
   profile:
-    displayName: Team Platform
+    displayName: Platform Engineering
     email: platform-leadership@valueos.com
   children: []

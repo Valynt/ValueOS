@@ -49,7 +49,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      redis-control-plane:
+        condition: service_healthy
+      redis-cache:
         condition: service_healthy
     environment:
       NODE_ENV: staging
@@ -62,9 +64,13 @@ services:
       SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.staging}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.staging}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in ops/env/.env.staging}
-      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in ops/env/.env.staging}
+      REDIS_URL: ${REDIS_CONTROL_PLANE_URL:?Set REDIS_CONTROL_PLANE_URL in ops/env/.env.staging}
+      REDIS_CONTROL_PLANE_URL: ${REDIS_CONTROL_PLANE_URL:?Set REDIS_CONTROL_PLANE_URL in ops/env/.env.staging}
+      REDIS_CACHE_URL: ${REDIS_CACHE_URL:?Set REDIS_CACHE_URL in ops/env/.env.staging}
       REDIS_TLS_REJECT_UNAUTHORIZED: ${REDIS_TLS_REJECT_UNAUTHORIZED:-true}
       REDIS_TLS_CA_CERT_PATH: ${REDIS_TLS_CA_CERT_PATH:-}
+      REDIS_CONTROL_PLANE_TLS_SERVERNAME: ${REDIS_CONTROL_PLANE_TLS_SERVERNAME:-${REDIS_TLS_SERVERNAME:-}}
+      REDIS_CACHE_TLS_SERVERNAME: ${REDIS_CACHE_TLS_SERVERNAME:-${REDIS_TLS_SERVERNAME:-}}
       REDIS_TLS_SERVERNAME: ${REDIS_TLS_SERVERNAME:-}
       JWT_SECRET: ${JWT_SECRET:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
@@ -156,23 +162,50 @@ services:
       retries: 5
       start_period: 30s
 
-  # -- Redis (staging) -------------------------------------------------------
-  redis:
+  # -- Redis control-plane (staging) -----------------------------------------
+  # Stores idempotency keys, RBAC pub/sub, rate limiting state, and agent state.
+  # Uses noeviction so control-plane state fails closed instead of silently evicting.
+  redis-control-plane:
     <<: *staging-common
     image: redis:7-alpine
-    container_name: valueos-redis-staging
+    container_name: valueos-redis-control-plane-staging
     command: >-
       redis-server
       --appendonly yes
-      --maxmemory ${REDIS_MAXMEMORY:-1gb}
-      --maxmemory-policy allkeys-lru
+      --maxmemory ${REDIS_CONTROL_PLANE_MAXMEMORY:-256mb}
+      --maxmemory-policy noeviction
     volumes:
-      - redis_data:/data
+      - redis_control_plane_data:/data
     deploy:
       resources:
         limits:
           cpus: "0.5"
-          memory: 512M
+          memory: 384M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # -- Redis read-cache (staging) ---------------------------------------------
+  # Dedicated allkeys-lru instance for latency-sensitive API/ESO read caches.
+  redis-cache:
+    <<: *staging-common
+    image: redis:7-alpine
+    container_name: valueos-redis-cache-staging
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory ${REDIS_CACHE_MAXMEMORY:-768mb}
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_cache_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -187,7 +220,9 @@ volumes:
     driver: local
   postgres_data:
     driver: local
-  redis_data:
+  redis_control_plane_data:
+    driver: local
+  redis_cache_data:
     driver: local
 
 networks:

@@ -3,9 +3,15 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: financial-modeling-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
   labels:
     app: financial-modeling-agent
-    autoscaling.valueos.dev/profile: financial-critical
+    autoscaling.valueos.dev/profile: warm-interactive-agent
+    scaling.valueos.io/request-path-policy: interactive-allowlisted
+    scaling.valueos.io/cold-start-class: warm-interactive
+    scaling.valueos.io/execution-class: interactive
+    monitoring.valueos.dev/interactive-completion-p95-ms: "200"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -39,11 +45,15 @@ spec:
           averageUtilization: 75
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 180
+      selectPolicy: Min
       policies:
         - type: Percent
-          value: 25
+          value: 20
           periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 90
     scaleUp:
       stabilizationWindowSeconds: 0
       policies:

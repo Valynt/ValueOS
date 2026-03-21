@@ -25,7 +25,7 @@ router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 const complianceFrameworkSchema = z
   .string()
   .refine(
-    (value): value is typeof ALL_COMPLIANCE_FRAMEWORKS[number] => complianceFrameworkCapabilityGate.isSupportedFramework(value),
+    (value): value is typeof ALL_COMPLIANCE_FRAMEWORKS[number] => complianceFrameworkCapabilityGate.isKnownFramework(value),
     { message: "Unsupported compliance framework" },
   );
 
@@ -51,6 +51,17 @@ function getTenantId(req: Request): string | null {
 
 function getActorId(req: Request): string {
   return req.user?.id ?? req.user?.sub ?? "system";
+}
+
+function getFrameworkModeStatuses() {
+  return complianceFrameworkCapabilityGate.getCapabilityStatuses().map((status) => ({
+    framework: status.framework,
+    availability: status.availability,
+    selectable: status.supported,
+    prerequisites_met: status.prerequisites_met,
+    gate_label: status.gate_label,
+    missing_prerequisites: status.missingPrerequisites,
+  }));
 }
 
 router.get("/control-status", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: Request, res: Response) => {
@@ -242,12 +253,12 @@ router.get("/stream", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req
   res.setHeader("Connection", "keep-alive");
 
   let closed = false;
-  let interval: ReturnType<typeof setInterval> | undefined;
+  const interval = setInterval(() => void push(), 30_000);
 
   const cleanup = () => {
     if (closed) return;
     closed = true;
-    if (interval !== undefined) clearInterval(interval);
+    clearInterval(interval);
     res.end();
   };
 
@@ -278,7 +289,6 @@ router.get("/stream", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req
   };
 
   await push();
-  interval = setInterval(() => void push(), 30_000);
 
   req.on("close", cleanup);
   res.on("error", cleanup);
@@ -349,9 +359,8 @@ router.get("/mode", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: 
 
   return res.json({
     tenant_id: tenantId,
-    active_modes: complianceFrameworkCapabilityGate.getSupportedFrameworks().filter((framework) =>
-      ["SOC2", "GDPR"].includes(framework),
-    ),
+    active_modes: complianceFrameworkCapabilityGate.getExposedFrameworks(),
+    framework_statuses: getFrameworkModeStatuses(),
     strict_enforcement: true,
     last_changed_at: new Date().toISOString(),
   });

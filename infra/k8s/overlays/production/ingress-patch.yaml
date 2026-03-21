@@ -7,7 +7,8 @@ metadata:
     # Set these values from your AWS Certificate Manager ARN for the production domain.
     # Example: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID
     alb.ingress.kubernetes.io/certificate-arn: ""
-    # WAF ACL ARN — provision via Terraform and set here.
+    # WAF ACL ARN — provision the rate-based policy for login/signup/reset/MFA,
+    # admin APIs, and expensive write paths, then set it here.
     # alb.ingress.kubernetes.io/wafv2-acl-arn: ""
     alb.ingress.kubernetes.io/tags: Environment=production,Application=valynt
 spec:
