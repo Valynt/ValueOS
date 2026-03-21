@@ -26,7 +26,8 @@ packages/
 
 infra/
   k8s/              # Kubernetes manifests (blue-green, HPA, network policies)
-  terraform/        # AWS infrastructure (ECS, RDS, ElastiCache, CloudFront)
+  terraform/        # Active supporting cloud infrastructure (networking, data, cache, monitoring)
+  archive/          # Archived infrastructure references and retired deployment models
   supabase/         # Database migrations and RLS policies
   observability/    # Prometheus, Grafana, OpenTelemetry configs
 ```
@@ -254,7 +255,7 @@ See [docs/security-compliance/](docs/security-compliance/) for the full security
 
 ## Deployment
 
-See [DEPLOY.md](DEPLOY.md) for production deployment instructions using Docker Compose with Caddy, or the Kubernetes manifests in `infra/k8s/`.
+See [infra/README.md](infra/README.md) for the canonical infrastructure classification and authoritative deployment path, and [DEPLOY.md](DEPLOY.md) for the shared-environment Kubernetes deployment flow. Docker Compose remains local-only under `ops/compose/`.
 
 ## Contributing
 

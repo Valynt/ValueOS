@@ -116,7 +116,7 @@ Most AI systems have memory that is ephemeral, hidden, or loosely governed. Valu
 
 **S12-1 — DB: Promote memory migrations + expansion_opportunities**
 - `infra/supabase/supabase/migrations/20260328000000_memory_and_expansion.sql`
-- Promote and adapt `_deferred_archived/20260115_memory_first_architecture.sql`:
+- Promote and adapt `archive/deferred-superseded/20260115_memory_first_architecture.sql`:
   - `semantic_memory`: `id`, `organization_id`, `agent_type`, `memory_type`, `content text`, `embedding vector(1536)`, `metadata jsonb`, `status text`, `created_at`, `updated_at`
   - `memory_hybrid_search_chunks` RPC (70% vector + 30% BM25)
   - `memory_match_chunks` RPC (pure vector)

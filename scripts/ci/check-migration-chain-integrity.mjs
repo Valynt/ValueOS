@@ -10,7 +10,7 @@
  *      somewhere in the active migration chain (catches IF NOT EXISTS masking
  *      drift where a table was dropped but indexes remain).
  *
- * Skips archived/deferred directories (prefixed with _).
+ * Skips archived/deferred directories outside the active top-level chain.
  * Skips rollback files (*.rollback.sql).
  *
  * Exit codes:
@@ -28,7 +28,9 @@ const MIGRATIONS_DIR = resolve(ROOT, "infra/supabase/supabase/migrations");
 // schema foundation. We read their CREATE TABLE definitions for column
 // extraction but do not validate their indexes (they are immutable).
 const FOUNDATION_DIRS = [
-  resolve(MIGRATIONS_DIR, "_archived_monolith_20260213"),
+  resolve(MIGRATIONS_DIR, "archive/monolith-20260213"),
+  resolve(MIGRATIONS_DIR, "archive/pre-initial-release-2026-03"),
+  resolve(MIGRATIONS_DIR, "archive/deferred-superseded"),
 ];
 
 // ---------------------------------------------------------------------------
@@ -110,7 +112,7 @@ function extractTableColumns(createTableSql) {
  * Parse all CREATE TABLE statements from SQL text.
  * Returns Map<tableName, Set<columnName>>.
  */
-function parseCreateTables(sql) {
+function parseCreateTables(sql, knownTables = new Map()) {
   const tables = new Map();
   // Match CREATE [OR REPLACE] TABLE [IF NOT EXISTS] [schema.]name (...)
   const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:\w+\.)?(\w+)\s*\(/gi;
@@ -125,6 +127,16 @@ function parseCreateTables(sql) {
     if (!tables.has(tableName)) {
       tables.set(tableName, new Set());
     }
+
+    const likeMatch = snippet.match(/LIKE\s+(?:\w+\.)?(\w+)\s+INCLUDING\s+ALL/i);
+    if (likeMatch) {
+      const sourceTable = likeMatch[1].toLowerCase();
+      const inheritedColumns = knownTables.get(sourceTable) ?? tables.get(sourceTable);
+      if (inheritedColumns) {
+        for (const c of inheritedColumns) tables.get(tableName).add(c);
+      }
+    }
+
     for (const c of cols) tables.get(tableName).add(c);
   }
   return tables;
@@ -144,10 +156,12 @@ function parseCreateIndexes(sql, file) {
     const indexName = match[1].toLowerCase();
     const tableName = match[2].toLowerCase();
     // Extract column names from the index column list (strip expressions, cast, DESC/ASC).
-    const rawCols = match[3].split(",").map((c) => {
-      // Take the first identifier token; strip casts (::type), functions, DESC/ASC.
-      return c.trim().split(/[\s:(]/)[0].toLowerCase().replace(/"/g, "");
-    }).filter(Boolean);
+    const rawCols = match[3]
+      .split(",")
+      .map((c) => c.trim())
+      .filter((c) => !/[()]/.test(c))
+      .map((c) => c.split(/[\s:]/)[0].toLowerCase().replace(/"/g, ""))
+      .filter(Boolean);
     indexes.push({ indexName, tableName, columns: rawCols, file });
   }
   return indexes;
@@ -221,7 +235,7 @@ for (const dir of FOUNDATION_DIRS) {
   for (const entry of foundationFiles) {
     const raw = readFileSync(resolve(dir, entry.name), "utf8");
     const sql = normalise(raw);
-    mergeTables(parseCreateTables(sql));
+    mergeTables(parseCreateTables(sql, allTables));
     mergeTables(parseAlterTableAddColumn(sql));
   }
 }
@@ -239,7 +253,7 @@ for (const entry of entries) {
   const sql = normalise(raw);
 
   // Merge CREATE TABLE and ALTER TABLE ADD COLUMN definitions.
-  mergeTables(parseCreateTables(sql));
+  mergeTables(parseCreateTables(sql, allTables));
   mergeTables(parseAlterTableAddColumn(sql));
 
   // Collect index definitions.

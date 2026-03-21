@@ -1,76 +1,83 @@
 # Infrastructure
 <!-- active-runtime-platform: kubernetes -->
+<!-- authoritative-infra-classification: true -->
 
 This directory contains the deployment and operational infrastructure for ValueOS.
 
-## Runtime platform contract
+## Canonical deployment authority
 
-**Kubernetes is the only active deploy target for shared staging and production environments.**
+`infra/README.md` is the **canonical infrastructure classification** for this repository.
 
-- **Active runtime manifests:** `infra/k8s/base/` plus `infra/k8s/overlays/staging/` and `infra/k8s/overlays/production/`
-- **Active runtime deployment workflow:** `.github/workflows/deploy.yml`
-- **Local development substrate:** `ops/compose/compose.yml` and optional Compose profiles for workstation-only dependencies
-- **Supporting infrastructure substrate:** Terraform under `infra/terraform/`, `infra/terraform-new/`, and `infra/environments/*/terraform/`
-- **Archived non-production references:** `infra/reference/terraform-archived-ecs/`
+When root docs, architecture summaries, or runbooks describe which deployment model is active, they must follow the status matrix in this file.
 
-## Platform boundary: Terraform vs Kubernetes
+## Active deployment contract
+
+**Kubernetes is the only active shared-environment runtime for staging and production.**
+
+- **Active runtime manifests:** `infra/k8s/base/`, `infra/k8s/overlays/staging/`, `infra/k8s/overlays/production/`
+- **Active deployment workflow:** `.github/workflows/deploy.yml`
+- **Active supporting infrastructure:** `infra/terraform/` and `infra/environments/*/terraform/`
+- **Active database migration chain:** top-level timestamped files in `infra/supabase/supabase/migrations/`
+- **Local-only substrate:** `ops/compose/`
+
+## Classification matrix
+
+### `infra/k8s/`
+
+| Scope | Classification | Why |
+| --- | --- | --- |
+| `base/`, `overlays/staging/`, `overlays/production/`, `cronjobs/`, `monitoring/`, `security/`, `observability/`, `zero-trust/` | Active | Canonical Kubernetes runtime manifests and cluster operations assets. |
+| README guidance that points to `DEPLOY.md` and this file | Active | Documents the live deployment path. |
+| Any future `archive/` or explicitly marked legacy subtree | Archived-reference | Allowed only for historical or break-glass material, never for normal deploys. |
+| Deprecated manifests renamed or suffixed as deprecated/disabled | Deprecated | Retained only until removal is safe. |
+
+### `infra/terraform/`
+
+| Scope | Classification | Why |
+| --- | --- | --- |
+| `main.tf`, `variables.tf`, `modules/cache`, `modules/cdn`, `modules/database`, `modules/monitoring`, `modules/networking`, `modules/security` | Active | Supporting cloud infrastructure for the Kubernetes runtime. |
+| `enable_ecs` gated module blocks in `main.tf` | Archived-reference | Kept only to point at archived ECS modules behind an explicit opt-in. |
+| `infra/archive/terraform/ecs-reference/` | Archived-reference | Historical ECS/Fargate implementation for audit and break-glass review only. |
+| Any Terraform root or workflow that treats ECS as an active runtime | Deprecated | Invalid under the current platform contract and blocked by CI. |
+
+### `infra/supabase/supabase/migrations/`
+
+| Scope | Classification | Why |
+| --- | --- | --- |
+| Top-level timestamped `*.sql` and `*.rollback.sql` files | Active | Canonical migration chain applied by CI and release tooling. |
+| `archive/monolith-20260213/` | Archived-reference | Monolith-era schema history retained for auditability only. |
+| `archive/deferred-superseded/` | Archived-reference | Deferred or superseded migrations preserved for reference and recovery analysis. |
+| `archive/pre-initial-release-2026-03/` | Archived-reference | Pre-baseline migration chain preserved after deterministic baseline consolidation. |
+| Any archived SQL restored to the top level without a reviewed migration plan | Deprecated | Reintroduces ambiguous schema history and is blocked by policy. |
+
+## Platform boundary
 
 Terraform manages the cloud primitives that Kubernetes depends on, including:
 
-- network boundaries, VPC/subnets, and load-balancer prerequisites
-- IAM roles, DNS, certificates, secret backends, and observability backends
-- managed data services and other shared/stateful infrastructure
-- cluster prerequisites and environment-level supporting infrastructure
+- networking, VPC/subnets, ingress prerequisites, and DNS
+- IAM roles, certificates, secret backends, and external observability backends
+- managed databases, caches, queues, storage, and other shared services
+- environment-level support infrastructure and cluster prerequisites
 
 Kubernetes manages the runtime boundary starting at the cluster API:
 
-- application Deployments, Services, HPAs, CronJobs, ConfigMaps, and network policies
-- rollout strategy, runtime scaling, pod-level health checks, and service-to-service policy
+- Deployments, Services, HPAs, CronJobs, ConfigMaps, and policy objects
+- rollout strategy, runtime scaling, health checks, and service discovery
 - environment overlays that promote the same runtime into staging and production
 
-**Rule of thumb:** Terraform gets the platform ready for the cluster; Kubernetes runs the application inside the cluster.
+**Rule of thumb:** Terraform prepares the platform. Kubernetes runs ValueOS on that platform.
 
-## Canonical inventory
+## Archive boundary
 
-### Active runtime targets
+Archived infrastructure now lives behind explicit archive roots:
 
-| Target | Path | Purpose | Status |
-| --- | --- | --- | --- |
-| Base runtime manifests | `infra/k8s/base/` | Canonical shared runtime manifests for backend, frontend, workers, messaging, and policy objects. | Active |
-| Staging overlay | `infra/k8s/overlays/staging/` | Staging-specific Kubernetes patches and configuration. | Active |
-| Production overlay | `infra/k8s/overlays/production/` | Production-specific Kubernetes patches and configuration. | Active |
-| Observability manifests | `infra/k8s/observability/` | Cluster-observable telemetry stack and related helpers. | Active |
-| Security manifests | `infra/k8s/security/` and `infra/k8s/zero-trust/` | Runtime network policy, authorization, and zero-trust enforcement. | Active |
-| Scheduled runtime jobs | `infra/k8s/cronjobs/` | Kubernetes-native scheduled operations. | Active |
+- `infra/archive/terraform/ecs-reference/`
+- `infra/supabase/supabase/migrations/archive/`
 
-### Supporting infrastructure targets
+Archive material is retained for audit history, disaster-recovery analysis, or superseded migration review. It is **not** part of the active deployment or migration path.
 
-| Target | Path | Purpose | Status |
-| --- | --- | --- | --- |
-| Shared Terraform root | `infra/terraform/` | Canonical Terraform for shared cloud resources and support systems. | Active |
-| Next Terraform root | `infra/terraform-new/` | Newer Terraform root under active development. | Active |
-| Dev environment Terraform | `infra/environments/dev/terraform/` | Environment support infrastructure for development. | Active |
-| Staging environment Terraform | `infra/environments/staging/terraform/` | Environment support infrastructure for staging. | Active |
-| Production environment Terraform | `infra/environments/prod/terraform/` | Environment support infrastructure for production. | Active |
+## Entry points
 
-### Local-only Compose targets
-
-| Target | Path | Purpose | Status |
-| --- | --- | --- | --- |
-| Base local stack | `ops/compose/compose.yml` | Local developer dependencies such as Postgres, Redis, and NATS. | Active |
-| Optional local profiles | `ops/compose/profiles/*.yml` | Workstation-only profiles for Studio, observability, devcontainer, or local runtime experiments. | Active |
-| Legacy compatibility shims | `infra/docker/*.yml` | Compatibility wrappers and prod-like container references; not the shared deploy path. | Limited |
-
-## Archived ECS reference
-
-Archived ECS modules live under `infra/reference/terraform-archived-ecs/`.
-
-- They are retained for audit history and disaster-recovery design review.
-- They are not part of the active deployment path.
-- CI blocks active Terraform roots and workflow files from referencing the archive until a dedicated break-glass workflow is explicitly approved.
-
-## Deploy and operations entry points
-
-- Runtime deployment: see `DEPLOY.md`
-- Kubernetes runtime guidance: see `infra/k8s/README.md`
-- Architecture boundary: see `docs/architecture/infrastructure-architecture.md`
+- Shared-environment deployment flow: `DEPLOY.md`
+- Kubernetes runtime details: `infra/k8s/README.md`
+- Infrastructure architecture summary: `docs/architecture/infrastructure-architecture.md`

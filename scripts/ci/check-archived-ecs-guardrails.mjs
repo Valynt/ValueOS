@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ROOT = process.cwd();
-const ARCHIVE_PATH = 'infra/reference/terraform-archived-ecs/';
+const ARCHIVE_PATH = 'infra/archive/terraform/ecs-reference/';
 const LEGACY_ARCHIVE_PATH = 'infra/terraform/modules/_archived/';
 const APPROVED_BREAK_GLASS_WORKFLOWS = [];
 
@@ -33,7 +33,7 @@ for (const workflowFile of workflowFiles) {
   }
 }
 
-const terraformSourcePattern = /source\s*=\s*["'][^"']*(infra\/reference\/terraform-archived-ecs|infra\/terraform\/modules\/_archived|modules\/ecs-service|modules\/ecs)(?:\/|["'])/giu;
+const terraformSourcePattern = /source\s*=\s*["'][^"']*(infra\/archive\/terraform\/ecs-reference|infra\/terraform\/modules\/_archived|modules\/ecs-service|modules\/ecs)(?:\/|["'])/giu;
 
 for (const terraformFile of terraformFiles) {
   const content = readFileSync(resolve(ROOT, terraformFile), 'utf8');
