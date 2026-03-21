@@ -5,6 +5,7 @@ namespace: valynt
 
 resources:
   - ../../base
+  - rate-limiting-patch.yaml
 
 nameSuffix: -production
 
