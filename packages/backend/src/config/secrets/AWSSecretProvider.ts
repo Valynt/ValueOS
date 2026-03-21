@@ -19,7 +19,6 @@ const PutSecretValueCommand = awsSdk.PutSecretValueCommand as new (input: Record
 const RotateSecretCommand = awsSdk.RotateSecretCommand as new (input: Record<string, unknown>) => unknown;
 const SecretsManagerClient = awsSdk.SecretsManagerClient as new (config: Record<string, unknown>) => { send: (cmd: unknown) => Promise<unknown> };
 type GetSecretValueCommandOutput = Record<string, unknown>;
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 import type { Redis as RedisClientType } from 'ioredis';
 
@@ -31,6 +30,10 @@ import {
 } from "../../lib/resilience/CircuitBreaker.js";
 
 import { awsCacheMonitor } from "./CachePerformanceMonitor.js"
+import {
+  SecretCacheCrypto,
+  type SerializedEncryptedCacheValue,
+} from "./SecretCacheCrypto.js"
 
 function createConfigurableCircuitBreaker(config: Partial<CircuitBreakerConfig>): CircuitBreaker {
   return new CircuitBreaker(config);
@@ -55,15 +58,14 @@ import { config } from "./SecretConfig.js"
 export class AWSSecretProvider implements ISecretProvider {
   private client: { send: (cmd: unknown) => Promise<unknown> };
   private environment: string;
-  private cache: Map<string, { value: SecretValue; expiresAt: number }> =
-    new Map();
+  private cache: Map<string, { value: string; expiresAt: number }> = new Map();
   private redisClient: RedisClientType | null = null;
   private cacheTTL: number;
   private auditLogger: StructuredSecretAuditLogger;
   private redisEnabled: boolean;
   private maxRetries: number = 3;
   private retryDelay: number = 1000; // 1 second base delay
-  private encryptionKey: Buffer;
+  private readonly cacheCrypto: SecretCacheCrypto;
   private circuitBreaker: { execute: <T>(fn: () => Promise<T>) => Promise<T> };
 
   constructor(
@@ -85,9 +87,18 @@ export class AWSSecretProvider implements ISecretProvider {
     this.environment = process.env.NODE_ENV || "development";
     this.cacheTTL = cacheTTL;
     this.auditLogger = new StructuredSecretAuditLogger();
-    this.redisEnabled = process.env.REDIS_URL ? true : false;
-    // Generate a random encryption key for cache encryption
-    this.encryptionKey = randomBytes(32);
+    this.cacheCrypto = new SecretCacheCrypto({
+      cacheKey: process.env.CACHE_ENCRYPTION_KEY,
+      cacheKeyVersion: process.env.CACHE_ENCRYPTION_KEY_VERSION,
+      previousCacheKeys: process.env.CACHE_ENCRYPTION_PREVIOUS_KEYS,
+      providerName: "aws",
+    });
+    this.redisEnabled = Boolean(process.env.REDIS_URL) && this.cacheCrypto.isEncryptionEnabled();
+    if (process.env.REDIS_URL && !this.cacheCrypto.isEncryptionEnabled()) {
+      logger.warn(
+        "Distributed secret cache disabled because CACHE_ENCRYPTION_KEY is not configured"
+      );
+    }
     // Initialize circuit breaker for external API calls
     this.circuitBreaker = createConfigurableCircuitBreaker({
       failureThreshold: 5,
@@ -119,30 +130,43 @@ export class AWSSecretProvider implements ISecretProvider {
       region,
       environment: this.environment,
       distributedCache: this.redisEnabled,
+      cacheEncryptionKeyVersion: this.cacheCrypto.getCurrentKeyVersion(),
     });
   }
 
   /**
-   * Encrypt data for secure cache storage
+   * Build additional authenticated data for cache entries
    */
-  private encrypt(data: string): string {
-    const iv = randomBytes(16);
-    const cipher = createCipheriv("aes-256-cbc", this.encryptionKey, iv);
-    let encrypted = cipher.update(data, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return iv.toString("hex") + ":" + encrypted;
+  private buildCacheAAD(cacheKey: string): string {
+    return `aws:${cacheKey}`;
   }
 
   /**
-   * Decrypt data from secure cache storage
+   * Encode a secret value for cache storage
    */
-  private decrypt(encryptedData: string): string {
-    const [ivHex, encrypted] = encryptedData.split(":");
-    const iv = Buffer.from(ivHex, "hex");
-    const decipher = createDecipheriv("aes-256-cbc", this.encryptionKey, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+  private serializeCachedSecret(cacheKey: string, value: SecretValue): string {
+    const serialized = JSON.stringify(value);
+    if (!this.cacheCrypto.isEncryptionEnabled()) {
+      return serialized;
+    }
+
+    return JSON.stringify(
+      this.cacheCrypto.encrypt(serialized, this.buildCacheAAD(cacheKey))
+    );
+  }
+
+  /**
+   * Decode a secret value from cache storage
+   */
+  private deserializeCachedSecret(cacheKey: string, cachedValue: string): SecretValue {
+    if (!this.cacheCrypto.isEncryptionEnabled()) {
+      return JSON.parse(cachedValue) as SecretValue;
+    }
+
+    const payload = JSON.parse(cachedValue) as SerializedEncryptedCacheValue;
+    return JSON.parse(
+      this.cacheCrypto.decrypt(payload, this.buildCacheAAD(cacheKey))
+    ) as SecretValue;
   }
 
   /**
@@ -194,11 +218,12 @@ export class AWSSecretProvider implements ISecretProvider {
         return null;
       }
 
-      const parsed = JSON.parse(cached);
+      const parsed = JSON.parse(cached) as {
+        value: string;
+        expiresAt: number;
+      };
       if (parsed.expiresAt > Date.now()) {
-        const decryptedValue = JSON.parse(
-          this.decrypt(parsed.value)
-        ) as SecretValue;
+        const decryptedValue = this.deserializeCachedSecret(cacheKey, parsed.value);
 
         awsCacheMonitor.recordOperation({
           operation: "get",
@@ -252,8 +277,9 @@ export class AWSSecretProvider implements ISecretProvider {
 
     try {
       const cacheData = {
-        value: this.encrypt(JSON.stringify(value)),
+        value: this.serializeCachedSecret(cacheKey, value),
         expiresAt: Date.now() + this.cacheTTL,
+        keyVersion: this.cacheCrypto.getCurrentKeyVersion(),
       };
       await this.redisClient.setex(
         `secret:${cacheKey}`,
@@ -412,9 +438,7 @@ export class AWSSecretProvider implements ISecretProvider {
     // Check in-memory cache as fallback
     const inMemoryCached = this.cache.get(cacheKey);
     if (inMemoryCached && inMemoryCached.expiresAt > Date.now()) {
-      const decryptedValue = JSON.parse(
-        this.decrypt(inMemoryCached.value)
-      ) as SecretValue;
+      const decryptedValue = this.deserializeCachedSecret(cacheKey, inMemoryCached.value);
 
       awsCacheMonitor.recordOperation({
         operation: "get",
@@ -462,7 +486,7 @@ export class AWSSecretProvider implements ISecretProvider {
       // Cache the secret in both Redis and memory
       await this.setInRedisCache(cacheKey, secretValue);
       this.cache.set(cacheKey, {
-        value: this.encrypt(JSON.stringify(secretValue)),
+        value: this.serializeCachedSecret(cacheKey, secretValue),
         expiresAt: Date.now() + this.cacheTTL,
       });
 

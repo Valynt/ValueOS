@@ -60,13 +60,18 @@ vi.mock('node-vault', () => ({
   default: vi.fn(() => mockVaultClient),
 }), { virtual: true });
 
-vi.mock('../../../lib/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+vi.mock('../../../lib/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/logger.js')>();
+  return {
+    ...actual,
+    logger: {
+      ...actual.logger,
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    },
+  };
+});
 
 vi.mock('../../../lib/supabase', () => {
   const mockServerClient = {
