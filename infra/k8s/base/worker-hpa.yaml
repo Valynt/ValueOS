@@ -3,13 +3,20 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: worker-hpa
   namespace: valynt
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: worker capacity is async-only and must not be counted toward interactive request paths
   labels:
     app: worker
     component: background-jobs
-    autoscaling.valueos.dev/profile: queue-depth
+    autoscaling.valueos.dev/profile: async-worker
     app.kubernetes.io/name: worker
     app.kubernetes.io/component: background-jobs
     app.kubernetes.io/part-of: valynt
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -71,10 +78,10 @@ spec:
           periodSeconds: 30
 
     scaleDown:
-      # Keep the longer drain window for async jobs with in-flight execution.
-      # Worker scale-down remains slower than API scale-down because pods may
-      # still be holding BullMQ jobs that cannot be interrupted safely.
-      stabilizationWindowSeconds: 300
+      # Operational tuning now supports a shorter drain window than the prior
+      # 300s default, while still leaving enough time for in-flight BullMQ jobs
+      # to settle before pods are removed.
+      stabilizationWindowSeconds: 240
       selectPolicy: Min
       policies:
         - type: Percent

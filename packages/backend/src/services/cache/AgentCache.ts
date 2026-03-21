@@ -8,6 +8,10 @@
 import { EventEmitter } from "events";
 
 import {
+  cacheEvictionsTotal,
+  cacheFallbackModeTotal,
+  cacheFillDurationMs,
+  cacheHitRate,
   cacheRequestsTotal,
 } from "../../lib/metrics/cacheMetrics.js";
 import { logger } from "../../lib/logger.js";
@@ -19,6 +23,7 @@ import {
   setCache,
 } from "../../lib/redis.js";
 import { getRedisKey } from "../../lib/redisClient.js";
+import { getNearCacheTtlSeconds } from "./CachePolicy.js";
 
 export interface CacheEntry<T = unknown> {
   key: string;
@@ -112,13 +117,16 @@ export class AgentCache extends EventEmitter {
 
   async get<T = unknown>(key: string): Promise<T | null> {
     this.stats.gets += 1;
+    const labels = this.metricLabels();
+    const redisAvailable = this.config.l2Enabled && isRedisConnected();
 
-    const nearEntry = this.nearCache.get(key);
+    const nearEntry = redisAvailable ? this.nearCache.get(key) : null;
     if (nearEntry && !this.isExpired(nearEntry)) {
       nearEntry.accessCount += 1;
       nearEntry.lastAccessed = Date.now();
       this.stats.hits += 1;
       this.incrementRequestMetric("near", "hit");
+      this.updateHitRateMetric();
       this.emit("cacheHit", { key, level: "near" });
       return nearEntry.value as T;
     }
@@ -127,11 +135,12 @@ export class AgentCache extends EventEmitter {
       this.nearCache.delete(key);
     }
 
-    if (this.config.l2Enabled && isRedisConnected()) {
+    if (this.config.l2Enabled && redisAvailable) {
       const l2Value = await getCache<CacheEntry<T>>(this.getDistributedKey(key));
       if (l2Value && !this.isExpired(l2Value)) {
         this.stats.hits += 1;
         this.incrementRequestMetric("redis", "hit");
+        this.updateHitRateMetric();
         this.writeNearCache(key, l2Value.value, {
           ttl: Math.min(
             Math.max(1, Math.floor(l2Value.ttl / 1000)),
@@ -148,8 +157,17 @@ export class AgentCache extends EventEmitter {
       }
     }
 
+    if (this.config.l2Enabled && !redisAvailable) {
+      cacheFallbackModeTotal.inc({
+        ...labels,
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
+    }
+
     this.stats.misses += 1;
     this.incrementRequestMetric("redis", "miss");
+    this.updateHitRateMetric();
     this.emit("cacheMiss", { key });
     return null;
   }
@@ -160,9 +178,19 @@ export class AgentCache extends EventEmitter {
     options: CacheOptions = {}
   ): Promise<void> {
     this.stats.sets += 1;
-    this.writeNearCache(key, value, options);
+    const labels = this.metricLabels();
+    const redisAvailable = this.config.l2Enabled && isRedisConnected();
+    if (redisAvailable) {
+      this.writeNearCache(key, value, options);
+    } else if (this.config.l2Enabled) {
+      cacheFallbackModeTotal.inc({
+        ...labels,
+        fallback_mode: "bypass",
+        reason: "redis_unavailable",
+      });
+    }
 
-    if (this.config.l2Enabled && isRedisConnected()) {
+    if (this.config.l2Enabled && redisAvailable) {
       const ttl = options.ttl ?? this.config.l2DefaultTtl;
       const entry: CacheEntry<T> = {
         key,
@@ -174,7 +202,9 @@ export class AgentCache extends EventEmitter {
         size: this.calculateSize(value),
         metadata: options.metadata,
       };
+      const fillStartedAt = Date.now();
       await setCache(this.getDistributedKey(key), entry, ttl);
+      cacheFillDurationMs.observe(labels, Date.now() - fillStartedAt);
     }
 
     this.emit("cacheSet", {
@@ -357,7 +387,10 @@ export class AgentCache extends EventEmitter {
       key,
       value,
       timestamp: Date.now(),
-      ttl: (options.ttl ?? this.config.nearCacheDefaultTtl) * 1000,
+      ttl:
+        getNearCacheTtlSeconds(
+          options.ttl ?? this.config.nearCacheDefaultTtl
+        ) * 1000,
       accessCount: 0,
       lastAccessed: Date.now(),
       size: this.calculateSize(value),
@@ -436,6 +469,11 @@ export class AgentCache extends EventEmitter {
       }
       this.nearCache.delete(key);
       this.stats.evictions += 1;
+      cacheEvictionsTotal.inc({
+        ...this.metricLabels(),
+        cache_layer: "near",
+        reason: "capacity",
+      });
     }
   }
 
@@ -457,11 +495,22 @@ export class AgentCache extends EventEmitter {
 
   private incrementRequestMetric(layer: string, outcome: string): void {
     cacheRequestsTotal.inc({
-      cache_name: "agent-cache",
-      cache_namespace: this.config.namespace,
+      ...this.metricLabels(),
       cache_layer: layer,
       outcome,
     });
+  }
+
+  private metricLabels(): { cache_name: string; cache_namespace: string } {
+    return {
+      cache_name: "agent-cache",
+      cache_namespace: this.config.namespace,
+    };
+  }
+
+  private updateHitRateMetric(): void {
+    const total = this.stats.hits + this.stats.misses;
+    cacheHitRate.set(this.metricLabels(), total > 0 ? this.stats.hits / total : 0);
   }
 }
 

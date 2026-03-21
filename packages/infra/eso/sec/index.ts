@@ -66,7 +66,7 @@ export class SECAdapter implements DataIngestionAdapter {
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: any) => void> = new Set();
+  private dataCallbacks: Set<(data: unknown) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private marketDataAdapter: MarketDataStreamAdapter;
@@ -81,7 +81,7 @@ export class SECAdapter implements DataIngestionAdapter {
     this.marketDataAdapter = new MarketDataStreamAdapter(config.marketData || {}, config.apiKey);
   }
 
-  async fetchData(params: { cik?: string; type?: string } = {}): Promise<any> {
+  async fetchData(params: { cik?: string; type?: string } = {}): Promise<unknown> {
     const cacheKey = `sec-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -119,7 +119,12 @@ export class SECAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: any): Promise<any> {
+  async transformData(rawData: unknown): Promise<{
+    source: "SEC-EDGAR";
+    ingestionType: "sec_filing";
+    data: unknown;
+    timestamp: string;
+  }> {
     return {
       source: "SEC-EDGAR",
       ingestionType: "sec_filing",
@@ -161,12 +166,12 @@ export class SECAdapter implements DataIngestionAdapter {
     this.isStreaming = false;
   }
 
-  onData(callback: (data: any) => void): () => void {
+  onData(callback: (data: unknown) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: any) {
+  private notifyDataCallbacks(data: unknown) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

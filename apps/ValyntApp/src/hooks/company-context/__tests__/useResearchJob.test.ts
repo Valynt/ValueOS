@@ -26,8 +26,6 @@ vi.mock("@/lib/supabase", () => {
     supabase,
     createBrowserSupabaseClient: vi.fn(() => supabase),
     createRequestSupabaseClient: vi.fn(() => supabase),
-    createServerSupabaseClient: vi.fn(() => supabase),
-    getSupabaseClient: vi.fn(() => supabase),
   };
 });
 

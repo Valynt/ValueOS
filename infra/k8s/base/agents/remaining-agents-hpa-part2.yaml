@@ -3,9 +3,17 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: research-agent
   namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: async-warm throughput only; do not route interactive traffic here
   labels:
     app: research-agent
-    autoscaling.valueos.dev/profile: async-throughput
+    autoscaling.valueos.dev/profile: async-warm-agent
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: async-warm
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "3000"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -39,11 +47,15 @@ spec:
           averageUtilization: 75
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 240
+      selectPolicy: Min
       policies:
         - type: Percent
-          value: 25
+          value: 20
           periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 120
     scaleUp:
       stabilizationWindowSeconds: 0
       policies:

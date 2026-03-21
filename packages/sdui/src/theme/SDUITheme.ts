@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * SDUI Dark Theme System
  *
@@ -233,8 +235,11 @@ export const SDUITailwindClasses = {
 /**
  * CSS-in-JS style object generator
  */
-export function getSDUIStyles(component: keyof typeof SDUIComponentStyles): Record<string, any> {
-  return SDUIComponentStyles[component];
+type SDUIStyleValue = string | number | CSSProperties;
+type SDUIStyleMap = Record<string, SDUIStyleValue>;
+
+export function getSDUIStyles(component: keyof typeof SDUIComponentStyles): SDUIStyleMap {
+  return SDUIComponentStyles[component] as SDUIStyleMap;
 }
 
 /**
@@ -243,22 +248,22 @@ export function getSDUIStyles(component: keyof typeof SDUIComponentStyles): Reco
 export function generateInlineStyles(
   component: keyof typeof SDUIComponentStyles,
   state?: 'hover' | 'focus' | 'active'
-): React.CSSProperties {
+): CSSProperties {
   const baseStyles = SDUIComponentStyles[component];
 
   if (typeof baseStyles === 'object' && 'primary' in baseStyles) {
     // Handle button variants
-    return baseStyles.primary as React.CSSProperties;
+    return baseStyles.primary as CSSProperties;
   }
 
   if (state && typeof baseStyles === 'object' && state in baseStyles) {
     const stateStyles = (baseStyles as Record<string, unknown>)[state];
     if (typeof stateStyles === 'object' && stateStyles !== null) {
-      return { ...baseStyles, ...stateStyles } as React.CSSProperties;
+      return { ...baseStyles, ...stateStyles } as CSSProperties;
     }
   }
 
-  return baseStyles as React.CSSProperties;
+  return baseStyles as CSSProperties;
 }
 
 /**

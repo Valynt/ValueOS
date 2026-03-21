@@ -1,3 +1,5 @@
+import { logger } from "../../lib/logger.js";
+import { getSupabaseClient } from "../../lib/supabase.js";
 import {
   WorkspaceContext,
   WorkspaceData,
@@ -6,15 +8,155 @@ import {
 import { OutcomeHypothesis } from "../../types/sof";
 import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../../types/structural-data";
 import { VMRTAssumption } from "../../types/vmrt";
-import { FormulaResult, ManifestoValidationResult } from "../../types/vos";
-import { ROIModel, ROIModelCalculation } from "../../types/vos";
+import {
+  FormulaResult,
+  ManifestoValidationResult,
+  ROIModel,
+  ROIModelCalculation,
+} from "../../types/vos";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 import { LifecycleStage } from "../../types/workflow";
-import { logger } from "../../lib/logger.js";
-import { getSupabaseClient } from "../../lib/supabase.js";
 
 import { ROIFormulaInterpreter } from "../ROIFormulaInterpreter.js";
 import { ValueFabricService } from "./ValueFabricService.js";
+
+const SYSTEM_MAP_SELECT = [
+  "id",
+  "business_case_id",
+  "name",
+  "description",
+  "entities",
+  "relationships",
+  "leverage_points",
+  "metadata",
+  "created_at",
+  "updated_at",
+].join(", ");
+
+const VALUE_TREE_SELECT = `
+  id,
+  value_case_id,
+  name,
+  description,
+  version,
+  is_published,
+  created_at,
+  updated_at,
+  compliance_metadata,
+  value_tree_nodes (
+    id,
+    value_tree_id,
+    node_id,
+    label,
+    type,
+    reference_id,
+    properties,
+    position_x,
+    position_y,
+    created_at
+  ),
+  value_tree_links (
+    parent_id,
+    child_id,
+    link_type,
+    weight,
+    metadata
+  )
+`;
+
+const ROI_MODEL_SELECT = `
+  id,
+  value_tree_id,
+  name,
+  description,
+  formula,
+  parameters,
+  assumptions,
+  timeframe_months,
+  compliance_metadata,
+  roi_model_calculations (
+    id,
+    model_id,
+    calculation_date,
+    input_parameters,
+    roi_percentage,
+    payback_period_months,
+    net_present_value,
+    internal_rate_of_return,
+    break_even_analysis,
+    sensitivity_analysis
+  ),
+  value_trees!inner (
+    value_case_id
+  )
+`;
+
+const FEEDBACK_LOOP_SELECT = [
+  "id",
+  "system_map_id",
+  "value_commit_id",
+  "agent_type",
+  "predicted_value",
+  "actual_value",
+  "variance_percentage",
+  "variance_absolute",
+  "recorded_at",
+  "recorded_by",
+  "notes",
+  "behavior_changes",
+].join(", ");
+
+const REALIZATION_REPORT_SELECT = [
+  "id",
+  "value_commit_id",
+  "value_case_id",
+  "report_period_start",
+  "report_period_end",
+  "overall_status",
+  "executive_summary",
+  "generated_at",
+  "generated_by",
+  "metadata",
+  "compliance_metadata",
+  "created_at",
+].join(", ");
+
+const REALIZATION_RESULT_SELECT = [
+  "id",
+  "realization_report_id",
+  "kpi_target_id",
+  "kpi_name",
+  "actual_value",
+  "target_value",
+  "baseline_value",
+  "unit",
+  "variance",
+  "variance_percentage",
+  "status",
+  "confidence_level",
+  "created_at",
+].join(", ");
+
+type PersonaBusinessCase = {
+  metadata?: {
+    stakeholders?: unknown[];
+    personas?: unknown[];
+    industry?: string;
+  };
+};
+
+type ManifestoArtifactRow = {
+  compliance_metadata?: { results?: ManifestoValidationResult[] };
+};
+
+type ValueTreeManifestoRow = ManifestoArtifactRow & {
+  id: string;
+  roi_models?: ManifestoArtifactRow[];
+};
+
+type FeedbackLoopRow = {
+  behavior_changes?: unknown[];
+};
 
 export class CanvasWorkspaceDataLoader {
   constructor(
@@ -112,6 +254,7 @@ export class CanvasWorkspaceDataLoader {
       });
 
       const wsId = state.workspaceId ?? state.workspace_id;
+      const lifecycleStage = state.lifecycleStage ?? state.lifecycle_stage;
       const data: Record<string, unknown> = {
         businessCase: null,
         systemMap: null,
@@ -123,39 +266,121 @@ export class CanvasWorkspaceDataLoader {
       };
 
       const userId = state.metadata?.userId as string | undefined;
-      data.businessCase = await this.fetchBusinessCase(wsId, userId);
+      data.businessCase = await this.timedSubFetch(
+        wsId,
+        `workspace.${lifecycleStage}.businessCase`,
+        () => this.fetchBusinessCase(wsId, userId),
+        { lifecycleStage }
+      );
 
-      switch (state.lifecycleStage ?? state.lifecycle_stage) {
-        case "opportunity":
-          data.systemMap = await this.fetchSystemMap(wsId);
-          data.personas = await this.fetchPersonas(wsId);
-          data.kpis = await this.fetchKPIs(wsId);
+      switch (lifecycleStage) {
+        case "opportunity": {
+          const [systemMap, personas, kpis] = await Promise.all([
+            this.timedSubFetch(wsId, "workspace.opportunity.systemMap", () =>
+              this.fetchSystemMap(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.opportunity.personas", () =>
+              this.fetchPersonas(wsId, data.businessCase as PersonaBusinessCase | null)
+            ),
+            this.timedSubFetch(wsId, "workspace.opportunity.kpis", () =>
+              this.fetchKPIs(wsId)
+            ),
+          ]);
+
+          data.systemMap = systemMap;
+          data.personas = personas;
+          data.kpis = kpis;
           break;
-        case "target":
-          data.systemMap = await this.fetchSystemMap(wsId);
-          data.interventions = await this.fetchInterventions(wsId);
-          data.outcomeHypotheses = await this.fetchOutcomeHypotheses(wsId);
-          data.kpis = await this.fetchKPIs(wsId);
+        }
+        case "target": {
+          const systemMapIdPromise = this.fetchSystemMapId(wsId);
+          const [systemMap, interventions, outcomeHypotheses, kpis] = await Promise.all([
+            this.timedSubFetch(wsId, "workspace.target.systemMap", () =>
+              this.fetchSystemMap(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.target.interventions", () =>
+              this.fetchInterventions(wsId, systemMapIdPromise)
+            ),
+            this.timedSubFetch(wsId, "workspace.target.outcomeHypotheses", () =>
+              this.fetchOutcomeHypotheses(wsId, systemMapIdPromise)
+            ),
+            this.timedSubFetch(wsId, "workspace.target.kpis", () =>
+              this.fetchKPIs(wsId)
+            ),
+          ]);
+
+          data.systemMap = systemMap;
+          data.interventions = interventions;
+          data.outcomeHypotheses = outcomeHypotheses;
+          data.kpis = kpis;
           break;
-        case "expansion":
-          data.valueTree = await this.fetchValueTree(wsId);
-          data.kpis = await this.fetchKPIs(wsId);
-          data.gaps = await this.fetchGaps(wsId);
-          data.roi = await this.fetchROI(wsId);
+        }
+        case "expansion": {
+          const [valueTree, kpis, gaps, roi] = await Promise.all([
+            this.timedSubFetch(wsId, "workspace.expansion.valueTree", () =>
+              this.fetchValueTree(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.expansion.kpis", () =>
+              this.fetchKPIs(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.expansion.gaps", () =>
+              this.fetchGaps(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.expansion.roi", () =>
+              this.fetchROI(wsId)
+            ),
+          ]);
+
+          data.valueTree = valueTree;
+          data.kpis = kpis;
+          data.gaps = gaps;
+          data.roi = roi;
           break;
-        case "integrity":
-          data.manifestoResults = await this.fetchManifestoResults(wsId);
-          data.assumptions = await this.fetchAssumptions(wsId, data.businessCase as Record<string, unknown> | undefined);
+        }
+        case "integrity": {
+          const [manifestoResults, assumptions] = await Promise.all([
+            this.timedSubFetch(wsId, "workspace.integrity.manifestoResults", () =>
+              this.fetchManifestoResults(wsId)
+            ),
+            this.timedSubFetch(wsId, "workspace.integrity.assumptions", () =>
+              this.fetchAssumptions(
+                wsId,
+                data.businessCase as PersonaBusinessCase | undefined
+              )
+            ),
+          ]);
+
+          data.manifestoResults = manifestoResults;
+          data.assumptions = assumptions;
           break;
-        case "realization":
-          data.feedbackLoops = await this.fetchFeedbackLoops(wsId);
-          data.realizationData = await this.fetchRealizationMetrics(wsId);
-          data.kpis = await this.fetchKPIs(wsId);
+        }
+        case "realization": {
+          const systemMapIdPromise = this.fetchSystemMapId(wsId);
+          const feedbackLoopsPromise = this.timedSubFetch(
+            wsId,
+            "workspace.realization.feedbackLoops",
+            () => this.fetchFeedbackLoops(wsId, systemMapIdPromise)
+          );
+          const [feedbackLoops, realizationData, kpis] = await Promise.all([
+            feedbackLoopsPromise,
+            this.timedSubFetch(wsId, "workspace.realization.metrics", () =>
+              this.fetchRealizationMetrics(wsId, feedbackLoopsPromise)
+            ),
+            this.timedSubFetch(wsId, "workspace.realization.kpis", () =>
+              this.fetchKPIs(wsId)
+            ),
+          ]);
+
+          data.feedbackLoops = feedbackLoops;
+          data.realizationData = realizationData;
+          data.kpis = kpis;
           break;
+        }
       }
 
       logger.debug("Fetched workspace data", {
         workspaceId: state.workspaceId,
+        lifecycleStage,
         hasBusinessCase: !!data.businessCase,
         hasSystemMap: !!data.systemMap,
         kpiCount: Array.isArray(data.kpis) ? data.kpis.length : 0,
@@ -176,6 +401,35 @@ export class CanvasWorkspaceDataLoader {
         interventions: [],
         feedbackLoops: [],
       } as WorkspaceData;
+    }
+  }
+
+  private async timedSubFetch<T>(
+    workspaceId: string,
+    fetchName: string,
+    fetcher: () => Promise<T>,
+    metadata: Record<string, unknown> = {}
+  ): Promise<T> {
+    const start = performance.now();
+
+    try {
+      const result = await fetcher();
+      logger.info("Canvas workspace sub-fetch completed", {
+        workspaceId,
+        fetchName,
+        durationMs: Number((performance.now() - start).toFixed(2)),
+        ...metadata,
+      });
+      return result;
+    } catch (error) {
+      logger.warn("Canvas workspace sub-fetch failed", {
+        workspaceId,
+        fetchName,
+        durationMs: Number((performance.now() - start).toFixed(2)),
+        error: error instanceof Error ? error.message : String(error),
+        ...metadata,
+      });
+      throw error;
     }
   }
 
@@ -295,7 +549,7 @@ export class CanvasWorkspaceDataLoader {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from("system_maps")
-        .select("*")
+        .select(SYSTEM_MAP_SELECT)
         .eq("business_case_id", workspaceId)
         .maybeSingle();
 
@@ -317,22 +571,53 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchPersonas(workspaceId: string): Promise<any[]> {
+  private async fetchSystemMapId(workspaceId: string): Promise<string | null> {
     try {
-      const businessCase = await this.fetchBusinessCase(workspaceId);
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from("system_maps")
+        .select("id")
+        .eq("business_case_id", workspaceId)
+        .maybeSingle();
+
+      if (error) {
+        logger.warn("Error fetching system map id", {
+          workspaceId,
+          error: error.message,
+        });
+        return null;
+      }
+
+      return data?.id || null;
+    } catch (error) {
+      logger.error("Failed to fetch system map id", {
+        workspaceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private async fetchPersonas(
+    workspaceId: string,
+    businessCase?: PersonaBusinessCase | null
+  ): Promise<any[]> {
+    try {
+      const resolvedBusinessCase =
+        businessCase ?? (await this.fetchBusinessCase(workspaceId));
 
       if (
-        businessCase?.metadata?.stakeholders &&
-        Array.isArray(businessCase.metadata.stakeholders)
+        resolvedBusinessCase?.metadata?.stakeholders &&
+        Array.isArray(resolvedBusinessCase.metadata.stakeholders)
       ) {
-        return businessCase.metadata.stakeholders;
+        return resolvedBusinessCase.metadata.stakeholders;
       }
 
       if (
-        businessCase?.metadata?.personas &&
-        Array.isArray(businessCase.metadata.personas)
+        resolvedBusinessCase?.metadata?.personas &&
+        Array.isArray(resolvedBusinessCase.metadata.personas)
       ) {
-        return businessCase.metadata.personas;
+        return resolvedBusinessCase.metadata.personas;
       }
 
       return Object.entries(EXTENDED_STRUCTURAL_PERSONA_MAPS).map(([key, p]) => ({
@@ -424,32 +709,25 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchInterventions(workspaceId: string): Promise<any[]> {
+  private async fetchInterventions(
+    workspaceId: string,
+    systemMapIdInput?: Promise<string | null> | string | null
+  ): Promise<any[]> {
     try {
-      const supabase = getSupabaseClient();
-      const { data: systemMap, error: mapError } = await supabase
-        .from("system_maps")
-        .select("id")
-        .eq("business_case_id", workspaceId)
-        .maybeSingle();
+      const systemMapId = await Promise.resolve(
+        systemMapIdInput ?? this.fetchSystemMapId(workspaceId)
+      );
 
-      if (mapError) {
-        logger.warn("Error fetching system map for interventions", {
-          workspaceId,
-          error: mapError.message,
-        });
-        return [];
-      }
-
-      if (!systemMap) {
+      if (!systemMapId) {
         logger.debug("No system map found for workspace", { workspaceId });
         return [];
       }
 
+      const supabase = getSupabaseClient();
       const { data: interventions, error: intError } = await supabase
         .from("intervention_points")
         .select("*")
-        .eq("system_map_id", systemMap.id)
+        .eq("system_map_id", systemMapId)
         .order("created_at", { ascending: false });
 
       if (intError) {
@@ -471,32 +749,23 @@ export class CanvasWorkspaceDataLoader {
   }
 
   private async fetchOutcomeHypotheses(
-    workspaceId: string
+    workspaceId: string,
+    systemMapIdInput?: Promise<string | null> | string | null
   ): Promise<OutcomeHypothesis[]> {
     try {
+      const systemMapId = await Promise.resolve(
+        systemMapIdInput ?? this.fetchSystemMapId(workspaceId)
+      );
+
+      if (!systemMapId) {
+        return [];
+      }
+
       const supabase = getSupabaseClient();
-      const { data: systemMap, error: systemMapError } = await supabase
-        .from("system_maps")
-        .select("id")
-        .eq("business_case_id", workspaceId)
-        .maybeSingle();
-
-      if (systemMapError) {
-        logger.error("Error resolving system map for outcomes", {
-          workspaceId,
-          error: systemMapError.message,
-        });
-        return [];
-      }
-
-      if (!systemMap) {
-        return [];
-      }
-
       const { data, error } = await supabase
         .from("outcome_hypotheses")
         .select("*")
-        .eq("system_map_id", systemMap.id)
+        .eq("system_map_id", systemMapId)
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -520,15 +789,16 @@ export class CanvasWorkspaceDataLoader {
   private async fetchValueTree(workspaceId: string): Promise<any | null> {
     try {
       const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from("value_trees")
-        .select(`
-          *,
-          value_tree_nodes(*),
-          value_tree_links(*)
-        `)
-        .eq("value_case_id", workspaceId)
-        .maybeSingle();
+      const { data, error } = await this.timedSubFetch(
+        workspaceId,
+        "query.valueTree",
+        () =>
+          supabase
+            .from("value_trees")
+            .select(VALUE_TREE_SELECT)
+            .eq("value_case_id", workspaceId)
+            .maybeSingle()
+      );
 
       if (error) {
         logger.error("Error fetching value tree", {
@@ -541,7 +811,15 @@ export class CanvasWorkspaceDataLoader {
       if (!data) return null;
 
       return {
-        ...data,
+        id: data.id,
+        value_case_id: data.value_case_id,
+        name: data.name,
+        description: data.description,
+        version: data.version,
+        is_published: data.is_published,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        compliance_metadata: data.compliance_metadata,
         nodes: data.value_tree_nodes || [],
         links: data.value_tree_links || [],
       };
@@ -598,17 +876,16 @@ export class CanvasWorkspaceDataLoader {
   } | null> {
     try {
       const supabase = getSupabaseClient();
-      const { data: roiModel, error: rmError } = await supabase
-        .from("roi_models")
-        .select(`
-          *,
-          roi_model_calculations (*),
-          value_trees!inner (
-            value_case_id
-          )
-        `)
-        .eq("value_trees.value_case_id", workspaceId)
-        .maybeSingle();
+      const { data: roiModel, error: rmError } = await this.timedSubFetch(
+        workspaceId,
+        "query.roi.model",
+        () =>
+          supabase
+            .from("roi_models")
+            .select(ROI_MODEL_SELECT)
+            .eq("value_trees.value_case_id", workspaceId)
+            .maybeSingle()
+      );
 
       if (rmError || !roiModel) {
         logger.debug("ROI Model not found", { workspaceId });
@@ -622,10 +899,11 @@ export class CanvasWorkspaceDataLoader {
       );
 
       const interpreter = new ROIFormulaInterpreter(supabase);
-      const context = await interpreter.createContextFromKPIs(workspaceId);
-      const results = await interpreter.executeCalculationSequence(
-        calculations,
-        context
+      const context = await this.timedSubFetch(workspaceId, "query.roi.context", () =>
+        interpreter.createContextFromKPIs(workspaceId)
+      );
+      const results = await this.timedSubFetch(workspaceId, "query.roi.execute", () =>
+        interpreter.executeCalculationSequence(calculations, context)
       );
 
       return {
@@ -649,54 +927,58 @@ export class CanvasWorkspaceDataLoader {
       const supabase = getSupabaseClient();
       const results: ManifestoValidationResult[] = [];
 
-      const collectResults = (
-        artifacts: Array<{
-          compliance_metadata?: { results?: ManifestoValidationResult[] };
-        }>
-      ) => {
-        if (!artifacts) return;
+      const collectResults = (artifacts: ManifestoArtifactRow[] | undefined) => {
+        if (!artifacts) {
+          return;
+        }
+
         artifacts.forEach((artifact) => {
-          if (
-            artifact.compliance_metadata &&
-            artifact.compliance_metadata.results
-          ) {
+          if (artifact.compliance_metadata?.results) {
             results.push(...artifact.compliance_metadata.results);
           }
         });
       };
 
-      const { data: valueTrees } = await supabase
-        .from("value_trees")
-        .select("id, compliance_metadata")
-        .eq("value_case_id", workspaceId);
-      collectResults(valueTrees || []);
+      const [valueTreesResponse, valueCommitsResponse, realizationReportsResponse, expansionModelsResponse] =
+        await Promise.all([
+          this.timedSubFetch(workspaceId, "query.manifesto.valueTrees", () =>
+            supabase
+              .from("value_trees")
+              .select(`id, compliance_metadata, roi_models(id, compliance_metadata)`)
+              .eq("value_case_id", workspaceId)
+          ),
+          this.timedSubFetch(workspaceId, "query.manifesto.valueCommits", () =>
+            supabase
+              .from("value_commits")
+              .select("id, compliance_metadata")
+              .eq("value_case_id", workspaceId)
+          ),
+          this.timedSubFetch(workspaceId, "query.manifesto.realizationReports", () =>
+            supabase
+              .from("realization_reports")
+              .select("id, compliance_metadata")
+              .eq("value_case_id", workspaceId)
+          ),
+          this.timedSubFetch(workspaceId, "query.manifesto.expansionModels", () =>
+            supabase
+              .from("expansion_models")
+              .select("id, compliance_metadata")
+              .eq("value_case_id", workspaceId)
+          ),
+        ]);
 
-      if (valueTrees && valueTrees.length > 0) {
-        const valueTreeIds = valueTrees.map((vt) => vt.id);
-        const { data: roiModels } = await supabase
-          .from("roi_models")
-          .select("id, compliance_metadata")
-          .in("value_tree_id", valueTreeIds);
-        collectResults(roiModels || []);
-      }
-
-      const { data: valueCommits } = await supabase
-        .from("value_commits")
-        .select("id, compliance_metadata")
-        .eq("value_case_id", workspaceId);
-      collectResults(valueCommits || []);
-
-      const { data: realizationReports } = await supabase
-        .from("realization_reports")
-        .select("id, compliance_metadata")
-        .eq("value_case_id", workspaceId);
-      collectResults(realizationReports || []);
-
-      const { data: expansionModels } = await supabase
-        .from("expansion_models")
-        .select("id, compliance_metadata")
-        .eq("value_case_id", workspaceId);
-      collectResults(expansionModels || []);
+      const valueTrees = (valueTreesResponse.data || []) as ValueTreeManifestoRow[];
+      collectResults(valueTrees);
+      valueTrees.forEach((valueTree) => collectResults(valueTree.roi_models));
+      collectResults(
+        (valueCommitsResponse.data || []) as ManifestoArtifactRow[]
+      );
+      collectResults(
+        (realizationReportsResponse.data || []) as ManifestoArtifactRow[]
+      );
+      collectResults(
+        (expansionModelsResponse.data || []) as ManifestoArtifactRow[]
+      );
 
       logger.debug("Fetched manifesto results", {
         workspaceId,
@@ -715,7 +997,7 @@ export class CanvasWorkspaceDataLoader {
 
   private async fetchAssumptions(
     workspaceId: string,
-    businessCase?: Record<string, unknown>
+    businessCase?: PersonaBusinessCase
   ): Promise<VMRTAssumption[]> {
     try {
       const supabase = getSupabaseClient();
@@ -777,23 +1059,29 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchFeedbackLoops(workspaceId: string): Promise<any[]> {
+  private async fetchFeedbackLoops(
+    workspaceId: string,
+    systemMapIdInput?: Promise<string | null> | string | null
+  ): Promise<any[]> {
     try {
-      const supabase = getSupabaseClient();
-      const { data: systemMap, error: mapError } = await supabase
-        .from("system_maps")
-        .select("id")
-        .eq("business_case_id", workspaceId)
-        .maybeSingle();
+      const systemMapId = await Promise.resolve(
+        systemMapIdInput ?? this.fetchSystemMapId(workspaceId)
+      );
 
-      if (mapError || !systemMap) {
+      if (!systemMapId) {
         return [];
       }
 
-      const { data: loops, error: loopError } = await supabase
-        .from("feedback_loops")
-        .select("*")
-        .eq("system_map_id", systemMap.id);
+      const supabase = getSupabaseClient();
+      const { data: loops, error: loopError } = await this.timedSubFetch(
+        workspaceId,
+        "query.feedbackLoops",
+        () =>
+          supabase
+            .from("feedback_loops")
+            .select(FEEDBACK_LOOP_SELECT)
+            .eq("system_map_id", systemMapId)
+      );
 
       if (loopError) {
         logger.warn("Error fetching feedback loops", {
@@ -813,21 +1101,32 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchRealizationMetrics(workspaceId: string): Promise<{
+  private async fetchRealizationMetrics(
+    workspaceId: string,
+    feedbackLoopsInput?: Promise<FeedbackLoopRow[]> | FeedbackLoopRow[]
+  ): Promise<{
     implementationStatus: string;
     observedChanges: unknown[];
     kpiMeasurements: Record<string, unknown>[];
   } | null> {
     try {
       const supabase = getSupabaseClient();
-      const { data: report } = await supabase
-        .from("realization_reports")
-        .select("*")
-        .eq("value_case_id", workspaceId)
-        .order("report_period_end", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [reportResponse, feedbackLoops] = await Promise.all([
+        this.timedSubFetch(workspaceId, "query.realization.latestReport", () =>
+          supabase
+            .from("realization_reports")
+            .select(REALIZATION_REPORT_SELECT)
+            .eq("value_case_id", workspaceId)
+            .order("report_period_end", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        ),
+        Promise.resolve(
+          feedbackLoopsInput ?? this.fetchFeedbackLoops(workspaceId)
+        ),
+      ]);
 
+      const report = reportResponse.data;
       let implementationStatus = "planning";
       let kpiMeasurements: Record<string, unknown>[] = [];
 
@@ -840,17 +1139,21 @@ export class CanvasWorkspaceDataLoader {
         };
         implementationStatus = statusMap[report.overall_status] || "planning";
 
-        const { data: results } = await supabase
-          .from("realization_results")
-          .select("*")
-          .eq("realization_report_id", report.id);
+        const { data: results } = await this.timedSubFetch(
+          workspaceId,
+          "query.realization.results",
+          () =>
+            supabase
+              .from("realization_results")
+              .select(REALIZATION_RESULT_SELECT)
+              .eq("realization_report_id", report.id)
+        );
 
         if (results) {
           kpiMeasurements = results;
         }
       }
 
-      const feedbackLoops = await this.fetchFeedbackLoops(workspaceId);
       const observedChanges = feedbackLoops.flatMap(
         (loop) => loop.behavior_changes || []
       );

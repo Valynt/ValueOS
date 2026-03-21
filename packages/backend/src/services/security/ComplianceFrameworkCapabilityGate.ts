@@ -3,7 +3,8 @@ const HIPAA_FRAMEWORK = "HIPAA" as const;
 const ALL_COMPLIANCE_FRAMEWORKS = ["GDPR", HIPAA_FRAMEWORK, "CCPA", "SOC2", "ISO27001"] as const;
 
 export type ComplianceFramework = typeof ALL_COMPLIANCE_FRAMEWORKS[number];
-export type ExposedComplianceFramework = Exclude<ComplianceFramework, typeof HIPAA_FRAMEWORK> | typeof HIPAA_FRAMEWORK;
+export type ExposedComplianceFramework = ComplianceFramework;
+export type FrameworkAvailability = "available" | "gated";
 
 interface CapabilityRequirement {
   key: string;
@@ -15,6 +16,7 @@ export interface FrameworkCapabilityStatus {
   framework: ComplianceFramework;
   supported: boolean;
   prerequisites_met: boolean;
+  availability: FrameworkAvailability;
   gate_label: "prerequisite_gating";
   missingPrerequisites: string[];
 }
@@ -79,6 +81,7 @@ export class ComplianceFrameworkCapabilityGate {
       framework: HIPAA_FRAMEWORK,
       supported: prerequisitesMet,
       prerequisites_met: prerequisitesMet,
+      availability: prerequisitesMet ? "available" : "gated",
       gate_label: "prerequisite_gating",
       missingPrerequisites,
     };
@@ -93,6 +96,7 @@ export class ComplianceFrameworkCapabilityGate {
       framework,
       supported: true,
       prerequisites_met: true,
+      availability: "available",
       gate_label: "prerequisite_gating",
       missingPrerequisites: [],
     };
@@ -102,17 +106,25 @@ export class ComplianceFrameworkCapabilityGate {
     return this.getCapabilityStatus(framework);
   }
 
+  getCapabilityStatuses(): FrameworkCapabilityStatus[] {
+    return ALL_COMPLIANCE_FRAMEWORKS.map((framework) => this.getCapabilityStatus(framework));
+  }
+
+  isKnownFramework(framework: string): framework is ComplianceFramework {
+    return ALL_COMPLIANCE_FRAMEWORKS.includes(framework as ComplianceFramework);
+  }
+
   getSupportedFrameworks(): ComplianceFramework[] {
     return ALL_COMPLIANCE_FRAMEWORKS.filter((framework) => this.getCapabilityStatus(framework).supported);
   }
 
   getExposedFrameworks(): ExposedComplianceFramework[] {
-    return this.getSupportedFrameworks() as ExposedComplianceFramework[];
+    return this.getSupportedFrameworks();
   }
 
   isSupportedFramework(framework: string): framework is ComplianceFramework {
-    return ALL_COMPLIANCE_FRAMEWORKS.includes(framework as ComplianceFramework)
-      && this.getCapabilityStatus(framework as ComplianceFramework).supported;
+    return this.isKnownFramework(framework)
+      && this.getCapabilityStatus(framework).supported;
   }
 
   assertFrameworksSupported(frameworks: string[]): asserts frameworks is ComplianceFramework[] {

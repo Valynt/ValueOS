@@ -7,28 +7,58 @@
  * `getRedisClient` so connection reuse and configuration stay consistent.
  */
 
-import { getRedisClient as getSharedRedisClient } from "@shared/lib/redisClient";
+import {
+  getRedisClient as getSharedRedisClient,
+  type RedisClientRole,
+} from "@shared/lib/redisClient";
 import { getRedisKey } from "@shared/lib/redisKeys";
 import type { Redis } from "ioredis";
 
 import { logger } from "./logger.js";
+import { createCounter } from "./observability/index.js";
 
 // Re-export the ioredis Redis type as RedisClientType for backward compatibility
 export type RedisClientType = Redis;
 
-let cachedClient: Redis | null = null;
+const cachedClients = new Map<RedisClientRole, Redis>();
+const instrumentedClients = new WeakSet<Redis>();
+const redisClientReconnectsTotal = createCounter(
+  "valuecanvas_redis_client_reconnects_total",
+  "Redis client reconnect attempts by logical role",
+  ["role"],
+);
+
+function attachRedisMetrics(client: Redis, role: RedisClientRole): void {
+  if (instrumentedClients.has(client)) {
+    return;
+  }
+
+  client.on("reconnecting", () => {
+    redisClientReconnectsTotal.inc({ role });
+  });
+
+  instrumentedClients.add(client);
+}
 
 /**
  * Get (or establish) a shared Redis client.
  * Returns null if Redis is unavailable, allowing callers to gracefully
  * degrade to in-memory fallbacks.
  */
-export async function getRedisClient(): Promise<Redis | null> {
+export async function getRedisClient(role: RedisClientRole = "control-plane"): Promise<Redis | null> {
+  const existing = cachedClients.get(role);
+  if (existing) {
+    return existing;
+  }
+
   try {
-    cachedClient = getSharedRedisClient();
-    return cachedClient;
+    const client = getSharedRedisClient(role);
+    cachedClients.set(role, client);
+    attachRedisMetrics(client, role);
+    return client;
   } catch (error) {
     logger.warn("Redis unavailable, using in-memory fallback", {
+      role,
       error: error instanceof Error ? error.message : String(error),
     });
     return null;
@@ -38,8 +68,9 @@ export async function getRedisClient(): Promise<Redis | null> {
 /**
  * Lightweight connection indicator.
  */
-export function isRedisConnected(): boolean {
-  return Boolean(cachedClient?.isOpen || (cachedClient as { isReady?: boolean } | null)?.isReady);
+export function isRedisConnected(role: RedisClientRole = "control-plane"): boolean {
+  const client = cachedClients.get(role) ?? null;
+  return Boolean(client?.isOpen || (client as { isReady?: boolean } | null)?.isReady);
 }
 
 /**
@@ -48,9 +79,10 @@ export function isRedisConnected(): boolean {
 export async function setCache(
   key: string,
   value: unknown,
-  ttlSeconds = 300
+  ttlSeconds = 300,
+  role: RedisClientRole = "control-plane",
 ): Promise<boolean> {
-  const client = await getRedisClient();
+  const client = await getRedisClient(role);
   if (!client) return false;
 
   try {
@@ -62,7 +94,7 @@ export async function setCache(
     }
     return true;
   } catch (error) {
-    logger.error("Redis set failed", error as Error, { key });
+    logger.error("Redis set failed", error as Error, { key, role });
     return false;
   }
 }
@@ -70,8 +102,8 @@ export async function setCache(
 /**
  * Fetch and parse cached JSON data.
  */
-export async function getCache<T = unknown>(key: string): Promise<T | null> {
-  const client = await getRedisClient();
+export async function getCache<T = unknown>(key: string, role: RedisClientRole = "control-plane"): Promise<T | null> {
+  const client = await getRedisClient(role);
   if (!client) return null;
 
   try {
@@ -79,7 +111,7 @@ export async function getCache<T = unknown>(key: string): Promise<T | null> {
     if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch (error) {
-    logger.error("Redis get failed", error as Error, { key });
+    logger.error("Redis get failed", error as Error, { key, role });
     return null;
   }
 }
@@ -87,15 +119,15 @@ export async function getCache<T = unknown>(key: string): Promise<T | null> {
 /**
  * Delete a single key.
  */
-export async function deleteCache(key: string): Promise<boolean> {
-  const client = await getRedisClient();
+export async function deleteCache(key: string, role: RedisClientRole = "control-plane"): Promise<boolean> {
+  const client = await getRedisClient(role);
   if (!client) return false;
 
   try {
     const deleted = await client.del(key);
     return deleted > 0;
   } catch (error) {
-    logger.error("Redis delete failed", error as Error, { key });
+    logger.error("Redis delete failed", error as Error, { key, role });
     return false;
   }
 }
@@ -103,8 +135,11 @@ export async function deleteCache(key: string): Promise<boolean> {
 /**
  * Delete all keys matching a pattern. Uses SCAN to avoid blocking Redis.
  */
-export async function deleteCachePattern(pattern: string): Promise<number> {
-  const client = await getRedisClient();
+export async function deleteCachePattern(
+  pattern: string,
+  role: RedisClientRole = "control-plane",
+): Promise<number> {
+  const client = await getRedisClient(role);
   if (!client) return 0;
 
   let cursor = "0";
@@ -125,10 +160,9 @@ export async function deleteCachePattern(pattern: string): Promise<number> {
 
     return deleted;
   } catch (error) {
-    logger.error("Redis pattern delete failed", error as Error, { pattern });
+    logger.error("Redis pattern delete failed", error as Error, { pattern, role });
     return deleted;
   }
 }
 
 export { getRedisKey };
-

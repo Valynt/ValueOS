@@ -27,6 +27,56 @@ import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
 
 import { llmProxyClient } from "./LlmProxyClient.js";
 
+type ProjectionFields<T> = readonly (keyof T & string)[];
+
+const CAPABILITY_LIST_PROJECTION = [
+  "id",
+  "name",
+  "description",
+  "tags",
+  "category",
+  "is_active",
+  "created_at",
+  "updated_at",
+] as const satisfies ProjectionFields<Capability>;
+
+const CAPABILITY_DETAIL_PROJECTION = [
+  "id",
+  "name",
+  "description",
+  "tags",
+  "category",
+  "is_active",
+  "created_at",
+  "updated_at",
+] as const satisfies ProjectionFields<Capability>;
+
+const USE_CASE_LIST_PROJECTION = [
+  "id",
+  "name",
+  "description",
+  "persona",
+  "industry",
+  "is_template",
+  "created_at",
+  "updated_at",
+] as const satisfies ProjectionFields<UseCase>;
+
+const USE_CASE_DETAIL_PROJECTION = [
+  "id",
+  "name",
+  "description",
+  "persona",
+  "industry",
+  "is_template",
+  "created_at",
+  "updated_at",
+] as const satisfies ProjectionFields<UseCase>;
+
+function projectionSelect<T>(projection: readonly (keyof T & string)[]): string {
+  return projection.join(", ");
+}
+
 export interface SemanticSearchResult<T> {
   item: T;
   similarity: number;
@@ -79,7 +129,9 @@ export class ValueFabricService {
         keyPayload: { filters, page, pageSize },
       },
       async () => {
-        let query = this.supabase.from("capabilities").select("*")
+        let query = this.supabase
+          .from("capabilities")
+          .select(projectionSelect(CAPABILITY_LIST_PROJECTION))
           .eq("organization_id", organizationId)
           .eq("is_active", true);
 
@@ -123,7 +175,7 @@ export class ValueFabricService {
       async () => {
         const { data, error } = await this.supabase
           .from("capabilities")
-          .select("*")
+          .select(projectionSelect(CAPABILITY_DETAIL_PROJECTION))
           .eq("organization_id", organizationId)
           .eq("id", id)
           .maybeSingle();
@@ -194,7 +246,9 @@ export class ValueFabricService {
         keyPayload: { filters, page, pageSize },
       },
       async () => {
-        let query = this.supabase.from("use_cases").select("*")
+        let query = this.supabase
+          .from("use_cases")
+          .select(projectionSelect(USE_CASE_LIST_PROJECTION))
           .eq("organization_id", organizationId);
 
         if (filters?.persona) {
@@ -237,7 +291,7 @@ export class ValueFabricService {
       async () => {
         const { data, error } = await this.supabase
           .from("use_cases")
-          .select("*")
+          .select(projectionSelect(USE_CASE_DETAIL_PROJECTION))
           .eq("organization_id", organizationId)
           .eq("id", id)
           .maybeSingle();
@@ -269,7 +323,7 @@ export class ValueFabricService {
       async () => {
         const { data: useCase, error: useCaseError } = await this.supabase
           .from("use_cases")
-          .select("*")
+          .select(projectionSelect(USE_CASE_DETAIL_PROJECTION))
           .eq("organization_id", organizationId)
           .eq("id", useCaseId)
           .single();
@@ -294,7 +348,7 @@ export class ValueFabricService {
 
         const { data: capabilities, error: capError } = await this.supabase
           .from("capabilities")
-          .select("*")
+          .select(projectionSelect(CAPABILITY_DETAIL_PROJECTION))
           .eq("organization_id", organizationId)
           .in("id", capabilityIds);
 
