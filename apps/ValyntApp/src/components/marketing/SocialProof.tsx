@@ -6,11 +6,11 @@ export function SocialProof() {
       className="py-24 border-t"
       style={{
         borderColor: "rgba(224, 224, 224, 0.05)",
-        backgroundColor: "#1E1E1E",
+        backgroundColor: "var(--mkt-bg-card)",
       }}
     >
       <div className="max-w-4xl mx-auto px-6 text-center">
-        <Quote className="w-8 h-8 mx-auto mb-8" style={{ color: "#18C3A5" }} />
+        <Quote className="w-8 h-8 mx-auto mb-8" style={{ color: "var(--mkt-brand-primary)" }} />
         <blockquote className="text-xl md:text-2xl font-light text-white leading-relaxed mb-8">
           "Before VALYNT, our QBRs were opinions. Now, they are mathematical
           proofs of success. We've doubled our expansion revenue because the
@@ -18,7 +18,7 @@ export function SocialProof() {
         </blockquote>
         <div className="flex flex-col items-center gap-1">
           <div className="font-semibold text-white">Sarah Chen</div>
-          <div className="text-sm" style={{ color: "#707070" }}>
+          <div className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
             VP of Customer Success, TechScale
           </div>
         </div>

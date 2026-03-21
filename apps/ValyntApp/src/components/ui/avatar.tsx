@@ -112,13 +112,18 @@ const UserAvatar = ({
   const initials = getInitials(name);
 
   return (
-    <div className={cn("relative inline-block", className)}>
+    <div
+      className={cn("relative inline-block", className)}
+      role="img"
+      aria-label={email ? `${name} (${email})` : name}
+    >
       <Avatar size={size}>
         {src && <AvatarImage src={src} alt={name} />}
-        <AvatarFallback>{initials}</AvatarFallback>
+        <AvatarFallback aria-hidden="true">{initials}</AvatarFallback>
       </Avatar>
       {status && (
         <span
+          aria-label={`Status: ${status}`}
           className={cn(
             "absolute bottom-0 right-0 block rounded-full ring-2 ring-background",
             statusColors[status],
@@ -152,7 +157,7 @@ const AvatarGroup = ({ users, max = 4, size = "sm", className }: AvatarGroupProp
   const remainingCount = users.length - max;
 
   return (
-    <div className={cn("flex -space-x-2", className)}>
+    <div role="group" aria-label="User avatars" className={cn("flex -space-x-2", className)}>
       {visibleUsers.map((user, index) => (
         <UserAvatar
           key={index}

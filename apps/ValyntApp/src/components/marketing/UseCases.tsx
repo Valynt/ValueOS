@@ -9,7 +9,7 @@ export function UseCases() {
         </h2>
         <p
           className="max-w-xl text-sm md:text-base"
-          style={{ color: "#707070" }}
+          style={{ color: "var(--mkt-text-muted)" }}
         >
           Real scenarios where VALYNT autonomous agents orchestrate outcomes
           across the value lifecycle.
@@ -20,7 +20,7 @@ export function UseCases() {
         <div className="group glass-card p-6 rounded-xl border border-transparent hover:border-white/10 transition-all">
           <div className="h-px w-full bg-gradient-to-r from-white/20 to-transparent mb-6"></div>
           <h3 className="text-lg font-semibold text-white mb-1">Scenario A</h3>
-          <p className="text-xs font-mono mb-4" style={{ color: "#707070" }}>
+          <p className="text-xs font-mono mb-4" style={{ color: "var(--mkt-text-muted)" }}>
             The "Perfect" Discovery Call
           </p>
 
@@ -28,8 +28,8 @@ export function UseCases() {
             <div
               className="px-2 py-1 rounded text-xs font-medium"
               style={{
-                backgroundColor: "rgba(24, 195, 165, 0.15)",
-                color: "#18C3A5",
+                backgroundColor: "rgba(var(--mkt-brand-primary-rgb), 0.15)",
+                color: "var(--mkt-brand-primary)",
               }}
             >
               Opportunity Agent
@@ -40,18 +40,18 @@ export function UseCases() {
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#18C3A5" }}
+                style={{ color: "var(--mkt-brand-primary)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Instantly analyzes unstructured notes and transcripts.
               </p>
             </li>
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#18C3A5" }}
+                style={{ color: "var(--mkt-brand-primary)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Generates "Persona Fit" reports before you hang up.
               </p>
             </li>
@@ -61,7 +61,7 @@ export function UseCases() {
         <div className="group glass-card p-6 rounded-xl border border-transparent hover:border-white/10 transition-all">
           <div className="h-px w-full bg-gradient-to-r from-white/20 to-transparent mb-6"></div>
           <h3 className="text-lg font-semibold text-white mb-1">Scenario B</h3>
-          <p className="text-xs font-mono mb-4" style={{ color: "#707070" }}>
+          <p className="text-xs font-mono mb-4" style={{ color: "var(--mkt-text-muted)" }}>
             The "CFO-Proof" Business Case
           </p>
 
@@ -70,7 +70,7 @@ export function UseCases() {
               className="px-2 py-1 rounded text-xs font-medium"
               style={{
                 backgroundColor: "rgba(0, 174, 239, 0.15)",
-                color: "#00AEEF",
+                color: "var(--mkt-accent-blue)",
               }}
             >
               Integrity Agent
@@ -81,18 +81,18 @@ export function UseCases() {
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#00AEEF" }}
+                style={{ color: "var(--mkt-accent-blue)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Audits every ROI calculation against manifesto rules.
               </p>
             </li>
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#00AEEF" }}
+                style={{ color: "var(--mkt-accent-blue)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Flags hype and enforces conservative estimates.
               </p>
             </li>
@@ -102,7 +102,7 @@ export function UseCases() {
         <div className="group glass-card p-6 rounded-xl border border-transparent hover:border-white/10 transition-all">
           <div className="h-px w-full bg-gradient-to-r from-white/20 to-transparent mb-6"></div>
           <h3 className="text-lg font-semibold text-white mb-1">Scenario C</h3>
-          <p className="text-xs font-mono mb-4" style={{ color: "#707070" }}>
+          <p className="text-xs font-mono mb-4" style={{ color: "var(--mkt-text-muted)" }}>
             The "Auto-Pilot" Expansion
           </p>
 
@@ -110,8 +110,8 @@ export function UseCases() {
             <div
               className="px-2 py-1 rounded text-xs font-medium"
               style={{
-                backgroundColor: "rgba(24, 195, 165, 0.15)",
-                color: "#18C3A5",
+                backgroundColor: "rgba(var(--mkt-brand-primary-rgb), 0.15)",
+                color: "var(--mkt-brand-primary)",
               }}
             >
               Expansion Agent
@@ -122,18 +122,18 @@ export function UseCases() {
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#18C3A5" }}
+                style={{ color: "var(--mkt-brand-primary)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Monitors realization data against benchmarks.
               </p>
             </li>
             <li className="flex gap-3 items-start">
               <CheckCircle
                 className="w-4 h-4 mt-0.5 shrink-0"
-                style={{ color: "#18C3A5" }}
+                style={{ color: "var(--mkt-brand-primary)" }}
               />
-              <p className="text-sm" style={{ color: "#707070" }}>
+              <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                 Drafts sales-ready upsell cases automatically.
               </p>
             </li>

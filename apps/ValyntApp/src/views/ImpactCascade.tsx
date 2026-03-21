@@ -42,7 +42,7 @@ export default function ImpactCascade() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       <Header
         title="Phase 2: Value Architecture"
-        breadcrumbs={['Acme Corp', 'Architecture']}
+        breadcrumbs={['Value Architecture']}
       />
 
       <div className="flex-1 overflow-auto p-6">

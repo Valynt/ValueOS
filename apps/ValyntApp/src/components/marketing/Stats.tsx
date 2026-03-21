@@ -9,7 +9,7 @@ export function Stats() {
           <h2 className="text-2xl md:text-3xl font-semibold text-white mb-2">
             Hard Savings. Real Impact.
           </h2>
-          <p className="text-sm" style={{ color: "#707070" }}>
+          <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
             CFO-verified outcomes across 200+ enterprise deployments
           </p>
         </div>
@@ -19,12 +19,12 @@ export function Stats() {
             <div className="text-4xl md:text-5xl font-bold text-white mb-2">
               20%
             </div>
-            <div className="text-sm" style={{ color: "#707070" }}>
+            <div className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               CAC Reduction
             </div>
             <div
               className="text-xs mt-1 font-mono"
-              style={{ color: "#18C3A5" }}
+              style={{ color: "var(--mkt-brand-primary)" }}
             >
               Avg. $2.4M saved
             </div>
@@ -34,12 +34,12 @@ export function Stats() {
             <div className="text-4xl md:text-5xl font-bold text-white mb-2">
               30 Days
             </div>
-            <div className="text-sm" style={{ color: "#707070" }}>
+            <div className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               Shorter Sales Cycles
             </div>
             <div
               className="text-xs mt-1 font-mono"
-              style={{ color: "#18C3A5" }}
+              style={{ color: "var(--mkt-brand-primary)" }}
             >
               Velocity increase
             </div>
@@ -49,12 +49,12 @@ export function Stats() {
             <div className="text-4xl md:text-5xl font-bold text-white mb-2">
               67%
             </div>
-            <div className="text-sm" style={{ color: "#707070" }}>
+            <div className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               Churn Eliminated
             </div>
             <div
               className="text-xs mt-1 font-mono"
-              style={{ color: "#18C3A5" }}
+              style={{ color: "var(--mkt-brand-primary)" }}
             >
               Net retention lift
             </div>
@@ -64,12 +64,12 @@ export function Stats() {
             <div className="text-4xl md:text-5xl font-bold text-white mb-2">
               2.1×
             </div>
-            <div className="text-sm" style={{ color: "#707070" }}>
+            <div className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               Expansion Revenue Growth
             </div>
             <div
               className="text-xs mt-1 font-mono"
-              style={{ color: "#18C3A5" }}
+              style={{ color: "var(--mkt-brand-primary)" }}
             >
               Upsell velocity
             </div>

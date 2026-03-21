@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import type { ResearchSuggestion } from "@/hooks/company-context/types";
 import { cn } from "@/lib/utils";
+import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 
 interface Props {
   suggestion: ResearchSuggestion;
@@ -18,20 +19,6 @@ interface Props {
   isProcessing?: boolean;
 }
 
-function ConfidenceBadge({ score }: { score: number }) {
-  const color =
-    score >= 0.7
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : score >= 0.4
-        ? "bg-amber-50 text-amber-700 border-amber-200"
-        : "bg-red-50 text-red-700 border-red-200";
-
-  return (
-    <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold border", color)}>
-      {Math.round(score * 100)}%
-    </span>
-  );
-}
 
 function getSourceName(url: string): string {
   if (url.startsWith("sec://edgar")) {

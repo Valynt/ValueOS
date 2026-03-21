@@ -13,7 +13,7 @@ import { renderPage } from "@sdui/renderPage";
 import React from "react";
 
 // Example 1: Enhanced Error Boundary with Circuit Breaker
-function RobustComponent({ data }: { data: any }) {
+function RobustComponent({ data }: { data: Record<string, unknown> }) {
   return (
     <ComponentErrorBoundary
       componentName="RobustComponent"
@@ -46,7 +46,7 @@ function RobustComponent({ data }: { data: any }) {
 }
 
 // Example 2: Schema Migration with Checkpoints
-async function migrateWithCheckpoints(schema: any, targetVersion: number) {
+async function migrateWithCheckpoints(schema: Record<string, unknown>, targetVersion: number) {
   try {
     // Create checkpoint before migration
     const checkpoint = migrationRunner.createCheckpoint(
@@ -159,7 +159,7 @@ function renderVersionedComponent(componentName: string, requestedVersion?: numb
 // Example 5: Caching with Decorators
 class SchemaService {
   @cached(5 * 60 * 1000) // 5 minutes cache
-  async generateSchema(workspaceId: string): Promise<any> {
+  async generateSchema(workspaceId: string): Promise<Record<string, unknown>> {
     console.log("Generating schema for workspace:", workspaceId);
 
     // Expensive schema generation logic
@@ -185,7 +185,7 @@ class SchemaService {
   }
 
   @cached(10 * 60 * 1000) // 10 minutes cache
-  async validateSchema(schema: any): Promise<boolean> {
+  async validateSchema(schema: Record<string, unknown>): Promise<boolean> {
     console.log("Validating schema");
 
     // Schema validation logic

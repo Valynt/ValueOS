@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -66,6 +67,7 @@ const ALL_MOTIONS: SalesMotionTag[] = [
 
 export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditorProps) {
   const isNew = !driver;
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState<Partial<ValueDriver>>({
     name: driver?.name || "",
@@ -159,7 +161,7 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
       status: formData.status as "draft" | "published" | "archived",
       createdAt: driver?.createdAt || now,
       updatedAt: now,
-      createdBy: driver?.createdBy || "admin@acme.com",
+      createdBy: driver?.createdBy || user?.email || "",
       version: (driver?.version || 0) + 1,
       usageCount: driver?.usageCount || 0,
       winRateCorrelation: driver?.winRateCorrelation,

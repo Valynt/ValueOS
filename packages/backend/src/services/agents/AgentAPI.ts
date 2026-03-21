@@ -395,7 +395,7 @@ export class AgentAPI {
       }
 
       // Parse response
-      let data: any;
+      let data: unknown;
       try {
         data = await response.json();
       } catch {
@@ -447,7 +447,7 @@ export class AgentAPI {
       const duration = Date.now() - startTime;
 
       // Record failure in circuit breaker (skip if already recorded for 429)
-      if (circuitBreaker && !(error as any).retryAfter) {
+      if (circuitBreaker && !(error instanceof Error && 'retryAfter' in error)) {
         circuitBreaker.recordFailure();
       }
 

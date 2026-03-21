@@ -72,6 +72,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <aside
+      aria-label="Application navigation"
       className={cn(
         "flex flex-col border-r border-sidebar-border h-full bg-sidebar transition-all duration-200 relative max-w-full overflow-x-hidden",
         collapsed ? "w-16" : "w-64"
@@ -110,7 +111,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav aria-label="Main navigation" className="flex-1 px-3 py-4">
         {/* Primary product surfaces */}
         <div className="space-y-1">
           {prioritizedNavItems
@@ -120,6 +121,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 key={item.path}
                 to={item.path}
                 onClick={() => handleNavClick(item.path)}
+                aria-label={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] font-medium transition-all duration-150",
@@ -131,7 +133,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   )
                 }
               >
-                <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <item.icon className="w-[18px] h-[18px] flex-shrink-0" aria-hidden="true" />
                 {!collapsed && (
                   <div className="flex items-center justify-between w-full">
                     <span>{item.label}</span>
@@ -164,6 +166,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 key={item.path}
                 to={item.path}
                 onClick={() => handleNavClick(item.path)}
+                aria-label={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] font-medium transition-all duration-150",
@@ -174,7 +177,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   )
                 }
               >
-                <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <item.icon className="w-[18px] h-[18px] flex-shrink-0" aria-hidden="true" />
                 {!collapsed && <span>{item.label}</span>}
               </NavLink>
             ))}

@@ -5,6 +5,30 @@
  */
 
 :root {
+  /* ===================
+     MARKETING / BRAND TOKENS
+     Used exclusively in the marketing site dark-background sections.
+     All marketing components MUST use these variables — never raw hex.
+     =================== */
+  --mkt-brand-primary: #18C3A5;
+  --mkt-brand-primary-rgb: 24, 195, 165;
+  --mkt-brand-secondary: #27E1C1;
+  --mkt-bg-dark: #0B0C0F;
+  --mkt-bg-surface: #111318;
+  --mkt-text-primary: #FFFFFF;
+  --mkt-text-secondary: #E0E0E0;
+  --mkt-text-muted: #707070;
+  --mkt-border-subtle: rgba(224, 224, 224, 0.2);
+  --mkt-border-brand: rgba(24, 195, 165, 0.3);
+  --mkt-bg-brand-subtle: rgba(24, 195, 165, 0.1);
+  --mkt-bg-card: #1E1E1E;
+  --mkt-bg-card-deep: #0A0A0A;
+  --mkt-accent-blue: #00AEEF;
+  --mkt-accent-blue-rgb: 0, 174, 239;
+  --mkt-accent-green: #00FF9D;
+  --mkt-accent-green-rgb: 0, 255, 157;
+  --mkt-error: #EF4444;
+
   /* Core palette (canonical, do not use raw values outside this file). */
   --valueos-primary: 217 91% 60%;
   --valueos-primary-foreground: 222 47% 11%;
@@ -50,4 +74,12 @@
   --valueos-warning: 38 92% 50%;
   --valueos-error: 0 84% 60%;
   --valueos-on-status: 0 0% 100%;
+
+  /* Marketing status colors */
+  --mkt-status-danger: #ef4444;
+  --mkt-status-warning: #facc15;
+  /* Marketing skeleton loading placeholder */
+  --mkt-bg-skeleton: #2A2A2A;
+  /* Marketing logo gradient */
+  --mkt-logo-gradient-end: #5A5D67;
 }

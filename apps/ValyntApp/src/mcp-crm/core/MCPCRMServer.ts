@@ -429,9 +429,10 @@ export class MCPCRMServer {
    */
   private async loadConnections(): Promise<void> {
     try {
-      // Type assertion needed because tenant_integrations table
-      // may not be in generated Supabase types yet
-      const { data: integrations, error } = await (supabase as any)
+      // Use type-safe workaround: cast through unknown to avoid any.
+      // TODO: Remove once tenant_integrations is added to generated Supabase types.
+      const supabaseUntyped = supabase as unknown as { from: (table: string) => { select: (cols: string) => { eq: (col: string, val: string) => { eq: (col: string, val: string) => Promise<{ data: Array<Record<string, unknown>> | null; error: unknown }> } } } };
+      const { data: integrations, error } = await supabaseUntyped
         .from("tenant_integrations")
         .select("*")
         .eq("tenant_id", this.config.tenantId)

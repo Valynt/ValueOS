@@ -15,7 +15,7 @@
  */
 
 import { createLogger } from "../logger.js";
-import type { LLMMessage } from '../agent-fabric/LLMGateway.js';
+import type { LLMMessage, LLMRequestMetadata } from '../agent-fabric/LLMGateway.js';
 
 const logger = createLogger({ component: "secureLLMComplete" });
 
@@ -122,7 +122,7 @@ export async function secureLLMComplete(
       tenantId,
       userId: userId ?? 'system',
       ...rest,
-    } as any, // Note: LLMGateway accepts either tenantId or organizationId, we standardize on tenantId
+    } as LLMRequestMetadata, // tenantId satisfies the TenantMetadata discriminated union
   });
 }
 

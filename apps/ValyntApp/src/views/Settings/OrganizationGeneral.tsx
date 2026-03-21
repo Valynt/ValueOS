@@ -21,8 +21,8 @@ const BRANDING_PREVIEW_TEXT_COLOR = "#f8fafc";
 
 export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
   initialBranding,
-  initialOrganizationName = "Acme Corporation",
-  initialDomain = "acme.com",
+  initialOrganizationName = "",
+  initialDomain = "",
 }) => {
   const [orgName, setOrgName] = useState(initialOrganizationName);
   const [domain, setDomain] = useState(initialDomain);

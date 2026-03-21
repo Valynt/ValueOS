@@ -135,13 +135,10 @@ export interface ABTest {
 }
 
 export class PromptVersionControlService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private supabase: ReturnType<typeof createClient<any>>;
+   private supabase: ReturnType<typeof createClient<Database>>;
   private cache: Map<string, PromptVersion> = new Map();
-
   constructor() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.supabase = createClient<any>(
+    this.supabase = createClient<Database>(
       process.env.SUPABASE_URL || '',
       process.env.SUPABASE_KEY || ''
     );

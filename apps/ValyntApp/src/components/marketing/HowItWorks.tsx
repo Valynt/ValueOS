@@ -5,7 +5,7 @@ export function HowItWorks() {
       className="py-24 border-y"
       style={{
         borderColor: "rgba(224, 224, 224, 0.05)",
-        backgroundColor: "#1E1E1E",
+        backgroundColor: "var(--mkt-bg-card)",
       }}
     >
       <div className="max-w-7xl mx-auto px-6">
@@ -15,7 +15,7 @@ export function HowItWorks() {
           </h2>
           <p
             className="text-sm max-w-2xl mx-auto mt-3"
-            style={{ color: "#707070" }}
+            style={{ color: "var(--mkt-text-muted)" }}
           >
             No manual work for your team. No complex data entry. Just seamless
             automation that runs in the background while your reps stay in flow
@@ -30,13 +30,13 @@ export function HowItWorks() {
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-2xl transition-all duration-300"
               style={{
-                backgroundColor: "#0A0A0A",
-                border: "1px solid rgba(224, 224, 224, 0.1)",
+                backgroundColor: "var(--mkt-bg-card-deep)",
+                border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
               }}
             >
               <span
                 className="text-2xl font-mono transition-colors"
-                style={{ color: "#707070" }}
+                style={{ color: "var(--mkt-text-muted)" }}
               >
                 01
               </span>
@@ -46,12 +46,12 @@ export function HowItWorks() {
             </h3>
             <p
               className="text-sm leading-relaxed px-4"
-              style={{ color: "#707070" }}
+              style={{ color: "var(--mkt-text-muted)" }}
             >
               Connect your "Value Tree." Map your capabilities to customer
               outcomes and financial impacts once. This becomes your single
               source of truth—your{" "}
-              <strong style={{ color: "#00FF9D" }}>Value Fabric</strong>.
+              <strong style={{ color: "var(--mkt-accent-green)" }}>Value Fabric</strong>.
             </p>
           </div>
 
@@ -59,9 +59,9 @@ export function HowItWorks() {
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-2xl transition-all duration-300"
               style={{
-                backgroundColor: "#0A0A0A",
-                border: "1px solid rgba(0, 174, 239, 0.5)",
-                boxShadow: "0 0 20px rgba(0, 174, 239, 0.2)",
+                backgroundColor: "var(--mkt-bg-card-deep)",
+                border: "1px solid rgba(var(--mkt-accent-blue-rgb), 0.5)",
+                boxShadow: "0 0 20px rgba(var(--mkt-accent-blue-rgb), 0.2)",
               }}
             >
               <span className="text-2xl font-mono text-white">02</span>
@@ -71,12 +71,12 @@ export function HowItWorks() {
             </h3>
             <p
               className="text-sm leading-relaxed px-4"
-              style={{ color: "#707070" }}
+              style={{ color: "var(--mkt-text-muted)" }}
             >
               Activate your digital workforce. The{" "}
-              <strong style={{ color: "#00AEEF" }}>Opportunity Agent</strong>{" "}
+              <strong style={{ color: "var(--mkt-accent-blue)" }}>Opportunity Agent</strong>{" "}
               scrapes discovery data to map pain points, while the{" "}
-              <strong style={{ color: "#00AEEF" }}>Target Agent</strong> commits
+              <strong style={{ color: "var(--mkt-accent-blue)" }}>Target Agent</strong> commits
               to specific KPIs.
             </p>
           </div>
@@ -85,13 +85,13 @@ export function HowItWorks() {
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-2xl transition-all duration-300"
               style={{
-                backgroundColor: "#0A0A0A",
-                border: "1px solid rgba(224, 224, 224, 0.1)",
+                backgroundColor: "var(--mkt-bg-card-deep)",
+                border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
               }}
             >
               <span
                 className="text-2xl font-mono transition-colors"
-                style={{ color: "#707070" }}
+                style={{ color: "var(--mkt-text-muted)" }}
               >
                 03
               </span>
@@ -101,12 +101,12 @@ export function HowItWorks() {
             </h3>
             <p
               className="text-sm leading-relaxed px-4"
-              style={{ color: "#707070" }}
+              style={{ color: "var(--mkt-text-muted)" }}
             >
               Sit back as the{" "}
-              <strong style={{ color: "#00FF9D" }}>Realization Agent</strong>{" "}
+              <strong style={{ color: "var(--mkt-accent-green)" }}>Realization Agent</strong>{" "}
               monitors actual usage data against promised targets, and the{" "}
-              <strong style={{ color: "#00FF9D" }}>Expansion Agent</strong>{" "}
+              <strong style={{ color: "var(--mkt-accent-green)" }}>Expansion Agent</strong>{" "}
               proactively identifies upsell opportunities.
             </p>
           </div>

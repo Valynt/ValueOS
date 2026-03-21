@@ -27,7 +27,7 @@ export function Navigation() {
 
         <ul
           className="hidden md:flex items-center gap-8 text-xs font-medium"
-          style={{ color: "#707070" }}
+          style={{ color: "var(--mkt-text-muted)" }}
         >
           <li>
             <a href="#problem" className="hover:text-white transition-colors">
@@ -63,7 +63,7 @@ export function Navigation() {
           <Link
             to="/login"
             className="text-xs font-medium hover:text-white transition-colors hidden sm:block"
-            style={{ color: "#E0E0E0" }}
+            style={{ color: "var(--mkt-text-secondary)" }}
           >
             Log in
           </Link>
@@ -72,8 +72,8 @@ export function Navigation() {
             className="group relative px-4 py-2 text-xs font-semibold rounded-full overflow-hidden transition-all"
             aria-label="Deploy Value Operating System"
             style={{
-              backgroundColor: "#18C3A5",
-              color: "#0B0C0F",
+              backgroundColor: "var(--mkt-brand-primary)",
+              color: "var(--mkt-bg-dark)",
             }}
           >
             <span className="relative z-10">Deploy VOS</span>

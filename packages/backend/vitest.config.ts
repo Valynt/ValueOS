@@ -32,6 +32,39 @@ export default defineConfig({
     ],
     fileParallelism: false,
     setupFiles: ['src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        'src/test/**',
+        'src/**/__tests__/**',
+        'src/**/__benchmarks__/**',
+        ...nonUnitBackendTestPatterns,
+      ],
+      thresholds: {
+        // Enterprise-grade minimum: 85% across all dimensions for critical business logic.
+        // Added as part of the enterprise quality remediation.
+        branches: 85,
+        functions: 85,
+        lines: 85,
+        statements: 85,
+        // Security-critical services require higher coverage.
+        'src/middleware/auth.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/middleware/tenantContext.ts': {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+      },
+    },
     env: {
       // AgentPolicyService defaults to process.cwd()/policies/agents.
       // Tests run from packages/backend, so point explicitly to the repo-root policies.

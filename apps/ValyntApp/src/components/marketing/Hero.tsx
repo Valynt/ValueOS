@@ -17,19 +17,19 @@ export function Hero() {
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-8 animate-fade-up"
           role="status"
           style={{
-            border: "1px solid rgba(24, 195, 165, 0.3)",
-            backgroundColor: "rgba(24, 195, 165, 0.1)",
+            border: "1px solid var(--mkt-border-brand)",
+            backgroundColor: "var(--mkt-bg-brand-subtle)",
           }}
         >
           <span
             className="flex h-1.5 w-1.5 rounded-full"
             aria-hidden="true"
             style={{
-              backgroundColor: "#18C3A5",
-              boxShadow: "0 0 8px rgba(24, 195, 165, 0.5)",
+              backgroundColor: "var(--mkt-brand-primary)",
+              boxShadow: "0 0 8px rgba(var(--mkt-brand-primary-rgb), 0.5)",
             }}
           ></span>
-          <span className="text-xs font-mono" style={{ color: "#18C3A5" }}>
+          <span className="text-xs font-mono" style={{ color: "var(--mkt-brand-primary)" }}>
             VALYNT OS™ Online
           </span>
         </div>
@@ -40,12 +40,12 @@ export function Hero() {
 
         <p
           className="text-lg md:text-xl max-w-3xl mb-10 font-light leading-relaxed animate-fade-up delay-200"
-          style={{ color: "#707070" }}
+          style={{ color: "var(--mkt-text-muted)" }}
         >
           The AI-native{" "}
-          <strong style={{ color: "#18C3A5" }}>Value Operating System</strong>{" "}
+          <strong style={{ color: "var(--mkt-brand-primary)" }}>Value Operating System</strong>{" "}
           that models, measures, and proves your outcomes — automatically.{" "}
-          <strong style={{ color: "#FFFFFF" }}>
+          <strong style={{ color: "var(--mkt-text-primary)" }}>
             Reduce CAC by 20%. Cut sales cycles by 30 days. Eliminate 67% of
             churn.
           </strong>{" "}
@@ -58,8 +58,8 @@ export function Hero() {
             className="h-10 px-6 rounded-full text-sm font-semibold transition-all flex items-center gap-2"
             aria-label="Explore the Value OS"
             style={{
-              backgroundColor: "#18C3A5",
-              color: "#0B0C0F",
+              backgroundColor: "var(--mkt-brand-primary)",
+              color: "var(--mkt-bg-dark)",
             }}
           >
             Explore the Value OS
@@ -68,9 +68,9 @@ export function Hero() {
           <button
             className="h-10 px-6 rounded-full text-sm font-medium transition-all"
             style={{
-              border: "1px solid rgba(224, 224, 224, 0.2)",
+              border: "1px solid var(--mkt-border-subtle)",
               backgroundColor: "transparent",
-              color: "#E0E0E0",
+              color: "var(--mkt-text-secondary)",
             }}
           >
             See the VALYNT Engine in Action
@@ -81,8 +81,8 @@ export function Hero() {
       <div
         className="mt-20 relative rounded-lg overflow-hidden shadow-2xl animate-fade-up delay-300 group"
         style={{
-          border: "1px solid rgba(224, 224, 224, 0.1)",
-          backgroundColor: "#1E1E1E",
+          border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
+          backgroundColor: "var(--mkt-bg-card)",
         }}
       >
         <div className="absolute inset-0 bg-grid-small opacity-20"></div>
@@ -92,7 +92,7 @@ export function Hero() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <GitMerge className="w-4 h-4 text-white" />
-              <span className="text-xs font-mono" style={{ color: "#707070" }}>
+              <span className="text-xs font-mono" style={{ color: "var(--mkt-text-muted)" }}>
                 VALUE TREE MAPPING
               </span>
             </div>
@@ -110,8 +110,8 @@ export function Hero() {
                 <span
                   className="text-xs px-1.5 py-0.5 rounded"
                   style={{
-                    color: "#18C3A5",
-                    backgroundColor: "rgba(24, 195, 165, 0.1)",
+                    color: "var(--mkt-brand-primary)",
+                    backgroundColor: "var(--mkt-bg-brand-subtle)",
                   }}
                 >
                   Linked
@@ -119,7 +119,7 @@ export function Hero() {
               </div>
               <div
                 className="h-1 w-full rounded-full overflow-hidden"
-                style={{ backgroundColor: "rgba(224, 224, 224, 0.1)" }}
+                style={{ backgroundColor: "rgba(var(--mkt-text-secondary), 0.1)" }}
               >
                 <div className="h-full w-3/4 bg-white rounded-full"></div>
               </div>
@@ -132,14 +132,14 @@ export function Hero() {
               }}
             >
               <div className="flex justify-between items-start mb-2">
-                <span className="text-sm" style={{ color: "#707070" }}>
+                <span className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
                   Metric: Expansion Revenue
                 </span>
                 <span
                   className="text-xs px-1.5 py-0.5 rounded"
                   style={{
-                    color: "#00AEEF",
-                    backgroundColor: "rgba(0, 174, 239, 0.1)",
+                    color: "var(--mkt-accent-blue)",
+                    backgroundColor: "rgba(var(--mkt-accent-blue-rgb), 0.1)",
                   }}
                 >
                   Optimizing
@@ -147,11 +147,11 @@ export function Hero() {
               </div>
               <div
                 className="h-1 w-full rounded-full overflow-hidden"
-                style={{ backgroundColor: "rgba(224, 224, 224, 0.1)" }}
+                style={{ backgroundColor: "rgba(var(--mkt-text-secondary), 0.1)" }}
               >
                 <div
                   className="h-full w-1/2 rounded-full"
-                  style={{ backgroundColor: "#00AEEF" }}
+                  style={{ backgroundColor: "var(--mkt-accent-blue)" }}
                 ></div>
               </div>
             </div>
@@ -165,8 +165,8 @@ export function Hero() {
               <div
                 className="p-3 rounded-full transition-shadow duration-500"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.2)",
-                  backgroundColor: "#0A0A0A",
+                  border: "1px solid var(--mkt-border-subtle)",
+                  backgroundColor: "var(--mkt-bg-card-deep)",
                   boxShadow: "0 0 15px rgba(255, 255, 255, 0.1)",
                 }}
               >
@@ -175,59 +175,59 @@ export function Hero() {
               <div
                 className="px-3 py-1.5 rounded-full text-[10px] font-mono flex items-center gap-2"
                 style={{
-                  border: "1px solid rgba(24, 195, 165, 0.3)",
-                  backgroundColor: "rgba(24, 195, 165, 0.1)",
-                  color: "#18C3A5",
+                  border: "1px solid var(--mkt-border-brand)",
+                  backgroundColor: "var(--mkt-bg-brand-subtle)",
+                  color: "var(--mkt-brand-primary)",
                 }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: "#18C3A5" }}
+                  style={{ backgroundColor: "var(--mkt-brand-primary)" }}
                 ></span>
                 OPPORTUNITY AGENT ACTIVE
               </div>
               <div
                 className="p-3 rounded-full"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.1)",
-                  backgroundColor: "#0A0A0A",
+                  border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
+                  backgroundColor: "var(--mkt-bg-card-deep)",
                 }}
               >
-                <FileCheck className="w-5 h-5" style={{ color: "#707070" }} />
+                <FileCheck className="w-5 h-5" style={{ color: "var(--mkt-text-muted)" }} />
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4 justify-end">
-              <span className="text-xs font-mono" style={{ color: "#707070" }}>
+              <span className="text-xs font-mono" style={{ color: "var(--mkt-text-muted)" }}>
                 CFO VALIDATION
               </span>
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
             <div
               className="font-mono text-[10px] space-y-2 text-right"
-              style={{ color: "#707070" }}
+              style={{ color: "var(--mkt-text-muted)" }}
             >
               <p
                 className="pr-3 py-1"
-                style={{ borderRight: "2px solid rgba(224, 224, 224, 0.2)" }}
+                style={{ borderRight: "2px solid var(--mkt-border-subtle)" }}
               >
                 ROI_Calculation:{" "}
                 <span className="text-white">Conservative</span>
               </p>
               <p
                 className="pr-3 py-1"
-                style={{ borderRight: "2px solid #18C3A5", color: "#18C3A5" }}
+                style={{ borderRight: "2px solid var(--mkt-brand-primary)", color: "var(--mkt-brand-primary)" }}
               >
                 Net_Present_Value: $1.2M{" "}
-                <span style={{ color: "rgba(24, 195, 165, 0.4)" }}>
+                  <span style={{ color: "rgba(var(--mkt-brand-primary-rgb), 0.4)" }}>
                   // verified
                 </span>
               </p>
               <p
                 className="pr-3 py-1"
-                style={{ borderRight: "2px solid rgba(224, 224, 224, 0.2)" }}
+                style={{ borderRight: "2px solid var(--mkt-border-subtle)" }}
               >
                 Payback_Period: 6.2mo{" "}
                 <span style={{ color: "rgba(112, 112, 112, 0.7)" }}>
@@ -236,7 +236,7 @@ export function Hero() {
               </p>
               <p
                 className="pr-3 py-1"
-                style={{ borderRight: "2px solid rgba(224, 224, 224, 0.2)" }}
+                style={{ borderRight: "2px solid var(--mkt-border-subtle)" }}
               >
                 Risk_Factor: Low{" "}
                 <span style={{ color: "rgba(112, 112, 112, 0.7)" }}>

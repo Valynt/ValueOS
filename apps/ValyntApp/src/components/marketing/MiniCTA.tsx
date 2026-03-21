@@ -8,9 +8,9 @@ export function MiniCTA({ text }: MiniCTAProps) {
       <button
         className="h-12 px-8 rounded-full text-base font-semibold transition-all"
         style={{
-          backgroundColor: "#18C3A5",
-          color: "#0B0C0F",
-          boxShadow: "0 0 20px rgba(24, 195, 165, 0.3)",
+          backgroundColor: "var(--mkt-brand-primary)",
+          color: "var(--mkt-bg-dark)",
+          boxShadow: "0 0 20px var(--mkt-border-brand)",
         }}
       >
         {text}

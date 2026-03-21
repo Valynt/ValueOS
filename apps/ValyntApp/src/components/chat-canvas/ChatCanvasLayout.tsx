@@ -23,14 +23,7 @@ import { CommandBar, Sidebar, TopBar } from "@/components/shell";
 import type { ValueCase } from "@/components/shell";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
-
-// Mock data for demonstration
-const mockCases: ValueCase[] = [
-  { id: "1", name: "Acme Corp ROI Analysis", status: "in-progress", updatedAt: "2 hours ago" },
-  { id: "2", name: "TechStart Value Model", status: "in-progress", updatedAt: "Yesterday" },
-  { id: "3", name: "Enterprise Solutions", status: "completed", updatedAt: "3 days ago" },
-  { id: "4", name: "Global Retail Assessment", status: "completed", updatedAt: "1 week ago" },
-];
+import { useCasesList } from "@/hooks/useCases";
 
 interface ChatCanvasLayoutProps {
   onSettingsClick?: () => void;
@@ -39,9 +32,25 @@ interface ChatCanvasLayoutProps {
 
 export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLayoutProps) {
   // Shell state
-  const [selectedCaseId, setSelectedCaseId] = useState<string | null>("1");
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandBarOpen, setCommandBarOpen] = useState(false);
+
+  // Live cases from Supabase (tenant-scoped)
+  const { data: rawCases = [] } = useCasesList();
+  const cases: ValueCase[] = rawCases.map((c) => ({
+    id: c.id,
+    name: c.title ?? c.id,
+    status: c.status === "published" ? "completed" : "in-progress",
+    updatedAt: c.updated_at ?? "",
+  }));
+
+  // Auto-select first case when data loads
+  useEffect(() => {
+    if (!selectedCaseId && cases.length > 0) {
+      setSelectedCaseId(cases[0].id);
+    }
+  }, [cases, selectedCaseId]);
 
   // Orchestration hooks
   const {
@@ -102,14 +111,14 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
   }, [submitQuery]);
 
   // Derived state
-  const selectedCase = mockCases.find((c) => c.id === selectedCaseId);
+  const selectedCase = cases.find((c) => c.id === selectedCaseId);
   const title = selectedCase?.name ?? "Select a case";
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Shell Layer: Sidebar */}
       <Sidebar
-        cases={mockCases}
+        cases={cases}
         selectedCaseId={selectedCaseId}
         collapsed={sidebarCollapsed}
         onSelectCase={handleSelectCase}
@@ -147,9 +156,9 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
                 data={{
                   title: "Value Summary",
                   status: selectedCase?.status === "completed" ? "Completed" : "In Progress",
-                  roi: metrics.roi || 324,
-                  annualValue: metrics.annualValue || 2400000,
-                  stakeholders: 12,
+                  roi: metrics.roi || 0,
+                  annualValue: metrics.annualValue || 0,
+                  stakeholders: 0,
                 }}
               />
 
@@ -159,12 +168,8 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
                 data={{
                   agentName: "Value Intelligence Agent",
                   status: isProcessing ? agentContext.currentStep : "Analysis complete",
-                  summary: "Based on the discovery data, I've identified 3 primary value drivers for this account:",
-                  valueDrivers: [
-                    { title: "Operational Efficiency", description: "40% reduction in manual processes" },
-                    { title: "Revenue Growth", description: "15% increase in customer retention" },
-                    { title: "Cost Avoidance", description: "$800K annual savings in compliance" },
-                  ],
+                  summary: "Ask a question to begin value analysis for this case.",
+                  valueDrivers: [],
                 }}
               />
 

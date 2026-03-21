@@ -21,6 +21,7 @@ import type { ModelSnapshot } from "@/hooks/useModelSnapshot";
 import { useRunTargetAgent, useUpsertValueTreeNode, useValueTree } from "@/hooks/useValueTree";
 import type { ValueTreeNode } from "@/hooks/useValueTree";
 import { cn } from "@/lib/utils";
+import { EditableField } from '@/components/ui/EditableField';
 
 // Inline-editable number
 function EditableNumber({
@@ -193,7 +194,7 @@ export function ModelStage() {
                 <div key={node.id} className="p-4 border border-zinc-100 rounded-xl hover:border-zinc-200 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <EditableField
+                      <EditableField focusColor="focus:border-violet-500"
                         value={node.label}
                         onSave={(v) => handleSaveNodeLabel(node, v)}
                         className="text-[13px] font-medium text-zinc-900"
@@ -447,48 +448,3 @@ function FinancialPanel({
 // EditableField (label editing)
 // ---------------------------------------------------------------------------
 
-function EditableField({
-  value,
-  onSave,
-  className,
-}: {
-  value: string;
-  onSave: (v: string) => void;
-  className?: string;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { onSave(draft); setEditing(false); }
-            if (e.key === "Escape") { setDraft(value); setEditing(false); }
-          }}
-          className={cn("bg-white border border-zinc-300 rounded-lg px-2 py-1 text-[13px] outline-none focus:border-violet-500", className)}
-        />
-        <button onClick={() => { onSave(draft); setEditing(false); }} className="p-0.5 rounded hover:bg-zinc-100">
-          <Check className="w-3 h-3 text-emerald-600" />
-        </button>
-        <button onClick={() => { setDraft(value); setEditing(false); }} className="p-0.5 rounded hover:bg-zinc-100">
-          <X className="w-3 h-3 text-zinc-400" />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <span
-      onClick={() => setEditing(true)}
-      className={cn("cursor-pointer hover:bg-violet-50 rounded px-1 -mx-1 transition-colors group/edit inline-flex items-center gap-1", className)}
-    >
-      {value}
-      <Edit3 className="w-3 h-3 text-zinc-300 opacity-0 group-hover/edit:opacity-100 transition-opacity" />
-    </span>
-  );
-}

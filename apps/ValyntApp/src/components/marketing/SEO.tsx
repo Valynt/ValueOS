@@ -8,6 +8,8 @@ interface SEOProps {
   canonicalUrl?: string;
 }
 
+const MKT_THEME_COLOR = "#050505"; // Brand dark background - kept as constant for browser meta compatibility
+
 export function SEO({
   title = "VALYNT | The Value Operating System - Value Intelligence Platform",
   description = "VALYNT is the AI-native Value Operating System that models, measures, and proves your outcomes automatically. Achieve 3.4× faster value realization, reduce churn by 67%, and increase expansion revenue by 2.1× with autonomous agents.",
@@ -54,7 +56,7 @@ export function SEO({
       { name: "googlebot", content: "index, follow" },
       { name: "bingbot", content: "index, follow" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
-      { name: "theme-color", content: "#050505" },
+      { name: "theme-color", content: MKT_THEME_COLOR },
       { name: "format-detection", content: "telephone=no" },
       { name: "language", content: "English" },
       { name: "revisit-after", content: "7 days" },
@@ -66,7 +68,7 @@ export function SEO({
         content: "black-translucent",
       },
       { name: "apple-mobile-web-app-title", content: "VALYNT" },
-      { name: "msapplication-TileColor", content: "#050505" },
+      { name: "msapplication-TileColor", content: MKT_THEME_COLOR },
       { name: "msapplication-TileImage", content: "/ms-icon-144x144.png" },
 
       { property: "og:type", content: "website" },

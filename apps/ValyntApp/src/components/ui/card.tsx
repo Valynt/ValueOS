@@ -128,7 +128,7 @@ const MetricCard = ({ label, value, icon, trend, className }: MetricCardProps) =
     : "text-muted-foreground";
 
   return (
-    <Card variant="default" padding="md" className={className}>
+    <Card variant="default" padding="md" className={className} aria-label={`${label}: ${value}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
@@ -168,6 +168,7 @@ const ActionCard = ({ title, description, icon, onClick, className }: ActionCard
       className={cn("group", className)}
       onClick={onClick}
       role={onClick ? "button" : undefined}
+      aria-label={title}
       tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex items-start gap-4">

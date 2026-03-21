@@ -14,21 +14,21 @@ export function Solution() {
         </h2>
         <p
           className="max-w-2xl text-sm md:text-base mb-4"
-          style={{ color: "#707070" }}
+          style={{ color: "var(--mkt-text-muted)" }}
         >
           VALYNT isn't another dashboard. It is an autonomous{" "}
-          <strong style={{ color: "#00FF9D" }}>Value Operating System</strong>{" "}
+          <strong style={{ color: "var(--mkt-accent-green)" }}>Value Operating System</strong>{" "}
           that weaves through your entire enterprise. Replace manual guesswork
           with intelligent agents.
         </p>
         <div
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg"
           style={{
-            backgroundColor: "rgba(24, 195, 165, 0.1)",
-            border: "1px solid rgba(24, 195, 165, 0.3)",
+            backgroundColor: "var(--mkt-bg-brand-subtle)",
+            border: "1px solid var(--mkt-border-brand)",
           }}
         >
-          <span className="text-sm font-medium" style={{ color: "#18C3A5" }}>
+          <span className="text-sm font-medium" style={{ color: "var(--mkt-brand-primary)" }}>
             Zero-entry data capture for reps. 100% visibility for leadership.
           </span>
         </div>
@@ -48,7 +48,7 @@ export function Solution() {
               <div
                 className="w-10 h-10 rounded flex items-center justify-center mb-6 transition-colors"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.1)",
+                  border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
                   backgroundColor: "rgba(255, 255, 255, 0.05)",
                 }}
               >
@@ -57,7 +57,7 @@ export function Solution() {
               <h3 className="text-xl font-medium text-white mb-2">
                 The Value Fabric
               </h3>
-              <p className="text-sm max-w-md" style={{ color: "#707070" }}>
+              <p className="text-sm max-w-md" style={{ color: "var(--mkt-text-muted)" }}>
                 We replace manual "guesswork" with a system of Intelligent
                 Agents. These aren't simple chatbots; they are digital employees
                 that think, plan, and execute value motions 24/7.
@@ -68,9 +68,9 @@ export function Solution() {
               <div
                 className="px-3 py-1.5 rounded-full text-[10px] font-mono"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.1)",
+                  border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
                   backgroundColor: "rgba(255, 255, 255, 0.05)",
-                  color: "#E0E0E0",
+                  color: "var(--mkt-text-secondary)",
                 }}
               >
                 Autonomous
@@ -78,9 +78,9 @@ export function Solution() {
               <div
                 className="px-3 py-1.5 rounded-full text-[10px] font-mono"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.1)",
+                  border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
                   backgroundColor: "rgba(255, 255, 255, 0.05)",
-                  color: "#E0E0E0",
+                  color: "var(--mkt-text-secondary)",
                 }}
               >
                 Evidence-Based
@@ -88,9 +88,9 @@ export function Solution() {
               <div
                 className="px-3 py-1.5 rounded-full text-[10px] font-mono"
                 style={{
-                  border: "1px solid rgba(224, 224, 224, 0.1)",
+                  border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
                   backgroundColor: "rgba(255, 255, 255, 0.05)",
-                  color: "#E0E0E0",
+                  color: "var(--mkt-text-secondary)",
                 }}
               >
                 Strategic
@@ -104,7 +104,7 @@ export function Solution() {
             <div
               className="w-10 h-10 rounded flex items-center justify-center mb-6 transition-colors"
               style={{
-                border: "1px solid rgba(224, 224, 224, 0.1)",
+                border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
                 backgroundColor: "rgba(255, 255, 255, 0.05)",
               }}
             >
@@ -113,7 +113,7 @@ export function Solution() {
             <h3 className="text-xl font-medium text-white mb-2">
               They Research
             </h3>
-            <p className="text-sm" style={{ color: "#707070" }}>
+            <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               While you sleep, they analyze prospect data and unstructured notes
               to find pain points automatically.
             </p>
@@ -124,14 +124,14 @@ export function Solution() {
           <div
             className="w-10 h-10 rounded flex items-center justify-center mb-6 transition-colors"
             style={{
-              border: "1px solid rgba(224, 224, 224, 0.1)",
+              border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
               backgroundColor: "rgba(255, 255, 255, 0.05)",
             }}
           >
             <Calculator className="w-5 h-5 text-white" />
           </div>
           <h3 className="text-xl font-medium text-white mb-2">They Quantify</h3>
-          <p className="text-sm mb-6" style={{ color: "#707070" }}>
+          <p className="text-sm mb-6" style={{ color: "var(--mkt-text-muted)" }}>
             They build defensible, conservative ROI models automatically. No
             more broken spreadsheets.
           </p>
@@ -144,7 +144,7 @@ export function Solution() {
           >
             <div
               className="flex justify-between text-[10px] uppercase font-mono tracking-wider"
-              style={{ color: "#707070" }}
+              style={{ color: "var(--mkt-text-muted)" }}
             >
               <span>Model Accuracy</span>
               <span>99.8%</span>
@@ -155,7 +155,7 @@ export function Solution() {
             >
               <div
                 className="w-[99%] h-full rounded"
-                style={{ backgroundColor: "#00FF9D" }}
+                style={{ backgroundColor: "var(--mkt-accent-green)" }}
               ></div>
             </div>
           </div>
@@ -165,7 +165,7 @@ export function Solution() {
           <div
             className="w-10 h-10 rounded flex items-center justify-center mb-6 transition-colors"
             style={{
-              border: "1px solid rgba(224, 224, 224, 0.1)",
+              border: "1px solid rgba(var(--mkt-text-secondary), 0.1)",
               backgroundColor: "rgba(255, 255, 255, 0.05)",
             }}
           >
@@ -175,7 +175,7 @@ export function Solution() {
             <h3 className="text-xl font-medium text-white mb-2">
               They Enforce
             </h3>
-            <p className="text-sm" style={{ color: "#707070" }}>
+            <p className="text-sm" style={{ color: "var(--mkt-text-muted)" }}>
               They ensure every claim you make is backed by data and integrity.
               Hype is strictly forbidden.
             </p>

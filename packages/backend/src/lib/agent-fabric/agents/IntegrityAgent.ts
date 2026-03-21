@@ -373,8 +373,7 @@ export class IntegrityAgent extends BaseAgent {
     const claims: IntegrityClaim[] = [];
 
     for (const kpi of kpis) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = kpi.metadata as any;
+      const m = kpi.metadata as Record<string, Record<string, unknown> | string | number | boolean | undefined>;
       claims.push({
         id: `kpi-${m.kpi_id || kpi.id}`,
         text: `KPI "${kpi.content}" can move from baseline ${m.baseline?.value} to target ${m.target?.value} ${m.unit || ''} within ${m.target?.timeframe_months || '?'} months.`,
@@ -392,8 +391,7 @@ export class IntegrityAgent extends BaseAgent {
     }
 
     for (const hyp of hypotheses) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = hyp.metadata as any;
+      const m = hyp.metadata as Record<string, Record<string, unknown> | string | number | boolean | undefined>;
       const impact = m.estimated_impact || {};
       claims.push({
         id: `hyp-${hyp.id}`,
@@ -437,7 +435,7 @@ export class IntegrityAgent extends BaseAgent {
 For each claim, determine:
 - verdict: "supported" (evidence clearly backs the claim), "partially_supported" (some evidence, gaps remain), "unsupported" (evidence contradicts or is irrelevant), "insufficient_evidence" (not enough data)
 - confidence: 0.0-1.0 reflecting how certain you are of the verdict
-- issues: any problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
+- issues: list all problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
 - suggested_fix: how to address issues (optional)
 
 Also provide:

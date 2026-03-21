@@ -13,20 +13,10 @@ const agent = {
   description: "Identifies and analyzes business opportunities from EDGAR filings, news, and market data. Uses ground truth verification for all financial claims.",
 };
 
-const runs = [
-  { id: "RUN-4821", status: "success", input: "Analyze Acme Corp 10-K", duration: "2m 14s", cost: "$0.34", tokens: "12,400", timestamp: "2h ago", caseId: "VC-1024" },
-  { id: "RUN-4820", status: "success", input: "Research TechStart competitive landscape", duration: "3m 02s", cost: "$0.41", tokens: "15,200", timestamp: "4h ago", caseId: "VC-1019" },
-  { id: "RUN-4819", status: "failed", input: "Extract Global Logistics financials", duration: "0m 45s", cost: "$0.08", tokens: "3,100", timestamp: "6h ago", caseId: "VC-1015" },
-  { id: "RUN-4818", status: "success", input: "Stakeholder mapping for FinServ", duration: "1m 38s", cost: "$0.22", tokens: "8,900", timestamp: "1d ago", caseId: "VC-1012" },
-  { id: "RUN-4817", status: "success", input: "Industry benchmark analysis", duration: "4m 11s", cost: "$0.56", tokens: "21,300", timestamp: "1d ago", caseId: "VC-1024" },
-];
-
-const memoryItems = [
-  { type: "fact", content: "Acme Corp annual revenue: $2.4B (FY2025)", source: "EDGAR 10-K", confidence: 98, timestamp: "2h ago" },
-  { type: "fact", content: "Acme Corp IT spend estimated at 7.5% of revenue", source: "Gartner benchmark", confidence: 82, timestamp: "2h ago" },
-  { type: "episode", content: "User requested deeper analysis of APAC expansion plans", source: "Session VC-1024", confidence: 100, timestamp: "4h ago" },
-  { type: "fact", content: "TechStart Inc raised Series C at $180M valuation", source: "Crunchbase", confidence: 90, timestamp: "6h ago" },
-];
+// Run history and memory items are fetched from the agent API by agent ID.
+// These empty arrays will be replaced by data from useAgentRuns(id) and useAgentMemory(id).
+const runs: Array<{ id: string; status: string; input: string; duration: string; cost: string; tokens: string; timestamp: string; caseId: string }> = [];
+const memoryItems: Array<{ type: string; content: string; source: string; confidence: number; timestamp: string }> = [];
 
 const tools = [
   { name: "edgar_search", description: "Search SEC EDGAR filings", scope: "read" },

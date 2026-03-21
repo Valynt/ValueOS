@@ -65,47 +65,11 @@ const DEFAULT_COLORS: BrandColors = {
   background: "#ffffff",
 };
 
-const DEFAULT_TEAM: TeamMember[] = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    title: "Solutions Consultant",
-    email: "sarah@acmecorp.com",
-    phone: "+1 (555) 123-4567",
-    linkedIn: "linkedin.com/in/sarahjohnson",
-    includeInProposals: true,
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    title: "Account Executive",
-    email: "michael@acmecorp.com",
-    phone: "+1 (555) 234-5678",
-    linkedIn: "linkedin.com/in/michaelchen",
-    includeInProposals: true,
-  },
-];
+// Team members are loaded from the tenant's team roster via the API
+const DEFAULT_TEAM: TeamMember[] = [];
 
-const DEFAULT_BOILERPLATE: BoilerplateSection[] = [
-  {
-    id: "1",
-    name: "Company Introduction",
-    type: "intro",
-    content: "Acme Corp is a leading provider of enterprise solutions, helping organizations transform their operations and drive measurable business value.",
-  },
-  {
-    id: "2",
-    name: "Proposal Closing",
-    type: "closing",
-    content: "We look forward to partnering with you on this initiative. Our team is committed to delivering exceptional results and ensuring your success.",
-  },
-  {
-    id: "3",
-    name: "Legal Disclaimer",
-    type: "legal",
-    content: "This proposal is confidential and intended solely for the use of the recipient. The information contained herein is subject to change without notice.",
-  },
-];
+// Boilerplate sections are loaded from tenant settings via the API
+const DEFAULT_BOILERPLATE: BoilerplateSection[] = [];
 
 export function BrandingPage() {
   const [logo, setLogo] = useState<string | null>(null);

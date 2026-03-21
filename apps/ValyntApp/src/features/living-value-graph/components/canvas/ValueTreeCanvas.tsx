@@ -1,8 +1,10 @@
 /**
  * ValueTreeCanvas Component - Main graph visualization using React Flow
+ *
+ * Uses the ELK hierarchical layout engine for proper node positioning,
+ * replacing the naive `index * 250` approach that caused overlaps.
  */
-
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -18,7 +20,11 @@ import 'reactflow/dist/style.css';
 
 import { useWorkflowStore } from '../../store/workflow-store';
 import { useWorkspaceStore } from '../../store/workspace-store';
-import { Graph, ValueEdge, ValueNode } from '../../types/graph.types';
+import { Graph, ValueNode } from '../../types/graph.types';
+import {
+  computeElkLayout,
+  computeFallbackLayout,
+} from '../../utils/layoutEngine';
 
 interface ValueTreeCanvasProps {
   graph?: Graph;
@@ -30,34 +36,71 @@ export function ValueTreeCanvas({ graph }: ValueTreeCanvasProps) {
   const { setSelectedNodeId } = useWorkspaceStore();
   const { phase } = useWorkflowStore();
 
-  // Transform graph data to React Flow format
-  const transformGraph = useCallback((graphData: Graph) => {
-    const flowNodes: Node[] = Object.values(graphData.nodes).map((node, index) => ({
-      id: node.id,
-      type: 'valueNode',
-      position: { x: index * 250, y: (index % 3) * 150 }, // Simple layout
-      data: { node, phase },
-    }));
+  /**
+   * Transform graph data to React Flow format and apply ELK layout.
+   * Falls back to the synchronous hierarchical layout if ELK fails.
+   */
+  const transformGraph = useCallback(
+    async (graphData: Graph) => {
+      const rawNodes: Node[] = Object.values(graphData.nodes).map((node) => ({
+        id: node.id,
+        type: 'valueNode',
+        // Temporary position — will be overwritten by layout engine
+        position: { x: 0, y: 0 },
+        data: { node, phase },
+      }));
 
-    const flowEdges: Edge[] = Object.values(graphData.edges).map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      type: 'smoothstep',
-      animated: true,
-    }));
+      const rawEdges: Edge[] = Object.values(graphData.edges).map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: 'smoothstep',
+        animated: true,
+      }));
 
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [setNodes, setEdges, phase]);
+      // Apply ELK layout with fallback
+      let layoutedNodes: Node[];
+      try {
+        layoutedNodes = await computeElkLayout(rawNodes, rawEdges, {
+          direction: 'TB',
+          nodeWidth: 200,
+          nodeHeight: 80,
+          nodeSeparation: 40,
+          rankSeparation: 80,
+        });
+      } catch {
+        // ELK failed (e.g., in test environment) — use synchronous fallback
+        layoutedNodes = computeFallbackLayout(rawNodes, rawEdges, {
+          direction: 'TB',
+          nodeWidth: 200,
+          nodeHeight: 80,
+          nodeSeparation: 40,
+          rankSeparation: 80,
+        });
+      }
+
+      setNodes(layoutedNodes);
+      setEdges(rawEdges);
+    },
+    [setNodes, setEdges, phase]
+  );
+
+  useEffect(() => {
+    if (graph) {
+      void transformGraph(graph);
+    }
+  }, [graph, transformGraph]);
 
   // Handle node selection
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
-  }, [setSelectedNodeId]);
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+    },
+    [setSelectedNodeId]
+  );
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" role="region" aria-label="Value tree canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -69,8 +112,8 @@ export function ValueTreeCanvas({ graph }: ValueTreeCanvasProps) {
         attributionPosition="bottom-right"
       >
         <Background />
-        <Controls />
-        <MiniMap />
+        <Controls aria-label="Canvas controls" />
+        <MiniMap aria-label="Canvas minimap" />
       </ReactFlow>
     </div>
   );
@@ -97,7 +140,11 @@ function ValueNodeComponent({ data }: ValueNodeComponentProps) {
     : 'bg-white border-neutral-300';
 
   return (
-    <div className={`relative p-3 rounded-lg border shadow-sm min-w-[180px] ${nodeColor}`}>
+    <div
+      className={`relative p-3 rounded-lg border shadow-sm min-w-[180px] ${nodeColor}`}
+      role="article"
+      aria-label={`${node.type}: ${node.label}`}
+    >
       {/* Handles for connections */}
       <Handle type="target" position={Position.Top} className="w-2 h-2" />
       <Handle type="source" position={Position.Bottom} className="w-2 h-2" />

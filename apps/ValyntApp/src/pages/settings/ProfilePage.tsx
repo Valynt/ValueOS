@@ -2,10 +2,11 @@
  * ProfilePage - Edit-in-place profile settings
  *
  * Row-based list pattern with read-only display and Edit actions.
+ * Data sourced from the authenticated user's Supabase session.
  */
 
 import { Camera } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { logger } from "../../lib/logger";
 
@@ -16,6 +17,7 @@ import {
 } from "@/components/settings";
 import { UserAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileData {
   fullName: string;
@@ -28,22 +30,42 @@ interface ProfileData {
 }
 
 export function ProfilePage() {
+  const { user } = useAuth();
+
   const [profile, setProfile] = useState<ProfileData>({
-    fullName: "Florence Shaw",
-    email: "florence@acmecorp.com",
-    emailVerified: false,
-    username: "florenceshaw",
-    jobTitle: "Solutions Consultant",
-    timezone: "Pacific Time (US & Canada)",
-    language: "English",
+    fullName: user?.user_metadata?.full_name ?? "",
+    email: user?.email ?? "",
+    emailVerified: user?.email_confirmed_at != null,
+    username: user?.user_metadata?.username ?? "",
+    jobTitle: user?.user_metadata?.job_title ?? "",
+    timezone: user?.user_metadata?.timezone ?? "UTC",
+    language: user?.user_metadata?.language ?? "English",
   });
+
+  // Keep profile in sync if auth state changes
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        fullName: user.user_metadata?.full_name ?? "",
+        email: user.email ?? "",
+        emailVerified: user.email_confirmed_at != null,
+        username: user.user_metadata?.username ?? "",
+        jobTitle: user.user_metadata?.job_title ?? "",
+        timezone: user.user_metadata?.timezone ?? "UTC",
+        language: user.user_metadata?.language ?? "English",
+      });
+    }
+  }, [user]);
 
   const handleSave = (field: keyof ProfileData) => (value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
+    // TODO: persist via PATCH /api/users/me
+    logger.info("Profile field updated", { field, value });
   };
 
   const handleVerifyEmail = () => {
     logger.info("Sending verification email...");
+    // TODO: call supabase.auth.resend({ type: 'signup', email: profile.email })
   };
 
   return (
@@ -66,14 +88,19 @@ export function ProfilePage() {
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <UserAvatar name={profile.fullName} size="lg" />
-              <button className="absolute -bottom-1 -right-1 p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
-                <Camera className="h-3 w-3 text-muted-foreground" />
+              <UserAvatar name={profile.fullName || profile.email} size="lg" />
+              <button
+                className="absolute -bottom-1 -right-1 p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-muted transition-colors"
+                aria-label="Upload profile photo"
+              >
+                <Camera className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
               </button>
             </div>
             <div>
-              <p className="font-medium">{profile.fullName}</p>
-              <p className="text-sm text-muted-foreground">@{profile.username}</p>
+              <p className="font-medium">{profile.fullName || profile.email}</p>
+              {profile.username && (
+                <p className="text-sm text-muted-foreground">@{profile.username}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -141,7 +168,12 @@ export function ProfilePage() {
                 Permanently delete your account and all associated data.
               </p>
             </div>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              aria-label="Delete your account permanently"
+            >
               Delete account
             </Button>
           </div>

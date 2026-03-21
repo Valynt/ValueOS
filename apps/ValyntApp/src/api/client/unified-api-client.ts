@@ -370,6 +370,18 @@ export class UnifiedApiClient {
 
         clearTimeout(timeoutId);
 
+        // Handle 429 Too Many Requests — respect the Retry-After header if present
+        if (response.status === 429) {
+          const retryAfterHeader = response.headers.get('Retry-After');
+          const retryAfterSeconds = retryAfterHeader ? parseFloat(retryAfterHeader) : Math.pow(2, attempt + 1);
+          const rateLimitDelay = Math.min(retryAfterSeconds * 1000, 60_000); // cap at 60 s
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, rateLimitDelay));
+            continue; // retry after the rate-limit window
+          }
+          throw new Error('HTTP 429: Too Many Requests — rate limit exceeded');
+        }
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

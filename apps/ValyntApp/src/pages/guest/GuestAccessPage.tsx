@@ -24,7 +24,7 @@ interface GuestAccessToken {
   createdAt: string;
 }
 
-// Mock value case data (would come from API in production)
+// Value case data shape returned by the guest API endpoint
 interface ValueCaseData {
   id: string;
   companyName: string;
@@ -150,84 +150,23 @@ export function GuestAccessPage() {
         createdAt: new Date().toISOString(),
       };
 
-      // Mock value case data
-      const mockValueCase: ValueCaseData = {
-        id: validation.valueCaseId,
-        companyName: 'Acme Corp',
-        title: 'Digital Transformation ROI Analysis',
-        valueDrivers: [
-          {
-            id: 'driver_1',
-            name: 'Sales Efficiency',
-            description: 'Reduced time-to-quote and improved win rates through data-driven proposals',
-            baseImpact: 1800000,
-            confidence: 0.85,
-            adjustable: true,
-          },
-          {
-            id: 'driver_2',
-            name: 'Customer Retention',
-            description: 'Proactive value tracking reduces churn and improves renewal rates',
-            baseImpact: 920000,
-            confidence: 0.78,
-            adjustable: true,
-          },
-          {
-            id: 'driver_3',
-            name: 'Operational Efficiency',
-            description: 'Automated workflows and reduced manual processes',
-            baseImpact: 450000,
-            confidence: 0.92,
-            adjustable: true,
-          },
-        ],
-        assumptions: [
-          {
-            id: 'asm_employees',
-            label: 'Employee Count',
-            value: 2400,
-            min: 500,
-            max: 10000,
-            step: 100,
-            unit: '',
-            description: 'Total number of employees affected by the solution',
-            impactMultiplier: 0.3,
-          },
-          {
-            id: 'asm_efficiency',
-            label: 'Efficiency Target',
-            value: 15,
-            min: 5,
-            max: 30,
-            step: 1,
-            unit: '%',
-            description: 'Expected efficiency improvement percentage',
-            impactMultiplier: 0.5,
-          },
-          {
-            id: 'asm_adoption',
-            label: 'Adoption Rate',
-            value: 80,
-            min: 40,
-            max: 100,
-            step: 5,
-            unit: '%',
-            description: 'Expected user adoption rate in first year',
-            impactMultiplier: 0.4,
-          },
-        ],
-        metrics: {
-          npv: 4100000,
-          roi: 287,
-          paybackMonths: 7.2,
-          timeHorizon: '3 years',
-        },
-      };
+      // Fetch the actual value case data from the guest API endpoint
+      const caseResponse = await fetch(`/api/guest/value-cases/${validation.valueCaseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!caseResponse.ok) {
+        setAccessState({
+          status: 'error',
+          message: 'Unable to load the value case. Please request a new link.',
+        });
+        return;
+      }
+      const valueCaseData = await caseResponse.json() as ValueCaseData;
 
       setAccessState({
         status: 'valid',
         token: validatedToken,
-        valueCase: mockValueCase,
+        valueCase: valueCaseData,
       });
 
     } catch (error) {

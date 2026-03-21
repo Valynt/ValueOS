@@ -41,7 +41,8 @@
     "security:scan": "bash scripts/security/scan.sh",
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
-    "check:valynt-browser-server-boundaries": "node scripts/ci/check-valynt-browser-server-boundaries.mjs"
+    "check:valynt-browser-server-boundaries": "node scripts/ci/check-valynt-browser-server-boundaries.mjs",
+    "test:remediation": "vitest run --config tests/vitest.remediation.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

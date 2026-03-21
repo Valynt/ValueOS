@@ -1,11 +1,8 @@
-import { expect, test } from '@playwright/test';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect } from 'vitest';
 
-test.describe('Testing & CI/CD Remediation', () => {
+describe('Testing & CI/CD Remediation', () => {
   
-  test('Test coverage thresholds are increased to enterprise standards', () => {
+  it('Test coverage thresholds are increased to enterprise standards', () => {
     // This test verifies that the coverage thresholds in vitest.config.ts
     // have been increased from the current 70-75% to at least 80-85%.
     const frontendConfigPath = path.join(process.cwd(), 'apps/ValyntApp/vitest.config.ts');
@@ -47,7 +44,7 @@ test.describe('Testing & CI/CD Remediation', () => {
     checkThresholds(backendConfigPath, 85);
   });
 
-  test('Comprehensive E2E test suite covers critical user flows', () => {
+  it('Comprehensive E2E test suite covers critical user flows', () => {
     // This test verifies that the E2E test suite has been expanded beyond
     // the basic startup and auth tests to cover the full value loop lifecycle.
     const e2ePath = path.join(process.cwd(), 'tests/e2e');
@@ -87,7 +84,7 @@ test.describe('Testing & CI/CD Remediation', () => {
     }
   });
 
-  test('E2E tests are integrated into CI pipeline as a mandatory gate', () => {
+  it('E2E tests are integrated into CI pipeline as a mandatory gate', () => {
     // This test verifies that the CI configuration runs the E2E tests
     // and blocks deployment if they fail.
     const ciPath = path.join(process.cwd(), '.github/workflows');

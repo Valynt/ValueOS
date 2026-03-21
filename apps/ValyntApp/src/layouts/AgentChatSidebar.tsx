@@ -29,7 +29,7 @@ const FOCUSABLE_SELECTORS = [
 
 const SUGGESTED_PROMPTS = [
   "What's the ROI potential for a cloud migration?",
-  "Help me build a value case for Acme Corp",
+  "Help me build a value case for a new prospect",
   "What KPIs should I track for a supply chain deal?",
   "Summarize the integrity issues in my active cases",
 ];

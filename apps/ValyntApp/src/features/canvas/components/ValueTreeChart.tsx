@@ -34,15 +34,25 @@ function findPathToNode(root: ValueTreeNode, targetId: string, path: ValueTreeNo
 
 
 
+// Recharts Treemap content render props
+interface TreemapNodeProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  node?: ValueTreeNode;
+  children?: TreemapNodeProps[];
+}
+
 export function ValueTreeChart({ data }: ValueTreeChartProps) {
   // Real-time data binding for value tree data
-  const { value: boundData, loading } = useDataBinding(data as any, {
+  const { value: boundData, loading } = useDataBinding(data, {
     resolver: {
-      resolve: async (binding: unknown) => ({ success: true, value: binding as any, cached: false, timestamp: new Date().toISOString(), source: "static" }),
-    } as any,
-    context: { organizationId: "default", projectId: "default" } as any,
+      resolve: async (binding: unknown) => ({ success: true, value: binding, cached: false, timestamp: new Date().toISOString(), source: "static" }),
+    },
+    context: { organizationId: "default", projectId: "default" },
     enableRefresh: true,
-  });
+  } as Parameters<typeof useDataBinding>[1]);
 
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -59,7 +69,8 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
   // When hovering a node, find the path from root to that node
   const handleNodeMouseEnter = useCallback((nodeId: string) => {
     setHoveredNodeId(nodeId);
-    setHoverPath(findPathToNode(boundData as any, nodeId));
+    const treeData = boundData as ValueTreeNode | undefined;
+    if (treeData) setHoverPath(findPathToNode(treeData, nodeId));
   }, [boundData]);
   const handleNodeMouseLeave = useCallback(() => {
     setHoveredNodeId(null);
@@ -67,7 +78,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
   }, []);
 
   // Render a node with hover trail effect
-  const renderNode = useCallback((props: any) => {
+  const renderNode = useCallback((props: TreemapNodeProps) => {
     const { x, y, width, height, node, children } = props;
     if (!node) return null;
 
@@ -76,7 +87,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
     return (
       <g>
         {/* Render links to children before the node itself so they appear behind */}
-        {children && children.length > 0 && children.map((child: any) => {
+        {children && children.length > 0 && children.map((child: TreemapNodeProps) => {
           if (!child.node) return null;
 
           const isChildInTrail = hoverPath?.some((n) => n.id === child.node.id);
@@ -184,8 +195,8 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
         <Treemap
           width={600}
           height={400}
-          data={Array.isArray(boundData) ? boundData : [boundData]}
-          content={renderNode as any}
+          data={Array.isArray(boundData) ? (boundData as ValueTreeNode[]) : boundData ? [boundData as ValueTreeNode] : []}
+          content={renderNode as Parameters<typeof Treemap>[0]["content"]}
         />
       </div>
       <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">

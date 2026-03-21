@@ -658,23 +658,19 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data) as any;
+        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data);
       }
 
       if (entry.context) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.context = this.sanitizeAndZeroMemory(entry.context) as any;
+        entry.context = this.sanitizeAndZeroMemory(entry.context);
       }
 
       if (entry.metadata) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata) as any;
+        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata);
       }
 
       if (entry.response_metadata) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata) as any;
+        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata);
       }
     });
   }

@@ -22,8 +22,8 @@ export function Logo({ gradientId }: LogoProps) {
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#18C3A5" />
-          <stop offset="100%" stopColor="#5A5D67" />
+          <stop offset="0%" stopColor="var(--mkt-brand-primary)" />
+          <stop offset="100%" stopColor="var(--mkt-logo-gradient-end)" />
         </linearGradient>
       </defs>
       <path

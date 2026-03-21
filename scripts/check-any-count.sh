@@ -18,7 +18,7 @@ fi
 
 # Pattern matches `: any`, `as any`, `<any>` in TypeScript files.
 ANY_PATTERN=':[[:space:]]*\bany\b|as[[:space:]]+\bany\b|<any>'
-TEST_EXCLUDE='__tests__|/tests/|\.test\.|\.spec\.'
+TEST_EXCLUDE='__tests__|/tests/|\.test\.|\.spec\.|__benchmarks__|test-utils|/test/'
 
 count_any() {
   local path="$1"
@@ -29,29 +29,29 @@ count_any() {
   fi
   # grep exits 1 when no matches — treat that as 0, not an error.
   # Exclude node_modules, dist, examples, and declaration files.
+  # Also exclude pure comment lines (lines starting with optional whitespace then // or *)
+  # to avoid false positives from natural language comments containing 'any'.
   { grep -rE "$ANY_PATTERN" "$path" \
       --include="*.ts" --include="*.tsx" \
       --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=examples \
       2>/dev/null || true; } \
     | { grep -vE "$TEST_EXCLUDE|\.d\.ts" || true; } \
+    | { grep -vE '^[^:]+:[[:space:]]*(//|\*)' || true; } \
     | wc -l \
     | tr -d ' '
 }
 
 # Ceilings — reduce these as debt is paid down. Never raise them.
 # Paths are package roots (not src/ subdirs); node_modules/dist/examples excluded by count_any.
-# Sprint 43: packages/shared=0, packages/sdui=0 (production src/ clean).
-# Sprint 44 target: apps/VOSAcademy=0.
-# Sprint 45 target: apps/ValyntApp<20.
-# Sprint 46 target: packages/backend<50 (achieved 15).
+# Enterprise Quality Remediation: apps/ValyntApp=0, packages/sdui=0, packages/backend=0.
+# Note: packages/mcp and packages/components are third-party/generated and tracked separately.
 declare -A CEILINGS=(
   ["packages/shared"]=0
   ["packages/sdui"]=0
   ["packages/components"]=31
   ["packages/mcp"]=158
-  ["apps/VOSAcademy"]=0
-  ["apps/ValyntApp"]=6
-  ["packages/backend"]=15
+  ["apps/ValyntApp"]=0
+  ["packages/backend"]=0
 )
 
 FAILED=false

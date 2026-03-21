@@ -57,9 +57,18 @@ export function addNonceToCsp(
 }
 
 /**
+ * Minimal Express-compatible middleware types (avoids importing @types/express in a browser bundle)
+ */
+interface ExpressResponse {
+  locals: Record<string, unknown>;
+  on: (event: string, listener: () => void) => void;
+}
+type NextFn = () => void;
+
+/**
  * Express middleware to inject CSP nonce
  */
-export function cspNonceMiddleware(_req: any, res: any, next: any): void {
+export function cspNonceMiddleware(_req: unknown, res: ExpressResponse, next: NextFn): void {
   const nonce = generateNonce();
   setRequestNonce(nonce);
 

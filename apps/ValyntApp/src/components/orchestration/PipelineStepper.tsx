@@ -23,6 +23,7 @@ import {
 import type { ReactNode } from "react";
 
 import type { PipelineStepState, PipelineStepStatus } from "@/hooks/useValueCaseStream";
+import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 
 // ---------------------------------------------------------------------------
 // Step icon mapping
@@ -42,23 +43,6 @@ const STEP_ICONS: Record<string, ReactNode> = {
 // Confidence badge
 // ---------------------------------------------------------------------------
 
-function ConfidenceBadge({ value }: { value: number }) {
-  const pct = Math.round(value * 100);
-  const color =
-    pct >= 80
-      ? "text-emerald-600 bg-emerald-50 border-emerald-200"
-      : pct >= 60
-        ? "text-amber-600 bg-amber-50 border-amber-200"
-        : "text-red-500 bg-red-50 border-red-200";
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${color}`}
-    >
-      {pct}%
-    </span>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Duration badge

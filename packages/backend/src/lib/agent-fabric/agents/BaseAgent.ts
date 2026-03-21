@@ -822,17 +822,67 @@ export abstract class BaseAgent {
     const confidences = this.extractNumbers(parsedOutput, "confidence");
     const evidenceArrays = this.extractArrayLengths(parsedOutput, "evidence");
 
-    if (confidences.length > 0 && evidenceArrays.length > 0) {
-      const avgConfidence =
-        confidences.reduce((a, b) => a + b, 0) / confidences.length;
-      const avgEvidence =
-        evidenceArrays.reduce((a, b) => a + b, 0) / evidenceArrays.length;
+    if (confidences.length === 0) return;
 
-      if (avgConfidence > 0.85 && avgEvidence < 2) {
+    const avgConfidence =
+      confidences.reduce((a, b) => a + b, 0) / confidences.length;
+    const avgEvidence =
+      evidenceArrays.length > 0
+        ? evidenceArrays.reduce((a, b) => a + b, 0) / evidenceArrays.length
+        : 0;
+
+    // --- 1. Thin-evidence check (original) ---
+    if (avgConfidence > 0.85 && avgEvidence < 2) {
+      signals.push({
+        type: "confidence_mismatch",
+        description: `High confidence (${avgConfidence.toFixed(2)}) with thin evidence (avg ${avgEvidence.toFixed(1)} items)`,
+        severity: "medium",
+      });
+    }
+
+    // --- 2. Historical alignment check ---
+    // Compare the agent's stated confidence against its calibratedConfidence
+    // (historicalAccuracy) stored in agent_predictions.calibrated_confidence.
+    // A large positive gap indicates the agent is systematically overconfident.
+    const calibratedConfidenceValues = this.extractNumbers(
+      parsedOutput,
+      "calibratedConfidence"
+    );
+    if (calibratedConfidenceValues.length > 0) {
+      const historicalAccuracy =
+        calibratedConfidenceValues.reduce((a, b) => a + b, 0) /
+        calibratedConfidenceValues.length;
+      const historicalAlignment = avgConfidence - historicalAccuracy;
+      if (historicalAlignment > 0.2) {
         signals.push({
           type: "confidence_mismatch",
-          description: `High confidence (${avgConfidence.toFixed(2)}) with thin evidence (avg ${avgEvidence.toFixed(1)} items)`,
-          severity: "medium",
+          description:
+            `Stated confidence (${avgConfidence.toFixed(2)}) exceeds historical accuracy ` +
+            `(${historicalAccuracy.toFixed(2)}) by ${historicalAlignment.toFixed(2)} — ` +
+            `agent may be systematically overconfident (historicalAlignment=${historicalAlignment.toFixed(2)})`,
+          severity: "high",
+        });
+      }
+    }
+
+    // --- 3. Data quality score check ---
+    // If the output includes a dataQualityScore, penalise high confidence
+    // when the underlying data quality is poor.
+    const dataQualityScores = this.extractNumbers(
+      parsedOutput,
+      "dataQualityScore"
+    );
+    if (dataQualityScores.length > 0) {
+      const avgDataQuality =
+        dataQualityScores.reduce((a, b) => a + b, 0) /
+        dataQualityScores.length;
+      if (avgConfidence > 0.8 && avgDataQuality < 0.5) {
+        signals.push({
+          type: "confidence_mismatch",
+          description:
+            `High confidence (${avgConfidence.toFixed(2)}) despite low dataQualityScore ` +
+            `(${avgDataQuality.toFixed(2)}) — verify data completeness before publishing`,
+          severity: "high",
         });
       }
     }

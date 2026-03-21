@@ -499,7 +499,7 @@ export class MultiTenantSecretsManager {
         command = commandInput;
       }
 
-      const response = await this.client.send(command as any);
+      const response = await this.client.send(command as Parameters<typeof this.client.send>[0]);
 
       if (!response.SecretString) {
         throw new Error('Secret value is empty');

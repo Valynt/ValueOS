@@ -4,6 +4,9 @@ import {
 import { useState } from "react";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { useTeam } from "@/features/team/hooks/useTeam";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -17,15 +20,16 @@ const tabs = [
 
 // -- Organization Tab --
 function OrgTab() {
+  const { currentTenant } = useTenant();
   return (
     <div className="max-w-lg space-y-6">
       <div>
         <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 block mb-2">Organization Name</label>
-        <input type="text" defaultValue="Acme Corp" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-white focus:border-zinc-400 outline-none" />
+        <input type="text" defaultValue={currentTenant?.name ?? ""} className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-white focus:border-zinc-400 outline-none" />
       </div>
       <div>
         <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 block mb-2">Slug</label>
-        <input type="text" defaultValue="acme-corp" className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-white font-mono focus:border-zinc-400 outline-none" />
+        <input type="text" defaultValue={currentTenant?.slug ?? ""} className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-white font-mono focus:border-zinc-400 outline-none" />
       </div>
       <div>
         <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 block mb-2">Plan</label>
@@ -43,18 +47,21 @@ function OrgTab() {
 
 // -- Users Tab --
 function UsersTab() {
+  const { members, invites, isLoading } = useTeam();
   const users = [
-    { name: "Sarah Chen", email: "sarah@acme.com", role: "admin", status: "active" },
-    { name: "James Park", email: "james@acme.com", role: "manager", status: "active" },
-    { name: "Maria Santos", email: "maria@acme.com", role: "member", status: "active" },
-    { name: "David Kim", email: "david@acme.com", role: "member", status: "invited" },
+    ...members.map((m) => ({ name: m.fullName || m.email, email: m.email, role: m.role, status: m.status })),
+    ...invites.map((inv) => ({ name: inv.email, email: inv.email, role: inv.role, status: "invited" as const })),
   ];
 
   const roleColors: Record<string, string> = {
+    owner: "bg-red-50 text-red-700",
     admin: "bg-red-50 text-red-700",
     manager: "bg-blue-50 text-blue-700",
     member: "bg-zinc-100 text-zinc-600",
+    viewer: "bg-zinc-100 text-zinc-500",
   };
+
+  if (isLoading) return <div className="py-8 text-center text-[13px] text-zinc-400">Loading team…</div>;
 
   return (
     <div className="space-y-4">
@@ -93,10 +100,8 @@ function UsersTab() {
 // -- API Keys Tab --
 function ApiKeysTab() {
   const [showKey, setShowKey] = useState<string | null>(null);
-  const keys = [
-    { id: "key_1", name: "Production API", prefix: "vos_prod_", created: "Jan 10, 2026", lastUsed: "2h ago", scopes: ["read", "write"] },
-    { id: "key_2", name: "CI/CD Pipeline", prefix: "vos_ci_", created: "Feb 1, 2026", lastUsed: "1d ago", scopes: ["read"] },
-  ];
+  // API keys are fetched from /api/v1/tenant/api-keys
+  const keys: Array<{ id: string; name: string; prefix: string; created: string; lastUsed: string; scopes: string[] }> = [];
 
   return (
     <div className="space-y-4">

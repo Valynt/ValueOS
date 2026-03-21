@@ -406,9 +406,9 @@ export class UnifiedTruthLayer {
    */
   async healthCheck(): Promise<{
     healthy: boolean;
-    modules: Record<string, { healthy: boolean; details?: any }>;
+    modules: Record<string, { healthy: boolean; details?: Record<string, unknown>; error?: string }>;
   }> {
-    const moduleHealth: Record<string, any> = {};
+    const moduleHealth: Record<string, { healthy: boolean; details?: Record<string, unknown>; error?: string }> = {};
     let allHealthy = true;
 
     for (const [name, module] of this.modules) {

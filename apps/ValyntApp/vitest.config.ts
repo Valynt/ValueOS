@@ -23,10 +23,12 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       exclude: ["node_modules/", "src/test/", "**/*.pure-unit.test.*"],
       thresholds: {
-        branches: 70,
-        functions: 70,
-        lines: 75,
-        statements: 75,
+        // Enterprise-grade minimum: 80% across all dimensions.
+        // Raised from 70/75 as part of the enterprise quality remediation.
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
         // SEC-002: sanitizeHtml is the DOMPurify allowlist backing SafeHtml.tsx.
         // Higher branch coverage is required here to ensure the sanitizer contract
         // is fully tested (script stripping, event handler removal, URI allowlist, etc.).

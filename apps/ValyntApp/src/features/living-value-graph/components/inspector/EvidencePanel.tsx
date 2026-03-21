@@ -3,6 +3,7 @@
  */
 
 import { ValueNode } from '../../types/graph.types';
+import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 
 interface EvidencePanelProps {
   node?: ValueNode | null;
@@ -61,7 +62,7 @@ export function EvidencePanel({ node }: EvidencePanelProps) {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <ConfidenceBadge confidence={item.confidence} />
+                  <ConfidenceBadge score={item.confidence} />
                   {item.isStale && (
                     <span className="text-xs text-amber-600">Stale</span>
                   )}
@@ -84,21 +85,3 @@ export function EvidencePanel({ node }: EvidencePanelProps) {
   );
 }
 
-function ConfidenceBadge({ confidence }: { confidence: number }) {
-  let color = 'bg-red-100 text-red-700';
-  let label = 'Low';
-
-  if (confidence >= 0.8) {
-    color = 'bg-green-100 text-green-700';
-    label = 'High';
-  } else if (confidence >= 0.6) {
-    color = 'bg-amber-100 text-amber-700';
-    label = 'Medium';
-  }
-
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded ${color}`}>
-      {label} ({Math.round(confidence * 100)}%)
-    </span>
-  );
-}

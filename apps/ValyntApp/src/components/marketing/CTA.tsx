@@ -14,13 +14,13 @@ export function CTA() {
         </h2>
         <p
           className="text-lg mb-4 leading-relaxed"
-          style={{ color: "#707070" }}
+          style={{ color: "var(--mkt-text-muted)" }}
         >
           Every company runs on value. Now you can measure it, model it, and
           prove it continuously. Transform your organization with the first
           Value Operating System.
         </p>
-        <p className="text-base mb-10 font-medium" style={{ color: "#18C3A5" }}>
+        <p className="text-base mb-10 font-medium" style={{ color: "var(--mkt-brand-primary)" }}>
           Join 200+ enterprises saving $2.4M annually in CAC while cutting sales
           cycles by 30 days.
         </p>
@@ -28,9 +28,9 @@ export function CTA() {
           <button
             className="h-12 px-8 rounded-full text-base font-semibold transition-all"
             style={{
-              backgroundColor: "#18C3A5",
-              color: "#0B0C0F",
-              boxShadow: "0 0 20px rgba(24, 195, 165, 0.3)",
+              backgroundColor: "var(--mkt-brand-primary)",
+              color: "var(--mkt-bg-dark)",
+              boxShadow: "0 0 20px var(--mkt-border-brand)",
             }}
           >
             Book Your VALYNT Demo

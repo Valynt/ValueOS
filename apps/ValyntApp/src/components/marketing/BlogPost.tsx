@@ -127,15 +127,15 @@ export default function BlogPost() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-16" style={{ backgroundColor: '#0B0C0F' }}>
+      <div className="min-h-screen pt-24 pb-16" style={{ backgroundColor: 'var(--mkt-bg-dark)' }}>
         <div className="max-w-4xl mx-auto px-6">
           <div className="animate-pulse">
-            <div className="h-8 rounded w-3/4 mb-4" style={{ backgroundColor: '#2A2A2A' }} />
-            <div className="h-64 rounded-2xl mb-8" style={{ backgroundColor: '#2A2A2A' }} />
+            <div className="h-8 rounded w-3/4 mb-4" style={{ backgroundColor: var(--mkt-bg-skeleton) }} />
+            <div className="h-64 rounded-2xl mb-8" style={{ backgroundColor: var(--mkt-bg-skeleton) }} />
             <div className="space-y-4">
-              <div className="h-4 rounded" style={{ backgroundColor: '#2A2A2A' }} />
-              <div className="h-4 rounded" style={{ backgroundColor: '#2A2A2A' }} />
-              <div className="h-4 rounded w-5/6" style={{ backgroundColor: '#2A2A2A' }} />
+              <div className="h-4 rounded" style={{ backgroundColor: var(--mkt-bg-skeleton) }} />
+              <div className="h-4 rounded" style={{ backgroundColor: var(--mkt-bg-skeleton) }} />
+              <div className="h-4 rounded w-5/6" style={{ backgroundColor: var(--mkt-bg-skeleton) }} />
             </div>
           </div>
         </div>
@@ -184,12 +184,12 @@ export default function BlogPost() {
         })}
       </script>
 
-      <div className="min-h-screen pt-24 pb-16" style={{ backgroundColor: '#0B0C0F' }}>
+      <div className="min-h-screen pt-24 pb-16" style={{ backgroundColor: 'var(--mkt-bg-dark)' }}>
         <div className="max-w-4xl mx-auto px-6">
           <Link
             to="/blog"
             className="inline-flex items-center gap-2 font-medium mb-8 group hover:opacity-80 transition-opacity"
-            style={{ color: '#18C3A5' }}
+            style={{ color: 'var(--mkt-brand-primary)' }}
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Back to Blog
@@ -204,9 +204,9 @@ export default function BlogPost() {
                       key={tag}
                       className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-full"
                       style={{
-                        backgroundColor: 'rgba(24, 195, 165, 0.1)',
-                        color: '#18C3A5',
-                        border: '1px solid rgba(24, 195, 165, 0.3)'
+                        backgroundColor: 'var(--mkt-bg-brand-subtle)',
+                        color: 'var(--mkt-brand-primary)',
+                        border: '1px solid var(--mkt-border-brand)'
                       }}
                     >
                       <Tag className="w-3 h-3" />
@@ -220,7 +220,7 @@ export default function BlogPost() {
                 {post.title}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-6 mb-6" style={{ color: '#707070' }}>
+              <div className="flex flex-wrap items-center gap-6 mb-6" style={{ color: 'var(--mkt-text-muted)' }}>
                 <div className="flex items-center gap-2">
                   <div>
                     <p className="font-medium text-white">{post.author}</p>
@@ -238,7 +238,7 @@ export default function BlogPost() {
                 <button
                   onClick={handleShare}
                   className="ml-auto flex items-center gap-2 hover:opacity-80 transition-opacity"
-                  style={{ color: '#18C3A5' }}
+                  style={{ color: 'var(--mkt-brand-primary)' }}
                 >
                   <Share2 className="w-4 h-4" />
                   Share
@@ -251,7 +251,7 @@ export default function BlogPost() {
                   alt={post.title}
                   className="w-full h-[400px] object-cover rounded-2xl mb-8"
                   style={{
-                    border: '1px solid rgba(224, 224, 224, 0.1)'
+                    border: '1px solid rgba(var(--mkt-text-secondary), 0.1)'
                   }}
                 />
               )}
@@ -260,24 +260,24 @@ export default function BlogPost() {
             <div className="prose prose-lg max-w-none mb-12 blog-content">
               <SafeHtml
                 className="leading-relaxed"
-                style={{ color: '#E0E0E0' }}
+                style={{ color: 'var(--mkt-text-secondary)' }}
                 html={post.content}
               />
             </div>
 
-            <footer className="pt-8" style={{ borderTop: '1px solid rgba(224, 224, 224, 0.1)' }}>
+            <footer className="pt-8" style={{ borderTop: '1px solid rgba(var(--mkt-text-secondary), 0.1)' }}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm mb-1" style={{ color: '#707070' }}>Written by</p>
+                  <p className="text-sm mb-1" style={{ color: 'var(--mkt-text-muted)' }}>Written by</p>
                   <p className="font-semibold text-white">{post.author}</p>
-                  <p className="text-sm" style={{ color: '#707070' }}>{post.author_role}</p>
+                  <p className="text-sm" style={{ color: 'var(--mkt-text-muted)' }}>{post.author_role}</p>
                 </div>
                 <button
                   onClick={handleShare}
                   className="px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                   style={{
-                    backgroundColor: '#18C3A5',
-                    color: '#0B0C0F'
+                    backgroundColor: 'var(--mkt-brand-primary)',
+                    color: 'var(--mkt-bg-dark)'
                   }}
                 >
                   <Share2 className="w-4 h-4" />
@@ -288,7 +288,7 @@ export default function BlogPost() {
           </article>
 
           {relatedPosts.length > 0 && (
-            <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(224, 224, 224, 0.1)' }}>
+            <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(var(--mkt-text-secondary), 0.1)' }}>
               <h2 className="text-3xl font-bold text-white mb-8">Related Articles</h2>
               <div className="grid md:grid-cols-3 gap-6">
                 {relatedPosts.map(relatedPost => (
@@ -297,8 +297,8 @@ export default function BlogPost() {
                     to={`/blog/${relatedPost.slug}`}
                     className="group rounded-xl overflow-hidden transition-all hover:scale-[1.02]"
                     style={{
-                      backgroundColor: '#1E1E1E',
-                      border: '1px solid rgba(224, 224, 224, 0.1)'
+                      backgroundColor: 'var(--mkt-bg-card)',
+                      border: '1px solid rgba(var(--mkt-text-secondary), 0.1)'
                     }}
                   >
                     {relatedPost.featured_image && (
@@ -312,7 +312,7 @@ export default function BlogPost() {
                       <h3 className="font-bold text-white mb-2 group-hover:opacity-80 transition-opacity line-clamp-2">
                         {relatedPost.title}
                       </h3>
-                      <p className="text-sm line-clamp-2" style={{ color: '#707070' }}>
+                      <p className="text-sm line-clamp-2" style={{ color: 'var(--mkt-text-muted)' }}>
                         {relatedPost.excerpt}
                       </p>
                     </div>
