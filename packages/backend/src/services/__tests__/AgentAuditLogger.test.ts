@@ -37,22 +37,38 @@ const { mockSupabase, createQueryBuilder } = vi.hoisted(() => {
 
 // --- Mocks (before imports) ---
 
-vi.mock("../../lib/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
+vi.mock("../../lib/logger.js", () => {
+  const scopedLogger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+
+  return {
+    logger: scopedLogger,
+    log: scopedLogger,
+    createLogger: vi.fn().mockReturnValue(scopedLogger),
+    default: scopedLogger,
+  };
+});
 
 vi.mock("../../lib/supabase.js", () => ({
   supabase: mockSupabase,
 }));
 
 vi.mock("../../lib/crypto/CryptoUtils", () => ({
-  encrypt: vi.fn().mockReturnValue({
-    data: "enc-data",
-    iv: "enc-iv",
-    tag: "enc-tag",
-    algorithm: "aes-256-gcm",
+  encrypt: vi.fn().mockImplementation(async (payload: unknown, key: string) => {
+    const normalizedPayload = typeof payload === "string" ? payload : JSON.stringify(payload);
+    return `${key}:${normalizedPayload}`;
   }),
-  decrypt: vi.fn().mockReturnValue('{"decrypted":true}'),
+  decrypt: vi.fn().mockImplementation(async (payload: string, key: string) => {
+    const prefix = `${key}:`;
+    if (!payload.startsWith(prefix)) {
+      throw new Error("invalid encryption key");
+    }
+    return payload.slice(prefix.length);
+  }),
   generateEncryptionKey: vi.fn().mockReturnValue("test-encryption-key-32chars"),
 }));
 
@@ -93,14 +109,19 @@ describe("AgentAuditLogger", () => {
     // Reset singleton between tests
     (AgentAuditLogger as unknown as { instance: null }).instance = null;
     // Disable encryption by default for simpler tests
+    process.env.NODE_ENV = "test";
     process.env.AUDIT_LOG_ENCRYPTION_ENABLED = "false";
+    delete process.env.AUDIT_LOG_ENCRYPTION_KEY;
+    delete process.env.AUDIT_LOG_ENCRYPTION_ALLOW_TEST_FALLBACK;
 
     setQueryBuilder({ data: [], error: null });
     auditLogger = AgentAuditLogger.getInstance();
   });
 
   afterEach(async () => {
-    await auditLogger.cleanup();
+    if (auditLogger) {
+      await auditLogger.cleanup();
+    }
   });
 
   // ==========================================================================
@@ -422,7 +443,7 @@ describe("AgentAuditLogger", () => {
       });
       mockSupabase.from.mockReturnValue(builder);
 
-      const count = await auditLogger.deleteOldLogs(90);
+      const count = await auditLogger.deleteOldLogs("org-1", 90);
 
       expect(mockSupabase.from).toHaveBeenCalledWith("agent_audit_logs");
       expect(builder.delete).toHaveBeenCalled();
@@ -437,7 +458,7 @@ describe("AgentAuditLogger", () => {
       });
       mockSupabase.from.mockReturnValue(builder);
 
-      const count = await auditLogger.deleteOldLogs(30);
+      const count = await auditLogger.deleteOldLogs("org-1", 30);
       expect(count).toBe(0);
     });
   });
@@ -447,10 +468,18 @@ describe("AgentAuditLogger", () => {
   // ==========================================================================
 
   describe("encryption", () => {
+    it("fails initialization when encryption is enabled without a configured key", () => {
+      (AgentAuditLogger as unknown as { instance: null }).instance = null;
+      process.env.AUDIT_LOG_ENCRYPTION_ENABLED = "true";
+
+      expect(() => AgentAuditLogger.getInstance()).toThrow(/AUDIT_LOG_ENCRYPTION_KEY/);
+    });
+
     it("encrypts response_data when encryption is enabled", async () => {
       // Reset singleton with encryption enabled
       (AgentAuditLogger as unknown as { instance: null }).instance = null;
       process.env.AUDIT_LOG_ENCRYPTION_ENABLED = "true";
+      process.env.AUDIT_LOG_ENCRYPTION_KEY = "managed-key";
       const encLogger = AgentAuditLogger.getInstance();
 
       await encLogger.log(
@@ -462,15 +491,51 @@ describe("AgentAuditLogger", () => {
 
       const entries = currentBuilder.insert.mock.calls[0][0];
       expect(entries[0].response_data.__encrypted__).toBe(true);
-      expect(entries[0].response_data.data).toBe("enc-data");
-      expect(entries[0].response_data.iv).toBe("enc-iv");
+      expect(entries[0].response_data.data).toContain('managed-key:');
+      expect(entries[0].response_data.iv).toBe("");
 
       await encLogger.cleanup();
+    });
+
+    it("decrypts encrypted payloads across singleton reinitialization with the same key", async () => {
+      (AgentAuditLogger as unknown as { instance: null }).instance = null;
+      process.env.AUDIT_LOG_ENCRYPTION_ENABLED = "true";
+      process.env.AUDIT_LOG_ENCRYPTION_KEY = "managed-key";
+
+      let persistedEntry: Record<string, unknown> | undefined;
+      currentBuilder.insert.mockImplementation((entries: Array<Record<string, unknown>>) => {
+        persistedEntry = structuredClone(entries[0]);
+        return currentBuilder;
+      });
+
+      const firstInstance = AgentAuditLogger.getInstance();
+      await firstInstance.log(
+        makeLogEntry({
+          response_data: { analysis: "persisted" },
+          response_metadata: { confidence: 0.9 },
+        }),
+      );
+      await firstInstance.flush();
+      await firstInstance.cleanup();
+
+      (AgentAuditLogger as unknown as { instance: null }).instance = null;
+      expect(persistedEntry).toBeDefined();
+      const queryBuilder = createQueryBuilder({ data: [persistedEntry!], error: null });
+      mockSupabase.from.mockReturnValue(queryBuilder);
+
+      const restartedInstance = AgentAuditLogger.getInstance();
+      const logs = await restartedInstance.query({ organizationId: "org-1" });
+
+      expect(logs[0].response_data).toEqual({ analysis: "persisted" });
+      expect(logs[0].response_metadata).toEqual({ confidence: 0.9 });
+
+      await restartedInstance.cleanup();
     });
 
     it("reports encryption status correctly", () => {
       expect(auditLogger.isEncryptionEnabled()).toBe(false);
 
+      process.env.AUDIT_LOG_ENCRYPTION_KEY = "managed-key";
       auditLogger.setEncryptionEnabled(true);
       expect(auditLogger.isEncryptionEnabled()).toBe(true);
     });

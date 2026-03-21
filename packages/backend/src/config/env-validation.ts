@@ -7,6 +7,8 @@
 
 import { z } from "zod";
 
+import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
+
 import { writeStderr, writeStdout } from "./environment.js";
 
 /**
@@ -418,6 +420,7 @@ export function validateEnvironment(
     validateSecureTransport(env, errors);
     validateCacheEncryption(env, errors);
     validateEncryptionKey(env, errors);
+    errors.push(...validateAuditLogEncryptionConfig(env));
     validateMFA(env, warnings);
 
     // Select appropriate schema based on environment

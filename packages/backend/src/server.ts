@@ -79,6 +79,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { validateAuditLogEncryptionConfig } from "./services/agents/AuditLogEncryptionConfig.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
 import { createServerSupabaseClient } from "./lib/supabase.js";
@@ -665,6 +666,14 @@ app.use(notFoundHandler);
 // Global error handler (must be last)
 app.use(globalErrorHandler);
 
+function validateAuditLogStartupConfig(): void {
+  const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(process.env);
+
+  if (auditLogEncryptionErrors.length > 0) {
+    throw new Error(auditLogEncryptionErrors.join(" "));
+  }
+}
+
 function validateProductionMfaStartup(): void {
   if (settings.NODE_ENV !== "production") {
     return;
@@ -709,6 +718,7 @@ async function startServer(): Promise<void> {
 
   // 2. Validate production requirements
   logger.info("[Instrumentation] Validating production requirements");
+  validateAuditLogStartupConfig();
   validateServiceIdentityConfig();
   validateProductionMfaStartup();
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
