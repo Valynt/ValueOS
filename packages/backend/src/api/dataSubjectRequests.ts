@@ -10,7 +10,6 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Request, Response } from "express";
-import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/rbac";
 import { createSecureRouter } from "../middleware/secureRouter";
@@ -29,11 +28,37 @@ interface DsrAssetCoverage {
   excluded: Array<{ asset: string; reason: string }>;
 }
 
+interface EraseUserPiiResponse {
+  request_type: "erase";
+  anonymized_to: string;
+  erased_at: string;
+  request_token: string;
+  idempotent_replay: boolean;
+  pii_assets_included: string[];
+  pii_assets_excluded: Array<{ asset: string; reason: string }>;
+  coverage?: Record<string, unknown>;
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** One-way hash for PII identifiers used in logs and audit records. */
 function hashEmail(email: string): string {
   return createHash("sha256").update(email).digest("hex").slice(0, 16);
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function buildErasureRequestToken(tenantId: string, email: string, rawToken?: string): string {
+  const explicitToken = rawToken?.trim();
+  if (explicitToken) {
+    return explicitToken;
+  }
+
+  return createHash("sha256")
+    .update(`${tenantId}:erase:${normalizeEmail(email)}`)
+    .digest("hex");
 }
 
 async function resolveUserId(
@@ -84,6 +109,41 @@ async function gatherFootprint(
   return { footprint, coverage };
 }
 
+async function findErasureReplay(
+  supabase: SupabaseClient,
+  tenantId: string,
+  requestToken: string,
+  emailHash: string,
+): Promise<EraseUserPiiResponse | null> {
+  const { data, error } = await supabase
+    .from("dsr_erasure_requests")
+    .select("result_summary")
+    .eq("tenant_id", tenantId)
+    .eq("request_token", requestToken)
+    .eq("target_email_hash", emailHash)
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (error) {
+    logger.warn("DSR erase replay lookup failed", {
+      error: error.message,
+      tenantId,
+      requestToken,
+    });
+    return null;
+  }
+
+  if (!data?.result_summary) {
+    return null;
+  }
+
+  return {
+    ...(data.result_summary as EraseUserPiiResponse),
+    idempotent_replay: true,
+    request_token: requestToken,
+  };
+}
+
 async function auditDsr(
   supabase: SupabaseClient,
   action: string,
@@ -130,9 +190,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-    const actorId = (req as AuthenticatedRequest & { userId?: string }).userId as string | undefined;
-    const requestId = (req as AuthenticatedRequest & { requestId?: string }).requestId as string | undefined ?? "unknown";
+    const tenantId = req.tenantId;
+    const actorId = req.userId;
+    const requestId = req.requestId ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -199,9 +259,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-    const actorId = (req as AuthenticatedRequest & { userId?: string }).userId as string | undefined;
-    const requestId = (req as AuthenticatedRequest & { requestId?: string }).requestId as string | undefined ?? "unknown";
+    const tenantId = req.tenantId;
+    const actorId = req.userId;
+    const requestId = req.requestId ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -221,82 +281,56 @@ router.post(
       }
 
       const supabase = req.supabase;
+      const rawIdempotencyKey = Array.isArray(req.headers["idempotency-key"])
+        ? req.headers["idempotency-key"][0]
+        : req.headers["idempotency-key"];
+      const requestToken = buildErasureRequestToken(tenantId, email, rawIdempotencyKey);
+
+      const replay = await findErasureReplay(supabase, tenantId, requestToken, emailHash);
+      if (replay) {
+        logger.info("DSR erasure replay served from idempotency record", {
+          emailHash,
+          tenantId,
+          requestId,
+          requestToken,
+        });
+
+        return res.json({ email, ...replay });
+      }
+
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const placeholderEmail = `deleted+${userId}@redacted.local`;
       const redactedTs = new Date().toISOString();
+      const { data: eraseResult, error: eraseError } = await supabase.rpc("erase_user_pii", {
+        p_tenant_id: tenantId,
+        p_user_id: userId,
+        p_redacted_ts: redactedTs,
+        p_request_token: requestToken,
+        p_target_email_hash: emailHash,
+      });
 
-      // 1. Anonymize user profile (scoped to tenant)
-      await supabase
-        .from("users")
-        .update({
-          email: placeholderEmail,
-          full_name: null,
-          display_name: null,
-          avatar_url: null,
-          metadata: { anonymized: true, anonymized_at: redactedTs },
-        })
-        .eq("id", userId)
-        .eq("tenant_id", tenantId);
-
-      // 2. Scrub content in related tables (scoped to tenant)
-      const scrubbed = { content: "[redacted]", metadata: { anonymized: true, redacted_at: redactedTs } };
-      await supabase.from("messages").update(scrubbed).eq("user_id", userId).eq("tenant_id", tenantId);
-      await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
-      await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
-
-      const coverage: DsrAssetCoverage = {
-        included: ["users", "messages", "cases", "agent_memory"],
-        excluded: [],
-      };
-
-      const deleteAssets = DSR_PII_ASSETS.filter(
-        (entry) => entry.dsr.erasure === "delete" && entry.dsr.userColumn && entry.dsr.tenantColumn,
-      );
-
-      for (const entry of deleteAssets) {
-        const table = entry.asset;
-        const userColumn = entry.dsr.userColumn;
-        const tenantColumn = entry.dsr.tenantColumn;
-        if (!userColumn || !tenantColumn) {
-          coverage.excluded.push({ asset: table, reason: "missing_dsr_columns" });
-          continue;
-        }
-
-        const { error: delErr } = await supabase
-          .from(table)
-          .delete()
-          .eq(userColumn, userId)
-          .eq(tenantColumn, tenantId);
-        if (delErr) {
-          logger.warn(`DSR erase: failed to delete from ${table}`, {
-            error: delErr.message,
-            emailHash,
-            tenantId,
-          });
-          coverage.excluded.push({ asset: table, reason: `delete_error:${delErr.code ?? "unknown"}` });
-          continue;
-        }
-
-        coverage.included.push(table);
+      if (eraseError) {
+        throw new Error(`Erase RPC failed: ${eraseError.message}`);
       }
 
-      for (const entry of DSR_PII_ASSETS) {
-        if (entry.dsr.erasure === "none") {
-          coverage.excluded.push({ asset: entry.asset, reason: "not_erasable" });
-        }
+      const typedResult = eraseResult as EraseUserPiiResponse | null;
+      if (!typedResult) {
+        throw new Error("Erase RPC returned no payload");
       }
 
       try {
         await auditDsr(supabase, "erase", actorId, email, tenantId, requestId, {
-          anonymized_to: placeholderEmail,
-          tables_scrubbed: coverage.included,
-          pii_assets_included: coverage.included,
-          pii_assets_excluded: coverage.excluded,
+          anonymized_to: typedResult.anonymized_to,
+          request_token: requestToken,
+          idempotent_replay: typedResult.idempotent_replay,
+          tables_scrubbed: typedResult.pii_assets_included,
+          pii_assets_included: typedResult.pii_assets_included,
+          pii_assets_excluded: typedResult.pii_assets_excluded,
+          coverage: typedResult.coverage ?? null,
         });
       } catch (auditErr) {
         // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
@@ -305,15 +339,11 @@ router.post(
         });
       }
 
-      logger.info("DSR erasure completed", { emailHash, tenantId });
+      logger.info("DSR erasure completed", { emailHash, tenantId, requestToken });
 
       return res.json({
-        request_type: "erase",
         email,
-        anonymized_to: placeholderEmail,
-        erased_at: redactedTs,
-        pii_assets_included: coverage.included,
-        pii_assets_excluded: coverage.excluded,
+        ...typedResult,
       });
     } catch (err) {
       logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { emailHash });
@@ -331,7 +361,7 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+    const tenantId = req.tenantId;
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
