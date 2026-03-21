@@ -50,7 +50,7 @@ Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only wh
 
 ### Merge gating behavior for PRs
 
-The `pr-fast-blocking-subsets` job requires **at least one** tenant-isolation lane to finish with `success`:
+The `pr-fast` aggregate job requires **at least one** tenant-isolation lane to finish with `success`:
 
 - `tenant-isolation-static-gate` OR
 - `tenant-isolation-gate`
@@ -78,7 +78,7 @@ Automatically runs on every PR. No manual intervention needed.
 
 ---
 
-### 2. Terraform Plan on PR (`terraform-plan-pr.yml`)
+### 2. Terraform Plan on PR (`terraform.yml` / `infra-plan`)
 
 **Triggers:**
 

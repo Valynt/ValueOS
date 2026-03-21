@@ -1,57 +1,14 @@
 {
-  "version": 1,
+  "version": 2,
   "releaseBlockingGates": [
     {
-      "id": "lint-typecheck-unit-and-workflow-dag",
-      "description": "Lint, typecheck, unit/integration coverage, and workflow DAG validation.",
-      "workflow": ".github/workflows/ci.yml",
-      "jobId": "unit-component-schema",
-      "jobName": "unit/component/schema",
-      "coverage": [
-        "lint",
-        "typecheck",
-        "unit/integration tests",
-        "workflow DAG validation"
-      ]
-    },
-    {
-      "id": "tenant-isolation-and-rls",
-      "description": "Runtime tenant-isolation, RLS, vector-memory boundary, and DSR compliance suites.",
-      "workflow": ".github/workflows/ci.yml",
-      "jobId": "tenant-isolation-gate",
-      "jobName": "tenant-isolation-gate",
-      "coverage": [
-        "RLS / tenant-isolation suites"
-      ]
-    },
-    {
-      "id": "security-scans",
-      "description": "Semgrep SAST, pnpm audit SCA, Gitleaks secret scan, Trivy image/filesystem scans, and SBOM generation.",
-      "workflow": ".github/workflows/ci.yml",
-      "jobId": "security-gate",
-      "jobName": "security-gate",
-      "coverage": [
-        "security scans (SAST, SCA, secret scan, image/filesystem scan)"
-      ]
-    },
-    {
-      "id": "ci-release-aggregator",
-      "description": "CI aggregator that blocks release promotion unless upstream CI lanes are green.",
+      "id": "main-verify",
+      "description": "Durable post-merge CI aggregate that verifies the canonical mainline blockers before release promotion.",
       "workflow": ".github/workflows/ci.yml",
       "jobId": "staging-deploy-release-gates",
-      "jobName": "staging-deploy-release-gates",
+      "jobName": "main-verify",
       "coverage": [
-        "canonical CI deploy/release aggregation"
-      ]
-    },
-    {
-      "id": "codeql",
-      "description": "Dedicated CodeQL analysis required by branch protection and release promotion.",
-      "workflow": ".github/workflows/codeql.yml",
-      "jobId": "codeql-analyze",
-      "jobName": "codeql-analyze (js-ts)",
-      "coverage": [
-        "CodeQL"
+        "post-merge CI verification aggregate"
       ]
     },
     {
@@ -68,18 +25,13 @@
   "externalRequiredChecks": [
     {
       "jobId": "staging-deploy-release-gates",
-      "checkName": "staging-deploy-release-gates",
+      "checkName": "main-verify",
       "workflow": ".github/workflows/ci.yml"
-    },
-    {
-      "jobId": "codeql-analyze",
-      "checkName": "codeql-analyze (js-ts)",
-      "workflow": ".github/workflows/codeql.yml"
     }
   ],
   "deployWorkflow": {
     "aggregateJobId": "release-gate-contract",
-    "aggregateJobName": "Release Gate Contract",
+    "aggregateJobName": "release-readiness",
     "localNeeds": [
       "dast-gate",
       "emergency-skip-audit"
