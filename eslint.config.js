@@ -940,9 +940,9 @@ const legacyRootDirBan = {
   },
 };
 
-// SEC-002: dangerouslySetInnerHTML allowlist.
+// SEC-002: dangerously SetInnerHTML allowlist.
 // react/no-danger is set to "error" globally. Only the files listed here are
-// permitted to use dangerouslySetInnerHTML. Adding a new file to this list
+// permitted to use dangerously SetInnerHTML. Adding a new file to this list
 // requires a security review comment explaining why it is safe.
 //
 // Approved surfaces:
