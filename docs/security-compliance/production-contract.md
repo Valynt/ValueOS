@@ -61,7 +61,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
-| Secrets from external provider | Vault/AWS SecretManager + K8s ExternalSecrets | `packages/backend/src/config/secrets/`, `infra/k8s/base/external-secrets.yaml` |
+| Secrets from external provider | Vault/AWS SecretManager/Infisical + K8s ExternalSecrets | `packages/backend/src/config/secrets/`, `infra/k8s/base/external-secrets.yaml` |
 | Secret rotation | Scheduled rotation + volume watcher | `packages/backend/src/config/secrets/SecretRotationScheduler.ts` |
 | Least privilege | K8s ServiceAccount, securityContext, drop ALL caps | `infra/k8s/base/backend-deployment.yaml`, `worker-deployment.yaml` |
 | Network policies | Namespace-scoped ingress/egress rules | `infra/k8s/base/network-policies.yaml` |

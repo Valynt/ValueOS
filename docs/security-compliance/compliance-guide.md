@@ -930,7 +930,7 @@ Field-Level Encryption Keys
 - Automatic audit logging
 - Admin notifications (for manual steps)
 - CI lane `Verify secret rotation metadata age` in `.github/workflows/ci.yml` runs `node scripts/security/verify-secret-rotation.mjs` and fails when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
-- Workflow secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`).
+- Workflow secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`, `SECRET_ROTATION_INFISICAL_SITE_URL`, `SECRET_ROTATION_INFISICAL_TOKEN`, `SECRET_ROTATION_INFISICAL_PROJECT_ID`, `SECRET_ROTATION_INFISICAL_ENVIRONMENT`, `SECRET_ROTATION_INFISICAL_SECRET_PATHS`).
 - Rotation evidence artifact is written to deterministic path `artifacts/security/rotation/rotation-evidence-latest.json` and uploaded as the `secret-rotation-evidence-<run_id>` workflow artifact.
 
 ### Secure Key Storage
@@ -938,6 +938,7 @@ Field-Level Encryption Keys
 - **Never in code**: No hardcoded secrets
 - **Supabase Vault**: For application secrets
 - **AWS Secrets Manager**: For infrastructure secrets
+- **Infisical**: For centralized secrets with folder-based tenant isolation (see [Infisical Secrets Management](./infisical-secrets-management.md))
 - **Environment variables**: Encrypted at rest
 
 ### Key Lifecycle

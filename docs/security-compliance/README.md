@@ -14,6 +14,7 @@
 - [Control Ownership Matrix](./control-ownership-matrix.md)
 - [Data Ownership Statement](./data-ownership-statement.md)
 - [Evidence Index](./evidence-index.md)
+- [Infisical Secrets Management](./infisical-secrets-management.md)
 - [Audit Exceptions Policy](./audit-exceptions-policy.md)
 - [Observability Controls and Evidence](./observability-controls-and-evidence.md)
 - [HIPAA Applicability Profile](./hipaa-applicability-profile.md)
@@ -28,4 +29,4 @@
 
 ---
 
-**Total Documents**: 19
+**Total Documents**: 20
