@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --agent-purple: #667eea;
+  --agent-pink: #764ba2;
+  --agent-green: #38ef7d;
+  --agent-teal: #11998e;
+  --agent-coral: #fc466b;
+  --agent-blue: #4facfe;
+  --agent-orange: #ff9a44;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+  color: #ffffff;
+  min-height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a3e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(90deg, #667eea, #764ba2, #38ef7d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass morphism cards */
+.glass-card {
+  background: rgba(26, 26, 62, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 12px;
+}
+
+/* Glowing button */
+.glow-button {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+}
+
+.glow-button:hover {
+  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Progress bar animation */
+@keyframes progress-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.progress-pulse {
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+/* Input styling */
+input[type="text"],
+input[type="url"] {
+  background: rgba(37, 37, 80, 0.8);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+input[type="text"]:focus,
+input[type="url"]:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+  outline: none;
+}
+
+/* Tab styling */
+.tab-active {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.2),
+    rgba(118, 75, 162, 0.2)
+  );
+  border-bottom: 2px solid #667eea;
+}
+
+/* Insight cards */
+.insight-card {
+  background: rgba(26, 26, 62, 0.9);
+  border-left: 4px solid;
+  transition: transform 0.2s ease;
+}
+
+.insight-card:hover {
+  transform: translateX(4px);
+}
+
+.insight-gap {
+  border-color: #fc466b;
+}
+.insight-opportunity {
+  border-color: #38ef7d;
+}
+.insight-risk {
+  border-color: #ff9a44;
+}
+.insight-competitive {
+  border-color: #4facfe;
+}
+.insight-trend {
+  border-color: #f093fb;
+}

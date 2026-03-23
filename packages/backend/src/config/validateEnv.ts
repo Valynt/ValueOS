@@ -7,6 +7,7 @@
 
 /* eslint-disable security/detect-object-injection -- Controlled environment variable access with hardcoded configuration */
 
+import { logger } from "../lib/logger.js";
 import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
 
 export interface ValidationResult {
@@ -274,14 +275,12 @@ export function validateEnvOrThrow(): void {
 
   // Log warnings but don't fail
   if (warnings.length > 0) {
-    console.warn("[validateEnv] Warnings:");
-    warnings.forEach((w) => console.warn(`  ⚠️  ${w}`));
+    logger.warn("[validateEnv] Warnings:", { warnings });
   }
 
   if (!valid) {
-    console.error("[validateEnv] Environment validation failed:");
-    errors.forEach((e) => console.error(`  ❌ ${e}`));
-    console.error("\nRun 'pnpm run dx:validate' for a full diagnostic.");
+    logger.error("[validateEnv] Environment validation failed:", { errors });
+    logger.error("Run 'pnpm run dx:validate' for a full diagnostic.");
     throw new Error(`Environment validation failed: ${errors.join(", ")}`);
   }
 }

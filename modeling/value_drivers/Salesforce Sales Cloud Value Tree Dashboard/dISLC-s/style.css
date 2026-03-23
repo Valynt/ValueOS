@@ -1,0 +1,113 @@
+:root {
+    --primary: #00A1E0;
+    --emerald: #00A651;
+    --navy: #1E293B;
+    --tree-line: #E2E8F0;
+    --node-bg: #FFFFFF;
+}
+
+body.dark {
+    --node-bg: #1E293B;
+    --tree-line: #334155;
+    background-color: #0F172A;
+    color: #F1F5F9;
+}
+
+.bg-pattern {
+    background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+body.dark .bg-pattern {
+    background-image: radial-gradient(#334155 1px, transparent 1px);
+}
+
+/* Tree Component Styles */
+.tree-node {
+    @apply relative flex items-center justify-center p-4 bg-white border border-slate-200 rounded-2xl shadow-sm transition-all duration-300;
+    width: 240px;
+    z-index: 5;
+}
+
+.tree-node:hover {
+    @apply border-blue-400 shadow-md -translate-y-1 cursor-pointer;
+}
+
+.tree-node.active {
+    @apply ring-2 ring-blue-500 border-transparent shadow-lg shadow-blue-500/10;
+}
+
+.connector-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.tree-path {
+    fill: none;
+    stroke: var(--tree-line);
+    stroke-width: 2;
+    stroke-linecap: round;
+    transition: stroke 0.3s ease;
+}
+
+.tree-path.highlight {
+    stroke: var(--primary);
+    stroke-width: 3;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* Typography & Layout */
+.node-impact {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    @apply text-[10px] font-bold px-2 py-1 rounded-full text-white;
+}
+
+.impact-high { background-color: var(--emerald); }
+.impact-mid { background-color: var(--primary); }
+.impact-low { background-color: #F59E0B; }
+
+.enabler-tag {
+    @apply text-xs px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100 text-slate-600 font-medium inline-block mr-2 mb-2 transition-all hover:border-blue-200 hover:text-blue-600;
+}
+
+/* Animations */
+@keyframes fadeInSlide {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.tree-column {
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+    animation: fadeInSlide 0.6s ease-out forwards;
+}
+
+.tree-column-1 { animation-delay: 0.1s; }
+.tree-column-2 { animation-delay: 0.3s; }
+.tree-column-3 { animation-delay: 0.5s; }

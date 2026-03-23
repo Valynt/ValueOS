@@ -10,6 +10,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
 
+import { logger } from '../lib/logger.js';
 import { verifyAccessToken } from './auth.js';
 import { getSessionStore } from '../security/RedisSessionStore.js';
 import type { SessionMetadata } from '../security/RedisSessionStore.js';
@@ -258,7 +259,7 @@ async function validateSession(
 
     next();
   } catch (error) {
-    console.error('Session timeout middleware error:', error);
+    logger.error('Session timeout middleware error', { error });
     return void res.status(500).json({
       error: 'Session validation failed',
       code: 'SESSION_VALIDATION_ERROR',

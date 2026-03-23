@@ -7,6 +7,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiKeyRotationService } from "@/services/security/APIKeyRotationService";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+// Simple logger for API routes
+const logger = {
+  error: (message: string, meta?: Record<string, unknown>) => {
+    console.error(JSON.stringify({ level: 'error', message, ...meta }));
+  }
+};
+
 /**
  * POST /api/security/rotate-keys
  * Manually trigger API key rotation
@@ -67,7 +74,7 @@ export async function POST(request: NextRequest) {
       rotation: result,
     });
   } catch (error) {
-    console.error("API key rotation error:", error);
+    logger.error("API key rotation error", { error: String(error) });
     return NextResponse.json(
       {
         error: "Rotation failed",
@@ -119,7 +126,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Failed to retrieve rotation status:", error);
+    logger.error("Failed to retrieve rotation status", { error: String(error) });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: valueverse_db
+    environment:
+      POSTGRES_DB: valueverse
+      POSTGRES_USER: analyst
+      POSTGRES_PASSWORD: secure_password_123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - analysis_net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analyst -d valueverse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  engine:
+    build: 
+      context: ./analysis_engine
+    container_name: valueverse_engine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_URL=postgresql://analyst:secure_password_123@db:5432/valueverse
+      - LLM_API_KEY=${LLM_API_KEY}
+    volumes:
+      - ./analysis_engine:/app
+    networks:
+      - analysis_net
+    restart: on-failure
+
+networks:
+  analysis_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

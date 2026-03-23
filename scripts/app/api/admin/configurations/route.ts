@@ -1,6 +1,6 @@
 /**
  * Admin Configuration API Endpoints
- * 
+ *
  * Provides REST API for managing organization configurations
  * Requires tenant_admin or vendor_admin access
  */
@@ -15,6 +15,13 @@ import { SecurityGovernanceManager } from '@/lib/configuration/managers/Security
 import { BillingUsageManager } from '@/lib/configuration/managers/BillingUsageManager';
 import { createClient } from '@/lib/supabase/server';
 import type { ConfigurationAccessLevel } from '@/lib/configuration/types/settings-matrix';
+
+// Simple logger for API routes
+const logger = {
+  error: (message: string, meta?: Record<string, unknown>) => {
+    console.error(JSON.stringify({ level: 'error', message, ...meta }));
+  }
+};
 
 // Initialize managers
 const configManager = new ConfigurationManager();
@@ -115,7 +122,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error fetching configurations:', error);
+    logger.error('Error fetching configurations', { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch configurations' },
       { status: 500 }
@@ -174,7 +181,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error updating configuration:', error);
+    logger.error('Error updating configuration', { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to update configuration' },
       { status: 500 }
@@ -216,7 +223,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: 'Cache cleared' });
   } catch (error) {
-    console.error('Error clearing cache:', error);
+    logger.error('Error clearing cache', { error: String(error) });
     return NextResponse.json(
       { error: 'Failed to clear cache' },
       { status: 500 }

@@ -1,0 +1,19 @@
+{
+  "name": "explorer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "cytoscape": "^3.33.1",
+    "d3-color": "^3.1.0",
+    "lodash": "^4.17.21"
+  }
+}

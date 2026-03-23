@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { NextFunction, Request, Response } from "express";
 
+import { logger } from "../lib/logger.js";
 import { securityEvents } from "../security/securityLogger.js";
 
 export interface CSPConfig {
@@ -172,7 +173,7 @@ export function cspReportHandler(req: Request, res: Response): void {
     securityEvents.cspViolation(report);
   } else {
     // Fallback if securityEvents is not fully initialized or mock
-    console.warn("CSP Violation:", JSON.stringify(report));
+    logger.warn("CSP Violation", { report });
   }
 
   // In production, this can be integrated with Sentry or other monitoring tools

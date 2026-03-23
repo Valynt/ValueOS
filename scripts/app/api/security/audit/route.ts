@@ -7,6 +7,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { SecurityAuditEvent } from "@/types/security";
 
+// Simple logger for API routes
+const logger = {
+  error: (message: string, meta?: Record<string, unknown>) => {
+    console.error(JSON.stringify({ level: 'error', message, ...meta }));
+  },
+  info: (message: string, meta?: Record<string, unknown>) => {
+    console.log(JSON.stringify({ level: 'info', message, ...meta }));
+  }
+};
+
 /**
  * POST /api/security/audit
  * Receives and persists security audit events
@@ -48,7 +58,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertError) {
-      console.error("Failed to insert security audit event:", insertError);
+      logger.error("Failed to insert security audit event", { error: insertError.message });
 
       // Still return 200 to avoid blocking user experience
       // Log to external monitoring service in production
@@ -58,9 +68,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Log to console in development
+    // Log in development
     if (process.env.NODE_ENV === "development") {
-      console.log("[SECURITY AUDIT]", {
+      logger.info("[SECURITY AUDIT]", {
         action: event.action,
         resource: event.resource,
         userId: event.userId,
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
       message: "Audit event persisted",
     });
   } catch (error) {
-    console.error("Security audit endpoint error:", error);
+    logger.error("Security audit endpoint error", { error: String(error) });
 
     // Always return 200 to avoid blocking client
     return NextResponse.json({
@@ -137,7 +147,7 @@ export async function GET(request: NextRequest) {
       count: data.length,
     });
   } catch (error) {
-    console.error("Security audit retrieval error:", error);
+    logger.error("Security audit retrieval error", { error: String(error) });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

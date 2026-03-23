@@ -9,6 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { createInMemorySupabaseClient } from "../../../../test/inMemorySupabase";
 import { isRealIntegrationTestMode } from "../../../../test/runtimeGuards";
+import { logger } from "../../../../lib/logger.js";
 // Node 20+ provides global fetch, Headers, Request, Response
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
@@ -67,7 +68,7 @@ export async function cleanupBillingTables(supabase: SupabaseClient): Promise<vo
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 = no rows found, which is fine
-      console.warn(`Warning: Failed to cleanup ${table}:`, error);
+      logger.warn("Failed to cleanup table", { table, error });
     }
   }
 }

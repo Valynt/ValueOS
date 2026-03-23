@@ -2,6 +2,7 @@ import { PERMISSIONS } from "@shared/lib/permissions";
 import { Request, Response } from "express";
 import { z } from "zod";
 
+import { logger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
@@ -275,15 +276,12 @@ router.get("/stream", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req
       };
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
     } catch (err) {
-      console.error(
-        "Error in /compliance/stream SSE push",
-        {
-          tenantId,
-          method: req.method,
-          url: req.originalUrl,
-        },
-        err,
-      );
+      logger.error("Error in /compliance/stream SSE push", {
+        tenantId,
+        method: req.method,
+        url: req.originalUrl,
+        error: err,
+      });
       cleanup();
     }
   };

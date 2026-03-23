@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 
 import { NextFunction, Request, Response } from 'express';
 
+import { logger } from '../../lib/logger.js';
 import { CspConfig, getSecurityConfig, HstsConfig } from './config.js'
 
 // ============================================================================
@@ -378,7 +379,7 @@ export interface CspViolationReport {
  * Logs violations for monitoring and debugging.
  */
 export function createCspReportHandler(
-  logger: (message: string, meta?: Record<string, unknown>) => void = console.warn
+  logFn: (message: string, meta?: Record<string, unknown>) => void = (msg, meta) => logger.warn(msg, meta)
 ) {
   return function cspReportHandler(req: Request, res: Response): void {
     const report = req.body as CspViolationReport;
@@ -386,7 +387,7 @@ export function createCspReportHandler(
     if (report && report['csp-report']) {
       const violation = report['csp-report'];
 
-      logger('CSP Violation', {
+      logFn('CSP Violation', {
         documentUri: violation['document-uri'],
         violatedDirective: violation['violated-directive'],
         effectiveDirective: violation['effective-directive'],

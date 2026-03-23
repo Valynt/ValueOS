@@ -5,6 +5,8 @@
  * Provides safe alternatives to common regex patterns.
  */
 
+import { logger } from "../logger.js";
+
 // ============================================================================
 // ReDoS Detection
 // ============================================================================
@@ -108,7 +110,7 @@ export function safeRegexExec(
 
   const elapsed = Date.now() - startTime;
   if (elapsed > timeoutMs) {
-    console.warn(`Regex execution took ${elapsed}ms, exceeding timeout of ${timeoutMs}ms`);
+    logger.warn("Regex execution exceeded timeout", { elapsedMs: elapsed, timeoutMs });
   }
 
   return result;
@@ -134,7 +136,7 @@ export function safeRegexTest(
   const elapsed = Date.now() - startTime;
 
   if (elapsed > timeoutMs) {
-    console.warn(`Regex test took ${elapsed}ms, exceeding timeout of ${timeoutMs}ms`);
+    logger.warn("Regex test exceeded timeout", { elapsedMs: elapsed, timeoutMs });
     return false;
   }
 

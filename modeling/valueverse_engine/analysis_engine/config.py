@@ -1,0 +1,60 @@
+import os
+
+# Top 50 Software & SaaS Companies as per spec
+COMPANIES = [
+    {"name": "Alphabet Inc.", "ticker": "GOOGL", "cik": "0001652044"},
+    {"name": "Microsoft Corp.", "ticker": "MSFT", "cik": "0000789019"},
+    {"name": "Meta Platforms Inc.", "ticker": "META", "cik": "0001326801"},
+    {"name": "Oracle Corp.", "ticker": "ORCL", "cik": "0001341439"},
+    {"name": "Palantir Technologies Inc.", "ticker": "PLTR", "cik": "0001601668"},
+    {"name": "SAP SE", "ticker": "SAP", "cik": "0001420790"},
+    {"name": "IBM", "ticker": "IBM", "cik": "0000051143"},
+    {"name": "Salesforce, Inc.", "ticker": "CRM", "cik": "0001108524"},
+    {"name": "Shopify Inc.", "ticker": "SHOP", "cik": "0001594813"},
+    {"name": "Intuit Inc.", "ticker": "INTU", "cik": "0000896874"},
+    {"name": "ServiceNow, Inc.", "ticker": "NOW", "cik": "0001373715"},
+    {"name": "Adobe Inc.", "ticker": "ADBE", "cik": "0000798132"},
+    {"name": "Palo Alto Networks Inc.", "ticker": "PANW", "cik": "0001327567"},
+    {"name": "CrowdStrike Holdings Inc.", "ticker": "CRWD", "cik": "0001716446"},
+    {"name": "Automatic Data Processing", "ticker": "ADP", "cik": "0000008670"},
+    {"name": "Synopsys Inc.", "ticker": "SNPS", "cik": "0000888277"},
+    {"name": "Cadence Design Systems", "ticker": "CDNS", "cik": "0000813672"},
+    {"name": "Snowflake Inc.", "ticker": "SNOW", "cik": "0001640147"},
+    {"name": "Cloudflare Inc.", "ticker": "NET", "cik": "0001477333"},
+    {"name": "Autodesk, Inc.", "ticker": "ADSK", "cik": "0000769397"},
+    {"name": "Fortinet Inc.", "ticker": "FTNT", "cik": "0001262039"},
+    {"name": "Workday, Inc.", "ticker": "WDAY", "cik": "0001327811"},
+    {"name": "Datadog, Inc.", "ticker": "DDOG", "cik": "0001561494"},
+    {"name": "Roper Technologies", "ticker": "ROP", "cik": "0000882835"},
+    {"name": "MicroStrategy Inc.", "ticker": "MSTR", "cik": "0001050446"},
+    {"name": "Atlassian Corporation", "ticker": "TEAM", "cik": "0001650337"},
+    {"name": "Fair Isaac Corporation", "ticker": "FICO", "cik": "0000951913"},
+    {"name": "Paychex, Inc.", "ticker": "PAYX", "cik": "0000723531"},
+    {"name": "Zscaler Inc.", "ticker": "ZS", "cik": "0001713683"},
+    {"name": "Veeva Systems Inc.", "ticker": "VEEV", "cik": "0001393052"},
+    {"name": "Fiserv, Inc.", "ticker": "FISV", "cik": "0000798354"},
+    {"name": "MongoDB Inc.", "ticker": "MDB", "cik": "0001441816"},
+    {"name": "Zoom Video Communications", "ticker": "ZM", "cik": "0001582375"},
+    {"name": "SS&C Technologies", "ticker": "SSNC", "cik": "0001402436"},
+    {"name": "PTC Inc.", "ticker": "PTC", "cik": "0000857005"},
+    {"name": "HubSpot, Inc.", "ticker": "HUBS", "cik": "0001384071"},
+    {"name": "Tyler Technologies, Inc.", "ticker": "TYL", "cik": "0000860731"},
+    {"name": "Unity Software Inc.", "ticker": "U", "cik": "0001810842"},
+    {"name": "Guidewire Software, Inc.", "ticker": "GWRE", "cik": "0001528396"},
+    {"name": "DocuSign, Inc.", "ticker": "DOCU", "cik": "0001261333"},
+    {"name": "Dynatrace, Inc.", "ticker": "DT", "cik": "0001773383"},
+    {"name": "Okta Inc.", "ticker": "OKTA", "cik": "0001660134"},
+    {"name": "Procore Technologies", "ticker": "PCOR", "cik": "0001611050"},
+    {"name": "Manhattan Associates", "ticker": "MANH", "cik": "0001056696"},
+    {"name": "Pegasystems Inc.", "ticker": "PEGA", "cik": "0000774203"},
+    {"name": "SailPoint Inc.", "ticker": "SAIL", "cik": "0001627512"},
+    {"name": "BILL Holdings Inc.", "ticker": "BILL", "cik": "0001786352"},
+    {"name": "Workiva Inc.", "ticker": "WK", "cik": "0001445305"},
+    {"name": "ZoomInfo Technologies", "ticker": "ZI", "cik": "0001794515"},
+    {"name": "BlackBerry", "ticker": "BB", "cik": "0001070235"}
+]
+
+# Config
+DB_URL = os.getenv("DB_URL", "postgresql://analyst:secure_password_123@localhost:5432/valueverse")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+SEC_USER_AGENT = "ValueVerse Analysis (tech@valueverse.com)"

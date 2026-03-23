@@ -5,13 +5,14 @@
  * Links to the actual implementation in @mcp/ground-truth.
  */
 
+import { logger } from './lib/logger.js';
 import { createDevServer as createServer } from '@mcp/ground-truth';
 
 export async function createDevServer(): Promise<unknown> {
   try {
     return await createServer();
   } catch (error) {
-    console.error('Failed to create MCP Dev Server:', error);
+    logger.error('Failed to create MCP Dev Server', { error });
     return null;
   }
 }

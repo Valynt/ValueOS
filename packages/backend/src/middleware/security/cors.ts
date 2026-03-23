@@ -11,6 +11,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 
+import { logger } from '../../lib/logger.js';
 import { CorsConfig, getSecurityConfig } from './config.js'
 
 // ============================================================================
@@ -177,11 +178,11 @@ function setCorsHeaders(
 // ============================================================================
 
 /**
- * Default logger (no-op in production, console in development).
+ * Default logger (no-op in production, logger.warn in development).
  */
 const defaultLogger = (message: string, meta?: Record<string, unknown>) => {
   if (process.env.NODE_ENV === 'development') {
-    console.warn(`[CORS] ${message}`, meta);
+    logger.warn(`[CORS] ${message}`, meta);
   }
 };
 

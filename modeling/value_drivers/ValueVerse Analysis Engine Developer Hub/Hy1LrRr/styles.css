@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --bg-dark: #0a0a0a;
+    --sidebar-dark: #0d0d0d;
+    --accent: #3b82f6;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all text-zinc-400 hover:text-white hover:bg-white/5;
+}
+
+.nav-link i {
+    @apply w-4 h-4;
+}
+
+.nav-link.active {
+    @apply text-white bg-white/10 border border-white/5;
+}
+
+.code-block {
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+/* Custom Syntax Highlighting (Pseudo) */
+.token-comment { @apply text-zinc-600; }
+.token-keyword { @apply text-purple-400; }
+.token-string { @apply text-emerald-400; }
+.token-function { @apply text-blue-400; }
+.token-class { @apply text-amber-400; }
+.token-operator { @apply text-pink-400; }
+.token-number { @apply text-orange-400; }
+
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #222;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #333;
+}
+
+#code-content {
+    white-space: pre;
+    display: block;
+}

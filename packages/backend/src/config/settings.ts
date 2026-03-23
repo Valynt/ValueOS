@@ -3,6 +3,7 @@
  */
 import { parseCorsAllowlist } from "@shared/config/cors";
 import { getEnvVar, env as runtimeEnv } from "@shared/lib/env";
+import { logger } from "@backend/lib/logger";
 import { z } from "zod";
 
 const AppEnvSchema = z.enum(["local", "cloud-dev", "test", "staging", "prod"]);
@@ -276,7 +277,7 @@ try {
   parsedSettings = SettingsSchema.parse(resolvedEnv);
 } catch (error) {
   if (error instanceof z.ZodError) {
-    console.error("❌ Invalid environment variables:", error.format());
+    logger.error("❌ Invalid environment variables:", { error: error.format() });
     throw new Error(
       "Invalid environment variables. Please check your .env file."
     );

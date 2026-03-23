@@ -1,0 +1,566 @@
+{
+    "version": "1.5",
+    "metadata": {
+        "generated_at": "2025-12-27T14:09:44.757244",
+        "total_count": 14
+    },
+    "relationships": [
+        {
+            "id": "34607cc0-b265-4058-b151-50f4810f2bbf",
+            "driver_action": "Cloud Infrastructure Migration",
+            "target_kpi": "IT Operational Efficiency",
+            "direction": "INCREASE",
+            "mechanism": "Automated provisioning and reduced hardware maintenance overhead",
+            "impact_distribution": {
+                "p10": 15.0,
+                "p50": 25.0,
+                "p90": 40.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": null,
+            "confidence_score": 0.9,
+            "contextual_validity": [
+                "Enterprise companies",
+                "Hybrid Cloud scenarios"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Operating Margin",
+                    "via_formula": "margin_canonical",
+                    "expected_uplift": {
+                        "p10": 2.0,
+                        "p50": 5.0,
+                        "p90": 8.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Forrester TEI",
+                    "tier": "Tier 1: Gold Standard",
+                    "quote": "Forrester TEI study found a 25% lift in efficiency.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "REVIEWED"
+        },
+        {
+            "id": "6b9eebdf-e70d-4f35-81fa-5ac03c038ab4",
+            "driver_action": "AI-Powered Lead Scoring",
+            "target_kpi": "Sales Conversion Rate",
+            "direction": "INCREASE",
+            "mechanism": "Focusing sales reps on high-intent prospects",
+            "impact_distribution": {
+                "p10": 7.0,
+                "p50": 21.0,
+                "p90": 35.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": null,
+            "confidence_score": 0.6,
+            "contextual_validity": [
+                "B2B SaaS",
+                "Inbound lead volume > 500/mo"
+            ],
+            "side_effects": [],
+            "cascading_effects": [],
+            "evidence": [
+                {
+                    "source_name": "Salesforce ROI Whitepaper",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Salesforce ROI whitepaper claims 30% lift.",
+                    "url": null,
+                    "discount_factor_applied": 0.7
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "6d32faf9-e133-46aa-b8e1-6fba5e1e8cfa",
+            "driver_action": "CPQ Implementation",
+            "target_kpi": "Gross Margin",
+            "direction": "INCREASE",
+            "mechanism": "Reduction in discounting errors and optimized pricing tiers",
+            "impact_distribution": {
+                "p10": 2.0,
+                "p50": 5.0,
+                "p90": 8.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": null,
+            "confidence_score": 0.8,
+            "contextual_validity": [
+                "Manufacturing sector"
+            ],
+            "side_effects": [],
+            "cascading_effects": [],
+            "evidence": [
+                {
+                    "source_name": "Q3 Earnings Call",
+                    "tier": "Tier 3: Market Reality",
+                    "quote": "CEO noted 5% margin lift in Q3 call after CPQ rollout.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "e6120e14-148e-45f7-893e-d7d58abe94da",
+            "driver_action": "Self-Service Customer Portal",
+            "target_kpi": "Customer Support Tickets",
+            "direction": "DECREASE",
+            "mechanism": "Deflecting routine inquiries via automated knowledge base",
+            "impact_distribution": {
+                "p10": -15.0,
+                "p50": -30.0,
+                "p90": -45.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "3_months",
+            "confidence_score": 0.85,
+            "contextual_validity": [
+                "B2C companies",
+                "High volume ticket environments"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Support Cost",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": -10.0,
+                        "p50": -20.0,
+                        "p90": -30.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Gartner Service Excellence 2024",
+                    "tier": "Tier 1: Gold Standard",
+                    "quote": "Case studies show 30% deflection rate.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "75226120-c2d8-4a42-b0bc-10f8fc074567",
+            "driver_action": "Supply Chain Visibility Software",
+            "target_kpi": "Safety Stock Inventory",
+            "direction": "DECREASE",
+            "mechanism": "Reducing lead-time uncertainty allows for lower buffer levels",
+            "impact_distribution": {
+                "p10": -5.0,
+                "p50": -12.0,
+                "p90": -20.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "9_months",
+            "confidence_score": 0.75,
+            "contextual_validity": [
+                "Manufacturing",
+                "Multi-tier supply chains"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Working Capital",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 2.0,
+                        "p50": 5.0,
+                        "p90": 10.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "SAP Value Engineering",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Inventory reduction of 12% typical.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "569add46-a601-4381-aa0a-05c8081bf397",
+            "driver_action": "Automated Accounts Receivable",
+            "target_kpi": "DSO",
+            "direction": "DECREASE",
+            "mechanism": "Faster invoicing and automated follow-ups reduce payment lag",
+            "impact_distribution": {
+                "p10": -2.0,
+                "p50": -5.0,
+                "p90": -10.0,
+                "unit": "days"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "2_months",
+            "confidence_score": 0.8,
+            "contextual_validity": [
+                "High volume invoicing",
+                "Mid-market/Enterprise"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Cash Flow",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 1.0,
+                        "p50": 3.0,
+                        "p90": 5.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Billtrust Case Study",
+                    "tier": "Tier 3: Market Reality",
+                    "quote": "Users saw 5-day DSO reduction.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "04abc56d-caff-4a7a-95db-9e38fd79c5da",
+            "driver_action": "Predictive Maintenance",
+            "target_kpi": "Unplanned Downtime",
+            "direction": "DECREASE",
+            "mechanism": "Identifying failure patterns before they cause stops",
+            "impact_distribution": {
+                "p10": -10.0,
+                "p50": -25.0,
+                "p90": -40.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "6_months",
+            "confidence_score": 0.9,
+            "contextual_validity": [
+                "Heavy Manufacturing",
+                "Asset Intensive"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Manufacturing Yield",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 1.0,
+                        "p50": 3.0,
+                        "p90": 5.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "McKinsey Digital",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Predictive maintenance reduces downtime by 20-30%.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "0d257176-260c-4bc2-8e63-9967c656c378",
+            "driver_action": "Sales Enablement AI",
+            "target_kpi": "Win Rate",
+            "direction": "INCREASE",
+            "mechanism": "Guided selling and content recommendation for reps",
+            "impact_distribution": {
+                "p10": 5.0,
+                "p50": 15.0,
+                "p90": 25.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "4_months",
+            "confidence_score": 0.7,
+            "contextual_validity": [
+                "Complex B2B sales"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "CAC Efficiency",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 5.0,
+                        "p50": 10.0,
+                        "p90": 20.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Highspot Value Report",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Win rates improve by 15% on average.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "50c6a079-5be7-4c3a-9092-98af3e24089d",
+            "driver_action": "Amazon FSx for NetApp ONTAP Migration",
+            "target_kpi": "Technology Costs",
+            "direction": "DECREASE",
+            "mechanism": "Lower costs vs on-prem storage (hardware, procurement, maintenance)",
+            "impact_distribution": {
+                "p10": -20.0,
+                "p50": -31.0,
+                "p90": -40.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "6_months",
+            "confidence_score": 0.95,
+            "contextual_validity": [
+                "Cloud-native storage",
+                "Hybrid setups"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "IT Labor Efficiency",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 30.0,
+                        "p50": 45.0,
+                        "p90": 60.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Forrester TEI Amazon FSx 2023",
+                    "tier": "Tier 1: Gold Standard",
+                    "quote": "31% reduction in technology costs compared to on-premises storage.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "620e2c70-ded7-4ae8-a74b-6a201263cba4",
+            "driver_action": "AI-Driven Service Automation",
+            "target_kpi": "Service Operating Costs",
+            "direction": "DECREASE",
+            "mechanism": "Automating routine customer service tasks and workflows",
+            "impact_distribution": {
+                "p10": -20.0,
+                "p50": -30.0,
+                "p90": -45.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "3_months",
+            "confidence_score": 0.88,
+            "contextual_validity": [
+                "Customer Support",
+                "Technical Helpdesk"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Customer SAT",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 5.0,
+                        "p50": 12.0,
+                        "p90": 20.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "Spadoom/McKinsey AI ROI 2025",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Automation can cut service costs by 30%.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "2b42fda8-4cfe-4551-97e9-23449be4cd26",
+            "driver_action": "Generative AI Enterprise Scaling",
+            "target_kpi": "Employee Productivity",
+            "direction": "INCREASE",
+            "mechanism": "Augmenting knowledge workers with agentic AI assistants",
+            "impact_distribution": {
+                "p10": 15.0,
+                "p50": 40.0,
+                "p90": 65.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "12_months",
+            "confidence_score": 0.85,
+            "contextual_validity": [
+                "Large Enterprise",
+                "Knowledge Work"
+            ],
+            "side_effects": [],
+            "cascading_effects": [],
+            "evidence": [
+                {
+                    "source_name": "Salesforce/McKinsey Agentic AI Study 2025",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Leaving a 40% gap in productivity between small and large firms using AI.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "74282036-5584-4eb7-b8dc-358adb32f336",
+            "driver_action": "Strategic IT Governance",
+            "target_kpi": "Resource Optimization",
+            "direction": "INCREASE",
+            "mechanism": "Improved allocation of IT assets and talent via governance frameworks",
+            "impact_distribution": {
+                "p10": 25.0,
+                "p50": 41.0,
+                "p90": 55.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "1_year",
+            "confidence_score": 0.9,
+            "contextual_validity": [
+                "Corporate IT",
+                "Digital Transformation"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "IT ROI",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 10.0,
+                        "p50": 22.0,
+                        "p90": 35.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "IJFMR/McKinsey Leadership Study 2024",
+                    "tier": "Tier 1: Gold Standard",
+                    "quote": "Maintain 41% better resource optimization.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "551295f3-68b9-43e9-a36f-7d5916f3e9e6",
+            "driver_action": "Supply Chain Transformation (Cognizant VRF)",
+            "target_kpi": "Supply Chain Operational Costs",
+            "direction": "DECREASE",
+            "mechanism": "Applying an ROI Value Realization Framework to intelligent supply chains",
+            "impact_distribution": {
+                "p10": -12.0,
+                "p50": -20.0,
+                "p90": -30.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "9_months",
+            "confidence_score": 0.82,
+            "contextual_validity": [
+                "Retail",
+                "CPG",
+                "Supply Chain"
+            ],
+            "side_effects": [],
+            "cascading_effects": [],
+            "evidence": [
+                {
+                    "source_name": "Cognizant Blog 2025",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Reduce operational costs by an average 20% through our ROI Value Realization Framework.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        },
+        {
+            "id": "4a993fc1-e767-48e8-bf53-186376002e6e",
+            "driver_action": "ServiceNow Platform Adoption Optimization",
+            "target_kpi": "Platform Adoption Rate",
+            "direction": "INCREASE",
+            "mechanism": "Implementing structured ‘AssessNow’ Value Realization Framework",
+            "impact_distribution": {
+                "p10": 100.0,
+                "p50": 200.0,
+                "p90": 350.0,
+                "unit": "%"
+            },
+            "elasticity_curve": "linear",
+            "time_to_realize": "8_weeks",
+            "confidence_score": 0.85,
+            "contextual_validity": [
+                "Investment Solutions Firm",
+                "Enterprise Platform"
+            ],
+            "side_effects": [],
+            "cascading_effects": [
+                {
+                    "downstream_kpi": "Manual Effort Reduction",
+                    "via_formula": null,
+                    "expected_uplift": {
+                        "p10": 15.0,
+                        "p50": 30.0,
+                        "p90": 50.0,
+                        "unit": "%"
+                    }
+                }
+            ],
+            "evidence": [
+                {
+                    "source_name": "inMorphis / ISG Provider Lens 2025",
+                    "tier": "Tier 2: Consultant Library",
+                    "quote": "Boosted ServiceNow Adoption 3x for Investment Firm.",
+                    "url": null,
+                    "discount_factor_applied": 1.0
+                }
+            ],
+            "status": "DRAFT"
+        }
+    ]
+}

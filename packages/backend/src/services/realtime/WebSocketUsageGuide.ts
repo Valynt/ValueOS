@@ -74,7 +74,7 @@ export function setupRobustConnection() {
   // Monitor connection health
   robustConnectionManager.on('health_check', (health: ConnectionHealth) => {
     if (!health.isHealthy) {
-      console.warn('Connection unhealthy:', health);
+      logger.warn('Connection unhealthy:', health);
     }
   });
 

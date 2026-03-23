@@ -1,6 +1,7 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
+import { logger } from '../lib/logger.js';
 import { consentRegistry } from '../services/auth/consentRegistry.js';
 import type { ConsentCheckRequest, ConsentRegistry } from '../types/consent';
 
@@ -60,7 +61,7 @@ export function requireConsent(
     });
 
     if (!consentGranted) {
-      console.warn('Consent check denied', {
+      logger.warn('Consent check denied', {
         tenantId,
         subject,
         scope,

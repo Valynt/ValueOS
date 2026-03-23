@@ -100,7 +100,7 @@ async function getUserCertifications(
     .order("awarded_at", { ascending: false });
 
   if (error) {
-    logger.error("Failed to get user certifications", error);
+    logger.error("Failed to get user certifications", { error });
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Failed to retrieve certifications",
@@ -127,7 +127,7 @@ async function getPillarById(client: RequestScopedRlsSupabaseClient, pillarId: n
     .single();
 
   if (error) {
-    logger.error("Failed to get pillar", error);
+    logger.error("Failed to get pillar", { error });
     return null;
   }
 
@@ -142,7 +142,7 @@ async function getUserById(client: RequestScopedRlsSupabaseClient, userId: strin
     .single();
 
   if (error) {
-    logger.error("Failed to get user", error);
+    logger.error("Failed to get user", { error });
     return null;
   }
 

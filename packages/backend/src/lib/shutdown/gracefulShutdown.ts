@@ -1,7 +1,7 @@
 import { logger } from "../logger.js";
 /**
  * Graceful Shutdown Handler
- * 
+ *
  * Manages cleanup operations when the process is terminating.
  * Ensures resources are released properly on SIGTERM/SIGINT.
  */
@@ -31,7 +31,7 @@ async function executeShutdown(signal: string): Promise<void> {
   logger.info(`[shutdown] Received ${signal}, starting graceful shutdown...`);
 
   const timeout = setTimeout(() => {
-    console.error("[shutdown] Graceful shutdown timeout exceeded, forcing exit");
+    logger.error("[shutdown] Graceful shutdown timeout exceeded, forcing exit");
     process.exit(1);
   }, 30000); // 30 second timeout
 
@@ -40,7 +40,7 @@ async function executeShutdown(signal: string): Promise<void> {
       try {
         await handler();
       } catch (error) {
-        console.error("[shutdown] Error in shutdown handler:", error);
+        logger.error("[shutdown] Error in shutdown handler:", { error });
       }
     }
 
@@ -49,7 +49,7 @@ async function executeShutdown(signal: string): Promise<void> {
     process.exit(0);
   } catch (error) {
     clearTimeout(timeout);
-    console.error("[shutdown] Fatal error during shutdown:", error);
+    logger.error("[shutdown] Fatal error during shutdown:", { error });
     process.exit(1);
   }
 }
@@ -60,11 +60,11 @@ process.on("SIGINT", () => executeShutdown("SIGINT"));
 
 // Handle uncaught errors
 process.on("uncaughtException", (error) => {
-  console.error("[shutdown] Uncaught exception:", error);
+  logger.error("[shutdown] Uncaught exception:", { error });
   executeShutdown("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("[shutdown] Unhandled rejection:", reason);
+  logger.error("[shutdown] Unhandled rejection:", { reason });
   executeShutdown("unhandledRejection");
 });

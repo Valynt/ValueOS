@@ -2,6 +2,7 @@
 // All functions require tenant_id as first argument
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../../../lib/logger.js';
 import type { Database } from '../../../types/supabase-generated.js';
 
 // Use generated Supabase types for full type safety
@@ -24,7 +25,7 @@ export async function getValueCommitmentsForCase(supabase: SupabaseClient, tenan
     .eq('session_id', valueCase.session_id);
 
   if (error) {
-    console.error('Error fetching value commitments:', error);
+    logger.error('Error fetching value commitments:', { error });
     return [];
   }
 
@@ -41,7 +42,7 @@ export async function getValueCase(supabase: SupabaseClient, tenant_id: string, 
     .single();
 
   if (error) {
-    console.error('Error fetching value case:', error);
+    logger.error('Error fetching value case:', { error });
     return null;
   }
 
