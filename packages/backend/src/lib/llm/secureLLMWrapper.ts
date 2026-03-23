@@ -122,7 +122,7 @@ export async function secureLLMComplete(
       tenantId,
       userId: userId ?? 'system',
       ...rest,
-    } as any, // Note: LLMGateway accepts either tenantId or organizationId, we standardize on tenantId
+    } as Record<string, unknown>,
   });
 }
 
