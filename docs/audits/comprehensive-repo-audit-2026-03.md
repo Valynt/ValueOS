@@ -264,7 +264,7 @@ The platform follows a **modular monolith with clear extraction boundaries**:
 - **Loki** for log aggregation, **Tempo** for distributed tracing.
 - **Fluent Bit** for log forwarding.
 - **OTel Collector** configuration at `infra/k8s/observability/otel-collector/` and `infra/observability/otel-collector-config.yaml`.
-- **Sentry** integration (`@sentry/node` in backend).
+- Error tracking via structured logging (Sentry removed).
 - SLO documentation at `infra/observability/SLOs.md`.
 - Query fingerprint performance budgets enforced in CI.
 

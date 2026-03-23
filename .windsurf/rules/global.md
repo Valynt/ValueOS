@@ -31,7 +31,7 @@ Blocks outbound traffic to non-allowlisted domains. Allowlisted domains include:
 
 - Internal services (\*.supabase.co, localhost)
 - LLM providers (api.together.ai, api.openai.com, api.anthropic.com)
-- Monitoring (_.sentry.io, _.datadoghq.com)
+- Monitoring (_.datadoghq.com)
 - CDN (_.cloudflare.com, _.fastly.net)
 
 Blocked domains in production:

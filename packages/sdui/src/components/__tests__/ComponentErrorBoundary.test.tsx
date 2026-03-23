@@ -19,6 +19,6 @@ describe('ComponentErrorBoundary secrecy + retry', () => {
     expect(screen.queryByText(/password=secret123/)).toBeNull();
     const retry = screen.getByRole('button', { name: /retry rendering/i });
     expect(retry).toBeEnabled();
-    // Sentry removed — no captureException to check
+    // No external error tracking to assert
   });
 });

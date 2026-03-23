@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import Decimal from 'decimal.js';
-import { EconomicKernel } from '../index';
+import { EconomicKernel, FinancialDecimal as Decimal } from '../index';
 
 describe('EconomicKernel', () => {
   const kernel = new EconomicKernel();
@@ -40,5 +39,20 @@ describe('EconomicKernel', () => {
     const ranges = new Map([['annualSavings', { low: new Decimal('400'), base: new Decimal('500'), high: new Decimal('650') }]]);
     const scenarios = kernel.generateScenarios(base, ranges, new Decimal('0.1'));
     expect(scenarios).toHaveLength(3);
+  });
+
+  it('returns -1 for empty cash flows in payback', () => {
+    expect(kernel.calculatePayback([])).toBe(-1);
+  });
+
+  it('returns -1 for all-positive cash flows (no investment)', () => {
+    const payback = kernel.calculatePayback(['500', '500', '500'].map(v => new Decimal(v)));
+    expect(payback).toBe(-1);
+  });
+
+  it('does not mutate global Decimal precision', () => {
+    // Importing the kernel uses Decimal.clone(), so the base constructor is untouched
+    const { default: GlobalDecimal } = require('decimal.js');
+    expect(GlobalDecimal.precision).toBe(20); // decimal.js default
   });
 });

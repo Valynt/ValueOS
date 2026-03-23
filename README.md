@@ -224,7 +224,7 @@ ValueOS is a modular monolith deployed to Kubernetes.
 - **Multi-tenancy**: Shared-schema with `organization_id` / `tenant_id` enforced by Postgres RLS on every table.
 - **LLM safety**: All agent LLM calls go through `BaseAgent.secureInvoke()` — circuit breaker, hallucination detection, Zod validation.
 - **Auth**: Supabase Auth with JWT, RBAC, WebAuthn/FIDO2, and MFA.
-- **Observability**: OpenTelemetry SDK, Prometheus metrics (`packages/backend/src/observability/`), Sentry, Winston.
+- **Observability**: OpenTelemetry SDK, Prometheus metrics (`packages/backend/src/observability/`), Winston.
 - **Deployment**: Blue-green on Kubernetes with HPA, network policies, and External Secrets Operator.
 
 See [docs/architecture/](docs/architecture/) for detailed design documents, [AGENTS.md](AGENTS.md) for the repository-root agent guide, and [docs/AGENTS.md](docs/AGENTS.md) for the canonical cross-repo instructions.

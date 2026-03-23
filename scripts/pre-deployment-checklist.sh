@@ -259,13 +259,6 @@ else
     check_warn "Prometheus metrics not enabled"
 fi
 
-# Check Sentry configuration
-if grep -q "SENTRY_DSN" "$ENV_FILE" 2>/dev/null; then
-    check_pass "Sentry DSN configured"
-else
-    check_warn "Sentry DSN not configured"
-fi
-
 # Check performance settings
 if grep -q "UV_THREADPOOL_SIZE" "$ENV_FILE" 2>/dev/null; then
     check_pass "Thread pool size configured"

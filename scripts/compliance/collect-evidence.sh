@@ -106,7 +106,7 @@ echo "📊 Collecting monitoring data..."
 {
   echo "=== Monitoring ==="
   echo "Uptime monitoring: Grafana"
-  echo "Error tracking: Sentry"
+  echo "Error tracking: Structured logging"
   echo "Log aggregation: CloudWatch"
   echo "Alerting: PagerDuty"
 } > "$EVIDENCE_DIR/monitoring.txt"

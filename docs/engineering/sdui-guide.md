@@ -853,9 +853,8 @@ const result = await breaker.execute(async () => {
 # WebSocket
 VITE_WEBSOCKET_URL=wss://api.example.com/ws
 
-# Sentry
-VITE_SENTRY_DSN=https://your-sentry-dsn
-VITE_SENTRY_ENVIRONMENT=production
+# Error Monitoring
+# Errors are tracked via structured logging (Winston)
 
 # Performance
 VITE_PERFORMANCE_MONITORING=true
@@ -927,7 +926,7 @@ console.log(breaker.getStats());
 ### **Errors Not Captured**
 
 1. Initialize error telemetry
-2. Check Sentry DSN
+2. Check error logging config
 3. Verify error patterns
 4. Check sample rate
 
@@ -937,7 +936,7 @@ console.log(breaker.getStats());
 
 - [ ] Environment variables configured
 - [ ] WebSocket URL set
-- [ ] Sentry DSN configured
+- [ ] Error logging configured
 - [ ] Performance thresholds set
 - [ ] Circuit breakers configured
 - [ ] Tenant permissions defined

@@ -71,7 +71,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
 | Structured logging | Winston/Pino with correlation IDs | `packages/backend/src/middleware/requestAuditMiddleware.ts` |
-| Audit logging with DLQ | In-memory buffer + retry, Sentry on permanent loss | `packages/backend/src/services/SecurityAuditService.ts` |
+| Audit logging with DLQ | In-memory buffer + retry, structured logging on permanent loss | `packages/backend/src/services/SecurityAuditService.ts` |
 | Metrics | Prometheus scraping, RED metrics | `infra/observability/prometheus/prometheus.yml` |
 | Distributed tracing | OpenTelemetry → Tempo | `infra/observability/otel-collector-config.yaml` |
 | Dashboards | Grafana provisioned | `infra/observability/grafana/dashboards/` |

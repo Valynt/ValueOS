@@ -1,8 +1,8 @@
 # SDUI System - Production Readiness Analysis & Enhancement Plan
 
-**Date:** December 11, 2025  
-**Reviewer:** Senior Software Engineer  
-**Status:** Comprehensive Code Review Complete  
+**Date:** December 11, 2025
+**Reviewer:** Senior Software Engineer
+**Status:** Comprehensive Code Review Complete
 **Scope:** Server-Driven UI (SDUI) System (`/src/sdui`)
 
 ---
@@ -555,7 +555,7 @@ if (loading) {
 <div className="text-white p-4">Canvas: {JSON.stringify(layout, null, 2)}</div>
 ```
 
-**Impact:** High - Streaming UX incomplete  
+**Impact:** High - Streaming UX incomplete
 **Effort:** Medium (2-3 days)
 
 **Solution:**
@@ -598,7 +598,7 @@ return (
 // TODO: Integrate with AuditLogger service
 ```
 
-**Impact:** Medium - Compliance risk  
+**Impact:** Medium - Compliance risk
 **Effort:** Low (1 day)
 
 **Solution:**
@@ -642,31 +642,19 @@ try {
 **File:** `src/sdui/components/ComponentErrorBoundary.tsx:114`
 
 ```typescript
-// TODO: Integrate with error tracking service (e.g., Sentry)
+// TODO: Integrate with error tracking service
 ```
 
-**Impact:** Medium - Observability gap  
+**Impact:** Medium - Observability gap
 **Effort:** Low (1 day)
 
 **Solution:**
 
 ```typescript
-import * as Sentry from '@sentry/react';
-
 componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
   logger.error('Component error caught by boundary', error, {
     componentStack: errorInfo.componentStack,
     componentName: this.props.componentName
-  });
-
-  // Send to Sentry
-  Sentry.withScope((scope) => {
-    scope.setContext('component', {
-      name: this.props.componentName,
-      stack: errorInfo.componentStack
-    });
-    scope.setTag('sdui_component', this.props.componentName);
-    Sentry.captureException(error);
   });
 
   this.setState({ hasError: true, error });
@@ -1123,7 +1111,7 @@ logger.warn("XSS attempt blocked", {
 - [ ] Grafana dashboards created
 - [ ] Alerts configured (error rate > 1%, p99 > 2s)
 - [ ] Log aggregation working
-- [ ] Sentry error tracking enabled
+- [ ] Error tracking enabled (structured logging)
 
 ### Testing
 
@@ -1245,7 +1233,7 @@ curl https://api.valuecanvas.io/health | jq '.features.sdui_v2'
 11. **Streaming Canvas Integration** (3 days)
 12. **Component Lazy Loading** (2 days)
 13. **Audit Logging** (1 day)
-14. **Error Tracking (Sentry)** (1 day)
+14. **Error Tracking (Logging)** (1 day)
 15. **Schema Migration System** (2 days)
 16. **Performance Budget Monitoring** (1 day)
 

@@ -1,7 +1,11 @@
-import Decimal from 'decimal.js';
+import BaseDecimal from 'decimal.js';
 
-// Configure Decimal for financial precision
-Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP });
+// Isolated Decimal constructor — avoids mutating the global Decimal configuration
+// which would affect all other consumers of decimal.js in the process.
+const Decimal = BaseDecimal.clone({ precision: 28, rounding: BaseDecimal.ROUND_HALF_UP });
+type Decimal = BaseDecimal;
+export type { Decimal };
+export { Decimal as FinancialDecimal };
 
 export interface CashFlowProjection {
   period: number;
@@ -32,6 +36,12 @@ export interface SensitivityRange {
   low: Decimal;
   base: Decimal;
   high: Decimal;
+}
+
+export interface ScenarioAssumptions {
+  initialInvestment: Decimal;
+  annualSavings: Decimal;
+  timeframeYears: Decimal;
 }
 
 export class EconomicKernel {
@@ -84,16 +94,19 @@ export class EconomicKernel {
   }
 
   calculatePayback(cashFlows: Decimal[]): number {
+    if (cashFlows.length === 0) return -1;
     let cumulative = new Decimal(0);
+    let wentNegative = false;
     for (let i = 0; i < cashFlows.length; i++) {
+      const prev = cumulative;
       cumulative = cumulative.plus(cashFlows[i]);
-      if (cumulative.isPositive()) {
-        const prevCumulative = cumulative.minus(cashFlows[i]);
-        if (prevCumulative.isNegative() && !cashFlows[i].isZero()) {
-          const fraction = prevCumulative.abs().dividedBy(cashFlows[i]);
-          return i + fraction.toNumber();
+      if (prev.isNegative()) wentNegative = true;
+      if (wentNegative && cumulative.isPositive()) {
+        if (prev.isNegative() && !cashFlows[i].isZero()) {
+          const fraction = prev.abs().dividedBy(cashFlows[i]);
+          return (i - 1) + fraction.toNumber();
         }
-        return i;
+        return i - 1;
       }
     }
     return -1;
@@ -114,12 +127,13 @@ export class EconomicKernel {
     };
   }
 
-  generateScenarios(baseAssumptions: Record<string, Decimal>, sensitivityRanges: Map<string, SensitivityRange>, discountRate: Decimal): ScenarioResult[] {
+  generateScenarios(baseAssumptions: ScenarioAssumptions, sensitivityRanges: Map<string, SensitivityRange>, discountRate: Decimal): ScenarioResult[] {
     const scenarios: ScenarioResult[] = [];
+    const asRecord = baseAssumptions as unknown as Record<string, Decimal>;
     const conservative: Record<string, Decimal> = {};
     const upside: Record<string, Decimal> = {};
 
-    for (const [key, value] of Object.entries(baseAssumptions)) {
+    for (const [key, value] of Object.entries(asRecord)) {
       const range = sensitivityRanges.get(key);
       if (range) {
         conservative[key] = range.low;
@@ -130,20 +144,22 @@ export class EconomicKernel {
       }
     }
 
-    scenarios.push({ name: 'conservative', ...this.calculateSimpleMetrics(conservative, discountRate), assumptions: conservative });
-    scenarios.push({ name: 'base', ...this.calculateSimpleMetrics(baseAssumptions, discountRate), assumptions: { ...baseAssumptions } });
-    scenarios.push({ name: 'upside', ...this.calculateSimpleMetrics(upside, discountRate), assumptions: upside });
+    scenarios.push({ name: 'conservative', ...this.calculateSimpleMetrics(conservative as unknown as ScenarioAssumptions, discountRate), assumptions: conservative });
+    scenarios.push({ name: 'base', ...this.calculateSimpleMetrics(baseAssumptions, discountRate), assumptions: { ...asRecord } });
+    scenarios.push({ name: 'upside', ...this.calculateSimpleMetrics(upside as unknown as ScenarioAssumptions, discountRate), assumptions: upside });
 
     return scenarios;
   }
 
-  private calculateSimpleMetrics(assumptions: Record<string, Decimal>, discountRate: Decimal): Omit<ScenarioResult, 'name' | 'assumptions'> {
-    const investment = assumptions['initialInvestment'] || new Decimal(0);
-    const annualSavings = assumptions['annualSavings'] || new Decimal(0);
-    const timeframe = assumptions['timeframeYears'] || new Decimal(3);
+  private calculateSimpleMetrics(assumptions: ScenarioAssumptions, discountRate: Decimal): Omit<ScenarioResult, 'name' | 'assumptions'> {
+    const investment = assumptions.initialInvestment ?? new Decimal(0);
+    const annualSavings = assumptions.annualSavings ?? new Decimal(0);
+    const timeframe = assumptions.timeframeYears ?? new Decimal(3);
 
+    // Use Math.ceil so fractional years produce a full period rather than silently dropping it
+    const periods = Math.ceil(timeframe.toNumber());
     const cashFlows: Decimal[] = [investment.negated()];
-    for (let i = 0; i < timeframe.toNumber(); i++) cashFlows.push(annualSavings);
+    for (let i = 0; i < periods; i++) cashFlows.push(annualSavings);
 
     const totalReturn = annualSavings.times(timeframe);
     return {

@@ -25,7 +25,6 @@ pnpm typecheck:scripts
 | `scripts/validate-together-ai.ts`   | Missing module, implicit any | Broken import paths          |
 | `scripts/verify-login.ts`           | Unused var                   | Low priority                 |
 | `scripts/verify-metrics.ts`         | Missing module               | Broken import paths          |
-| `scripts/verify-sentry-config.ts`   | Missing module               | Broken import paths          |
 | `scripts/test/playwright/*.spec.ts` | Unused vars                  | Test cleanup                 |
 
 ## Error Categories

@@ -2621,10 +2621,6 @@ MFA_PRODUCTION_OVERRIDE=false
 ### Optional but Recommended
 
 ```bash
-# Monitoring
-VITE_SENTRY_ENABLED=true
-VITE_SENTRY_DSN=https://your-dsn@sentry.io/project
-
 # Vault
 VAULT_ENABLED=true
 VAULT_ADDR=https://vault.example.com:8200
@@ -2693,12 +2689,11 @@ console.log('Features:', config.features);
 ### 4. Initialize Monitoring
 
 ```typescript
-if (config.monitoring.sentry.enabled) {
-  await initializeSentry(config.monitoring.sentry);
-}
+// Error tracking via structured logging — no external SDK required
+logger.info('Monitoring initialized');
 ```
 
-- Sets up error tracking
+- Sets up error tracking via structured logging
 - Configures performance monitoring
 
 ### 5. Initialize Agent Fabric
@@ -2845,18 +2840,6 @@ const breakers = {
 ```
 
 ## Monitoring Integration
-
-### Sentry
-
-```typescript
-if (config.monitoring.sentry.enabled) {
-  Sentry.init({
-    dsn: config.monitoring.sentry.dsn,
-    environment: config.monitoring.sentry.environment,
-    sampleRate: config.monitoring.sentry.sampleRate,
-  });
-}
-```
 
 ### DataDog
 
@@ -3108,8 +3091,8 @@ describe('Application Bootstrap', () => {
 
 ### 4. Monitoring
 
-- ✅ Enable Sentry in production
-- ✅ Set appropriate sample rates
+- ✅ Enable structured error logging in production
+- ✅ Set appropriate log levels
 - ✅ Tag errors with environment and version
 - ✅ Set up alerts for critical errors
 
@@ -5229,7 +5212,7 @@ Use the runbook for operational decisions and execution.
 
 ## Worker HPA Scaling
 
-Config: `infra/k8s/base/worker-hpa.yaml`  
+Config: `infra/k8s/base/worker-hpa.yaml`
 Adapter rules: `infra/k8s/monitoring/prometheus-adapter-rules.yaml`
 
 ### Scaling parameters
