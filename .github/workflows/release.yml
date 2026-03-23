@@ -117,13 +117,13 @@ jobs:
           node-version: 20.x
 
       - name: Download reproducibility build A
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: reproducibility-build-run-a
           path: reproducibility/run-a
 
       - name: Download reproducibility build B
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: reproducibility-build-run-b
           path: reproducibility/run-b
@@ -200,7 +200,7 @@ jobs:
         run: pnpm run build --if-present
 
       - name: Download reproducibility comparison evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-reproducibility-${{ github.run_id }}
           path: release-artifacts/reproducibility
