@@ -1,11 +1,7 @@
 import { SpanStatusCode } from "@opentelemetry/api";
 
 import { getTracer } from "../config/telemetry.js";
-import {
-  addBreadcrumb,
-  captureException,
-  captureMessage,
-} from "../lib/sentry.js";
+import { logger } from "../lib/logger.js";
 
 export interface BusinessTraceContext {
   transactionName: string;
@@ -38,15 +34,11 @@ export async function withBusinessTransaction<T>(
       },
     },
     async span => {
-      addBreadcrumb({
-        category: "business.transaction",
-        level: "info",
-        message: context.transactionName,
-        data: {
-          tenant_id: context.tenantId,
-          workflow_id: context.workflowId,
-          trace_id: context.traceId,
-        },
+      logger.debug("business.transaction", {
+        transaction: context.transactionName,
+        tenant_id: context.tenantId,
+        workflow_id: context.workflowId,
+        trace_id: context.traceId,
       });
 
       try {
@@ -64,7 +56,7 @@ export async function withBusinessTransaction<T>(
         span.recordException(error as Error);
 
         if (error instanceof Error) {
-          captureException(error, {
+          logger.error("Business transaction failed", error, {
             tenant_id: context.tenantId,
             workflow_id: context.workflowId,
             trace_id: context.traceId,
@@ -81,15 +73,9 @@ export async function withBusinessTransaction<T>(
 }
 
 export function markReleaseHealth(release: string, environment: string): void {
-  captureMessage(`release.health.marker:${release}`, "info");
-  addBreadcrumb({
-    category: "release.health",
-    level: "info",
-    message: "release-started",
-    data: {
-      release,
-      environment,
-      started_at: new Date().toISOString(),
-    },
+  logger.info(`release.health.marker:${release}`, {
+    release,
+    environment,
+    started_at: new Date().toISOString(),
   });
 }

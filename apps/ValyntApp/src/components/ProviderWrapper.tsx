@@ -1,6 +1,4 @@
-import React, { ErrorInfo, ReactNode } from "react";
-
-import { captureException } from "../lib/sentry";
+import React, { ReactNode } from "react";
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -13,22 +11,9 @@ interface ProviderWrapperProps {
  * Provides different error handling strategies for different provider types
  */
 const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
-  const handleAuthError = (error: Error, _errorInfo: ErrorInfo) => {
-    captureException(error);
-  };
-
-  const handleNetworkError = (error: Error, _errorInfo: ErrorInfo) => {
-    captureException(error);
-  };
-
-  const handleCriticalError = (error: Error, _errorInfo: ErrorInfo) => {
-    captureException(error);
-  };
-
   return (
-    <ErrorBoundary onError={handleCriticalError}>
+    <ErrorBoundary>
       <ErrorBoundary
-        onError={handleAuthError}
         fallback={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
@@ -63,7 +48,7 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
           </div>
         }
       >
-        <ErrorBoundary onError={handleNetworkError}>{children}</ErrorBoundary>
+        <ErrorBoundary>{children}</ErrorBoundary>
       </ErrorBoundary>
     </ErrorBoundary>
   );

@@ -23,7 +23,6 @@ import {
 import { initializeAgents, SystemHealth } from "./lib/agentHealth";
 import { checkDatabaseConnection } from "./lib/database";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
-import { initializeSentry } from "./lib/sentry";
 import { initializeSecurity, validateSecurity } from "./security";
 
 /**
@@ -232,24 +231,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     }
   }
 
-  // Step 5: Initialize monitoring (if enabled)
-  if (config.monitoring.sentry.enabled) {
-    onProgress?.("Initializing error tracking...");
-    logger.info("\n📊 Step 5: Initializing Sentry");
-    try {
-      await initializeSentry();
-      logger.info("   ✅ Sentry initialized");
-    } catch (error) {
-      const errorMsg = `Failed to initialize Sentry: ${error instanceof Error ? error.message : "Unknown error"}`;
-      warnings.push(errorMsg);
-      onWarning?.(errorMsg);
-      logger.warn(`   ⚠️  ${errorMsg}`);
-    }
-  } else {
-    logger.info("\n📊 Step 5: Error tracking disabled");
-  }
-
-  // Initialize monitoring listeners (Sentry, cloud integrations)
+  // Step 5: Initialize monitoring listeners
   setupMonitoring();
 
   // Step 6: Initialize Agent Fabric (with timeout to prevent blocking)

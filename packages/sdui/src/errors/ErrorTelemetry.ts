@@ -1,7 +1,7 @@
 /**
  * Error Telemetry
  *
- * Captures and reports errors to monitoring services like Sentry.
+ * Captures and reports errors to monitoring services.
  * Includes context, breadcrumbs, and user information.
  */
 
@@ -92,11 +92,6 @@ export interface TelemetryConfig {
   enabled: boolean;
 
   /**
-   * Sentry DSN
-   */
-  sentryDsn?: string;
-
-  /**
    * Environment (production, staging, development)
    */
   environment: string;
@@ -134,7 +129,7 @@ export class ErrorTelemetry {
 
   private constructor(config: TelemetryConfig) {
     this.config = config;
-    this.initializeSentry();
+    this.initializeTelemetry();
   }
 
   /**
@@ -155,23 +150,14 @@ export class ErrorTelemetry {
   }
 
   /**
-   * Initialize Sentry
+   * Initialize telemetry
    */
-  private initializeSentry(): void {
-    if (!this.config.enabled || !this.config.sentryDsn) {
+  private initializeTelemetry(): void {
+    if (!this.config.enabled) {
       return;
     }
 
-    // In a real implementation, initialize Sentry here
-    // import * as Sentry from '@sentry/react';
-    // Sentry.init({
-    //   dsn: this.config.sentryDsn,
-    //   environment: this.config.environment,
-    //   release: this.config.release,
-    //   sampleRate: this.config.sampleRate,
-    // });
-
-    telemetryLogger.info("Initialized error telemetry with Sentry DSN", {
+    telemetryLogger.info("Initialized error telemetry", {
       environment: this.config.environment,
     });
   }
@@ -209,8 +195,8 @@ export class ErrorTelemetry {
       return;
     }
 
-    // Send to Sentry
-    this.sendToSentry(processedReport);
+    // Send to telemetry
+    this.sendToTelemetry(processedReport);
 
     // Log locally
     this.logError(processedReport);
@@ -323,20 +309,10 @@ export class ErrorTelemetry {
   }
 
   /**
-   * Send to Sentry
+   * Send to telemetry backend
    */
-  private sendToSentry(report: ErrorReport): void {
-    // In a real implementation, send to Sentry here
-    // import * as Sentry from '@sentry/react';
-    // Sentry.captureException(report.error, {
-    //   level: report.severity,
-    //   contexts: {
-    //     custom: report.context,
-    //   },
-    //   fingerprint: report.fingerprint,
-    // });
-
-    telemetryLogger.debug("Sending error telemetry to Sentry", {
+  private sendToTelemetry(report: ErrorReport): void {
+    telemetryLogger.debug("Sending error telemetry", {
       error: report.error.message,
       severity: report.severity,
       context: report.context,

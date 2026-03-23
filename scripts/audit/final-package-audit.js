@@ -46,7 +46,7 @@ const essentialPackages = new Set([
   '@opentelemetry/api', '@opentelemetry/auto-instrumentations-node',
   '@opentelemetry/exporter-metrics-otlp-http', '@opentelemetry/exporter-trace-otlp-http',
   '@opentelemetry/resources', '@opentelemetry/sdk-metrics', '@opentelemetry/sdk-node',
-  '@opentelemetry/semantic-conventions', '@sentry/react', '@sentry/vite-plugin',
+  '@opentelemetry/semantic-conventions',
 
   // Security & auth
   '@simplewebauthn/browser', '@simplewebauthn/server',

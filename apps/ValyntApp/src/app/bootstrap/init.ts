@@ -92,25 +92,6 @@ export async function bootstrap(
     }
   }
 
-  // Step 4: Initialize error tracking (if enabled)
-  onProgress?.("Initializing error tracking...");
-  if (import.meta.env.VITE_SENTRY_DSN) {
-    try {
-      await trackFrontendFlow("bootstrap.error_tracking", {
-        service: "valynt-app",
-        env: import.meta.env.MODE || "development",
-        tenant_id: "anonymous",
-        trace_id: traceId,
-      }, async () => {
-        // Sentry initialization would go here
-        logger.info("✅ Error tracking initialized");
-      });
-    } catch (error) {
-      const warningMsg = `Error tracking initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-      warnings.push(warningMsg);
-      onWarning?.(warningMsg);
-    }
-  }
 
   const duration = Date.now() - startTime;
   const success = errors.length === 0;

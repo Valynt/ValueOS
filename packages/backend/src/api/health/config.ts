@@ -126,26 +126,10 @@ function checkRedisHealth(): ComponentHealth & {
 /**
  * Check monitoring health
  */
-function checkMonitoringHealth(): ComponentHealth & {
-  sentry_enabled: boolean;
-} {
-  const config = getConfig();
-  const sentryEnabled = config.monitoring.sentry.enabled;
-  const sentryDsnConfigured = isEnvConfigured('VITE_SENTRY_DSN');
-
-  let status: HealthStatus = 'healthy';
-  let message: string | undefined;
-
-  if (sentryEnabled && !sentryDsnConfigured) {
-    status = 'degraded';
-    message = 'Sentry enabled but DSN not configured';
-  }
-
+function checkMonitoringHealth(): ComponentHealth {
   return {
-    status,
-    message,
-    available: sentryEnabled && sentryDsnConfigured,
-    sentry_enabled: sentryEnabled,
+    status: 'healthy',
+    available: true,
   };
 }
 

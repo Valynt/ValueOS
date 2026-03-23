@@ -1,6 +1,5 @@
 import { logger } from "../../lib/logger.js"
 import { sanitizeForLogging } from "../../lib/piiFilter.js"
-import { captureMessage } from "../../lib/sentry";
 import { createServerSupabaseClient } from "../../lib/supabase.js"
 import { AuditAction } from "../../types/audit.js";
 import { BaseService } from "../BaseService.js"
@@ -132,13 +131,10 @@ class SecurityAuditService extends BaseService {
             requestId: payload.request_id,
             action: payload.action,
           });
-          captureMessage("Security audit write failed", {
-            level: "error",
-            extra: {
-              requestId: payload.request_id,
-              action: payload.action,
-              resource: payload.resource,
-            },
+          logger.error("Security audit write failed", {
+            requestId: payload.request_id,
+            action: payload.action,
+            resource: payload.resource,
           });
           throw error;
         }
@@ -155,9 +151,8 @@ class SecurityAuditService extends BaseService {
         evictedRequestId: evicted?.payload.request_id,
         dlqSize: this.dlq.length,
       });
-      captureMessage("Audit DLQ overflow — event permanently lost", {
-        level: "fatal",
-        extra: { evictedRequestId: evicted?.payload.request_id },
+      logger.error("Audit DLQ overflow — event permanently lost", {
+        evictedRequestId: evicted?.payload.request_id,
       });
     }
 
@@ -196,13 +191,10 @@ class SecurityAuditService extends BaseService {
             retries: entry.retries,
             firstFailedAt: entry.firstFailedAt,
           });
-          captureMessage("Audit event permanently lost after max retries", {
-            level: "fatal",
-            extra: {
-              requestId: entry.payload.request_id,
-              action: entry.payload.action,
-              firstFailedAt: entry.firstFailedAt,
-            },
+          logger.error("Audit event permanently lost after max retries", {
+            requestId: entry.payload.request_id,
+            action: entry.payload.action,
+            firstFailedAt: entry.firstFailedAt,
           });
         }
       }

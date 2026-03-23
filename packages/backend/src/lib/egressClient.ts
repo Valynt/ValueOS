@@ -13,7 +13,7 @@
  * Allowed in production:
  *   - Internal service hostnames (configurable via EGRESS_INTERNAL_HOSTS)
  *   - LLM providers: api.openai.com, api.together.xyz, generativelanguage.googleapis.com
- *   - Monitoring: *.sentry.io, *.datadoghq.com, *.prometheus.io
+ *   - Monitoring: *.datadoghq.com, *.prometheus.io
  *   - CDN / Supabase: *.supabase.co, *.supabase.com
  *   - CRM: api.hubapi.com, api.hubspot.com, *.salesforce.com
  *   - Stripe: api.stripe.com, *.stripe.com
@@ -36,7 +36,6 @@ const ALLOWED_HOSTNAME_PATTERNS: RegExp[] = [
   /^generativelanguage\.googleapis\.com$/,
   /^api\.anthropic\.com$/,
   // Monitoring / observability
-  /^[a-z0-9-]+\.sentry\.io$/,
   /^[a-z0-9-]+\.datadoghq\.com$/,
   // CRM
   /^api\.hubapi\.com$/,

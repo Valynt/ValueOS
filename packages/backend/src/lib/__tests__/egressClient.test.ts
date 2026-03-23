@@ -68,7 +68,6 @@ describe('assertEgressAllowed', () => {
     });
 
     it('allows monitoring hostnames', () => {
-      expect(() => assertEgressAllowed('https://o123.sentry.io')).not.toThrow();
       expect(() => assertEgressAllowed('https://app.datadoghq.com')).not.toThrow();
     });
 

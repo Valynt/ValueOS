@@ -752,17 +752,6 @@ async function startServer(): Promise<void> {
     );
   }
 
-  // 2.5. Initialise Sentry error tracking (no-op when DSN is absent)
-  const sentryDsn = settings.VITE_SENTRY_DSN ?? process.env.SENTRY_DSN;
-  if (sentryDsn) {
-    const { initSentry } = await import("./lib/sentry.js");
-    initSentry({
-      dsn: sentryDsn,
-      environment: settings.NODE_ENV,
-      release: process.env.npm_package_version,
-    });
-  }
-
   // 3. Initialize infrastructure
   logger.info("[Instrumentation] Initializing infrastructure");
   await initializeContext();

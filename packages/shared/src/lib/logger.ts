@@ -332,33 +332,8 @@ export const secureLog = {
  * Integration with monitoring services
  */
 export function setupMonitoring() {
-  // Example: Send errors to Sentry
-  if (isProduction()) {
-    // Add Sentry integration if available
-    try {
-      // Dynamically import Sentry to avoid dependency errors in minimal builds
-       
-       
-      const Sentry = typeof (globalThis as Record<string, unknown>)['window'] === "undefined" ? require("@sentry/node") : null;
-
-      if (Sentry) {
-        logger.addListener((entry) => {
-          if (entry.level === "error" && entry.error) {
-            const trace = getTraceContextForLogging();
-            Sentry.withScope((scope: { setExtras: (e: Record<string, unknown>) => void; setTag: (k: string, v: string) => void }) => {
-              scope.setExtras({ ...entry.context, ...trace });
-              scope.setTag("component", entry.context?.component || "unknown");
-              Sentry.captureException(entry.error);
-            });
-          }
-        });
-      }
-    } catch (err) {
-      logger.warn("Sentry not installed; skipping error forwarding", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+  // Placeholder for external monitoring integration (e.g. Datadog, OpenTelemetry).
+  // Currently a no-op — errors are logged via the structured logger.
 }
 
 export default logger;

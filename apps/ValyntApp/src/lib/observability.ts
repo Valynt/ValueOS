@@ -1,7 +1,5 @@
 import { context, type Span, trace } from "@opentelemetry/api";
 
-import { captureException } from "./sentry";
-
 export interface FrontendObservabilityInitOptions {
   appName: string;
   release: string;
@@ -28,7 +26,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 
   observabilityInitialized = true;
 
-   
+
   console.info("[observability.init]", {
     appName: options.appName,
     release: options.release,
@@ -37,7 +35,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 }
 
 export function recordMetric(name: string, value: number, tags: ObservabilityTags): void {
-   
+
   console.debug("[observability.metric]", { name, value, ...tags });
 }
 
@@ -72,7 +70,7 @@ export async function trackFrontendFlow<T>(
   try {
     return await context.with(trace.setSpan(context.active(), span), operation);
   } catch (error) {
-    captureException(error);
+    console.error(`[observability] frontend flow "${flowName}" failed:`, error);
     recordMetric("frontend_flow_failed", 1, spanTags);
     throw error;
   } finally {

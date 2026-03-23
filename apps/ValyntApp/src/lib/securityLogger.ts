@@ -1,4 +1,4 @@
- 
+
 /**
  * Security Logger for Authentication Events
  * Provides comprehensive logging for security monitoring and audit trails
@@ -420,10 +420,10 @@ class SecurityLogger {
       case "medium":
         return console.warn;
       case "low":
-         
+
         return console.info;
       default:
-         
+
         return console.log;
     }
   }
@@ -433,14 +433,8 @@ class SecurityLogger {
    */
   private sendToMonitoringService(_event: SecurityEvent): void {
     // In production, this would send to your monitoring service
-    // Examples: Sentry, DataDog, New Relic, etc.
+    // Examples: DataDog, New Relic, OpenTelemetry, etc.
     try {
-      // Example for Sentry:
-      // Sentry.captureMessage(`Security Event: ${event.type}`, {
-      //   level: this.getSentryLevel(event.severity),
-      //   tags: { eventType: event.type, severity: event.severity },
-      //   extra: event,
-      // });
       // Example for custom endpoint:
       // fetch('/api/security/events', {
       //   method: 'POST',

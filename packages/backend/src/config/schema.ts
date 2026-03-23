@@ -141,7 +141,6 @@ export const ConfigSchema = z.object({
   // External Services
   external: z.object({
     slackWebhookUrl: z.string().url().optional(),
-    sentryDsn: z.string().url().optional(),
     googleAnalyticsId: z.string().optional(),
     stripePublicKey: z.string().optional(),
     stripeSecretKey: z.string().optional(),
@@ -335,7 +334,6 @@ function mapEnvVarsToConfig(
     },
     external: {
       slackWebhookUrl: env.SLACK_WEBHOOK_URL,
-      sentryDsn: env.SENTRY_DSN,
       googleAnalyticsId: env.GOOGLE_ANALYTICS_ID,
       stripePublicKey: env.STRIPE_PUBLIC_KEY,
       stripeSecretKey: env.STRIPE_SECRET_KEY,
@@ -421,10 +419,6 @@ export function loadAndValidateConfig(
       warnings.push(
         "SLACK_WEBHOOK_URL not set - notifications will be disabled"
       );
-    }
-
-    if (environment === "production" && !config.external.sentryDsn) {
-      warnings.push("SENTRY_DSN not set - error tracking will be disabled");
     }
 
     if (

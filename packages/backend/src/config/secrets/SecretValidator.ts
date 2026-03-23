@@ -186,14 +186,6 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
     category: "external",
     critical: false,
   },
-  {
-    key: "SENTRY_DSN",
-    required: false,
-    description: "Sentry error tracking DSN",
-    pattern: /^https:\/\/[^@]+@[^/]+\/\d+$/,
-    category: "infrastructure",
-    critical: false,
-  },
 
   // Monitoring & Observability
   {

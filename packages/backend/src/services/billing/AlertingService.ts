@@ -1,15 +1,14 @@
 /**
  * Alerting Service
- * 
+ *
  * Monitors metrics and triggers alerts when thresholds are exceeded.
- * Integrates with Sentry, email, and webhook notifications.
+ * Integrates with email and webhook notifications.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
 import { settings } from '../../config/settings.js'
 import { logger } from '../../lib/logger.js'
-import { captureMessage } from '../../lib/sentry';
 import { emailService } from '../messaging/EmailService.js'
 
 import { getMetricsCollector } from './MetricsCollector.js'
@@ -39,7 +38,7 @@ export interface AlertRule {
   enabled: boolean;
   thresholds: AlertThreshold[];
   checkIntervalMinutes: number;
-  notificationChannels: ('sentry' | 'email' | 'webhook')[];
+  notificationChannels: ('log' | 'email' | 'webhook')[];
 }
 
 /**
@@ -67,7 +66,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 5,
-    notificationChannels: ['sentry', 'email']
+    notificationChannels: ['log', 'email']
   },
   {
     id: 'high-hallucination-rate',
@@ -90,7 +89,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 10,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
   {
     id: 'low-confidence',
@@ -106,7 +105,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 15,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
   {
     id: 'slow-response-time',
@@ -129,7 +128,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 5,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
   {
     id: 'high-llm-cost',
@@ -152,7 +151,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 15,
-    notificationChannels: ['sentry', 'email']
+    notificationChannels: ['log', 'email']
   },
   {
     id: 'low-cache-hit-rate',
@@ -168,7 +167,7 @@ const DEFAULT_ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: 30,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   }
 ];
 
@@ -242,7 +241,7 @@ export class AlertingService {
     try {
       for (const threshold of rule.thresholds) {
         const currentValue = await this.getMetricValue(threshold.metricName);
-        
+
         if (this.shouldAlert(currentValue, threshold)) {
           const alert = this.createAlert(rule, threshold, currentValue);
           await this.triggerAlert(alert, rule.notificationChannels);
@@ -266,7 +265,7 @@ export class AlertingService {
       case 'agent': {
         const metrics = await this.metricsCollector.getAgentMetrics(undefined, 'hour');
         const aggregated = this.aggregateAgentMetrics(metrics);
-        
+
         switch (metric) {
           case 'error_rate':
             return 1 - aggregated.successRate;
@@ -285,7 +284,7 @@ export class AlertingService {
 
       case 'llm': {
         const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
-        
+
         switch (metric) {
           case 'hourly_cost':
             return systemMetrics.totalCost;
@@ -296,7 +295,7 @@ export class AlertingService {
 
       case 'cache': {
         const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
-        
+
         switch (metric) {
           case 'hit_rate':
             return systemMetrics.cacheHitRate;
@@ -398,7 +397,7 @@ export class AlertingService {
    */
   private async triggerAlert(
     alert: Alert,
-    channels: ('sentry' | 'email' | 'webhook')[]
+    channels: ('log' | 'email' | 'webhook')[]
   ): Promise<void> {
     // Check if alert is already active (debouncing)
     const existingAlert = this.activeAlerts.get(alert.metricName);
@@ -460,22 +459,15 @@ export class AlertingService {
    */
   private async sendNotification(
     alert: Alert,
-    channel: 'sentry' | 'email' | 'webhook'
+    channel: 'log' | 'email' | 'webhook'
   ): Promise<void> {
     switch (channel) {
-      case 'sentry':
-        captureMessage(
-          `[${alert.severity.toUpperCase()}] ${alert.message}`,
-          {
-            level: alert.severity === 'critical' ? 'error' : 'warning',
-            extra: {
-              metricName: alert.metricName,
-              currentValue: alert.currentValue,
-              threshold: alert.threshold,
-              metadata: alert.metadata
-            }
-          }
-        );
+      case 'log':
+        logger.warn(`[ALERT][${alert.severity.toUpperCase()}] ${alert.message}`, {
+          metricName: alert.metricName,
+          currentValue: alert.currentValue,
+          threshold: alert.threshold,
+        });
         break;
 
       case 'email':
@@ -569,7 +561,7 @@ export class AlertingService {
    */
   addAlertRule(rule: AlertRule): void {
     this.alertRules.push(rule);
-    
+
     if (rule.enabled) {
       this.startRuleMonitoring(rule);
     }

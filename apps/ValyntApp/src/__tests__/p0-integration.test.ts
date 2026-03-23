@@ -93,7 +93,7 @@ describe("P0 Integration: Redis Cache", () => {
 // ---------------------------------------------------------------------------
 describe("P0 Integration: Complete Bootstrap Flow", () => {
   it("bootstrap sequence completes without throwing", async () => {
-    const steps = { database: false, redis: false, sentry: false };
+    const steps = { database: false, redis: false };
 
     try {
       const dbResult = await checkDatabaseConnection(2, 500);
@@ -113,12 +113,9 @@ describe("P0 Integration: Complete Bootstrap Flow", () => {
       // non-fatal
     }
 
-    steps.sentry = true;
-
     // Each step must be a boolean — we don't assert live connectivity here
     expect(typeof steps.database).toBe("boolean");
     expect(typeof steps.redis).toBe("boolean");
-    expect(steps.sentry).toBe(true);
   });
 });
 
