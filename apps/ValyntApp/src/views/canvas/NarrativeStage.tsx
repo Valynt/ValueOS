@@ -16,6 +16,7 @@ import { useState } from "react";
 
 import { ValuePathCard } from "@valueos/sdui";
 import { useNarrativeDraft, useRunNarrativeAgent } from "@/hooks/useNarrative";
+import { usePdfExport, usePptxExport } from "@/hooks/useCaseExport";
 import { useValueGraph } from "@/hooks/useValueGraph";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,8 @@ export function NarrativeStage({
 }) {
   const { data: draft, isLoading, error } = useNarrativeDraft(caseId);
   const runAgent = useRunNarrativeAgent(caseId);
+  const pdfExport = usePdfExport(caseId);
+  const pptxExport = usePptxExport(caseId);
   const { data: graphData } = useValueGraph(opportunityId ?? null);
   const topPaths = graphData?.paths.slice(0, 3) ?? [];
 
@@ -114,8 +117,8 @@ export function NarrativeStage({
               <span className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full font-semibold",
                 draft.defense_readiness_score >= 0.8 ? "bg-emerald-50 text-emerald-700" :
-                draft.defense_readiness_score >= 0.6 ? "bg-amber-50 text-amber-700" :
-                "bg-zinc-100 text-zinc-500"
+                  draft.defense_readiness_score >= 0.6 ? "bg-amber-50 text-amber-700" :
+                    "bg-zinc-100 text-zinc-500"
               )}>
                 {Math.round(draft.defense_readiness_score * 100)}% defense readiness
               </span>
@@ -187,23 +190,34 @@ export function NarrativeStage({
       <div className="bg-white border border-zinc-200 rounded-2xl p-5">
         <h4 className="text-[13px] font-semibold text-zinc-900 mb-4">Export & Share</h4>
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "PDF Report", desc: "Full business case", icon: Download },
-            { label: "Slide Deck", desc: "Executive presentation", icon: ExternalLink },
-            { label: "Copy to Clipboard", desc: "Paste into email/doc", icon: Copy },
-          ].map((exp) => {
-            const ExpIcon = exp.icon;
-            return (
-              <button
-                key={exp.label}
-                className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left"
-              >
-                <ExpIcon className="w-4 h-4 text-zinc-500 mb-2" />
-                <p className="text-[12px] font-semibold text-zinc-900">{exp.label}</p>
-                <p className="text-[10px] text-zinc-400">{exp.desc}</p>
-              </button>
-            );
-          })}
+          <button
+            onClick={() => pdfExport.mutate({ renderUrl: window.location.href, title: draft?.format?.replace(/_/g, " ") })}
+            disabled={pdfExport.isPending || !caseId}
+            className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
+          >
+            <Download className="w-4 h-4 text-zinc-500 mb-2" />
+            <p className="text-[12px] font-semibold text-zinc-900">PDF Report</p>
+            <p className="text-[10px] text-zinc-400">Full business case</p>
+            {pdfExport.isPending && <Loader2 className="w-3 h-3 animate-spin mt-1" />}
+          </button>
+          <button
+            onClick={() => pptxExport.mutate({ title: draft?.format?.replace(/_/g, " ") })}
+            disabled={pptxExport.isPending || !caseId}
+            className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
+          >
+            <ExternalLink className="w-4 h-4 text-zinc-500 mb-2" />
+            <p className="text-[12px] font-semibold text-zinc-900">Slide Deck</p>
+            <p className="text-[10px] text-zinc-400">Executive presentation</p>
+            {pptxExport.isPending && <Loader2 className="w-3 h-3 animate-spin mt-1" />}
+          </button>
+          <button
+            onClick={() => draft?.content && navigator.clipboard.writeText(draft.content)}
+            className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left"
+          >
+            <Copy className="w-4 h-4 text-zinc-500 mb-2" />
+            <p className="text-[12px] font-semibold text-zinc-900">Copy to Clipboard</p>
+            <p className="text-[10px] text-zinc-400">Paste into email/doc</p>
+          </button>
         </div>
       </div>
 

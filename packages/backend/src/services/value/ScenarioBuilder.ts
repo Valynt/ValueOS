@@ -8,7 +8,16 @@
  * Reference: openspec/changes/value-modeling-engine/tasks.md §6
  */
 
+import Decimal from 'decimal.js';
 import { z } from "zod";
+
+import {
+  calculateNPV,
+  calculatePayback,
+  calculateROI,
+  roundTo,
+  toDecimalArray,
+} from '../../domain/economic-kernel/economic_kernel.js';
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
 
@@ -216,37 +225,49 @@ export class ScenarioBuilder {
    */
   private async callEconomicKernel(
     evf: { revenue_uplift: number; cost_reduction: number; risk_mitigation: number; efficiency_gain: number },
-    assumptions: Record<string, unknown>,
+    _assumptions: Record<string, unknown>,
     scenarioType: string,
   ): Promise<{ roi: number | null; npv: number | null; payback_months: number | null }> {
-    // In production, this calls the actual economic kernel service
-    // For now, implement simplified calculations
-
     const totalValue = evf.revenue_uplift + evf.cost_reduction + evf.risk_mitigation + evf.efficiency_gain;
 
     // Estimate investment based on scenario type
     const investmentMultiplier = scenarioType === "conservative" ? 0.5 : scenarioType === "upside" ? 2.0 : 1.0;
     const estimatedInvestment = totalValue * 0.3 * investmentMultiplier;
 
-    // Calculate ROI
-    const roi = estimatedInvestment > 0 ? ((totalValue - estimatedInvestment) / estimatedInvestment) * 100 : null;
-
-    // Calculate NPV (simplified: 3-year horizon, 10% discount)
-    const discountRate = 0.1;
+    // Build 3-year annual cash flow series: [initial investment, year1, year2, year3]
     const annualBenefit = totalValue / 3;
-    let npv = -estimatedInvestment;
-    for (let year = 1; year <= 3; year++) {
-      npv += annualBenefit / Math.pow(1 + discountRate, year);
+    const cashFlows = toDecimalArray([
+      -estimatedInvestment,
+      annualBenefit,
+      annualBenefit,
+      annualBenefit,
+    ]);
+    const discountRate = new Decimal('0.1');
+
+    // NPV via domain kernel
+    const npv = calculateNPV(cashFlows, discountRate);
+
+    // ROI via domain kernel
+    let roi: number | null = null;
+    if (estimatedInvestment > 0) {
+      try {
+        const roiDec = calculateROI(new Decimal(totalValue), new Decimal(estimatedInvestment));
+        roi = Number(roundTo(roiDec, 4));
+      } catch {
+        roi = null;
+      }
     }
 
-    // Calculate payback in months
-    const monthlyBenefit = annualBenefit / 12;
-    const payback_months = monthlyBenefit > 0 ? estimatedInvestment / monthlyBenefit : null;
+    // Payback via domain kernel (convert annual periods to months)
+    const paybackResult = calculatePayback(cashFlows);
+    const payback_months = paybackResult.fractionalPeriod
+      ? Number(roundTo(paybackResult.fractionalPeriod.times(12), 1))
+      : null;
 
     return {
-      roi: roi ? Math.round(roi * 100) / 100 : null,
-      npv: Math.round(npv * 100) / 100,
-      payback_months: payback_months ? Math.round(payback_months * 10) / 10 : null,
+      roi,
+      npv: Number(roundTo(npv, 2)),
+      payback_months,
     };
   }
 
