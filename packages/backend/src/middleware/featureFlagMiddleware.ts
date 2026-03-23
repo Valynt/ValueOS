@@ -88,7 +88,7 @@ export function requireFeatureFlag(flagKey: string) {
 
       return next();
     } catch (error) {
-      logger.error('Feature flag evaluation failed', error as Error);
+      logger.error('Feature flag evaluation failed', error instanceof Error ? error : undefined);
       next(error);
     }
   };
@@ -112,7 +112,7 @@ export function withFeatureFlagVariant(flagKey: string) {
 
       return next();
     } catch (error) {
-      logger.error('Feature flag variant evaluation failed', error as Error);
+      logger.error('Feature flag variant evaluation failed', error instanceof Error ? error : undefined);
       next(error);
     }
   };
@@ -139,7 +139,7 @@ export function conditionalMiddleware(
 
       return next();
     } catch (error) {
-      logger.error('Conditional middleware evaluation failed', error as Error);
+      logger.error('Conditional middleware evaluation failed', error instanceof Error ? error : undefined);
       next(error);
     }
   };

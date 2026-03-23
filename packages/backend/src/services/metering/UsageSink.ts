@@ -25,7 +25,7 @@ class UsageSink {
 
       return submitted;
     } catch (error) {
-      logger.error('Stripe submission failed', error as Error);
+      logger.error('Stripe submission failed', error);
       throw error;
     }
   }
@@ -47,7 +47,7 @@ class UsageSink {
       submitted = await this.submitToStripe();
     } catch (error) {
       errors++;
-      logger.error('Pipeline error', error as Error);
+      logger.error('Pipeline error', error);
     }
 
     logger.info('Pipeline complete', { submitted, errors });

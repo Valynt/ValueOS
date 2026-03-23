@@ -15,6 +15,28 @@
 
 import { z } from "zod";
 
+/**
+ * Financial summary computed by Economic Kernel.
+ * Stored as strings for Decimal precision.
+ */
+export const HypothesisFinancialSummarySchema = z.object({
+  /** Net Present Value as string (e.g. "523456.78") */
+  npv: z.string(),
+  /** Internal Rate of Return as string (e.g. "0.2345" for 23.45%) */
+  irr: z.string(),
+  /** Return on Investment as string multiplier (e.g. "3.0" for 300%) */
+  roi: z.string(),
+  /** Payback period in months */
+  payback_months: z.number(),
+  /** Scenario analysis results */
+  scenarios: z.object({
+    conservative: z.object({ npv: z.string(), irr: z.string() }),
+    base: z.object({ npv: z.string(), irr: z.string() }),
+    upside: z.object({ npv: z.string(), irr: z.string() }),
+  }),
+});
+export type HypothesisFinancialSummary = z.infer<typeof HypothesisFinancialSummarySchema>;
+
 export const HypothesisConfidenceSchema = z.enum(["high", "medium", "low"]);
 export type HypothesisConfidence = z.infer<typeof HypothesisConfidenceSchema>;
 
@@ -28,8 +50,10 @@ export const HypothesisStatusSchema = z.enum([
 export type HypothesisStatus = z.infer<typeof HypothesisStatusSchema>;
 
 export const ValueRangeSchema = z.object({
-  low: z.number(),
-  high: z.number(),
+  /** Low estimate as string for Decimal precision */
+  low: z.string(),
+  /** High estimate as string for Decimal precision */
+  high: z.string(),
   unit: z.enum(["usd", "percent", "hours", "headcount"]),
   timeframe_months: z.number().int().positive(),
 });
@@ -56,6 +80,12 @@ export const ValueHypothesisSchema = z.object({
 
   /** Quantified value range. Null until FinancialModelingAgent runs. */
   estimated_value: ValueRangeSchema.nullable().optional(),
+
+  /**
+   * Computed financial summary from Economic Kernel.
+   * Null until FinancialModelingAgent runs.
+   */
+  financial_summary: HypothesisFinancialSummarySchema.nullable().optional(),
 
   /** Agent-assigned confidence level. */
   confidence: HypothesisConfidenceSchema,

@@ -78,7 +78,7 @@ export class AdminUserService {
       try {
         this.supabase = createServerSupabaseClient();
       } catch (error) {
-        logger.error("Failed to initialize admin Supabase client", error as Error);
+        logger.error("Failed to initialize admin Supabase client", error);
       }
     }
   }

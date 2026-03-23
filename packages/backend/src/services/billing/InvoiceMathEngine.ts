@@ -427,7 +427,7 @@ export class InvoiceMathEngine {
 
       return hashesMatch;
     } catch (error) {
-      logger.error('Error verifying calculation', error as Error);
+      logger.error('Error verifying calculation', error);
       return false;
     }
   }
@@ -465,7 +465,7 @@ export class InvoiceMathEngine {
         period_end: periodEnd
       });
     } catch (error) {
-      logger.error('Error calculating upcoming invoice', error as Error);
+      logger.error('Error calculating upcoming invoice', error);
       return null;
     }
   }

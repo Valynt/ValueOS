@@ -259,7 +259,7 @@ export class EventConsumer {
             await handler.handler(event, payload);
           });
         } catch (error) {
-          logger.error("Invalid TCT in message headers", error as Error);
+          logger.error("Invalid TCT in message headers", error);
           // Fallback to no context if token is invalid, or we could reject
           await handler.handler(event, payload);
         }

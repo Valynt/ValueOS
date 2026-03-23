@@ -136,7 +136,7 @@ class UsageCache {
 
       return usage;
     } catch (error) {
-      logger.error("Error getting usage from cache", error as Error);
+      logger.error("Error getting usage from cache", error);
       // Fallback to database
       return this.fetchUsageFromDB(tenantId, metric);
     }
@@ -169,7 +169,7 @@ class UsageCache {
 
       return quota;
     } catch (error) {
-      logger.error("Error getting quota from cache", error as Error);
+      logger.error("Error getting quota from cache", error);
       return this.fetchQuotaFromDB(tenantId, metric);
     }
   }
@@ -193,7 +193,7 @@ class UsageCache {
 
       return usage >= quota;
     } catch (error) {
-      logger.error("Error checking quota", error as Error, {
+      logger.error("Error checking quota", error, {
         tenantId,
         metric,
         isHardCap,
@@ -227,7 +227,7 @@ class UsageCache {
       if (quota === 0) return 0;
       return Math.round((usage / quota) * PERCENTAGE_MULTIPLIER);
     } catch (error) {
-      logger.error("Error calculating usage percentage", error as Error);
+      logger.error("Error calculating usage percentage", error);
       return 0;
     }
   }
@@ -244,7 +244,7 @@ class UsageCache {
         await this.set(`usage:${tenantId}:${metric}`, usage);
         await this.set(`quota:${tenantId}:${metric}`, quota);
       } catch (error) {
-        logger.error("Error refreshing cache", error as Error, {
+        logger.error("Error refreshing cache", error, {
           tenantId,
           metric,
         });
@@ -269,7 +269,7 @@ class UsageCache {
         });
       }
     } catch (error) {
-      logger.error("Error setting cache", error as Error);
+      logger.error("Error setting cache", error);
     }
   }
 

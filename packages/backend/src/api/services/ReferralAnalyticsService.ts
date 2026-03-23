@@ -162,7 +162,7 @@ export class ReferralAnalyticsService {
       return analytics;
 
     } catch (error: unknown) {
-      logger.error('Failed to generate referral analytics', error as Error);
+      logger.error('Failed to generate referral analytics', error instanceof Error ? error : undefined);
       return null;
     }
   }
@@ -210,7 +210,7 @@ export class ReferralAnalyticsService {
         .sort((a, b) => a.month.localeCompare(b.month));
 
     } catch (error: unknown) {
-      logger.error('Failed to get monthly stats', error as Error);
+      logger.error('Failed to get monthly stats', error instanceof Error ? error : undefined);
       return [];
     }
   }
@@ -288,7 +288,7 @@ export class ReferralAnalyticsService {
       // - Redis for real-time metrics
 
     } catch (error: unknown) {
-      logger.error('Failed to track referral event', error as Error, { event });
+      logger.error('Failed to track referral event', error instanceof Error ? error : undefined, { event });
     }
   }
 
@@ -332,7 +332,7 @@ export class ReferralAnalyticsService {
       };
 
     } catch (error: unknown) {
-      logger.error('Failed to get referral funnel', error as Error);
+      logger.error('Failed to get referral funnel', error instanceof Error ? error : undefined);
       return null;
     }
   }

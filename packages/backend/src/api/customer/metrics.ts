@@ -153,7 +153,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
       return;
     }
 
-    logger.error('Error in getCustomerMetrics', error as Error);
+    logger.error('Error in getCustomerMetrics', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred'

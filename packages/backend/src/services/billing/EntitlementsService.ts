@@ -274,7 +274,7 @@ export class EntitlementsService {
 
       return { allowed: false };
     } catch (error) {
-      logger.error('Error in grace period check', error as Error);
+      logger.error('Error in grace period check', error);
       return { allowed: false };
     }
   }

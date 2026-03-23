@@ -47,8 +47,12 @@ export const AssumptionSchema = z.object({
   /** Longer description of what this assumption represents. */
   description: z.string().max(1000).optional(),
 
-  /** The numeric value of this assumption. */
-  value: z.number(),
+  /**
+   * The numeric value of this assumption.
+   * Stored as string for Decimal precision (avoid floating-point errors).
+   * E.g. "0.1" + "0.2" = "0.3" exactly.
+   */
+  value: z.string(),
 
   /** Unit of measure (e.g. "USD", "%", "days", "FTE"). */
   unit: z.string().max(50),
@@ -59,10 +63,16 @@ export const AssumptionSchema = z.object({
   /**
    * Confidence interval: [low, high] as multipliers on `value`.
    * E.g. [0.8, 1.2] means ±20%.
+   * Stored as strings for Decimal precision.
    */
-  sensitivity_range: z
-    .tuple([z.number().positive(), z.number().positive()])
-    .optional(),
+  sensitivity_low: z.string().optional(),
+  sensitivity_high: z.string().optional(),
+
+  /**
+   * Version counter for tracking assumption edits.
+   * Incremented each time the value is modified.
+   */
+  version: z.number().int().positive().default(1),
 
   /**
    * Whether a human has explicitly reviewed and accepted this assumption.

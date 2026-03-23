@@ -48,27 +48,79 @@ Daily stand-ups and a shared task board suffice for coordination. Rely on code r
 
 ## Critical Path Tasks
 
-The MVP's critical path (as documented) consists of 7 tasks totaling ~66 hours:
-- Economic Kernel calculation (8h) – no blockers.
-- Dashboard "Go" (2h) – no blockers.
-- Discovery Agent (16h, mockable) – no blockers.
-- NarrativeAgent (16h) – after Economic Kernel.
-- ModelStage API (12h) – after Economic Kernel.
-- Integrity Wiring (8h) – after ModelStage API.
-- Export UI (4h) – after NarrativeAgent.
+The MVP's critical path consists of **8 tasks** totaling ~70 hours:
 
-Each task should meet its defined acceptance (the "harness") before proceeding.
+| # | Task | Hours | Blockers |
+|---|------|-------|----------|
+| 0 | **Data Model Validation** | 4 | None — validates schemas before implementation |
+| 1 | Economic Kernel calculation | 8 | None |
+| 2 | Dashboard "Go" | 2 | None |
+| 3 | Discovery Agent | 16 | Mockable ModelStage |
+| 4 | NarrativeAgent | 16 | Economic Kernel |
+| 5 | ModelStage API | 12 | Economic Kernel, Data Model |
+| 6 | Integrity Wiring | 8 | ModelStage API, Data Model |
+| 7 | Export UI | 4 | NarrativeAgent |
 
-## Deployment & Milestones
+### Task 0: Data Model Validation (4 hours)
 
-1. **Prototype (Week 1):** Implement Economic Kernel and Dashboard basics. *Milestone:* Demonstration of Kernel calculations + mock UI.
-2. **Core Integration (Weeks 2–3):** Build DiscoveryAgent and NarrativeAgent. Wire EconomicKernel into ModelingAgent. *Milestone:* End-to-end data flow (mock data) through these components.
-3. **MVP Complete (Week 4):** Add ModelStage API, Integrity Wiring, and Export UI. Ensure PDF export. *Milestone:* Full system demo with real sample data, meeting performance (<5min) and accuracy targets.
-4. **Freeze & Audit:** Stabilize code, run full CI/CD pipeline. Validate all tests and criteria. *Gate:* Only merge if acceptance tests and harness criteria are satisfied.
+**Purpose**: Verify existing Zod schemas in `packages/shared/src/domain/` support all MVP critical path requirements before implementation begins.
 
-No complex multi-phase orchestration is needed—just the normal agile phases with testing and peer reviews.
+**Validation Checklist**:
+```typescript
+// Required for ModelStage API (assumption editing)
+AssumptionSchema: {
+  id: string,
+  name: string,
+  value: string,           // String to preserve precision
+  unit: string,
+  sensitivity_low?: string, // For scenario generation
+  sensitivity_high?: string,
+  version: number,          // For tracking edits
+  organization_id: string   // Tenant isolation
+}
 
-## Key Takeaways
+// Required for Integrity Wiring
+BusinessCaseSchema: {
+  id: string,
+  integrity_score: number,  // 0-1 score for gating
+  integrity_check_passed: boolean,
+  integrity_evaluated_at: string, // ISO timestamp
+  veto_reason?: string      // If blocked
+}
+
+// Required for Economic Kernel → Narrative flow
+ValueHypothesisSchema: {
+  id: string,
+  financial_summary: {
+    npv: string,           // Decimal as string
+    irr: string,
+    roi: string,
+    payback_months: number,
+    scenarios: { conservative, base, upside }
+  }
+}
+
+// Required for Opportunity lifecycle
+OpportunitySchema: {
+  id: string,
+  stage: enum,             // discovery → modeling → review → etc.
+  can_advance_stage(): boolean  // Method checking integrity_score >= 0.6
+}
+```
+
+**Acceptance Criteria**:
+- [ ] All required fields present in domain schemas
+- [ ] Tenant isolation (`organization_id`) on every entity
+- [ ] Financial precision uses `string` (Decimal) not `number`
+- [ ] Assumption schema supports version tracking and sensitivity ranges
+- [ ] BusinessCase schema includes integrity gating fields
+- [ ] Migration strategy documented if schema changes needed
+
+**Sign-off**: Data model review with Engineer + Architect before Task 1-7 implementation
+
+---
+
+### Task 1: Economic Kernel (8 hours)
 
 - **Work Backwards:** Define final criteria first, then build toward them.
 - **Automated Tests:** Implement CI tests and a test harness early.
@@ -565,6 +617,7 @@ Each component must pass its acceptance criteria before proceeding:
 
 | Gate | Criteria | Sign-off |
 |------|----------|----------|
+| **Data Model Validated** | Schemas support assumptions, integrity gating, financial precision; tenant isolation verified; migration plan ready | Engineer + Architect |
 | **Economic Kernel Complete** | All unit tests pass; NPV matches Excel ±0.01%; Decimal precision verified; < 100ms calc time | Engineer + Code Review |
 | **Dashboard Complete** | E2E test passes; button creates opportunity; navigation works; < 2s total | Engineer + QA |
 | **Discovery Complete** | Generates 3-5 hypotheses; silver+ evidence; < 30s; streaming works; schema valid | Engineer + Product |
@@ -616,6 +669,7 @@ jobs:
 
 | Component | Est. Hours | Status | Tests Pass | E2E Pass | Notes |
 |-----------|------------|--------|------------|----------|-------|
+| Data Model Validation | 4 | ⬜ Not Started | ⬜ | ⬜ | Prerequisite for all tasks |
 | Economic Kernel | 8 | ⬜ Not Started | ⬜ | ⬜ | Foundation |
 | Dashboard "Go" | 2 | ⬜ Not Started | ⬜ | ⬜ | Quick win |
 | Discovery Agent | 16 | ⬜ Not Started | ⬜ | ⬜ | Can mock ModelStage |

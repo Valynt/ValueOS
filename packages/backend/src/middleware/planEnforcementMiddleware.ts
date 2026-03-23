@@ -251,8 +251,8 @@ export function createPlanEnforcement(config: EnforcementConfig) {
 
       next();
     } catch (error) {
-      logger.error('Plan enforcement error', error as Error);
-      // Fail open - allow request
+      logger.error('Plan enforcement error', error instanceof Error ? error : undefined);
+      // Don't block request on rate limit error
       next();
     }
   };

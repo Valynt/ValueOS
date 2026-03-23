@@ -69,7 +69,7 @@ export function customerRateLimit(req: Request, res: Response, next: NextFunctio
     // Continue to next middleware
     next();
   } catch (error) {
-    logger.error('Error in rate limit middleware', error as Error);
+    logger.error('Error in rate limit middleware', error instanceof Error ? error : undefined);
     // Don't block request on rate limit error
     next();
   }
@@ -81,15 +81,15 @@ export function customerRateLimit(req: Request, res: Response, next: NextFunctio
 function getIdentifier(req: Request): string {
   // Try to get token from params or query
   const token = req.params.token || req.query.token;
-  
+
   if (token && typeof token === 'string') {
     return `token:${token}`;
   }
 
   // Fall back to IP address
-  const ip = req.ip || 
-             req.headers['x-forwarded-for'] || 
-             req.headers['x-real-ip'] || 
+  const ip = req.ip ||
+             req.headers['x-forwarded-for'] ||
+             req.headers['x-real-ip'] ||
              req.socket.remoteAddress ||
              'unknown';
 

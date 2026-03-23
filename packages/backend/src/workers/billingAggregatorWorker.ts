@@ -22,7 +22,7 @@ const healthServer = createServer(async (_req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', lag }));
   } catch (error) {
-    logger.error('Health check failed', error as Error);
+    logger.error('Health check failed', error);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'error' }));
   }

@@ -149,7 +149,7 @@ export class TempCapIncreaseService {
 
       return data;
     } catch (error) {
-      logger.error('Error in requestTempIncrease', error as Error);
+      logger.error('Error in requestTempIncrease', error);
       throw error;
     }
   }
@@ -234,7 +234,7 @@ export class TempCapIncreaseService {
 
       return tempCap;
     } catch (error) {
-      logger.error('Error approving temp increase', error as Error);
+      logger.error('Error approving temp increase', error);
       throw error;
     }
   }
@@ -259,7 +259,7 @@ export class TempCapIncreaseService {
 
       return data || [];
     } catch (error) {
-      logger.error('Error in getActiveTempCaps', error as Error);
+      logger.error('Error in getActiveTempCaps', error);
       return [];
     }
   }
@@ -283,7 +283,7 @@ export class TempCapIncreaseService {
 
       logger.info('Cancelled temporary cap increase', { tempCapId, cancelledBy });
     } catch (error) {
-      logger.error('Error cancelling temp increase', error as Error);
+      logger.error('Error cancelling temp increase', error);
       throw error;
     }
   }
@@ -328,7 +328,7 @@ export class TempCapIncreaseService {
 
       return expiredCount;
     } catch (error) {
-      logger.error('Error in cleanupExpiredTempCaps', error as Error);
+      logger.error('Error in cleanupExpiredTempCaps', error);
       return 0;
     }
   }
@@ -362,7 +362,7 @@ export class TempCapIncreaseService {
 
       return data || [];
     } catch (error) {
-      logger.error('Error in getTempCapRequests', error as Error);
+      logger.error('Error in getTempCapRequests', error);
       return [];
     }
   }
