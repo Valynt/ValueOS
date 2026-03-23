@@ -132,6 +132,14 @@ const DEMO_SAAS_CONTEXT: MergedContext = {
 };
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+function getPackIdFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get("packId");
+}
+
+// ============================================================================
 // Hooks
 // ============================================================================
 
@@ -160,8 +168,7 @@ export function useMergedContext(caseId: string | undefined) {
     queryFn: async () => {
       // For demo/new cases, return demo data directly
       if (caseId === "new") {
-        const params = new URLSearchParams(window.location.search);
-        const packId = params.get("packId");
+        const packId = getPackIdFromUrl();
         if (packId === "demo-pack-saas") return DEMO_SAAS_CONTEXT;
         return DEMO_BANKING_CONTEXT;
       }
@@ -173,8 +180,7 @@ export function useMergedContext(caseId: string | undefined) {
         console.error("Failed to fetch merged context:", err);
       }
       // Fallback to demo data when backend is unavailable or returns failure
-      const params = new URLSearchParams(window.location.search);
-      const packId = params.get("packId");
+      const packId = getPackIdFromUrl();
       if (packId === "demo-pack-saas") return DEMO_SAAS_CONTEXT;
       return DEMO_BANKING_CONTEXT;
     },
