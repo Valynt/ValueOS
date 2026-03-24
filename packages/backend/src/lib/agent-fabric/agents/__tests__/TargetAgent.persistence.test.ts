@@ -58,6 +58,20 @@ vi.mock("../../../../repositories/ValueTreeRepository.js", () => ({
   },
 }));
 
+vi.mock("../../BaseGraphWriter.js", () => ({
+  BaseGraphWriter: class {
+    getSafeContext = vi.fn().mockResolvedValue({ opportunityId: "test-opp", organizationId: "test-org" });
+    generateNodeId = vi.fn().mockReturnValue("node-1");
+    safeWriteBatch = vi.fn().mockResolvedValue({ succeeded: 1, failed: 0, errors: [] });
+    writeValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+    writeMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+    writeEdge = vi.fn().mockResolvedValue({ id: "edge-1" });
+    writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
+    resolveOpportunityId = vi.fn().mockReturnValue("770e8400-e29b-41d4-a716-446655440002");
+  },
+  LifecycleContextError: class extends Error {},
+}));
+
 // --- Imports ---
 
 import type { AgentConfig, LifecycleContext } from "../../../../types/agent.js";

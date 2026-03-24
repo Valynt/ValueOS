@@ -94,6 +94,10 @@ pnpm test
 
 `pnpm test` is the canonical repo-wide Vitest workspace run from the root `vitest.config.ts`. Use that root command for full maintained-suite coverage; package-local test commands are for intentionally scoped runs only.
 
+### ESLint warning ratchet
+
+The backend lint ceiling (`--max-warnings` in `packages/backend/package.json`) must only decrease over time. Reduce it by at least 200 per sprint. Never increase it without an ADR justification. Run `node scripts/ci/lint-ratchet-check.mjs` to see current headroom.
+
 If your change touches data access, authz, or RLS policies, also run:
 
 ```sh

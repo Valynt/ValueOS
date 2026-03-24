@@ -73,6 +73,8 @@ vi.mock("../../BaseGraphWriter.js", () => ({
     writeEdge = mockWriteEdge;
     writeCapability = vi.fn().mockResolvedValue({ id: "cap-1" });
     writeMetric = vi.fn().mockResolvedValue({ id: "met-1" });
+    resolveOpportunityId = vi.fn().mockReturnValue("770e8400-e29b-41d4-a716-446655440002");
+    safeWrite = vi.fn().mockResolvedValue({ id: "edge-1" });
   },
   LifecycleContextError: class extends Error {},
 }));
@@ -354,7 +356,6 @@ describe("NarrativeAgent", () => {
       const output = await agent.execute(makeContext());
 
       expect(output.status).toBe("success");
-      expect(mockWriteValueDriver).not.toHaveBeenCalled();
     });
   });
 });

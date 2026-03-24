@@ -222,7 +222,26 @@ function makeEvidenceEdge(id: string, toEntityId: string) {
     edge_type: "evidence_supports_metric",
     confidence_score: 0.9,
     evidence_ids: [],
-    created_by_agent: "IntegrityAgent",
+    created_by_agent: "RealizationAgent",
+    ontology_version: "1.0",
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function makeMetricMapEdge(id: string, fromMetricId: string, toDriverId: string) {
+  return {
+    id,
+    organization_id: "org-456",
+    opportunity_id: "case-001",
+    from_entity_type: "vg_metric",
+    from_entity_id: fromMetricId,
+    to_entity_type: "vg_value_driver",
+    to_entity_id: toDriverId,
+    edge_type: "metric_maps_to_value_driver",
+    confidence_score: 0.8,
+    evidence_ids: [],
+    created_by_agent: "TargetAgent",
     ontology_version: "1.0",
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
@@ -286,8 +305,9 @@ describe("IntegrityAgent — Value Graph integration", () => {
 
   it("returns empty graph_integrity_gaps when all claims have evidence support", async () => {
     const claimEdge = makeClaimEdge("edge-1", "driver-001");
-    const evidenceEdge = makeEvidenceEdge("edge-2", "driver-001");
-    setupAgent([claimEdge, evidenceEdge]);
+    const evidenceEdge = makeEvidenceEdge("edge-2", "metric-001");
+    const metricMapEdge = makeMetricMapEdge("edge-3", "metric-001", "driver-001");
+    setupAgent([claimEdge, evidenceEdge, metricMapEdge]);
 
     const output = await agent.execute(makeContext());
 
@@ -325,14 +345,15 @@ describe("IntegrityAgent — Value Graph integration", () => {
   it("only flags claims with no evidence — does not flag claims that have evidence", async () => {
     const claimEdge1 = makeClaimEdge("edge-1", "driver-001"); // has evidence
     const claimEdge2 = makeClaimEdge("edge-2", "driver-002"); // no evidence
-    const evidenceEdge = makeEvidenceEdge("edge-3", "driver-001"); // covers driver-001
-    setupAgent([claimEdge1, claimEdge2, evidenceEdge]);
+    const evidenceEdge = makeEvidenceEdge("edge-3", "metric-001"); // covers driver-001
+    const metricMapEdge = makeMetricMapEdge("edge-4", "metric-001", "driver-001"); // maps metric to driver-001
+    setupAgent([claimEdge1, claimEdge2, evidenceEdge, metricMapEdge]);
 
     const output = await agent.execute(makeContext());
 
-    const gaps = output.result.graph_integrity_gaps as Array<{ to_entity_id: string }>;
+    const gaps = output.result.graph_integrity_gaps as unknown[];
     expect(gaps).toHaveLength(1);
-    expect(gaps[0].to_entity_id).toBe("driver-002");
+    expect((gaps[0] as any).hypothesis_claims_edge_id).toBe("edge-2");
   });
 
   it("graph_integrity_gaps is empty when getGraphForOpportunity fails (graph error never propagates)", async () => {

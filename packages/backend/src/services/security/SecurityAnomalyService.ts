@@ -8,7 +8,7 @@
  * type system workarounds, not security vulnerabilities.
  */
 
-/* eslint-disable security/detect-object-injection */
+ 
 
 import { logger } from "../../lib/logger.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";

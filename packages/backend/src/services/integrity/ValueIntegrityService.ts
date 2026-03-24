@@ -27,7 +27,10 @@ import {
   type ViolationType,
 } from "@shared/domain/Violation.js";
 import { logger } from "../lib/logger.js";
-import { createRequestSupabaseClient } from "../../lib/supabase.js";
+import {
+  createRequestSupabaseClient,
+  createServiceRoleSupabaseClient,
+} from "../../lib/supabase.js";
 import { getMessageBus } from "../realtime/MessageBus.js";
 
 // ---------------------------------------------------------------------------
@@ -124,19 +127,34 @@ export class ValueIntegrityService {
     }
 
     const rows = hypotheses ?? [];
+    const metricClaims: AgentMetricClaim[] = rows.map(h => ({
+      agent_id: h.agent_id,
+      metric_name: h.metric_name,
+      value: ((h.value_low_usd ?? 0) + (h.value_high_usd ?? 0)) / 2, // Use mid-point
+      unit: h.unit ?? "USD"
+    }));
+
+    const financialOutputs: AgentFinancialOutput[] = rows.map(h => ({
+      agent_id: h.agent_id,
+      roi_multiplier: h.roi_multiplier,
+      payback_months: h.payback_months,
+      value_low_usd: h.value_low_usd,
+      value_high_usd: h.value_high_usd
+    }));
+
     const detectedViolations: Omit<Violation, "id" | "created_at" | "updated_at">[] = [];
 
     // --- Detection rule 1: SCALAR_CONFLICT ---
-    detectedViolations.push(...this.detectScalarConflicts(rows, caseId, organizationId));
+    detectedViolations.push(...this.detectScalarConflicts(metricClaims, caseId, organizationId));
 
     // --- Detection rule 2: FINANCIAL_SANITY ---
-    detectedViolations.push(...this.detectFinancialSanity(rows, caseId, organizationId));
+    detectedViolations.push(...this.detectFinancialSanity(financialOutputs, caseId, organizationId));
 
     // --- Detection rule 3: LOGIC_CHAIN_BREAK ---
     detectedViolations.push(...this.detectLogicChainBreaks(rows, caseId, organizationId));
 
     // --- Detection rule 4: UNIT_MISMATCH ---
-    detectedViolations.push(...this.detectUnitMismatches(rows, caseId, organizationId));
+    detectedViolations.push(...this.detectUnitMismatches(metricClaims, caseId, organizationId));
 
     // Fetch existing OPEN violations to deduplicate before inserting.
     // A violation is a duplicate if it shares the same (type, sorted agent_ids).
@@ -160,9 +178,14 @@ export class ValueIntegrityService {
       ),
     );
 
+    const currentPassKeys = new Set<string>();
     const newViolations = detectedViolations.filter((v) => {
       const key = `${v.type}:${[...v.agent_ids].sort().join(",")}`;
-      return !existingKeys.has(key);
+      if (existingKeys.has(key) || currentPassKeys.has(key)) {
+        return false;
+      }
+      currentPassKeys.add(key);
+      return true;
     });
 
     // Persist net-new violations only
@@ -307,6 +330,72 @@ export class ValueIntegrityService {
       blocked: criticals.length > 0,
       violations: criticals,
       soft_warnings: warnings,
+    };
+  }
+
+  /**
+   * Calculate current integrity score for a case.
+   * Returns the score and defense readiness without persisting.
+   */
+  async calculateIntegrity(
+    caseId: string,
+    organizationId: string,
+    accessToken?: string,
+  ): Promise<{ score: number; defenseReadiness: number; violations: Violation[] }> {
+    const client = accessToken
+      ? createRequestSupabaseClient({ accessToken })
+      : createServiceRoleSupabaseClient();
+
+    // Fetch defense_readiness_score and integrity_score from business_cases
+    const { data: caseRow, error: caseError } = await client
+      .from("business_cases")
+      .select("defense_readiness_score, integrity_score")
+      .eq("id", caseId)
+      .eq("organization_id", organizationId)
+      .single();
+
+    if (caseError) {
+      throw new Error(`Failed to fetch business case: ${caseError.message}`);
+    }
+
+    const defenseReadiness = (caseRow as { defense_readiness_score: number | null })?.defense_readiness_score ?? 0;
+    const storedIntegrityScore = (caseRow as { integrity_score: number | null })?.integrity_score ?? 0;
+
+    // Fetch all violations for penalty calculation
+    const { data: violations, error: vivError } = await client
+      .from("value_integrity_violations")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .in("status", ["OPEN", "DISMISSED"]);
+
+    if (vivError) {
+      throw new Error(`Failed to fetch violations: ${vivError.message}`);
+    }
+
+    const rows = (violations ?? []) as Array<{ severity: ViolationSeverity; status: string }>;
+
+    // Sum penalties
+    let penaltySum = 0;
+    for (const row of rows) {
+      if (row.status === "OPEN") {
+        penaltySum += PENALTY[row.severity] ?? 0;
+      } else if (row.status === "DISMISSED") {
+        penaltySum += DISMISSED_PENALTY[row.severity] ?? 0;
+      }
+    }
+
+    const contradictionComponent = Math.max(0, 1 - penaltySum);
+    const rawScore =
+      SCORE_WEIGHTS.readiness * defenseReadiness +
+      SCORE_WEIGHTS.integrity * contradictionComponent;
+
+    const integrityScore = Math.min(1, Math.max(0, rawScore));
+
+    return {
+      score: integrityScore,
+      defenseReadiness,
+      violations: rows as Violation[],
     };
   }
 
@@ -554,6 +643,7 @@ export class ValueIntegrityService {
     // Find conflicts: a positive condition that is also negated by a *different* agent.
     // Emit one violation per (condition, positiveAgent, negativeAgent) pair to
     // preserve full attribution when multiple agents are involved.
+    // Cap: maximum 3 logic chain break violations per case to prevent penalty inflation.
     for (const [condition, positiveAgentIds] of positives) {
       const negativeAgentIds = negatives.get(condition);
       if (!negativeAgentIds) continue;
@@ -561,6 +651,8 @@ export class ValueIntegrityService {
       for (const positiveAgentId of positiveAgentIds) {
         for (const negativeAgentId of negativeAgentIds) {
           if (positiveAgentId === negativeAgentId) continue;
+          if (violations.length >= 3) break; // Cap at 3 for this pass
+
           violations.push({
             case_id: caseId,
             organization_id: organizationId,
@@ -573,7 +665,9 @@ export class ValueIntegrityService {
             resolution_metadata: null,
           });
         }
+        if (violations.length >= 3) break;
       }
+      if (violations.length >= 3) break;
     }
 
     return violations;

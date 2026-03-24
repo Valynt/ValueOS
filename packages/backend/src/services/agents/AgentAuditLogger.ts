@@ -321,25 +321,25 @@ export class AgentAuditLogger {
 
     // Encrypt sensitive response data
     if (sanitized.response_data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       sanitized.response_data = await this.encryptSensitiveData(sanitized.response_data);
     }
 
     // Encrypt sensitive context
     if (sanitized.context) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       sanitized.context = await this.encryptSensitiveData(sanitized.context);
     }
 
     // Encrypt sensitive metadata
     if (sanitized.metadata) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       sanitized.metadata = await this.encryptSensitiveData(sanitized.metadata);
     }
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       sanitized.response_metadata = await this.encryptSensitiveData(sanitized.response_metadata);
     }
 

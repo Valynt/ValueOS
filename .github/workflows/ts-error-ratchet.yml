@@ -1,0 +1,130 @@
+name: Type Error Ratchet
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  type-error-ratchet:
+    name: TypeScript Error Count Ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.4.1
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Count TypeScript errors
+        id: count
+        run: |
+          echo "Running typecheck..."
+          ERROR_COUNT=$(pnpm run typecheck:full 2>&1 | grep -c "error TS" || true)
+          echo "count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          echo "Current TypeScript errors: $ERROR_COUNT"
+          
+      - name: Load baseline
+        id: baseline
+        run: |
+          BASELINE=$(cat .quality/baselines.json | jq '.tsErrors // 7597')
+          echo "baseline=$BASELINE" >> $GITHUB_OUTPUT
+          echo "Baseline: $BASELINE"
+          
+      - name: Check ratchet
+        run: |
+          CURRENT=${{ steps.count.outputs.count }}
+          BASELINE=${{ steps.baseline.outputs.baseline }}
+          
+          if [ "$CURRENT" -gt "$BASELINE" ]; then
+            echo "❌ TypeScript error count increased!"
+            echo "   Baseline: $BASELINE"
+            echo "   Current:  $CURRENT"
+            echo "   Diff:     +$((CURRENT - BASELINE))"
+            echo ""
+            echo "Run 'pnpm run typecheck:full' locally to see errors."
+            exit 1
+          else
+            echo "✅ TypeScript error count maintained or reduced"
+            echo "   Baseline: $BASELINE"
+            echo "   Current:  $CURRENT"
+            echo "   Diff:     $((CURRENT - BASELINE))"
+          fi
+          
+      - name: Comment PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const current = '${{ steps.count.outputs.count }}';
+            const baseline = '${{ steps.baseline.outputs.baseline }}';
+            const diff = parseInt(current) - parseInt(baseline);
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ⚠️ TypeScript Error Ratchet Failed
+              
+This PR increases the TypeScript error count by ${diff} errors.
+
+| Metric | Value |
+|--------|-------|
+| Baseline | ${baseline} |
+| Current | ${current} |
+| Change | +${diff} |
+
+Please run \`pnpm run typecheck:full\` locally to identify and fix these errors before merging.`
+            });
+
+  package-ratchet:
+    name: Package-Level Error Ratchet
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: 
+          - { name: '@valueos/backend', path: 'packages/backend', baseline: 3601 }
+          - { name: 'valynt-app', path: 'apps/ValyntApp', baseline: 1544 }
+          - { name: '@valueos/sdui', path: 'packages/sdui', baseline: 450 }
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.4.1
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Check package errors
+        run: |
+          echo "Checking ${{ matrix.package.name }}..."
+          ERROR_COUNT=$(pnpm --filter ${{ matrix.package.name }} exec tsc --noEmit 2>&1 | grep -c "error TS" || echo "0")
+          BASELINE=${{ matrix.package.baseline }}
+          
+          echo "Package: ${{ matrix.package.name }}"
+          echo "Baseline: $BASELINE"
+          echo "Current:  $ERROR_COUNT"
+          
+          if [ "$ERROR_COUNT" -gt "$BASELINE" ]; then
+            echo "❌ Error count increased for ${{ matrix.package.name }}"
+            exit 1
+          else
+            echo "✅ Error count maintained for ${{ matrix.package.name }}"
+          fi

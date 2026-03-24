@@ -12,7 +12,7 @@
  * All queries are scoped to organization_id (tenant isolation).
  */
 
-import { Router, type NextFunction, type Request, type Response } from "express"; // eslint-disable-line sort-imports
+import { Router, type NextFunction, type Request, type Response } from "express";  
 import { z } from "zod";
 
 import { logger } from "../lib/logger.js";

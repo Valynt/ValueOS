@@ -31,7 +31,6 @@ import {
   type InternalCaseInput,
 } from "../../../services/artifacts/index.js";
 import {
-  BaseGraphWriter,
   valueGraphService as defaultValueGraphService,
 } from "../../../services/value-graph/index.js";
 import type { ValuePath } from "../../../services/value-graph/ValueGraphService.js";
@@ -40,7 +39,14 @@ import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import { escapePromptInterpolation } from "../promptUtils.js";
+import { getPdfExportService } from "../../../services/export/PdfExportService.js";
+import {
+  calculateNPV,
+  calculateIRR,
+  calculateROI,
+  calculatePayback,
+} from "../../../domain/economic-kernel/economic_kernel.js";
+import Decimal from "decimal.js";
 
 import { BaseAgent } from "./BaseAgent.js";
 import { BaseGraphWriter } from "../BaseGraphWriter.js";
@@ -70,6 +76,11 @@ type NarrativeOutput = z.infer<typeof NarrativeOutputSchema>;
 // ---------------------------------------------------------------------------
 // Prompt builder
 // ---------------------------------------------------------------------------
+
+function escapePromptInterpolation(text: unknown): string {
+  if (text === null || text === undefined) return "";
+  return String(text).replace(/([${}`])/g, "\\$1");
+}
 
 function buildNarrativePrompt(params: {
   organizationId: string;
@@ -136,13 +147,151 @@ export class NarrativeAgent extends BaseAgent {
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
   private readonly artifactRepo = new ArtifactRepository();
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService);
 
   // Artifact generators - initialized lazily
   private executiveMemoGenerator: ExecutiveMemoGenerator | null = null;
   private cfoRecommendationGenerator: CFORecommendationGenerator | null = null;
   private customerNarrativeGenerator: CustomerNarrativeGenerator | null = null;
   private internalCaseGenerator: InternalCaseGenerator | null = null;
+
+  /**
+   * Generate PDF export for narrative artifacts.
+   * Combines all generated artifacts into a single PDF document.
+   */
+  async generatePdf(params: {
+    organizationId: string;
+    caseId: string;
+    artifacts: Array<{ type: string; content: Record<string, unknown> }>;
+    title?: string;
+  }): Promise<{ signedUrl: string; storagePath: string }> {
+    const { organizationId, caseId, artifacts, title } = params;
+
+    // Build render URL for PDF generation
+    const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    const renderUrl = `${baseUrl}/org/${organizationId}/workspace/${caseId}/outputs?pdf=true`;
+
+    // Get PDF export service
+    const pdfService = getPdfExportService();
+
+    const result = await pdfService.exportValueCase({
+      organizationId,
+      caseId,
+      renderUrl,
+      title: title ?? `Business Case - ${caseId}`,
+    });
+
+    logger.info("NarrativeAgent: PDF generated", {
+      caseId,
+      signedUrl: result.signedUrl.substring(0, 50) + "...",
+      sizeBytes: result.sizeBytes,
+    });
+
+    return {
+      signedUrl: result.signedUrl,
+      storagePath: result.storagePath,
+    };
+  }
+
+  /**
+   * Extract financial metrics from modeling data using Economic Kernel.
+   */
+  private calculateFinancialMetrics(financialData: Record<string, unknown> | undefined): {
+    npv: number;
+    irr: number;
+    roi: number;
+    paybackMonths: number;
+    scenarios: Array<{
+      name: string;
+      probability: number;
+      roi: number;
+      npv: number;
+      currency: string;
+      paybackMonths: number;
+    }>;
+  } {
+    if (!financialData) {
+      return {
+        npv: 0,
+        irr: 0,
+        roi: 0,
+        paybackMonths: 0,
+        scenarios: [],
+      };
+    }
+
+    // Extract cash flows from financial data
+    const cashFlows = (financialData.cash_flows as number[]) ?? [];
+    const discountRate = new Decimal(financialData.discount_rate as number ?? 0.1);
+
+    let npv = 0;
+    let irr = 0;
+    let roi = 0;
+    let paybackMonths = 0;
+
+    if (cashFlows.length > 0) {
+      try {
+        // Convert to Decimal array for Economic Kernel
+        const decimalFlows = cashFlows.map(cf => new Decimal(cf));
+
+        npv = calculateNPV(decimalFlows, discountRate).toNumber();
+        irr = calculateIRR(decimalFlows).rate.toNumber();
+        roi = calculateROI(decimalFlows[1] ?? new Decimal(0), decimalFlows[0]?.abs() ?? new Decimal(1)).toNumber();
+        const payback = calculatePayback(decimalFlows);
+        paybackMonths = payback.period !== null ? payback.period * 12 : 0;
+      } catch (err) {
+        logger.warn("NarrativeAgent: Financial calculation failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // Build scenarios from sensitivity data if available
+    const sensitivities = (financialData.sensitivities as Array<Record<string, unknown>>) ?? [];
+    const scenarios = sensitivities.length > 0
+      ? sensitivities.map((sens, index) => ({
+          name: (sens.name as string) || ["Conservative", "Base", "Upside"][index] || "Scenario",
+          probability: (sens.probability as number) || [30, 60, 10][index] || 33,
+          roi: (sens.roi as number) || roi,
+          npv: (sens.npv as number) || npv,
+          currency: (sens.currency as string) || "USD",
+          paybackMonths: (sens.payback_months as number) || paybackMonths,
+        }))
+      : [
+          {
+            name: "Conservative",
+            probability: 25,
+            roi: Math.round(roi * 0.7),
+            npv: Math.round(npv * 0.6),
+            currency: "USD",
+            paybackMonths: Math.round(paybackMonths * 1.4),
+          },
+          {
+            name: "Base",
+            probability: 60,
+            roi: Math.round(roi),
+            npv: Math.round(npv),
+            currency: "USD",
+            paybackMonths: Math.round(paybackMonths),
+          },
+          {
+            name: "Upside",
+            probability: 15,
+            roi: Math.round(roi * 1.3),
+            npv: Math.round(npv * 1.4),
+            currency: "USD",
+            paybackMonths: Math.round(paybackMonths * 0.8),
+          },
+        ];
+
+    return {
+      npv,
+      irr,
+      roi,
+      paybackMonths,
+      scenarios,
+    };
+  }
 
   /**
    * Initialize artifact generators with required dependencies.
@@ -203,7 +352,7 @@ export class NarrativeAgent extends BaseAgent {
     // Get readiness score and blockers from context or use defense readiness
     const readinessScore =
       (context.user_inputs?.readiness_score as number | undefined) ??
-      (context.previous_stage_outputs?.integrity as Record<string, unknown>)?.scores?.overall ??
+      (context.previous_stage_outputs?.integrity as any)?.scores?.overall ??
       0;
     const readinessBlockers =
       (context.user_inputs?.readiness_blockers as string[] | undefined) ??
@@ -325,7 +474,7 @@ export class NarrativeAgent extends BaseAgent {
             confidence: Number(c.confidence ?? 0.5),
             provenance: {
               source: String(c.verdict ?? "unknown"),
-              claimId: String(c.claim_id ?? c.id ?? "unknown"),
+              claimId: String(c.claim_id ?? (c as any).id ?? "unknown"),
             },
           })),
           integrityScore,
@@ -525,10 +674,9 @@ export class NarrativeAgent extends BaseAgent {
         const driverId = this.graphWriter.generateNodeId(kpi.id as string | undefined);
         writes.push(() =>
           this.graphWriter.writeValueDriver(context, {
-            id: driverId,
+            type: "revenue",
             name: driverName,
             description: String(kpi.description ?? narrativeOutput.value_proposition),
-            category: "revenue",
           })
         );
 
@@ -540,6 +688,7 @@ export class NarrativeAgent extends BaseAgent {
             to_entity_id: driverId,
             to_entity_type: "vg_value_driver",
             edge_type: "metric_maps_to_value_driver",
+            created_by_agent: "NarrativeAgent",
           })
         );
       }
@@ -644,14 +793,6 @@ export class NarrativeAgent extends BaseAgent {
         }),
         valueCaseId,
         defenseReadinessScore: narrativeOutput.defense_readiness_score,
-        readinessScore,
-        artifactStatus,
-        generatedArtifacts: generatedArtifacts.map((a) => ({
-          type: a.type,
-          id: a.id,
-          status: a.status,
-          hallucinationCheck: a.hallucinationCheck,
-        })),
         format,
       });
     } catch (err) {
@@ -708,7 +849,12 @@ export class NarrativeAgent extends BaseAgent {
    * prompt proceeds without graph context.
    */
   private async enrichPromptWithGraphPaths(context: LifecycleContext): Promise<string> {
-    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
+    let opportunityId: string | undefined;
+    try {
+      opportunityId = this.graphWriter.getSafeContext(context).opportunityId;
+    } catch {
+      return "";
+    }
     if (!opportunityId) return "";
 
     try {
@@ -725,7 +871,7 @@ export class NarrativeAgent extends BaseAgent {
     } catch (err) {
       logger.warn("NarrativeAgent: graph path read failed — proceeding without graph context", {
         error: (err as Error).message,
-        opportunityId: this.graphWriter["resolveOpportunityId"](context),
+        opportunityId,
         organizationId: context.organization_id,
       });
       return "";
@@ -740,29 +886,38 @@ export class NarrativeAgent extends BaseAgent {
     narrativeOutput: NarrativeOutput,
     context: LifecycleContext,
   ): Promise<void> {
-    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
-    if (!opportunityId) return;
+    let opportunityId: string | undefined;
+    let organizationId: string | undefined;
+    try {
+      const safeCtxResult = this.graphWriter.getSafeContext(context);
+      opportunityId = safeCtxResult.opportunityId;
+      organizationId = safeCtxResult.organizationId;
+    } catch {
+      return;
+    }
+    if (!opportunityId || !organizationId) return;
 
-    const organizationId = context.organization_id;
     const safeCtx = { opportunityId, organizationId, agentName: "NarrativeAgent" };
     const vgs = this.valueGraphService ?? defaultValueGraphService;
 
     // One edge per proof point — each represents a narrative claim about a hypothesis
+    const writes: Array<() => Promise<unknown>> = [];
     for (const _proofPoint of narrativeOutput.key_proof_points) {
-      await this.graphWriter["safeWrite"](
-        () => vgs.writeEdge({
-          opportunity_id: opportunityId,
-          organization_id: organizationId,
+      writes.push(() =>
+        this.graphWriter.writeEdge(context, {
           from_entity_type: "narrative",
-          from_entity_id: this.graphWriter["newEntityId"](),
+          from_entity_id: this.graphWriter.generateNodeId(),
           to_entity_type: "value_hypothesis",
-          to_entity_id: this.graphWriter["newEntityId"](),
+          to_entity_id: this.graphWriter.generateNodeId(),
           edge_type: "narrative_explains_hypothesis",
           confidence_score: narrativeOutput.defense_readiness_score,
           created_by_agent: "NarrativeAgent",
-        }),
-        safeCtx,
+        })
       );
+    }
+
+    if (writes.length > 0) {
+      await this.graphWriter.safeWriteBatch(writes);
     }
   }
 }

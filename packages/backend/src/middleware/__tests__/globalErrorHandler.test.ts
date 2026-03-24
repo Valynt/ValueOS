@@ -242,6 +242,7 @@ describe('Global Error Handler', () => {
       app.get('/protected', (req, res, next) => {
         next(new UnauthorizedError('Token expired'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/protected');
 
@@ -254,6 +255,7 @@ describe('Global Error Handler', () => {
       app.get('/admin', (req, res, next) => {
         next(new ForbiddenError('Admin access required'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/admin');
 
@@ -265,6 +267,7 @@ describe('Global Error Handler', () => {
       app.get('/users/:id', (req, res, next) => {
         next(new NotFoundError('User', req.params.id));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/users/123');
 
@@ -277,6 +280,7 @@ describe('Global Error Handler', () => {
       app.post('/users', (req, res, next) => {
         next(new ConflictError('Email already exists'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).post('/users');
 
@@ -288,6 +292,7 @@ describe('Global Error Handler', () => {
       app.get('/api', (req, res, next) => {
         next(new RateLimitError('Too many requests', 60));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/api');
 
@@ -300,6 +305,7 @@ describe('Global Error Handler', () => {
       app.get('/data', (req, res, next) => {
         next(new ServiceUnavailableError('Database'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/data');
 
@@ -315,6 +321,7 @@ describe('Global Error Handler', () => {
           'ECONNREFUSED'
         ));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/query');
 
@@ -330,6 +337,7 @@ describe('Global Error Handler', () => {
       app.get('/crash', (req, res, next) => {
         next(new Error('TypeError: Cannot read property "x" of undefined'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/crash');
 
@@ -342,6 +350,7 @@ describe('Global Error Handler', () => {
       app.get('/throw-string', (req, res, next) => {
         next('Something bad happened');
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/throw-string');
 
@@ -353,6 +362,7 @@ describe('Global Error Handler', () => {
       app.get('/error', (req, res, next) => {
         next(new NotFoundError('Resource'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/error');
 
@@ -363,6 +373,7 @@ describe('Global Error Handler', () => {
       app.get('/error', (req, res, next) => {
         next(new ValidationError('Bad input'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/error');
 
@@ -402,14 +413,11 @@ describe('Global Error Handler', () => {
   // ============================================================================
 
   describe('asyncHandler', () => {
-    beforeEach(() => {
-      app.use(globalErrorHandler);
-    });
-
     it('catches rejected promises and forwards to error handler', async () => {
       app.get('/async-error', asyncHandler(async (req, res) => {
         throw new ValidationError('Async validation failed');
       }));
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/async-error');
 
@@ -422,6 +430,7 @@ describe('Global Error Handler', () => {
         await Promise.resolve();
         res.json({ success: true });
       }));
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/async-success');
 
@@ -433,6 +442,7 @@ describe('Global Error Handler', () => {
       app.get('/async-db', asyncHandler(async (req, res) => {
         await Promise.reject(new DatabaseError('Query timeout', new Error()));
       }));
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/async-db');
 
@@ -446,15 +456,14 @@ describe('Global Error Handler', () => {
   // ============================================================================
 
   describe('error masking security', () => {
-    beforeEach(() => {
-      app.use(globalErrorHandler);
-    });
+    // Note: app.use(globalErrorHandler) must be called AFTER routes in each test
 
     it('does not leak stack traces in responses', async () => {
       app.get('/stack', (req, res, next) => {
         const error = new Error('Internal failure');
         next(error);
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/stack');
 
@@ -469,6 +478,7 @@ describe('Global Error Handler', () => {
           new Error()
         ));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/db-leak');
 
@@ -482,6 +492,7 @@ describe('Global Error Handler', () => {
       app.get('/api-leak', (req, res, next) => {
         next(new Error('API call failed with key: sk_live_abc123xyz'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/api-leak');
 
@@ -494,6 +505,7 @@ describe('Global Error Handler', () => {
         const error = new Error('File not found: /var/app/secrets/config.json');
         next(error);
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/path-leak');
 
@@ -505,6 +517,7 @@ describe('Global Error Handler', () => {
       app.get('/operational', (req, res, next) => {
         next(new ValidationError('Email format is invalid'));
       });
+      app.use(globalErrorHandler);
 
       const response = await request(app).get('/operational');
 

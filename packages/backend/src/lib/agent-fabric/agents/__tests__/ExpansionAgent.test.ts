@@ -65,6 +65,7 @@ vi.mock("../../BaseGraphWriter.js", () => ({
     writeEdge = mockExpWriteEdge;
     writeMetric = vi.fn().mockResolvedValue({ id: "met-1" });
     writeValueDriver = vi.fn().mockResolvedValue({ id: "vd-1" });
+    resolveOpportunityId = vi.fn().mockReturnValue("770e8400-e29b-41d4-a716-446655440002");
   },
   LifecycleContextError: class extends Error {},
 }));

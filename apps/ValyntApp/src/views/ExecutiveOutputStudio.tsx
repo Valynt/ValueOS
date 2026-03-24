@@ -6,7 +6,7 @@
  */
 
 import { ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
-import { AlertCircle, FileText, Sparkles } from "lucide-react";
+import { AlertCircle, FileText, Sparkles, Download, Lock } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
+import { usePdfExport } from "@/hooks/useCaseExport";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/api/client/unified-api-client";
 
 
 type ArtifactType = "executive-memo" | "cfo-recommendation" | "customer-narrative" | "internal-case";
@@ -27,19 +30,85 @@ const artifactTabs: { id: ArtifactType; label: string }[] = [
   { id: "internal-case", label: "Internal Case" },
 ];
 
+interface GateStatus {
+  canAdvance: boolean;
+  gate: {
+    integrityScore: number;
+    threshold: number;
+    passed: boolean;
+  };
+  violations: {
+    critical: number;
+    warnings: number;
+    blocked: boolean;
+  };
+  remediationInstructions?: string[];
+}
+
+function useIntegrityGate(caseId: string | undefined) {
+  return useQuery<GateStatus>({
+    queryKey: ["integrity-gate", caseId],
+    queryFn: async () => {
+      if (!caseId) throw new Error("Case ID required");
+      const res = await apiClient.get<{ success: boolean; data: GateStatus }>(
+        `/api/v1/cases/${caseId}/gate`
+      );
+      if (!res.success || !res.data) {
+        throw new Error("Failed to check integrity gate");
+      }
+      return res.data.data;
+    },
+    enabled: !!caseId,
+  });
+}
+
 export function ExecutiveOutputStudio() {
   const { caseId } = useParams<{ caseId: string }>();
   const [activeTab, setActiveTab] = useState<ArtifactType>("executive-memo");
   const [provenanceClaimId, setProvenanceClaimId] = useState<string | undefined>();
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const { data: artifacts, isLoading: artifactsLoading, error: artifactsError } = useArtifacts(caseId);
   const { data: readiness } = useReadiness(caseId);
+  const { data: gateStatus } = useIntegrityGate(caseId);
   const generateArtifacts = useGenerateArtifacts(caseId);
+  const pdfExport = usePdfExport(caseId);
 
   const activeArtifact = artifacts?.find((a) => a.type === activeTab);
 
   const isLoading = artifactsLoading;
   const error = artifactsError;
+
+  const handlePdfExport = () => {
+    setExportError(null);
+
+    // Check integrity gate before export
+    if (!gateStatus?.canAdvance) {
+      setExportError(
+        gateStatus?.remediationInstructions?.join(" ") ??
+        "Integrity check failed. Please resolve issues before exporting."
+      );
+      return;
+    }
+
+    const baseUrl = window.location.origin;
+    const renderUrl = `${baseUrl}/org/${caseId}/outputs?pdf=true`;
+
+    pdfExport.mutate(
+      { renderUrl, title: `Business Case - ${caseId}` },
+      {
+        onError: (err) => {
+          if (err.message.includes("Integrity check failed") || err.message.includes("below the required")) {
+            setExportError(err.message);
+          }
+        },
+      }
+    );
+  };
+
+  const canExportPdf = gateStatus?.canAdvance ?? false;
+  const integrityScore = gateStatus?.gate.integrityScore ?? 0;
+  const integrityThreshold = gateStatus?.gate.threshold ?? 0.6;
 
   if (isLoading) {
     return (
@@ -66,10 +135,10 @@ export function ExecutiveOutputStudio() {
 
   const artifactWidget: SDUIWidget | null = activeArtifact
     ? {
-        id: `artifact-${activeArtifact.id}`,
-        componentType: "artifact-preview",
-        props: { artifact: activeArtifact },
-      }
+      id: `artifact-${activeArtifact.id}`,
+      componentType: "artifact-preview",
+      props: { artifact: activeArtifact },
+    }
     : null;
 
   return (
@@ -82,7 +151,19 @@ export function ExecutiveOutputStudio() {
               Generate and refine artifacts for stakeholder presentations
             </p>
           </div>
-          {!hasArtifacts && (
+          <div className="flex items-center gap-3">
+            {hasArtifacts && (
+              <Button
+                onClick={handlePdfExport}
+                disabled={pdfExport.isPending || !canExportPdf}
+                variant="outline"
+                className="flex items-center gap-2"
+                title={!canExportPdf ? "Resolve integrity issues before exporting" : undefined}
+              >
+                <Download className="w-4 h-4" />
+                {pdfExport.isPending ? "Exporting..." : "Export PDF"}
+              </Button>
+            )}
             <Button
               onClick={() => generateArtifacts.mutate()}
               disabled={generateArtifacts.isPending}
@@ -91,11 +172,40 @@ export function ExecutiveOutputStudio() {
               <Sparkles className="w-4 h-4" />
               {generateArtifacts.isPending ? "Generating..." : "Generate Artifacts"}
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">
+        {exportError && (
+          <Alert variant="destructive" className="mb-6">
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Export Blocked</AlertTitle>
+            <AlertDescription>{exportError}</AlertDescription>
+          </Alert>
+        )}
+
+        {!canExportPdf && hasArtifacts && (
+          <Alert className="mb-6 bg-red-50 border-red-200">
+            <Lock className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800">Integrity Gate Closed</AlertTitle>
+            <AlertDescription className="text-red-700">
+              Integrity score {(integrityScore * 100).toFixed(0)}% is below the required {(integrityThreshold * 100).toFixed(0)}% threshold.
+              {gateStatus?.violations.critical ? ` ${gateStatus.violations.critical} critical violation(s) must be resolved.` : ""}
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-700 border-red-300 hover:bg-red-100"
+                  onClick={() => window.location.href = `/org/${caseId}/workspace`}
+                >
+                  Run Integrity Check
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {isDraft && hasArtifacts && (
           <Alert className="mb-6 bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />

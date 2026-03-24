@@ -198,6 +198,95 @@ const auth = [
   tenantDbContextMiddleware(),
 ];
 
+// ── Stage Advancement Gate ───────────────────────────────────────────────────
+
+/**
+ * GET /:id/gate — Check if case can advance to next stage
+ *
+ * Enforces integrity score >= 0.6 threshold. Returns remediation
+ * instructions if the gate is blocked.
+ */
+backHalfRouter.get(
+  "/:id/gate",
+  ...auth,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const caseId = getCaseId(req);
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+
+    try {
+      const integrityService = new ValueIntegrityService();
+
+      // Calculate current integrity score
+      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityScore = integrityResult.score ?? 0;
+
+      // Check for hard blocks (critical violations)
+      const hardBlockResult = await integrityService.checkHardBlocks(
+        caseId,
+        tenantId,
+        req.headers.authorization?.replace("Bearer ", "") ?? ""
+      );
+
+      const canAdvance = integrityScore >= INTEGRITY_THRESHOLD && !hardBlockResult.blocked;
+
+      // Build remediation instructions if blocked
+      const remediationInstructions: string[] = [];
+      if (integrityScore < INTEGRITY_THRESHOLD) {
+        remediationInstructions.push(
+          `Integrity score ${(integrityScore * 100).toFixed(0)}% is below the required ${(INTEGRITY_THRESHOLD * 100).toFixed(0)}% threshold.`,
+          "Run the Integrity Agent to identify and resolve contradictions."
+        );
+      }
+      if (hardBlockResult.blocked) {
+        remediationInstructions.push(
+          `${hardBlockResult.violations.length} critical violation(s) must be resolved before advancement.`,
+          "Review the violations and either correct the underlying data or request human review."
+        );
+      }
+      if (hardBlockResult.soft_warnings.length > 0) {
+        remediationInstructions.push(
+          `${hardBlockResult.soft_warnings.length} warning(s) detected. These do not block advancement but should be reviewed."
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          canAdvance,
+          gate: {
+            integrityScore,
+            threshold: INTEGRITY_THRESHOLD,
+            passed: integrityScore >= INTEGRITY_THRESHOLD,
+          },
+          violations: {
+            critical: hardBlockResult.violations.length,
+            warnings: hardBlockResult.soft_warnings.length,
+            blocked: hardBlockResult.blocked,
+          },
+          remediationInstructions: canAdvance ? undefined : remediationInstructions,
+          nextStage: canAdvance ? "narrative" : undefined,
+        },
+      });
+    } catch (err) {
+      logger.error("Gate check failed", {
+        caseId,
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to check stage advancement gate",
+      });
+    }
+  }
+);
+
 // ── Integrity ────────────────────────────────────────────────────────────────
 
 const integrityRepo = new IntegrityResultRepository();

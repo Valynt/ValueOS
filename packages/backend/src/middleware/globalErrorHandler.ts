@@ -20,9 +20,12 @@ import {
   getSafeErrorMessage,
   InternalError,
   isAppError,
+  NotFoundError,
   RateLimitError,
+  UnauthorizedError,
+  PayloadTooLargeError,
   ValidationError,
-} from '../lib/errors';
+} from '../lib/errors.js';
 import { logger } from '../lib/logger.js'
 import { redactSensitiveData } from '../lib/redaction.js'
 
@@ -179,14 +182,14 @@ function transformError(error: unknown): AppError {
   if (error instanceof Error) {
     // Check for specific error types by name/message
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return new (require('../lib/errors').UnauthorizedError)(
+      return new UnauthorizedError(
         'Invalid or expired token',
         error
       );
     }
 
     if (error.name === 'PayloadTooLargeError' || error.message.includes('request entity too large')) {
-      return new (require('../lib/errors').PayloadTooLargeError)(
+      return new PayloadTooLargeError(
         'Request payload too large',
         undefined,
         error
@@ -333,7 +336,6 @@ export function notFoundHandler(
   _res: Response,
   next: NextFunction
 ): void {
-  const { NotFoundError } = require('../lib/errors');
   next(new NotFoundError('Route', `${req.method} ${req.path}`));
 }
 

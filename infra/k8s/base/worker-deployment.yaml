@@ -37,7 +37,7 @@ spec:
 
       containers:
         - name: worker
-          image: ghcr.io/valynt/valueos-backend:latest
+          image: ghcr.io/valynt/valueos-backend:IMAGE_TAG_PLACEHOLDER
           imagePullPolicy: Always
           command: ["node", "dist/workers/workerMain.js"]
 

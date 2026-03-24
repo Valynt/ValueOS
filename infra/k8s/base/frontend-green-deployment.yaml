@@ -39,7 +39,7 @@ spec:
 
       containers:
         - name: frontend
-          image: ghcr.io/valynt/valueos-frontend:latest
+          image: ghcr.io/valynt/valueos-frontend:IMAGE_TAG_PLACEHOLDER
           imagePullPolicy: Always
 
           env:

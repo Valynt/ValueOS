@@ -680,7 +680,7 @@ export class TenantIsolationService {
         allowedRequests: this.metrics.allowedRequests,
         blockedRequests: this.metrics.blockedRequests,
         averageProcessingTime: this.metrics.averageProcessingTime,
-        // eslint-disable-next-line security/detect-object-injection -- Map converted to plain object for logging
+         
         ruleViolations: Object.fromEntries(this.metrics.ruleViolations),
       });
     }, 300000); // Every 5 minutes
@@ -750,7 +750,7 @@ export class TenantIsolationService {
       activeTenants: this.tenants.size,
       activeRules: this.isolationRules.size,
       cacheSize: this.tenantCache.size,
-      // eslint-disable-next-line security/detect-object-injection -- Map converted to plain object for logging
+       
       ruleViolations: Object.fromEntries(this.metrics.ruleViolations),
     };
   }

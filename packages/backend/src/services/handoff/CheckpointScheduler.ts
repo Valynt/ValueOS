@@ -131,7 +131,7 @@ export class CheckpointScheduler {
     const totalChange = targetValue - baselineValue;
     const numQuarters = Math.ceil(timelineMonths / 3);
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     let currentYear = currentDate.getFullYear();
     let currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
 

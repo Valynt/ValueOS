@@ -107,15 +107,77 @@ export const RealizationMilestoneReachedPayloadSchema = DomainEventEnvelopeSchem
 export type RealizationMilestoneReachedPayload = z.infer<typeof RealizationMilestoneReachedPayloadSchema>;
 
 // ---------------------------------------------------------------------------
-// Union type and registry
+// Discovery events (DiscoveryAgent streaming)
 // ---------------------------------------------------------------------------
+
+export const DiscoveryStartedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  runId: z.string().min(1),
+  valueCaseId: z.string().min(1),
+  companyName: z.string().min(1),
+});
+export type DiscoveryStartedPayload = z.infer<typeof DiscoveryStartedPayloadSchema>;
+
+export const DiscoveryProgressPayloadSchema = DomainEventEnvelopeSchema.extend({
+  runId: z.string().min(1),
+  step: z.enum(['ingesting', 'generating_hypotheses', 'enriching', 'validating', 'writing_graph', 'finalizing']),
+  message: z.string(),
+  progressPercent: z.number().min(0).max(100),
+  hypothesesFound: z.number().optional(),
+  graphNodesWritten: z.number().optional(),
+});
+export type DiscoveryProgressPayload = z.infer<typeof DiscoveryProgressPayloadSchema>;
+
+export const DiscoveryHypothesisAddedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  valueCaseId: z.string().min(1),
+  hypothesisId: z.string().min(1),
+  title: z.string(),
+  category: z.string(),
+  confidence: z.number().min(0).max(1),
+});
+export type DiscoveryHypothesisAddedPayload = z.infer<typeof DiscoveryHypothesisAddedPayloadSchema>;
+
+export const DiscoveryGraphUpdatedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  opportunityId: z.string().min(1),
+  nodeType: z.string(),
+  nodeId: z.string().min(1),
+  operation: z.enum(['upsert', 'delete']),
+});
+export type DiscoveryGraphUpdatedPayload = z.infer<typeof DiscoveryGraphUpdatedPayloadSchema>;
+
+export const DiscoveryCompletedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  runId: z.string().min(1),
+  valueCaseId: z.string().min(1),
+  hypothesesFound: z.number(),
+  graphNodesWritten: z.number(),
+});
+export type DiscoveryCompletedPayload = z.infer<typeof DiscoveryCompletedPayloadSchema>;
+
+export const DiscoveryFailedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  runId: z.string().min(1),
+  valueCaseId: z.string().min(1),
+  error: z.string(),
+});
+export type DiscoveryFailedPayload = z.infer<typeof DiscoveryFailedPayloadSchema>;
+
+export const DiscoveryCancelledPayloadSchema = DomainEventEnvelopeSchema.extend({
+  runId: z.string().min(1),
+  reason: z.string(),
+});
+export type DiscoveryCancelledPayload = z.infer<typeof DiscoveryCancelledPayloadSchema>;
 
 export type DomainEventName =
   | 'opportunity.updated'
   | 'hypothesis.validated'
   | 'evidence.attached'
   | 'realization.milestone_reached'
-  | 'narrative.drafted';
+  | 'narrative.drafted'
+  | 'discovery.started'
+  | 'discovery.progress'
+  | 'discovery.hypothesis.added'
+  | 'discovery.graph.updated'
+  | 'discovery.completed'
+  | 'discovery.failed'
+  | 'discovery.cancelled';
 
 export const NarrativeDraftedPayloadSchema = DomainEventEnvelopeSchema.extend({
   valueCaseId: z.string().optional(),
@@ -130,6 +192,13 @@ export type DomainEventPayloadMap = {
   'evidence.attached': EvidenceAttachedPayload;
   'realization.milestone_reached': RealizationMilestoneReachedPayload;
   'narrative.drafted': NarrativeDraftedPayload;
+  'discovery.started': DiscoveryStartedPayload;
+  'discovery.progress': DiscoveryProgressPayload;
+  'discovery.hypothesis.added': DiscoveryHypothesisAddedPayload;
+  'discovery.graph.updated': DiscoveryGraphUpdatedPayload;
+  'discovery.completed': DiscoveryCompletedPayload;
+  'discovery.failed': DiscoveryFailedPayload;
+  'discovery.cancelled': DiscoveryCancelledPayload;
 };
 
 export const domainEventSchemaRegistry: {
@@ -140,6 +209,13 @@ export const domainEventSchemaRegistry: {
   'evidence.attached': EvidenceAttachedPayloadSchema,
   'realization.milestone_reached': RealizationMilestoneReachedPayloadSchema,
   'narrative.drafted': NarrativeDraftedPayloadSchema,
+  'discovery.started': DiscoveryStartedPayloadSchema,
+  'discovery.progress': DiscoveryProgressPayloadSchema,
+  'discovery.hypothesis.added': DiscoveryHypothesisAddedPayloadSchema,
+  'discovery.graph.updated': DiscoveryGraphUpdatedPayloadSchema,
+  'discovery.completed': DiscoveryCompletedPayloadSchema,
+  'discovery.failed': DiscoveryFailedPayloadSchema,
+  'discovery.cancelled': DiscoveryCancelledPayloadSchema,
 };
 
 export function validateDomainEvent<TName extends DomainEventName>(

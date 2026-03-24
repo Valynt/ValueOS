@@ -46,7 +46,7 @@ spec:
 
       containers:
         - name: backend
-          image: ghcr.io/valynt/valueos-backend:latest
+          image: ghcr.io/valynt/valueos-backend:IMAGE_TAG_PLACEHOLDER
           imagePullPolicy: Always
 
           ports:

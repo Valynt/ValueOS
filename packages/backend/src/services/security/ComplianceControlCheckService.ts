@@ -1,5 +1,6 @@
 import { logger } from "../../lib/logger.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
+import crypto from "node:crypto";
 
 import { auditLogService } from "./AuditLogService.js";
 import {
