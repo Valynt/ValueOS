@@ -373,7 +373,28 @@ export class UnifiedApiClient {
         // Handle 429 Too Many Requests — respect the Retry-After header if present
         if (response.status === 429) {
           const retryAfterHeader = response.headers.get('Retry-After');
-          const retryAfterSeconds = retryAfterHeader ? parseFloat(retryAfterHeader) : Math.pow(2, attempt + 1);
+          let retryAfterSeconds: number;
+
+          if (retryAfterHeader != null) {
+            // First, try to interpret Retry-After as a number of seconds
+            const numericSeconds = Number(retryAfterHeader);
+            if (Number.isFinite(numericSeconds) && numericSeconds >= 0) {
+              retryAfterSeconds = numericSeconds;
+            } else {
+              // If not numeric, try to interpret Retry-After as an HTTP-date
+              const retryAfterDateMs = Date.parse(retryAfterHeader);
+              if (!Number.isNaN(retryAfterDateMs)) {
+                const diffMs = retryAfterDateMs - Date.now();
+                retryAfterSeconds = Math.max(0, diffMs / 1000);
+              } else {
+                // Fallback to exponential backoff if header is unparseable
+                retryAfterSeconds = Math.pow(2, attempt + 1);
+              }
+            }
+          } else {
+            // No Retry-After header: use exponential backoff
+            retryAfterSeconds = Math.pow(2, attempt + 1);
+          }
           const rateLimitDelay = Math.min(retryAfterSeconds * 1000, 60_000); // cap at 60 s
           if (attempt < maxRetries) {
             await new Promise((resolve) => setTimeout(resolve, rateLimitDelay));
