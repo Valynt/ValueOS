@@ -15,7 +15,7 @@
  *
  * Environment variables used:
  *   VITE_API_BASE_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY,
- *   VITE_AGENT_API_URL, VITE_SENTRY_DSN, VITE_APP_VERSION
+ *   VITE_AGENT_API_URL, VITE_APP_VERSION
  */
 
 const fs = require("fs");
@@ -40,7 +40,6 @@ const config = {
   supabaseUrl: process.env.VITE_SUPABASE_URL || "",
   supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || "",
   agentApiUrl: process.env.VITE_AGENT_API_URL || "/api/agents",
-  sentryDsn: process.env.VITE_SENTRY_DSN || "",
   environment: environment,
   version:
     process.env.VITE_APP_VERSION || process.env.npm_package_version || "0.0.0",

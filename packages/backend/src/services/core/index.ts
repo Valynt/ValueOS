@@ -6,9 +6,6 @@
 export { securityLogger, configureSecurityLogger } from './SecurityLogger.js';
 export type { SecurityEvent, SecurityLoggerBackend } from './SecurityLogger.js';
 
-export { FinancialCalculator } from './FinancialCalculator.js';
-export type { FinancialInputs, FinancialOutputs } from './FinancialCalculator.js';
-
 export { featureFlags, FeatureFlagsService } from './FeatureFlags.js';
 export type { FeatureFlag, FeatureFlagEvaluation } from './FeatureFlags.js';
 

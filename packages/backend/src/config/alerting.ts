@@ -1,6 +1,6 @@
 /**
  * Alerting Configuration
- * 
+ *
  * Defines alert rules and thresholds for monitoring
  */
 
@@ -16,21 +16,21 @@ export type AlertThresholds = {
   readonly HALLUCINATION_RATE_WARNING: number;
   readonly HALLUCINATION_RATE_CRITICAL: number;
   readonly LOW_CONFIDENCE_RATE_WARNING: number;
-   
+
   // Response Times (milliseconds)
   readonly P95_RESPONSE_TIME_WARNING: number;
   readonly P99_RESPONSE_TIME_CRITICAL: number;
-   
+
   // LLM Costs (USD per hour)
   readonly LLM_HOURLY_COST_WARNING: number;
   readonly LLM_HOURLY_COST_CRITICAL: number;
-   
+
   // Cache Performance
   readonly CACHE_HIT_RATE_WARNING: number;
-   
+
   // Confidence Scores
   readonly MIN_CONFIDENCE_SCORE: number;
-   
+
   // Prediction Accuracy
   readonly MIN_PREDICTION_ACCURACY: number;
 };
@@ -45,21 +45,21 @@ export const ALERT_THRESHOLDS: AlertThresholds = {
   HALLUCINATION_RATE_WARNING: 0.15,    // 15%
   HALLUCINATION_RATE_CRITICAL: 0.25,   // 25%
   LOW_CONFIDENCE_RATE_WARNING: 0.30,   // 30%
-   
+
   // Response Times (milliseconds)
   P95_RESPONSE_TIME_WARNING: 5000,     // 5 seconds
   P99_RESPONSE_TIME_CRITICAL: 10000,   // 10 seconds
-   
+
   // LLM Costs (USD per hour)
   LLM_HOURLY_COST_WARNING: 10,         // $10/hour
   LLM_HOURLY_COST_CRITICAL: 50,        // $50/hour
-   
+
   // Cache Performance
   CACHE_HIT_RATE_WARNING: 0.50,        // 50%
-   
+
   // Confidence Scores
   MIN_CONFIDENCE_SCORE: 0.60,          // 60%
-   
+
   // Prediction Accuracy
   MIN_PREDICTION_ACCURACY: 0.70,       // 70%
 };
@@ -78,9 +78,9 @@ export const ALERT_CHECK_INTERVALS = {
  * Notification channels configuration
  */
 export const NOTIFICATION_CHANNELS = {
-  CRITICAL: ['sentry', 'email', 'webhook'] as const,
-  WARNING: ['sentry'] as const,
-  INFO: ['sentry'] as const,
+  CRITICAL: ['log', 'email', 'webhook'] as const,
+  WARNING: ['log'] as const,
+  INFO: ['log'] as const,
 } as const;
 
 /**
@@ -109,9 +109,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.HIGH_FREQUENCY,
-    notificationChannels: ['sentry', 'email']
+    notificationChannels: ['log', 'email']
   },
-  
+
   {
     id: 'high-hallucination-rate',
     name: 'High Hallucination Rate',
@@ -133,9 +133,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.MEDIUM_FREQUENCY,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
-  
+
   {
     id: 'low-confidence',
     name: 'High Low Confidence Rate',
@@ -150,9 +150,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.LOW_FREQUENCY,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
-  
+
   // Performance Alerts
   {
     id: 'slow-response-time',
@@ -175,9 +175,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.HIGH_FREQUENCY,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
-  
+
   // Cost Alerts
   {
     id: 'high-llm-cost',
@@ -200,9 +200,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.LOW_FREQUENCY,
-    notificationChannels: ['sentry', 'email']
+    notificationChannels: ['log', 'email']
   },
-  
+
   // Cache Performance
   {
     id: 'low-cache-hit-rate',
@@ -218,9 +218,9 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.HOURLY,
-    notificationChannels: ['sentry']
+    notificationChannels: ['log']
   },
-  
+
   // Prediction Accuracy
   {
     id: 'low-prediction-accuracy',
@@ -236,7 +236,7 @@ export const ALERT_RULES: AlertRule[] = [
       }
     ],
     checkIntervalMinutes: ALERT_CHECK_INTERVALS.HOURLY,
-    notificationChannels: ['sentry', 'email']
+    notificationChannels: ['log', 'email']
   }
 ];
 
@@ -271,14 +271,14 @@ export function validateAlertConfig(): {
   errors: string[];
 } {
   const errors: string[] = [];
-  
+
   // Check for duplicate IDs
   const ids = ALERT_RULES.map(r => r.id);
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicates.length > 0) {
     errors.push(`Duplicate alert rule IDs: ${duplicates.join(', ')}`);
   }
-  
+
   // Check threshold values
   for (const rule of ALERT_RULES) {
     for (const threshold of rule.thresholds) {
@@ -287,14 +287,14 @@ export function validateAlertConfig(): {
       }
     }
   }
-  
+
   // Check check intervals
   for (const rule of ALERT_RULES) {
     if (rule.checkIntervalMinutes < 1) {
       errors.push(`Invalid check interval for ${rule.id}: ${rule.checkIntervalMinutes}`);
     }
   }
-  
+
   return {
     valid: errors.length === 0,
     errors
@@ -315,7 +315,7 @@ export function getAlertConfigForEnvironment(env: 'development' | 'staging' | 'p
         HALLUCINATION_RATE_WARNING: 0.30,
         HALLUCINATION_RATE_CRITICAL: 0.50,
       };
-    
+
     case 'staging':
       return {
         ...ALERT_THRESHOLDS,
@@ -323,7 +323,7 @@ export function getAlertConfigForEnvironment(env: 'development' | 'staging' | 'p
         AGENT_ERROR_RATE_WARNING: 0.10,
         AGENT_ERROR_RATE_CRITICAL: 0.20,
       };
-    
+
     case 'production':
     default:
       return ALERT_THRESHOLDS;

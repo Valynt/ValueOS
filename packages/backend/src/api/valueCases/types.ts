@@ -1,6 +1,6 @@
 /**
  * Value Cases API Types
- * 
+ *
  * Type definitions for value case management endpoints.
  */
 
@@ -24,6 +24,23 @@ const sanitizeRequiredText = (maxLength: number, minLength = 1) =>
 // Enums
 // ============================================================================
 
+/**
+ * CaseStatus — aligned with database constraint
+ *
+ * Migration: 20260323000002_value_cases_consistency_alignment.sql updated
+ * the DB check constraint to match these values:
+ *   ['draft', 'in_progress', 'committed', 'closed']
+ *
+ * Mapping from old DB values:
+ *   'review' -> 'in_progress'
+ *   'published' -> 'committed'
+ *   'archived' is deprecated (use 'closed' for completed cases)
+ *
+ * Domain OpportunityStatus (Opportunity.ts) uses a different vocabulary:
+ *   ['active', 'on_hold', 'closed_won', 'closed_lost']
+ * This is intentional — CaseStatus tracks workflow state, OpportunityStatus
+ * tracks sales outcome. Bridge mapping belongs in service layer.
+ */
 export const CaseStatus = z.enum(['draft', 'in_progress', 'committed', 'closed']);
 export type CaseStatus = z.infer<typeof CaseStatus>;
 
@@ -151,6 +168,9 @@ export type ListValueCasesQuery = z.infer<typeof ListValueCasesQuerySchema>;
 
 /**
  * Value case entity
+ *
+ * Note: integrity_score is materialized on both value_cases and business_cases
+ * for consistent querying. Updated by ValueIntegrityService after each agent run.
  */
 export interface ValueCase {
   id: string;
@@ -172,6 +192,10 @@ export interface ValueCase {
   paybackMonths?: number;
   templateId?: string;
   metadata?: Record<string, unknown>;
+  /** Materialized integrity score (0-1). NULL until first computation. */
+  integrityScore?: number | null;
+  /** When integrity was last evaluated. */
+  integrityEvaluatedAt?: Date | null;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -200,4 +224,109 @@ export interface ApiErrorResponse {
   code?: string;
   details?: Record<string, unknown>;
   requestId?: string;
+}
+
+// ============================================================================
+// ModelStage API Schemas (Economic Kernel Integration)
+// ============================================================================
+
+/**
+ * Cash flow input for Economic Kernel calculation
+ */
+export const CashFlowInputSchema = z.object({
+  period: z.number().int().nonnegative(), // 0 = initial investment
+  amount: z.string(), // Decimal as string (negative for outflows, positive for inflows)
+  description: sanitizeText(200).optional(),
+});
+
+export type CashFlowInput = z.infer<typeof CashFlowInputSchema>;
+
+/**
+ * Assumption input for sensitivity analysis
+ */
+export const AssumptionInputSchema = z.object({
+  id: z.string().uuid(),
+  name: sanitizeRequiredText(100),
+  value: z.string(), // Decimal as string
+  unit: sanitizeRequiredText(20),
+  sensitivity_low: z.string().optional(), // Decimal multiplier (e.g., "0.8" for -20%)
+  sensitivity_high: z.string().optional(), // Decimal multiplier (e.g., "1.2" for +20%)
+});
+
+export type AssumptionInput = z.infer<typeof AssumptionInputSchema>;
+
+/**
+ * Request to calculate financial metrics using Economic Kernel
+ */
+export const CalculateRequestSchema = z.object({
+  cashFlows: z.array(CashFlowInputSchema).min(2), // At least initial + one future flow
+  discountRate: z.string().regex(/^0\.\d+$/), // Decimal as string (e.g., "0.10" for 10%)
+  assumptions: z.array(AssumptionInputSchema).optional(),
+}).strict();
+
+export type CalculateRequest = z.infer<typeof CalculateRequestSchema>;
+
+/**
+ * Scenario definition for what-if analysis
+ */
+export const ScenarioTypeSchema = z.enum(['conservative', 'base', 'upside']);
+export type ScenarioType = z.infer<typeof ScenarioTypeSchema>;
+
+/**
+ * Request to generate scenarios
+ */
+export const ScenarioRequestSchema = z.object({
+  baseAssumptions: z.array(AssumptionInputSchema),
+  scenarioMultipliers: z.object({
+    conservative: z.record(z.string(), z.string()), // assumption_id -> multiplier
+    upside: z.record(z.string(), z.string()),
+  }).optional(),
+  discountRate: z.string().regex(/^0\.\d+$/),
+}).strict();
+
+export type ScenarioRequest = z.infer<typeof ScenarioRequestSchema>;
+
+/**
+ * Response from Economic Kernel calculation
+ */
+export interface CalculationResult {
+  npv: string; // Decimal as string
+  irr: string; // Decimal as string (e.g., "0.2345" for 23.45%)
+  roi: string; // Decimal as string (multiplier, e.g., "2.5" for 250%)
+  paybackMonths: number;
+  paybackFractional: string; // Decimal as string
+  presentValues: string[]; // Per-period PVs as strings
+  irrConverged: boolean;
+  irrIterations: number;
+}
+
+/**
+ * Scenario result with full calculation
+ */
+export interface ScenarioResult extends CalculationResult {
+  scenario: ScenarioType;
+  assumptions: Array<{
+    id: string;
+    name: string;
+    baseValue: string;
+    adjustedValue: string;
+    multiplier: string;
+  }>;
+}
+
+/**
+ * Full ModelStage calculation response
+ */
+export interface ModelStageCalculationResponse {
+  base: CalculationResult;
+  scenarios: ScenarioResult[];
+  sensitivity?: Array<{
+    assumptionId: string;
+    assumptionName: string;
+    baseValue: string;
+    npvAtLow: string;
+    npvAtHigh: string;
+    npvDelta: string;
+  }>;
+  calculatedAt: string;
 }

@@ -9,12 +9,12 @@ vi.mock('../../services/auth/AuthService.js', () => ({
 }));
 
 vi.mock('../../lib/supabase.js', () => ({
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createRequestRlsSupabaseClient: vi.fn(),
   createServiceRoleSupabaseClient: vi.fn(),
   createRequestSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
-  supabase: null,
 }));
 
 // Prevent real Redis connection attempts in isTokenRevoked

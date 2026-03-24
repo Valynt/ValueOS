@@ -2,12 +2,12 @@
 
 ## Selected platform stack
 
-ValueOS standardizes on an OSS-native LGTM+Sentry stack:
+ValueOS standardizes on an OSS-native LGTM stack:
 
 - **Metrics:** Prometheus
 - **Logs:** Loki (via Promtail)
 - **Traces:** OpenTelemetry SDK + OTEL Collector + Tempo
-- **Errors:** Sentry (frontend and backend app error signal)
+- **Errors:** Structured logging (Winston)
 - **Visualization and alert UX:** Grafana
 
 This is the single supported production stack. New services and endpoints must integrate with these components.
@@ -33,7 +33,7 @@ Recommended additional keys:
 - **Metrics (Prometheus):** 30 days high-resolution in-cluster + long-term remote store for 13 months.
 - **Logs (Loki):** 30 days hot, 180 days archive.
 - **Traces (Tempo):** 14 days full-fidelity for prod, 7 days for non-prod.
-- **Errors (Sentry):** 90 days issue/search retention.
+- **Errors:** Retained in log aggregation per Loki policy.
 
 ## Sampling policy
 

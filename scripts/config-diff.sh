@@ -192,7 +192,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 EXTERNAL_VARS=(
     "SLACK_WEBHOOK_URL"
-    "SENTRY_DSN"
     "GOOGLE_ANALYTICS_ID"
     "STRIPE_PUBLIC_KEY"
     "STRIPE_SECRET_KEY"

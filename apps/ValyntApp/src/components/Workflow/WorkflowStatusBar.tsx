@@ -42,16 +42,16 @@ const statusIcons: Record<StepStatus, React.FC<{ className?: string }>> = {
 };
 
 const statusStyles: Record<StepStatus, string> = {
-  pending: "text-muted-foreground border-muted",
-  active: "text-primary border-primary",
-  completed: "text-success border-success",
-  failed: "text-destructive border-destructive",
-  skipped: "text-muted-foreground/50 border-muted/50",
+  pending: "text-[var(--vds-color-text-muted)] border-[var(--vds-color-border)]",
+  active: "text-[var(--vds-color-primary)] border-[var(--vds-color-primary)]",
+  completed: "text-green-500 border-green-500",
+  failed: "text-red-500 border-red-500",
+  skipped: "text-[var(--vds-color-text-muted)]/50 border-[var(--vds-color-border)]/50",
 };
 
 const connectorStyles: Record<string, string> = {
-  completed: "bg-success",
-  pending: "bg-muted",
+  completed: "bg-green-500",
+  pending: "bg-[var(--vds-color-border)]",
 };
 
 export function WorkflowStatusBar({
@@ -67,8 +67,8 @@ export function WorkflowStatusBar({
     progress ??
     (steps.length > 0
       ? (Object.values(stepStatuses).filter((s) => s === "completed").length /
-          steps.length) *
-        100
+        steps.length) *
+      100
       : 0);
 
   const getStepStatus = (stepId: string, index: number): StepStatus => {
@@ -93,20 +93,20 @@ export function WorkflowStatusBar({
       >
         <div className="flex items-center justify-between mb-2">
           {status && (
-            <span className="text-sm font-medium text-foreground">{status}</span>
+            <span className="text-sm font-medium text-[var(--vds-color-text-primary)]">{status}</span>
           )}
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-xs text-[var(--vds-color-text-muted)] tabular-nums">
             {Math.round(resolvedProgress)}%
           </span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--vds-color-surface)]">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-[var(--vds-color-primary)] transition-all duration-500 ease-out"
             style={{ width: `${resolvedProgress}%` }}
           />
         </div>
         {message && (
-          <p className="mt-1.5 text-xs text-muted-foreground">{message}</p>
+          <p className="mt-1.5 text-xs text-[var(--vds-color-text-muted)]">{message}</p>
         )}
       </div>
     );
@@ -124,10 +124,10 @@ export function WorkflowStatusBar({
       {(status || message) && (
         <div className="flex items-center justify-between mb-4">
           {status && (
-            <span className="text-sm font-medium text-foreground">{status}</span>
+            <span className="text-sm font-medium text-[var(--vds-color-text-primary)]">{status}</span>
           )}
           {message && (
-            <span className="text-xs text-muted-foreground">{message}</span>
+            <span className="text-xs text-[var(--vds-color-text-muted)]">{message}</span>
           )}
         </div>
       )}
@@ -149,9 +149,9 @@ export function WorkflowStatusBar({
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300",
                       statusStyles[stepStatus],
-                      stepStatus === "completed" && "bg-success/10",
-                      stepStatus === "active" && "bg-primary/10",
-                      stepStatus === "failed" && "bg-destructive/10"
+                      stepStatus === "completed" && "bg-green-500/10",
+                      stepStatus === "active" && "bg-[var(--vds-color-primary)]/10",
+                      stepStatus === "failed" && "bg-red-500/10"
                     )}
                     aria-current={stepStatus === "active" ? "step" : undefined}
                   >
@@ -160,18 +160,19 @@ export function WorkflowStatusBar({
                         "h-4 w-4",
                         stepStatus === "active" && "animate-spin"
                       )}
+                      aria-hidden="true"
                     />
                   </div>
                   <span
                     className={cn(
                       "text-xs font-medium text-center max-w-[80px] truncate",
                       stepStatus === "active"
-                        ? "text-primary"
+                        ? "text-[var(--vds-color-primary)]"
                         : stepStatus === "completed"
-                          ? "text-success"
+                          ? "text-green-500"
                           : stepStatus === "failed"
-                            ? "text-destructive"
-                            : "text-muted-foreground"
+                            ? "text-red-500"
+                            : "text-[var(--vds-color-text-muted)]"
                     )}
                     title={step.description ?? step.label}
                   >
@@ -195,9 +196,9 @@ export function WorkflowStatusBar({
         </ol>
       </nav>
 
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--vds-color-surface)]">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+          className="h-full rounded-full bg-[var(--vds-color-primary)] transition-all duration-500 ease-out"
           style={{ width: `${resolvedProgress}%` }}
         />
       </div>
@@ -205,4 +206,4 @@ export function WorkflowStatusBar({
   );
 }
 
-export default WorkflowStatusBar;
+WorkflowStatusBar.displayName = "WorkflowStatusBar";

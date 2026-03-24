@@ -305,7 +305,7 @@ export class ServiceConfigManager {
 
       logger.info("Service configuration loaded successfully");
     } catch (error) {
-      logger.error("Failed to load service configuration", error as Error);
+      logger.error("Failed to load service configuration", error);
       // Continue with defaults
     }
   }

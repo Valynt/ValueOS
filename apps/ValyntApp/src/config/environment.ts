@@ -1,9 +1,9 @@
 /**
  * Environment Configuration
- * 
+ *
  * Centralized configuration management for the ValueCanvas application.
  * Reads from environment variables and provides type-safe access.
- * 
+ *
  * SEC-004: Uses secure logger to prevent config/secret leakage
  * Note: Cannot import logger here due to circular dependency
  */
@@ -91,12 +91,6 @@ export interface EnvironmentConfig {
 
   // Monitoring
   monitoring: {
-    sentry: {
-      enabled: boolean;
-      dsn?: string;
-      environment: string;
-      sampleRate: number;
-    };
     datadog: {
       enabled: boolean;
     };
@@ -176,13 +170,13 @@ function getNodeEnvironment(): AppEnvironment {
   if (nodeEnv && ['development', 'staging', 'production', 'test'].includes(nodeEnv)) {
     return nodeEnv as AppEnvironment;
   }
-  
+
   // Fallback to VITE_APP_ENV (Vite-specific)
   const viteEnv = getEnv('VITE_APP_ENV');
   if (viteEnv && ['development', 'staging', 'production', 'test'].includes(viteEnv)) {
     return viteEnv as AppEnvironment;
   }
-  
+
   // Default to development
   return 'development';
 }
@@ -237,8 +231,8 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
         cooldown: getNumberEnv('VITE_AGENT_CIRCUIT_BREAKER_COOLDOWN', 60000),
       },
       logging: getBoolEnv('VITE_AGENT_LOGGING_ENABLED', false),
-      websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production' 
-        ? 'wss://api.valuecanvas.com/ws/agents' 
+      websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production'
+        ? 'wss://api.valuecanvas.com/ws/agents'
         : 'ws://localhost:3001/ws/agents'),
     },
 
@@ -276,12 +270,6 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     },
 
     monitoring: {
-      sentry: {
-        enabled: getBoolEnv('VITE_SENTRY_ENABLED', false),
-        dsn: getEnv('VITE_SENTRY_DSN', ''),
-        environment: getEnv('VITE_SENTRY_ENVIRONMENT', env),
-        sampleRate: parseFloat(getEnv('VITE_SENTRY_SAMPLE_RATE', '1.0')),
-      },
       datadog: {
         enabled: getBoolEnv('DATADOG_ENABLED', false),
       },
@@ -364,11 +352,6 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
     if (!config.agents.apiUrl) {
       errors.push('VITE_AGENT_API_URL is required when Agent Fabric is enabled');
     }
-  }
-
-  // Monitoring validations
-  if (config.monitoring.sentry.enabled && !config.monitoring.sentry.dsn) {
-    errors.push('VITE_SENTRY_DSN is required when Sentry is enabled');
   }
 
   // Vault validations

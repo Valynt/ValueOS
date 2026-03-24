@@ -489,7 +489,7 @@ export class AgentSecurityService extends EventEmitter {
     try {
       await this.checkCompliance(frameworks);
     } catch (error) {
-      logger.error("Compliance check failed", error as Error);
+      logger.error("Compliance check failed", error);
     }
   }
 

@@ -64,7 +64,7 @@ export class CustomerAccessService extends BaseService {
       );
 
       if (error) {
-        logger.error("Failed to generate customer token", error as Error);
+        logger.error("Failed to generate customer token", error);
         throw new Error(`Failed to generate token: ${error.message}`);
       }
 
@@ -86,7 +86,7 @@ export class CustomerAccessService extends BaseService {
         portal_url: portalUrl,
       };
     } catch (error) {
-      logger.error("Error generating customer token", error as Error);
+      logger.error("Error generating customer token", error);
       throw error;
     }
   }
@@ -103,7 +103,7 @@ export class CustomerAccessService extends BaseService {
       });
 
       if (error) {
-        logger.error("Failed to validate token", error as Error);
+        logger.error("Failed to validate token", error);
         return {
           value_case_id: null,
           organization_id: null,
@@ -136,7 +136,7 @@ export class CustomerAccessService extends BaseService {
 
       return result;
     } catch (error) {
-      logger.error("Error validating token", error as Error);
+      logger.error("Error validating token", error);
       return {
         value_case_id: null,
         organization_id: null,
@@ -164,7 +164,7 @@ export class CustomerAccessService extends BaseService {
       });
 
       if (error) {
-        logger.error("Failed to revoke token", error as Error);
+        logger.error("Failed to revoke token", error);
         throw new Error(`Failed to revoke token: ${error.message}`);
       }
 
@@ -178,7 +178,7 @@ export class CustomerAccessService extends BaseService {
 
       return success;
     } catch (error) {
-      logger.error("Error revoking token", error as Error);
+      logger.error("Error revoking token", error);
       throw error;
     }
   }
@@ -197,13 +197,13 @@ export class CustomerAccessService extends BaseService {
         .order("created_at", { ascending: false });
 
       if (error) {
-        logger.error("Failed to fetch tokens", error as Error);
+        logger.error("Failed to fetch tokens", error);
         throw new Error(`Failed to fetch tokens: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      logger.error("Error fetching tokens", error as Error);
+      logger.error("Error fetching tokens", error);
       throw error;
     }
   }
@@ -224,13 +224,13 @@ export class CustomerAccessService extends BaseService {
         .order("created_at", { ascending: false });
 
       if (error) {
-        logger.error("Failed to fetch active tokens", error as Error);
+        logger.error("Failed to fetch active tokens", error);
         throw new Error(`Failed to fetch active tokens: ${error.message}`);
       }
 
       return data || [];
     } catch (error) {
-      logger.error("Error fetching active tokens", error as Error);
+      logger.error("Error fetching active tokens", error);
       throw error;
     }
   }
@@ -251,7 +251,7 @@ export class CustomerAccessService extends BaseService {
       // Generate new token
       return await this.generateCustomerToken(valueCaseId, expiresInDays);
     } catch (error) {
-      logger.error("Error regenerating token", error as Error);
+      logger.error("Error regenerating token", error);
       throw error;
     }
   }
@@ -300,7 +300,7 @@ export class CustomerAccessService extends BaseService {
         data: { companyName, portalUrl }
       });
     } catch (error) {
-      logger.error("Error sending portal access email", error as Error);
+      logger.error("Error sending portal access email", error);
       throw error;
     }
   }

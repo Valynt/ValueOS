@@ -21,7 +21,7 @@ let _isDev = false;
 const baseConfig = {
   app: { env: "test", url: "http://localhost", apiBaseUrl: "/api" },
   agents: { apiUrl: "http://localhost/api" },
-  monitoring: { sentry: { enabled: false } },
+  monitoring: {},
   features: {
     agentFabric: false,
     sduiDebug: false,
@@ -71,10 +71,6 @@ vi.mock("../lib/logger", () => ({
   createLogger: vi.fn(() => mockLogger),
   logger: mockLogger,
   setupMonitoring: vi.fn(),
-}));
-
-vi.mock("../lib/sentry", () => ({
-  initializeSentry: vi.fn(),
 }));
 
 vi.mock("../lib/database", () => ({

@@ -5,7 +5,7 @@
  *
  * Features:
  * - Catches React component errors
- * - Logs to monitoring (Sentry/Datadog)
+ * - Logs to monitoring (Datadog/OpenTelemetry)
  * - Shows fallback UI
  * - Allows retry
  * - Tracks error metrics
@@ -109,7 +109,7 @@ export class SDUIErrorBoundary extends Component<Props, State> {
         timestamp: new Date().toISOString(),
       });
 
-      // Call external error handler (e.g., Sentry)
+      // Call external error handler
       if (onError) {
         try {
           onError(error, errorInfo);

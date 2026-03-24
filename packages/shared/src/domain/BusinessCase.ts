@@ -114,6 +114,25 @@ export const BusinessCaseSchema = z.object({
    */
   integrity_score: z.number().min(0).max(1).nullable().optional(),
 
+  /**
+   * Explicit integrity check result for gating decisions.
+   * TRUE if integrity_score >= 0.6 and no critical violations.
+   * Set by ValueIntegrityService during evaluation.
+   */
+  integrity_check_passed: z.boolean().nullable().optional(),
+
+  /**
+   * When integrity was last evaluated (ISO 8601 timestamp).
+   * Used for audit trail and caching decisions.
+   */
+  integrity_evaluated_at: z.string().datetime().nullable().optional(),
+
+  /**
+   * Reason for veto if integrity check blocks stage advancement.
+   * Populated when integrity_check_passed is false.
+   */
+  veto_reason: z.string().nullable().optional(),
+
   /** ISO 8601 timestamps. */
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),

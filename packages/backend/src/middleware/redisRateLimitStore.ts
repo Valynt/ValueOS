@@ -228,7 +228,7 @@ export class RedisRateLimitStore {
         keys: stats,
       };
     } catch (error) {
-      logger.error("Redis rate limit stats fetch failed", error as Error);
+      logger.error("Redis rate limit stats fetch failed", error instanceof Error ? error : undefined);
       return { totalKeys: 0, keys: [] };
     }
   }

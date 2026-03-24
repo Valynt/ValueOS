@@ -66,3 +66,36 @@ export const OpportunitySchema = z.object({
 });
 
 export type Opportunity = z.infer<typeof OpportunitySchema>;
+
+/**
+ * Check if opportunity can advance to next lifecycle stage.
+ * Requires integrity_score >= 0.6 and integrity_check_passed on associated BusinessCase.
+ *
+ * @param opportunity - The opportunity to check
+ * @param businessCase - Associated business case with integrity data (null if not created)
+ * @returns Object with allowed boolean and optional reason string
+ */
+export function canAdvanceStage(
+  opportunity: Opportunity,
+  businessCase: { integrity_score: number | null; integrity_check_passed: boolean | null; veto_reason: string | null } | null
+): { allowed: boolean; reason?: string } {
+  if (!businessCase) {
+    return { allowed: false, reason: "No business case exists" };
+  }
+
+  if (businessCase.integrity_check_passed !== true) {
+    return {
+      allowed: false,
+      reason: businessCase.veto_reason || "Integrity check not passed"
+    };
+  }
+
+  if ((businessCase.integrity_score ?? 0) < 0.6) {
+    return {
+      allowed: false,
+      reason: `Integrity score ${businessCase.integrity_score} below threshold 0.6`
+    };
+  }
+
+  return { allowed: true };
+}

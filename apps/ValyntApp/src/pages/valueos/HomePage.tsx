@@ -16,6 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
-import { useRecentCases } from "@/hooks/useCases";
+import { useRecentCases, useCreateCase } from "@/hooks/useCases";
 import type { ValueCaseWithRelations } from "@/lib/supabase/types";
 
 const quickActions = [
@@ -92,6 +93,8 @@ export function HomePage() {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const { data: recentCases, isLoading: casesLoading } = useRecentCases(3);
+  const [commandInput, setCommandInput] = useState("");
+  const createCase = useCreateCase();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -110,6 +113,27 @@ export function HomePage() {
   const continueCaseEditedAt = continueCase?.updated_at
     ? formatRelativeTime(new Date(continueCase.updated_at)).replace("Edited ", "")
     : null;
+
+  const handleCommandSubmit = async () => {
+    const input = commandInput.trim();
+    if (!input) return;
+
+    // Extract company name from input (e.g., "Build a business case for Stripe" → "Stripe")
+    const companyMatch = input.match(/for\s+(.+?)(?:\s|$)/i) || input.match(/^\s*(.+?)\s*$/);
+    const companyName = companyMatch ? companyMatch[1]!.trim() : input;
+
+    try {
+      const newCase = await createCase.mutateAsync({
+        name: `${companyName} — Value Case`,
+        status: "draft",
+        stage: "discovery",
+        metadata: { company_name: companyName, source: "command_input" },
+      });
+      navigate(`/workspace/${newCase.id}`);
+    } catch {
+      // Error surfaced via createCase.isError
+    }
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -180,11 +204,28 @@ export function HomePage() {
             <Play size={18} className="text-slate-400" />
             <input
               type="text"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCommandSubmit()}
               placeholder="e.g., 'Build a business case for Stripe' or 'Analyze my last sales call'"
               className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none"
+              disabled={createCase.isPending}
             />
-            <ArrowRight size={18} className="text-slate-400" />
+            <button
+              onClick={handleCommandSubmit}
+              disabled={!commandInput.trim() || createCase.isPending}
+              className="p-1 hover:bg-slate-100 rounded transition-colors disabled:opacity-50"
+            >
+              {createCase.isPending ? (
+                <span className="text-xs text-slate-400">Creating...</span>
+              ) : (
+                <ArrowRight size={18} className={commandInput.trim() ? "text-primary" : "text-slate-400"} />
+              )}
+            </button>
           </div>
+          {createCase.isError && (
+            <p className="mt-2 text-xs text-red-500">Failed to create case. Please try again.</p>
+          )}
         </Card>
 
         {/* Quick Actions */}

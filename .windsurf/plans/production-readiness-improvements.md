@@ -83,7 +83,7 @@ This plan addresses the critical production readiness gaps identified in the Val
 #### 3.2 Enhanced Error Reporting
 - **Objective**: Improve error monitoring and alerting
 - **Actions**:
-  - Integrate error boundaries with Sentry/monitoring
+  - Integrate error boundaries with monitoring
   - Add error context and user information
   - Implement error severity classification
   - Create error escalation workflows

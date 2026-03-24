@@ -176,6 +176,6 @@ export function cspReportHandler(req: Request, res: Response): void {
     logger.warn("CSP Violation", { report });
   }
 
-  // In production, this can be integrated with Sentry or other monitoring tools
+  // In production, this can be integrated with monitoring tools
   res.status(204).send();
 }

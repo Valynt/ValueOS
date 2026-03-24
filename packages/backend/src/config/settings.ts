@@ -157,7 +157,6 @@ const SettingsSchema = z.object({
   VITE_SUPABASE_URL: z.string().url().optional(),
   VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   VITE_APP_URL: z.string().url().optional(),
-  VITE_SENTRY_DSN: z.string().optional(),
 
   // Backend/Server-side variables
   APP_ENV: AppEnvSchema.optional(),
@@ -250,7 +249,6 @@ const resolvedEnv = {
   VITE_SUPABASE_ANON_KEY:
     readEnv("VITE_SUPABASE_ANON_KEY") || readEnv("SUPABASE_ANON_KEY"),
   VITE_APP_URL: readEnv("VITE_APP_URL"),
-  VITE_SENTRY_DSN: readEnv("VITE_SENTRY_DSN") || readEnv("SENTRY_DSN"),
   APP_ENV: readEnv("APP_ENV"),
   NODE_ENV: readEnv("NODE_ENV"),
   API_PORT: readEnv("API_PORT", "3001"),

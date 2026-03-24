@@ -22,8 +22,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../lib/supabase', () => ({
-  createServerSupabaseClient: () => mocks.supabase,
+vi.mock("../../lib/supabase.js", () => ({
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
+  createServerSupabaseClient: vi.fn(() => mocks.supabase),
 }));
 
 vi.mock('../../lib/logger', () => ({

@@ -112,15 +112,15 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
                     className={cn(
                       "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-medium transition-all duration-200",
                       isCompleted
-                        ? "border-success bg-success text-success-foreground"
+                        ? "border-green-500 bg-green-500 text-white"
                         : isCurrent
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/25"
-                          : "border-muted bg-background text-muted-foreground",
-                      isClickable && !isCurrent && "group-hover:border-primary/50"
+                          ? "border-[var(--vds-color-primary)] bg-[var(--vds-color-primary)] text-white shadow-sm"
+                          : "border-[var(--vds-color-border)] bg-[var(--vds-color-surface)] text-[var(--vds-color-text-muted)]",
+                      isClickable && !isCurrent && "group-hover:border-[var(--vds-color-primary)]/50"
                     )}
                   >
                     {isCompleted ? (
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4" aria-hidden="true" />
                     ) : (
                       <span>{index + 1}</span>
                     )}
@@ -129,10 +129,10 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
                     className={cn(
                       "text-xs font-medium text-center max-w-[90px] leading-tight",
                       isCurrent
-                        ? "text-primary"
+                        ? "text-[var(--vds-color-primary)]"
                         : isCompleted
-                          ? "text-foreground"
-                          : "text-muted-foreground"
+                          ? "text-[var(--vds-color-text-primary)]"
+                          : "text-[var(--vds-color-text-muted)]"
                     )}
                   >
                     {step.label}
@@ -145,7 +145,7 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
                     <div
                       className={cn(
                         "h-0.5 w-full rounded-full transition-all duration-300",
-                        isCompleted ? "bg-success" : "bg-muted"
+                        isCompleted ? "bg-green-500" : "bg-[var(--vds-color-border)]"
                       )}
                     />
                   </div>
@@ -158,7 +158,7 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
 
       {/* Step description */}
       {currentStepData?.description && (
-        <p className="text-sm text-muted-foreground mb-4 text-center">
+        <p className="text-sm text-[var(--vds-color-text-muted)] mb-4 text-center">
           {currentStepData.description}
         </p>
       )}
@@ -166,13 +166,13 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
       {/* Step content */}
       <div
         ref={contentRef}
-        className="mb-8 focus:outline-none"
+        className="mb-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vds-color-primary)]/30 rounded-lg"
         tabIndex={-1}
         role="region"
         aria-label={`Step ${currentStep + 1}: ${currentStepData?.label ?? "Step"}`}
       >
         {currentStepData?.content ?? (
-          <div className="text-center text-muted-foreground py-8">
+          <div className="text-center text-[var(--vds-color-text-muted)] py-8">
             Invalid step
           </div>
         )}
@@ -180,7 +180,7 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
 
       {/* Validation feedback */}
       {currentStepData?.validation === "invalid" && (
-        <p className="text-xs text-destructive mb-3 text-center" role="alert">
+        <p className="text-xs text-red-500 mb-3 text-center" role="alert">
           Please complete all required fields before continuing.
         </p>
       )}
@@ -193,17 +193,17 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
           disabled={!canBack}
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-colors",
-            "border border-border text-foreground hover:bg-secondary",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "border border-[var(--vds-color-border)] text-[var(--vds-color-text-primary)] hover:bg-[var(--vds-color-surface)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vds-color-primary)]/30",
             "disabled:opacity-50 disabled:pointer-events-none"
           )}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel}
         </button>
 
         {/* Step counter */}
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-xs text-[var(--vds-color-text-muted)] tabular-nums">
           {currentStep + 1} of {steps.length}
         </span>
 
@@ -213,20 +213,22 @@ const StepperWizard: React.FC<StepperWizardProps> = ({
           disabled={!canNext}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-md transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vds-color-primary)]/30",
             "disabled:opacity-50 disabled:pointer-events-none",
             isLastStep
-              ? "bg-success text-success-foreground hover:bg-success/90"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
+              ? "bg-green-500 text-white hover:bg-green-600"
+              : "bg-[var(--vds-color-primary)] text-white hover:brightness-110"
           )}
         >
           {isLastStep ? finishLabel : (nextLabel ?? "Next")}
-          {!isLastStep && <ChevronRight className="h-4 w-4" />}
-          {isLastStep && <Check className="h-4 w-4" />}
+          {!isLastStep && <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+          {isLastStep && <Check className="h-4 w-4" aria-hidden="true" />}
         </button>
       </div>
     </div>
   );
 };
+
+StepperWizard.displayName = "StepperWizard";
 
 export default StepperWizard;

@@ -7,7 +7,7 @@
 
 import { Router } from "express";
 import { DealAssemblyService } from "../services/deal/DealAssemblyService";
-import { authenticate } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 
 const router = Router();
@@ -20,7 +20,7 @@ const dealAssemblyService = new DealAssemblyService();
  */
 router.get(
   "/api/cases/:caseId/context",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -52,7 +52,7 @@ router.get(
  */
 router.post(
   "/api/cases/:caseId/context",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -96,7 +96,7 @@ router.post(
  */
 router.post(
   "/api/cases/:caseId/gaps/:gapId/fill",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -123,7 +123,7 @@ router.post(
  */
 router.post(
   "/api/cases/:caseId/assembly/confirm",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -148,7 +148,7 @@ router.post(
  */
 router.post(
   "/api/cases/:caseId/assembly/reassemble",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {

@@ -1,6 +1,6 @@
 /**
  * Offline Evaluation Service
- * 
+ *
  * Eval-Driven Development: Test agents against golden datasets before deployment.
  * Prevents prompt regressions and validates agent performance.
  */
@@ -98,7 +98,7 @@ export class OfflineEvaluationService {
         createdAt: new Date(row['created_at'] as string),
       }));
     } catch (error) {
-      logger.error('Failed to load golden examples', error as Error);
+      logger.error('Failed to load golden examples', error);
       throw error;
     }
   }
@@ -196,7 +196,7 @@ export class OfflineEvaluationService {
       // Calculate cosine similarity
       return this.cosineSimilarity(embedding1, embedding2);
     } catch (error) {
-      logger.error('Semantic similarity calculation failed', error as Error);
+      logger.error('Semantic similarity calculation failed', error);
       return 0.0;
     }
   }
@@ -434,7 +434,7 @@ export class OfflineEvaluationService {
 
       if (error) throw error;
     } catch (error) {
-      logger.error('Failed to store evaluation run', error as Error);
+      logger.error('Failed to store evaluation run', error);
     }
   }
 

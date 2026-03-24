@@ -58,8 +58,7 @@ export * from "./RobustConnectionManager.js";
 export * from "./RotationService.js";
 // SandboxedExecutor defines ExecutionResult and SandboxConfig — conflicts with AtomicActionExecutor and CodeSandbox.
 // AtomicActionExecutor is canonical for ExecutionResult; CodeSandbox explicit exports already handle SandboxConfig.
-export type { FinancialCalculationTool } from "./SandboxedExecutor.js";
-export { SandboxedExecutor, sandboxedExecutor, financialCalculator } from "./SandboxedExecutor.js";
+export { SandboxedExecutor, sandboxedExecutor } from "./SandboxedExecutor.js";
 export * from "./SecretsService.js";
 export * from "./SecurityAuditService.js";
 export * from "./SelfHealingManager.js";

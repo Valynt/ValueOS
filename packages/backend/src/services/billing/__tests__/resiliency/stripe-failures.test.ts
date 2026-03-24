@@ -400,7 +400,7 @@ describe("Stripe API Failure Handling Tests", () => {
       expect(errorLog).toHaveLength(1);
       expect(errorLog[0].type).toBe("StripeAPIError");
 
-      // Document: Send to monitoring system (Sentry, DataDog, etc.)
+      // Document: Send to monitoring system (DataDog, etc.)
     });
 
     it("should track error rates for alerting", () => {

@@ -37,5 +37,13 @@
         "cweijan.vscode-postgresql-client2"
       ]
     }
-  }
+  },
+  
+  "containerEnv": {
+    "NODE_OPTIONS": "--no-experimental-fetch"
+  },
+  
+  "postCreateCommand": "rm -rf ~/.windsurf-server 2>/dev/null; echo 'Windsurf server cache cleared'",
+  
+  "postStartCommand": "curl -s https://codeium.com > /dev/null && echo 'Internet OK' || echo 'No internet'"
 }

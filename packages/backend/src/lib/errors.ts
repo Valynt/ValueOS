@@ -349,7 +349,11 @@ export class GovernanceError extends AppError {
 // ============================================================================
 
 export function isAppError(error: unknown): error is AppError {
-  return error instanceof AppError;
+  return error instanceof AppError ||
+    (error instanceof Error &&
+      'code' in error && typeof (error as AppError).code === 'string' &&
+      'status' in error && typeof (error as AppError).status === 'number' &&
+      'isOperational' in error && typeof (error as AppError).isOperational === 'boolean');
 }
 
 export function isGovernanceError(error: unknown): error is GovernanceError {

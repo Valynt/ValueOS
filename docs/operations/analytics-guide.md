@@ -367,7 +367,7 @@ VITE_ANALYTICS_ENABLED=true
 VITE_ANALYTICS_DEBUG=false
 
 # Error Monitoring
-VITE_SENTRY_DSN=https://...@sentry.io/...
+# VITE_SENTRY_DSN removed — errors tracked via structured logging
 VITE_ENVIRONMENT=production
 
 # Session

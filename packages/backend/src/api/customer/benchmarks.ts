@@ -187,7 +187,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
       return;
     }
 
-    logger.error('Error in getCustomerBenchmarks', error as Error);
+    logger.error('Error in getCustomerBenchmarks', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'An unexpected error occurred'

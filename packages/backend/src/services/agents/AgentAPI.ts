@@ -703,7 +703,20 @@ export class AgentAPI {
   async invoke<T = any>(
     request: AgentRequest
   ): Promise<AgentResponse<T>> {
-    return this.invokeAgent<T>(request);
+    try {
+      return await this.invokeAgent<T>(request);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        success: false,
+        error: errorMessage,
+        data: undefined as T,
+        metadata: {
+          agent: request.agent,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
   }
 
   /**

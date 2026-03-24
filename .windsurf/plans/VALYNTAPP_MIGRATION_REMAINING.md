@@ -76,7 +76,7 @@ cd ValyntApp && npm install && npm run dev
 - [ ] Environment validation
 - [ ] Analytics initialization
 - [ ] Feature flags setup
-- [ ] Error monitoring (Sentry optional)
+- [ ] Error monitoring (structured logging)
 
 ---
 

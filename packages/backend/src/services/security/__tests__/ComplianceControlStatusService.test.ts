@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock supabase before importing the service
 vi.mock("../../../lib/supabase.js", () => ({
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createServerSupabaseClient: vi.fn(),
 }));
 

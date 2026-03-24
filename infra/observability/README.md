@@ -58,7 +58,7 @@ ValueOS uses a single observability stack for production and non-production:
 - Metrics: Prometheus
 - Logs: Loki + Promtail
 - Traces: OpenTelemetry SDK + OTEL Collector + Tempo
-- Errors: Sentry
+- Errors: Structured logging (Winston)
 - Dashboards + alerts UX: Grafana
 
 Required telemetry taxonomy across spans, logs, metrics labels, and error tags:

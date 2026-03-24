@@ -2,12 +2,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { captureException } from '../../../lib/sentry';
 import { ComponentErrorBoundary } from '../ComponentErrorBoundary';
-
-vi.mock('../../../lib/sentry', () => ({
-  captureException: vi.fn(),
-}));
 
 const Thrower = () => {
   throw new Error('password=secret123');
@@ -24,6 +19,6 @@ describe('ComponentErrorBoundary secrecy + retry', () => {
     expect(screen.queryByText(/password=secret123/)).toBeNull();
     const retry = screen.getByRole('button', { name: /retry rendering/i });
     expect(retry).toBeEnabled();
-    expect(captureException).not.toHaveBeenCalled();
+    // No external error tracking to assert
   });
 });

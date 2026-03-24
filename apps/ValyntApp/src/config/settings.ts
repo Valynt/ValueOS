@@ -16,7 +16,6 @@ const PublicSettingsSchema = z.object({
   VITE_SUPABASE_URL: z.string().url().optional(),
   VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   VITE_APP_URL: z.string().url().optional(),
-  VITE_SENTRY_DSN: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "staging", "production", "test"])
     .default("development"),
@@ -31,7 +30,6 @@ const resolvedPublicEnv = {
   VITE_SUPABASE_URL: getEnvVar("VITE_SUPABASE_URL"),
   VITE_SUPABASE_ANON_KEY: getEnvVar("VITE_SUPABASE_ANON_KEY"),
   VITE_APP_URL: getEnvVar("VITE_APP_URL"),
-  VITE_SENTRY_DSN: getEnvVar("VITE_SENTRY_DSN"),
   NODE_ENV: getEnvVar("NODE_ENV"),
   API_PORT: getEnvVar("API_PORT", { defaultValue: "3000" }),
   SHUTDOWN_TIMEOUT_MS: getEnvVar("SHUTDOWN_TIMEOUT_MS", {

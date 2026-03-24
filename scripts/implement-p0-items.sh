@@ -1,7 +1,7 @@
 #!/bin/bash
 ###############################################################################
 # P0 Implementation Script
-# 
+#
 # Implements all P0 and P1 production readiness items
 ###############################################################################
 
@@ -23,14 +23,7 @@ echo "-------------------"
 # 1.1 Database health check - Already created
 echo "✅ Database health check module created (src/lib/database.ts)"
 
-# 1.2 Sentry initialization
-echo "⏳ Updating bootstrap.ts for Sentry..."
-# Note: Manual update required due to file encoding issues
-echo "   📝 Manual action required:"
-echo "   Replace line 243-249 in src/bootstrap.ts with:"
-echo "      const { initializeSentry } = await import('./lib/sentry');"
-echo "      initializeSentry();"
-echo "      logger.info('   ✅ Sentry error tracking initialized');"
+# 1.2 (Sentry removed — no longer used)
 
 # 1.3 Redis cache module
 echo "⏳ Creating Redis cache module..."

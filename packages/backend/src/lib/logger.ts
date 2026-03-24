@@ -1,4 +1,3 @@
- 
 import { context, trace } from "@opentelemetry/api";
 import { structuredLogSchema, type StructuredLogSeverity } from "@shared/observability/logSchema";
 

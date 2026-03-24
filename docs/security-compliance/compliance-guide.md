@@ -1013,7 +1013,7 @@ Detect security incidents and maintain audit trail for compliance.
 - Privilege escalation
 - Anomalous data access pattern
 
-**Operational Alerts** (Sentry/DataDog):
+**Operational Alerts** (DataDog/Prometheus):
 
 - Error rate > 1%
 - Latency > 500ms (p95)
@@ -1460,7 +1460,7 @@ npm run security-scan
 
 ### Incident Response Plan
 
-1. **Detection** → Automated alerts (Sentry, Uptime)
+1. **Detection** → Automated alerts (Prometheus, Uptime)
 2. **Triage** → On-call engineer assesses severity
 3. **Containment** → Isolate affected systems
 4. **Investigation** → Root cause analysis
@@ -1483,7 +1483,6 @@ npm run security-scan
 | Supabase    | Database, Auth | All user data             | SOC 2, GDPR | Low        |
 | Together.ai | LLM inference  | Prompts (no PII)          | SOC 2       | Low        |
 | Vercel      | Hosting        | None (static assets)      | SOC 2, GDPR | Low        |
-| Sentry      | Error tracking | Error logs (PII redacted) | GDPR        | Low        |
 | Posthog     | Analytics      | Usage events (anonymized) | GDPR        | Low        |
 
 **Vendor Review:** Annual security questionnaire + DPA renewal

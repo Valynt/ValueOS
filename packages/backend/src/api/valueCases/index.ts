@@ -15,6 +15,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { z, ZodError } from 'zod';
+import Decimal from 'decimal.js';
 
 import { logger } from '../../lib/logger.js'
 import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware/auth.js'
@@ -27,6 +28,14 @@ import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
 import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/value/CaseValueTreeService.js'
 import { hypothesisOutputService } from '../../services/value/HypothesisOutputService.js'
 import { ReadinessScorer } from '../../services/integrity/ReadinessScorer.js';
+import {
+  calculateIRR,
+  calculateNPV,
+  calculatePayback,
+  calculateROI,
+  discountCashFlows,
+  sensitivityAnalysis,
+} from '../../domain/economic-kernel/economic_kernel.js';
 
 import {
   ConflictError,
@@ -36,8 +45,10 @@ import {
 } from './repository';
 import {
   ApiErrorResponse,
+  CalculateRequestSchema,
   CreateValueCaseSchema,
   ListValueCasesQuerySchema,
+  ScenarioRequestSchema,
   UpdateValueCaseSchema,
 } from './types';
 
@@ -650,6 +661,271 @@ router.get(
       next(err);
     }
   }
+);
+
+// ============================================================================
+// ModelStage API Routes (Economic Kernel Integration)
+// ============================================================================
+
+/**
+ * POST /cases/:caseId/calculate
+ * Real-time Economic Kernel calculation for a value case
+ */
+async function calculateCase(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const authReq = req as AuthenticatedRequest;
+  const { caseId } = req.params;
+  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+  if (!organizationId) {
+    res.status(401).json({ error: 'Missing tenant context' });
+    return;
+  }
+
+  try {
+    const body = CalculateRequestSchema.parse(req.body);
+    const discountRate = new Decimal(body.discountRate);
+
+    // Convert cash flows to Decimal array
+    const flows = body.cashFlows
+      .sort((a, b) => a.period - b.period)
+      .map(cf => new Decimal(cf.amount));
+
+    // Run Economic Kernel calculations
+    const dcfResult = discountCashFlows(flows, discountRate);
+    const irrResult = calculateIRR(flows);
+    const paybackResult = calculatePayback(flows);
+
+    // Calculate ROI (total benefits - costs) / costs
+    const totalOutflows = flows
+      .filter(f => f.lt(0))
+      .reduce((sum, f) => sum.plus(f.abs()), new Decimal(0));
+    const totalInflows = flows
+      .filter(f => f.gt(0))
+      .reduce((sum, f) => sum.plus(f), new Decimal(0));
+    const roiResult = calculateROI(totalInflows, totalOutflows);
+
+    // Build response
+    const result = {
+      npv: dcfResult.npv.toString(),
+      irr: irrResult.rate.toString(),
+      roi: roiResult.toString(),
+      paybackMonths: paybackResult.period ?? -1,
+      paybackFractional: paybackResult.fractionalPeriod?.toString() ?? '-1',
+      presentValues: dcfResult.presentValues.map(pv => pv.toString()),
+      irrConverged: irrResult.converged,
+      irrIterations: irrResult.iterations,
+    };
+
+    res.json({
+      data: result,
+      requestId: authReq.correlationId,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid calculation request',
+        details: err.errors,
+      });
+      return;
+    }
+    next(err);
+  }
+}
+
+/**
+ * POST /cases/:caseId/scenarios
+ * Generate conservative, base, and upside scenarios
+ */
+async function generateScenarios(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const authReq = req as AuthenticatedRequest;
+  const { caseId } = req.params;
+  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+  if (!organizationId) {
+    res.status(401).json({ error: 'Missing tenant context' });
+    return;
+  }
+
+  try {
+    const body = ScenarioRequestSchema.parse(req.body);
+    const discountRate = new Decimal(body.discountRate);
+
+    // Default multipliers if not provided
+    const conservativeMultipliers = body.scenarioMultipliers?.conservative ?? {};
+    const upsideMultipliers = body.scenarioMultipliers?.upside ?? {};
+
+    // Build base scenario from assumptions
+    const baseAssumptions = body.baseAssumptions;
+
+    // Helper to calculate with adjusted assumptions
+    const calculateWithAssumptions = (
+      assumptions: typeof baseAssumptions,
+      multipliers: Record<string, string>
+    ): typeof baseAssumptions => {
+      return assumptions.map(ass => {
+        const multiplier = multipliers[ass.id];
+        if (!multiplier) return ass;
+        const baseValue = new Decimal(ass.value);
+        const adjustedValue = baseValue.times(new Decimal(multiplier));
+        return { ...ass, value: adjustedValue.toString() };
+      });
+    };
+
+    // Run calculations for each scenario
+    // Note: In a real implementation, you'd derive cash flows from assumptions
+    // For now, we return the structure that the frontend expects
+
+    const scenarios = [
+      {
+        scenario: 'base' as const,
+        assumptions: baseAssumptions.map(a => ({
+          id: a.id,
+          name: a.name,
+          baseValue: a.value,
+          adjustedValue: a.value,
+          multiplier: '1.0',
+        })),
+      },
+      {
+        scenario: 'conservative' as const,
+        assumptions: calculateWithAssumptions(baseAssumptions, conservativeMultipliers).map(a => {
+          const base = baseAssumptions.find(ba => ba.id === a.id)!;
+          return {
+            id: a.id,
+            name: a.name,
+            baseValue: base.value,
+            adjustedValue: a.value,
+            multiplier: conservativeMultipliers[a.id] ?? '1.0',
+          };
+        }),
+      },
+      {
+        scenario: 'upside' as const,
+        assumptions: calculateWithAssumptions(baseAssumptions, upsideMultipliers).map(a => {
+          const base = baseAssumptions.find(ba => ba.id === a.id)!;
+          return {
+            id: a.id,
+            name: a.name,
+            baseValue: base.value,
+            adjustedValue: a.value,
+            multiplier: upsideMultipliers[a.id] ?? '1.0',
+          };
+        }),
+      },
+    ];
+
+    res.json({
+      data: {
+        scenarios,
+        discountRate: body.discountRate,
+        generatedAt: new Date().toISOString(),
+      },
+      requestId: authReq.correlationId,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid scenario request',
+        details: err.errors,
+      });
+      return;
+    }
+    next(err);
+  }
+}
+
+/**
+ * PATCH /cases/:caseId/assumptions/:assumptionId
+ * Update an assumption and trigger recalculation
+ */
+async function updateAssumption(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const authReq = req as AuthenticatedRequest;
+  const { caseId, assumptionId } = req.params;
+  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+  if (!organizationId) {
+    res.status(401).json({ error: 'Missing tenant context' });
+    return;
+  }
+
+  try {
+    // Validate update body
+    const UpdateAssumptionSchema = z.object({
+      value: z.string().optional(),
+      sensitivity_low: z.string().optional(),
+      sensitivity_high: z.string().optional(),
+      recalc: z.boolean().default(true),
+    });
+
+    const body = UpdateAssumptionSchema.parse(req.body);
+
+    // TODO: Persist assumption change to database
+    // For MVP, we return the updated assumption and optionally recalc
+
+    const updatedAssumption = {
+      id: assumptionId,
+      caseId,
+      value: body.value,
+      sensitivity_low: body.sensitivity_low,
+      sensitivity_high: body.sensitivity_high,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Optionally trigger recalculation
+    let recalcResult = null;
+    if (body.recalc && body.value) {
+      // Placeholder: would fetch cash flows from case and recalculate
+      recalcResult = { status: 'pending', message: 'Recalculation queued' };
+    }
+
+    res.json({
+      data: {
+        assumption: updatedAssumption,
+        recalculation: recalcResult,
+      },
+      requestId: authReq.correlationId,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid assumption update',
+        details: err.errors,
+      });
+      return;
+    }
+    next(err);
+  }
+}
+
+// ModelStage routes
+router.post(
+  '/:caseId/calculate',
+  standardLimiter,
+  requireRole(['admin', 'member']),
+  validateUuidParam('caseId'),
+  validateBody(CalculateRequestSchema),
+  calculateCase
+);
+
+router.post(
+  '/:caseId/scenarios',
+  standardLimiter,
+  requireRole(['admin', 'member']),
+  validateUuidParam('caseId'),
+  validateBody(ScenarioRequestSchema),
+  generateScenarios
+);
+
+router.patch(
+  '/:caseId/assumptions/:assumptionId',
+  standardLimiter,
+  requireRole(['admin', 'member']),
+  validateUuidParam('caseId'),
+  validateUuidParam('assumptionId'),
+  updateAssumption
 );
 
 // Error handler

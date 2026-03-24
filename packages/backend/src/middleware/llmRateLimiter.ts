@@ -288,7 +288,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
       skip: skipRateLimit
     });
   } catch (error) {
-    logger.error('Failed to create rate limiter, using fallback', error as Error);
+    logger.error('Failed to create rate limiter, using fallback', error instanceof Error ? error : undefined);
 
     // Fallback to in-memory rate limiting
     return rateLimit({
@@ -358,7 +358,7 @@ async function createStrictRateLimiter() {
       skip: skipRateLimit
     });
   } catch (error) {
-    logger.error('Failed to create strict rate limiter', error as Error);
+    logger.error('Failed to create strict rate limiter', error instanceof Error ? error : undefined);
 
     // Fallback to basic rate limiting
     return rateLimit({
@@ -474,7 +474,7 @@ export async function resetRateLimit(userId: string): Promise<void> {
       logger.warn('Cannot reset rate limit - Redis unavailable', { userId });
     }
   } catch (error) {
-    logger.error('Failed to reset rate limit', error as Error);
+    logger.error('Failed to reset rate limit', error instanceof Error ? error : undefined);
     throw error;
   }
 }

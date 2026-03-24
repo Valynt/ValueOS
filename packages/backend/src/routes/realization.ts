@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, Router } from "express";
-import { authenticate } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { RealizationService } from "../services/realization/RealizationService.js";
 
@@ -51,7 +51,7 @@ router.get("/api/cases/:caseId/realization/baseline", async (req: Request, res: 
  */
 router.post(
   "/api/cases/:caseId/realization/baseline",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -85,7 +85,7 @@ router.post(
  */
 router.get(
   "/api/cases/:caseId/realization/checkpoints",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -110,7 +110,7 @@ router.get(
  */
 router.post(
   "/api/realization/checkpoints/:checkpointId/measure",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -135,7 +135,7 @@ router.post(
  */
 router.get(
   "/api/cases/:caseId/realization/kpi-targets",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {
@@ -162,7 +162,7 @@ router.get(
  */
 router.get(
   "/api/cases/:caseId/realization",
-  authenticate,
+  requireAuth,
   requireTenantAccess,
   async (req, res, next) => {
     try {

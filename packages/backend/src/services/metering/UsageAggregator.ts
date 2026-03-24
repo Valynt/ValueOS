@@ -88,7 +88,7 @@ class UsageAggregator {
 
       return aggregated;
     } catch (error) {
-      logger.error('Aggregation failed', error as Error);
+      logger.error('Aggregation failed', error);
       throw error;
     }
   }

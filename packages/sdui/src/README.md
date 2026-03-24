@@ -564,7 +564,7 @@ const result = renderPage(pageDefinition, {
 const result = renderPage(pageDefinition, {
   onRenderError: (error, componentName) => {
     // Send to error tracking service
-    Sentry.captureException(error, {
+    logger.error('Component render error', error, {
       tags: { component: componentName },
     });
   },
@@ -589,15 +589,15 @@ const authenticatedFetcher = async (endpoint) => {
   if (!token) {
     throw new Error('Not authenticated');
   }
-  
+
   const response = await fetch(endpoint, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  
+
   if (response.status === 401) {
     redirectToLogin();
   }
-  
+
   return response.json();
 };
 
@@ -636,7 +636,7 @@ interface MyComponentProps extends HydratableProps {
 const MyComponent: React.FC<MyComponentProps> = (props) => {
   // Access hydrated data
   const hydratedData = props._hydrated;
-  
+
   return <div>{/* ... */}</div>;
 };
 ```

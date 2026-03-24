@@ -1,6 +1,6 @@
 /**
  * AgentAPI Tests
- * 
+ *
  * Tests for AgentAPI service with endpoint validation, circuit breaker,
  * and error handling following MCP Ground Truth patterns.
  */
@@ -129,7 +129,7 @@ describe('AgentAPI', () => {
       await api.invoke(request);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/agents/opportunity'),
+        expect.stringContaining('/api/opportunity/invoke'),
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -196,8 +196,18 @@ describe('AgentAPI', () => {
     });
 
     it('should handle timeout errors', async () => {
-      mockFetch.mockImplementation(() => 
-        new Promise((resolve) => setTimeout(resolve, 10000))
+      mockFetch.mockImplementation((_url: string, options: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          // Respect the AbortController signal
+          if (options.signal) {
+            options.signal.addEventListener('abort', () => {
+              const error = new Error('Aborted');
+              (error as Error & { name: string }).name = 'AbortError';
+              reject(error);
+            });
+          }
+          // Never resolve - simulating a hanging request
+        })
       );
 
       const request: AgentRequest = {
@@ -209,6 +219,7 @@ describe('AgentAPI', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
+      expect(result.error).toContain('timeout');
     });
 
     it('should handle invalid JSON responses', async () => {
@@ -505,11 +516,9 @@ describe('AgentAPI', () => {
         json: async () => ({
           success: true,
           data: {},
-          metadata: {
-            agent: 'opportunity',
-            duration: 1234,
-            timestamp: new Date().toISOString()
-          }
+          // Metadata fields at top level, not nested
+          duration: 1234,
+          timestamp: new Date().toISOString()
         })
       });
 
@@ -532,15 +541,11 @@ describe('AgentAPI', () => {
         json: async () => ({
           success: true,
           data: {},
-          metadata: {
-            agent: 'opportunity',
-            duration: 1000,
-            timestamp: new Date().toISOString(),
-            tokens: {
-              prompt: 100,
-              completion: 200,
-              total: 300
-            }
+          // Token fields at top level, not nested in metadata
+          tokens: {
+            prompt: 100,
+            completion: 200,
+            total: 300
           }
         })
       });

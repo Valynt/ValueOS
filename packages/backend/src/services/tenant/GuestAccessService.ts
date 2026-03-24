@@ -210,7 +210,7 @@ class GuestAccessService {
 
       return this.mapDatabaseToGuestUser(data);
     } catch (error) {
-      logger.error("Failed to create guest user", error as Error);
+      logger.error("Failed to create guest user", error);
       throw error;
     }
   }
@@ -269,7 +269,7 @@ class GuestAccessService {
 
       return { token: tokenData, magicLink };
     } catch (error) {
-      logger.error("Failed to create guest token", error as Error);
+      logger.error("Failed to create guest token", error);
       throw error;
     }
   }
@@ -329,7 +329,7 @@ class GuestAccessService {
         expiresAt: result.expires_at,
       };
     } catch (error) {
-      logger.error("Failed to validate guest token", error as Error);
+      logger.error("Failed to validate guest token", error);
       throw error;
     }
   }
@@ -360,7 +360,7 @@ class GuestAccessService {
 
       return data;
     } catch (error) {
-      logger.error("Failed to revoke guest token", error as Error);
+      logger.error("Failed to revoke guest token", error);
       throw error;
     }
   }
@@ -388,7 +388,7 @@ class GuestAccessService {
 
       return this.mapDatabaseToGuestUser(data);
     } catch (error) {
-      logger.error("Failed to get guest user", error as Error);
+      logger.error("Failed to get guest user", error);
       throw error;
     }
   }
@@ -416,7 +416,7 @@ class GuestAccessService {
 
       return data.map(this.mapDatabaseToToken);
     } catch (error) {
-      logger.error("Failed to get guest tokens", error as Error);
+      logger.error("Failed to get guest tokens", error);
       throw error;
     }
   }
@@ -458,7 +458,7 @@ class GuestAccessService {
         activityType,
       });
     } catch (error) {
-      logger.error("Failed to log guest activity", error as Error);
+      logger.error("Failed to log guest activity", error);
       // Don't throw - activity logging should not break the main flow
     }
   }
@@ -488,7 +488,7 @@ class GuestAccessService {
 
       return data.map(this.mapDatabaseToActivity);
     } catch (error) {
-      logger.error("Failed to get guest activity", error as Error);
+      logger.error("Failed to get guest activity", error);
       throw error;
     }
   }
@@ -508,7 +508,7 @@ class GuestAccessService {
 
       return data;
     } catch (error) {
-      logger.error("Failed to cleanup expired tokens", error as Error);
+      logger.error("Failed to cleanup expired tokens", error);
       throw error;
     }
   }

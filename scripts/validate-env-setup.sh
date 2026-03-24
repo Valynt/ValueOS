@@ -37,7 +37,7 @@ check_required() {
     local var_name=$1
     local var_value="${!var_name}"
     local default_value=$2
-    
+
     if [ -z "$var_value" ]; then
         echo -e "${RED}✗ MISSING: $var_name${NC}"
         ((ERRORS++))
@@ -54,7 +54,7 @@ check_required() {
 check_optional() {
     local var_name=$1
     local var_value="${!var_name}"
-    
+
     if [ -z "$var_value" ]; then
         echo -e "${BLUE}ℹ OPTIONAL: $var_name (not set)${NC}"
     else
@@ -87,7 +87,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # Optional variables
 check_optional "REDIS_URL"
-check_optional "VITE_SENTRY_DSN"
 check_optional "SMTP_HOST"
 
 echo ""

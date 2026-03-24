@@ -3,7 +3,6 @@ import { CheckCircle, Clock, RefreshCw, Shield, XCircle, Zap } from "lucide-reac
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 import { isDevelopment, isProduction } from "../../config/environment";
-import { captureException } from "../../lib/sentry";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 
 /**
@@ -419,24 +418,13 @@ export class EnhancedComponentErrorBoundary extends Component<
 
     // Log to error tracking service in production with correlation
     if (isProduction) {
-      captureException(error, {
-        extra: {
-          componentName,
-          componentStack: errorInfo.componentStack,
-          correlationId: errorCorrelation.id,
-          circuitBreakerState: this.state.circuitBreaker.state,
-          retryCount: this.state.retryCount,
-          severity: errorCorrelation.severity,
-          sessionId: correlationContext?.sessionId,
-          userId: correlationContext?.userId,
-          tenantId: correlationContext?.tenantId,
-          organizationId: correlationContext?.organizationId,
-        },
-        tags: {
-          component: componentName,
-          errorType: error.constructor.name,
-          severity: errorCorrelation.severity,
-        },
+      logger.error("Component error boundary caught error", error, {
+        componentName,
+        componentStack: errorInfo.componentStack,
+        correlationId: errorCorrelation.id,
+        circuitBreakerState: this.state.circuitBreaker.state,
+        retryCount: this.state.retryCount,
+        severity: errorCorrelation.severity,
       });
     }
 

@@ -37,7 +37,6 @@
     "@opentelemetry/resources": "^2.6.0",
     "@opentelemetry/sdk-node": "^0.213.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@sentry/node": "^10.43.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "@socket.io/redis-adapter": "^8.3.0",
@@ -109,7 +108,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vitest": "^4.0.17"
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.90.1"

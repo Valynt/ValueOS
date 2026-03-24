@@ -62,7 +62,6 @@ graph TB
         LOKI[Loki]
         TEMPO[Tempo]
         OTEL[OTel Collector]
-        SENTRY[Sentry]
     end
 
     subgraph "External"
@@ -101,7 +100,6 @@ graph TB
     PROM --> GRAFANA
     LOKI --> GRAFANA
     TEMPO --> GRAFANA
-    EXPRESS --> SENTRY
 
     EXPRESS --> CRM
     EXPRESS --> STRIPE

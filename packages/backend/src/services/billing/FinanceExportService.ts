@@ -161,7 +161,7 @@ export class FinanceExportService {
 
       return data;
     } catch (error) {
-      logger.error('Error in createExport', error as Error);
+      logger.error('Error in createExport', error);
       throw error;
     }
   }
@@ -479,7 +479,7 @@ export class FinanceExportService {
         aging_analysis: agingAnalysis
       };
     } catch (error) {
-      logger.error('Error generating reconciliation report', error as Error);
+      logger.error('Error generating reconciliation report', error);
       throw error;
     }
   }

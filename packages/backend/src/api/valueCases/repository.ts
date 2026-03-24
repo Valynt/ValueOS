@@ -403,6 +403,10 @@ export class ValueCasesRepository {
       paybackMonths: row.payback_months as number | undefined,
       templateId: row.template_id as string | undefined,
       metadata: row.metadata as Record<string, unknown> | undefined,
+      integrityScore: row.integrity_score as number | null | undefined,
+      integrityEvaluatedAt: row.integrity_evaluated_at
+        ? new Date(row.integrity_evaluated_at as string)
+        : null,
       createdBy: row.created_by as string,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),

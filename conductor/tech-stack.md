@@ -30,7 +30,7 @@
 
 ## Observability & Quality
 - **Tracing/Metrics**: OpenTelemetry
-- **Error Tracking**: Sentry
+- **Error Tracking**: Structured logging (Winston)
 - **Logging**: Winston with CloudWatch integration
 - **Testing**: Vitest, Playwright
 - **Linting**: ESLint, Prettier

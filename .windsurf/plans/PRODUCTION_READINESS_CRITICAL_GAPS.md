@@ -1,7 +1,7 @@
 # 🚨 ValueCanvas Production Readiness - Critical Gaps Analysis
 
-**Date**: December 13, 2025  
-**Status**: 🔴 **CRITICAL BLOCKERS IDENTIFIED**  
+**Date**: December 13, 2025
+**Status**: 🔴 **CRITICAL BLOCKERS IDENTIFIED**
 **Deployment Risk**: **HIGH** - Do not deploy without addressing these issues
 
 ---
@@ -574,8 +574,8 @@ export function SDUIRenderer({ layout }: { layout: SDUIPageDefinition }) {
     <SDUIErrorBoundary
       componentId="root"
       onError={(error) => {
-        // Send to Sentry/Datadog
-        captureException(error);
+        // Send to monitoring
+        logger.error('SDUI root error', error);
       }}
     >
       {layout.sections.map((section, index) => (

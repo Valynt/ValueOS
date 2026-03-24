@@ -15,10 +15,6 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
     // Log authentication errors with appropriate severity
     console.warn("Authentication provider error:", error.name);
 
-    // In production, you might want to send this to an error reporting service
-    if (process.env.NODE_ENV === "production") {
-      // Example: Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
-    }
   };
 
   const handleNetworkError = (error: Error, _errorInfo: ErrorInfo) => {
