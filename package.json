@@ -41,11 +41,6 @@
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
-    "swarm:partition": "node scripts/swarm/partition-ts-errors.mjs",
-    "swarm:dashboard": "node scripts/swarm/orchestrator-dashboard.mjs",
-    "swarm:execute": "node scripts/swarm/execute-batch.mjs",
-    "swarm:parallel": "node scripts/swarm/parallel-executor.mjs",
-    "swarm:hotspots": "tsx scripts/swarm/generate-hotspots-report.ts",
     "typecheck:full": "pnpm run check 2>&1 | head -1000"
   },
   "dependencies": {
