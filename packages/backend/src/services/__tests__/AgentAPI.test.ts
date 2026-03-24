@@ -516,11 +516,9 @@ describe('AgentAPI', () => {
         json: async () => ({
           success: true,
           data: {},
-          metadata: {
-            agent: 'opportunity',
-            duration: 1234,
-            timestamp: new Date().toISOString()
-          }
+          // Metadata fields at top level, not nested
+          duration: 1234,
+          timestamp: new Date().toISOString()
         })
       });
 
@@ -543,15 +541,11 @@ describe('AgentAPI', () => {
         json: async () => ({
           success: true,
           data: {},
-          metadata: {
-            agent: 'opportunity',
-            duration: 1000,
-            timestamp: new Date().toISOString(),
-            tokens: {
-              prompt: 100,
-              completion: 200,
-              total: 300
-            }
+          // Token fields at top level, not nested in metadata
+          tokens: {
+            prompt: 100,
+            completion: 200,
+            total: 300
           }
         })
       });
