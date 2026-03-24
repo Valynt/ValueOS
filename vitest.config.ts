@@ -171,5 +171,10 @@ const explicitProjects = Array.from(
 export default defineConfig({
   test: {
     projects: explicitProjects,
+    env: {
+      STRIPE_WEBHOOK_SECRET: "whsec_test_secret",
+      RBAC_CACHE_TTL_SECONDS: "300",
+      NODE_ENV: "test",
+    },
   },
 });

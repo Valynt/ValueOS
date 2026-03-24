@@ -1,29 +1,60 @@
-// /workspaces/ValueOS/apps/ValyntApp/src/components/DetailHeader.tsx
-import { Edit } from "lucide-react";
+// apps/ValyntApp/src/components/DetailHeader.tsx
+import { Edit, ChevronLeft } from "lucide-react";
 import React from "react";
+
+import { cn } from "@/lib/utils";
 
 interface DetailHeaderProps {
   title: string;
   subtitle?: string;
   onEdit?: () => void;
+  onBack?: () => void;
   actions?: React.ReactNode;
+  className?: string;
 }
 
-const DetailHeader: React.FC<DetailHeaderProps> = ({ title, subtitle, onEdit, actions }) => {
+const containerClasses = "flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 pb-6 border-b border-[var(--vds-color-border)]";
+const titleClasses = "text-2xl font-bold text-[var(--vds-color-text-primary)]";
+const subtitleClasses = "text-sm text-[var(--vds-color-text-muted)] mt-1";
+const actionsClasses = "flex items-center gap-2";
+const buttonBaseClasses = "inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vds-color-primary)]/30";
+const editButtonClasses = "bg-[var(--vds-color-primary)] text-white hover:brightness-110";
+const backButtonClasses = "text-[var(--vds-color-text-muted)] hover:text-[var(--vds-color-text-primary)] hover:bg-[var(--vds-color-surface)]";
+
+const DetailHeader: React.FC<DetailHeaderProps> = ({
+  title,
+  subtitle,
+  onEdit,
+  onBack,
+  actions,
+  className
+}) => {
   return (
-    <div className="flex justify-between items-center mb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
-        {subtitle && <p className="text-gray-600">{subtitle}</p>}
+    <div className={cn(containerClasses, className)}>
+      <div className="flex items-start gap-3">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className={cn(buttonBaseClasses, backButtonClasses)}
+            aria-label="Go back"
+          >
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+          </button>
+        )}
+        <div>
+          <h1 className={titleClasses}>{title}</h1>
+          {subtitle && <p className={subtitleClasses}>{subtitle}</p>}
+        </div>
       </div>
-      <div className="flex space-x-2">
+      <div className={actionsClasses}>
         {onEdit && (
           <button
             onClick={onEdit}
-            className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className={cn(buttonBaseClasses, editButtonClasses)}
             aria-label="Edit"
           >
-            <Edit className="w-4 h-4" />
+            <Edit className="w-4 h-4" aria-hidden="true" />
+            Edit
           </button>
         )}
         {actions}
@@ -31,5 +62,7 @@ const DetailHeader: React.FC<DetailHeaderProps> = ({ title, subtitle, onEdit, ac
     </div>
   );
 };
+
+DetailHeader.displayName = "DetailHeader";
 
 export default DetailHeader;

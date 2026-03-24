@@ -10,6 +10,26 @@ import { afterEach, beforeEach, expect, vi } from "vitest";
 
 import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
 
+// ---------------------------------------------------------------------------
+// Global prom-client mock — prevents "metric already registered" errors
+// when tests import modules that register metrics at the module level.
+// ---------------------------------------------------------------------------
+const mockRegistry = {
+  metrics: vi.fn().mockResolvedValue(""),
+  registerMetric: vi.fn(),
+  clear: vi.fn(),
+  getSingleMetric: vi.fn(),
+};
+
+vi.mock("prom-client", () => ({
+  Registry: vi.fn(() => mockRegistry),
+  Counter: vi.fn(() => ({ inc: vi.fn(), labels: vi.fn(() => ({ inc: vi.fn() })) })),
+  Histogram: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
+  Gauge: vi.fn(() => ({ set: vi.fn(), labels: vi.fn(() => ({ set: vi.fn() })) })),
+  Summary: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
+  collectDefaultMetrics: vi.fn(),
+}));
+
 vi.mock("ioredis", () => {
   const createChain = (redis: MockRedis) => {
     const operations: Array<() => Promise<unknown> | unknown> = [];

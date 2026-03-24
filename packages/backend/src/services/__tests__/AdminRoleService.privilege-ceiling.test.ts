@@ -11,13 +11,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 
 const mocks = vi.hoisted(() => ({
-  supabase: { from: vi.fn() },
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   auditLog: { logAudit: vi.fn().mockResolvedValue(undefined) },
   publish: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../lib/supabase", () => ({
-  createServerSupabaseClient: () => mocks.supabase,
+vi.mock("../../lib/supabase.js", () => ({
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
+  createServerSupabaseClient: vi.fn(),
 }));
 
 vi.mock("../../lib/rbacInvalidation", () => ({

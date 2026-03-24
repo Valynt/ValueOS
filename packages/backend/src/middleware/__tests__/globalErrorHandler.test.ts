@@ -45,6 +45,12 @@ vi.mock('../../lib/logger', () => ({
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
+// Mock telemetry
+vi.mock('../../config/telemetry', () => ({
+  getTraceContextForLogging: vi.fn(() => ({ traceId: 'test-trace' })),
+  recordSpanException: vi.fn(),
+}));
+
 describe('Global Error Handler', () => {
   let app: Express;
 
@@ -212,10 +218,8 @@ describe('Global Error Handler', () => {
   // ============================================================================
 
   describe('globalErrorHandler integration', () => {
-    beforeEach(() => {
-      app.use(notFoundHandler);
-      app.use(globalErrorHandler);
-    });
+    // Note: Tests must add routes BEFORE adding error handling middleware
+    // because Express matches middleware in order
 
     it('handles ValidationError with 400 status', async () => {
       app.post('/validate', (req, res, next) => {
@@ -223,6 +227,8 @@ describe('Global Error Handler', () => {
           { field: 'email', message: 'Invalid email format' },
         ]));
       });
+      app.use(notFoundHandler);
+      app.use(globalErrorHandler);
 
       const response = await request(app).post('/validate');
 

@@ -52,6 +52,9 @@ export default defineConfig({
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
       // JWT
       JWT_SECRET: 'test-jwt-secret-for-tests-only',
+      // Stripe
+      STRIPE_WEBHOOK_SECRET: 'whsec_test_secret',
+      STRIPE_SECRET_KEY: 'sk_test_secret',
       // Redis (not running in tests — services should handle gracefully)
       REDIS_URL: 'redis://localhost:6379',
     },

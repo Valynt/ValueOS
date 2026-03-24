@@ -20,6 +20,11 @@ vi.mock("@shared/lib/piiFilter", () => ({
   sanitizeForLogging: (value: string) => value,
 }));
 
+vi.mock("../../lib/supabase.js", () => ({
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
+  createServerSupabaseClient: vi.fn(),
+}));
+
 vi.mock("@shared/lib/supabase", () => ({
   createServerSupabaseClient: () => ({
     auth: {

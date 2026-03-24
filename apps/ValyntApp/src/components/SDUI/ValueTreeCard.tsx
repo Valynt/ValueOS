@@ -35,9 +35,9 @@ export interface ValueTreeCardProps {
 }
 
 const statusStyles: Record<string, { dot: string; badge: string }> = {
-  active: { dot: "text-primary", badge: "bg-primary/10 text-primary" },
-  at_risk: { dot: "text-warning", badge: "bg-warning/10 text-warning" },
-  achieved: { dot: "text-success", badge: "bg-success/10 text-success" },
+  active: { dot: "text-[var(--vds-color-primary)]", badge: "bg-[var(--vds-color-primary)]/10 text-[var(--vds-color-primary)]" },
+  at_risk: { dot: "text-amber-500", badge: "bg-amber-500/10 text-amber-500" },
+  achieved: { dot: "text-green-500", badge: "bg-green-500/10 text-green-500" },
 };
 
 function collectAllIds(nodes: ValueNode[]): string[] {
@@ -98,8 +98,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       <div
         className={cn(
           "flex items-center gap-2 py-1.5 px-2 rounded transition-colors cursor-pointer",
-          "hover:bg-secondary/50",
-          isFocused && "ring-2 ring-ring ring-inset bg-secondary/30"
+          "hover:bg-[var(--vds-color-surface)]/50",
+          isFocused && "ring-2 ring-[var(--vds-color-primary)]/30 ring-inset bg-[var(--vds-color-surface)]/30"
         )}
         style={{ paddingLeft: `${depth * 20 + 8}px` }}
         onClick={() => {
@@ -113,20 +113,20 @@ const TreeNode: React.FC<TreeNodeProps> = ({
       >
         {hasChildren ? (
           isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+            <ChevronDown className="w-4 h-4 text-[var(--vds-color-text-muted)] shrink-0" aria-hidden="true" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+            <ChevronRight className="w-4 h-4 text-[var(--vds-color-text-muted)] shrink-0" aria-hidden="true" />
           )
         ) : (
           <Circle
-            className={cn("w-2.5 h-2.5 shrink-0 ml-0.5 mr-0.5", style?.dot ?? "text-muted-foreground")}
+            className={cn("w-2.5 h-2.5 shrink-0 ml-0.5 mr-0.5", style?.dot ?? "text-[var(--vds-color-text-muted)]")}
             fill="currentColor"
-            aria-hidden
+            aria-hidden="true"
           />
         )}
-        <span className="text-sm text-foreground truncate flex-1">{node.label}</span>
+        <span className="text-sm text-[var(--vds-color-text-primary)] truncate flex-1">{node.label}</span>
         {node.value !== undefined && (
-          <span className="text-xs text-muted-foreground font-mono shrink-0 tabular-nums">
+          <span className="text-xs text-[var(--vds-color-text-muted)] font-mono shrink-0 tabular-nums">
             {node.value}
           </span>
         )}
@@ -259,23 +259,23 @@ export const ValueTreeCard: React.FC<ValueTreeCardProps> = ({
   );
 
   return (
-    <div className={cn("bg-card border border-border rounded-lg p-4", className)}>
+    <div className={cn("bg-[var(--vds-color-surface)] border border-[var(--vds-color-border)] rounded-lg p-4", className)}>
       {/* Header */}
       {(title || showExpandAll) && (
         <div className="flex items-center justify-between mb-3">
           {title && (
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            <h3 className="text-sm font-semibold text-[var(--vds-color-text-primary)]">{title}</h3>
           )}
           {showExpandAll && allBranchIds.length > 0 && (
             <button
               onClick={toggleAll}
               className={cn(
-                "inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1.5 py-0.5"
+                "inline-flex items-center gap-1 text-xs text-[var(--vds-color-text-muted)] hover:text-[var(--vds-color-text-primary)] transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vds-color-primary)]/30 rounded px-1.5 py-0.5"
               )}
               aria-label={allExpanded ? "Collapse all" : "Expand all"}
             >
-              <ChevronsUpDown className="h-3 w-3" />
+              <ChevronsUpDown className="h-3 w-3" aria-hidden="true" />
               {allExpanded ? "Collapse all" : "Expand all"}
             </button>
           )}
@@ -287,6 +287,7 @@ export const ValueTreeCard: React.FC<ValueTreeCardProps> = ({
         ref={treeRef}
         role="tree"
         aria-label={title ?? "Value tree"}
+        aria-multiselectable="false"
         className="space-y-0.5"
         onKeyDown={handleKeyDown}
       >

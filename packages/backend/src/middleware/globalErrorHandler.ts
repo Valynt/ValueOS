@@ -245,73 +245,79 @@ export const globalErrorHandler: ErrorRequestHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const trackedReq = req as TrackedRequest;
-  const requestId = trackedReq.requestId || `req-${uuidv4()}`;
-  const latencyMs = trackedReq.startTime
-    ? Date.now() - trackedReq.startTime
-    : undefined;
-  const hasLoggedError = trackedReq.hasLoggedError === true;
-  trackedReq.hasLoggedError = true;
-
-  // Transform to AppError
-  const appError = transformError(err);
-  const errorInstance = appError.cause instanceof Error
-    ? appError.cause
-    : appError instanceof Error
-      ? appError
+  try {
+    const trackedReq = req as TrackedRequest;
+    const requestId = trackedReq.requestId || `req-${uuidv4()}`;
+    const latencyMs = trackedReq.startTime
+      ? Date.now() - trackedReq.startTime
       : undefined;
+    const hasLoggedError = trackedReq.hasLoggedError === true;
+    trackedReq.hasLoggedError = true;
 
-  if (errorInstance) {
-    recordSpanException(errorInstance);
-  }
+    // Transform to AppError
+    const appError = transformError(err);
+    const errorInstance = appError.cause instanceof Error
+      ? appError.cause
+      : appError instanceof Error
+        ? appError
+        : undefined;
 
-  // Log the error
-  const logContext = {
-    requestId,
-    method: req.method,
-    path: req.path,
-    status: appError.status,
-    code: appError.code,
-    isOperational: appError.isOperational,
-    latencyMs,
-    userId: (req as unknown as { user?: { id: string } }).user?.id,
-    tenantId: (req as unknown as { tenantId?: string }).tenantId,
-    trace: getTraceContextForLogging(),
-  };
-
-  if (!hasLoggedError) {
-    if (appError.isOperational) {
-      logger.warn('Operational error', redactSensitiveData({
-        ...logContext,
-        message: appError.message,
-        details: appError.details,
-      }));
-    } else {
-      // Log full error details for non-operational errors
-      logger.error('Unexpected error', redactSensitiveData({
-        ...logContext,
-        error: appError.toLogObject(),
-      }));
+    if (errorInstance) {
+      recordSpanException(errorInstance);
     }
+
+    // Log the error
+    const logContext = {
+      requestId,
+      method: req.method,
+      path: req.path,
+      status: appError.status,
+      code: appError.code,
+      isOperational: appError.isOperational,
+      latencyMs,
+      userId: (req as unknown as { user?: { id: string } }).user?.id,
+      tenantId: (req as unknown as { tenantId?: string }).tenantId,
+      trace: getTraceContextForLogging(),
+    };
+
+    if (!hasLoggedError) {
+      if (appError.isOperational) {
+        logger.warn('Operational error', redactSensitiveData({
+          ...logContext,
+          message: appError.message,
+          details: appError.details,
+        }));
+      } else {
+        // Log full error details for non-operational errors
+        logger.error('Unexpected error', redactSensitiveData({
+          ...logContext,
+          error: appError.toLogObject(),
+        }));
+      }
+    }
+
+    // Build response
+    const envelope = buildErrorEnvelope(appError, requestId);
+
+    // Set headers
+    res.setHeader('X-Request-ID', requestId);
+    res.setHeader('Content-Type', 'application/json');
+
+    // Set Retry-After for rate limit errors
+    if (appError instanceof RateLimitError && appError.retryAfter) {
+      res.setHeader('Retry-After', appError.retryAfter.toString());
+    }
+
+    // Prevent caching of error responses
+    res.setHeader('Cache-Control', 'no-store');
+
+    // Send response
+    res.status(appError.status).json(envelope);
+  } catch (handlerError) {
+    // Last resort error handling
+    console.error('Error in globalErrorHandler:', handlerError);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Handler crashed', requestId: 'error' } });
   }
-
-  // Build response
-  const envelope = buildErrorEnvelope(appError, requestId);
-
-  // Set headers
-  res.setHeader('X-Request-ID', requestId);
-  res.setHeader('Content-Type', 'application/json');
-
-  // Set Retry-After for rate limit errors
-  if (appError instanceof RateLimitError && appError.retryAfter) {
-    res.setHeader('Retry-After', appError.retryAfter.toString());
-  }
-
-  // Prevent caching of error responses
-  res.setHeader('Cache-Control', 'no-store');
-
-  // Send response
-  res.status(appError.status).json(envelope);
 };
 
 // ============================================================================

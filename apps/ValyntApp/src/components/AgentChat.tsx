@@ -1,5 +1,5 @@
 import { CheckCircle, Loader2, Send, Wrench, X } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 
 import { logger } from "../lib/logger";
 
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { type AgentChatContext, type ChatMessage, useAgentStream } from "@/hooks/useAgentStream";
 import { cn } from "@/lib/utils";
-
 
 interface AgentChatProps {
   isOpen: boolean;
@@ -51,64 +50,70 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
     }
   }, [isOpen]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isStreaming) return;
 
     const message = inputValue.trim();
     setInputValue("");
     await sendMessage(message);
-  };
+  }, [inputValue, isStreaming, sendMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  const handleApplySuggestion = (suggestionId: string) => {
+  const handleApplySuggestion = useCallback((suggestionId: string) => {
     applySuggestion(suggestionId);
     onApplySuggestion?.(suggestionId);
-  };
+  }, [applySuggestion, onApplySuggestion]);
 
-  const handleExecuteTool = async (toolName: string, args: Record<string, any>) => {
+  const handleExecuteTool = useCallback(async (toolName: string, args: Record<string, unknown>) => {
     await executeTool(toolName, args);
-  };
+  }, [executeTool]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-4xl h-[80vh] flex flex-col bg-white shadow-2xl">
+    <div
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="AI Agent Collaboration"
+    >
+      <Card className="w-full max-w-4xl h-[80vh] flex flex-col bg-[var(--vds-color-surface)] shadow-2xl border-[var(--vds-color-border)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--vds-color-border)]">
           <div>
-            <h2 className="text-lg font-semibold">AI Agent Collaboration</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-lg font-semibold text-[var(--vds-color-text-primary)]">AI Agent Collaboration</h2>
+            <p className="text-sm text-[var(--vds-color-text-muted)]">
               Generate content and validate assumptions for your Value Case
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close chat">
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
 
         {/* Context Info */}
-        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+        <div className="px-4 py-2 bg-[var(--vds-color-surface-2)] border-b border-[var(--vds-color-border)]">
           <div className="flex gap-4 text-sm">
             {context.customer && (
-              <span>
-                <strong>Customer:</strong> {context.customer}
+              <span className="text-[var(--vds-color-text-secondary)]">
+                <strong className="text-[var(--vds-color-text-primary)]">Customer:</strong> {context.customer}
               </span>
             )}
             {context.industry && (
-              <span>
-                <strong>Industry:</strong> {context.industry}
+              <span className="text-[var(--vds-color-text-secondary)]">
+                <strong className="text-[var(--vds-color-text-primary)]">Industry:</strong> {context.industry}
               </span>
             )}
             {context.drivers && context.drivers.length > 0 && (
-              <span>
-                <strong>Drivers:</strong> {context.drivers.length}
+              <span className="text-[var(--vds-color-text-secondary)]">
+                <strong className="text-[var(--vds-color-text-primary)]">Drivers:</strong> {context.drivers.length}
               </span>
             )}
           </div>
@@ -117,7 +122,7 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
+            <div className="text-center text-[var(--vds-color-text-muted)] py-8">
               <p>
                 Start a conversation with the AI agent to generate content and validate assumptions.
               </p>
@@ -138,8 +143,8 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
           ))}
 
           {isStreaming && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 text-[var(--vds-color-text-muted)]">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               <span>Agent is thinking...</span>
             </div>
           )}
@@ -148,7 +153,7 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-4 border-t border-[var(--vds-color-border)]">
           <div className="flex gap-2">
             <input
               ref={inputRef}
@@ -158,13 +163,14 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
               onKeyPress={handleKeyPress}
               placeholder="Ask the agent to generate content or validate assumptions..."
               disabled={isStreaming}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+              className="flex-1 px-3 py-2 border border-[var(--vds-color-border)] rounded-md bg-[var(--vds-color-surface)] text-[var(--vds-color-text-primary)] placeholder:text-[var(--vds-color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--vds-color-primary)]/30 disabled:opacity-50"
+              aria-label="Chat input"
             />
-            <Button onClick={handleSend} disabled={!inputValue.trim() || isStreaming} size="sm">
+            <Button onClick={handleSend} disabled={!inputValue.trim() || isStreaming} size="sm" aria-label="Send message">
               {isStreaming ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Send className="h-4 w-4" aria-hidden="true" />
               )}
             </Button>
             <Button variant="outline" onClick={clearMessages} size="sm">
@@ -177,10 +183,12 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
   );
 }
 
+AgentChat.displayName = "AgentChat";
+
 interface MessageBubbleProps {
   message: ChatMessage;
   onApplySuggestion: (suggestionId: string) => void;
-  onExecuteTool: (toolName: string, args: Record<string, any>) => Promise<void>;
+  onExecuteTool: (toolName: string, args: Record<string, unknown>) => Promise<void>;
 }
 
 function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBubbleProps) {
@@ -191,7 +199,9 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
       <div
         className={cn(
           "max-w-[80%] rounded-lg px-4 py-3",
-          isUser ? "bg-primary text-white" : "bg-slate-100 text-slate-800"
+          isUser
+            ? "bg-[var(--vds-color-primary)] text-white"
+            : "bg-[var(--vds-color-surface-2)] text-[var(--vds-color-text-primary)] border border-[var(--vds-color-border)]"
         )}
       >
         <div className="whitespace-pre-wrap">{message.content}</div>
@@ -199,19 +209,19 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
         {/* Tool Calls */}
         {message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
           <div className="mt-3 space-y-2">
-            <div className="text-xs font-semibold text-slate-600">Tool Executions:</div>
+            <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Tool Executions:</div>
             {message.metadata.toolCalls.map((toolCall) => (
-              <div key={toolCall.id} className="bg-white rounded p-2 border">
+              <div key={toolCall.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
                 <div className="flex items-center gap-2 mb-1">
-                  <Wrench className="h-3 w-3" />
-                  <span className="text-xs font-medium">{toolCall.tool}</span>
+                  <Wrench className="h-3 w-3 text-[var(--vds-color-text-muted)]" aria-hidden="true" />
+                  <span className="text-xs font-medium text-[var(--vds-color-text-primary)]">{toolCall.tool}</span>
                   <Badge variant="secondary" className="text-xs">
                     {toolCall.result ? "Executed" : "Pending"}
                   </Badge>
                 </div>
-                <div className="text-xs text-slate-600">Args: {JSON.stringify(toolCall.args)}</div>
+                <div className="text-xs text-[var(--vds-color-text-muted)]">Args: {JSON.stringify(toolCall.args)}</div>
                 {toolCall.result && (
-                  <div className="text-xs text-green-600 mt-1">
+                  <div className="text-xs text-green-500 mt-1">
                     Result: {JSON.stringify(toolCall.result)}
                   </div>
                 )}
@@ -233,9 +243,9 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
         {/* Suggestions */}
         {message.metadata?.suggestions && message.metadata.suggestions.length > 0 && (
           <div className="mt-3 space-y-2">
-            <div className="text-xs font-semibold text-slate-600">Suggestions:</div>
+            <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Suggestions:</div>
             {message.metadata.suggestions.map((suggestion) => (
-              <div key={suggestion.id} className="bg-white rounded p-2 border">
+              <div key={suggestion.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
                 <div className="flex items-center justify-between mb-1">
                   <Badge variant="outline" className="text-xs">
                     {suggestion.type}
@@ -246,18 +256,20 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
                     className="h-6 text-xs"
                     onClick={() => onApplySuggestion(suggestion.id)}
                   >
-                    <CheckCircle className="h-3 w-3 mr-1" />
+                    <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />
                     Apply
                   </Button>
                 </div>
-                <div className="text-xs text-slate-700">{suggestion.content}</div>
+                <div className="text-xs text-[var(--vds-color-text-secondary)]">{suggestion.content}</div>
               </div>
             ))}
           </div>
         )}
 
-        <div className="text-xs text-slate-500 mt-2">{message.timestamp.toLocaleTimeString()}</div>
+        <div className="text-xs text-[var(--vds-color-text-muted)] mt-2">{message.timestamp.toLocaleTimeString()}</div>
       </div>
     </div>
   );
 }
+
+MessageBubble.displayName = "MessageBubble";

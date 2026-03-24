@@ -50,6 +50,10 @@ import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.
 import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
 
+import { ValueIntegrityService } from "../../services/integrity/ValueIntegrityService.js";
+
+const INTEGRITY_THRESHOLD = 0.6;
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -453,6 +457,36 @@ backHalfRouter.post(
       return res
         .status(401)
         .json({ success: false, error: "Tenant context required" });
+
+    // Integrity check: block export if score < 0.6
+    try {
+      const integrityService = new ValueIntegrityService();
+      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityScore = integrityResult.score ?? 0;
+
+      if (integrityScore < INTEGRITY_THRESHOLD) {
+        logger.warn("PDF export blocked: integrity score below threshold", {
+          caseId,
+          tenantId,
+          integrityScore,
+          threshold: INTEGRITY_THRESHOLD,
+        });
+        return res.status(403).json({
+          success: false,
+          error: "Integrity check failed",
+          message: `Cannot export PDF: integrity score (${(integrityScore * 100).toFixed(0)}%) is below the required threshold (${(INTEGRITY_THRESHOLD * 100).toFixed(0)}%). Please resolve integrity issues first.`,
+          integrityScore,
+          threshold: INTEGRITY_THRESHOLD,
+        });
+      }
+    } catch (integrityErr) {
+      // If integrity check fails, log but allow export (fail-open for UX)
+      logger.warn("Integrity check failed during PDF export, allowing export", {
+        caseId,
+        tenantId,
+        error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+      });
+    }
 
     const parsed = PdfExportBodySchema.safeParse(req.body);
     if (!parsed.success) {
