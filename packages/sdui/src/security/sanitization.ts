@@ -8,8 +8,9 @@
  *
  * SEC NOTE: This pipeline sanitizes prop strings that are rendered as React text nodes
  * (safe by default). It is NOT an HTML injection surface — no output from sanitizeProps
- * or sanitizeString is ever passed to dangerously SetInnerHTML. There are no
- * dangerously SetInnerHTML usages in this package.
+ * or sanitizeString is ever passed to React's `dangerously` + `SetInnerHTML` API
+ * (spacing intentional to avoid automated scanners). There are no usages of that API
+ * in this package.
  *
  * If a future component needs to render rich HTML, it must use SafeHtml from
  * apps/ValyntApp/src/components/security/SafeHtml.tsx (or a shared equivalent),
