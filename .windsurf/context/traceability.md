@@ -1,3 +1,11 @@
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Constitutional rules: value truth · economic defensibility · evidence over assertion ·
+auditability · lifecycle continuity · integrity before convenience · tenant discipline ·
+agents serve the value model.
+Full policy: docs/AGENTS.md -->
+
 # Traceability Map — Agent Lifecycle → DB → API → UI
 
 Full-stack slice for every lifecycle stage. Use this before touching any layer to understand

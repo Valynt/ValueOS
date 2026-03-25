@@ -1,199 +1,198 @@
-# Spec: Sprint 49 — Test Stabilization + Value Graph Agent Integration + API
+# Spec: Code Context Alignment — ValueOS Constitution Layer
 
 ## Problem Statement
 
-Three distinct gaps block Sprint 49 delivery:
+The repository's code context layer (AGENTS.md files, skills, workflows, rules, and context files) is fragmented across four tool namespaces (`.windsurf/`, `.roo/`, `.gitpod/`, `docs/`) with no enforced single source of truth. This produces:
 
-1. **~120 backend test files crash at module-init time** because their `vi.mock` for the logger omits `createLogger`. Source files call `createLogger({ component: '...' })` at the top level; when a transitive import hits a mock that doesn't export `createLogger`, Vitest throws before any test runs. This is a pre-existing infrastructure gap that must be resolved before Sprint 49 agent tests can be written.
+1. **Contradictory instructions**: `init.md` workflow says `pnpm install --no-frozen-lockfile`; `docs/AGENTS.md` mandates `--frozen-lockfile`. Skills reference Node 18.17.0; the devcontainer runs 20.19.5.
+2. **Missing system intent**: No file states what ValueOS *is* at the constitutional level. Agents receive architecture facts but no governing philosophy about what quality bar matters or what outputs are acceptable.
+3. **Stale/misleading skills**: `setup-dev-environment` references Docker-based local setup, wrong clone URL (`ValueCanvas`), wrong versions, and wrong ports — directly contradicting the devcontainer-first model.
+4. **Tool-specific logic in shared skills**: `continuous-improvement` references `~/bin/cascade-cost` and `~/.windsurf/ADVICE.md` — Windsurf-only tooling that doesn't exist in this environment.
+5. **Duplicate skills with silent divergence**: Agent scaffold logic exists in `.windsurf/skills/agent-onboarding/`, `.roo/skills/agent-scaffold/`, and partially in `.gitpod/skills/`. They diverge on lifecycle stage names, file structure, and registration steps.
+6. **No constitutional header**: Context files (`decisions.md`, `memory.md`, `traceability.md`, etc.) have no shared preamble establishing the system intent that should govern all agent behavior.
+7. **Product naming drift**: Some files say "ValueCanvas", some "Valynt", some "ValueOS".
 
-2. **Five agents have no Value Graph integration.** `NarrativeAgent`, `TargetAgent`, `RealizationAgent`, `ExpansionAgent`, and `ComplianceAuditorAgent` do not read from or write to `ValueGraphService`. Sprint 48 identified two classes of silent failure in the first two agents: (a) wrong context key used to extract `opportunity_id`, causing writes to the wrong entity; (b) non-UUID string fallbacks hitting UUID Postgres columns and crashing writes silently. A shared `BaseGraphWriter` utility must enforce these invariants so the five new agents cannot repeat the same bugs.
+---
 
-3. **The 7 Value Graph API endpoints do not exist.** Sprint 49 requires a new router at `/api/v1/graph/:opportunityId/` with authentication, tenant context, and an explicit opportunity-ownership check before any handler executes.
+## System Intent (Constitutional Layer)
+
+This is the root statement that must flow through all context files, agent prompts, and skill definitions:
+
+> **ValueOS is a system of intelligence that structures, validates, and operationalizes business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.**
+
+### Constitutional Invariants
+
+Every context file, skill, workflow, and agent behavior must preserve these:
+
+1. **Value truth over fluent generation** — The system exists to improve the truth, structure, and usability of business value claims, not merely to generate plausible language.
+2. **Economic defensibility** — All meaningful outputs must connect to economic logic: revenue uplift, cost savings, risk reduction, timing, confidence, or realization.
+3. **Evidence over assertion** — Claims must be grounded in evidence, benchmarks, user inputs, or clearly labeled assumptions.
+4. **Auditability by default** — Outputs must be inspectable. Agents must preserve how they arrived at a recommendation, not only the recommendation itself.
+5. **Lifecycle continuity** — The system supports discovery, modeling, approval, realization, and expansion as one continuous value lifecycle — not only pre-sale.
+6. **Integrity before convenience** — When confidence is low or evidence is missing, the system must constrain, qualify, or block outputs rather than overstate certainty.
+7. **Multi-tenant enterprise discipline** — All design choices must preserve tenant isolation, role-aware access, and organizational trust boundaries.
+8. **Agents serve the value model** — Agents are not the product. Agents exist to create, refine, validate, and maintain the value system of record.
+
+### Rejection Criteria
+
+A file, prompt, workflow, or agent behavior is **off-intent** if it:
+- Treats ValueOS as just a sales copilot or generic workflow automation
+- Generates ROI claims without assumptions or support
+- Produces polished narrative without model traceability
+- Optimizes for persuasion while weakening defensibility
+- Ignores post-sale realization or expansion
+- Treats evidence as optional
+- Bypasses integrity controls for convenience
+- Frames the product mainly as "chat with AI" rather than "system of intelligence for value"
 
 ---
 
 ## Requirements
 
-### 1. Global Logger Mock in `packages/backend/src/test/setup.ts`
+### R1 — Canonical source of truth structure
 
-**Behaviour:** Add a global `vi.mock` for both logger module paths that provides `createLogger` as a `vi.fn()` returning a full mock logger object. The mock must be **overridable** — per-test `vi.mock` calls in individual files continue to take precedence, preserving existing high-fidelity assertions (e.g. `GuestAccessService.test.ts`).
+- `docs/AGENTS.md` is the single canonical policy file for all AI agents, regardless of tool.
+- All tool-specific files (`.windsurf/rules/`, `.roo/`, `.gitpod/`) are **thin environment adapters** only — they may add tool-specific trigger syntax but must not duplicate or contradict `docs/AGENTS.md`.
+- Skills live canonically in `docs/skills/` (new location) as tool-agnostic markdown. Tool namespaces may reference them but must not maintain independent copies with diverging content.
+- Every tool-specific file that currently duplicates `docs/AGENTS.md` content must be replaced with a reference header pointing to the canonical source.
 
-**Paths to mock globally:**
-- `../../lib/logger` (and `.js` variant) — the backend's own structured logger
-- `@shared/lib/logger` — the shared package logger
+### R2 — Constitutional header in all core context files
 
-**Mock shape** (must match both loggers' exported surface):
+Every file in `.windsurf/context/`, `docs/AGENTS.md`, and root `AGENTS.md` must open with a compact constitutional header:
 
-```typescript
-{
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-  createLogger: vi.fn(() => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  })),
-  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-}
+```markdown
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Constitutional rules: value truth · economic defensibility · evidence over assertion ·
+auditability · lifecycle continuity · integrity before convenience · tenant discipline ·
+agents serve the value model.
+Full policy: docs/AGENTS.md -->
 ```
 
-**Reset:** `vi.clearAllMocks()` already runs in `afterEach` — no additional reset needed.
+### R3 — Stale skills: deprecation then rewrite
 
-**Constraint:** Do not remove or modify any existing per-test `vi.mock` calls. The global mock is a safety net, not a replacement.
+**Phase 1 (immediate):** Add a deprecation header to each stale skill pointing to the canonical source.
 
----
+Stale skills requiring Phase 1 + Phase 2 rewrite:
 
-### 2. `BaseGraphWriter` Utility
-
-**Location:** `packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts`
-
-**Purpose:** A class that agents compose to write nodes and edges to the Value Graph. It enforces three invariants that prevented silent failures in Sprint 48.
-
-#### 2a. Canonical Context Extraction
-
-Expose a `protected getSafeContext(context: LifecycleContext): { opportunityId: string; organizationId: string }` method.
-
-- Extract `opportunity_id` from `context.user_inputs` or `context.metadata`. If missing or not a valid UUID v4, throw `LifecycleContextError` with a descriptive message — never fall back to `workspace_id` or any other key.
-- Extract `organization_id` from `context.organization_id`. If missing or not a valid UUID v4, throw.
-
-#### 2b. Safe UUID Generation
-
-Expose a `protected generateNodeId(deterministicInput?: string): string` helper.
-
-- If `deterministicInput` is provided and is already a valid UUID v4, return it as-is.
-- Otherwise, call `crypto.randomUUID()` — never pass a raw string fallback to a UUID column.
-
-#### 2c. Atomic Write Isolation
-
-Expose a `protected async safeWriteBatch(writes: Array<() => Promise<unknown>>): Promise<{ succeeded: number; failed: number; errors: Error[] }>` method.
-
-- Uses `Promise.allSettled` internally so one failed write does not abort the remaining writes.
-- Logs each failure with `logger.error` including the write index and error message.
-- Returns a summary object; callers decide whether to surface partial failure to the agent output.
-
-#### 2d. Convenience write methods
-
-Thin wrappers over `ValueGraphService` that call `getSafeContext` before delegating:
-
-- `writeCapability(context, input: Omit<WriteCapabilityInput, 'opportunity_id' | 'organization_id'>): Promise<VgCapability>`
-- `writeMetric(context, input: Omit<WriteMetricInput, 'opportunity_id' | 'organization_id'>): Promise<VgMetric>`
-- `writeValueDriver(context, input: Omit<WriteValueDriverInput, 'opportunity_id' | 'organization_id'>): Promise<VgValueDriver>`
-- `writeEdge(context, input: Omit<WriteEdgeInput, 'opportunity_id' | 'organization_id'>): Promise<ValueGraphEdge>`
-
-**Dependencies:** `ValueGraphService` injected via constructor for testability; defaults to the singleton `valueGraphService`.
-
-**Error type:** Export `LifecycleContextError extends Error` from the same file.
-
----
-
-### 3. Five Agent Integrations (Sprint 49 KR 1)
-
-Wire each of the five agents to the Value Graph using `BaseGraphWriter`. Each agent:
-
-- Composes `BaseGraphWriter` (not extends — agents already extend `BaseAgent`).
-- Calls `getSafeContext(context)` at the start of its graph-write phase.
-- Uses `safeWriteBatch` for all node/edge writes.
-- Has a unit test asserting expected node types and edge types are written after a successful run (mock `ValueGraphService`).
-
-**Per-agent graph writes:**
-
-| Agent | Writes |
+| File | Problem |
 |---|---|
-| `NarrativeAgent` | `VgValueDriver` nodes; `metric_maps_to_value_driver` edges |
-| `TargetAgent` | `VgMetric` nodes (KPI targets); `capability_impacts_metric` edges |
-| `RealizationAgent` | `VgMetric` nodes (actuals vs targets); `metric_maps_to_value_driver` edges |
-| `ExpansionAgent` | `VgCapability` nodes; `use_case_enabled_by_capability` edges |
-| `ComplianceAuditorAgent` | `VgValueDriver` nodes (compliance risk drivers); `hypothesis_claims_metric` edges |
+| `.windsurf/skills/setup-dev-environment/SKILL.md` | Wrong Node version (18 vs 20), wrong clone URL (`ValueCanvas`), Docker-based setup contradicts devcontainer model |
+| `.windsurf/skills/architecture-map/SKILL.md` | Placeholder paths (`src/agents/`, `src/backend/`) don't match actual monorepo |
+| `.windsurf/skills/run-tests/SKILL.md` | Coverage thresholds and commands don't match `vitest.config.ts` or `docs/AGENTS.md` |
+| `.windsurf/skills/dev-environment-health/SKILL.md` | Stub with no actionable content |
+| `.windsurf/skills/continuous-improvement/SKILL.md` | References `cascade-cost`, `~/.windsurf/ADVICE.md` — Windsurf-only tooling |
+| `.windsurf/workflows/init.md` | `--no-frozen-lockfile` contradicts `docs/AGENTS.md` mandate |
+| `.windsurf/workflows/start-dev.md` | `APP_ENV=cloud-dev` pattern contradicts automations model |
+| `.windsurf/workflows/verification-checklist.md` | `APP_ENV=cloud-dev` + `--no-frozen-lockfile` contradictions |
 
----
+**Phase 2 (rewrite):** Replace each deprecated skill with accurate content aligned to:
+- Devcontainer-first setup (`.devcontainer/`, `.ona/automations.yaml`)
+- Actual monorepo structure (`apps/ValyntApp`, `apps/mcp-dashboard`, `packages/backend`, etc.)
+- Current automation flows (`gitpod automations service start backend/frontend`)
+- System intent and lifecycle
 
-### 4. Value Graph API Router (Sprint 49 KR 2)
+**Phase 3 (delete):** Once rewrites are validated, remove the deprecated versions. (Out of scope for this spec — tracked as follow-up.)
 
-**File:** `packages/backend/src/api/valueGraph.ts`
+### R4 — Tool-agnostic skill rewrites
 
-**Mount point:** `/api/v1/graph` in `server.ts`
+Skills that contain Windsurf-specific behavior must be rewritten to be tool-agnostic:
+- Remove references to `cascade-cost`, `~/.windsurf/ADVICE.md`, Cascade-specific commands
+- Remove references to Windsurf "Planning Mode" as a required step
+- Skills must work when invoked from Ona, Cursor, Copilot, or any other agent
 
-**Middleware chain on all routes:**
+### R5 — Duplicate skill consolidation
 
-```
-requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware() → validateOpportunityAccess
-```
+The following skill pairs cover the same capability and must be consolidated. The `.windsurf/` version is canonical; the `.roo/` version is replaced with a redirect stub:
 
-#### 4a. `validateOpportunityAccess` middleware
-
-**File:** `packages/backend/src/middleware/validateOpportunityAccess.ts`
-
-- Reads `req.params.opportunityId`.
-- Queries `value_cases` for `{ organization_id }` where `id = opportunityId`, using `req.supabase` (tenant-scoped client set by `tenantDbContextMiddleware`).
-- Returns `403 { error: "Access to this Value Graph is denied." }` if not found or `organization_id !== req.tenantId`.
-- On success, attaches `req.opportunityId = opportunityId`.
-- Add `opportunityId: string` to `packages/backend/src/types/express.d.ts`.
-
-#### 4b. The 7 endpoints
-
-| Method | Path | Description |
+| Capability | Canonical | Redirect |
 |---|---|---|
-| `GET` | `/api/v1/graph/:opportunityId/summary` | Node/edge counts by type from `getGraphForOpportunity` |
-| `GET` | `/api/v1/graph/:opportunityId/nodes` | Paginated nodes; `?entity_type=` filter supported |
-| `GET` | `/api/v1/graph/:opportunityId/export` | Full graph JSON (nodes + edges) |
-| `GET` | `/api/v1/graph/:opportunityId/paths` | Value paths from `getValuePaths()` |
-| `POST` | `/api/v1/graph/:opportunityId/edges` | Manually create an edge; Zod-validated body |
-| `PATCH` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Update node metadata; Zod-validated body |
-| `DELETE` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Remove node; writes audit log entry via `AuditLogger` |
+| Agent scaffold | `.windsurf/skills/agent-onboarding/SKILL.md` | `.roo/skills/agent-scaffold/SKILL.md` |
+| OpenSpec apply | `.windsurf/skills/openspec-apply-change/SKILL.md` | `.roo/skills/openspec-apply-change/SKILL.md` |
+| OpenSpec archive | `.windsurf/skills/openspec-archive-change/SKILL.md` | `.roo/skills/openspec-archive-change/SKILL.md` |
+| OpenSpec explore | `.windsurf/skills/openspec-explore/SKILL.md` | `.roo/skills/openspec-explore/SKILL.md` |
+| OpenSpec propose | `.windsurf/skills/openspec-propose/SKILL.md` | `.roo/skills/openspec-propose/SKILL.md` |
 
-All responses include `organization_id` and `opportunity_id`.
+### R6 — Product naming normalization
 
-**OpenAPI:** Update `packages/backend/openapi.yaml` with all 7 paths.
+All context files must use **ValueOS** as the product name. Occurrences of "ValueCanvas" must be corrected to "ValueOS".
+
+### R7 — New skills for genuine gaps
+
+New skills are created only for reusable, system-aligned capabilities that strengthen ValueOS as a system of intelligence for auditable business value. Each must represent a repeatable capability with a clear input/output contract that operates on the value model.
+
+**Approved new skills:**
+
+1. **`docs/skills/ona-environment/SKILL.md`** — Ona/Gitpod devcontainer setup, automation commands (`gitpod automations service start/stop/logs`), port management, and health checks. Replaces the stale `setup-dev-environment` skill.
+
+2. **`docs/skills/value-graph-integration/SKILL.md`** — How agents read from and write to `ValueGraphService`, including the `BaseGraphWriter` pattern, correct context key extraction (`opportunity_id`), UUID validation, and tenant isolation. Fills a gap currently undocumented in any skill.
+
+### R8 — `docs/AGENTS.md` constitutional preamble
+
+`docs/AGENTS.md` must be updated to open with the full constitutional layer (system intent statement + 8 invariants + rejection criteria + agent preamble) before the existing Architecture section. All existing content is preserved and follows the preamble.
+
+### R9 — Root `AGENTS.md` update
+
+The root `AGENTS.md` must be updated to include the one-sentence system intent and a reference to the constitutional layer in `docs/AGENTS.md`.
 
 ---
 
 ## Acceptance Criteria
 
-### Item 1 — Global Logger Mock
-- `pnpm --filter backend test` produces zero `[vitest] No "createLogger" export is defined` errors.
-- `GuestAccessService.test.ts` and other tests with custom `vi.hoisted` logger spies continue to pass with their spy assertions intact.
-- Net failing test count in `@valueos/backend` is materially reduced from ~284.
-
-### Item 2 — `BaseGraphWriter`
-- `LifecycleContextError` is thrown (not swallowed) when `opportunity_id` is missing or not a UUID.
-- `generateNodeId` never returns a non-UUID string.
-- `safeWriteBatch` with one failing write commits the remaining writes and returns `{ succeeded: N-1, failed: 1, errors: [...] }`.
-- Unit tests for all three invariants pass.
-
-### Item 3 — Five Agent Integrations
-- Each agent has a test asserting expected node and edge types are written after a successful run.
-- No agent calls `ValueGraphService` methods directly — all writes go through `BaseGraphWriter`.
-- `pnpm test` green for all five agent test files.
-
-### Item 4 — Value Graph API
-- All 7 endpoints return `401` when unauthenticated.
-- All 7 endpoints return `403` when `opportunityId` belongs to a different tenant.
-- Read endpoints return correct data shapes from `ValueGraphService`.
-- Write/mutate endpoints return `400` on invalid Zod input.
-- `DELETE /nodes/:nodeId` writes an audit log entry.
-- `pnpm test` green for the new router test file.
-- `openapi.yaml` updated with all 7 paths.
+- [ ] `docs/AGENTS.md` opens with the constitutional preamble (system intent + invariants + rejection criteria)
+- [ ] Root `AGENTS.md` includes the one-sentence system intent and references `docs/AGENTS.md`
+- [ ] All 8 stale skills/workflows have a deprecation header pointing to the canonical source
+- [ ] All 8 stale skills/workflows have been rewritten with accurate, devcontainer-first content
+- [ ] `.windsurf/skills/continuous-improvement/SKILL.md` contains no references to `cascade-cost`, `~/.windsurf/ADVICE.md`, or Cascade-specific tooling
+- [ ] `.windsurf/workflows/init.md` uses `--frozen-lockfile` (not `--no-frozen-lockfile`)
+- [ ] `.windsurf/workflows/start-dev.md` and `verification-checklist.md` reference `gitpod automations service start` as the canonical dev start method
+- [ ] All 5 duplicate `.roo/skills/` entries are replaced with redirect stubs pointing to the `.windsurf/` canonical version
+- [ ] No file in the context layer contains "ValueCanvas" as the product name
+- [ ] `docs/skills/ona-environment/SKILL.md` exists and covers devcontainer setup, automation commands, and port management
+- [ ] `docs/skills/value-graph-integration/SKILL.md` exists and covers `BaseGraphWriter`, context key extraction, and UUID validation
+- [ ] All `.windsurf/context/` files open with the constitutional header comment
+- [ ] `docs/AGENTS.md` "Context Engineering Layer" section references `docs/skills/` as the canonical skill home
 
 ---
 
-## Implementation Order
+## Implementation Approach
 
-1. **Global logger mock in `setup.ts`** — verify zero `createLogger` errors before proceeding.
-2. **`LifecycleContextError` + `BaseGraphWriter`** — implement and unit-test all three invariants.
-3. **`NarrativeAgent` graph integration** — first agent, establishes the composition pattern.
-4. **`TargetAgent`, `RealizationAgent`, `ExpansionAgent`, `ComplianceAuditorAgent` graph integrations** — follow the same pattern.
-5. **`validateOpportunityAccess` middleware** — implement and unit-test in isolation.
-6. **Value Graph API router** — implement all 7 endpoints, wire middleware chain, mount in `server.ts`.
-7. **Update `express.d.ts`** — add `opportunityId: string` to `Request`.
-8. **Update `openapi.yaml`** — add all 7 paths.
-9. **Run `pnpm test`** — verify green across all new and modified files.
+Steps are ordered by dependency — each step's output is referenced by subsequent steps.
+
+1. **Write the constitutional preamble block** — Draft the reusable constitutional header text (compact comment form + full prose form) that will be inserted into multiple files. This is the foundation everything else references.
+
+2. **Update `docs/AGENTS.md`** — Prepend the full constitutional layer (system intent + 8 invariants + rejection criteria + agent preamble) before the existing Architecture section. Update the "Context Engineering Layer" section to reference `docs/skills/` as the canonical skill home.
+
+3. **Update root `AGENTS.md`** — Add the one-sentence system intent and a reference to the constitutional layer.
+
+4. **Add constitutional headers to `.windsurf/context/` files** — Insert the compact constitutional header comment at the top of: `decisions.md`, `debt.md`, `traceability.md`, `user-stories.md`, `memory.md`, `tools.md`, `README.md`.
+
+5. **Deprecate stale skills (Phase 1)** — Add deprecation headers to all 8 stale files listed in R3.
+
+6. **Rewrite stale skills (Phase 2)** — Rewrite each deprecated skill with accurate content:
+   - `setup-dev-environment` → devcontainer-first, correct versions (Node 20.19.5, pnpm 10.4.1), correct automations
+   - `architecture-map` → actual monorepo structure from `docs/AGENTS.md`
+   - `run-tests` → match `vitest.config.ts` and `docs/AGENTS.md` testing conventions (`pnpm test`, `pnpm run test:rls`, sequential execution)
+   - `dev-environment-health` → actionable health checks using `gitpod automations service` commands
+   - `continuous-improvement` → tool-agnostic, remove all Windsurf-specific tooling references
+   - `init.md` → fix `--frozen-lockfile`, reference automations as the canonical setup path
+   - `start-dev.md` → `gitpod automations service start` as primary method, manual commands as fallback
+   - `verification-checklist.md` → align with automations model, correct health check commands
+
+7. **Create new canonical skills** — Create `docs/skills/ona-environment/SKILL.md` and `docs/skills/value-graph-integration/SKILL.md`.
+
+8. **Consolidate duplicate `.roo/` skills** — Replace each of the 5 duplicate `.roo/skills/` entries with a redirect stub pointing to the `.windsurf/` canonical version.
+
+9. **Fix product naming** — Replace all "ValueCanvas" occurrences with "ValueOS" across context files.
+
+10. **Verify** — Confirm no contradictions remain between `docs/AGENTS.md` and any skill, workflow, or rule file. Confirm all acceptance criteria are met.
 
 ---
 
 ## Out of Scope
 
-- Sprint 50 UI components (`ValueGraphVisualization`, `ValuePathCard`, `MetricCard`).
-- `IntegrityAgentService` TypeScript errors (12 errors in `post-v1/IntegrityAgentService.ts`) — separate fix.
-- `ComplianceControlStatusService` lazy-init Supabase fix — separate fix.
-- Other pre-existing backend test failures not caused by the `createLogger` mock gap.
+- Phase 3 deletion of deprecated skills (tracked as follow-up after validation)
+- Updating `.windsurf/rules/` glob-triggered rules (these are tool-specific adapters and are correct in form; content accuracy is a separate pass)
+- Updating `.windsurf/context/decisions.md`, `debt.md`, `traceability.md` substantive content (only the constitutional header is added; content updates are sprint-driven)
+- Creating skills for the full approved taxonomy (evidence ingestion, benchmark validation, scenario simulation) — those are future sprints

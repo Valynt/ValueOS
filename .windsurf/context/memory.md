@@ -1,3 +1,11 @@
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Constitutional rules: value truth · economic defensibility · evidence over assertion ·
+auditability · lifecycle continuity · integrity before convenience · tenant discipline ·
+agents serve the value model.
+Full policy: docs/AGENTS.md -->
+
 # Long-Term Memory — Lessons Learned
 
 Persistent record of non-obvious decisions, recurring mistakes, and patterns that worked.
