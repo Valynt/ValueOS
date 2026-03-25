@@ -1,102 +1,154 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Causal Truth Explorer | Economic Logic Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Causal Truth Explorer | Economic Logic Engine</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap"
-    rel="stylesheet">
-</head>
+  <body>
+    <div id="app">
+      <header class="glass">
+        <div class="logo">
+          <span class="pulsar"></span>
+          <h1>Causal<span>Truth</span></h1>
+        </div>
+        <div class="status-badge" id="dataset-status">
+          <span class="dot"></span> Loading dataset...
+        </div>
+      </header>
 
-<body>
-  <div id="app">
-    <header class="glass">
-      <div class="logo">
-        <span class="pulsar"></span>
-        <h1>Causal<span>Truth</span></h1>
-      </div>
-      <div class="status-badge">
-        <span class="dot"></span> 14 Validated Relationships
-      </div>
-    </header>
-
-    <main id="cy"></main>
-
-    <aside id="sidebar" class="glass hidden">
-      <div class="sidebar-content">
-        <div class="close-btn" id="hide-sidebar">&times;</div>
-        <div id="node-info">
-          <div class="type-label">DRIVER ACTION</div>
-          <h2 id="node-title">Cloud Infrastructure Migration</h2>
-          <p id="node-mechanism">Moving legacy workloads to cloud-native platforms to reduce maintenance overhead.</p>
-
-          <div class="stats-grid">
-            <div class="stat-card">
-              <label>Confidence</label>
-              <div class="value" id="node-confidence">95%</div>
+      <aside id="overview" class="glass">
+        <div class="overview-content">
+          <h2 class="overview-title">Dataset Overview</h2>
+          <div class="overview-stats">
+            <div class="overview-card">
+              <label>Relationships</label>
+              <div id="stat-relationships">0</div>
             </div>
-            <div class="stat-card">
-              <label>Time to Value</label>
-              <div class="value" id="node-time">6 Months</div>
+            <div class="overview-card">
+              <label>Unique KPIs</label>
+              <div id="stat-kpis">0</div>
+            </div>
+            <div class="overview-card">
+              <label>Avg Confidence</label>
+              <div id="stat-confidence">0%</div>
             </div>
           </div>
 
-          <div class="impact-section">
-            <h3>Primary Impact</h3>
-            <div class="impact-distribution">
-              <div class="dist-bar">
-                <span class="p10" id="dist-p10"></span>
-                <span class="p50" id="dist-p50"></span>
-                <span class="p90" id="dist-p90"></span>
-              </div>
-              <div class="dist-labels">
-                <span>P10: <b id="val-p10">15%</b></span>
-                <span>P50: <b id="val-p50">25%</b></span>
-                <span>P90: <b id="val-p90">40%</b></span>
-              </div>
-            </div>
+          <div class="overview-filters">
+            <label for="status-filter">Status Filter</label>
+            <select id="status-filter">
+              <option value="ALL">All</option>
+              <option value="VALIDATED">Validated</option>
+              <option value="REVIEWED">Reviewed</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+
+            <label for="action-search">Action Search</label>
+            <input
+              id="action-search"
+              type="text"
+              placeholder="Find driver action..."
+            />
           </div>
 
-          <div class="simulation-section">
-            <h3>Simulation Engine</h3>
-            <div class="sim-input">
-              <label>Current Baseline Value</label>
-              <input type="number" id="sim-baseline" value="1000000" step="10000">
-            </div>
-            <div class="sim-output">
-              <div class="sim-result">
-                <label>Projected Gain (P50)</label>
-                <div class="gain-value" id="sim-gain">+$250,000</div>
+          <div class="action-list-wrap">
+            <div class="action-list-header">Driver Actions</div>
+            <div id="action-list"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main id="cy"></main>
+
+      <aside id="sidebar" class="glass hidden">
+        <div class="sidebar-content">
+          <div class="close-btn" id="hide-sidebar">&times;</div>
+          <div id="node-info">
+            <div class="type-label">DRIVER ACTION</div>
+            <h2 id="node-title">Cloud Infrastructure Migration</h2>
+            <div id="node-status" style="margin-bottom:12px;"></div>
+            <p id="node-mechanism">
+              Moving legacy workloads to cloud-native platforms to reduce
+              maintenance overhead.
+            </p>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <label>Confidence</label>
+                <div class="value" id="node-confidence">95%</div>
+              </div>
+              <div class="stat-card">
+                <label>Time to Value</label>
+                <div class="value" id="node-time">6 Months</div>
               </div>
             </div>
-          </div>
 
-          <div class="evidence-section">
-            <h3>Evidence & Citations</h3>
-            <div id="evidence-list">
-              <!-- Evidence cards go here -->
+            <div class="impact-section">
+              <h3>Primary Impact</h3>
+              <div class="impact-distribution">
+                <div class="dist-bar">
+                  <span class="p10" id="dist-p10"></span>
+                  <span class="p50" id="dist-p50"></span>
+                  <span class="p90" id="dist-p90"></span>
+                </div>
+                <div class="dist-labels">
+                  <span>P10: <b id="val-p10">15%</b></span>
+                  <span>P50: <b id="val-p50">25%</b></span>
+                  <span>P90: <b id="val-p90">40%</b></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="simulation-section">
+              <h3>Simulation Engine</h3>
+              <div class="sim-input">
+                <label>Current Baseline Value</label>
+                <input
+                  type="number"
+                  id="sim-baseline"
+                  value="1000000"
+                  step="10000"
+                />
+              </div>
+              <div class="sim-output">
+                <div class="sim-result">
+                  <label>Projected Gain (P50)</label>
+                  <div class="gain-value" id="sim-gain">+$250,000</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="evidence-section">
+              <h3>Evidence & Citations</h3>
+              <div id="evidence-list">
+                <!-- Evidence cards go here -->
+              </div>
             </div>
           </div>
         </div>
+      </aside>
+
+      <div class="controls glass">
+        <button id="reset-view" title="Reset Camera">Center View</button>
+        <button id="shuffle-layout" title="Rearrange Nodes">Shuffle Layout</button>
+        <button id="draft-toggle" title="Toggle visibility of DRAFT nodes">Hide Drafts</button>
+        <button id="clear-filter" title="Clear Filters">Clear Filters</button>
       </div>
-    </aside>
 
-    <div class="controls glass">
-      <button id="reset-view" title="Reset Camera">Center View</button>
-      <button id="shuffle-layout" title="Rearrange Nodes">Shuffle Layout</button>
+      <div id="loading-overlay">
+        <div class="loader"></div>
+        <p>Synthesizing Causal Relationships...</p>
+      </div>
     </div>
-
-    <div id="loading-overlay">
-      <div class="loader"></div>
-      <p>Synthesizing Causal Relationships...</p>
-    </div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
-</body>
-
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

@@ -1,5 +1,7 @@
 requests
 psycopg2-binary
+# openai SDK used with base_url override to call Together.ai's OpenAI-compatible endpoint.
+# See: https://docs.together.ai/docs/openai-api-compatibility
 openai
 python-dotenv
 tenacity
