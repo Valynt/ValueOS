@@ -1021,7 +1021,7 @@ async function updateAssumption(req: Request, res: Response, next: NextFunction)
       recalcResult = {
         snapshotId: newSnapshot.id,
         npv: npv.toString(),
-        irr: irrResult !== null ? irrResult.toString() : null,
+        irr: irrResult.toString(),
         roi: roi.toString(),
         payback_months: payback.fractionalPeriod !== null
           ? Math.round(payback.fractionalPeriod.toNumber() * 12)
