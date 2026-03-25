@@ -102,12 +102,12 @@ export interface StreamingClient {
 export interface SubscriptionMessage {
   type: "subscribe" | "unsubscribe";
   channels: string[];
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 export interface StreamData {
   channel: string;
-  data: any;
+  data: unknown;
   timestamp: number;
   metadata?: {
     source?: string;
@@ -121,7 +121,7 @@ export interface WebhookNotification {
   type: "sec_filing" | "market_data" | "system_alert";
   title: string;
   message: string;
-  data: any;
+  data: unknown;
   timestamp: number;
   priority: "low" | "medium" | "high" | "critical";
   recipients?: string[];
@@ -606,7 +606,7 @@ export class WebSocketServer {
       });
     }
 
-    const organizationId = (payload as any).tenant_id as string | undefined;
+    const organizationId = (payload as Record<string, unknown>)["tenant_id"] as string | undefined;
 
     // Verify token is not revoked via provider
     const providerUrl = process.env.WS_AUTH_PROVIDER_URL;
@@ -625,13 +625,13 @@ export class WebSocketServer {
             closeReason: "Token revoked",
           });
         }
-        const userData = await response.json() as any;
+        const userData = await response.json() as Record<string, unknown>;
         const providerPermissions = extractProviderPermissions(userData);
         const basePermissions = extractPermissions(payload);
         const permissions = Array.from(new Set([...basePermissions, ...providerPermissions]));
         return { userId, organizationId, permissions };
       } catch (error) {
-        if ((error as any).closeCode) throw error;
+        if ((error as Record<string, unknown>)["closeCode"]) throw error;
         logger.warn("WebSocketServer: provider token check failed", {
           error: error instanceof Error ? error.message : String(error),
         });

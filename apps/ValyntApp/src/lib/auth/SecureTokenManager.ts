@@ -207,7 +207,7 @@ export const secureTokenManager = {
 
       // Supabase typically stores { currentSession, expiresAt } under the sb-* key.
       // Validate that we have something that looks like a full Session before returning it.
-      const isValidSessionLike = (value: any): value is Session => {
+      const isValidSessionLike = (value: unknown): value is Session => {
         return (
           !!value &&
           typeof value === "object" &&

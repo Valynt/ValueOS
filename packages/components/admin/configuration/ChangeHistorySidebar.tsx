@@ -20,8 +20,8 @@ interface ChangeHistoryEntry {
   user: string;
   category: string;
   setting: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
 }
 
 interface ChangeHistorySidebarProps {
@@ -54,7 +54,7 @@ function formatSettingName(setting: string): string {
     .replace(/\b\w/g, l => l.toUpperCase());
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'Enabled' : 'Disabled';
   if (typeof value === 'object') return JSON.stringify(value);
   if (typeof value === 'number') return value.toLocaleString();

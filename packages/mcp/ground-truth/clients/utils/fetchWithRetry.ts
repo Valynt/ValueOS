@@ -7,11 +7,11 @@ import { logger } from "../../../lib/logger";
 
 export async function fetchWithRetry(
   url: string,
-  options: any = {},
+  options: RequestInit = {},
   retries = 3,
   backoff = 500
 ): Promise<Response> {
-  let lastError: any;
+  let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, options);

@@ -63,7 +63,7 @@ export interface ModuleResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
   cache_hit?: boolean;
   execution_time_ms?: number;
@@ -230,7 +230,7 @@ export interface WageData {
 
 export interface CacheEntry {
   key: string;
-  value: any;
+  value: unknown;
   tier: ConfidenceTier;
   ttl: number; // Seconds
   created_at: number; // Unix timestamp in milliseconds
@@ -285,8 +285,8 @@ export interface AuditLog {
   agent_id?: string;
   module: string;
   operation: string;
-  request: any;
-  response: any;
+  request: Record<string, unknown>;
+  response: Record<string, unknown>;
   provenance: ProvenanceInfo;
 }
 
@@ -317,7 +317,7 @@ export interface GroundTruthModule {
   /**
    * Get module health status
    */
-  healthCheck(): Promise<{ healthy: boolean; details?: any }>;
+  healthCheck(): Promise<{ healthy: boolean; details?: Record<string, unknown> }>;
 }
 
 // ============================================================================
@@ -431,7 +431,7 @@ export class GroundTruthError extends Error {
   constructor(
     public code: string,
     message: string,
-    public details?: any
+    public details?: Record<string, unknown>
   ) {
     super(message);
     this.name = "GroundTruthError";

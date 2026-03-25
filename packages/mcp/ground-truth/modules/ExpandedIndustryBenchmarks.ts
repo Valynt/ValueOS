@@ -10,7 +10,7 @@ export interface IndustryBenchmarkData {
     revenue_per_employee: { value: number; unit: "USD"; source: string };
     gross_margin?: { value: [number, number]; unit: "percent"; percentile: 50; source: string };
     operating_margin?: { value: [number, number]; unit: "percent"; percentile: 50; source: string };
-    [key: string]: any;
+    [key: string]: unknown;
   };
   year: number;
   source: string;

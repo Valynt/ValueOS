@@ -144,7 +144,7 @@ export class EDGARModule extends BaseModule {
               { section: sectionName, company_name: filing.company_name }
             ));
           } catch (err) {
-            logger.warn(`Failed to extract section ${sectionName}`, { cik, error: (err as any).message });
+            logger.warn(`Failed to extract section ${sectionName}`, { cik, error: err instanceof Error ? err.message : String(err) });
           }
         }
 

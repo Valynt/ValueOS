@@ -62,7 +62,7 @@ export class IndustryBenchmarkModule extends BaseModule {
   private secApiKey?: string;
   private enableStaticData: boolean = true;
   private cacheTTL: number = 86400 * 30; // 30 days default
-  private benchmarkCache: Map<string, { data: any; timestamp: number }> = new Map();
+  private benchmarkCache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private liveDataFeed?: LiveDataFeedService;
 
   // Comprehensive Industry Benchmarks (2024 data) - 50 Industries
@@ -70,23 +70,24 @@ export class IndustryBenchmarkModule extends BaseModule {
   private readonly STATIC_BENCHMARKS: Record<string, IndustryBenchmark[]> = Object.entries(
     EXPANDED_INDUSTRY_BENCHMARKS
   ).reduce(
-    (acc, [naics, data]: [string, any]) => {
+    (acc, [naics, data]: [string, Record<string, unknown>]) => {
       const benchmarks: IndustryBenchmark[] = [];
+      const metrics = data["metrics"] as Record<string, Record<string, unknown>>;
 
       // Convert the expanded format to IndustryBenchmark format
-      Object.entries(data.metrics).forEach(([metricName, metricData]: [string, any]) => {
+      Object.entries(metrics).forEach(([metricName, metricData]) => {
         const benchmark: IndustryBenchmark = {
-          naics_code: data.naics_code,
-          industry_name: data.industry_name,
+          naics_code: data["naics_code"] as string,
+          industry_name: data["industry_name"] as string,
           metric_name: metricName,
-          value: (metricData as any).value,
-          unit: (metricData as any).unit,
-          year: data.year,
-          source: (metricData as any).source,
+          value: metricData["value"] as number,
+          unit: metricData["unit"] as string,
+          year: data["year"] as number,
+          source: metricData["source"] as string,
         };
 
         if ("percentile" in metricData) {
-          benchmark.percentile = (metricData as any).percentile;
+          benchmark.percentile = metricData["percentile"] as number;
         }
 
         benchmarks.push(benchmark);
@@ -157,13 +158,13 @@ export class IndustryBenchmarkModule extends BaseModule {
     },
   };
 
-  override async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
 
     const benchmarkConfig = config as BenchmarkConfig;
     this.blsApiKey = benchmarkConfig.blsApiKey;
     this.censusApiKey = benchmarkConfig.censusApiKey;
-    this.secApiKey = (config as any).secApiKey;
+    this.secApiKey = config["secApiKey"] as string | undefined;
     this.enableStaticData = benchmarkConfig.enableStaticData ?? true;
     this.cacheTTL = benchmarkConfig.cacheTTL || this.cacheTTL;
 
@@ -584,7 +585,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     };
   }
 
-  private getCachedData(key: string): any | null {
+  private getCachedData(key: string): unknown | null {
     const cached = this.benchmarkCache.get(key);
 
     if (!cached) {
@@ -600,7 +601,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     return cached.data;
   }
 
-  private setCachedData(key: string, data: any): void {
+  private setCachedData(key: string, data: unknown): void {
     this.benchmarkCache.set(key, {
       data,
       timestamp: Date.now(),
@@ -688,7 +689,7 @@ export class IndustryBenchmarkModule extends BaseModule {
    */
   validateLiveDataQuality(
     dataSource: "sec" | "bls" | "census",
-    data: any
+    data: unknown
   ): {
     isValid: boolean;
     qualityScore: number;
@@ -765,11 +766,12 @@ export class IndustryBenchmarkModule extends BaseModule {
 
           // Check data completeness
           const requiredFields = ["medianWage", "meanWage", "employmentCount"];
+          const dataArr = data as Record<string, unknown>[];
           const completeness =
-            data.reduce((acc: number, item: any) => {
+            dataArr.reduce((acc: number, item) => {
               const presentFields = requiredFields.filter((field) => item[field] != null).length;
               return acc + presentFields / requiredFields.length;
-            }, 0) / data.length;
+            }, 0) / dataArr.length;
 
           if (completeness < 0.8) {
             issues.push(`Data completeness: ${(completeness * 100).toFixed(1)}%`);
@@ -805,15 +807,14 @@ export class IndustryBenchmarkModule extends BaseModule {
           }
 
           // Check for reasonable data ranges
-          data.forEach((item: any, index: number) => {
-            if (item.totalPopulation && item.totalPopulation < 0) {
+          (data as Record<string, unknown>[]).forEach((item, index: number) => {
+            const pop = item["totalPopulation"] as number | undefined;
+            const income = item["medianHouseholdIncome"] as number | undefined;
+            if (pop != null && pop < 0) {
               issues.push(`Invalid population data at index ${index}`);
               qualityScore -= 5;
             }
-            if (
-              item.medianHouseholdIncome &&
-              (item.medianHouseholdIncome < 0 || item.medianHouseholdIncome > 500000)
-            ) {
+            if (income != null && (income < 0 || income > 500000)) {
               issues.push(`Suspicious income data at index ${index}`);
               qualityScore -= 5;
             }
