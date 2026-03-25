@@ -54,7 +54,22 @@ COMPANIES = [
     {"name": "BlackBerry", "ticker": "BB", "cik": "0001070235"}
 ]
 
-# Config
-DB_URL = os.getenv("DB_URL", "postgresql://analyst:secure_password_123@localhost:5432/valueverse")
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-SEC_USER_AGENT = "ValueVerse Analysis (tech@valueverse.com)"
+# Database — no default; fail fast if unset to prevent running against wrong DB.
+DB_URL = os.getenv("DB_URL")
+if not DB_URL:
+    raise EnvironmentError(
+        "DB_URL environment variable is not set. "
+        "See analysis_engine/.env.example for required variables."
+    )
+
+# LLM — Together.ai via OpenAI-compatible base_url.
+# See https://docs.together.ai/docs/openai-api-compatibility
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+TOGETHER_BASE_URL = "https://api.together.xyz/v1"
+
+# SEC EDGAR user-agent. Must identify your application per SEC fair-access policy.
+# Format: "AppName/Version (contact-url-or-email)"
+SEC_USER_AGENT = os.getenv(
+    "SEC_USER_AGENT", "ValueOS Analysis (+https://example.com/contact)"
+)

@@ -21,39 +21,41 @@ export default function Home() {
   // Form state
   const [url, setUrl] = useState('');
   const [competitors, setCompetitors] = useState('');
-  
+
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+  const [isDemoData, setIsDemoData] = useState(false);
+
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>('graph');
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!url) return;
-    
+
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
+    setIsDemoData(false);
     setProgress({ status: 'queued', progress: 0, message: 'Starting analysis...' });
-    
+
     try {
       // Parse competitors
       const competitorUrls = competitors
         .split('\n')
         .map((u) => u.trim())
         .filter(Boolean);
-      
+
       // Start analysis
       const response = await startAnalysis({
         url,
         competitor_urls: competitorUrls,
       });
-      
+
       // Connect to websocket for progress updates
       createProgressWebSocket(
         response.job_id,
@@ -63,6 +65,7 @@ export default function Home() {
           try {
             const results = await getResults(response.job_id);
             setResult(results);
+            setIsDemoData(false);
           } catch (err) {
             // For demo purposes, still show UI even without backend
             console.log('Could not fetch results, showing demo data');
@@ -83,6 +86,7 @@ export default function Home() {
 
   // Simulate analysis for demo when backend isn't running
   const simulateDemoAnalysis = async () => {
+    setIsDemoData(true);
     const stages = [
       { status: 'crawling', progress: 0.2, message: 'Crawling website pages...' },
       { status: 'extracting', progress: 0.5, message: 'Extracting entities...' },
@@ -191,6 +195,21 @@ export default function Home() {
         </p>
       </div>
 
+      {/* Global demo-mode banner — persistent, not dismissible */}
+      {isDemoData && (
+        <div className="max-w-3xl mx-auto mb-6">
+          <div className="bg-amber-500/20 border border-amber-500 text-amber-200 px-4 py-3 rounded-lg flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-0.5">⚠</span>
+            <div>
+              <p className="font-semibold text-amber-300">DEMO DATA — backend not connected</p>
+              <p className="text-sm text-amber-200/80 mt-0.5">
+                Results below are simulated, not real. Start the backend and click &ldquo;Retry live analysis&rdquo; to run a real analysis.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input Form */}
       <div className="max-w-3xl mx-auto mb-10">
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
@@ -226,7 +245,7 @@ export default function Home() {
             disabled={isAnalyzing || !url}
             className="w-full py-3 px-6 glow-button text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isAnalyzing ? '🔍 Analyzing...' : '🚀 Start Discovery'}
+            {isAnalyzing ? '🔍 Analyzing...' : isDemoData ? '🔄 Retry live analysis' : '🚀 Start Discovery'}
           </button>
         </form>
       </div>
@@ -256,6 +275,13 @@ export default function Home() {
       {/* Results */}
       {result && (
         <div className="max-w-7xl mx-auto">
+          {/* Inline demo-mode banner — shown directly above stats when results are simulated */}
+          {isDemoData && (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/40 text-amber-200/90 px-4 py-2.5 rounded-lg text-sm text-center">
+              Showing simulated data. Connect the backend and click &ldquo;Retry live analysis&rdquo; for real results.
+            </div>
+          )}
+
           {/* Stats Bar */}
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             <div className="glass-card px-6 py-3 text-center">
@@ -282,11 +308,10 @@ export default function Home() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg transition-all ${
-                  activeTab === tab.id
-                    ? 'tab-active text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-dark-700'
-                }`}
+                className={`px-4 py-2 rounded-lg transition-all ${activeTab === tab.id
+                  ? 'tab-active text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-dark-700'
+                  }`}
               >
                 {tab.icon} {tab.label}
               </button>
