@@ -11,6 +11,7 @@ import { z } from "zod";
 import { getAgentAPIConfig } from "../config/ServiceConfigManager.js";
 import { createAgentFactory } from "../lib/agent-fabric/AgentFactory.js";
 import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js";
+import { MissingTenantContextError } from "../lib/errors.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js";
@@ -26,16 +27,24 @@ const _agentResponseCache = new Map<
 >();
 const AGENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+/**
+ * Build a cache key that is strictly scoped to a tenant.
+ * Throws MissingTenantContextError when no tenant identifier is present —
+ * falling back to a shared key would allow cross-tenant cache hits.
+ */
 function _agentCacheKey(
   query: string,
   context: Record<string, unknown>
 ): string {
+  const tenantId = context["tenantId"] || context["organization_id"];
+  if (!tenantId) {
+    throw new MissingTenantContextError("agent cache");
+  }
   const { sessionId: _s, timestamp: _t, ...normalized } = context;
   const str = query + JSON.stringify(normalized);
   // Use SHA-256 for strong collision resistance
   const hash = createHash('sha256').update(str).digest('hex').slice(0, 16);
-  const tenantId = context["tenantId"] || context["organization_id"] || "unknown";
-  return `${String(context["agentType"] ?? "unknown")}:${tenantId}:${hash}`;
+  return `${String(context["agentType"] ?? "unknown")}:${String(tenantId)}:${hash}`;
 }
 
 const agentCache = {
@@ -43,6 +52,7 @@ const agentCache = {
     query: string,
     context: Record<string, unknown>
   ): Promise<unknown | null> {
+    // Throws MissingTenantContextError if tenant context is absent — callers must handle.
     const key = _agentCacheKey(query, context);
     const entry = _agentResponseCache.get(key);
     if (!entry || Date.now() > entry.expiresAt) {
@@ -56,6 +66,7 @@ const agentCache = {
     context: Record<string, unknown>,
     value: unknown
   ): Promise<void> {
+    // Throws MissingTenantContextError if tenant context is absent — callers must handle.
     const key = _agentCacheKey(query, context);
     _agentResponseCache.set(key, {
       value,
@@ -379,6 +390,19 @@ router.post(
         });
       }
     } catch (cacheError) {
+      if (cacheError instanceof MissingTenantContextError) {
+        logger.error("Agent cache rejected request: missing tenant context", {
+          agentId,
+          userId: (req as AuthenticatedRequest).user?.id,
+        });
+        return void res.status(403).json({
+          success: false,
+          error: {
+            code: "TENANT_CONTEXT_REQUIRED",
+            message: "Tenant context is required for agent cache access",
+          },
+        });
+      }
       logger.warn(
         "Cache check failed",
         cacheError instanceof Error ? cacheError : undefined
@@ -764,10 +788,16 @@ router.get(
                 result
               );
             } catch (cacheError) {
-              logger.warn(
-                "Failed to cache agent response",
-                cacheError instanceof Error ? cacheError : undefined
-              );
+              if (cacheError instanceof MissingTenantContextError) {
+                logger.error("Skipping cache set: missing tenant context in audit event payload", {
+                  jobId,
+                });
+              } else {
+                logger.warn(
+                  "Failed to cache agent response",
+                  cacheError instanceof Error ? cacheError : undefined
+                );
+              }
             }
           }
         }
@@ -906,10 +936,16 @@ router.get(
                     result
                   );
                 } catch (cacheError) {
-                  logger.warn(
-                    "Failed to cache agent response in SSE",
-                    cacheError instanceof Error ? cacheError : undefined
-                  );
+                  if (cacheError instanceof MissingTenantContextError) {
+                    logger.error("Skipping SSE cache set: missing tenant context in audit event payload", {
+                      jobId,
+                    });
+                  } else {
+                    logger.warn(
+                      "Failed to cache agent response in SSE",
+                      cacheError instanceof Error ? cacheError : undefined
+                    );
+                  }
                 }
               }
             }

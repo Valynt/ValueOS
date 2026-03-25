@@ -311,6 +311,26 @@ export class ExternalServiceError extends AppError {
 }
 
 // ============================================================================
+// Tenant Context Error
+// ============================================================================
+
+/**
+ * Thrown when an operation requires a tenant ID but none is present in context.
+ * Maps to HTTP 403. Prevents cache key collisions across tenants.
+ */
+export class MissingTenantContextError extends AppError {
+  constructor(operation = 'operation', cause?: Error) {
+    super({
+      code: ErrorCode.FORBIDDEN,
+      message: `Tenant context is required for ${operation}`,
+      isOperational: true,
+      cause,
+      details: { errorCode: 'TENANT_CONTEXT_REQUIRED' },
+    });
+  }
+}
+
+// ============================================================================
 // Governance Error
 // ============================================================================
 

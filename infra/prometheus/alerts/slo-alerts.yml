@@ -60,3 +60,36 @@ groups:
         annotations:
           summary: "MTTR SLO breach"
           description: "Average incident MTTR over 24h exceeds 15 minutes."
+
+  - name: api-slo-burn-rate
+    rules:
+      # Multi-window burn-rate alert used by the deploy.yml deployment gate.
+      #
+      # The alert name SLOBurnRateTooHigh must match the regex in deploy.yml
+      # (line ~957): test("SLOBurnRateTooHigh")
+      #
+      # Threshold: 14.4x the steady-state error rate (0.1% budget).
+      # At 14.4x burn the 30-day error budget exhausts in ~1 hour.
+      # Two windows (5m fast-burn + 1h slow-burn) reduce false positives.
+      - alert: SLOBurnRateTooHigh
+        expr: |
+          (
+            sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
+            / sum(rate(valuecanvas_http_requests_total[5m]))
+          ) > (14.4 * 0.001)
+          and
+          (
+            sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[1h]))
+            / sum(rate(valuecanvas_http_requests_total[1h]))
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          team: platform
+        annotations:
+          summary: "SLO burn rate too high"
+          description: >
+            Error-budget burn rate exceeds 14.4x on both 5m and 1h windows.
+            At this rate the 30-day availability budget exhausts in under 1 hour.
+            Current 5m error ratio: {{ $value | humanizePercentage }}.

@@ -214,8 +214,12 @@ jobs:
     if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
     env:
       DAST_TARGET_URL: ${{ vars.DAST_TARGET_URL != '' && vars.DAST_TARGET_URL || 'https://staging.valueos.app' }}
-      DAST_FAIL_ON_HIGH: "0"
-      DAST_FAIL_ON_MEDIUM: "0"
+      # Thresholds: any high-severity finding blocks the deployment.
+      # More than 5 medium-severity findings block the deployment.
+      # To suppress a confirmed false positive, add it to .zap/false-positives.json
+      # and document the rationale. Do not raise these thresholds without a security review.
+      DAST_FAIL_ON_HIGH: "1"
+      DAST_FAIL_ON_MEDIUM: "5"
     steps:
       - uses: actions/checkout@v6
 

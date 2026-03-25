@@ -32,6 +32,8 @@ function getRedisConnection(): Redis {
 // Job types
 export interface LLMJobData {
   type: 'canvas_generation' | 'canvas_refinement' | 'custom_prompt';
+  /** Required. Scopes the job to a tenant for DLQ traceability and replay. */
+  tenant_id: string;
   userId: string;
   sessionId?: string;
   promptKey?: string;
@@ -132,7 +134,9 @@ export class LLMQueueService {
   }
 
   /**
-   * Add job to queue
+   * Add job to queue.
+   * Requires tenant_id so that failed jobs in the DLQ can be traced and
+   * replayed by tenant without manual Redis inspection.
    */
   async addJob(
     data: LLMJobData,
@@ -142,6 +146,10 @@ export class LLMQueueService {
       jobId?: string;
     }
   ): Promise<Job<LLMJobData, LLMJobResult>> {
+    if (!data.tenant_id || typeof data.tenant_id !== 'string' || data.tenant_id.trim() === '') {
+      throw new Error('LLMQueueService.addJob: tenant_id is required and must be a non-empty string');
+    }
+
     const job = await this.queue.add('llm-request', data, {
       priority: options?.priority,
       delay: options?.delay,
@@ -152,6 +160,7 @@ export class LLMQueueService {
       jobId: job.id,
       type: data.type,
       userId: data.userId,
+      tenant_id: data.tenant_id,
     });
 
     return job;
@@ -170,6 +179,7 @@ export class LLMQueueService {
       jobId: job.id,
       type: data.type,
       userId: data.userId,
+      tenant_id: data.tenant_id,
       attempt: job.attemptsMade + 1,
     });
 
@@ -226,6 +236,7 @@ export class LLMQueueService {
         jobId: job.id,
         type: data.type,
         userId: data.userId,
+        tenant_id: data.tenant_id,
         duration,
         cost: response.cost,
         cached: response.cached,
@@ -239,6 +250,7 @@ export class LLMQueueService {
         jobId: job.id,
         type: data.type,
         userId: data.userId,
+        tenant_id: data.tenant_id,
         duration,
         error: error instanceof Error ? error.message : 'Unknown error',
         attempt: job.attemptsMade + 1,
@@ -249,7 +261,8 @@ export class LLMQueueService {
   }
 
   /**
-   * Store result in database
+   * Store result in database.
+   * tenant_id is persisted so results can be queried and audited per tenant.
    */
   private async storeResult(
     jobId: string,
@@ -258,6 +271,7 @@ export class LLMQueueService {
   ): Promise<void> {
     const { error } = await this.supabase.from('llm_job_results').insert({
       job_id: jobId,
+      tenant_id: data.tenant_id,
       user_id: data.userId,
       type: data.type,
       content: result.content,
@@ -273,7 +287,10 @@ export class LLMQueueService {
     });
 
     if (error) {
-      logger.error('Failed to store LLM job result', error);
+      logger.error('Failed to store LLM job result', error, {
+        jobId,
+        tenant_id: data.tenant_id,
+      });
     }
   }
 
@@ -384,6 +401,7 @@ export class LLMQueueService {
     this.worker.on('completed', (job) => {
       logger.info('Job completed', {
         jobId: job.id,
+        tenant_id: job.data?.tenant_id,
         duration: Date.now() - job.processedOn!,
       });
     });
@@ -391,6 +409,7 @@ export class LLMQueueService {
     this.worker.on('failed', (job, error) => {
       logger.error('Job failed', {
         jobId: job?.id,
+        tenant_id: job?.data?.tenant_id,
         error: error.message,
         attempts: job?.attemptsMade,
       });
