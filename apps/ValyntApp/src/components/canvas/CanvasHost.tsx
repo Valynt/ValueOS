@@ -4,8 +4,8 @@
  * Implements the DynamicRenderer pattern for server-driven UI
  */
 
-import { Building2 } from "lucide-react";
-import React, { ComponentType, Suspense } from "react";
+import { AlertTriangle, Building2, RefreshCw } from "lucide-react";
+import React, { Component, ComponentType, ErrorInfo, ReactNode, Suspense } from "react";
 
 // Widget type registry - maps component_type to lazy-loaded components
 const widgetRegistry: Record<string, ComponentType<WidgetProps>> = {};
@@ -13,7 +13,7 @@ const widgetRegistry: Record<string, ComponentType<WidgetProps>> = {};
 export interface WidgetProps {
   id: string;
   data?: Record<string, unknown>;
-  onAction?: (action: string, payload?: unknown) => void;
+  onAction?: (action: string, payload?: unknown) => Promise<void> | void;
 }
 
 export interface SDUIWidget {
@@ -77,6 +77,69 @@ registerWidget("checkpoint-timeline", CheckpointTimeline as unknown as Component
 registerWidget("usage-meter", UsageMeter as unknown as ComponentType<WidgetProps>);
 registerWidget("plan-comparison", PlanComparison as unknown as ComponentType<WidgetProps>);
 
+// Per-widget error fallback — compact, does not crash sibling widgets
+interface WidgetErrorFallbackProps {
+  widgetId: string;
+  onRetry: () => void;
+}
+
+function WidgetErrorFallback({ widgetId, onRetry }: WidgetErrorFallbackProps) {
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-destructive">Widget failed to render</p>
+          <p className="text-xs text-muted-foreground font-mono">{widgetId}</p>
+        </div>
+      </div>
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <RefreshCw className="w-3 h-3" />
+        Retry
+      </button>
+    </div>
+  );
+}
+
+interface WidgetErrorBoundaryProps {
+  widgetId: string;
+  children: ReactNode;
+}
+
+interface WidgetErrorBoundaryState {
+  hasError: boolean;
+  retryKey: number;
+}
+
+class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErrorBoundaryState> {
+  constructor(props: WidgetErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, retryKey: 0 };
+  }
+
+  static getDerivedStateFromError(): Partial<WidgetErrorBoundaryState> {
+    return { hasError: true };
+  }
+
+  override componentDidCatch(error: Error, _info: ErrorInfo) {
+    console.error(`CanvasHost: widget "${this.props.widgetId}" threw:`, error.message);
+  }
+
+  handleRetry = () => {
+    this.setState((prev) => ({ hasError: false, retryKey: prev.retryKey + 1 }));
+  };
+
+  override render() {
+    if (this.state.hasError) {
+      return <WidgetErrorFallback widgetId={this.props.widgetId} onRetry={this.handleRetry} />;
+    }
+    return <React.Fragment key={this.state.retryKey}>{this.props.children}</React.Fragment>;
+  }
+}
+
 // Widget loading fallback
 function WidgetSkeleton() {
   return (
@@ -138,13 +201,15 @@ export function CanvasHost({
     };
 
     return (
-      <Suspense key={widget.id} fallback={<WidgetSkeleton />}>
-        <Widget
-          id={widget.id}
-          data={widget.props}
-          onAction={handleAction}
-        />
-      </Suspense>
+      <WidgetErrorBoundary key={widget.id} widgetId={widget.id}>
+        <Suspense fallback={<WidgetSkeleton />}>
+          <Widget
+            id={widget.id}
+            data={widget.props}
+            onAction={handleAction}
+          />
+        </Suspense>
+      </WidgetErrorBoundary>
     );
   };
 

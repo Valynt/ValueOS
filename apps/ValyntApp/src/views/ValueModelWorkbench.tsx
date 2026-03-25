@@ -21,10 +21,12 @@ import {
   useScenarios,
   useSensitivity,
 } from "@/hooks/useValueModeling";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function ValueModelWorkbench() {
   const { caseId } = useParams<{ caseId: string }>();
   const [activeTab, setActiveTab] = useState("hypotheses");
+  const { t } = useI18n();
 
   const { data: hypotheses, isLoading: hypothesesLoading, error: hypothesesError } = useHypotheses(caseId);
   const { data: assumptions, isLoading: assumptionsLoading, error: assumptionsError } = useAssumptions(caseId);
@@ -61,8 +63,8 @@ export function ValueModelWorkbench() {
     return (
       <Alert variant="destructive" className="m-6">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Failed to load value model</AlertTitle>
-        <AlertDescription>{error?.message || "Unknown error occurred"}</AlertDescription>
+        <AlertTitle>{t("valueModel.title")} — {t("errors.loadFailed")}</AlertTitle>
+        <AlertDescription>{error?.message || t("errors.generic")}</AlertDescription>
       </Alert>
     );
   }
@@ -94,19 +96,19 @@ export function ValueModelWorkbench() {
   return (
     <div className="h-full flex flex-col">
       <div className="px-6 py-4 border-b bg-card">
-        <h1 className="text-xl font-semibold">Value Model Workbench</h1>
+        <h1 className="text-xl font-semibold">{t("valueModel.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Build and refine the economic case for this opportunity
+          {t("canvas.summary")}
         </p>
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
-            <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
-            <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
-            <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
+            <TabsTrigger value="hypotheses">{t("valueModel.hypotheses")}</TabsTrigger>
+            <TabsTrigger value="assumptions">{t("valueModel.assumptions")}</TabsTrigger>
+            <TabsTrigger value="scenarios">{t("valueModel.scenarios")}</TabsTrigger>
+            <TabsTrigger value="sensitivity">{t("valueModel.sensitivity")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hypotheses" className="mt-6">

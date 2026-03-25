@@ -13,10 +13,12 @@ import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDealContext, useSubmitGapFill, useTriggerAssembly } from "@/hooks/useDealAssembly";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function DealAssemblyWorkspace() {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const { data: dealContext, isLoading, error } = useDealContext(caseId);
   const submitGapFill = useSubmitGapFill(caseId);
@@ -54,8 +56,8 @@ export function DealAssemblyWorkspace() {
     return (
       <Alert variant="destructive" className="m-6">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Failed to load deal context</AlertTitle>
-        <AlertDescription>{error?.message || "Unknown error occurred"}</AlertDescription>
+        <AlertTitle>{t("dealAssembly.title")} — {t("errors.loadFailed")}</AlertTitle>
+        <AlertDescription>{error?.message || t("errors.generic")}</AlertDescription>
       </Alert>
     );
   }
@@ -107,7 +109,7 @@ export function DealAssemblyWorkspace() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${triggerAssembly.isPending ? "animate-spin" : ""}`} />
-            Re-assemble
+            {t("canvas.refresh")}
           </button>
 
           <button
@@ -127,7 +129,7 @@ export function DealAssemblyWorkspace() {
           {/* Progress indicator */}
           <div className="mb-6">
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-muted-foreground">Assembly Progress</span>
+              <span className="text-muted-foreground">{t("dealAssembly.title")}</span>
               <span className="font-medium">
                 {Math.round((resolvedCount / Math.max(dealContext.gaps.length, 1)) * 100)}%
               </span>

@@ -9,6 +9,7 @@ import { ConfidenceBadge } from "@valueos/components/components/ConfidenceBadge"
 import { Check, Edit3, TrendingUp, X } from "lucide-react";
 import React from "react";
 
+import { useToast } from "@/components/common/Toast";
 import { WidgetProps } from "../CanvasHost";
 
 export interface HypothesisData {
@@ -28,6 +29,21 @@ export interface HypothesisCardWidgetData {
 export function HypothesisCard({ data, onAction }: WidgetProps) {
   const widgetData = data as unknown as HypothesisCardWidgetData;
   const hypotheses = widgetData.hypotheses ?? [];
+  const { showToast } = useToast();
+
+  const handleAction = async (action: string, payload: { hypothesisId: string }, label: string) => {
+    try {
+      await onAction?.(action, payload);
+      const messages: Record<string, string> = {
+        accept: `Hypothesis accepted: ${label}`,
+        reject: `Hypothesis rejected: ${label}`,
+        edit: `Editing hypothesis: ${label}`,
+      };
+      showToast(messages[action] ?? "Action applied.", "success");
+    } catch {
+      showToast("Failed to apply action. Please try again.", "error");
+    }
+  };
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
@@ -60,7 +76,16 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
       {hypotheses.map((hypothesis) => (
         <div
           key={hypothesis.id}
-          className="rounded-xl border bg-card p-5 transition-all hover:shadow-sm"
+          tabIndex={0}
+          role="article"
+          aria-label={`Hypothesis: ${hypothesis.valueDriver}, status: ${hypothesis.status}`}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === " ") && hypothesis.status === "pending") {
+              e.preventDefault();
+              void handleAction("accept", { hypothesisId: hypothesis.id }, hypothesis.valueDriver);
+            }
+          }}
+          className="rounded-xl border bg-card p-5 transition-all hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -106,24 +131,27 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
           {hypothesis.status === "pending" && (
             <div className="flex gap-2">
               <button
-                onClick={() => onAction?.("accept", { hypothesisId: hypothesis.id })}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                onClick={() => void handleAction("accept", { hypothesisId: hypothesis.id }, hypothesis.valueDriver)}
+                aria-label={`Accept hypothesis: ${hypothesis.valueDriver}`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-4 h-4" aria-hidden="true" />
                 Accept
               </button>
               <button
-                onClick={() => onAction?.("edit", { hypothesisId: hypothesis.id })}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                onClick={() => void handleAction("edit", { hypothesisId: hypothesis.id }, hypothesis.valueDriver)}
+                aria-label={`Edit hypothesis: ${hypothesis.valueDriver}`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Edit3 className="w-4 h-4" />
+                <Edit3 className="w-4 h-4" aria-hidden="true" />
                 Edit
               </button>
               <button
-                onClick={() => onAction?.("reject", { hypothesisId: hypothesis.id })}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                onClick={() => void handleAction("reject", { hypothesisId: hypothesis.id }, hypothesis.valueDriver)}
+                aria-label={`Reject hypothesis: ${hypothesis.valueDriver}`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
                 Reject
               </button>
             </div>

@@ -11,6 +11,7 @@ import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
+import { NotificationProvider } from "./components/shell";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";
@@ -164,6 +165,7 @@ export function AppRoutes() {
                   <ToastProvider>
                     <SDUIStateProvider _supabase={supabase}>
                       <SDUIHumanCheckpointProvider>
+                        <NotificationProvider>
                         <CommandPaletteProvider>
                           <Suspense fallback={<LoadingSpinner />}>
                             <Routes>
@@ -257,6 +259,7 @@ export function AppRoutes() {
                             </Routes>
                           </Suspense>
                         </CommandPaletteProvider>
+                        </NotificationProvider>
                       </SDUIHumanCheckpointProvider>
                     </SDUIStateProvider>
                     <Suspense fallback={null}>

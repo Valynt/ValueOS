@@ -1,199 +1,292 @@
-# Spec: Sprint 49 — Test Stabilization + Value Graph Agent Integration + API
+# ValueOS Frontend: Enterprise B2B SaaS Readiness
+
+**Scope:** `apps/ValyntApp` · `packages/components`  
+**Tracks:** Design System & Theming · Component Polish & a11y · State & Error Handling · Production Readiness & Testing
+
+---
 
 ## Problem Statement
 
-Three distinct gaps block Sprint 49 delivery:
-
-1. **~120 backend test files crash at module-init time** because their `vi.mock` for the logger omits `createLogger`. Source files call `createLogger({ component: '...' })` at the top level; when a transitive import hits a mock that doesn't export `createLogger`, Vitest throws before any test runs. This is a pre-existing infrastructure gap that must be resolved before Sprint 49 agent tests can be written.
-
-2. **Five agents have no Value Graph integration.** `NarrativeAgent`, `TargetAgent`, `RealizationAgent`, `ExpansionAgent`, and `ComplianceAuditorAgent` do not read from or write to `ValueGraphService`. Sprint 48 identified two classes of silent failure in the first two agents: (a) wrong context key used to extract `opportunity_id`, causing writes to the wrong entity; (b) non-UUID string fallbacks hitting UUID Postgres columns and crashing writes silently. A shared `BaseGraphWriter` utility must enforce these invariants so the five new agents cannot repeat the same bugs.
-
-3. **The 7 Value Graph API endpoints do not exist.** Sprint 49 requires a new router at `/api/v1/graph/:opportunityId/` with authentication, tenant context, and an explicit opportunity-ownership check before any handler executes.
+The ValyntApp frontend has functional core workflows (SDUI, agentic canvas, lifecycle stages) but the presentation layer has gaps that undermine trust with enterprise buyers: `ThemeProvider` is not wired into the app tree so dark mode never activates; `SettingsPage.tsx` renders hardcoded mock data; the `CommandPaletteProvider` is a stub that only logs; canvas widgets lack keyboard navigation; i18n coverage is limited to auth views; `CanvasHost` has no error isolation; and Storybook/E2E coverage does not extend to V1 surfaces.
 
 ---
 
-## Requirements
+## Track 1: Design System & Theming
 
-### 1. Global Logger Mock in `packages/backend/src/test/setup.ts`
+### 1.1 Wire ThemeProvider into the app tree
 
-**Behaviour:** Add a global `vi.mock` for both logger module paths that provides `createLogger` as a `vi.fn()` returning a full mock logger object. The mock must be **overridable** — per-test `vi.mock` calls in individual files continue to take precedence, preserving existing high-fidelity assertions (e.g. `GuestAccessService.test.ts`).
+**Current state:** `ThemeProvider` exists at `src/app/providers/ThemeProvider.tsx` and correctly toggles `.dark` on `<html>`. However it is not included in `AppProviders.tsx` or `AppRoutes.tsx`, so the `.dark` class is never applied and dark mode is non-functional.
 
-**Paths to mock globally:**
-- `../../lib/logger` (and `.js` variant) — the backend's own structured logger
-- `@shared/lib/logger` — the shared package logger
+**Tasks:**
+- Add `ThemeProvider` as the outermost wrapper in `AppProviders.tsx` (wrapping `TrpcProvider`).
+- Verify `valueos-theme.css` `.dark {}` block already has full semantic token overrides — it does; no CSS changes needed.
 
-**Mock shape** (must match both loggers' exported surface):
+**Acceptance criteria:**
+- Toggling theme via `useTheme().setTheme("dark")` applies `.dark` to `<html>` and all semantic tokens (`--background`, `--foreground`, `--card`, etc.) resolve to dark values.
+- `UserAppearance.tsx` theme toggle is functional end-to-end.
 
-```typescript
-{
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-  createLogger: vi.fn(() => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  })),
-  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-}
-```
+### 1.2 Audit and replace hardcoded color values
 
-**Reset:** `vi.clearAllMocks()` already runs in `afterEach` — no additional reset needed.
+**Current state:** `SettingsPage.tsx` and several other views use raw Tailwind zinc/gray/emerald classes (`bg-zinc-50`, `text-zinc-400`, `border-zinc-200`) instead of semantic tokens. Grep count: 816 occurrences across `src/views/`.
 
-**Constraint:** Do not remove or modify any existing per-test `vi.mock` calls. The global mock is a safety net, not a replacement.
+**Tasks:**
+- In `SettingsPage.tsx`: replace all `bg-zinc-*`, `text-zinc-*`, `border-zinc-*` with semantic equivalents (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`).
+- Apply the same replacement to the highest-traffic views: `Dashboard.tsx`, `Opportunities.tsx`, `IntegrityDashboard.tsx`, `DealAssemblyWorkspace.tsx`, `ValueModelWorkbench.tsx`.
+- Do not touch test files or Storybook stories during this pass.
 
----
+**Acceptance criteria:**
+- No `bg-zinc-*` / `text-zinc-*` / `border-zinc-*` remain in the targeted files.
+- Visual appearance is unchanged in light mode; dark mode renders correctly.
 
-### 2. `BaseGraphWriter` Utility
+### 1.3 Refactor SettingsPage.tsx — remove mock data, connect to real hooks
 
-**Location:** `packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts`
+**Current state:** `SettingsPage.tsx` is the active `/settings` route. It contains hardcoded data: `defaultValue="Acme Corp"`, a static `users` array (Sarah Chen, James Park, etc.), static API key fixtures, and static billing figures. The modular `SettingsView` / `SettingsLayout` system exists but is not routed.
 
-**Purpose:** A class that agents compose to write nodes and edges to the Value Graph. It enforces three invariants that prevented silent failures in Sprint 48.
+**Decision:** Refactor `SettingsPage.tsx` in-place (do not change the route).
 
-#### 2a. Canonical Context Extraction
+**Tasks:**
+- `OrgTab`: replace `defaultValue="Acme Corp"` with data from `useTenant()` (`currentTenant.name`, `currentTenant.slug`). Wire the Save button to `PATCH /api/v1/tenant` via `apiClient`.
+- `UsersTab`: replace the static `users` array with a `useOrganizationUsers()` hook call (or `apiClient.get("/api/v1/tenant/users")`). Show a skeleton while loading; show `EmptyState` when the list is empty.
+- `ApiKeysTab`: replace static `keys` array with `apiClient.get("/api/v1/tenant/api-keys")`. Wire Create/Delete actions to the corresponding endpoints.
+- `BillingTab`: replace static plan/usage data with `apiClient.get("/api/v1/billing/summary")`.
+- `SecurityTab`: wire MFA toggle and session timeout to `apiClient.patch("/api/v1/tenant/security")`.
+- Replace all hardcoded zinc classes in this file (covered by task 1.2).
+- Add `useToast()` calls for all mutation success/failure paths.
 
-Expose a `protected getSafeContext(context: LifecycleContext): { opportunityId: string; organizationId: string }` method.
-
-- Extract `opportunity_id` from `context.user_inputs` or `context.metadata`. If missing or not a valid UUID v4, throw `LifecycleContextError` with a descriptive message — never fall back to `workspace_id` or any other key.
-- Extract `organization_id` from `context.organization_id`. If missing or not a valid UUID v4, throw.
-
-#### 2b. Safe UUID Generation
-
-Expose a `protected generateNodeId(deterministicInput?: string): string` helper.
-
-- If `deterministicInput` is provided and is already a valid UUID v4, return it as-is.
-- Otherwise, call `crypto.randomUUID()` — never pass a raw string fallback to a UUID column.
-
-#### 2c. Atomic Write Isolation
-
-Expose a `protected async safeWriteBatch(writes: Array<() => Promise<unknown>>): Promise<{ succeeded: number; failed: number; errors: Error[] }>` method.
-
-- Uses `Promise.allSettled` internally so one failed write does not abort the remaining writes.
-- Logs each failure with `logger.error` including the write index and error message.
-- Returns a summary object; callers decide whether to surface partial failure to the agent output.
-
-#### 2d. Convenience write methods
-
-Thin wrappers over `ValueGraphService` that call `getSafeContext` before delegating:
-
-- `writeCapability(context, input: Omit<WriteCapabilityInput, 'opportunity_id' | 'organization_id'>): Promise<VgCapability>`
-- `writeMetric(context, input: Omit<WriteMetricInput, 'opportunity_id' | 'organization_id'>): Promise<VgMetric>`
-- `writeValueDriver(context, input: Omit<WriteValueDriverInput, 'opportunity_id' | 'organization_id'>): Promise<VgValueDriver>`
-- `writeEdge(context, input: Omit<WriteEdgeInput, 'opportunity_id' | 'organization_id'>): Promise<ValueGraphEdge>`
-
-**Dependencies:** `ValueGraphService` injected via constructor for testability; defaults to the singleton `valueGraphService`.
-
-**Error type:** Export `LifecycleContextError extends Error` from the same file.
+**Acceptance criteria:**
+- No hardcoded user names, email addresses, plan names, or usage figures remain in `SettingsPage.tsx`.
+- All tabs show skeleton loaders while fetching and `EmptyState` when data is absent.
+- Save/Create/Delete actions show toast feedback.
 
 ---
 
-### 3. Five Agent Integrations (Sprint 49 KR 1)
+## Track 2: Component Polish & Accessibility
 
-Wire each of the five agents to the Value Graph using `BaseGraphWriter`. Each agent:
+### 2.1 Implement CommandPalette (⌘K)
 
-- Composes `BaseGraphWriter` (not extends — agents already extend `BaseAgent`).
-- Calls `getSafeContext(context)` at the start of its graph-write phase.
-- Uses `safeWriteBatch` for all node/edge writes.
-- Has a unit test asserting expected node types and edge types are written after a successful run (mock `ValueGraphService`).
+**Current state:** `CommandPaletteProvider` is a stub that calls `logger.debug`. `CommandBar.tsx` is a fully implemented AI query modal (keyboard nav, suggestions, submit). `TopBar.tsx` has a ⌘K button that calls `onCommandBarOpen` prop but the prop is never wired to the stub provider.
 
-**Per-agent graph writes:**
+**Decision:** Full navigation + AI palette — app navigation shortcuts plus AI query.
 
-| Agent | Writes |
-|---|---|
-| `NarrativeAgent` | `VgValueDriver` nodes; `metric_maps_to_value_driver` edges |
-| `TargetAgent` | `VgMetric` nodes (KPI targets); `capability_impacts_metric` edges |
-| `RealizationAgent` | `VgMetric` nodes (actuals vs targets); `metric_maps_to_value_driver` edges |
-| `ExpansionAgent` | `VgCapability` nodes; `use_case_enabled_by_capability` edges |
-| `ComplianceAuditorAgent` | `VgValueDriver` nodes (compliance risk drivers); `hypothesis_claims_metric` edges |
+**Tasks:**
+- Extend `CommandPaletteProvider` with `open: boolean` state and a global `keydown` listener for `⌘K` / `Ctrl+K`.
+- Add navigation commands to the palette: Dashboard, Opportunities, Models, Agents, Integrations, Settings — each with a keyboard shortcut label and `useNavigate()` action.
+- Wire `CommandBar.tsx` as the UI layer: open it when `open === true`, pass `onClose` and `onSubmit` (AI query handler).
+- In `TopBar.tsx`, replace the `onCommandBarOpen` prop call with `useCommandPalette().openCommandPalette()`.
+- Ensure the modal traps focus (already implemented in `CommandBar.tsx` — verify it works with the new provider wiring).
+
+**Acceptance criteria:**
+- `⌘K` / `Ctrl+K` opens the palette from anywhere in the authenticated app.
+- Navigation items are listed and keyboard-selectable (arrow keys + Enter).
+- Submitting a query string calls the AI handler.
+- `Escape` closes the palette and returns focus to the previously focused element.
+
+### 2.2 Promote NotificationCenter from wireframe to production
+
+**Current state:** `NotificationCenter.tsx` lives in `src/components/wireframes/` and is a complete, well-structured component (AnimatePresence, category filters, mark-as-read, live pulse). It uses internal mock data.
+
+**Tasks:**
+- Move `NotificationCenter.tsx` to `src/components/shell/NotificationCenter.tsx`.
+- Replace internal mock `notifications` array with a `useNotifications()` hook that fetches from `GET /api/v1/notifications` (or subscribes to Supabase Realtime channel `notifications:user_id`).
+- Add a bell icon button to `TopBar.tsx` that toggles the panel open/closed.
+- Wire "mark as read" actions to `PATCH /api/v1/notifications/:id/read`.
+- Add `aria-label="Notifications"` to the trigger button; ensure the panel has `role="dialog"` and `aria-modal="true"`.
+
+**Acceptance criteria:**
+- Notification bell appears in `TopBar`.
+- Panel opens/closes with correct focus management (focus moves into panel on open, returns to trigger on close).
+- Unread count badge updates when notifications arrive.
+- Mark-as-read persists via API.
+
+### 2.3 Accessibility remediation on canvas widgets
+
+**Current state:** `StakeholderMap.tsx` and `GapResolution.tsx` have partial keyboard support. `HypothesisCard.tsx`, `ScenarioComparison.tsx`, and `InlineEditor.tsx` have no `tabIndex`, `onKeyDown`, or `aria-label` attributes on their interactive elements.
+
+**Tasks:**
+- `HypothesisCard.tsx`: add `tabIndex={0}` and `onKeyDown` (Enter/Space → trigger primary action) to each hypothesis card container. Add `aria-label` to Accept/Edit/Reject buttons (icon-only buttons need labels).
+- `ScenarioComparison.tsx`: add keyboard navigation between scenario columns; add `role="group"` and `aria-label` to each scenario column.
+- `InlineEditor.tsx`: ensure the edit trigger is keyboard-accessible; add `aria-label="Edit [field name]"` to the edit icon button.
+- `ReadinessGauge.tsx`: add `role="meter"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-label` to the gauge element.
+- `ProvenancePanel.tsx` (in `packages/components/components/`): verify focus trap on open; add `aria-label` to close button.
+
+**Acceptance criteria:**
+- All interactive canvas widgets are fully keyboard-navigable (Tab to reach, Enter/Space to activate).
+- All icon-only buttons have `aria-label`.
+- `ReadinessGauge` exposes meter semantics to screen readers.
+- No axe-core violations on the targeted widgets.
+
+### 2.4 Responsive design for data-heavy views
+
+**Current state:** `ValueModelWorkbench.tsx` and `AssumptionRegister.tsx` use desktop-first fixed layouts with no responsive breakpoints.
+
+**Tasks:**
+- `AssumptionRegister.tsx`: wrap the table in `overflow-x-auto` on mobile; add `sm:` breakpoints to column widths so the table scrolls horizontally rather than overflowing.
+- `ValueModelWorkbench.tsx`: audit the two-panel layout; add `flex-col` on `sm:` and `flex-row` on `lg:` so panels stack vertically on tablet.
+- Review `DealAssemblyWorkspace.tsx` and `IntegrityDashboard.tsx` for similar issues.
+
+**Acceptance criteria:**
+- No horizontal overflow on viewports >= 375px wide.
+- Data tables scroll horizontally on small screens rather than clipping.
 
 ---
 
-### 4. Value Graph API Router (Sprint 49 KR 2)
+## Track 3: State, Data Fetching & Error Handling
 
-**File:** `packages/backend/src/api/valueGraph.ts`
+### 3.1 Standardize EmptyState across list views
 
-**Mount point:** `/api/v1/graph` in `server.ts`
+**Current state:** `EmptyState` component exists at `src/components/common/EmptyState.tsx` and is used in `Dashboard.tsx` and `IntegrityStage.tsx`. `Opportunities.tsx` and `IntegrityDashboard.tsx` do not use it.
 
-**Middleware chain on all routes:**
+**Tasks:**
+- Audit `Opportunities.tsx`, `IntegrityDashboard.tsx`, and `RealizationTracker.tsx` for missing empty states.
+- Add `<EmptyState>` renders when the respective React Query hooks return empty arrays.
+- Ensure all list views handle `isLoading` (skeleton) and `isError` (Alert) states — not just empty.
 
-```
-requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware() → validateOpportunityAccess
-```
+**Acceptance criteria:**
+- No list view renders a blank screen when data is absent, loading, or errored.
+- `EmptyState` is used consistently across Dashboard, Opportunities, IntegrityDashboard, RealizationTracker.
 
-#### 4a. `validateOpportunityAccess` middleware
+### 3.2 Wrap CanvasHost and complex widgets in ErrorBoundary
 
-**File:** `packages/backend/src/middleware/validateOpportunityAccess.ts`
+**Current state:** `CanvasHost.tsx` uses `React.lazy` + `Suspense` for widget loading but has no `ErrorBoundary`. A single widget render error crashes the entire canvas. `ErrorBoundary` component exists at `src/components/ErrorBoundary.tsx` (also at `src/components/common/ErrorBoundary.tsx`).
 
-- Reads `req.params.opportunityId`.
-- Queries `value_cases` for `{ organization_id }` where `id = opportunityId`, using `req.supabase` (tenant-scoped client set by `tenantDbContextMiddleware`).
-- Returns `403 { error: "Access to this Value Graph is denied." }` if not found or `organization_id !== req.tenantId`.
-- On success, attaches `req.opportunityId = opportunityId`.
-- Add `opportunityId: string` to `packages/backend/src/types/express.d.ts`.
+**Tasks:**
+- In `CanvasHost.tsx`: wrap each widget render in an `ErrorBoundary` with a compact fallback (not full-screen) that shows the widget ID and a retry button.
+- Add a top-level `ErrorBoundary` around the entire `CanvasHost` as a second safety net.
+- Verify `DealAssemblyWorkspace`, `ValueModelWorkbench`, `IntegrityDashboard`, and `ExecutiveOutputStudio` each have an `ErrorBoundary` at the page level (currently only `AppRoutes` has one at the root).
 
-#### 4b. The 7 endpoints
+**Acceptance criteria:**
+- A widget that throws during render shows an inline error fallback without crashing sibling widgets.
+- The page-level error boundary catches errors outside the canvas.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/graph/:opportunityId/summary` | Node/edge counts by type from `getGraphForOpportunity` |
-| `GET` | `/api/v1/graph/:opportunityId/nodes` | Paginated nodes; `?entity_type=` filter supported |
-| `GET` | `/api/v1/graph/:opportunityId/export` | Full graph JSON (nodes + edges) |
-| `GET` | `/api/v1/graph/:opportunityId/paths` | Value paths from `getValuePaths()` |
-| `POST` | `/api/v1/graph/:opportunityId/edges` | Manually create an edge; Zod-validated body |
-| `PATCH` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Update node metadata; Zod-validated body |
-| `DELETE` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Remove node; writes audit log entry via `AuditLogger` |
+### 3.3 Standardize toast notifications for mutations
 
-All responses include `organization_id` and `opportunity_id`.
+**Current state:** `useToast` hook and `ToastProvider` exist. Only `ValueCaseCanvas.tsx` uses toasts for mutations. Hypothesis accept/reject, inline edits, and settings saves have no feedback.
 
-**OpenAPI:** Update `packages/backend/openapi.yaml` with all 7 paths.
+**Tasks:**
+- Add `useToast()` calls to: `HypothesisCard` accept/edit/reject actions, `InlineEditor` save action, `SettingsPage` all tab save/create/delete actions (covered in 1.3), `TenantSwitcher` switch success/failure.
+- Standardize: success toasts use `variant: "success"`, error toasts use `variant: "destructive"`.
+
+**Acceptance criteria:**
+- Every mutation (create/update/delete) in the targeted components shows a toast on success and on failure.
+- No silent failures.
+
+### 3.4 i18n: extract all user-facing strings
+
+**Current state:** `I18nProvider` and `useI18n()` hook exist. `en/common.json` has 20 keys covering only auth strings. V1 surface views (`DealAssemblyWorkspace`, `ValueModelWorkbench`, `IntegrityDashboard`, `ExecutiveOutputStudio`, `RealizationTracker`) have zero `t()` calls.
+
+**Decision:** Extract strings from all user-facing views under `src/views/` and `src/components/`.
+
+**Tasks:**
+- Expand `en/common.json` with keys for: navigation labels, settings section titles, canvas widget labels (hypothesis, assumption, scenario, evidence), action button labels (Accept, Reject, Edit, Save, Cancel), status labels (loading, error, empty states), toast messages.
+- Replace hardcoded strings in all V1 surface views with `t("key")` calls using `useI18n()`.
+- Replace hardcoded strings in `SettingsPage.tsx` tab labels, field labels, and button text.
+- Replace hardcoded strings in `TopBar.tsx`, `Sidebar.tsx`, `CommandBar.tsx`.
+- Mirror all new keys to `es/common.json` with placeholder translations (same English value prefixed with `[ES]` to make untranslated strings visible).
+
+**Acceptance criteria:**
+- `en/common.json` covers all user-visible strings in targeted files.
+- No hardcoded English UI strings remain in V1 surface views or shell components.
+- Switching locale to `es` shows `[ES]` prefixed strings, confirming the pipeline works.
 
 ---
 
-## Acceptance Criteria
+## Track 4: Production Readiness & Testing
 
-### Item 1 — Global Logger Mock
-- `pnpm --filter backend test` produces zero `[vitest] No "createLogger" export is defined` errors.
-- `GuestAccessService.test.ts` and other tests with custom `vi.hoisted` logger spies continue to pass with their spy assertions intact.
-- Net failing test count in `@valueos/backend` is materially reduced from ~284.
+### 4.1 Remove remaining mock data and stubs
 
-### Item 2 — `BaseGraphWriter`
-- `LifecycleContextError` is thrown (not swallowed) when `opportunity_id` is missing or not a UUID.
-- `generateNodeId` never returns a non-UUID string.
-- `safeWriteBatch` with one failing write commits the remaining writes and returns `{ succeeded: N-1, failed: 1, errors: [...] }`.
-- Unit tests for all three invariants pass.
+**Current state:** `GuestAccessPage.tsx` has a `// Mock value case data` comment block with a hardcoded `ValueCaseData` interface and inline fixture. `CommandPaletteProvider` is a stub (resolved in 2.1). `SettingsPage.tsx` mock data resolved in 1.3.
 
-### Item 3 — Five Agent Integrations
-- Each agent has a test asserting expected node and edge types are written after a successful run.
-- No agent calls `ValueGraphService` methods directly — all writes go through `BaseGraphWriter`.
-- `pnpm test` green for all five agent test files.
+**Tasks:**
+- `GuestAccessPage.tsx`: replace the hardcoded `ValueCaseData` fixture with a fetch from `GET /api/v1/guest/cases/:valueCaseId` using the guest token from the URL. Show a loading skeleton and error state.
+- Scrub remaining `// Mock`, `// Stub`, `// TODO` comments in `src/views/` and `src/pages/` — either implement or file as tracked debt in `debt.md`.
 
-### Item 4 — Value Graph API
-- All 7 endpoints return `401` when unauthenticated.
-- All 7 endpoints return `403` when `opportunityId` belongs to a different tenant.
-- Read endpoints return correct data shapes from `ValueGraphService`.
-- Write/mutate endpoints return `400` on invalid Zod input.
-- `DELETE /nodes/:nodeId` writes an audit log entry.
-- `pnpm test` green for the new router test file.
-- `openapi.yaml` updated with all 7 paths.
+**Acceptance criteria:**
+- `GuestAccessPage` fetches real case data using the guest token.
+- No `// Mock` or `// Stub` comments remain in production view files.
+
+### 4.2 Storybook stories for V1 SDUI widgets
+
+**Current state:** Storybook stories exist only for 5 design-system primitives (`Button`, `Input`, `Label`, `Tooltip`, `Dialog`) and 2 settings views (`UserAppearance`, `UserNotifications`). No stories exist for canvas widgets.
+
+**Tasks:**
+- Create `HypothesisCard.stories.tsx` with stories: `Loading`, `Empty`, `WithPendingHypotheses`, `WithAcceptedHypotheses`, `WithRejectedHypotheses`.
+- Create `ReadinessGauge.stories.tsx` with stories: `Low` (score < 40), `Medium` (40-70), `High` (> 70), `Loading`.
+- Create `ProvenancePanel.stories.tsx` with stories: `Open` (with evidence items), `Empty`, `Loading`.
+- Each story must use realistic fixture data (no lorem ipsum).
+
+**Acceptance criteria:**
+- `pnpm storybook` renders all three new story files without errors.
+- Each story covers loading, empty, and populated states.
+
+### 4.3 Playwright E2E tests for V1 critical flows
+
+**Current state:** E2E tests cover: app startup, main layout skip-link, tenant branding render. No tests cover V1 workspace flows.
+
+**Tasks:**
+- Add `e2e/deal-assembly.spec.ts`: test the Deal Assembly flow — navigate to a workspace, verify `StakeholderMap` and `GapResolution` widgets render, submit a gap fill, verify the widget updates.
+- Add `e2e/value-modeling.spec.ts`: navigate to the Value Model Workbench, verify `HypothesisCard` widgets render, accept a hypothesis, verify status badge updates.
+- Add `e2e/executive-output.spec.ts`: navigate to Executive Output Studio, verify the output generation trigger is present and clickable.
+- Tests must use the existing Playwright config (`apps/ValyntApp/playwright.config.ts`) and the `debug-login.ts` helper for authentication.
+
+**Acceptance criteria:**
+- All three new spec files pass in CI (`pnpm --filter ValyntApp exec playwright test`).
+- Tests do not rely on hardcoded fixture data — they use the authenticated user's actual tenant data or seed data.
 
 ---
 
 ## Implementation Order
 
-1. **Global logger mock in `setup.ts`** — verify zero `createLogger` errors before proceeding.
-2. **`LifecycleContextError` + `BaseGraphWriter`** — implement and unit-test all three invariants.
-3. **`NarrativeAgent` graph integration** — first agent, establishes the composition pattern.
-4. **`TargetAgent`, `RealizationAgent`, `ExpansionAgent`, `ComplianceAuditorAgent` graph integrations** — follow the same pattern.
-5. **`validateOpportunityAccess` middleware** — implement and unit-test in isolation.
-6. **Value Graph API router** — implement all 7 endpoints, wire middleware chain, mount in `server.ts`.
-7. **Update `express.d.ts`** — add `opportunityId: string` to `Request`.
-8. **Update `openapi.yaml`** — add all 7 paths.
-9. **Run `pnpm test`** — verify green across all new and modified files.
+Tasks are ordered to minimize merge conflicts and unblock downstream work:
+
+1. **1.1** Wire `ThemeProvider` — unblocks dark mode verification in all subsequent UI work
+2. **1.2** Replace hardcoded zinc colors in targeted views
+3. **1.3** Refactor `SettingsPage.tsx` — remove mock data, connect hooks, add toasts
+4. **3.2** Wrap `CanvasHost` in `ErrorBoundary` — safety net before touching widgets
+5. **2.1** Implement `CommandPalette` (navigation + AI)
+6. **2.2** Promote `NotificationCenter` to production
+7. **2.3** a11y remediation on canvas widgets
+8. **2.4** Responsive breakpoints for data-heavy views
+9. **3.1** Standardize `EmptyState` across list views
+10. **3.3** Standardize toast notifications for mutations
+11. **3.4** i18n string extraction (all views)
+12. **4.1** Remove remaining mock data / stubs
+13. **4.2** Storybook stories for V1 widgets
+14. **4.3** Playwright E2E tests for V1 flows
 
 ---
 
-## Out of Scope
+## Files with Significant Changes
 
-- Sprint 50 UI components (`ValueGraphVisualization`, `ValuePathCard`, `MetricCard`).
-- `IntegrityAgentService` TypeScript errors (12 errors in `post-v1/IntegrityAgentService.ts`) — separate fix.
-- `ComplianceControlStatusService` lazy-init Supabase fix — separate fix.
-- Other pre-existing backend test failures not caused by the `createLogger` mock gap.
+| File | Change |
+|---|---|
+| `src/app/providers/AppProviders.tsx` | Add `ThemeProvider` wrapper |
+| `src/views/SettingsPage.tsx` | Remove all mock data; connect to API hooks; replace zinc classes; add toasts |
+| `src/components/CommandPalette.tsx` | Full implementation: state, global keydown, navigation commands, AI query |
+| `src/components/shell/TopBar.tsx` | Wire ⌘K to `useCommandPalette()`; add notification bell |
+| `src/components/shell/NotificationCenter.tsx` | Promoted from wireframes; connected to API/Realtime |
+| `src/components/canvas/CanvasHost.tsx` | Add per-widget `ErrorBoundary` |
+| `src/components/canvas/widgets/HypothesisCard.tsx` | tabIndex, onKeyDown, aria-labels |
+| `src/components/canvas/widgets/ScenarioComparison.tsx` | Keyboard nav, aria-label |
+| `src/components/canvas/widgets/InlineEditor.tsx` | Keyboard-accessible edit trigger |
+| `src/components/canvas/widgets/ReadinessGauge.tsx` | role="meter", aria-value* |
+| `src/i18n/locales/en/common.json` | Expand from 20 to ~200+ keys |
+| `src/views/DealAssemblyWorkspace.tsx` | i18n, zinc to semantic tokens |
+| `src/views/ValueModelWorkbench.tsx` | i18n, responsive breakpoints, zinc to semantic tokens |
+| `src/views/IntegrityDashboard.tsx` | i18n, EmptyState, zinc to semantic tokens |
+| `src/views/ExecutiveOutputStudio.tsx` | i18n, zinc to semantic tokens |
+| `src/views/RealizationTracker.tsx` | i18n, EmptyState |
+| `src/pages/guest/GuestAccessPage.tsx` | Replace mock fixture with API fetch |
+| `apps/ValyntApp/e2e/` | 3 new Playwright spec files |
+| `packages/components/components/` | 3 new Storybook story files |
+
+---
+
+## Constraints & Notes
+
+- **No default exports.** All new components and hooks use named exports (per `AGENTS.md`).
+- **No `any`.** Current ceiling in `ValyntApp` is 58 usages. Do not increase it.
+- **Tenant isolation.** Any new API calls in settings/notifications must include `organization_id` in the request.
+- **`LegacyTenantRouteBridge`** must not be removed — it handles legacy URL redirects and is still needed.
+- **`TenantSwitcher`** already fires `TENANT_CACHE_CLEAR_EVENT` via `clearAndBroadcastTenantCacheReset()` — task 2.1.3 from the original spec is already complete; do not re-implement.
+- **`AgentChatSidebar`** already has focus trapping and `aria-modal="true"` — task 2.2.3 from the original spec is already complete for this component.
+- **`DealAssemblyWorkspace`** already handles `isLoading` and `isError` — no changes needed for task 3.1.2 on this file.

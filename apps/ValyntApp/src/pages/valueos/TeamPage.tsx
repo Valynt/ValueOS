@@ -41,7 +41,7 @@ interface TeamMember {
   lastActive?: string;
 }
 
-// Mock data
+// TODO(debt): replace with real API hook — tracked in debt.md
 const TEAM_MEMBERS: TeamMember[] = [
   {
     id: "1",

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import React from "react";
 
+import { useI18n } from "@/i18n/I18nProvider";
+
 export interface ValueCase {
   id: string;
   name: string;
@@ -44,6 +46,7 @@ export function Sidebar({
   onSettingsClick,
   onHelpClick,
 }: SidebarProps) {
+  const { t } = useI18n();
   const inProgressCases = cases.filter((c) => c.status === "in-progress");
   const completedCases = cases.filter((c) => c.status === "completed");
   const betaHubUrl = "https://docs.valuecanvas.com";
@@ -133,7 +136,7 @@ export function Sidebar({
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
               >
                 <Settings className="h-4 w-4" />
-                Settings
+                {t("nav.settings")}
               </button>
               <button
                 onClick={onHelpClick}
@@ -158,7 +161,7 @@ export function Sidebar({
             <button
               onClick={onSettingsClick}
               className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              aria-label="Settings"
+              aria-label={t("nav.settings")}
             >
               <Settings className="h-4 w-4" />
             </button>

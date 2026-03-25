@@ -57,11 +57,14 @@ export function ScenarioComparison({ data }: WidgetProps) {
       {orderedScenarios.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">No scenarios available</div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" role="list" aria-label="Financial scenarios">
           {orderedScenarios.map((scenario) => (
             <div
               key={scenario.id}
-              className={`rounded-lg border p-4 ${scenario.isBase
+              role="group"
+              aria-label={`${scenario.name.charAt(0).toUpperCase() + scenario.name.slice(1)} scenario${scenario.isBase ? " (base)" : ""}`}
+              tabIndex={0}
+              className={`rounded-lg border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scenario.isBase
                 ? "bg-primary/5 border-primary ring-1 ring-primary/20"
                 : "bg-card border-border"
                 }`}

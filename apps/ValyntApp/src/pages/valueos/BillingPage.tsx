@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
-// Mock data
+// TODO(debt): replace with real API hook — tracked in debt.md
 const currentPlan = {
   name: "Team Plan",
   price: "$99",

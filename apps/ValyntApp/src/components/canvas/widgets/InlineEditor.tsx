@@ -8,6 +8,7 @@
 import { Edit3, Save, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
+import { useToast } from "@/components/common/Toast";
 import { WidgetProps } from "../CanvasHost";
 
 export interface InlineEditorData {
@@ -22,6 +23,7 @@ export interface InlineEditorData {
 export function InlineEditor({ data, onAction }: WidgetProps) {
   const widgetData = data as unknown as InlineEditorData;
   const [isEditing, setIsEditing] = useState(false);
+  const { showToast } = useToast();
 
   // Support both test data shape (content) and full shape (originalContent/currentContent)
   const originalContent = widgetData.originalContent ?? widgetData.content ?? "";
@@ -60,11 +62,16 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
   const handleConfirmSave = () => {
     if (!reason.trim()) return;
 
-    onAction?.("save", {
-      sectionId: widgetData.sectionId,
-      content: editedContent,
-      reason: reason,
-    });
+    try {
+      onAction?.("save", {
+        sectionId: widgetData.sectionId,
+        content: editedContent,
+        reason: reason,
+      });
+      showToast(`"${sectionTitle}" saved.`, "success");
+    } catch {
+      showToast(`Failed to save "${sectionTitle}". Please try again.`, "error");
+    }
 
     setShowReasonPrompt(false);
     setIsEditing(false);
@@ -104,15 +111,20 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
           <h3 className="font-semibold">{sectionTitle}</h3>
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors"
+            aria-label={`Edit ${sectionTitle}`}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Edit3 className="w-4 h-4" />
+            <Edit3 className="w-4 h-4" aria-hidden="true" />
             Edit
           </button>
         </div>
         <div
-          className={`prose prose-sm max-w-none text-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 rounded p-2 -m-2 transition-colors ${isModified ? "bg-yellow-50 border-l-2 border-yellow-400" : ""}`}
+          role="button"
+          tabIndex={0}
+          aria-label={`${sectionTitle} content. Click or press Enter to edit.`}
+          className={`prose prose-sm max-w-none text-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 rounded p-2 -m-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isModified ? "bg-yellow-50 border-l-2 border-yellow-400" : ""}`}
           onClick={() => setIsEditing(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsEditing(true); } }}
         >
           {currentContent}
         </div>

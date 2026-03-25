@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { TenantInfo } from "@/api/tenant";
+import { useToast } from "@/components/common/Toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +33,21 @@ interface TenantSwitcherProps {
 export function TenantSwitcher({ compact = false, className }: TenantSwitcherProps) {
   const { currentTenant, tenants, switchTenant, isLoading } = useTenant();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [switching, setSwitching] = useState(false);
 
   const handleSwitch = async (tenant: TenantInfo) => {
     if (tenant.id === currentTenant?.id) return;
     setSwitching(true);
     try {
-      await switchTenant(tenant.id);
+      const success = await switchTenant(tenant.id);
+      if (success) {
+        showToast(`Switched to ${tenant.name}.`, "success");
+      } else {
+        showToast(`Failed to switch to ${tenant.name}.`, "error");
+      }
+    } catch {
+      showToast("Failed to switch organization. Please try again.", "error");
     } finally {
       setSwitching(false);
     }

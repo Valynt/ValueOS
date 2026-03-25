@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
 import { usePdfExport } from "@/hooks/useCaseExport";
+import { useI18n } from "@/i18n/I18nProvider";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client/unified-api-client";
 
@@ -64,6 +65,7 @@ function useIntegrityGate(caseId: string | undefined) {
 
 export function ExecutiveOutputStudio() {
   const { caseId } = useParams<{ caseId: string }>();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<ArtifactType>("executive-memo");
   const [provenanceClaimId, setProvenanceClaimId] = useState<string | undefined>();
   const [exportError, setExportError] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export function ExecutiveOutputStudio() {
       <div className="px-6 py-4 border-b bg-card">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Executive Output Studio</h1>
+            <h1 className="text-xl font-semibold">{t("executiveOutput.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Generate and refine artifacts for stakeholder presentations
             </p>

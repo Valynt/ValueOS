@@ -187,3 +187,10 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | STUB-015: `orchestration/types.ts` minimal stub interfaces                                           | Aligned with backend `types/workflow.ts`: `WorkflowDAG`, `WorkflowStage`, `WorkflowExecution`, `RetryConfig`, `WorkflowTransition`, status unions.                                                                                                                                                                                               | 2026-03-18     |
 | STUB-016: `WireframeAuthContext` hardcoded null user                                                  | Bridges real `useAuth` from `AuthContext` — exposes `user`, `organizationId`, `accessToken`. Falls back to context default outside `AuthProvider`.                                                                                                                                                                                                 | 2026-03-18     |
 | STUB-017: `components/wireframes/useWireframeData.ts` dead code                                       | Marked `@deprecated` — no consumers import it. Safe to delete.                                                                                                                                                                                                                                                                                   | 2026-03-18     |
+
+## Post-Enterprise-Readiness Sprint
+
+| File | Debt | Priority |
+|---|---|---|
+| `src/pages/valueos/BillingPage.tsx` | Hardcoded mock plan/usage data — replace with `useBillingSummary()` | Medium |
+| `src/pages/valueos/TeamPage.tsx` | Hardcoded `TEAM_MEMBERS` array — replace with `useTeam()` hook | Medium |

@@ -76,8 +76,15 @@ export function ReadinessGauge({ data }: WidgetProps) {
       <div className="flex flex-col md:flex-row gap-6">
         {/* Circular gauge */}
         <div className="flex flex-col items-center">
-          <div className="relative w-32 h-32">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+          <div
+            className="relative w-32 h-32"
+            role="meter"
+            aria-valuenow={Math.round(compositeScore * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Defense readiness: ${Math.round(compositeScore * 100)}%`}
+          >
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
               {/* Background circle */}
               <circle
                 cx="50"

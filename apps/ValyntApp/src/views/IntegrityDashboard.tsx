@@ -10,12 +10,15 @@ import React from "react";
 import { useParams } from "react-router-dom";
 
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEvidenceGaps, usePlausibility, useReadiness } from "@/hooks/useIntegrity";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function IntegrityDashboard() {
   const { caseId } = useParams<{ caseId: string }>();
+  const { t } = useI18n();
 
   const { data: readiness, isLoading: readinessLoading, error: readinessError } = useReadiness(caseId);
   const { data: evidenceGaps, isLoading: gapsLoading } = useEvidenceGaps(caseId);
@@ -38,9 +41,21 @@ export function IntegrityDashboard() {
     return (
       <Alert variant="destructive" className="m-6">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Failed to load integrity data</AlertTitle>
-        <AlertDescription>{error?.message || "Unknown error occurred"}</AlertDescription>
+        <AlertTitle>{t("integrity.title")} — {t("errors.loadFailed")}</AlertTitle>
+        <AlertDescription>{error?.message || t("errors.generic")}</AlertDescription>
       </Alert>
+    );
+  }
+
+  if (!readiness && !isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center p-8">
+        <EmptyState
+          icon={Shield}
+          title={t("integrity.noData")}
+          description={t("integrity.noDataDescription")}
+        />
+      </div>
     );
   }
 
