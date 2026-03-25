@@ -251,7 +251,7 @@ backHalfRouter.get(
       }
       if (hardBlockResult.soft_warnings.length > 0) {
         remediationInstructions.push(
-          `${hardBlockResult.soft_warnings.length} warning(s) detected. These do not block advancement but should be reviewed."
+          `${hardBlockResult.soft_warnings.length} warning(s) detected. These do not block advancement but should be reviewed.`
         );
       }
 
@@ -372,8 +372,18 @@ backHalfRouter.post(
   "/:id/narrative/run",
   rateLimiters.strict,
   ...auth,
-  async (req: Request, res: Response) => {
-    return runAgent(req, res, "narrative", "narrative" as LifecycleStage);
+  async (_req: Request, res: Response) => {
+    // NarrativeAgent is an async-scale-to-zero agent. Running it synchronously
+    // on the back-half route would block the request thread for minutes and
+    // cannot be reliably cancelled. Callers must use queue, polling, or
+    // streaming workflows instead.
+    return res.status(409).json({
+      success: false,
+      coldStartClass: "async-scale-to-zero",
+      error:
+        "NarrativeAgent cannot run on the synchronous back-half route. " +
+        "Use queue, polling, or streaming workflows instead.",
+    });
   }
 );
 

@@ -20,7 +20,12 @@ vi.mock("@shared/lib/supabase", () => ({
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  supabase: { from: vi.fn() },
   createServerSupabaseClient: (...args: unknown[]) => createServerSpy(...args),
+  // createUserSupabaseClient is what fromRequest() actually calls when
+  // req.supabase is absent — wire it to createRequestSpy so the existing
+  // assertions remain valid.
+  createUserSupabaseClient: (...args: unknown[]) => createRequestSpy(...args),
 }));
 
 vi.mock("../../../lib/logger.js", () => ({
@@ -65,8 +70,8 @@ describe("value-cases-repository-uses-user-client", () => {
     const repo = ValueCasesRepository.fromRequest(mockReq);
 
     expect(repo).toBeDefined();
-    // Must call createRequestSupabaseClient with the access token
-    expect(createRequestSpy).toHaveBeenCalledWith({ accessToken: "jwt-token-123" });
+    // createUserSupabaseClient is called with the raw token string
+    expect(createRequestSpy).toHaveBeenCalledWith("jwt-token-123");
     // Must NOT use service_role
     expect(createServerSpy).not.toHaveBeenCalled();
   });

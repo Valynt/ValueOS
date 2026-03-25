@@ -71,13 +71,29 @@ export function useRunNarrativeAgent(caseId: string | undefined) {
 
   return useMutation<AgentRunResponse, Error, Record<string, unknown> | undefined>({
     mutationFn: async (context) => {
-      const res = await apiClient.post<{ data: AgentRunResponse }>(
-        `/api/v1/cases/${caseId}/narrative/run`,
-        { context: context ?? {} },
-      );
-      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
-      if (!res.data?.data) throw new Error("Empty response from narrative/run");
-      return res.data.data;
+      try {
+        const res = await apiClient.post<{ data: AgentRunResponse }>(
+          `/api/v1/cases/${caseId}/narrative/run`,
+          { context: context ?? {} },
+        );
+        if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+        if (!res.data?.data) throw new Error("Empty response from narrative/run");
+        return res.data.data;
+      } catch (err) {
+        // 409 means NarrativeAgent is async-scale-to-zero and cannot run on the
+        // synchronous back-half route. Surface this as a structured response so
+        // callers can redirect to the async queue workflow instead of treating
+        // it as an unexpected error.
+        if (err instanceof Error && err.message.includes("409")) {
+          return {
+            jobId: "",
+            agentId: "narrative",
+            status: "async-only",
+            result: { coldStartClass: "async-scale-to-zero" },
+          } satisfies AgentRunResponse;
+        }
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["narrative", caseId] });
