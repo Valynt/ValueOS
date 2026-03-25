@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-
-vi.mock("../../lib/supabase.js");
   cspNonceMiddleware,
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
 } from '../securityMiddleware';
+
+vi.mock("../../lib/supabase.js");
 
 function mockRes() {
   const headers: Record<string, string> = {};
@@ -47,6 +47,7 @@ describe('securityMiddlewares', () => {
     const next = vi.fn();
 
     const reqMissing = {
+      method: 'POST',
       headers: {},
       header: vi.fn(() => undefined),
     } as any;
@@ -54,6 +55,7 @@ describe('securityMiddlewares', () => {
     expect(res.status).toHaveBeenCalledWith(403);
 
     const reqValid = {
+      method: 'POST',
       headers: {
         cookie: 'csrf_token=abc123',
       },

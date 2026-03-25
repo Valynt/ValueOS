@@ -3,21 +3,31 @@
  * Generates and validates CSRF tokens for state-changing operations
  */
 
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Always iterates over max(a.length, b.length) characters.
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  const len = Math.max(a.length, b.length);
+  let result = a.length ^ b.length;
+  for (let i = 0; i < len; i++) {
+    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return result === 0;
+}
+
 class CSRFProtection {
   private readonly tokenKey = "csrf_token";
   private readonly tokenHeader = "X-CSRF-Token";
   private readonly tokenLength = 32;
 
   /**
-   * Generate a random token
+   * Generate a cryptographically random token using Web Crypto API.
    */
   private generateToken(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let token = "";
-    for (let i = 0; i < this.tokenLength; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
+    const array = new Uint8Array(this.tokenLength);
+    crypto.getRandomValues(array);
+    return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   /**
@@ -66,13 +76,14 @@ class CSRFProtection {
   }
 
   /**
-   * Validate CSRF token from request headers
+   * Validate CSRF token from request headers using constant-time comparison
+   * to prevent timing-based token guessing attacks.
    */
   validateToken(requestHeaders: Headers): boolean {
     const token = requestHeaders.get(this.tokenHeader);
+    if (!token) return false;
     const storedToken = this.getToken();
-
-    return token === storedToken;
+    return constantTimeEqual(token, storedToken);
   }
 
   /**
@@ -93,13 +104,13 @@ class CSRFProtection {
   }
 
   /**
-   * Validate form data contains valid CSRF token
+   * Validate form data contains valid CSRF token using constant-time comparison.
    */
   validateFormData(formData: FormData): boolean {
-    const token = formData.get("csrf_token") as string;
+    const token = formData.get("csrf_token") as string | null;
+    if (!token) return false;
     const storedToken = this.getToken();
-
-    return token === storedToken;
+    return constantTimeEqual(token, storedToken);
   }
 
   /**
@@ -149,6 +160,7 @@ class CSRFProtection {
     const secureInit = init ? this.addTokenToRequest(init) : this.addTokenToRequest({});
 
      
+    // eslint-disable-next-line no-restricted-globals
     return fetch(input, secureInit);
   };
 }

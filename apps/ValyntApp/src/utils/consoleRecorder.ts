@@ -30,6 +30,7 @@ export function startConsoleCapture() {
 
   const originalConsole = {
      
+    // eslint-disable-next-line no-console
     log: console.log,
      
     info: console.info,

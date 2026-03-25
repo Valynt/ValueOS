@@ -31,7 +31,7 @@ async function run() {
   });
   page.on("response", async (res) => {
     if (res.url().includes("/api/")) {
-      let b = ""; try { b = await res.text(); } catch {}
+      let b = ""; try { b = await res.text(); } catch { /* ignore read errors in debug helper */ }
       console.log(`[res] ${res.status()} ${res.url().replace(BASE_URL,"")} | ${b.slice(0,200)}`);
     }
   });

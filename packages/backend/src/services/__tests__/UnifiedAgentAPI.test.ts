@@ -11,13 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __setEnvSourceForTests, getEnvVar } from '../../lib/env';
 import {
-
-vi.mock("../../lib/supabase.js");
   getUnifiedAgentAPI,
   resetUnifiedAgentAPI,
   UnifiedAgentAPI,
   UnifiedAgentRequest,
 } from '../UnifiedAgentAPI';
+
+vi.mock("../../lib/supabase.js");
 
 // Mock fetch
 global.fetch = vi.fn();

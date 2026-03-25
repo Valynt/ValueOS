@@ -376,7 +376,7 @@ export class HubSpotModule implements CRMModule {
       throw new Error('HubSpot not connected');
     }
 
-    // eslint-disable-next-line no-restricted-syntax -- legitimate-exception: external HubSpot API, not an internal /api/ route
+    // legitimate-exception: MCP CRM module makes authenticated calls to HubSpot API directly
     return fetch(`${this.baseUrl}${path}`, {
       ...options,
       headers: {

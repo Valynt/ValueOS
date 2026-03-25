@@ -5,6 +5,34 @@ import router from '../documents.js'
 
 vi.mock("../../lib/supabase.js");
 
+// Bypass security middleware so tests reach the route handler
+vi.mock('../../middleware/securityMiddleware', () => ({
+  csrfProtectionMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  csrfTokenMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  securityHeadersMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/serviceIdentityMiddleware.js', () => ({
+  serviceIdentityMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/rbac.js', () => ({
+  requirePermission: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/rateLimiter.js', () => ({
+  rateLimiters: {
+    standard: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+    strict: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  },
+  RateLimitTier: { STANDARD: 'standard', STRICT: 'strict' },
+}));
+
+vi.mock('../../middleware/fileUploadSecurity.js', () => ({
+  contentTypeValidationMiddleware: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  fileUploadSecurityMiddleware: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
 const app = express();
 app.use(express.json());
 app.use('/api/documents', router);

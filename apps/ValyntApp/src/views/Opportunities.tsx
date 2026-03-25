@@ -20,8 +20,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCasesList, useCreateCase } from "@/hooks/useCases";
 import { useDomainPacks } from "@/hooks/useDomainPacks";
-import { cn } from "@/lib/utils";
 import type { ValueCaseWithRelations } from "@/lib/supabase/types";
+import { cn } from "@/lib/utils";
 
 // -- Derive display fields from real DB rows --
 function deriveStage(c: ValueCaseWithRelations): string {

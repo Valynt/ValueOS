@@ -2,7 +2,7 @@ import { Activity, ArrowRight, Bot, CheckCircle2, DollarSign, Search, Shield, Za
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useAgentList, type AgentInfo } from "@/hooks/useAgentMetrics";
+import { type AgentInfo, useAgentList } from "@/hooks/useAgentMetrics";
 import { cn } from "@/lib/utils";
 
 const typeColors: Record<string, string> = {

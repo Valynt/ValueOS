@@ -91,6 +91,7 @@ class LLMClient {
     const prompt = lastMessage?.content || "";
 
      
+    // eslint-disable-next-line no-restricted-globals
     const response = await fetch("/api/llm/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

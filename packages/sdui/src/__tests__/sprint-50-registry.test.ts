@@ -85,8 +85,8 @@ import { ValuePathCard } from "../components/SDUI/ValuePathCard";
 
 import {
   baseRegistry,
-  versionedRegistry,
   listRegisteredComponents,
+  versionedRegistry,
 } from "../registry";
 
 describe("Sprint 50 — registry presence", () => {

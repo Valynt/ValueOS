@@ -7,7 +7,7 @@ vi.mock("../../lib/supabase.js");
 
 const logAuditMock = vi.fn();
 
-vi.mock("../../services/AuditLogService.js", () => ({
+vi.mock("../../services/security/AuditLogService.js", () => ({
   auditLogService: {
     logAudit: logAuditMock,
   },

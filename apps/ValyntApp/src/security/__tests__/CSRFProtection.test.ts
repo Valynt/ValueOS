@@ -21,8 +21,10 @@ describe('CSRF fetch interceptor', () => {
     attachCSRFFetchInterceptor();
 
      
+    // eslint-disable-next-line no-restricted-globals
     await fetch('/read', { method: 'GET' });
      
+    // eslint-disable-next-line no-restricted-globals
     await fetch('/write', { method: 'POST' });
 
     const getHeaders = new Headers(mockFetch.mock.calls[0][1]?.headers);

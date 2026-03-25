@@ -17,6 +17,7 @@ vi.mock("@/components/canvas/CanvasHost", () => ({
           {widget.componentType === "artifact-preview" && widget.props?.artifact && (
             <div>
               <h2>{widget.props.artifact.title}</h2>
+              {/* eslint-disable-next-line react/no-danger */}
               <div dangerouslySetInnerHTML={{ __html: widget.props.artifact.content }} />
             </div>
           )}

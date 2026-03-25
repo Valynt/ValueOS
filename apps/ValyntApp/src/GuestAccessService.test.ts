@@ -24,8 +24,8 @@ vi.mock('./lib/logger', () => ({
   logger: mockLogger,
 }));
 
-import { logger } from './lib/logger';
 import { getGuestAccessService } from './GuestAccessService';
+import { logger } from './lib/logger';
 
 describe('GuestAccessService (frontend)', () => {
   let guestService: ReturnType<typeof getGuestAccessService>;

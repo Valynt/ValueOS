@@ -5,11 +5,13 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.4
  */
 
+import { useQuery } from "@tanstack/react-query";
 import { ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
-import { AlertCircle, FileText, Sparkles, Download, Lock } from "lucide-react";
+import { AlertCircle, Download, FileText, Lock, Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,8 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
 import { usePdfExport } from "@/hooks/useCaseExport";
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/api/client/unified-api-client";
 
 
 type ArtifactType = "executive-memo" | "cfo-recommendation" | "customer-narrative" | "internal-case";
