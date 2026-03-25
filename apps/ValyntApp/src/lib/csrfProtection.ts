@@ -9,13 +9,23 @@ class CSRFProtection {
   private readonly tokenLength = 32;
 
   /**
-   * Generate a random token
+   * Generate a secure random token
    */
   private generateToken(): string {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let token = "";
-    for (let i = 0; i < this.tokenLength; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Use cryptographically secure random numbers instead of Math.random()
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      const randomValues = new Uint8Array(this.tokenLength);
+      crypto.getRandomValues(randomValues);
+      for (let i = 0; i < this.tokenLength; i++) {
+        token += chars[randomValues[i] % chars.length];
+      }
+    } else {
+      // Fallback for environments without crypto support (should be very rare)
+      for (let i = 0; i < this.tokenLength; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
     }
     return token;
   }
