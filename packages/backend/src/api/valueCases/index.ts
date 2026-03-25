@@ -837,7 +837,7 @@ async function generateScenarios(req: Request, res: Response, next: NextFunction
       return {
         scenario: label,
         npv: npv.toString(),
-        irr: irrResult !== null ? irrResult.toString() : null,
+        irr: irrResult.toString(),
         roi: roi.toString(),
         payback_months: payback.fractionalPeriod !== null
           ? Math.round(payback.fractionalPeriod.toNumber() * 12)
