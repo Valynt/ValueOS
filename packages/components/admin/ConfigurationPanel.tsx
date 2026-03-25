@@ -27,6 +27,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 
+/** Shape of a single configuration category (e.g. organization, ai). */
+export type ConfigurationCategory = Record<string, unknown>;
+
+/** Top-level configuration object keyed by category name. */
+export type ConfigurationData = Record<string, ConfigurationCategory>;
+
 interface ConfigurationPanelProps {
   organizationId: string;
   userRole: 'tenant_admin' | 'vendor_admin';
@@ -49,11 +55,11 @@ function formatRelativeTime(date: Date): string {
 }
 
 export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPanelProps) {
-  const [configurations, setConfigurations] = useState<any>(null);
+  const [configurations, setConfigurations] = useState<ConfigurationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'organization' | 'ai'>('organization');
-  const [pendingChanges, setPendingChanges] = useState<Map<string, any>>(new Map());
+  const [pendingChanges, setPendingChanges] = useState<Map<string, { category: string; setting: string; value: unknown }>>(new Map());
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -134,7 +140,7 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
 
   // Debounced auto-save
   const debouncedSave = useCallback(
-    async (category: string, setting: string, value: any) => {
+    async (category: string, setting: string, value: unknown) => {
       // Clear existing timeout
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -163,10 +169,10 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
           }
 
           // Update local state
-          setConfigurations((prev: any) => ({
+          setConfigurations((prev) => ({
             ...prev,
             [category]: {
-              ...prev[category],
+              ...(prev?.[category] ?? {}),
               [setting]: value
             }
           }));
@@ -222,7 +228,7 @@ export function ConfigurationPanel({ organizationId, userRole }: ConfigurationPa
   );
 
   const updateConfiguration = useCallback(
-    (category: string, setting: string, value: any) => {
+    (category: string, setting: string, value: unknown) => {
       // Track pending change
       setPendingChanges((prev) => {
         const next = new Map(prev);

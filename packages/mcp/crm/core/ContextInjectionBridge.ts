@@ -184,7 +184,7 @@ export class ContextInjectionBridge {
       return null;
     }
 
-    const context = (result.data as any).context as NormalizedDealContext;
+    const context = (result.data as { context: NormalizedDealContext }).context;
 
     // Cache the result
     this.contextCache.set(dealId, {
@@ -521,7 +521,7 @@ export class ContextInjectionBridge {
     return {
       success: result.success,
       message: result.success
-        ? (result.data as any)?.message || "Metrics synced successfully"
+        ? (result.data as { message?: string } | undefined)?.message || "Metrics synced successfully"
         : result.error || "Failed to sync metrics",
     };
   }

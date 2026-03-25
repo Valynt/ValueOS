@@ -20,7 +20,7 @@ export interface Event {
   type: string;
   source: string;
   timestamp: number;
-  data: any;
+  data: unknown;
   metadata?: {
     correlationId?: string;
     causationId?: string;

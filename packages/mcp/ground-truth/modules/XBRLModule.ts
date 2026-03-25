@@ -143,7 +143,7 @@ export class XBRLModule extends BaseModule {
    * Uses SEC's companyfacts API endpoint
    * Caches results to minimize API calls
    */
-  private async getCompanyFacts(cik: string): Promise<any> {
+  private async getCompanyFacts(cik: string): Promise<Record<string, unknown>> {
     // Check cache first
     if (this.factsCache.has(cik)) {
       logger.debug('XBRL facts cache hit', { cik });
@@ -205,7 +205,7 @@ export class XBRLModule extends BaseModule {
    * Handles multiple taxonomies (us-gaap, dei, etc.) and periods
    */
   private extractFact(
-    factsData: any,
+    factsData: Record<string, unknown>,
     tag: string,
     period?: string
   ): XBRLFact | null {
@@ -249,7 +249,7 @@ export class XBRLModule extends BaseModule {
       // Filter by period if specified
       let filteredData = unitData;
       if (period) {
-        filteredData = unitData.filter((item: any) => {
+        filteredData = unitData.filter((item: Record<string, unknown>) => {
           return item.fy?.toString() === period || 
                  item.fp === period ||
                  item.frame === period;
@@ -261,7 +261,7 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get most recent fact
-      const sortedData = filteredData.sort((a: any, b: any) => {
+      const sortedData = filteredData.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
         return new Date(b.filed).getTime() - new Date(a.filed).getTime();
       });
 
@@ -330,8 +330,8 @@ export class XBRLModule extends BaseModule {
 
       // Sort by filing date
       const sortedData = unitData
-        .filter((item: any) => item.val !== null && item.val !== undefined)
-        .sort((a: any, b: any) => {
+        .filter((item: Record<string, unknown>) => item["val"] !== null && item.val !== undefined)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
           return new Date(a.filed).getTime() - new Date(b.filed).getTime();
         });
 

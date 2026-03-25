@@ -22,8 +22,8 @@ import { configValidation } from '@/lib/validation/configValidation';
 
 
 interface OrganizationSettingsProps {
-  settings: any;
-  onUpdate: (setting: string, value: any) => void;
+  settings: Record<string, unknown>;
+  onUpdate: (setting: string, value: unknown) => void;
   userRole: 'tenant_admin' | 'vendor_admin';
   saving: boolean;
   searchQuery?: string;
@@ -54,7 +54,7 @@ export function OrganizationSettings({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Filter sections based on search query
-  const matchesSearch = (text: string, values?: any) => {
+  const matchesSearch = (text: string, values?: unknown) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     const textMatch = text.toLowerCase().includes(query);

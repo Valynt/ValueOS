@@ -395,9 +395,9 @@ export class AgentAPI {
       }
 
       // Parse response
-      let data: any;
+      let data: Record<string, unknown>;
       try {
-        data = await response.json();
+        data = await response.json() as Record<string, unknown>;
       } catch {
         throw new Error('failed to parse JSON response from agent');
       }
@@ -447,7 +447,7 @@ export class AgentAPI {
       const duration = Date.now() - startTime;
 
       // Record failure in circuit breaker (skip if already recorded for 429)
-      if (circuitBreaker && !(error as any).retryAfter) {
+      if (circuitBreaker && !(error instanceof Error && 'retryAfter' in error)) {
         circuitBreaker.recordFailure();
       }
 

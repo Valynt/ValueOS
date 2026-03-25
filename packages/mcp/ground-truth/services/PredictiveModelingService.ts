@@ -541,7 +541,7 @@ export class PredictiveModelingService {
    */
   private assessDataQuality(
     data: TimeSeriesData,
-    anomalies: any[]
+    anomalies: AnomalyResult["anomalies"]
   ): AnomalyResult["overall_assessment"] {
     const anomalyCount = anomalies.length;
     const totalPoints = data.values.length;
@@ -734,7 +734,7 @@ export class PredictiveModelingService {
    */
   private analyzeForecastImplications(
     data: TimeSeriesData,
-    trend: any
+    trend: TrendAnalysisResult["trend_summary"]
   ): TrendAnalysisResult["forecast_implications"] {
     const values = data.values;
     const latestValue = values[values.length - 1];

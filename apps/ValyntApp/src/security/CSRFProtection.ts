@@ -491,6 +491,6 @@ export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}
       );
     }
 
-    return baseFetch(input as any, options);
+    return baseFetch(input, options);
   }) as typeof fetch;
 }

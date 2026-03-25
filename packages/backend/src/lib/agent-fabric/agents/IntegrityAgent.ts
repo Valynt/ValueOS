@@ -373,37 +373,38 @@ export class IntegrityAgent extends BaseAgent {
     const claims: IntegrityClaim[] = [];
 
     for (const kpi of kpis) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = kpi.metadata as any;
+      const m = kpi.metadata as Record<string, Record<string, unknown> | unknown>;
+      const baseline = m["baseline"] as Record<string, unknown> | undefined;
+      const target = m["target"] as Record<string, unknown> | undefined;
       claims.push({
-        id: `kpi-${m.kpi_id || kpi.id}`,
-        text: `KPI "${kpi.content}" can move from baseline ${m.baseline?.value} to target ${m.target?.value} ${m.unit || ''} within ${m.target?.timeframe_months || '?'} months.`,
+        id: `kpi-${m["kpi_id"] || kpi.id}`,
+        text: `KPI "${kpi.content}" can move from baseline ${baseline?.["value"]} to target ${target?.["value"]} ${m["unit"] || ''} within ${target?.["timeframe_months"] || '?'} months.`,
         evidence: [
-          `Baseline source: ${m.baseline?.source || 'unspecified'}`,
-          `Measurement method: ${m.measurement_method || 'unspecified'}`,
-          `Causal verification: ${m.causal_verified ? 'verified' : 'unverified'} (confidence: ${m.causal_confidence ?? 'N/A'})`,
+          `Baseline source: ${baseline?.["source"] || 'unspecified'}`,
+          `Measurement method: ${m["measurement_method"] || 'unspecified'}`,
+          `Causal verification: ${m["causal_verified"] ? 'verified' : 'unverified'} (confidence: ${m["causal_confidence"] ?? 'N/A'})`,
         ],
         source: 'target',
-        baselineValue: typeof m.baseline?.value === 'number' ? m.baseline.value : undefined,
-        targetValue: typeof m.target?.value === 'number' ? m.target.value : undefined,
-        timeframeMonths: typeof m.target?.timeframe_months === 'number' ? m.target.timeframe_months : undefined,
-        sourceAsOfDate: typeof m.baseline?.as_of_date === 'string' ? m.baseline.as_of_date : undefined,
+        baselineValue: typeof baseline?.["value"] === 'number' ? baseline["value"] as number : undefined,
+        targetValue: typeof target?.["value"] === 'number' ? target["value"] as number : undefined,
+        timeframeMonths: typeof target?.["timeframe_months"] === 'number' ? target["timeframe_months"] as number : undefined,
+        sourceAsOfDate: typeof baseline?.["as_of_date"] === 'string' ? baseline["as_of_date"] as string : undefined,
       });
     }
 
     for (const hyp of hypotheses) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = hyp.metadata as any;
-      const impact = m.estimated_impact || {};
+      const m = hyp.metadata as Record<string, unknown>;
+      const impact = (m["estimated_impact"] ?? {}) as Record<string, unknown>;
+      const evidence = Array.isArray(m["evidence"]) ? m["evidence"] as unknown[] : [];
       claims.push({
         id: `hyp-${hyp.id}`,
-        text: `${hyp.content} with estimated impact ${impact.low || '?'}-${impact.high || '?'} ${impact.unit || ''} over ${impact.timeframe_months || '?'} months.`,
-        evidence: m.evidence || [],
+        text: `${hyp.content} with estimated impact ${impact["low"] || '?'}-${impact["high"] || '?'} ${impact["unit"] || ''} over ${impact["timeframe_months"] || '?'} months.`,
+        evidence,
         source: 'opportunity',
-        timeframeMonths: typeof impact.timeframe_months === 'number' ? impact.timeframe_months : undefined,
-        impactLow: typeof impact.low === 'number' ? impact.low : undefined,
-        impactHigh: typeof impact.high === 'number' ? impact.high : undefined,
-        sourceAsOfDate: typeof m.evidence_as_of_date === 'string' ? m.evidence_as_of_date : undefined,
+        timeframeMonths: typeof impact["timeframe_months"] === 'number' ? impact["timeframe_months"] : undefined,
+        impactLow: typeof impact["low"] === 'number' ? impact["low"] : undefined,
+        impactHigh: typeof impact["high"] === 'number' ? impact["high"] : undefined,
+        sourceAsOfDate: typeof m["evidence_as_of_date"] === 'string' ? m["evidence_as_of_date"] : undefined,
       });
     }
 
@@ -437,7 +438,7 @@ export class IntegrityAgent extends BaseAgent {
 For each claim, determine:
 - verdict: "supported" (evidence clearly backs the claim), "partially_supported" (some evidence, gaps remain), "unsupported" (evidence contradicts or is irrelevant), "insufficient_evidence" (not enough data)
 - confidence: 0.0-1.0 reflecting how certain you are of the verdict
-- issues: any problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
+- issues: list of problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
 - suggested_fix: how to address issues (optional)
 
 Also provide:

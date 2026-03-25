@@ -226,8 +226,7 @@ export class ConfigurationManager {
    */
   private async validateSetting(
     setting: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    value: any
+    value: unknown
   ): Promise<ValidationResult> {
     const errors: string[] = [];
 

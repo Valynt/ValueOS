@@ -49,8 +49,8 @@ export interface AuditAction {
   operation: string;
   method?: string; // HTTP method, API operation, etc.
   parameters?: Record<string, any>; // sanitized parameters
-  previousState?: any; // for update operations
-  newState?: any; // for create/update operations
+  previousState?: unknown; // for update operations
+  newState?: unknown; // for create/update operations
 }
 
 export interface AuditResult {
@@ -278,9 +278,9 @@ export class AuditLoggingService {
   async generateReport(query: AuditQuery): Promise<AuditReport> {
     const events = await this.queryEvents({ ...query, limit: 10000 }); // Get more events for reporting
 
-    const eventsByType: Record<AuditEventType, number> = {} as any;
+    const eventsByType: Record<AuditEventType, number> = {} as Record<string, number>;
     const eventsByActor: Record<string, number> = {};
-    const eventsByResource: Record<AuditResourceType, number> = {} as any;
+    const eventsByResource: Record<AuditResourceType, number> = {} as Record<string, number>;
 
     let complianceViolations = 0;
     let securityIncidents = 0;

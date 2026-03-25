@@ -73,7 +73,7 @@ export class UnifiedTruthLayer {
       this.config = { ...this.config, ...config };
     }
 
-    logger.info("Unified Truth Layer initialized", this.config as any);
+    logger.info("Unified Truth Layer initialized", this.config as Record<string, unknown>);
   }
 
   /**
@@ -576,9 +576,9 @@ export class UnifiedTruthLayer {
    */
   async healthCheck(): Promise<{
     healthy: boolean;
-    modules: Record<string, { healthy: boolean; details?: any }>;
+    modules: Record<string, { healthy: boolean; details?: Record<string, unknown> }>;
   }> {
-    const moduleHealth: Record<string, any> = {};
+    const moduleHealth: Record<string, { healthy: boolean; details?: Record<string, unknown> }> = {};
     let allHealthy = true;
 
     for (const [name, module] of this.modules) {

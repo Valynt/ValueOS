@@ -20,7 +20,7 @@ interface ExportImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   organizationId: string;
-  currentConfiguration: any;
+  currentConfiguration: Record<string, unknown>;
   onImportComplete: () => void;
 }
 
@@ -32,7 +32,7 @@ export function ExportImportDialog({
   onImportComplete
 }: ExportImportDialogProps) {
   const [importing, setImporting] = useState(false);
-  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importPreview, setImportPreview] = useState<Record<string, unknown> | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -136,7 +136,7 @@ export function ExportImportDialog({
 
     let added = 0, modified = 0, removed = 0;
 
-    const compareObjects = (current: any, imported: any, path = '') => {
+    const compareObjects = (current: Record<string, unknown>, imported: Record<string, unknown>, path = '') => {
       const currentKeys = new Set(Object.keys(current || {}));
       const importedKeys = new Set(Object.keys(imported || {}));
 

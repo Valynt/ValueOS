@@ -49,7 +49,7 @@ export class LiveDataFeedService {
   private censusClient: CensusClient;
 
   private config: DataFeedConfig;
-  private cache = new Map<string, CachedData<any>>();
+  private cache = new Map<string, CachedData<unknown>>();
   private qualityMetrics = new Map<string, DataQualityMetrics>();
 
   constructor(config: DataFeedConfig) {

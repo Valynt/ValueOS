@@ -486,7 +486,7 @@ export class PrivateCompanyModule extends BaseModule {
       if (org.properties?.investor_identifiers) {
         profile.investors = org.properties.investor_identifiers
           .slice(0, 5) // Limit to first 5
-          .map((inv: any) => inv.value);
+          .map((inv: { value: string }) => inv.value);
       }
 
       logger.info("Crunchbase data retrieved", {

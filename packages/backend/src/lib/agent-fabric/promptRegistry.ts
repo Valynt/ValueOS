@@ -131,7 +131,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`,
 For each claim, determine:
 - verdict: "supported" (evidence clearly backs the claim), "partially_supported" (some evidence, gaps remain), "unsupported" (evidence contradicts or is irrelevant), "insufficient_evidence" (not enough data)
 - confidence: 0.0-1.0 reflecting how certain you are of the verdict
-- issues: any problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
+- issues: list of problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
 - suggested_fix: how to address issues (optional)
 
 Also provide:

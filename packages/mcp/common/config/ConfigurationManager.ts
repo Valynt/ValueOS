@@ -140,7 +140,7 @@ export class ConfigurationValidator {
   /**
    * Validate base MCP configuration
    */
-  static validateBase(config: any): MCPBaseConfig {
+  static validateBase(config: Record<string, unknown>): MCPBaseConfig {
     const errors: string[] = [];
 
     if (
@@ -182,7 +182,7 @@ export class ConfigurationValidator {
   /**
    * Validate CRM configuration
    */
-  static validateCRM(config: any): MCPCRMServerConfig {
+  static validateCRM(config: Record<string, unknown>): MCPCRMServerConfig {
     const baseConfig = this.validateBase(config);
 
     if (!config.crm) {
@@ -194,7 +194,7 @@ export class ConfigurationValidator {
     }
 
     // Validate each provider
-    config.crm.providers.forEach((provider: any, index: number) => {
+    (config.crm as { providers: Record<string, unknown>[] }).providers.forEach((provider, index: number) => {
       const providerErrors: string[] = [];
 
       if (!["hubspot", "salesforce", "dynamics"].includes(provider.provider)) {
@@ -220,7 +220,7 @@ export class ConfigurationValidator {
   /**
    * Validate Financial server configuration
    */
-  static validateFinancial(config: any): MCPFinancialServerConfig {
+  static validateFinancial(config: Record<string, unknown>): MCPFinancialServerConfig {
     const baseConfig = this.validateBase(config);
 
     if (!config.financial) {
@@ -339,7 +339,7 @@ export class ConfigurationManager {
   /**
    * Load configuration file
    */
-  private loadConfigFile(configPath: string): any {
+  private loadConfigFile(configPath: string): Record<string, unknown> {
     try {
       const content = readFileSync(configPath, "utf-8");
       return JSON.parse(content);
@@ -374,7 +374,7 @@ export class ConfigurationManager {
         this.configCache.delete(cacheKey);
 
         // Reload configuration
-        await this.loadConfig(serverType as any, environment);
+        await this.loadConfig(serverType as "crm" | "financial" | "integrated", environment);
 
         logger.info(`Configuration reloaded successfully`, {
           serverType,
@@ -417,7 +417,7 @@ export class ConfigurationManager {
   /**
    * Validate configuration without loading
    */
-  validateConfig(serverType: "crm" | "financial" | "integrated", config: any): boolean {
+  validateConfig(serverType: "crm" | "financial" | "integrated", config: Record<string, unknown>): boolean {
     try {
       switch (serverType) {
         case "crm":

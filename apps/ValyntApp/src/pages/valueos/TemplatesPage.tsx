@@ -27,7 +27,7 @@ import { DEFAULT_TEMPLATES } from '@/features/templates/defaultTemplates';
 import type { TemplateCategory, ValueCaseTemplate } from '@/features/templates/types';
 import { cn } from '@/lib/utils';
 
-const CATEGORY_CONFIG: Record<TemplateCategory, { label: string; icon: React.ComponentType<any>; color: string }> = {
+const CATEGORY_CONFIG: Record<TemplateCategory, { label: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
   general: { label: 'General', icon: BarChart3, color: 'bg-slate-100 text-slate-600' },
   saas: { label: 'SaaS', icon: Zap, color: 'bg-purple-100 text-purple-600' },
   infrastructure: { label: 'Infrastructure', icon: DollarSign, color: 'bg-blue-100 text-blue-600' },

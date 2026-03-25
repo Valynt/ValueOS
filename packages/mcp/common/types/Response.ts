@@ -28,15 +28,15 @@ export interface MCPResponseMetadata {
   };
 }
 
-export interface MCPBaseResponse<T = any> {
+export interface MCPBaseResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
     category: string;
-    metadata: any;
-    details?: any;
+    metadata: Record<string, unknown>;
+    details?: Record<string, unknown>;
   };
   metadata: MCPResponseMetadata;
 }
@@ -45,7 +45,7 @@ export interface MCPBaseResponse<T = any> {
 // Success Response Types
 // ============================================================================
 
-export interface MCPSuccessResponse<T = any> extends MCPBaseResponse<T> {
+export interface MCPSuccessResponse<T = unknown> extends MCPBaseResponse<T> {
   success: true;
   data: T;
   error?: never;
@@ -58,8 +58,8 @@ export interface MCPErrorResponse extends MCPBaseResponse {
     code: string;
     message: string;
     category: string;
-    metadata: any;
-    details?: any;
+    metadata: Record<string, unknown>;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -67,7 +67,7 @@ export interface MCPErrorResponse extends MCPBaseResponse {
 // Tool-Specific Response Types
 // ============================================================================
 
-export interface MCPToolResponse<T = any> extends MCPSuccessResponse<T> {
+export interface MCPToolResponse<T = unknown> extends MCPSuccessResponse<T> {
   metadata: MCPResponseMetadata & {
     tool: string;
     provider?: string;
@@ -75,7 +75,7 @@ export interface MCPToolResponse<T = any> extends MCPSuccessResponse<T> {
   };
 }
 
-export interface MCPFinancialToolResponse<T = any> extends MCPToolResponse<T> {
+export interface MCPFinancialToolResponse<T = unknown> extends MCPToolResponse<T> {
   metadata: MCPResponseMetadata & {
     tool: string;
     provider: "edgar" | "xbrl" | "marketdata" | "private" | "benchmark";
@@ -93,7 +93,7 @@ export interface MCPFinancialToolResponse<T = any> extends MCPToolResponse<T> {
   };
 }
 
-export interface MCPCRMToolResponse<T = any> extends MCPToolResponse<T> {
+export interface MCPCRMToolResponse<T = unknown> extends MCPToolResponse<T> {
   metadata: MCPResponseMetadata & {
     tool: string;
     provider: "hubspot" | "salesforce" | "dynamics";

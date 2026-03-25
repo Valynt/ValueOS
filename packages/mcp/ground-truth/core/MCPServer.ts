@@ -36,7 +36,7 @@ import { GroundTruthIntegrationService } from "../services/GroundTruthIntegratio
 import { PredictiveModelingService } from "../services/PredictiveModelingService";
 import { SECWebhookSystem } from "../services/SECWebhookSystem";
 import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
-import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
+import { LiveAnalysisSession, StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
 import { WebSocketServer } from "../services/WebSocketServer";
 import { ErrorCodes, GroundTruthError } from "../types";
 
@@ -111,7 +111,7 @@ interface MCPToolResult {
   content: Array<{
     type: "text" | "resource";
     text?: string;
-    resource?: any;
+    resource?: Record<string, unknown>;
   }>;
   isError?: boolean;
 }
@@ -149,7 +149,7 @@ export class MCPFinancialGroundTruthServer {
   private streamingSentimentAnalyzer: StreamingSentimentAnalyzer;
   private ingestionService?: GroundTruthIntegrationService;
 
-  constructor(config: MCPServerConfig, httpServer?: any) {
+  constructor(config: MCPServerConfig, httpServer?: import("http").Server) {
     this.config = config;
     this.truthLayer = new UnifiedTruthLayer(config.truthLayer);
 
@@ -1021,7 +1021,7 @@ export class MCPFinancialGroundTruthServer {
   /**
    * Validate tool arguments against Zod schemas
    */
-  private validateToolArguments(toolName: string, args: any): void {
+  private validateToolArguments(toolName: string, args: Record<string, unknown>): void {
     const schema = ToolSchemas[toolName];
 
     if (!schema) {
@@ -1439,7 +1439,7 @@ export class MCPFinancialGroundTruthServer {
    */
   async healthCheck(): Promise<{
     status: "healthy" | "degraded" | "unhealthy";
-    details: any;
+    details: Record<string, unknown>;
   }> {
     const health = await this.truthLayer.healthCheck();
 
@@ -1694,7 +1694,7 @@ export class MCPFinancialGroundTruthServer {
 
     await this.streamingSentimentAnalyzer.startSession(
       session_id,
-      event_type as any,
+      event_type as LiveAnalysisSession["eventType"],
       company_name
     );
 
@@ -2059,7 +2059,7 @@ export class MCPFinancialGroundTruthServer {
   // Verification and Audit
   // ============================================================================
 
-  private async generateVerificationHash(results: any[]): Promise<string> {
+  private async generateVerificationHash(results: unknown[]): Promise<string> {
     try {
       const data = JSON.stringify(results);
       const hash = await sha256(data);

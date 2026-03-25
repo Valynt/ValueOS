@@ -168,7 +168,7 @@ export const EndSentimentStreamSchema = z.object({
 
 export const GetStreamingStatsSchema = z.object({});
 
-export const ToolSchemas: Record<string, z.ZodType<any>> = {
+export const ToolSchemas: Record<string, z.ZodType<unknown>> = {
   get_authoritative_financials: GetAuthoritativeFinancialsSchema,
   get_filing_sections: GetFilingSectionsSchema,
   resolve_ticker_from_domain: ResolveTickerFromDomainSchema,

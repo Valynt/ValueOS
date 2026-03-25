@@ -265,9 +265,10 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
     }
 
     return { status: 'not_breached' };
-  } catch (err: any) {
-    logger.warn('HIBP check failed', { reason: String(err?.message || err) });
-    return { status: 'unknown', reason: String(err?.message || err) };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn('HIBP check failed', { reason: message });
+    return { status: 'unknown', reason: message };
   }
 }
 
