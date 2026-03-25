@@ -48,7 +48,7 @@
       ]
     },
     "tests": {
-      "baseline": 558,
+      "baseline": 569,
       "nextTarget": 520,
       "paths": [
         "tests"

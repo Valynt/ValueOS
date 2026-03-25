@@ -13,6 +13,8 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Security | Semgrep SAST scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `semgrep.sarif`, uploaded to code scanning where applicable |
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `trivy-fs.sarif`, `trivy-image.sarif` |
 | Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact |
+| E2E Correctness | Critical user flows: auth + dashboard data load | `pr-fast.yml` (`e2e-critical`) | `artifacts/e2e/*`, `playwright-report/` |
+| Type Safety | Per-package TypeScript error count ratchet (no regressions) | `pr-fast.yml` (`ts-type-ratchet`) | `artifacts/ci-lanes/ts-type-ratchet/` |
 | Compliance | RLS and DSR checks + evidence export | `pr-fast.yml`, `main-verify.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
 | Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
