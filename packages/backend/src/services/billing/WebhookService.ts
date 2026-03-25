@@ -137,48 +137,42 @@ export class WebhookService {
   }
 
   /**
-   * Process webhook event with idempotency result.
-   * Returns isDuplicate: true if the event was already processed.
+   * Process a verified Stripe webhook event exactly once.
+   *
+   * Idempotency is enforced by a single INSERT ... ON CONFLICT DO NOTHING at
+   * the database level. The previous implementation performed two sequential
+   * upserts (one here, one inside processEvent), creating a race window where
+   * concurrent deliveries of the same event could both observe "not a
+   * duplicate" and execute the handler twice. This version uses one atomic
+   * insert so only the request that wins the DB constraint proceeds.
+   *
+   * Returns isDuplicate: true when the event was already recorded (conflict),
+   * meaning no handler was invoked.
    */
   async processWebhook(event: Stripe.Event): Promise<{ isDuplicate: boolean; processed: boolean }> {
-    if (!supabase) {
-      throw new Error("Supabase billing not configured");
-    }
-
-    const { data: inserted } = await supabase
-      .from("webhook_events")
-      .upsert(
-        {
-          stripe_event_id: event.id,
-          event_type: event.type,
-          payload: event,
-          processed: false,
-          received_at: new Date().toISOString(),
-        },
-        { onConflict: "stripe_event_id", ignoreDuplicates: true }
-      )
-      .select("id, processed")
-      .single();
-
-    if (!inserted || inserted.processed) {
-      return { isDuplicate: true, processed: true };
-    }
-
-    await this.processEvent(event);
-    return { isDuplicate: false, processed: true };
+    const isDuplicate = await this.processEvent(event);
+    return { isDuplicate, processed: true };
   }
 
   /**
-   * Process webhook event
+   * Core event processing with a single atomic idempotency check.
+   *
+   * Uses INSERT ... ON CONFLICT DO NOTHING (via upsert ignoreDuplicates) so
+   * that exactly one concurrent caller proceeds to the event handler. Returns
+   * true when the event was a duplicate (no handler invoked), false when the
+   * event was new and the handler ran.
    */
-  async processEvent(event: Stripe.Event): Promise<void> {
+  async processEvent(event: Stripe.Event): Promise<boolean> {
     if (!supabase) {
       throw new Error("Supabase billing not configured");
     }
 
-    // Store event with idempotency check using INSERT ... ON CONFLICT
-    // This prevents race conditions where two concurrent requests both pass the check
-    const { data: inserted, error: insertError } = await supabase
+    // Single atomic insert. ignoreDuplicates: true maps to
+    // INSERT ... ON CONFLICT DO NOTHING — the DB constraint on
+    // stripe_event_id is the sole idempotency gate. If two concurrent
+    // requests race here, exactly one will receive a row back; the other
+    // will receive null and return early without calling any handler.
+    const { data: inserted } = await supabase
       .from("webhook_events")
       .upsert(
         {
@@ -196,12 +190,13 @@ export class WebhookService {
       .select("id, processed")
       .single();
 
-    // If no row returned or already processed, skip
+    // null → conflict (duplicate) or already processed → skip handler
     if (!inserted || inserted.processed) {
-      logger.info("Event already processed or duplicate", {
+      logger.info("Webhook event already processed or duplicate — skipping", {
         eventId: event.id,
+        type: event.type,
       });
-      return;
+      return true; // isDuplicate
     }
 
     logger.info("Processing webhook event", {
@@ -248,6 +243,7 @@ export class WebhookService {
 
       await this.markEventProcessed(event.id);
       recordStripeWebhook(event.type, "processed");
+      return false; // not a duplicate
     } catch (error) {
       logger.error(
         "Error processing webhook event",

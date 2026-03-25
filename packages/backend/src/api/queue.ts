@@ -69,6 +69,14 @@ router.post(
     // Get user info
     const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
     const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+
+    if (!tenantId) {
+      return res.status(403).json({
+        error: 'tenant_required',
+        message: 'Tenant context is required to submit queue jobs',
+      });
+    }
 
     const promptSanitization = prompt ? sanitizeAgentInput(prompt) : null;
     const variablesSanitization = promptVariables ? sanitizeAgentInput(promptVariables) : null;
@@ -92,6 +100,7 @@ router.post(
     // Add job to queue
     const job = await llmQueue.addJob({
       type,
+      tenant_id: tenantId,
       userId,
       sessionId,
       promptKey,
@@ -286,6 +295,14 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
 
     const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
     const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
+    const batchTenantId = (req as AuthenticatedRequest).tenantId;
+
+    if (!batchTenantId) {
+      return res.status(403).json({
+        error: 'tenant_required',
+        message: 'Tenant context is required to submit batch queue jobs',
+      });
+    }
 
     const sanitizedJobs: unknown[] = [];
 
@@ -322,6 +339,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       sanitizedJobs.map(async (jobData, index) => {
         const job = await llmQueue.addJob({
           ...jobData,
+          tenant_id: batchTenantId,
           userId,
           sessionId
         }, {
