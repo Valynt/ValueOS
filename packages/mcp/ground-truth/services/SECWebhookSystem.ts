@@ -508,7 +508,7 @@ export class SECWebhookSystem {
     delivery: WebhookDelivery,
     subscription: WebhookSubscription,
     response?: Response,
-    error?: any
+    error?: unknown
   ): Promise<void> {
     delivery.attempt++;
 

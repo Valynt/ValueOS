@@ -347,7 +347,7 @@ export class CensusClient {
     this.rateLimiter.set(key, Date.now());
   }
 
-  private parseDemographicData(data: any[], year: number): CensusDemographicData[] {
+  private parseDemographicData(data: unknown[][], year: number): CensusDemographicData[] {
     const results: CensusDemographicData[] = [];
 
     // Skip header row
@@ -401,7 +401,7 @@ export class CensusClient {
     return results;
   }
 
-  private parseEconomicData(data: any[], year: number): CensusEconomicData[] {
+  private parseEconomicData(data: unknown[][], year: number): CensusEconomicData[] {
     const results: CensusEconomicData[] = [];
 
     // Skip header row
@@ -444,7 +444,7 @@ export class CensusClient {
   }
 
   private parseBusinessPatternsData(
-    data: any[],
+    data: unknown[][],
     naicsCodes: string[],
     year: number
   ): CensusBusinessData[] {
@@ -488,7 +488,7 @@ export class CensusClient {
   }
 
   private parsePopulationData(
-    data: any[]
+    data: unknown[][]
   ): Array<{ geoid: string; name: string; population: number }> {
     const results: Array<{ geoid: string; name: string; population: number }> = [];
 

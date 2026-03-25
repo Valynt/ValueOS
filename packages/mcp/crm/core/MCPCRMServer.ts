@@ -454,10 +454,10 @@ export class MCPCRMServer {
 
     // Check for any failures
     const failures = Array.from(results.values()).filter(
-      (r: any) => !r.success
+      (r) => !r.success
     );
     if (failures.length > 0) {
-      const errorDetails = failures.map((f: any) => ({
+      const errorDetails = failures.map((f) => ({
         taskId: f.taskId || "unknown",
         error: f.error?.message || String(f.error) || "Unknown error",
       }));
@@ -722,25 +722,20 @@ export class MCPCRMServer {
           );
 
         default:
-          const error = new MCPCRMError(
-            MCPErrorCodes.INVALID_REQUEST,
-            `Unknown CRM tool: ${toolName}`,
-            { requestId, tool: toolName }
-          );
-          return responseBuilder.error(error) as any;
+          return {
+            success: false,
+            error: `Unknown CRM tool: ${toolName}`,
+          };
       }
     } catch (error) {
       logger.error(
         "CRM tool execution failed",
         error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
-      return responseBuilder.error(
-        new MCPCRMError(
-          MCPErrorCodes.INTERNAL_ERROR,
-          error instanceof Error ? error.message : "Unknown error",
-          { requestId, tool: toolName }
-        )
-      ) as any;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   }
 
@@ -765,11 +760,7 @@ export class MCPCRMServer {
       },
     };
 
-    return _responseBuilder.crmSuccess(
-      result.data,
-      this.config.tenantId,
-      providers.length > 0 ? "connected" : "disconnected"
-    ) as any;
+    return result;
   }
 
   private async handleSearchDeals(
@@ -1276,7 +1267,16 @@ export class MCPCRMServer {
     const normalizedStage = this.normalizeStage(deal.stage);
 
     // Build normalized context optimized for value analysis
-    const normalizedContext = {
+    const normalizedContext: {
+      dealId: string; externalId?: string; provider: string;
+      financial: { dealValue: number; currency: string; probability: number; expectedValue: number };
+      stage: { current: string; normalized: string; closeDate?: string; daysInStage: number; daysToClose: number | null };
+      company: { id?: string; name: string };
+      owner: { id?: string; name: string };
+      timestamps: { created: string; lastModified: string };
+      customFields: Record<string, unknown>;
+      history?: { recentActivityCount: number; lastActivityDate: string | null; activityTypes: string[] };
+    } = {
       // Core identification
       dealId: deal.id,
       externalId: deal.externalId,
@@ -1326,7 +1326,7 @@ export class MCPCRMServer {
     // Optionally include stage history
     if (includeHistory) {
       const activities = await module.getDealActivities(dealId, 20);
-      (normalizedContext as any).history = {
+      normalizedContext.history = {
         recentActivityCount: activities.length,
         lastActivityDate: activities[0]?.occurredAt?.toISOString() || null,
         activityTypes: Array.from(new Set(activities.map((a) => a.type))),

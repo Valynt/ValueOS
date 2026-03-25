@@ -20,15 +20,15 @@ interface ConfigurationSnapshot {
   id: string;
   timestamp: Date;
   label: string;
-  configuration: any;
+  configuration: Record<string, unknown>;
 }
 
 interface DiffEntry {
   path: string;
   category: string;
   setting: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   changeType: 'added' | 'removed' | 'modified' | 'unchanged';
 }
 
@@ -36,10 +36,10 @@ interface ConfigurationDiffViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   organizationId: string;
-  currentConfiguration: any;
+  currentConfiguration: Record<string, unknown>;
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'Not set';
   if (typeof value === 'boolean') return value ? 'Enabled' : 'Disabled';
   if (typeof value === 'object') return JSON.stringify(value, null, 2);
@@ -53,7 +53,7 @@ function formatSettingName(setting: string): string {
     .replace(/\b\w/g, l => l.toUpperCase());
 }
 
-function calculateDiff(oldConfig: any, newConfig: any): DiffEntry[] {
+function calculateDiff(oldConfig: Record<string, unknown>, newConfig: Record<string, unknown>): DiffEntry[] {
   const diffs: DiffEntry[] = [];
   const categories = new Set([
     ...Object.keys(oldConfig || {}),

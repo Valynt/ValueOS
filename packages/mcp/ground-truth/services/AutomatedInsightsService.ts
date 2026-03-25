@@ -272,8 +272,8 @@ export class AutomatedInsightsService {
    */
   async identifyValueDrivers(
     request: CompanyInsightsRequest,
-    sentimentData?: PromiseSettledResult<any>,
-    forecastingData?: PromiseSettledResult<any>
+    sentimentData?: PromiseSettledResult<unknown>,
+    forecastingData?: PromiseSettledResult<unknown>
   ): Promise<ValueDriver[]> {
     const valueDrivers: ValueDriver[] = [];
 
@@ -412,7 +412,7 @@ export class AutomatedInsightsService {
    */
   async analyzeCompetitivePosition(
     request: CompanyInsightsRequest,
-    peerData?: PromiseSettledResult<any>
+    peerData?: PromiseSettledResult<unknown>
   ): Promise<CompetitivePosition> {
     // Default competitive position (would be enhanced with real data)
     const competitivePosition: CompetitivePosition = {
@@ -454,8 +454,8 @@ export class AutomatedInsightsService {
    */
   async assessRisks(
     request: CompanyInsightsRequest,
-    sentimentData?: PromiseSettledResult<any>,
-    forecastingData?: PromiseSettledResult<any>
+    sentimentData?: PromiseSettledResult<unknown>,
+    forecastingData?: PromiseSettledResult<unknown>
   ): Promise<RiskAssessment> {
     // Base risk factors (would be enhanced with real analysis)
     const riskAssessment: RiskAssessment = {
@@ -657,8 +657,8 @@ export class AutomatedInsightsService {
    * Calculate overall confidence level
    */
   private calculateOverallConfidence(
-    sentimentData?: PromiseSettledResult<any>,
-    forecastingData?: PromiseSettledResult<any>
+    sentimentData?: PromiseSettledResult<unknown>,
+    forecastingData?: PromiseSettledResult<unknown>
   ): number {
     let confidence = 0.7; // Base confidence
 
@@ -677,8 +677,8 @@ export class AutomatedInsightsService {
    * Generate data quality notes
    */
   private generateDataQualityNotes(
-    sentimentData?: PromiseSettledResult<any>,
-    forecastingData?: PromiseSettledResult<any>
+    sentimentData?: PromiseSettledResult<unknown>,
+    forecastingData?: PromiseSettledResult<unknown>
   ): string[] {
     const notes: string[] = [];
 

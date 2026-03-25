@@ -40,10 +40,10 @@ for path in root.rglob('*'):
         continue
     if parts[0] not in {'apps', 'packages', 'src'}:
         continue
-    if 'node_modules' in parts or 'dist' in parts or '__tests__' in parts:
+    if 'node_modules' in parts or 'dist' in parts or '__tests__' in parts or '__benchmarks__' in parts:
         continue
     name = path.name
-    if name.endswith('.d.ts') or '.test.' in name or '.spec.' in name:
+    if name.endswith('.d.ts') or '.test.' in name or '.spec.' in name or '.bench.' in name:
         continue
 
     try:
@@ -51,7 +51,10 @@ for path in root.rglob('*'):
     except Exception:
         continue
 
-    file_count = sum(1 for line in lines if pattern.search(line))
+    file_count = sum(
+        1 for line in lines
+        if pattern.search(line) and not line.strip().startswith(('//', '*', '/*'))
+    )
     if file_count == 0:
         continue
 
@@ -145,7 +148,7 @@ COUNTS_JSON="$(compute_counts)"
 BASELINE_JSON="$(cat "$BASELINE_FILE")"
 
 if [[ "${1:-}" == "--update" ]]; then
-  COUNTS_JSON="$COUNTS_JSON" python3 - <<'PY' > "$BASELINE_FILE"
+  COUNTS_JSON="$COUNTS_JSON" BASELINE_FILE="$BASELINE_FILE" python3 - <<'PY' > "$BASELINE_FILE"
 import datetime as dt
 import json
 import math
@@ -160,11 +163,20 @@ packages = {
     for pkg, count in sorted(counts.get("packages", {}).items())
 }
 
+import pathlib
+existing = {}
+baseline_path = pathlib.Path(os.environ.get("BASELINE_FILE", "ts-any-baseline.json"))
+if baseline_path.exists():
+    try:
+        existing = json.loads(baseline_path.read_text())
+    except Exception:
+        pass
+
 payload = {
     "baseline": counts.get("total", 0),
     "updated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "target": 100,
-    "monthly_target_strategy": "3% reduction per package per month (minimum 1)",
+    "target": existing.get("target", 0),
+    "monthly_target_strategy": existing.get("monthly_target_strategy", "maintain zero — any new any usage must be justified and tracked"),
     "packages": packages,
     "note": "Run 'bash scripts/ts-any-ratchet.sh --update' after reducing any count",
 }

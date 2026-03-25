@@ -570,32 +570,39 @@ export class ESOModule extends BaseModule {
     const limit = request.limit || 5;
 
     const filtered = ALL_VMRT_SEEDS.filter((trace) => {
-      const ctx = trace.context as any;
-      const vm = trace.valueModel as any;
-      if (request.industry && ctx?.organization?.industry !== request.industry) {
+      const t = trace as unknown as Record<string, Record<string, unknown>>;
+      const ctx = t["context"] ?? {};
+      const vm = t["valueModel"] ?? {};
+      const org = ctx["organization"] as Record<string, unknown> | undefined;
+      if (request.industry && org?.["industry"] !== request.industry) {
         return false;
       }
-      if (request.outcomeCategory && vm?.outcomeCategory !== request.outcomeCategory) {
+      if (request.outcomeCategory && vm["outcomeCategory"] !== request.outcomeCategory) {
         return false;
       }
-      if (request.persona && ctx?.persona !== request.persona) {
+      if (request.persona && ctx["persona"] !== request.persona) {
         return false;
       }
       return true;
     });
 
     const traces = filtered.slice(0, limit).map((trace) => {
-      const ctx = trace.context as any;
-      const vm = trace.valueModel as any;
-      const qm = (trace as any).qualityMetrics;
-      const step0 = (trace.reasoningSteps?.[0] as any);
+      const t = trace as unknown as Record<string, unknown>;
+      const ctx = (t["context"] ?? {}) as Record<string, unknown>;
+      const vm = (t["valueModel"] ?? {}) as Record<string, unknown>;
+      const qm = (t["qualityMetrics"] ?? {}) as Record<string, unknown>;
+      const steps = t["reasoningSteps"] as Record<string, unknown>[] | undefined;
+      const step0 = steps?.[0] ?? {};
+      const org = ctx["organization"] as Record<string, unknown> | undefined;
+      const fi = vm["financialImpact"] as Record<string, unknown> | undefined;
+      const ti = fi?.["totalImpact"] as Record<string, unknown> | undefined;
       return {
         traceId: trace.traceId!,
-        summary: step0?.description || "No summary",
-        industry: ctx?.organization?.industry || "unknown",
-        outcomeCategory: vm?.outcomeCategory || "unknown",
-        totalImpact: vm?.financialImpact?.totalImpact?.amount || 0,
-        confidence: qm?.overallConfidence || 0,
+        summary: (step0["description"] as string | undefined) || "No summary",
+        industry: (org?.["industry"] as string | undefined) || "unknown",
+        outcomeCategory: (vm["outcomeCategory"] as string | undefined) || "unknown",
+        totalImpact: (ti?.["amount"] as number | undefined) || 0,
+        confidence: (qm["overallConfidence"] as number | undefined) || 0,
       };
     });
 

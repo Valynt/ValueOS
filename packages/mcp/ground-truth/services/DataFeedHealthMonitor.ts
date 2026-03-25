@@ -180,8 +180,8 @@ export class DataFeedHealthMonitor {
    */
   private determineFeedStatus(
     feedName: string,
-    metrics: any,
-    cacheStats: any
+    metrics: Record<string, unknown>,
+    cacheStats: Record<string, unknown>
   ): DataFeedHealthStatus["status"] {
     // Critical failures
     if (metrics.consecutiveFailures >= this.thresholds.maxConsecutiveFailures) {
@@ -233,7 +233,7 @@ export class DataFeedHealthMonitor {
    */
   private checkForFeedAlerts(
     feedName: string,
-    metrics: any,
+    metrics: Record<string, unknown>,
     status: DataFeedHealthStatus["status"]
   ): DataFeedAlert[] {
     const alerts: DataFeedAlert[] = [];

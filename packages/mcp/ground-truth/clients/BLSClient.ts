@@ -82,7 +82,11 @@ export class BLSClient {
         return `OEUM${oesCode}000000`; // National level
       });
 
-      const params = {
+      const params: {
+        seriesid: string[]; startyear: string; endyear: string;
+        catalog: boolean; calculations: boolean; annualaverage: boolean; aspects: boolean;
+        registrationkey?: string;
+      } = {
         seriesid: seriesIds,
         startyear: year?.toString() || (new Date().getFullYear() - 1).toString(),
         endyear: year?.toString() || new Date().getFullYear().toString(),
@@ -93,7 +97,7 @@ export class BLSClient {
       };
 
       if (this.apiKey) {
-        (params as any).registrationkey = this.apiKey;
+        params.registrationkey = this.apiKey;
       }
 
       logger.debug("Fetching BLS wage data", { occupationCodes, areaCode, params });
@@ -129,7 +133,11 @@ export class BLSClient {
     await this.checkRateLimit();
 
     try {
-      const params = {
+      const params: {
+        seriesid: string[]; startyear: string; endyear: string;
+        catalog: boolean; calculations: boolean; annualaverage: boolean;
+        registrationkey?: string;
+      } = {
         seriesid: seriesIds,
         startyear: startYear.toString(),
         endyear: endYear.toString(),
@@ -139,7 +147,7 @@ export class BLSClient {
       };
 
       if (this.apiKey) {
-        (params as any).registrationkey = this.apiKey;
+        params.registrationkey = this.apiKey;
       }
 
       logger.debug("Fetching BLS employment data", { seriesIds, startYear, endYear });
@@ -183,7 +191,11 @@ export class BLSClient {
         `ENU${naics}0000008`, // Average weekly earnings
       ]);
 
-      const params = {
+      const params: {
+        seriesid: string[]; startyear: string; endyear: string;
+        catalog: boolean; calculations: boolean; annualaverage: boolean;
+        quarter?: string; registrationkey?: string;
+      } = {
         seriesid: seriesIds,
         startyear: year?.toString() || (new Date().getFullYear() - 1).toString(),
         endyear: year?.toString() || new Date().getFullYear().toString(),
@@ -193,11 +205,11 @@ export class BLSClient {
       };
 
       if (quarter) {
-        (params as Record<string, unknown>)["quarter"] = quarter;
+        params.quarter = quarter;
       }
 
       if (this.apiKey) {
-        (params as any).registrationkey = this.apiKey;
+        params.registrationkey = this.apiKey;
       }
 
       logger.debug("Fetching BLS industry data", { naicsCodes, year, quarter });
@@ -237,7 +249,10 @@ export class BLSClient {
       const seriesId = `CUUR${areaCode}${itemCode}L`; // Current CPI-U
       const seriesIds = [seriesId];
 
-      const params = {
+      const params: {
+        seriesid: string[]; startyear: string; endyear: string;
+        catalog: boolean; calculations: boolean; registrationkey?: string;
+      } = {
         seriesid: seriesIds,
         startyear: startYear.toString(),
         endyear: endYear.toString(),
@@ -246,7 +261,7 @@ export class BLSClient {
       };
 
       if (this.apiKey) {
-        (params as any).registrationkey = this.apiKey;
+        params.registrationkey = this.apiKey;
       }
 
       logger.debug("Fetching BLS CPI data", { areaCode, itemCode, startYear, endYear });
@@ -294,14 +309,15 @@ export class BLSClient {
     }
   }
 
-  private parseWageData(apiResponse: any, requestedCodes: string[]): BLSWageData[] {
+  private parseWageData(apiResponse: Record<string, unknown>, requestedCodes: string[]): BLSWageData[] {
     const wageData: BLSWageData[] = [];
 
-    if (!apiResponse.Results || !apiResponse.Results.series) {
+    const results = apiResponse["Results"] as { series?: Record<string, unknown>[] } | undefined;
+    if (!results?.series) {
       return wageData;
     }
 
-    for (const series of apiResponse.Results.series) {
+    for (const series of results.series) {
       try {
         const seriesId = series.seriesID;
         const occupationCode = this.extractOccupationCode(seriesId);
@@ -343,14 +359,15 @@ export class BLSClient {
     return wageData;
   }
 
-  private parseEmploymentData(apiResponse: any): BLSEmploymentData[] {
+  private parseEmploymentData(apiResponse: Record<string, unknown>): BLSEmploymentData[] {
     const employmentData: BLSEmploymentData[] = [];
 
-    if (!apiResponse.Results || !apiResponse.Results.series) {
+    const results = apiResponse["Results"] as { series?: Record<string, unknown>[] } | undefined;
+    if (!results?.series) {
       return employmentData;
     }
 
-    for (const series of apiResponse.Results.series) {
+    for (const series of results.series) {
       const seriesId = series.seriesID;
 
       for (const dataPoint of series.data || []) {
@@ -368,17 +385,18 @@ export class BLSClient {
     return employmentData;
   }
 
-  private parseIndustryData(apiResponse: any, requestedNaics: string[]): BLSIndustryData[] {
+  private parseIndustryData(apiResponse: Record<string, unknown>, requestedNaics: string[]): BLSIndustryData[] {
     const industryData: BLSIndustryData[] = [];
 
-    if (!apiResponse.Results || !apiResponse.Results.series) {
+    const results = apiResponse["Results"] as { series?: Record<string, unknown>[] } | undefined;
+    if (!results?.series) {
       return industryData;
     }
 
     // Group data by NAICS code
-    const naicsGroups: Record<string, any[]> = {};
+    const naicsGroups: Record<string, Record<string, unknown>[]> = {};
 
-    for (const series of apiResponse.Results.series) {
+    for (const series of results.series) {
       const naicsCode = this.extractNaicsCode(series.seriesID);
       if (!requestedNaics.includes(naicsCode)) continue;
 
@@ -435,12 +453,12 @@ export class BLSClient {
     return seriesId.substring(3, 9);
   }
 
-  private extractPercentile(dataPoint: any, percentile: string): number {
-    const percentileData = dataPoint.percentiles?.find((p: any) => p.percentile === percentile);
+  private extractPercentile(dataPoint: Record<string, unknown>, percentile: string): number {
+    const percentileData = dataPoint.percentiles?.find((p: Record<string, unknown>) => p["percentile"] === percentile);
     return parseFloat(percentileData?.value) || 0;
   }
 
-  private extractEmploymentCount(dataPoint: any): number {
+  private extractEmploymentCount(dataPoint: Record<string, unknown>): number {
     return parseFloat(dataPoint.employment) || 0;
   }
 }

@@ -63,7 +63,7 @@ export class DataEncryptionService {
    * Encrypt data using appropriate policy
    */
   async encryptData(
-    data: any,
+    data: unknown,
     dataType: string,
     tenantId?: string
   ): Promise<EncryptedData> {
@@ -111,7 +111,7 @@ export class DataEncryptionService {
   async decryptData(
     encryptedData: EncryptedData,
     tenantId?: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     const key = await this.getKeyByVersion(encryptedData.keyVersion, tenantId);
     if (!key) {
       throw new Error(
@@ -312,7 +312,7 @@ export class DataEncryptionService {
     decipher.setAAD(Buffer.from("")); // Additional authenticated data
 
     if (encryptedData.tag) {
-      (decipher as any).setAuthTag(Buffer.from(encryptedData.tag, "hex"));
+      (decipher as import("crypto").DecipherGCM).setAuthTag(Buffer.from(encryptedData.tag, "hex"));
     }
 
     let decrypted = decipher.update(encryptedData.ciphertext, "hex", "utf8");
@@ -335,7 +335,7 @@ export class DataEncryptionService {
     let encrypted = cipher.update(data, "utf8", "hex");
     encrypted += cipher.final("hex");
 
-    const tag = (cipher as any).getAuthTag();
+    const tag = (cipher as import("crypto").CipherGCM).getAuthTag();
 
     return {
       ciphertext: encrypted,

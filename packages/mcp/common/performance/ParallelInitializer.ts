@@ -21,13 +21,13 @@ export interface InitializationTask {
   timeout: number;
   retryAttempts: number;
   retryDelay: number;
-  executor: () => Promise<any>;
+  executor: () => Promise<unknown>;
 }
 
 export interface InitializationResult {
   taskId: string;
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: Error;
   duration: number;
   retryCount: number;
@@ -252,7 +252,7 @@ class TaskQueue {
 export class ParallelInitializer extends EventEmitter {
   private config: ParallelInitConfig;
   private taskQueue: TaskQueue;
-  private connectionPools: Map<string, ConnectionPool<any>> = new Map();
+  private connectionPools: Map<string, ConnectionPool<unknown>> = new Map();
   private results: Map<string, InitializationResult> = new Map();
 
   constructor(config: Partial<ParallelInitConfig> = {}) {
@@ -463,7 +463,7 @@ export class ParallelInitializer extends EventEmitter {
    */
   getStats(): {
     tasks: { total: number; running: number; completed: number; failed: number };
-    pools: Array<{ name: string; stats: any }>;
+    pools: Array<{ name: string; stats: { available: number; inUse: number; waiting: number; maxSize: number } }>;
   } {
     const poolStats = Array.from(this.connectionPools.entries()).map(([name, pool]) => ({
       name,

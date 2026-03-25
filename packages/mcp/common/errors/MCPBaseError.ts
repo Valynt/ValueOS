@@ -57,14 +57,14 @@ export interface MCPErrorMetadata {
   retryable?: boolean;
   retryAfter?: number; // seconds
   upstreamService?: string;
-  additionalContext?: Record<string, any>;
+  additionalContext?: Record<string, unknown>;
 }
 
 export interface MCPErrorDetails {
   field?: string;
-  value?: any;
+  value?: unknown;
   expectedType?: string;
-  allowedValues?: any[];
+  allowedValues?: unknown[];
   validationErrors?: string[];
   upstreamErrorCode?: string;
   upstreamErrorMessage?: string;
@@ -274,14 +274,14 @@ export class MCPGeneralError extends MCPBaseError {
 /**
  * Check if error is an MCP error
  */
-export function isMCPError(error: any): error is MCPBaseError {
+export function isMCPError(error: unknown): error is MCPBaseError {
   return error instanceof MCPBaseError;
 }
 
 /**
  * Extract error code from any error
  */
-export function getErrorCode(error: any): MCPErrorCode {
+export function getErrorCode(error: unknown): MCPErrorCode {
   if (isMCPError(error)) {
     return error.code;
   }
@@ -291,7 +291,7 @@ export function getErrorCode(error: any): MCPErrorCode {
 /**
  * Extract user-friendly message from any error
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
   if (isMCPError(error)) {
     return error.message;
   }
@@ -301,7 +301,7 @@ export function getErrorMessage(error: any): string {
 /**
  * Create standardized error response
  */
-export function createErrorResponse(error: any, requestId?: string) {
+export function createErrorResponse(error: unknown, requestId?: string) {
   if (isMCPError(error)) {
     const response = error.toJSON();
     if (requestId) {

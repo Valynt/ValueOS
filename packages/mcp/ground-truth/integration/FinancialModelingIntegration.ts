@@ -157,7 +157,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
 
     // Parse financial data
     const data = JSON.parse(financials.content[0].text!);
-    const metrics = data.data.reduce((acc: any, item: any) => {
+    const metrics = data.data.reduce((acc: Record<string, unknown>, item: Record<string, unknown>) => {
       acc[item.metric] = item.value;
       return acc;
     }, {});
@@ -339,7 +339,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     return presentValue;
   }
 
-  async validate(params: any): Promise<{ valid: boolean; errors?: string[] }> {
+  async validate(params: Record<string, unknown>): Promise<{ valid: boolean; errors?: string[] }> {
     const errors: string[] = [];
 
     if (!params.entity_id) {

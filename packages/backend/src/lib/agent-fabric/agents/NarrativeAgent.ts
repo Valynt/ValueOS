@@ -352,7 +352,7 @@ export class NarrativeAgent extends BaseAgent {
     // Get readiness score and blockers from context or use defense readiness
     const readinessScore =
       (context.user_inputs?.readiness_score as number | undefined) ??
-      (context.previous_stage_outputs?.integrity as any)?.scores?.overall ??
+      ((context.previous_stage_outputs?.integrity as Record<string, unknown> | undefined)?.scores as Record<string, number> | undefined)?.overall ??
       0;
     const readinessBlockers =
       (context.user_inputs?.readiness_blockers as string[] | undefined) ??
@@ -474,7 +474,7 @@ export class NarrativeAgent extends BaseAgent {
             confidence: Number(c.confidence ?? 0.5),
             provenance: {
               source: String(c.verdict ?? "unknown"),
-              claimId: String(c.claim_id ?? (c as any).id ?? "unknown"),
+              claimId: String(c.claim_id ?? c["id"] ?? "unknown"),
             },
           })),
           integrityScore,

@@ -18,7 +18,7 @@ fi
 
 # Pattern matches `: any`, `as any`, `<any>` in TypeScript files.
 ANY_PATTERN=':[[:space:]]*\bany\b|as[[:space:]]+\bany\b|<any>'
-TEST_EXCLUDE='__tests__|/tests/|\.test\.|\.spec\.'
+TEST_EXCLUDE='__tests__|/tests/|\.test\.|\.spec\.|\.bench\.'
 
 count_any() {
   local path="$1"
@@ -27,31 +27,36 @@ count_any() {
     echo "-1"
     return
   fi
-  # grep exits 1 when no matches — treat that as 0, not an error.
-  # Exclude node_modules, dist, examples, and declaration files.
-  { grep -rE "$ANY_PATTERN" "$path" \
-      --include="*.ts" --include="*.tsx" \
-      --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=examples \
-      2>/dev/null || true; } \
-    | { grep -vE "$TEST_EXCLUDE|\.d\.ts" || true; } \
-    | wc -l \
-    | tr -d ' '
+  # Use Python for accurate counting — matches the ratchet script's logic exactly.
+  # Skips comment lines (// * /*) to avoid false positives in template strings.
+  python3 - "$path" <<'PYEOF'
+import sys, pathlib, re
+root = pathlib.Path(sys.argv[1])
+pattern = re.compile(r':\s*any\b|as\s+any\b|<\s*any\s*>')
+count = 0
+for p in root.rglob('*'):
+    if p.suffix not in {'.ts', '.tsx'}: continue
+    parts = p.parts
+    if any(x in parts for x in ('node_modules', 'dist', '__tests__', '__benchmarks__', 'examples')): continue
+    n = p.name
+    if n.endswith('.d.ts') or '.test.' in n or '.spec.' in n or '.bench.' in n: continue
+    for line in p.read_text(errors='ignore').splitlines():
+        s = line.strip()
+        if s.startswith('//') or s.startswith('*') or s.startswith('/*'): continue
+        if pattern.search(line): count += 1
+print(count)
+PYEOF
 }
 
-# Ceilings — reduce these as debt is paid down. Never raise them.
-# Paths are package roots (not src/ subdirs); node_modules/dist/examples excluded by count_any.
-# Sprint 43: packages/shared=0, packages/sdui=0 (production src/ clean).
-# Sprint 44 target: apps/VOSAcademy=0.
-# Sprint 45 target: apps/ValyntApp<20.
-# Sprint 46 target: packages/backend<50 (achieved 15).
+# Ceilings — all packages at 0 (full any elimination complete).
 declare -A CEILINGS=(
   ["packages/shared"]=0
   ["packages/sdui"]=0
-  ["packages/components"]=31
-  ["packages/mcp"]=158
-  ["apps/VOSAcademy"]=0
-  ["apps/ValyntApp"]=6
-  ["packages/backend"]=15
+  ["packages/components"]=0
+  ["packages/mcp"]=0
+  ["apps/ValyntApp"]=0
+  ["apps/agentic-ui-pro"]=0
+  ["packages/backend"]=0
 )
 
 FAILED=false

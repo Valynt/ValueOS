@@ -38,7 +38,7 @@ export abstract class BaseModule implements GroundTruthModule {
   abstract query(request: ModuleRequest): Promise<ModuleResponse>;
   abstract canHandle(request: ModuleRequest): boolean;
 
-  async healthCheck(): Promise<{ healthy: boolean; details?: any }> {
+  async healthCheck(): Promise<{ healthy: boolean; details?: Record<string, unknown> }> {
     return {
       healthy: this.initialized,
       details: {

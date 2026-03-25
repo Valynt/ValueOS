@@ -45,7 +45,7 @@ export class MarketDataModule extends BaseModule {
   private rateLimit: number = 5; // Requests per minute
   private cacheTTL: number = 300; // 5 minutes default
   protected override lastRequestTime: number = 0;
-  private quoteCache: Map<string, { data: any; timestamp: number }> = new Map();
+  private quoteCache: Map<string, { data: unknown; timestamp: number }> = new Map();
 
   // Provider-specific base URLs
   private readonly PROVIDER_URLS = {
@@ -190,12 +190,13 @@ export class MarketDataModule extends BaseModule {
     const fundamentals = await this.getFundamentals(ticker);
     
     // Extract multiples from fundamentals
+    const meta = fundamentals.metadata ?? {};
     const multiplesData = {
       ticker,
-      pe_ratio: (fundamentals.metadata as any).pe_ratio,
-      ev_ebitda: (fundamentals.metadata as any).ev_ebitda,
-      price_to_book: (fundamentals.metadata as any).price_to_book,
-      price_to_sales: (fundamentals.metadata as any).price_to_sales,
+      pe_ratio: meta["pe_ratio"],
+      ev_ebitda: meta["ev_ebitda"],
+      price_to_book: meta["price_to_book"],
+      price_to_sales: meta["price_to_sales"],
     };
 
     return this.createMetric(
@@ -499,7 +500,7 @@ export class MarketDataModule extends BaseModule {
     );
   }
 
-  private getCachedData(ticker: string, type: string): any | null {
+  private getCachedData(ticker: string, type: string): unknown | null {
     const key = `${ticker}:${type}`;
     const cached = this.quoteCache.get(key);
 
@@ -516,7 +517,7 @@ export class MarketDataModule extends BaseModule {
     return cached.data;
   }
 
-  private setCachedData(ticker: string, type: string, data: any): void {
+  private setCachedData(ticker: string, type: string, data: unknown): void {
     const key = `${ticker}:${type}`;
     this.quoteCache.set(key, {
       data,

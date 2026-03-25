@@ -1,199 +1,161 @@
-# Spec: Sprint 49 — Test Stabilization + Value Graph Agent Integration + API
+# Spec: TypeScript `any` Debt — Full Elimination
 
 ## Problem Statement
 
-Three distinct gaps block Sprint 49 delivery:
+`DEBT-ANY-BURNDOWN` is the sole active item in `.windsurf/context/debt.md`. The goal is to reach absolute zero `any` usages across all production packages, fix the broken CI enforcement tooling, delete non-production dead code that carries `any`, and reset `debt.md` to an empty register.
 
-1. **~120 backend test files crash at module-init time** because their `vi.mock` for the logger omits `createLogger`. Source files call `createLogger({ component: '...' })` at the top level; when a transitive import hits a mock that doesn't export `createLogger`, Vitest throws before any test runs. This is a pre-existing infrastructure gap that must be resolved before Sprint 49 agent tests can be written.
+**Current measured state (comment-filtered, non-test production files):**
 
-2. **Five agents have no Value Graph integration.** `NarrativeAgent`, `TargetAgent`, `RealizationAgent`, `ExpansionAgent`, and `ComplianceAuditorAgent` do not read from or write to `ValueGraphService`. Sprint 48 identified two classes of silent failure in the first two agents: (a) wrong context key used to extract `opportunity_id`, causing writes to the wrong entity; (b) non-UUID string fallbacks hitting UUID Postgres columns and crashing writes silently. A shared `BaseGraphWriter` utility must enforce these invariants so the five new agents cannot repeat the same bugs.
+| Package / App | Actual count | CI ceiling | CI status |
+|---|---:|---:|---|
+| `packages/mcp` | 128 | 158 | OK (ceiling wrong — debt.md claims 0) |
+| `packages/components` | 31 | 31 | OK (ceiling wrong — debt.md claims 0) |
+| `packages/backend/src` | 21 | 15 | **FAIL** |
+| `apps/ValyntApp/src` | 15 | 6 | **FAIL** |
+| `packages/sdui/src` | 7 | 0 | **FAIL** |
+| `apps/agentic-ui-pro` | 5 | not tracked | untracked |
+| `apps/VOSAcademy` | — | 0 | **FAIL** (directory does not exist) |
 
-3. **The 7 Value Graph API endpoints do not exist.** Sprint 49 requires a new router at `/api/v1/graph/:opportunityId/` with authentication, tenant context, and an explicit opportunity-ownership check before any handler executes.
+Additional dead code carrying `any`:
+- `packages/sdui/examples/` — 4 usages, not imported anywhere
+- `packages/components/admin/configuration/_archive/` — 8 usages, not imported anywhere
+- `packages/backend/src/services/__benchmarks__/*.bench.ts` — 5 usages in benchmark harness files
 
 ---
 
 ## Requirements
 
-### 1. Global Logger Mock in `packages/backend/src/test/setup.ts`
+### 1. Delete dead-code directories
 
-**Behaviour:** Add a global `vi.mock` for both logger module paths that provides `createLogger` as a `vi.fn()` returning a full mock logger object. The mock must be **overridable** — per-test `vi.mock` calls in individual files continue to take precedence, preserving existing high-fidelity assertions (e.g. `GuestAccessService.test.ts`).
+Remove directories that are not imported by any production or test code and exist solely as dead weight:
 
-**Paths to mock globally:**
-- `../../lib/logger` (and `.js` variant) — the backend's own structured logger
-- `@shared/lib/logger` — the shared package logger
+- `packages/sdui/examples/`
+- `packages/components/admin/configuration/_archive/`
 
-**Mock shape** (must match both loggers' exported surface):
+Verify no import references exist before deletion.
 
-```typescript
-{
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-  createLogger: vi.fn(() => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  })),
-  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
-}
-```
+### 2. Exclude benchmark files from the `any` ratchet
 
-**Reset:** `vi.clearAllMocks()` already runs in `afterEach` — no additional reset needed.
+`packages/backend/src/services/__benchmarks__/*.bench.ts` files are performance harnesses, not production code. They are not excluded by the current ratchet pattern (`__tests__`, `*.test.*`, `*.spec.*`). Update `scripts/check-any-count.sh` and `scripts/ts-any-ratchet.sh` to also exclude `*.bench.ts` and `__benchmarks__` directories.
 
-**Constraint:** Do not remove or modify any existing per-test `vi.mock` calls. The global mock is a safety net, not a replacement.
+### 3. Eliminate all `any` usages — `packages/sdui/src`
 
----
+**7 usages, all in `src/registry.tsx`.**
 
-### 2. `BaseGraphWriter` Utility
+All are `React.ComponentType<any>`. Replace with a typed generic or a constrained component props type. The correct replacement is `React.ComponentType<Record<string, unknown>>` or a locally-defined `ComponentProps` interface, depending on call-site constraints.
 
-**Location:** `packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts`
+### 4. Eliminate all `any` usages — `packages/backend/src`
 
-**Purpose:** A class that agents compose to write nodes and edges to the Value Graph. It enforces three invariants that prevented silent failures in Sprint 48.
+**21 usages across 9 files** (after benchmark exclusion):
 
-#### 2a. Canonical Context Extraction
+| File | Usages | Fix approach |
+|---|---:|---|
+| `config/ConfigurationManager.ts` | 1 | `value: unknown` + type guard |
+| `config/secretsManager.ts` | 1 | Type the AWS SDK command correctly; use `SendCommandOutput` |
+| `services/post-v1/PromptVersionControl.ts` | 2 | Type the Supabase client with the generated DB schema type |
+| `services/agents/AgentAPI.ts` | 2 | Type `data` with the expected response shape; use `instanceof` for error property check |
+| `services/agents/AgentAuditLogger.ts` | 4 | `sanitizeAndZeroMemory` return type is `unknown`; use type assertion only at the assignment boundary with a typed intermediate |
+| `lib/agent-fabric/agents/NarrativeAgent.ts` | 2 | Type `previous_stage_outputs` with the integrity stage output schema |
+| `lib/agent-fabric/agents/IntegrityAgent.ts` | 2 | Type `kpi.metadata` and `hyp.metadata` with their Zod-inferred types |
 
-Expose a `protected getSafeContext(context: LifecycleContext): { opportunityId: string; organizationId: string }` method.
+### 5. Eliminate all `any` usages — `apps/ValyntApp/src`
 
-- Extract `opportunity_id` from `context.user_inputs` or `context.metadata`. If missing or not a valid UUID v4, throw `LifecycleContextError` with a descriptive message — never fall back to `workspace_id` or any other key.
-- Extract `organization_id` from `context.organization_id`. If missing or not a valid UUID v4, throw.
+**15 usages across 7 files:**
 
-#### 2b. Safe UUID Generation
+| File | Usages | Fix approach |
+|---|---:|---|
+| `features/canvas/components/ValueTreeChart.tsx` | 9 | Type the tree node shape; replace `as any` data-binding casts with proper generic types |
+| `security/CSPNonce.ts` | 3 | Type Express middleware params: `Request`, `Response`, `NextFunction` |
+| `security/CSRFProtection.ts` | 1 | Use `RequestInfo \| URL` for the fetch input type |
+| `security/PasswordValidator.ts` | 1 | `catch (err: unknown)` + `instanceof Error` guard |
+| `lib/auth/SecureTokenManager.ts` | 1 | Type guard parameter should be `unknown` |
+| `mcp-crm/core/MCPCRMServer.ts` | 1 | Use the Supabase typed client instead of casting |
+| `mcp-ground-truth/core/UnifiedTruthLayer.ts` | 1 | Type the `details` field with a discriminated union or `Record<string, unknown>` |
+| `pages/valueos/TemplatesPage.tsx` | 1 | `React.ComponentType<Record<string, unknown>>` |
 
-Expose a `protected generateNodeId(deterministicInput?: string): string` helper.
+### 6. Eliminate all `any` usages — `packages/mcp`
 
-- If `deterministicInput` is provided and is already a valid UUID v4, return it as-is.
-- Otherwise, call `crypto.randomUUID()` — never pass a raw string fallback to a UUID column.
+**128 usages across 32 files.** Highest-density files:
 
-#### 2c. Atomic Write Isolation
+| File | Usages | Fix approach |
+|---|---:|---|
+| `ground-truth/modules/IndustryBenchmarkModule.ts` | 11 | Define typed interfaces for benchmark data shapes |
+| `ground-truth/clients/BLSClient.ts` | 10 | Type BLS API response with Zod schema |
+| `ground-truth/services/AutomatedInsightsService.ts` | 9 | Type insight payloads with discriminated unions |
+| `common/errors/MCPBaseError.ts` | 6 | `value?: unknown`, `allowedValues?: unknown[]`; error guard params `unknown` |
+| `common/types/Response.ts` | 4 | Type `metadata` and `details` with specific interfaces |
+| `common/config/ConfigurationManager.ts` | 7 | `unknown` + type guards for config values |
+| `crm/core/MCPCRMServer.ts` | 6 | Type response builder return types; remove `as any` casts |
+| *(remaining 25 files)* | 75 | Apply `unknown` + type guards or Zod schemas per file |
 
-Expose a `protected async safeWriteBatch(writes: Array<() => Promise<unknown>>): Promise<{ succeeded: number; failed: number; errors: Error[] }>` method.
+### 7. Eliminate all `any` usages — `packages/components`
 
-- Uses `Promise.allSettled` internally so one failed write does not abort the remaining writes.
-- Logs each failure with `logger.error` including the write index and error message.
-- Returns a summary object; callers decide whether to surface partial failure to the agent output.
+**23 usages across 7 files** (after `_archive/` deletion):
 
-#### 2d. Convenience write methods
+All usages are in the admin configuration panel. The configuration object shape is untyped. Define a `ConfigurationSchema` interface (or Zod schema) covering the full configuration tree, then propagate it through `ConfigurationPanel`, `OrganizationSettings`, `AISettings`, `ExportImportDialog`, `ChangeHistorySidebar`, `ConfigurationDiffViewer`, and `use-toast.tsx`.
 
-Thin wrappers over `ValueGraphService` that call `getSafeContext` before delegating:
+### 8. Eliminate all `any` usages — `apps/agentic-ui-pro`
 
-- `writeCapability(context, input: Omit<WriteCapabilityInput, 'opportunity_id' | 'organization_id'>): Promise<VgCapability>`
-- `writeMetric(context, input: Omit<WriteMetricInput, 'opportunity_id' | 'organization_id'>): Promise<VgMetric>`
-- `writeValueDriver(context, input: Omit<WriteValueDriverInput, 'opportunity_id' | 'organization_id'>): Promise<VgValueDriver>`
-- `writeEdge(context, input: Omit<WriteEdgeInput, 'opportunity_id' | 'organization_id'>): Promise<ValueGraphEdge>`
+**5 usages across 4 files:**
 
-**Dependencies:** `ValueGraphService` injected via constructor for testability; defaults to the singleton `valueGraphService`.
+| File | Usages | Fix approach |
+|---|---:|---|
+| `vite.config.ts` | 1 | Type the Vite HMR payload with `HmrPayload` from `vite` |
+| `client/src/hooks/usePersistFn.ts` | 2 | Use `(...args: unknown[]) => unknown` |
+| `client/src/components/ui/textarea.tsx` | 1 | Use `CompositionEvent` type; access `isComposing` directly |
+| `client/src/components/ui/dialog.tsx` | 1 | Same as textarea — type the event properly |
+| `client/src/components/ui/input.tsx` | 1 | Same as textarea |
 
-**Error type:** Export `LifecycleContextError extends Error` from the same file.
+### 9. Fix `scripts/check-any-count.sh`
 
----
+- Remove the `apps/VOSAcademy` entry (directory does not exist)
+- Add `apps/agentic-ui-pro` entry with ceiling 0
+- Set all remaining ceilings to 0 after fixes are applied
+- Add `__benchmarks__` to the exclusion pattern
 
-### 3. Five Agent Integrations (Sprint 49 KR 1)
+### 10. Fix `scripts/ts-any-ratchet.sh` and `ts-any-baseline.json`
 
-Wire each of the five agents to the Value Graph using `BaseGraphWriter`. Each agent:
+- Update the ratchet script to exclude `*.bench.ts` and `__benchmarks__` directories
+- After all fixes, run `bash scripts/ts-any-ratchet.sh --update` to capture the new baseline (0 across all packages)
+- Update `ts-any-baseline.json` to reflect 0 counts
 
-- Composes `BaseGraphWriter` (not extends — agents already extend `BaseAgent`).
-- Calls `getSafeContext(context)` at the start of its graph-write phase.
-- Uses `safeWriteBatch` for all node/edge writes.
-- Has a unit test asserting expected node types and edge types are written after a successful run (mock `ValueGraphService`).
+### 11. Update `docs/debt/ts-any-dashboard.md`
 
-**Per-agent graph writes:**
+After all fixes, regenerate the dashboard by running `bash scripts/ts-any-ratchet.sh --report-only`. The dashboard must show 0 for every package.
 
-| Agent | Writes |
-|---|---|
-| `NarrativeAgent` | `VgValueDriver` nodes; `metric_maps_to_value_driver` edges |
-| `TargetAgent` | `VgMetric` nodes (KPI targets); `capability_impacts_metric` edges |
-| `RealizationAgent` | `VgMetric` nodes (actuals vs targets); `metric_maps_to_value_driver` edges |
-| `ExpansionAgent` | `VgCapability` nodes; `use_case_enabled_by_capability` edges |
-| `ComplianceAuditorAgent` | `VgValueDriver` nodes (compliance risk drivers); `hypothesis_claims_metric` edges |
+### 12. Reset `.windsurf/context/debt.md`
 
----
-
-### 4. Value Graph API Router (Sprint 49 KR 2)
-
-**File:** `packages/backend/src/api/valueGraph.ts`
-
-**Mount point:** `/api/v1/graph` in `server.ts`
-
-**Middleware chain on all routes:**
-
-```
-requireAuth → tenantContextMiddleware() → tenantDbContextMiddleware() → validateOpportunityAccess
-```
-
-#### 4a. `validateOpportunityAccess` middleware
-
-**File:** `packages/backend/src/middleware/validateOpportunityAccess.ts`
-
-- Reads `req.params.opportunityId`.
-- Queries `value_cases` for `{ organization_id }` where `id = opportunityId`, using `req.supabase` (tenant-scoped client set by `tenantDbContextMiddleware`).
-- Returns `403 { error: "Access to this Value Graph is denied." }` if not found or `organization_id !== req.tenantId`.
-- On success, attaches `req.opportunityId = opportunityId`.
-- Add `opportunityId: string` to `packages/backend/src/types/express.d.ts`.
-
-#### 4b. The 7 endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/graph/:opportunityId/summary` | Node/edge counts by type from `getGraphForOpportunity` |
-| `GET` | `/api/v1/graph/:opportunityId/nodes` | Paginated nodes; `?entity_type=` filter supported |
-| `GET` | `/api/v1/graph/:opportunityId/export` | Full graph JSON (nodes + edges) |
-| `GET` | `/api/v1/graph/:opportunityId/paths` | Value paths from `getValuePaths()` |
-| `POST` | `/api/v1/graph/:opportunityId/edges` | Manually create an edge; Zod-validated body |
-| `PATCH` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Update node metadata; Zod-validated body |
-| `DELETE` | `/api/v1/graph/:opportunityId/nodes/:nodeId` | Remove node; writes audit log entry via `AuditLogger` |
-
-All responses include `organization_id` and `opportunity_id`.
-
-**OpenAPI:** Update `packages/backend/openapi.yaml` with all 7 paths.
+Move `DEBT-ANY-BURNDOWN` to the resolved table with today's date and resolution note. Clear all active sections (P0, P1, P2, Ongoing). The file retains its header, structure, and the full resolved-debt reference table — it becomes an empty register ready for future debt tracking.
 
 ---
 
 ## Acceptance Criteria
 
-### Item 1 — Global Logger Mock
-- `pnpm --filter backend test` produces zero `[vitest] No "createLogger" export is defined` errors.
-- `GuestAccessService.test.ts` and other tests with custom `vi.hoisted` logger spies continue to pass with their spy assertions intact.
-- Net failing test count in `@valueos/backend` is materially reduced from ~284.
-
-### Item 2 — `BaseGraphWriter`
-- `LifecycleContextError` is thrown (not swallowed) when `opportunity_id` is missing or not a UUID.
-- `generateNodeId` never returns a non-UUID string.
-- `safeWriteBatch` with one failing write commits the remaining writes and returns `{ succeeded: N-1, failed: 1, errors: [...] }`.
-- Unit tests for all three invariants pass.
-
-### Item 3 — Five Agent Integrations
-- Each agent has a test asserting expected node and edge types are written after a successful run.
-- No agent calls `ValueGraphService` methods directly — all writes go through `BaseGraphWriter`.
-- `pnpm test` green for all five agent test files.
-
-### Item 4 — Value Graph API
-- All 7 endpoints return `401` when unauthenticated.
-- All 7 endpoints return `403` when `opportunityId` belongs to a different tenant.
-- Read endpoints return correct data shapes from `ValueGraphService`.
-- Write/mutate endpoints return `400` on invalid Zod input.
-- `DELETE /nodes/:nodeId` writes an audit log entry.
-- `pnpm test` green for the new router test file.
-- `openapi.yaml` updated with all 7 paths.
+1. `bash scripts/check-any-count.sh` exits 0 with all modules showing count=0 and status=OK.
+2. `bash scripts/ts-any-ratchet.sh` exits 0 with global count=0.
+3. `pnpm run check` exits 0 — no new type errors introduced.
+4. `pnpm test` exits 0 — no regressions.
+5. `packages/sdui/examples/` directory does not exist.
+6. `packages/components/admin/configuration/_archive/` directory does not exist.
+7. `apps/VOSAcademy` is removed from `check-any-count.sh`.
+8. `apps/agentic-ui-pro` is tracked in `check-any-count.sh` with ceiling 0.
+9. `docs/debt/ts-any-dashboard.md` shows 0 for every package.
+10. `.windsurf/context/debt.md` has no active debt items; `DEBT-ANY-BURNDOWN` appears only in the resolved table.
 
 ---
 
 ## Implementation Order
 
-1. **Global logger mock in `setup.ts`** — verify zero `createLogger` errors before proceeding.
-2. **`LifecycleContextError` + `BaseGraphWriter`** — implement and unit-test all three invariants.
-3. **`NarrativeAgent` graph integration** — first agent, establishes the composition pattern.
-4. **`TargetAgent`, `RealizationAgent`, `ExpansionAgent`, `ComplianceAuditorAgent` graph integrations** — follow the same pattern.
-5. **`validateOpportunityAccess` middleware** — implement and unit-test in isolation.
-6. **Value Graph API router** — implement all 7 endpoints, wire middleware chain, mount in `server.ts`.
-7. **Update `express.d.ts`** — add `opportunityId: string` to `Request`.
-8. **Update `openapi.yaml`** — add all 7 paths.
-9. **Run `pnpm test`** — verify green across all new and modified files.
+Work package-by-package in ascending complexity order. Run `pnpm run check` and `pnpm test` after each package to catch regressions before moving on.
 
----
-
-## Out of Scope
-
-- Sprint 50 UI components (`ValueGraphVisualization`, `ValuePathCard`, `MetricCard`).
-- `IntegrityAgentService` TypeScript errors (12 errors in `post-v1/IntegrityAgentService.ts`) — separate fix.
-- `ComplianceControlStatusService` lazy-init Supabase fix — separate fix.
-- Other pre-existing backend test failures not caused by the `createLogger` mock gap.
+1. **Delete dead code** — `packages/sdui/examples/`, `packages/components/admin/configuration/_archive/`
+2. **Fix CI scripts** — update `check-any-count.sh` and `ts-any-ratchet.sh` exclusions; remove `VOSAcademy`; add `agentic-ui-pro`
+3. **`packages/sdui/src`** — 7 usages in `registry.tsx` (all `React.ComponentType<any>`)
+4. **`apps/agentic-ui-pro`** — 5 usages across 4 files
+5. **`apps/ValyntApp/src`** — 15 usages across 7 files
+6. **`packages/backend/src`** — 21 usages across 9 files (excluding benchmarks)
+7. **`packages/components`** — 23 usages across 7 files (after archive deletion)
+8. **`packages/mcp`** — 128 usages across 32 files (largest block; work file-by-file)
+9. **Update ratchet baseline** — run `bash scripts/ts-any-ratchet.sh --update`
+10. **Regenerate dashboard** — run `bash scripts/ts-any-ratchet.sh --report-only`
+11. **Reset `debt.md`** — move `DEBT-ANY-BURNDOWN` to resolved, clear active sections
