@@ -13,11 +13,11 @@ import {
 } from "../fileUploadSecurity";
 import { securityHeadersMiddleware } from "../securityHeaders";
 import {
-
-vi.mock("../../lib/supabase.js");
   csrfProtectionMiddleware,
   sessionSecurityMiddleware,
 } from "../securityMiddleware";
+
+vi.mock("../../lib/supabase.js");
 
 // Mock security logger
 vi.mock("../security/securityLogger", () => ({

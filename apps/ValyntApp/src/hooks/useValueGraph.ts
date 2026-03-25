@@ -12,9 +12,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { useTenant } from "@/contexts/TenantContext";
 import { fetchValueGraph } from "@/api/valueGraph";
 import type { ValueGraphResponse } from "@/api/valueGraph";
+import { useTenant } from "@/contexts/TenantContext";
 
 export type { ValueGraphResponse };
 

@@ -158,6 +158,7 @@ export class XBRLModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,

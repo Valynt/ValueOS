@@ -391,6 +391,7 @@ class SecurityHeaders {
       // handler that runs outside React context. apiClient requires auth context.
       // Migrate when apiClient exposes an unauthenticated reporting method.
        
+      // eslint-disable-next-line no-restricted-globals
       fetch("/api/security/csp-violation", {
         method: "POST",
         headers: {

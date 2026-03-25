@@ -8,7 +8,7 @@ import fs from "node:fs";
 
 import { z } from "zod";
 
-import { env as runtimeEnv, getEnvVar } from "../lib/env";
+import { getEnvVar, env as runtimeEnv } from "../lib/env";
 
 import { validateRedisUrlForProduction } from "./settings";
 

@@ -15,6 +15,7 @@ export function LeftRail() {
         currentStep={currentStep}
         onStepClick={(step) => {
           if (isStepBlocked(step)) {
+            // eslint-disable-next-line no-console
             console.log('Blocked:', getBlockingReason(step));
           }
         }}

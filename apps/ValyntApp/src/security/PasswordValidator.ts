@@ -113,6 +113,7 @@ export function validatePassword(
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       .replace(/-/g, '\\-');
      
+    // eslint-disable-next-line security/detect-non-literal-regexp
     const specialCharsRegex = new RegExp(`[${escaped}]`);
     if (!specialCharsRegex.test(password)) {
       errors.push(`Password must contain at least one special character (${config.specialChars})`);
@@ -244,7 +245,7 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
 
     const controller = new AbortController();
     const to = setTimeout(() => controller.abort(), timeoutMs);
-    // eslint-disable-next-line no-restricted-syntax -- legitimate-exception: external HIBP API, not an internal /api/ route
+    // legitimate-exception: HIBP breach check calls external API directly; apiClient is browser-auth-scoped
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { signal: controller.signal, headers: { Accept: 'text/plain', 'User-Agent': 'valyntapp/1.0' } });
     clearTimeout(to);
 
@@ -271,44 +272,64 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
 }
 
 /**
- * Generate a strong random password
+ * Return a cryptographically random integer in [0, max).
+ */
+function cryptoRandInt(max: number): number {
+  // Rejection-sampling to avoid modulo bias.
+  const limit = Math.floor(0x100000000 / max) * max;
+  const buf = new Uint32Array(1);
+  let value: number;
+  do {
+    crypto.getRandomValues(buf);
+    value = buf[0]!;
+  } while (value >= limit);
+  return value % max;
+}
+
+/**
+ * Generate a strong random password using the Web Crypto API.
  */
 export function generateStrongPassword(length: number = 16): string {
   const config = getSecurityConfig().passwordPolicy;
-  
+
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
   const numbers = '0123456789';
   const special = config.specialChars;
 
   let charset = '';
-  let password = '';
+  const required: string[] = [];
 
-  // Ensure at least one of each required type
   if (config.requireUppercase) {
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    required.push(uppercase[cryptoRandInt(uppercase.length)]!);
     charset += uppercase;
   }
   if (config.requireLowercase) {
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    required.push(lowercase[cryptoRandInt(lowercase.length)]!);
     charset += lowercase;
   }
   if (config.requireNumbers) {
-    password += numbers[Math.floor(Math.random() * numbers.length)];
+    required.push(numbers[cryptoRandInt(numbers.length)]!);
     charset += numbers;
   }
   if (config.requireSpecialChars) {
-    password += special[Math.floor(Math.random() * special.length)];
+    required.push(special[cryptoRandInt(special.length)]!);
     charset += special;
   }
 
-  // Fill the rest randomly
-  for (let i = password.length; i < length; i++) {
-    password += charset[Math.floor(Math.random() * charset.length)];
+  // Fill remaining positions
+  const chars = [...required];
+  for (let i = chars.length; i < length; i++) {
+    chars.push(charset[cryptoRandInt(charset.length)]!);
   }
 
-  // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  // Fisher-Yates shuffle using crypto random indices
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = cryptoRandInt(i + 1);
+    [chars[i], chars[j]] = [chars[j]!, chars[i]!];
+  }
+
+  return chars.join('');
 }
 
 /**

@@ -5,7 +5,7 @@
  * Checks if a domain is verified and belongs to a tenant.
  */
 
-import express, { NextFunction, Request, Response } from 'express';
+import express, { type Application, NextFunction, Request, Response } from 'express';
 
 import { config, validateConfig } from './config';
 import { domainDatabase } from './database';
@@ -22,7 +22,7 @@ try {
   process.exit(1);
 }
 
-const app = express();
+const app: Application = express();
 const startTime = Date.now();
 
 // Middleware
@@ -93,7 +93,7 @@ app.get('/verify', async (req: Request, res: Response) => {
  * 
  * Health check endpoint for monitoring.
  */
-app.get('/health', async (req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection
     const dbHealthy = await domainDatabase.healthCheck();
@@ -127,7 +127,7 @@ app.get('/health', async (req: Request, res: Response) => {
     logger.error('Health check error', {
       error: error instanceof Error ? error.message : String(error),
     });
-    res.status(503).json({
+    return res.status(503).json({
       status: 'unhealthy',
       reason: 'Health check failed',
       timestamp: new Date().toISOString(),

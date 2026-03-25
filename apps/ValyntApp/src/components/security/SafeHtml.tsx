@@ -1,5 +1,6 @@
-/* eslint-disable react/no-danger -- SEC-002: sole sanctioned dangerouslySetInnerHTML surface; all input passes through DOMPurify */
+ 
 import type { CSSProperties } from 'react';
+
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 type SafeHtmlProps = {
@@ -23,6 +24,7 @@ export function SafeHtml({ html, className, style }: SafeHtmlProps) {
     <div
       className={className}
       style={style}
+      // eslint-disable-next-line react/no-danger -- SafeHtml sanitizes input via sanitizeHtml() before rendering
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
     />
   );

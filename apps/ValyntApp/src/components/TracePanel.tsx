@@ -1,6 +1,6 @@
 // apps/ValyntApp/src/components/TracePanel.tsx
 import { CheckCircle, ChevronDown, ChevronRight, Link2 } from "lucide-react";
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 
 import { cn } from "@/lib/utils";
 

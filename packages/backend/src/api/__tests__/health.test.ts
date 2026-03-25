@@ -6,7 +6,7 @@
 
 import express from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@shared/lib/health/metrics', () => ({
   healthMetrics: {
@@ -71,17 +71,7 @@ vi.mock('../../observability/dataFreshness.js', () => ({
   checkAllT1TableFreshness: vi.fn(async () => []),
 }));
 
-vi.mock('../../observability/queueMetrics.js', () => ({
-  getQueueHealth: vi.fn(async (_queue: unknown, queue: string) => ({
-    queue,
-    waiting: 0,
-    active: 0,
-    delayed: 0,
-    failed: 0,
-    stalledCount: 0,
-    lastFailedAt: null,
-  })),
-}));
+
 
 vi.mock('../../workers/crmWorker.js', () => ({
   getCrmSyncQueue: vi.fn(() => ({ name: 'crm-sync' })),
@@ -92,6 +82,43 @@ vi.mock('../../workers/crmWorker.js', () => ({
 vi.mock('../../workers/researchWorker.js', () => ({
   getResearchQueue: vi.fn(() => ({ name: 'onboarding-research' })),
 }));
+
+vi.mock('../../middleware/llmRateLimiter.js', () => ({
+  getLlmRateLimitBackendStatus: vi.fn(() => ({ enabled: false, backend: 'memory' })),
+  llmRateLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+vi.mock('../../middleware/authRateLimiter.js', () => ({
+  getAuthRateLimitBackendStatus: vi.fn(() => ({ enabled: false, backend: 'memory' })),
+  authRateLimiter: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+vi.mock('../../middleware/rateLimiter.js', () => {
+  const noop = (_req: unknown, _res: unknown, next: () => void) => next();
+  return {
+    getGeneralRateLimitBackendStatus: vi.fn(() => ({ enabled: false, backend: 'memory' })),
+    rateLimiters: new Proxy({}, { get: () => noop }),
+    RateLimitTier: { STANDARD: 'standard', STRICT: 'strict', LOOSE: 'loose' },
+  };
+});
+
+vi.mock('../../observability/queueMetrics.js', () => ({
+  getQueueHealth: vi.fn().mockResolvedValue({ healthy: true, queues: [] }),
+}));
+
+// Prevent real outbound HTTP calls from LLM provider health checks.
+// Must be called before the health router is imported so the mock is in place
+// when the module initialises its fetch-based provider checks.
+vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+  ok: true,
+  status: 200,
+  json: async () => ({ data: [] }),
+  text: async () => '',
+}));
+
+// AbortSignal.timeout creates a real timer that keeps the test alive for 5s.
+// Replace with an immediately-resolved signal so tests don't hang.
+vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => new AbortController().signal);
 
 import healthRouter from '../health/index.js'
 
@@ -131,14 +158,31 @@ describe('Health Check API', () => {
       expect(checks.database).toHaveProperty('lastChecked');
     });
 
-    it('should return 503 when critical dependency is down', async () => {
-      // This test would require mocking database to fail
-      // For now, we verify the endpoint structure
+    it('should return 503 when a critical dependency is down', async () => {
+      // Make the Supabase mock return a DB error so checkSupabase() reports unhealthy.
+      // We also need the env vars set so the check isn't skipped as "not_configured".
+      const origUrl = process.env.VITE_SUPABASE_URL;
+      const origKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
+      process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+
+      const { createClient } = await import('@supabase/supabase-js');
+      vi.mocked(createClient).mockImplementationOnce(() => ({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            limit: vi.fn(async () => ({ error: { message: 'connection refused' } })),
+          })),
+        })),
+      }) as any);
+
       const response = await request(app).get('/health');
-      
-      if (response.body.status === 'unhealthy') {
-        expect(response.status).toBe(503);
-      }
+
+      // Restore env
+      process.env.VITE_SUPABASE_URL = origUrl;
+      process.env.SUPABASE_SERVICE_ROLE_KEY = origKey;
+
+      expect(response.status).toBe(503);
+      expect(response.body.status).toMatch(/unhealthy|degraded/);
     });
 
     it('should respond within 5 seconds', async () => {

@@ -9,11 +9,11 @@
  */
 
 import type {
+  ValueGraphEdge,
   ValueGraphEntityType,
   VgCapability,
   VgMetric,
   VgValueDriver,
-  ValueGraphEdge,
 } from "@valueos/shared";
 
 import { apiClient } from "@/api/client/unified-api-client";

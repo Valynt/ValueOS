@@ -408,6 +408,7 @@ export class SalesforceModule implements CRMModule {
     const url = `${this.connection.instanceUrl}${path}`;
 
      
+    // eslint-disable-next-line no-restricted-globals
     return fetch(url, {
       ...options,
       headers: {

@@ -5,9 +5,9 @@
  * Uses browser print API for simplicity and quality.
  */
 
+import { sanitizeHtml } from '../../../utils/sanitizeHtml';
 import type { Artifact } from '../agent/types';
 import type { KPIData } from '../components/KPICards';
-import { sanitizeHtml } from '../../../utils/sanitizeHtml';
 
 export interface ExportOptions {
   title: string;

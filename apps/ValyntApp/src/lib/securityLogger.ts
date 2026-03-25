@@ -416,14 +416,18 @@ class SecurityLogger {
       case "critical":
         return console.error;
       case "high":
+        // eslint-disable-next-line no-console
         return console.warn;
       case "medium":
+        // eslint-disable-next-line no-console
         return console.warn;
       case "low":
 
+        // eslint-disable-next-line no-console
         return console.info;
       default:
 
+        // eslint-disable-next-line no-console
         return console.log;
     }
   }

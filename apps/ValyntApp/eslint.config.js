@@ -138,11 +138,21 @@ const testConfig = {
   },
 };
 
-// Confirmed exception locations: src/lib/ and src/utils/ may use raw fetch()
-// for external APIs, fire-and-forget analytics, and CSP violation reporting.
+// Confirmed exception locations: src/lib/, src/utils/, src/mcp-*/, src/security/ may use raw fetch()
+// for external APIs, fire-and-forget analytics, CSP violation reporting, and security primitives.
 // These are not /api/ backend routes and do not require UnifiedApiClient.
 const fetchExceptionConfig = {
-  files: ["src/lib/**/*.{ts,tsx}", "src/utils/**/*.{ts,tsx}"],
+  files: [
+    "src/lib/**/*.{ts,tsx}",
+    "src/utils/**/*.{ts,tsx}",
+    // MCP modules call external APIs (HubSpot, Salesforce, EDGAR, market data, XBRL) directly
+    "src/mcp-crm/**/*.{ts,tsx}",
+    "src/mcp-ground-truth/**/*.{ts,tsx}",
+    // Security primitives (CSRF interceptor, HIBP breach check, rate limiter proxy)
+    "src/security/**/*.{ts,tsx}",
+    // Config modules (progressive rollout webhook reporting)
+    "src/config/**/*.{ts,tsx}",
+  ],
   rules: {
     "no-restricted-syntax": "off",
   },

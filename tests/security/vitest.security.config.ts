@@ -14,6 +14,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    globals: true,
     include: [
       "tests/security/**/*.test.ts",
       "tests/security/**/*.spec.ts",

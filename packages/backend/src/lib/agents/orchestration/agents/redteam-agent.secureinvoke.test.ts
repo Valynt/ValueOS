@@ -6,15 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
 import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
-
 import {
-
-vi.mock("../../../supabase.js");
   RedTeamAgent,
   type RedTeamInput,
   type RedTeamLLMGateway,
   RedTeamOutputSchema,
 } from './RedTeamAgent.js';
+
+vi.mock("../../../supabase.js");
 
 const VALID_INPUT: RedTeamInput = {
   valueCaseId: 'case-0001',

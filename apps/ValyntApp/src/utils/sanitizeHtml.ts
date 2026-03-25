@@ -23,6 +23,7 @@ export function sanitizeHtml(dirty: string): string {
   }
 
   const template = document.createElement("template");
+  // eslint-disable-next-line no-restricted-syntax
   template.innerHTML = sanitized;
 
   template.content.querySelectorAll("a").forEach((anchor) => {

@@ -9,6 +9,7 @@ export const usePrefetch = () => {
     // This is a simplified implementation - in practice, you'd integrate
     // with your route definitions and lazy loading
      
+    // eslint-disable-next-line no-console
     console.debug("Prefetching route:", route);
 
     // Example: preload critical components based on route

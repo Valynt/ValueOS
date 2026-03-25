@@ -854,6 +854,24 @@ const frontendFetchEnforcement = {
   ignores: [
     // apiClient itself wraps fetch — it is the only allowed call site.
     "apps/ValyntApp/src/api/client/unified-api-client.ts",
+    // MCP modules call external APIs directly (HubSpot, Salesforce, EDGAR, market data, XBRL)
+    "apps/ValyntApp/src/mcp-crm/modules/**",
+    "apps/ValyntApp/src/mcp-ground-truth/modules/**",
+    // Security/CSRF layer wraps fetch by design
+    "apps/ValyntApp/src/security/CSRFProtection.ts",
+    "apps/ValyntApp/src/security/PasswordValidator.ts",
+    "apps/ValyntApp/src/security/RateLimiter.ts",
+    "apps/ValyntApp/src/lib/csrfProtection.ts",
+    "apps/ValyntApp/src/lib/securityHeaders.ts",
+    // LLM client calls internal API endpoint
+    "apps/ValyntApp/src/lib/llm/client.ts",
+    // Agent health check calls internal endpoint
+    "apps/ValyntApp/src/lib/agentHealth.ts",
+    // Progressive rollout webhook reporting
+    "apps/ValyntApp/src/config/progressiveRollout.ts",
+    // Test files that mock/intercept fetch
+    "apps/ValyntApp/src/api/client/__tests__/**",
+    "apps/ValyntApp/src/security/__tests__/**",
   ],
   rules: {
     "no-restricted-globals": [

@@ -6,11 +6,11 @@
  * switcher. Clicking the HallucinationBadge activates the Reasoning tab.
  */
 
+import { HallucinationBadge } from "@sdui/components/SDUI/HallucinationBadge";
+import { ReasoningTracePanel } from "@sdui/components/SDUI/ReasoningTracePanel";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
-import { HallucinationBadge } from "@sdui/components/SDUI/HallucinationBadge";
-import { ReasoningTracePanel } from "@sdui/components/SDUI/ReasoningTracePanel";
 
 import type { WidgetProps } from "../CanvasHost";
 
