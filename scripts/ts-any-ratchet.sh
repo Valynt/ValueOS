@@ -40,7 +40,7 @@ for path in root.rglob('*'):
         continue
     if parts[0] not in {'apps', 'packages', 'src'}:
         continue
-    if 'node_modules' in parts or 'dist' in parts or '__tests__' in parts or '__benchmarks__' in parts:
+    if 'node_modules' in parts or 'dist' in parts or '__tests__' in parts or '__benchmarks__' in parts or 'examples' in parts:
         continue
     name = path.name
     if name.endswith('.d.ts') or '.test.' in name or '.spec.' in name or '.bench.' in name:
@@ -118,7 +118,9 @@ lines.append("## Global")
 lines.append("")
 lines.append(f"- Baseline: **{baseline.get('baseline', 0)}**")
 lines.append(f"- Current: **{counts.get('total', 0)}**")
-lines.append(f"- Long-term target: **<{baseline.get('target', 100)}**")
+target = baseline.get('target', 0)
+target_display = str(target) if target == 0 else f"<{target}"
+lines.append(f"- Long-term target: **{target_display}**")
 lines.append(f"- Baseline updated: **{updated_at or 'unknown'}**")
 lines.append(f"- Months elapsed since baseline month: **{months_elapsed}**")
 lines.append("")
@@ -126,7 +128,7 @@ lines.append("## Generation notes")
 lines.append("")
 lines.append("- Canonical explicit-`any` pattern: `:\\s*any`, `as any`, `<any>`")
 lines.append("- Included files: `apps/**`, `packages/**`, `src/**` with `.ts`/`.tsx` suffixes")
-lines.append("- Excluded paths/files: `node_modules`, `dist`, `__tests__`, `*.test.*`, `*.spec.*`, `*.d.ts`")
+lines.append("- Excluded paths/files: `node_modules`, `dist`, `__tests__`, `__benchmarks__`, `examples`, `*.test.*`, `*.spec.*`, `*.bench.*`, `*.d.ts`")
 lines.append("")
 lines.append("## Module burn-down")
 lines.append("")

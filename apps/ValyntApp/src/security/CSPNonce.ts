@@ -7,6 +7,8 @@
  * SECURITY: INP-002 - Mitigates XSS by requiring nonces for inline content
  */
 
+import type { Request, Response, NextFunction } from "express";
+
 /**
  * Generate a cryptographically secure nonce
  */
@@ -60,9 +62,9 @@ export function addNonceToCsp(
  * Express middleware to inject CSP nonce
  */
 export function cspNonceMiddleware(
-  _req: unknown,
-  res: { locals: Record<string, unknown>; on: (event: string, cb: () => void) => unknown },
-  next: () => void
+  _req: Request,
+  res: Response,
+  next: NextFunction
 ): void {
   const nonce = generateNonce();
   setRequestNonce(nonce);
