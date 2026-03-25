@@ -1,161 +1,198 @@
-# Spec: TypeScript `any` Debt — Full Elimination
+# Spec: Code Context Alignment — ValueOS Constitution Layer
 
 ## Problem Statement
 
-`DEBT-ANY-BURNDOWN` is the sole active item in `.windsurf/context/debt.md`. The goal is to reach absolute zero `any` usages across all production packages, fix the broken CI enforcement tooling, delete non-production dead code that carries `any`, and reset `debt.md` to an empty register.
+The repository's code context layer (AGENTS.md files, skills, workflows, rules, and context files) is fragmented across four tool namespaces (`.windsurf/`, `.roo/`, `.gitpod/`, `docs/`) with no enforced single source of truth. This produces:
 
-**Current measured state (comment-filtered, non-test production files):**
+1. **Contradictory instructions**: `init.md` workflow says `pnpm install --no-frozen-lockfile`; `docs/AGENTS.md` mandates `--frozen-lockfile`. Skills reference Node 18.17.0; the devcontainer runs 20.19.5.
+2. **Missing system intent**: No file states what ValueOS *is* at the constitutional level. Agents receive architecture facts but no governing philosophy about what quality bar matters or what outputs are acceptable.
+3. **Stale/misleading skills**: `setup-dev-environment` references Docker-based local setup, wrong clone URL (`ValueCanvas`), wrong versions, and wrong ports — directly contradicting the devcontainer-first model.
+4. **Tool-specific logic in shared skills**: `continuous-improvement` references `~/bin/cascade-cost` and `~/.windsurf/ADVICE.md` — Windsurf-only tooling that doesn't exist in this environment.
+5. **Duplicate skills with silent divergence**: Agent scaffold logic exists in `.windsurf/skills/agent-onboarding/`, `.roo/skills/agent-scaffold/`, and partially in `.gitpod/skills/`. They diverge on lifecycle stage names, file structure, and registration steps.
+6. **No constitutional header**: Context files (`decisions.md`, `memory.md`, `traceability.md`, etc.) have no shared preamble establishing the system intent that should govern all agent behavior.
+7. **Product naming drift**: Some files say "ValueCanvas", some "Valynt", some "ValueOS".
 
-| Package / App | Actual count | CI ceiling | CI status |
-|---|---:|---:|---|
-| `packages/mcp` | 128 | 158 | OK (ceiling wrong — debt.md claims 0) |
-| `packages/components` | 31 | 31 | OK (ceiling wrong — debt.md claims 0) |
-| `packages/backend/src` | 21 | 15 | **FAIL** |
-| `apps/ValyntApp/src` | 15 | 6 | **FAIL** |
-| `packages/sdui/src` | 7 | 0 | **FAIL** |
-| `apps/agentic-ui-pro` | 5 | not tracked | untracked |
-| `apps/VOSAcademy` | — | 0 | **FAIL** (directory does not exist) |
+---
 
-Additional dead code carrying `any`:
-- `packages/sdui/examples/` — 4 usages, not imported anywhere
-- `packages/components/admin/configuration/_archive/` — 8 usages, not imported anywhere
-- `packages/backend/src/services/__benchmarks__/*.bench.ts` — 5 usages in benchmark harness files
+## System Intent (Constitutional Layer)
+
+This is the root statement that must flow through all context files, agent prompts, and skill definitions:
+
+> **ValueOS is a system of intelligence that structures, validates, and operationalizes business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.**
+
+### Constitutional Invariants
+
+Every context file, skill, workflow, and agent behavior must preserve these:
+
+1. **Value truth over fluent generation** — The system exists to improve the truth, structure, and usability of business value claims, not merely to generate plausible language.
+2. **Economic defensibility** — All meaningful outputs must connect to economic logic: revenue uplift, cost savings, risk reduction, timing, confidence, or realization.
+3. **Evidence over assertion** — Claims must be grounded in evidence, benchmarks, user inputs, or clearly labeled assumptions.
+4. **Auditability by default** — Outputs must be inspectable. Agents must preserve how they arrived at a recommendation, not only the recommendation itself.
+5. **Lifecycle continuity** — The system supports discovery, modeling, approval, realization, and expansion as one continuous value lifecycle — not only pre-sale.
+6. **Integrity before convenience** — When confidence is low or evidence is missing, the system must constrain, qualify, or block outputs rather than overstate certainty.
+7. **Multi-tenant enterprise discipline** — All design choices must preserve tenant isolation, role-aware access, and organizational trust boundaries.
+8. **Agents serve the value model** — Agents are not the product. Agents exist to create, refine, validate, and maintain the value system of record.
+
+### Rejection Criteria
+
+A file, prompt, workflow, or agent behavior is **off-intent** if it:
+- Treats ValueOS as just a sales copilot or generic workflow automation
+- Generates ROI claims without assumptions or support
+- Produces polished narrative without model traceability
+- Optimizes for persuasion while weakening defensibility
+- Ignores post-sale realization or expansion
+- Treats evidence as optional
+- Bypasses integrity controls for convenience
+- Frames the product mainly as "chat with AI" rather than "system of intelligence for value"
 
 ---
 
 ## Requirements
 
-### 1. Delete dead-code directories
+### R1 — Canonical source of truth structure
 
-Remove directories that are not imported by any production or test code and exist solely as dead weight:
+- `docs/AGENTS.md` is the single canonical policy file for all AI agents, regardless of tool.
+- All tool-specific files (`.windsurf/rules/`, `.roo/`, `.gitpod/`) are **thin environment adapters** only — they may add tool-specific trigger syntax but must not duplicate or contradict `docs/AGENTS.md`.
+- Skills live canonically in `docs/skills/` (new location) as tool-agnostic markdown. Tool namespaces may reference them but must not maintain independent copies with diverging content.
+- Every tool-specific file that currently duplicates `docs/AGENTS.md` content must be replaced with a reference header pointing to the canonical source.
 
-- `packages/sdui/examples/`
-- `packages/components/admin/configuration/_archive/`
+### R2 — Constitutional header in all core context files
 
-Verify no import references exist before deletion.
+Every file in `.windsurf/context/`, `docs/AGENTS.md`, and root `AGENTS.md` must open with a compact constitutional header:
 
-### 2. Exclude benchmark files from the `any` ratchet
+```markdown
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Constitutional rules: value truth · economic defensibility · evidence over assertion ·
+auditability · lifecycle continuity · integrity before convenience · tenant discipline ·
+agents serve the value model.
+Full policy: docs/AGENTS.md -->
+```
 
-`packages/backend/src/services/__benchmarks__/*.bench.ts` files are performance harnesses, not production code. They are not excluded by the current ratchet pattern (`__tests__`, `*.test.*`, `*.spec.*`). Update `scripts/check-any-count.sh` and `scripts/ts-any-ratchet.sh` to also exclude `*.bench.ts` and `__benchmarks__` directories.
+### R3 — Stale skills: deprecation then rewrite
 
-### 3. Eliminate all `any` usages — `packages/sdui/src`
+**Phase 1 (immediate):** Add a deprecation header to each stale skill pointing to the canonical source.
 
-**7 usages, all in `src/registry.tsx`.**
+Stale skills requiring Phase 1 + Phase 2 rewrite:
 
-All are `React.ComponentType<any>`. Replace with a typed generic or a constrained component props type. The correct replacement is `React.ComponentType<Record<string, unknown>>` or a locally-defined `ComponentProps` interface, depending on call-site constraints.
+| File | Problem |
+|---|---|
+| `.windsurf/skills/setup-dev-environment/SKILL.md` | Wrong Node version (18 vs 20), wrong clone URL (`ValueCanvas`), Docker-based setup contradicts devcontainer model |
+| `.windsurf/skills/architecture-map/SKILL.md` | Placeholder paths (`src/agents/`, `src/backend/`) don't match actual monorepo |
+| `.windsurf/skills/run-tests/SKILL.md` | Coverage thresholds and commands don't match `vitest.config.ts` or `docs/AGENTS.md` |
+| `.windsurf/skills/dev-environment-health/SKILL.md` | Stub with no actionable content |
+| `.windsurf/skills/continuous-improvement/SKILL.md` | References `cascade-cost`, `~/.windsurf/ADVICE.md` — Windsurf-only tooling |
+| `.windsurf/workflows/init.md` | `--no-frozen-lockfile` contradicts `docs/AGENTS.md` mandate |
+| `.windsurf/workflows/start-dev.md` | `APP_ENV=cloud-dev` pattern contradicts automations model |
+| `.windsurf/workflows/verification-checklist.md` | `APP_ENV=cloud-dev` + `--no-frozen-lockfile` contradictions |
 
-### 4. Eliminate all `any` usages — `packages/backend/src`
+**Phase 2 (rewrite):** Replace each deprecated skill with accurate content aligned to:
+- Devcontainer-first setup (`.devcontainer/`, `.ona/automations.yaml`)
+- Actual monorepo structure (`apps/ValyntApp`, `apps/mcp-dashboard`, `packages/backend`, etc.)
+- Current automation flows (`gitpod automations service start backend/frontend`)
+- System intent and lifecycle
 
-**21 usages across 9 files** (after benchmark exclusion):
+**Phase 3 (delete):** Once rewrites are validated, remove the deprecated versions. (Out of scope for this spec — tracked as follow-up.)
 
-| File | Usages | Fix approach |
-|---|---:|---|
-| `config/ConfigurationManager.ts` | 1 | `value: unknown` + type guard |
-| `config/secretsManager.ts` | 1 | Type the AWS SDK command correctly; use `SendCommandOutput` |
-| `services/post-v1/PromptVersionControl.ts` | 2 | Type the Supabase client with the generated DB schema type |
-| `services/agents/AgentAPI.ts` | 2 | Type `data` with the expected response shape; use `instanceof` for error property check |
-| `services/agents/AgentAuditLogger.ts` | 4 | `sanitizeAndZeroMemory` return type is `unknown`; use type assertion only at the assignment boundary with a typed intermediate |
-| `lib/agent-fabric/agents/NarrativeAgent.ts` | 2 | Type `previous_stage_outputs` with the integrity stage output schema |
-| `lib/agent-fabric/agents/IntegrityAgent.ts` | 2 | Type `kpi.metadata` and `hyp.metadata` with their Zod-inferred types |
+### R4 — Tool-agnostic skill rewrites
 
-### 5. Eliminate all `any` usages — `apps/ValyntApp/src`
+Skills that contain Windsurf-specific behavior must be rewritten to be tool-agnostic:
+- Remove references to `cascade-cost`, `~/.windsurf/ADVICE.md`, Cascade-specific commands
+- Remove references to Windsurf "Planning Mode" as a required step
+- Skills must work when invoked from Ona, Cursor, Copilot, or any other agent
 
-**15 usages across 7 files:**
+### R5 — Duplicate skill consolidation
 
-| File | Usages | Fix approach |
-|---|---:|---|
-| `features/canvas/components/ValueTreeChart.tsx` | 9 | Type the tree node shape; replace `as any` data-binding casts with proper generic types |
-| `security/CSPNonce.ts` | 3 | Type Express middleware params: `Request`, `Response`, `NextFunction` |
-| `security/CSRFProtection.ts` | 1 | Use `RequestInfo \| URL` for the fetch input type |
-| `security/PasswordValidator.ts` | 1 | `catch (err: unknown)` + `instanceof Error` guard |
-| `lib/auth/SecureTokenManager.ts` | 1 | Type guard parameter should be `unknown` |
-| `mcp-crm/core/MCPCRMServer.ts` | 1 | Use the Supabase typed client instead of casting |
-| `mcp-ground-truth/core/UnifiedTruthLayer.ts` | 1 | Type the `details` field with a discriminated union or `Record<string, unknown>` |
-| `pages/valueos/TemplatesPage.tsx` | 1 | `React.ComponentType<Record<string, unknown>>` |
+The following skill pairs cover the same capability and must be consolidated. The `.windsurf/` version is canonical; the `.roo/` version is replaced with a redirect stub:
 
-### 6. Eliminate all `any` usages — `packages/mcp`
+| Capability | Canonical | Redirect |
+|---|---|---|
+| Agent scaffold | `.windsurf/skills/agent-onboarding/SKILL.md` | `.roo/skills/agent-scaffold/SKILL.md` |
+| OpenSpec apply | `.windsurf/skills/openspec-apply-change/SKILL.md` | `.roo/skills/openspec-apply-change/SKILL.md` |
+| OpenSpec archive | `.windsurf/skills/openspec-archive-change/SKILL.md` | `.roo/skills/openspec-archive-change/SKILL.md` |
+| OpenSpec explore | `.windsurf/skills/openspec-explore/SKILL.md` | `.roo/skills/openspec-explore/SKILL.md` |
+| OpenSpec propose | `.windsurf/skills/openspec-propose/SKILL.md` | `.roo/skills/openspec-propose/SKILL.md` |
 
-**128 usages across 32 files.** Highest-density files:
+### R6 — Product naming normalization
 
-| File | Usages | Fix approach |
-|---|---:|---|
-| `ground-truth/modules/IndustryBenchmarkModule.ts` | 11 | Define typed interfaces for benchmark data shapes |
-| `ground-truth/clients/BLSClient.ts` | 10 | Type BLS API response with Zod schema |
-| `ground-truth/services/AutomatedInsightsService.ts` | 9 | Type insight payloads with discriminated unions |
-| `common/errors/MCPBaseError.ts` | 6 | `value?: unknown`, `allowedValues?: unknown[]`; error guard params `unknown` |
-| `common/types/Response.ts` | 4 | Type `metadata` and `details` with specific interfaces |
-| `common/config/ConfigurationManager.ts` | 7 | `unknown` + type guards for config values |
-| `crm/core/MCPCRMServer.ts` | 6 | Type response builder return types; remove `as any` casts |
-| *(remaining 25 files)* | 75 | Apply `unknown` + type guards or Zod schemas per file |
+All context files must use **ValueOS** as the product name. Occurrences of "ValueCanvas" must be corrected to "ValueOS".
 
-### 7. Eliminate all `any` usages — `packages/components`
+### R7 — New skills for genuine gaps
 
-**23 usages across 7 files** (after `_archive/` deletion):
+New skills are created only for reusable, system-aligned capabilities that strengthen ValueOS as a system of intelligence for auditable business value. Each must represent a repeatable capability with a clear input/output contract that operates on the value model.
 
-All usages are in the admin configuration panel. The configuration object shape is untyped. Define a `ConfigurationSchema` interface (or Zod schema) covering the full configuration tree, then propagate it through `ConfigurationPanel`, `OrganizationSettings`, `AISettings`, `ExportImportDialog`, `ChangeHistorySidebar`, `ConfigurationDiffViewer`, and `use-toast.tsx`.
+**Approved new skills:**
 
-### 8. Eliminate all `any` usages — `apps/agentic-ui-pro`
+1. **`docs/skills/ona-environment/SKILL.md`** — Ona/Gitpod devcontainer setup, automation commands (`gitpod automations service start/stop/logs`), port management, and health checks. Replaces the stale `setup-dev-environment` skill.
 
-**5 usages across 4 files:**
+2. **`docs/skills/value-graph-integration/SKILL.md`** — How agents read from and write to `ValueGraphService`, including the `BaseGraphWriter` pattern, correct context key extraction (`opportunity_id`), UUID validation, and tenant isolation. Fills a gap currently undocumented in any skill.
 
-| File | Usages | Fix approach |
-|---|---:|---|
-| `vite.config.ts` | 1 | Type the Vite HMR payload with `HmrPayload` from `vite` |
-| `client/src/hooks/usePersistFn.ts` | 2 | Use `(...args: unknown[]) => unknown` |
-| `client/src/components/ui/textarea.tsx` | 1 | Use `CompositionEvent` type; access `isComposing` directly |
-| `client/src/components/ui/dialog.tsx` | 1 | Same as textarea — type the event properly |
-| `client/src/components/ui/input.tsx` | 1 | Same as textarea |
+### R8 — `docs/AGENTS.md` constitutional preamble
 
-### 9. Fix `scripts/check-any-count.sh`
+`docs/AGENTS.md` must be updated to open with the full constitutional layer (system intent statement + 8 invariants + rejection criteria + agent preamble) before the existing Architecture section. All existing content is preserved and follows the preamble.
 
-- Remove the `apps/VOSAcademy` entry (directory does not exist)
-- Add `apps/agentic-ui-pro` entry with ceiling 0
-- Set all remaining ceilings to 0 after fixes are applied
-- Add `__benchmarks__` to the exclusion pattern
+### R9 — Root `AGENTS.md` update
 
-### 10. Fix `scripts/ts-any-ratchet.sh` and `ts-any-baseline.json`
-
-- Update the ratchet script to exclude `*.bench.ts` and `__benchmarks__` directories
-- After all fixes, run `bash scripts/ts-any-ratchet.sh --update` to capture the new baseline (0 across all packages)
-- Update `ts-any-baseline.json` to reflect 0 counts
-
-### 11. Update `docs/debt/ts-any-dashboard.md`
-
-After all fixes, regenerate the dashboard by running `bash scripts/ts-any-ratchet.sh --report-only`. The dashboard must show 0 for every package.
-
-### 12. Reset `.windsurf/context/debt.md`
-
-Move `DEBT-ANY-BURNDOWN` to the resolved table with today's date and resolution note. Clear all active sections (P0, P1, P2, Ongoing). The file retains its header, structure, and the full resolved-debt reference table — it becomes an empty register ready for future debt tracking.
+The root `AGENTS.md` must be updated to include the one-sentence system intent and a reference to the constitutional layer in `docs/AGENTS.md`.
 
 ---
 
 ## Acceptance Criteria
 
-1. `bash scripts/check-any-count.sh` exits 0 with all modules showing count=0 and status=OK.
-2. `bash scripts/ts-any-ratchet.sh` exits 0 with global count=0.
-3. `pnpm run check` exits 0 — no new type errors introduced.
-4. `pnpm test` exits 0 — no regressions.
-5. `packages/sdui/examples/` directory does not exist.
-6. `packages/components/admin/configuration/_archive/` directory does not exist.
-7. `apps/VOSAcademy` is removed from `check-any-count.sh`.
-8. `apps/agentic-ui-pro` is tracked in `check-any-count.sh` with ceiling 0.
-9. `docs/debt/ts-any-dashboard.md` shows 0 for every package.
-10. `.windsurf/context/debt.md` has no active debt items; `DEBT-ANY-BURNDOWN` appears only in the resolved table.
+- [ ] `docs/AGENTS.md` opens with the constitutional preamble (system intent + invariants + rejection criteria)
+- [ ] Root `AGENTS.md` includes the one-sentence system intent and references `docs/AGENTS.md`
+- [ ] All 8 stale skills/workflows have a deprecation header pointing to the canonical source
+- [ ] All 8 stale skills/workflows have been rewritten with accurate, devcontainer-first content
+- [ ] `.windsurf/skills/continuous-improvement/SKILL.md` contains no references to `cascade-cost`, `~/.windsurf/ADVICE.md`, or Cascade-specific tooling
+- [ ] `.windsurf/workflows/init.md` uses `--frozen-lockfile` (not `--no-frozen-lockfile`)
+- [ ] `.windsurf/workflows/start-dev.md` and `verification-checklist.md` reference `gitpod automations service start` as the canonical dev start method
+- [ ] All 5 duplicate `.roo/skills/` entries are replaced with redirect stubs pointing to the `.windsurf/` canonical version
+- [ ] No file in the context layer contains "ValueCanvas" as the product name
+- [ ] `docs/skills/ona-environment/SKILL.md` exists and covers devcontainer setup, automation commands, and port management
+- [ ] `docs/skills/value-graph-integration/SKILL.md` exists and covers `BaseGraphWriter`, context key extraction, and UUID validation
+- [ ] All `.windsurf/context/` files open with the constitutional header comment
+- [ ] `docs/AGENTS.md` "Context Engineering Layer" section references `docs/skills/` as the canonical skill home
 
 ---
 
-## Implementation Order
+## Implementation Approach
 
-Work package-by-package in ascending complexity order. Run `pnpm run check` and `pnpm test` after each package to catch regressions before moving on.
+Steps are ordered by dependency — each step's output is referenced by subsequent steps.
 
-1. **Delete dead code** — `packages/sdui/examples/`, `packages/components/admin/configuration/_archive/`
-2. **Fix CI scripts** — update `check-any-count.sh` and `ts-any-ratchet.sh` exclusions; remove `VOSAcademy`; add `agentic-ui-pro`
-3. **`packages/sdui/src`** — 7 usages in `registry.tsx` (all `React.ComponentType<any>`)
-4. **`apps/agentic-ui-pro`** — 5 usages across 4 files
-5. **`apps/ValyntApp/src`** — 15 usages across 7 files
-6. **`packages/backend/src`** — 21 usages across 9 files (excluding benchmarks)
-7. **`packages/components`** — 23 usages across 7 files (after archive deletion)
-8. **`packages/mcp`** — 128 usages across 32 files (largest block; work file-by-file)
-9. **Update ratchet baseline** — run `bash scripts/ts-any-ratchet.sh --update`
-10. **Regenerate dashboard** — run `bash scripts/ts-any-ratchet.sh --report-only`
-11. **Reset `debt.md`** — move `DEBT-ANY-BURNDOWN` to resolved, clear active sections
+1. **Write the constitutional preamble block** — Draft the reusable constitutional header text (compact comment form + full prose form) that will be inserted into multiple files. This is the foundation everything else references.
+
+2. **Update `docs/AGENTS.md`** — Prepend the full constitutional layer (system intent + 8 invariants + rejection criteria + agent preamble) before the existing Architecture section. Update the "Context Engineering Layer" section to reference `docs/skills/` as the canonical skill home.
+
+3. **Update root `AGENTS.md`** — Add the one-sentence system intent and a reference to the constitutional layer.
+
+4. **Add constitutional headers to `.windsurf/context/` files** — Insert the compact constitutional header comment at the top of: `decisions.md`, `debt.md`, `traceability.md`, `user-stories.md`, `memory.md`, `tools.md`, `README.md`.
+
+5. **Deprecate stale skills (Phase 1)** — Add deprecation headers to all 8 stale files listed in R3.
+
+6. **Rewrite stale skills (Phase 2)** — Rewrite each deprecated skill with accurate content:
+   - `setup-dev-environment` → devcontainer-first, correct versions (Node 20.19.5, pnpm 10.4.1), correct automations
+   - `architecture-map` → actual monorepo structure from `docs/AGENTS.md`
+   - `run-tests` → match `vitest.config.ts` and `docs/AGENTS.md` testing conventions (`pnpm test`, `pnpm run test:rls`, sequential execution)
+   - `dev-environment-health` → actionable health checks using `gitpod automations service` commands
+   - `continuous-improvement` → tool-agnostic, remove all Windsurf-specific tooling references
+   - `init.md` → fix `--frozen-lockfile`, reference automations as the canonical setup path
+   - `start-dev.md` → `gitpod automations service start` as primary method, manual commands as fallback
+   - `verification-checklist.md` → align with automations model, correct health check commands
+
+7. **Create new canonical skills** — Create `docs/skills/ona-environment/SKILL.md` and `docs/skills/value-graph-integration/SKILL.md`.
+
+8. **Consolidate duplicate `.roo/` skills** — Replace each of the 5 duplicate `.roo/skills/` entries with a redirect stub pointing to the `.windsurf/` canonical version.
+
+9. **Fix product naming** — Replace all "ValueCanvas" occurrences with "ValueOS" across context files.
+
+10. **Verify** — Confirm no contradictions remain between `docs/AGENTS.md` and any skill, workflow, or rule file. Confirm all acceptance criteria are met.
+
+---
+
+## Out of Scope
+
+- Phase 3 deletion of deprecated skills (tracked as follow-up after validation)
+- Updating `.windsurf/rules/` glob-triggered rules (these are tool-specific adapters and are correct in form; content accuracy is a separate pass)
+- Updating `.windsurf/context/decisions.md`, `debt.md`, `traceability.md` substantive content (only the constitutional header is added; content updates are sprint-driven)
+- Creating skills for the full approved taxonomy (evidence ingestion, benchmark validation, scenario simulation) — those are future sprints

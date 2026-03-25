@@ -1,244 +1,89 @@
 ---
-description: Verify cloud-dev development environment setup in ValueOS
+description: Verify the ValueOS development environment is fully operational
 ---
 
-# ValueOS Cloud-Dev Verification Checklist
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Full policy: docs/AGENTS.md -->
 
-## Prerequisites
+# Environment Verification Checklist
 
-- Hosted Supabase project (credentials from dashboard)
-- Node.js version matching `.nvmrc`
-- Clean git checkout
-- Redis installed locally
+Run this checklist before starting feature work or after a restart.
 
-## ✅ Setup Verification
-
-### 1. Installation
+## 1. Automations status
 
 ```bash
-pnpm install --no-frozen-lockfile
-# Expected: packages installed successfully
+gitpod automations task list
+gitpod automations service list
 ```
 
-### 2. Environment Setup
+Expected: `installDeps` task completed; `backend` and `frontend` services running.
+
+## 2. Dependencies installed
 
 ```bash
-# Create environment files from templates
-cp ops/env/.env.cloud-dev.example          ops/env/.env.cloud-dev
-cp ops/env/.env.frontend.cloud-dev.example ops/env/.env.frontend.cloud-dev
-cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
-
-# Expected: Files created with placeholder values
+ls node_modules/.modules.yaml
 ```
 
-### 3. Redis Ready
+Expected: file exists. If missing, run `gitpod automations task start installDeps`.
 
-Choose one option:
-
-**Option A: Native Redis**
+## 3. Backend health
 
 ```bash
-redis-server --daemonize yes --port 6379
-redis-cli ping
-# Expected: "PONG"
+curl http://localhost:3001/health
 ```
 
-**Option B: Docker Redis**
+Expected: `{"status":"healthy",...}`. If failing, check `gitpod automations service logs backend`.
+
+## 4. Frontend accessible
 
 ```bash
-docker compose -f ops/compose/compose.cloud-dev.yml up -d
-redis-cli ping
-# Expected: "PONG"
-```
-
-### 4. Start Development Servers
-
-```bash
-# Terminal 1 - Backend
-APP_ENV=cloud-dev pnpm run dev:backend
-# Expected: Server starts on port 3001
-
-# Terminal 2 - Frontend
-APP_ENV=cloud-dev pnpm run dev:frontend
-# Expected: Vite dev server on port 5173
-```
-
-### 5. Supabase Connectivity
-
-```bash
-curl -s "${SUPABASE_URL}/rest/v1/" | head -1
-# Expected: JSON response (not connection refused)
-```
-
-### 6. Environment Loading
-
-```bash
-grep -E "SUPABASE_URL|SUPABASE_ANON_KEY" ops/env/.env.backend.cloud-dev | head -5
-# Expected: Variables set with real values
-```
-
-### 7. Service Health Checks
-
-```bash
-# Backend health
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/health
-# Expected: "200"
-
-# Frontend accessibility
 curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
-# Expected: "200"
-
-# Redis ready
-redis-cli ping
-# Expected: "PONG"
 ```
 
-### 8. Validate Environment
+Expected: `200`. If failing, check `gitpod automations service logs frontend`.
+
+## 5. Environment variables present
 
 ```bash
-bash scripts/validate-cloud-dev-env.sh
-# Expected: "[validate] cloud-dev environment OK"
+node scripts/dx/doctor.js
 ```
 
-## Authentication Verification
+Expected: no missing required vars. Backend fails fast with a clear error if `TCT_SECRET` or `SUPABASE_KEY` is absent.
 
-### 9. Login Flow
-
-1. Open `http://localhost:5173`
-2. Sign up or sign in with Supabase Auth
-3. Expected: Successful login, redirect to dashboard
-
-### 10. Session Persistence
+## 6. TypeScript clean
 
 ```bash
-# After login, check API with session
-curl -s -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:3001/api/user/profile
-# Expected: User profile data (200 response)
+pnpm run check
 ```
 
-### 11. Tenant Data Access
+Expected: no errors. Investigate any new errors before proceeding.
+
+## 7. Tests passing
 
 ```bash
-# Access tenant-scoped endpoint
-curl -s -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:3001/api/tenant/projects
-# Expected: Projects data (200 response, not 401/403)
+pnpm test
 ```
 
-## 🔄 Repeatable Workflow Verification
+Expected: all unit tests pass. Do not proceed with feature work if tests are red.
 
-### 12. Clean Restart
+## ✅ Success criteria
 
-**Native Redis:**
+All of the following must be true before starting work:
 
-```bash
-# Stop all processes
-pkill -f "tsx src/server.ts" || true
-pkill -f "vite" || true
+- [ ] `gitpod automations service list` shows `backend` and `frontend` as running
+- [ ] `curl http://localhost:3001/health` returns `{"status":"healthy",...}`
+- [ ] `curl http://localhost:5173` returns HTTP 200
+- [ ] `node_modules/.modules.yaml` exists
+- [ ] `pnpm test` passes
+- [ ] `pnpm run check` passes with no new errors
 
-# Restart
-redis-server --daemonize yes --port 6379
-APP_ENV=cloud-dev pnpm run dev:backend &
-APP_ENV=cloud-dev pnpm run dev:frontend
-# Expected: Same results as initial setup
-```
+## Remediation
 
-**Docker Redis:**
-
-```bash
-# Stop all processes
-pkill -f "tsx src/server.ts" || true
-pkill -f "vite" || true
-
-# Restart
-docker compose -f ops/compose/compose.cloud-dev.yml up -d
-APP_ENV=cloud-dev pnpm run dev:backend &
-APP_ENV=cloud-dev pnpm run dev:frontend
-# Expected: Same results as initial setup
-```
-
-### 13. Comprehensive Health Check
-
-```bash
-curl -s http://localhost:3001/health | jq .
-# Expected: {"status":"healthy",...}
-```
-
-## 📋 Troubleshooting Commands
-
-### Port Conflicts
-
-```bash
-# Check port usage
-lsof -i :5173 -i :3001 -i :6379
-# Force kill
-pkill -f "tsx src/server.ts"
-pkill -f "vite"
-```
-
-### Environment Issues
-
-```bash
-# Validate environment
-bash scripts/validate-cloud-dev-env.sh
-
-# Check current environment variables
-grep -E "^[A-Z]" ops/env/.env.backend.cloud-dev | head -20
-```
-
-### Redis Issues
-
-```bash
-# Check Redis
-redis-cli ping
-
-# Restart Redis (Native)
-redis-server --daemonize yes --port 6379
-
-# Or restart Redis (Docker)
-docker compose -f ops/compose/compose.cloud-dev.yml restart
-```
-
-### Supabase Issues
-
-```bash
-# Test Supabase connection
-curl -s "${SUPABASE_URL}/rest/v1/" -H "apikey: ${SUPABASE_ANON_KEY}" | head -1
-
-# Verify credentials in dashboard
-# Project Settings → API in Supabase dashboard
-```
-
-## ✅ Success Criteria
-
-All of the following must pass:
-
-1. ✅ `pnpm install --no-frozen-lockfile` succeeds without errors
-2. ✅ `redis-cli ping` returns "PONG"
-3. ✅ Backend starts successfully on port 3001
-4. ✅ Frontend starts successfully on port 5173
-5. ✅ `curl http://localhost:3001/health` returns `{"status":"healthy",...}`
-6. ✅ Supabase connection responds (not connection refused)
-7. ✅ Login succeeds and session persists across page refreshes
-8. ✅ API calls succeed using the session JWT
-9. ✅ App loads tenant-scoped data without 401/403 errors
-10. ✅ `bash scripts/validate-cloud-dev-env.sh` passes
-
-## 🚨 Failure Remediation
-
-If any check fails:
-
-1. **Environment Issues**: Re-run `/init` workflow to reset environment files
-2. **Redis Issues (Native)**: `redis-server --daemonize yes --port 6379`
-3. **Redis Issues (Docker)**: `docker compose -f ops/compose/compose.cloud-dev.yml restart`
-4. **Supabase Issues**: Verify credentials in Supabase dashboard
-5. **Port Conflicts**: Check for other services using ports 3001, 5173, 6379
-6. **Permission Issues**: Ensure Redis/Docker and Node have proper permissions
-
-## 📝 Notes
-
-- Backend runs on port 3001
-- Frontend on port 5173
-- Redis on port 6379 (local cache only)
-- Supabase is cloud-hosted (no local containers)
-- All environment variables are validated by `scripts/validate-cloud-dev-env.sh`
-- Uses `APP_ENV=cloud-dev` for all dev commands
+| Check fails | Fix |
+|---|---|
+| Service not running | `gitpod automations service start <backend\|frontend>` |
+| `installDeps` not complete | `gitpod automations task start installDeps` |
+| Missing env var | Add to `ops/env/.env.backend.local`; see `docs/skills/ona-environment/SKILL.md` |
+| Lockfile out of sync | `pnpm install` locally, commit updated `pnpm-lock.yaml` |

@@ -1,55 +1,73 @@
 ---
-description: Start the cloud-dev development environment for ValueOS
+description: Start the ValueOS development environment
 ---
+
+<!-- ValueOS System Intent
+ValueOS is a system of intelligence that structures, validates, and operationalizes
+business value across the full lifecycle, producing CFO-defensible, evidence-backed outcomes.
+Full policy: docs/AGENTS.md -->
 
 # Start Development Environment
 
-// turbo-all
+## Standard path (Ona automations — preferred)
 
-Start the cloud-dev development servers:
-
-## Option A: Native Redis
+Services start automatically on `postEnvironmentStart`. To start manually:
 
 ```bash
-# Ensure Redis is running
-redis-cli ping || redis-server --daemonize yes --port 6379
-
-# Start backend (port 3001)
-APP_ENV=cloud-dev pnpm run dev:backend &
-
-# Start frontend (port 5173)
-APP_ENV=cloud-dev pnpm run dev:frontend
+gitpod automations service start backend
+gitpod automations service start frontend
 ```
 
-## Option B: Docker Redis
+Check status:
 
 ```bash
-# Start Redis in Docker
-docker compose -f ops/compose/compose.cloud-dev.yml up -d
-
-# Start backend (port 3001)
-APP_ENV=cloud-dev pnpm run dev:backend &
-
-# Start frontend (port 5173)
-APP_ENV=cloud-dev pnpm run dev:frontend
+gitpod automations service list
 ```
 
-The application should be available at http://localhost:5173
+View logs:
+
+```bash
+gitpod automations service logs backend
+gitpod automations service logs frontend
+```
+
+## Verify services are up
+
+```bash
+# Backend (port 3001)
+curl http://localhost:3001/health
+# Expected: {"status":"healthy",...}
+
+# Frontend (port 5173) — accessible via the Ona preview URL
+curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
+# Expected: 200
+```
+
+## Manual fallback (if automations are unavailable)
+
+Only use this if `gitpod automations` is not available:
+
+```bash
+# Ensure dependencies are installed first
+ls node_modules/.modules.yaml || bash .devcontainer/scripts/bootstrap.sh
+
+# Backend
+pnpm run dev:backend &
+
+# Frontend
+pnpm run dev:frontend
+```
 
 ## Prerequisites
 
-Before running this workflow, ensure you have:
-
-- Completed `/init` workflow to set up environment files
-- Hosted Supabase project credentials configured
-- Together AI API key configured (optional, for AI features)
-- Docker installed (if using Docker Redis option)
+- `installDeps` task must have completed (`node_modules/.modules.yaml` must exist)
+- Required env vars must be set (see `docs/skills/ona-environment/SKILL.md`)
 
 ## Troubleshooting
 
-- **Port 3001 in use**: `pkill -f "tsx src/server.ts"`
-- **Port 5173 in use**: `pkill -f "vite"`
-- **Port 6379 in use**: `docker stop valueos-redis` or `pkill redis-server`
-- **Redis not running**: `redis-cli ping` should return `PONG`
-- **Docker Redis**: `docker compose -f ops/compose/compose.cloud-dev.yml ps`
-- **Supabase connection errors**: Verify credentials in dashboard
+| Symptom | Fix |
+|---|---|
+| Service shows `stopped` | `gitpod automations service start <id>` |
+| Backend crashes on start | Check `gitpod automations service logs backend` for missing env var |
+| Port not accessible | `gitpod environment port list` — services open ports automatically |
+| `node_modules` missing | `gitpod automations task start installDeps` |

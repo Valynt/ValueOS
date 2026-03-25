@@ -95,7 +95,7 @@ supabase db inspect schema_versions
 ```bash
 # Trigger production deployment workflow
 # GitHub Actions: Deploy to Production
-# https://github.com/ValueCanvas/ValueCanvas/actions/workflows/deploy-production.yml
+# https://github.com/Valynt/ValueOS/actions/workflows/deploy-production.yml
 
 # Monitor rollout status
 kubectl rollout status deploy/api --timeout=5m

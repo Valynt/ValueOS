@@ -338,7 +338,7 @@ metadata:
 spec:
   project: valueos
   source:
-    repoURL: https://github.com/ValueCanvas/ValueOS
+    repoURL: https://github.com/Valynt/ValueOS
     path: kustomize/overlays/production
     targetRevision: HEAD
   destination:
@@ -392,7 +392,7 @@ metadata:
   name: sentiment-agent
 spec:
   source:
-    repoURL: https://github.com/ValueCanvas/ValueOS
+    repoURL: https://github.com/Valynt/ValueOS
     path: helm
     helm:
       valueFiles:
@@ -417,7 +417,7 @@ metadata:
   name: valueos-agent-suite
 spec:
   source:
-    repoURL: https://github.com/ValueCanvas/ValueOS
+    repoURL: https://github.com/Valynt/ValueOS
     path: argocd/apps
   destination:
     server: https://kubernetes.default.svc
