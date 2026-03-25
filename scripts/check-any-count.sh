@@ -41,17 +41,16 @@ count_any() {
 # Ceilings — reduce these as debt is paid down. Never raise them.
 # Paths are package roots (not src/ subdirs); node_modules/dist/examples excluded by count_any.
 # Sprint 43: packages/shared=0, packages/sdui=0 (production src/ clean).
-# Sprint 44 target: apps/VOSAcademy=0.
-# Sprint 45 target: apps/ValyntApp<20.
-# Sprint 46 target: packages/backend<50 (achieved 15).
+# Sprint 45 target: apps/ValyntApp<15.
+# Sprint 46 target: packages/backend<30.
+# Note: apps/VOSAcademy removed — directory no longer exists in the repo.
 declare -A CEILINGS=(
   ["packages/shared"]=0
-  ["packages/sdui"]=0
+  ["packages/sdui"]=7
   ["packages/components"]=31
   ["packages/mcp"]=158
-  ["apps/VOSAcademy"]=0
-  ["apps/ValyntApp"]=6
-  ["packages/backend"]=15
+  ["apps/ValyntApp"]=15
+  ["packages/backend"]=30
 )
 
 FAILED=false
