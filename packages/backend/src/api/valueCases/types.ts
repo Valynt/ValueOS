@@ -282,6 +282,18 @@ export const ScenarioRequestSchema = z.object({
     upside: z.record(z.string(), z.string()),
   }).optional(),
   discountRate: z.string().regex(/^0\.\d+$/),
+  /**
+   * Execution mode:
+   * - "manual": compute via Economic Kernel from baseAssumptions and persist immediately
+   * - "rerun": enqueue FinancialModelingAgent (async; returns status "running")
+   * - "both": persist manual result immediately, then fire-and-forget agent rerun
+   */
+  mode: z.enum(['manual', 'rerun', 'both']).default('manual').optional(),
+  /**
+   * Explicit cash flows override. When provided, used directly for kernel
+   * calculations instead of being derived from baseAssumptions.
+   */
+  cashFlows: z.array(CashFlowInputSchema).optional(),
 }).strict();
 
 export type ScenarioRequest = z.infer<typeof ScenarioRequestSchema>;

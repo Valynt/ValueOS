@@ -5,8 +5,8 @@
       "label": "ValyntApp TypeScript errors",
       "bucket": "production-runtime",
       "metric": "tsErrors",
-      "baseline": 4239,
-      "nextTarget": 4200,
+      "baseline": 1246,
+      "nextTarget": 1200,
       "command": "pnpm --filter valynt-app exec tsc --noEmit --pretty false"
     },
     {

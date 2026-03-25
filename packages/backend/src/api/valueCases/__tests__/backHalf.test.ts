@@ -25,7 +25,13 @@ vi.mock('../../../middleware/tenantContext', () => ({
 }));
 
 vi.mock('../../../middleware/tenantDbContext', () => ({
-  tenantDbContextMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+  tenantDbContextMiddleware: () => (req: Record<string, unknown>, _res: unknown, next: () => void) => {
+    // Inject a non-null supabase stub so getBackHalfProvenanceTracker's null
+    // guard passes. The actual DB calls are intercepted by the
+    // SupabaseProvenanceStore mock below.
+    req['supabase'] = { from: vi.fn() };
+    next();
+  },
 }));
 
 vi.mock('../../../middleware/rateLimiter', () => ({
@@ -99,12 +105,23 @@ vi.mock('../../../lib/agent-fabric/CircuitBreaker', () => {
   return { CircuitBreaker };
 });
 
+// Tracks the tenantId passed to SupabaseProvenanceStore so getLineage can
+// return the correct fixture without a real DB call.
+let _capturedTenantId = 'tenant-abc';
+vi.mock('../../../repositories/SupabaseProvenanceStore', () => ({
+  SupabaseProvenanceStore: vi.fn().mockImplementation((_client: unknown, tenantId: string) => {
+    _capturedTenantId = tenantId;
+    return {};
+  }),
+}));
+
 vi.mock('../../../lib/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
 vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: vi.fn() },
   createServerSupabaseClient: vi.fn().mockReturnValue({ from: vi.fn() }),
 }));
 

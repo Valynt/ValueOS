@@ -749,77 +749,149 @@ async function generateScenarios(req: Request, res: Response, next: NextFunction
 
   try {
     const body = ScenarioRequestSchema.parse(req.body);
-    const discountRate = new Decimal(body.discountRate);
+    const mode = body.mode ?? 'manual';
 
-    // Default multipliers if not provided
+    // ── rerun: fire-and-forget agent dispatch (stub — full wiring is a future sprint) ──
+    if (mode === 'rerun') {
+      const agentRunId = uuidv4();
+      logger.info('generateScenarios: rerun requested (agent dispatch deferred)', {
+        caseId,
+        organizationId,
+        agentRunId,
+      });
+      res.json({
+        data: { snapshotId: null, agentRunId, source: 'agent', status: 'running' },
+        requestId: authReq.correlationId,
+      });
+      return;
+    }
+
+    // ── manual / both: compute via Economic Kernel and persist ──
+    const discountRate = new Decimal(body.discountRate);
     const conservativeMultipliers = body.scenarioMultipliers?.conservative ?? {};
     const upsideMultipliers = body.scenarioMultipliers?.upside ?? {};
-
-    // Build base scenario from assumptions
     const baseAssumptions = body.baseAssumptions;
 
-    // Helper to calculate with adjusted assumptions
-    const calculateWithAssumptions = (
+    // Apply multipliers to produce adjusted assumption sets per scenario.
+    const applyMultipliers = (
       assumptions: typeof baseAssumptions,
-      multipliers: Record<string, string>
-    ): typeof baseAssumptions => {
-      return assumptions.map(ass => {
-        const multiplier = multipliers[ass.id];
-        if (!multiplier) return ass;
-        const baseValue = new Decimal(ass.value);
-        const adjustedValue = baseValue.times(new Decimal(multiplier));
-        return { ...ass, value: adjustedValue.toString() };
+      multipliers: Record<string, string>,
+    ): typeof baseAssumptions =>
+      assumptions.map(ass => {
+        const m = multipliers[ass.id];
+        if (!m) return ass;
+        return { ...ass, value: new Decimal(ass.value).times(new Decimal(m)).toString() };
       });
+
+    const conservativeAssumptions = applyMultipliers(baseAssumptions, conservativeMultipliers);
+    const upsideAssumptions = applyMultipliers(baseAssumptions, upsideMultipliers);
+
+    // Compute the net revenue multiplier for a scenario: the ratio of the
+    // adjusted assumption total to the base assumption total. This is applied
+    // to inflow periods (period > 0) when explicit cashFlows are provided,
+    // so that scenario differentiation is preserved even with explicit flows.
+    // Period 0 (investment outflow) is left unchanged — it represents cost.
+    const netMultiplier = (adjustedAssumptions: typeof baseAssumptions): Decimal => {
+      const baseTotal = baseAssumptions.reduce(
+        (s, a) => s.plus(new Decimal(a.value)),
+        new Decimal(0),
+      );
+      if (baseTotal.isZero()) return new Decimal(1);
+      const adjTotal = adjustedAssumptions.reduce(
+        (s, a) => s.plus(new Decimal(a.value)),
+        new Decimal(0),
+      );
+      return adjTotal.div(baseTotal);
     };
 
-    // Run calculations for each scenario
-    // Note: In a real implementation, you'd derive cash flows from assumptions
-    // For now, we return the structure that the frontend expects
+    // Derive cash flows from an assumption set.
+    // When explicit cashFlows are provided, inflow periods are scaled by the
+    // net multiplier so conservative/base/upside produce differentiated NPV.
+    // Period 0 (outflow) is never scaled — it represents the investment cost.
+    const deriveCashFlows = (assumptions: typeof baseAssumptions): Decimal[] => {
+      if (body.cashFlows && body.cashFlows.length >= 2) {
+        const scale = netMultiplier(assumptions);
+        return body.cashFlows.map((cf, i) => {
+          const amount = new Decimal(cf.amount);
+          // Period 0 is the investment outflow — do not scale it.
+          return i === 0 ? amount : amount.times(scale);
+        });
+      }
+      const total = assumptions.reduce(
+        (sum, a) => sum.plus(new Decimal(a.value)),
+        new Decimal(0),
+      );
+      return [total.negated(), total];
+    };
 
-    const scenarios = [
-      {
-        scenario: 'base' as const,
-        assumptions: baseAssumptions.map(a => ({
-          id: a.id,
-          name: a.name,
-          baseValue: a.value,
-          adjustedValue: a.value,
-          multiplier: '1.0',
-        })),
-      },
-      {
-        scenario: 'conservative' as const,
-        assumptions: calculateWithAssumptions(baseAssumptions, conservativeMultipliers).map(a => {
+    // Run Economic Kernel for each scenario.
+    const runKernel = (assumptions: typeof baseAssumptions, label: 'conservative' | 'base' | 'upside') => {
+      const flows = deriveCashFlows(assumptions);
+      const npv = calculateNPV(flows, discountRate);
+      const irrResult = calculateIRR(flows);
+      const totalInflow = flows.slice(1).reduce((s, f) => s.plus(f.gt(0) ? f : new Decimal(0)), new Decimal(0));
+      const totalOutflow = flows[0].abs();
+      const roi = calculateROI(totalInflow, totalOutflow);
+      const payback = calculatePayback(flows);
+
+      return {
+        scenario: label,
+        npv: npv.toString(),
+        irr: irrResult.toString(),
+        roi: roi.toString(),
+        payback_months: payback.fractionalPeriod !== null
+          ? Math.round(payback.fractionalPeriod.toNumber() * 12)
+          : null,
+        assumptions: assumptions.map(a => {
           const base = baseAssumptions.find(ba => ba.id === a.id)!;
-          return {
-            id: a.id,
-            name: a.name,
-            baseValue: base.value,
-            adjustedValue: a.value,
-            multiplier: conservativeMultipliers[a.id] ?? '1.0',
-          };
+          const multiplier =
+            label === 'conservative'
+              ? (conservativeMultipliers[a.id] ?? '1.0')
+              : label === 'upside'
+                ? (upsideMultipliers[a.id] ?? '1.0')
+                : '1.0';
+          return { id: a.id, name: a.name, baseValue: base.value, adjustedValue: a.value, multiplier };
         }),
-      },
-      {
-        scenario: 'upside' as const,
-        assumptions: calculateWithAssumptions(baseAssumptions, upsideMultipliers).map(a => {
-          const base = baseAssumptions.find(ba => ba.id === a.id)!;
-          return {
-            id: a.id,
-            name: a.name,
-            baseValue: base.value,
-            adjustedValue: a.value,
-            multiplier: upsideMultipliers[a.id] ?? '1.0',
-          };
-        }),
-      },
-    ];
+      };
+    };
+
+    const baseResult = runKernel(baseAssumptions, 'base');
+    const conservativeResult = runKernel(conservativeAssumptions, 'conservative');
+    const upsideResult = runKernel(upsideAssumptions, 'upside');
+    const scenarios = [conservativeResult, baseResult, upsideResult];
+    const generatedAt = new Date().toISOString();
+
+    // Persist snapshot — base scenario values become the top-level metrics.
+    const repo = new FinancialModelSnapshotRepository();
+    const snapshot = await repo.createSnapshot({
+      case_id: caseId,
+      organization_id: organizationId,
+      roi: baseResult.roi !== null ? parseFloat(baseResult.roi) : undefined,
+      npv: baseResult.npv !== null ? parseFloat(baseResult.npv) : undefined,
+      payback_period_months: baseResult.payback_months ?? undefined,
+      assumptions_json: baseAssumptions,
+      outputs_json: { scenarios, mode: 'manual', generatedAt, discountRate: body.discountRate },
+      source_agent: 'manual',
+    });
+
+    // For mode "both", log the deferred agent rerun intent.
+    const agentRunId = mode === 'both' ? uuidv4() : undefined;
+    if (mode === 'both') {
+      logger.info('generateScenarios: both mode — manual snapshot persisted, agent rerun deferred', {
+        caseId,
+        organizationId,
+        snapshotId: snapshot.id,
+        agentRunId,
+      });
+    }
 
     res.json({
       data: {
+        snapshotId: snapshot.id,
         scenarios,
-        discountRate: body.discountRate,
-        generatedAt: new Date().toISOString(),
+        source: 'manual',
+        generatedAt,
+        ...(agentRunId ? { agentRunId } : {}),
       },
       requestId: authReq.correlationId,
     });
@@ -840,6 +912,13 @@ async function generateScenarios(req: Request, res: Response, next: NextFunction
  * PATCH /cases/:caseId/assumptions/:assumptionId
  * Update an assumption and trigger recalculation
  */
+const UpdateAssumptionSchema = z.object({
+  value: z.string().optional(),
+  sensitivity_low: z.string().optional(),
+  sensitivity_high: z.string().optional(),
+  recalc: z.boolean().default(true),
+}).strict();
+
 async function updateAssumption(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId, assumptionId } = req.params;
@@ -851,33 +930,119 @@ async function updateAssumption(req: Request, res: Response, next: NextFunction)
   }
 
   try {
-    // Validate update body
-    const UpdateAssumptionSchema = z.object({
-      value: z.string().optional(),
-      sensitivity_low: z.string().optional(),
-      sensitivity_high: z.string().optional(),
-      recalc: z.boolean().default(true),
-    });
-
     const body = UpdateAssumptionSchema.parse(req.body);
 
-    // TODO: Persist assumption change to database
-    // For MVP, we return the updated assumption and optionally recalc
+    // Fetch the latest snapshot — assumptions live in snapshots, not a separate table.
+    const repo = new FinancialModelSnapshotRepository();
+    const snapshot = await repo.getLatestSnapshotForCase(caseId, organizationId);
 
+    if (!snapshot) {
+      res.status(404).json({
+        error: 'NO_SNAPSHOT',
+        message: 'No financial model snapshot found. Run the financial model first.',
+      });
+      return;
+    }
+
+    // Locate the assumption within the snapshot.
+    const assumptions = snapshot.assumptions_json as Array<Record<string, unknown>>;
+    const assumptionIndex = assumptions.findIndex(a => a['id'] === assumptionId);
+
+    if (assumptionIndex === -1) {
+      res.status(404).json({
+        error: 'ASSUMPTION_NOT_FOUND',
+        message: `Assumption ${assumptionId} not found in the latest snapshot.`,
+      });
+      return;
+    }
+
+    // Merge the update and increment version.
+    const existing = assumptions[assumptionIndex];
     const updatedAssumption = {
-      id: assumptionId,
-      caseId,
-      value: body.value,
-      sensitivity_low: body.sensitivity_low,
-      sensitivity_high: body.sensitivity_high,
+      ...existing,
+      ...(body.value !== undefined ? { value: body.value } : {}),
+      ...(body.sensitivity_low !== undefined ? { sensitivity_low: body.sensitivity_low } : {}),
+      ...(body.sensitivity_high !== undefined ? { sensitivity_high: body.sensitivity_high } : {}),
+      version: ((existing['version'] as number | undefined) ?? 0) + 1,
       updatedAt: new Date().toISOString(),
     };
 
-    // Optionally trigger recalculation
-    let recalcResult = null;
-    if (body.recalc && body.value) {
-      // Placeholder: would fetch cash flows from case and recalculate
-      recalcResult = { status: 'pending', message: 'Recalculation queued' };
+    const updatedAssumptions = [
+      ...assumptions.slice(0, assumptionIndex),
+      updatedAssumption,
+      ...assumptions.slice(assumptionIndex + 1),
+    ];
+
+    let recalcResult: {
+      snapshotId: string;
+      npv: string | null;
+      irr: string | null;
+      roi: string | null;
+      payback_months: number | null;
+    } | null = null;
+
+    if (body.recalc) {
+      // Re-derive cash flows from the updated assumption set and recompute metrics.
+      // Recover the discount rate used when the snapshot was originally generated.
+      // Falls back to 0.10 only if the snapshot pre-dates this field being stored.
+      const storedRate = (snapshot.outputs_json as Record<string, unknown>)?.['discountRate'];
+      const discountRate = new Decimal(typeof storedRate === 'string' ? storedRate : '0.10');
+      const total = updatedAssumptions.reduce(
+        (sum, a) => sum.plus(new Decimal(String(a['value'] ?? '0'))),
+        new Decimal(0),
+      );
+      const flows = [total.negated(), total];
+
+      const npv = calculateNPV(flows, discountRate);
+      const irrResult = calculateIRR(flows);
+      const roi = calculateROI(
+        flows.slice(1).reduce((s, f) => s.plus(f.gt(0) ? f : new Decimal(0)), new Decimal(0)),
+        flows[0].abs(),
+      );
+      const payback = calculatePayback(flows);
+
+      const newSnapshot = await repo.createSnapshot({
+        case_id: caseId,
+        organization_id: organizationId,
+        roi: parseFloat(roi.toString()),
+        npv: parseFloat(npv.toString()),
+        payback_period_months: payback.fractionalPeriod !== null
+          ? Math.round(payback.fractionalPeriod.toNumber() * 12)
+          : undefined,
+        assumptions_json: updatedAssumptions,
+        outputs_json: {
+          ...(snapshot.outputs_json as Record<string, unknown>),
+          recalc_triggered_by: assumptionId,
+          recalcAt: new Date().toISOString(),
+        },
+        source_agent: 'manual',
+      });
+
+      recalcResult = {
+        snapshotId: newSnapshot.id,
+        npv: npv.toString(),
+        irr: irrResult.toString(),
+        roi: roi.toString(),
+        payback_months: payback.fractionalPeriod !== null
+          ? Math.round(payback.fractionalPeriod.toNumber() * 12)
+          : null,
+      };
+    } else {
+      // Persist updated assumptions without recalculating metrics.
+      await repo.createSnapshot({
+        case_id: caseId,
+        organization_id: organizationId,
+        roi: snapshot.roi ?? undefined,
+        npv: snapshot.npv ?? undefined,
+        payback_period_months: snapshot.payback_period_months ?? undefined,
+        assumptions_json: updatedAssumptions,
+        outputs_json: {
+          ...(snapshot.outputs_json as Record<string, unknown>),
+          assumption_updated: assumptionId,
+          updatedAt: new Date().toISOString(),
+        },
+        source_agent: 'manual',
+      });
     }
 
     res.json({

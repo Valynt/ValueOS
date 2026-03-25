@@ -74,15 +74,15 @@
     }
   },
   "ts_debt": {
-    "apps/ValyntApp": 4312,
-    "apps/mcp-dashboard": 54,
-    "packages/backend": 3061,
-    "packages/sdui": 179,
-    "packages/mcp": 411,
-    "packages/infra": 6,
-    "packages/services": 20,
-    "packages/shared": 5,
-    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added. Deprecated standalone agents removed 2026-02-28. packages/agents deleted in Sprint 2 (refactor); core modules migrated to packages/backend/src/lib/agents/."
+    "apps/ValyntApp": 1246,
+    "apps/mcp-dashboard": 0,
+    "packages/backend": 29,
+    "packages/sdui": 0,
+    "packages/mcp": 0,
+    "packages/infra": 0,
+    "packages/services": 0,
+    "packages/shared": 0,
+    "_note": "Re-baselined 2026-03-24. Measured via per-package tsc --noEmit."
   },
   "performance": {
     "time_to_interaction": {

@@ -82,6 +82,34 @@ vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
   MemorySystem: vi.fn(),
 }));
 
+vi.mock('../../../middleware/tenantDbContext', () => ({
+  tenantDbContextMiddleware: () => (req: Record<string, unknown>, _res: unknown, next: () => void) => {
+    req['supabase'] = { from: vi.fn() };
+    next();
+  },
+}));
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: vi.fn() },
+  createServerSupabaseClient: vi.fn().mockReturnValue({ from: vi.fn() }),
+}));
+
+vi.mock('../../../middleware/rateLimiter', () => ({
+  rateLimiters: { strict: (_req: unknown, _res: unknown, next: () => void) => next() },
+}));
+
+// Integrity check runs before the SSRF guard. Mock it to return a passing
+// score so the guard is always reached in these tests.
+vi.mock('../../../services/integrity/ValueIntegrityService', () => ({
+  ValueIntegrityService: vi.fn().mockImplementation(() => ({
+    calculateIntegrity: vi.fn().mockResolvedValue({
+      score: 1.0,
+      defenseReadiness: 1.0,
+      violations: [],
+    }),
+  })),
+}));
+
 vi.mock('../../../lib/agent-fabric/CircuitBreaker', () => ({
   CircuitBreaker: vi.fn(),
 }));

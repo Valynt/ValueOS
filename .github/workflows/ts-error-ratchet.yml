@@ -37,7 +37,7 @@ jobs:
       - name: Load baseline
         id: baseline
         run: |
-          BASELINE=$(cat .quality/baselines.json | jq '.tsErrors // 7597')
+          BASELINE=$(cat .quality/baselines.json | jq '.tsErrors // 0')
           echo "baseline=$BASELINE" >> $GITHUB_OUTPUT
           echo "Baseline: $BASELINE"
           
@@ -92,10 +92,10 @@ Please run \`pnpm run typecheck:full\` locally to identify and fix these errors 
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: 
-          - { name: '@valueos/backend', path: 'packages/backend', baseline: 3601 }
-          - { name: 'valynt-app', path: 'apps/ValyntApp', baseline: 1544 }
-          - { name: '@valueos/sdui', path: 'packages/sdui', baseline: 450 }
+        package:
+          - { name: '@valueos/backend', path: 'packages/backend', baseline: 0 }
+          - { name: 'valynt-app', path: 'apps/ValyntApp', baseline: 0 }
+          - { name: '@valueos/sdui', path: 'packages/sdui', baseline: 0 }
     steps:
       - uses: actions/checkout@v4
       
