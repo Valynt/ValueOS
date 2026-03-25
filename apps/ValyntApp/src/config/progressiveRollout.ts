@@ -319,10 +319,17 @@ export class ProgressiveRollout {
    * Send rollback alert
    */
   private async sendRollbackAlert(reason: string): Promise<void> {
-    // Send to monitoring system
+    const webhookUrl = import.meta.env.VITE_WEBHOOK_URL as string | undefined;
+    if (!webhookUrl) {
+      logger.warn('VITE_WEBHOOK_URL not configured; rollback alert not sent', {
+        feature: this.featureName,
+      });
+      return;
+    }
+
     try {
-       
-      await fetch(import.meta.env.VITE_WEBHOOK_URL, {
+      // eslint-disable-next-line no-restricted-globals
+      await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

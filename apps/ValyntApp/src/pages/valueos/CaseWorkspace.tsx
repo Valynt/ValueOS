@@ -9,18 +9,18 @@
  * OpportunityAgent (scratch) via POST /api/cases/:caseId/run-hypothesis-loop.
  */
 
+import { IntegrityScoreCard } from "@sdui/components/SDUI/IntegrityScoreCard";
 import { AlertCircle, ArrowLeft, ArrowRight, Check, FileText, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCase, useCreateCase } from "@/hooks/useCases";
 import { useIntegrityScore } from "@/hooks/useIntegrityScore";
-import { apiClient } from "@/api/client/unified-api-client";
 import { cn } from "@/lib/utils";
-import { IntegrityScoreCard } from "@sdui/components/SDUI/IntegrityScoreCard";
 
 // ---------------------------------------------------------------------------
 // Wizard state

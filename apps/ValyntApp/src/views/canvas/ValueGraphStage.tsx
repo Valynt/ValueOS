@@ -10,13 +10,13 @@
  * Sprint 50: Initial implementation.
  */
 
-import { useState } from "react";
-import { X } from "lucide-react";
-
-import { ValueGraphVisualization } from "@/components/sdui/ValueGraphVisualization";
 import { ValuePathCard } from "@valueos/sdui";
-import { useValueGraph } from "@/hooks/useValueGraph";
+import { X } from "lucide-react";
+import { useState } from "react";
+
 import type { ValueGraphEntityType, ValueGraphNode } from "@/api/valueGraph";
+import { ValueGraphVisualization } from "@/components/sdui/ValueGraphVisualization";
+import { useValueGraph } from "@/hooks/useValueGraph";
 
 // ---------------------------------------------------------------------------
 // Entity inspector panel

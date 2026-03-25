@@ -1,5 +1,8 @@
 import { render, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { GuestAccessPage } from './GuestAccessPage';
 
 const mockValidateToken = vi.fn();
 const mockNavigate = vi.fn();
@@ -23,10 +26,6 @@ vi.mock('@/GuestAccessService', () => ({
 vi.mock('./GuestValueCalculator', () => ({
   GuestValueCalculator: () => <div>Guest calculator</div>,
 }));
-
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-
-import { GuestAccessPage } from './GuestAccessPage';
 
 describe('GuestAccessPage', () => {
   beforeEach(() => {

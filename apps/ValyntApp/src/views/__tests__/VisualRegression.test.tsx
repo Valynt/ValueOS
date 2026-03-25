@@ -3,7 +3,7 @@
  * Tests visual consistency across templates
  */
 
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import "@testing-library/jest-dom";
 

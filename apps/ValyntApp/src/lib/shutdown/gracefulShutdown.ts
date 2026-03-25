@@ -26,6 +26,7 @@ const runtime: ShutdownRuntime = {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
      
      
+    // eslint-disable-next-line no-console
     console[level](`[shutdown] ${message}${payload}`);
   },
 };
@@ -114,6 +115,7 @@ export function __resetGracefulShutdownForTests(): void {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
      
      
+    // eslint-disable-next-line no-console
     console[level](`[shutdown] ${message}${payload}`);
   };
 }

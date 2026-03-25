@@ -9,9 +9,9 @@
  *   - onNodeSelect callback fires on node click (via mocked ReactFlow)
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock reactflow — it uses browser APIs unavailable in jsdom.
 // useNodesState/useEdgesState use real React state so node updates from the
@@ -78,8 +78,9 @@ vi.mock("@/hooks/useValueGraph", () => ({
   useValueGraph: vi.fn(),
 }));
 
-import { useValueGraph } from "@/hooks/useValueGraph";
 import { ValueGraphVisualization } from "./ValueGraphVisualization";
+
+import { useValueGraph } from "@/hooks/useValueGraph";
 
 const mockUseValueGraph = vi.mocked(useValueGraph);
 

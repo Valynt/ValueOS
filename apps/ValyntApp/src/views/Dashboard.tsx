@@ -16,8 +16,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCasesList, useCreateCase } from "@/hooks/useCases";
-import { cn } from "@/lib/utils";
 import type { ValueCaseWithRelations } from "@/lib/supabase/types";
+import { cn } from "@/lib/utils";
 
 // -- Derive display fields from a real ValueCaseRow --
 function deriveStage(c: ValueCaseWithRelations): string {

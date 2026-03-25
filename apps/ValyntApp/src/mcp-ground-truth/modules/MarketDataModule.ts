@@ -228,6 +228,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -285,6 +286,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -334,6 +336,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -378,6 +381,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -424,6 +428,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
        
+    // eslint-disable-next-line no-restricted-globals
       const response = await fetch(url);
 
       if (!response.ok) {

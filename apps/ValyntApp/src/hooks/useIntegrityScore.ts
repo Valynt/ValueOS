@@ -12,10 +12,10 @@
  * Sprint 54 — Value Integrity Layer
  */
 
+import type { IntegrityViolation } from "@sdui/components/SDUI/IntegrityScoreCard";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
-import type { IntegrityViolation } from "@sdui/components/SDUI/IntegrityScoreCard";
 
 // ---------------------------------------------------------------------------
 // Types

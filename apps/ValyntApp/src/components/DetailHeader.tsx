@@ -1,5 +1,5 @@
 // apps/ValyntApp/src/components/DetailHeader.tsx
-import { Edit, ChevronLeft } from "lucide-react";
+import { ChevronLeft, Edit } from "lucide-react";
 import React from "react";
 
 import { cn } from "@/lib/utils";

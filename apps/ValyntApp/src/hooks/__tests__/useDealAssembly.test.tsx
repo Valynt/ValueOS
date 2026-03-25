@@ -8,8 +8,9 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { api } from "@/api/client/unified-api-client";
 import { useDealContext, useSubmitGapFill, useTriggerAssembly } from "../useDealAssembly";
+
+import { api } from "@/api/client/unified-api-client";
 
 // Mock API client
 vi.mock("@/api/client/unified-api-client", () => ({

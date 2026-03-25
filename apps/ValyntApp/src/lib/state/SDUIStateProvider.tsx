@@ -27,6 +27,7 @@ export interface CaseState {
   widgets: Record<string, WidgetState>;
   undoStack: string[];
   redoStack: string[];
+  snapshots: Record<string, Record<string, WidgetState>>;
 }
 
 interface SDUIStateStore {
@@ -58,6 +59,7 @@ function createEmptyCaseState(caseId: string): CaseState {
     widgets: {},
     undoStack: [],
     redoStack: [],
+    snapshots: {},
   };
 }
 
@@ -144,13 +146,26 @@ export const useSDUIStore = create<SDUIStateStore>()(
             if (!state.cases[caseId]) {
               state.cases[caseId] = createEmptyCaseState(caseId);
             }
-            state.cases[caseId].undoStack.push(snapshotId);
+            const caseState = state.cases[caseId];
+            // Deep-copy current widget state into the snapshot store
+            caseState.snapshots[snapshotId] = JSON.parse(
+              JSON.stringify(caseState.widgets)
+            ) as Record<string, WidgetState>;
+            caseState.undoStack.push(snapshotId);
           });
           return snapshotId;
         },
 
         restoreSnapshot: (caseId, snapshotId) => {
-          console.log(`Restoring snapshot ${snapshotId} for case ${caseId}`);
+          set((state) => {
+            const caseState = state.cases[caseId];
+            if (!caseState) return;
+            const saved = caseState.snapshots[snapshotId];
+            if (!saved) return;
+            caseState.widgets = JSON.parse(
+              JSON.stringify(saved)
+            ) as Record<string, WidgetState>;
+          });
         },
 
         getWidgetState: (caseId, widgetId) => {
@@ -166,7 +181,20 @@ export const useSDUIStore = create<SDUIStateStore>()(
       {
         name: "sdui-state-storage",
         storage: createJSONStorage(() => sessionStorage),
-        partialize: (state) => ({ cases: state.cases }),
+        partialize: (state) => ({
+          cases: Object.fromEntries(
+            Object.entries(state.cases).map(([id, c]) => [
+              id,
+              {
+                caseId: c.caseId,
+                widgets: c.widgets,
+                undoStack: c.undoStack,
+                redoStack: c.redoStack,
+                snapshots: c.snapshots,
+              },
+            ])
+          ),
+        }),
       }
     )
   )

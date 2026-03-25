@@ -172,6 +172,7 @@ function parseTokens(tokens: string[]): ASTNode {
     if (!token) throw new Error("Unexpected end of expression");
 
      
+    // eslint-disable-next-line security/detect-possible-timing-attacks
     if (token === "(") {
       index++;
       const expression = parseExpression();

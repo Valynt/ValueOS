@@ -346,6 +346,7 @@ export async function fetchWithCSRF(
   options: RequestInit = {},
   config: Partial<CSRFTokenConfig> = {},
 
+  // eslint-disable-next-line no-restricted-globals
   fetchImpl: typeof fetch = fetch
 ): Promise<Response> {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };

@@ -1,6 +1,6 @@
 // apps/ValyntApp/src/components/EntityTable.tsx
-import { Search, ChevronUp, ChevronDown } from "lucide-react";
-import React, { useState, useCallback, useMemo } from "react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import React, { useCallback, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 

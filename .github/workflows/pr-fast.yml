@@ -13,6 +13,60 @@ permissions:
   pull-requests: read
 
 jobs:
+  ts-type-ratchet:
+    name: ts-type-ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript error ratchet
+        run: node scripts/ci/ts-error-ratchet.mjs
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/ts-type-ratchet
+          cat > artifacts/ci-lanes/ts-type-ratchet/summary.md <<EOF_SUMMARY
+          # ts-type-ratchet
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-ts-type-ratchet-${{ github.run_id }}
+          path: artifacts/ci-lanes/ts-type-ratchet/**
+          if-no-files-found: warn
+          retention-days: 30
+
   unit-component-schema:
     name: unit/component/schema
     runs-on: ubuntu-latest
@@ -93,7 +147,9 @@ jobs:
         run: pnpm run test:workflow-dag-validation
 
       - name: TypeScript any-count gate
-        run: bash scripts/check-any-count.sh
+        run: |
+          node scripts/ci/any-ratchet.mjs
+          bash scripts/check-any-count.sh
 
       - name: Backend debt summary artifact
         if: always()
@@ -401,6 +457,81 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  e2e-critical:
+    name: e2e-critical
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npx turbo run build --filter=valynt-app
+
+      - name: Run critical E2E suite
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+        run: |
+          mkdir -p artifacts/e2e
+          npx playwright test \
+            tests/e2e/auth-complete-flow.spec.ts \
+            tests/e2e/critical-user-flow.spec.ts \
+            --reporter=html,json \
+            --output=artifacts/e2e \
+            --retries=1
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/e2e-critical
+          cat > artifacts/ci-lanes/e2e-critical/summary.md <<EOF_SUMMARY
+          # e2e-critical
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-critical-${{ github.run_id }}
+          path: |
+            playwright-report/
+            artifacts/e2e/
+            artifacts/ci-lanes/e2e-critical/
+          if-no-files-found: warn
+          retention-days: 30
+
   security-gate:
     name: security-gate
     runs-on: ubuntu-latest
@@ -512,11 +643,13 @@ jobs:
     name: pr-fast
     runs-on: ubuntu-latest
     needs:
+      - ts-type-ratchet
       - unit-component-schema
       - tenant-isolation-static-gate
       - tenant-isolation-gate
       - security-gate
       - accessibility-audit
+      - e2e-critical
     steps:
       - name: Enforce PR blockers
         run: |
@@ -529,11 +662,13 @@ jobs:
           fi
 
           for lane in \
+            "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
+            "accessibility-audit:${{ needs.accessibility-audit.result }}" \
+            "e2e-critical:${{ needs.e2e-critical.result }}"; do
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
               echo "Failing PR gate due to lane status: $lane"

@@ -18,6 +18,7 @@
  * Sprint 50: Initial implementation.
  */
 
+import ELK from "elkjs/lib/elk.bundled.js";
 import React, { useCallback, useEffect } from "react";
 import ReactFlow, {
   Background,
@@ -32,10 +33,9 @@ import ReactFlow, {
   useNodesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import ELK from "elkjs/lib/elk.bundled.js";
 
+import type { ValueGraphEdge, ValueGraphEntityType } from "@/api/valueGraph";
 import { useValueGraph } from "@/hooks/useValueGraph";
-import type { ValueGraphEntityType, ValueGraphEdge } from "@/api/valueGraph";
 
 // ---------------------------------------------------------------------------
 // Entity type → Tailwind color tokens
