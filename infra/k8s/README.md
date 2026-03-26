@@ -202,6 +202,9 @@ kubectl get ingress -n valynt-staging
 
 ## Deployment Environments
 
+Security manifests are part of each environment overlay through `../../security`, so staging and production both deploy app + required security policy in one deterministic `kustomize build ... | kubectl apply -f -` command.
+
+
 ### Staging
 
 **Resources:**

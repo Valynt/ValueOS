@@ -88,6 +88,8 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Agent autoscaling manifest validation
         run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
+      - name: Kubernetes security policy render validation
+        run: node scripts/ci/validate-k8s-security-policies.mjs
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
       - name: Canonical CI workflow self-check
