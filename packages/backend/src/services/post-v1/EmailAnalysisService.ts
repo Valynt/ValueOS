@@ -11,7 +11,7 @@ import { ValidationError } from '../../lib/errors.js';
 
 const supabase = createServerSupabaseClient();
 import { createTaskContext } from '../../lib/agent-fabric/TaskContext';
-import type TaskContext from '../../lib/agent-fabric/TaskContext';
+import type { TaskContext } from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js'
 import { llmConfig } from '../config/llm.js'
