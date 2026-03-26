@@ -3,7 +3,7 @@
 ## Canonical CI Documentation
 
 - Use [`CI_CONTROL_MATRIX.md`](./CI_CONTROL_MATRIX.md) as the canonical workflow control map.
-- Deprecated workflows are renamed with the `.deprecated.yml.disabled` suffix and should not be re-enabled without an owner + deprecation reversal plan.
+- Archived workflows are stored under `docs/archive/workflows/` as non-executable references and should not be restored under `.github/workflows/` without an owner + deprecation reversal plan.
 
 ## CI Entry Points
 
@@ -57,3 +57,9 @@ In `pr-fast.yml`, the `pr-fast` aggregation job requires **at least one** tenant
 - `pr-fast`
 - `staging-deploy-release-gates`
 - `codeql-analyze (js-ts)`
+
+
+## Archived Workflow References
+
+- `docs/archive/workflows/unified-deployment-pipeline.reference.yml` (archived reference; superseded by `deploy.yml`)
+- `docs/archive/workflows/accessibility.deprecated.yml.disabled` (archived disabled workflow retained for audit history)

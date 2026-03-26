@@ -1,3 +1,7 @@
+# ARCHIVED REFERENCE — NOT AN ACTIVE GITHUB ACTIONS WORKFLOW
+# This file is retained for audit history only and must not be restored under .github/workflows/.
+# Canonical active deployment workflow: .github/workflows/deploy.yml
+
 # Unified Deployment Pipeline for Zero-Downtime Migrations
 
 name: Unified Deployment Pipeline

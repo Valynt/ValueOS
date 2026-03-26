@@ -34,7 +34,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
 | `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault. |
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
-| `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Accessibility checks were folded into the active CI entry points. |
+| `docs/archive/workflows/accessibility.deprecated.yml.disabled` | Archived reference | team-quality | Accessibility checks were folded into active CI entry points; retained for audit history only. |
 
 ## Branch Protection Required Checks
 

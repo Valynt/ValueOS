@@ -436,7 +436,7 @@ echo "No drift detected"
 
 ### 4.3 Unified Deployment Pipeline
 
-**File:** `.github/workflows/unified-deployment-pipeline.yml`
+**File:** `docs/archive/workflows/unified-deployment-pipeline.reference.yml`
 
 ```yaml
 name: Unified Deployment Pipeline

@@ -281,10 +281,10 @@ else
 fi
 
 # Check unified deployment pipeline
-if [ -f ".github/workflows/unified-deployment-pipeline.yml" ]; then
-    check_pass "Unified deployment pipeline exists"
+if [ -f "docs/archive/workflows/unified-deployment-pipeline.reference.yml" ]; then
+    check_pass "Archived unified deployment pipeline reference exists"
 else
-    check_warn "Unified deployment pipeline not found"
+    check_warn "Archived unified deployment pipeline reference not found"
 fi
 
 # Environment-specific checks
