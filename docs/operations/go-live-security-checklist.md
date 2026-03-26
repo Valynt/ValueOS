@@ -13,7 +13,7 @@
 | Detail | Value |
 |---|---|
 | **File** | `apps/ValyntApp/src/pages/auth/SignupPage.tsx:62-64` |
-| **Risk** | Hardcoded `email: "dev@valynt.com"`, `password: "bypass"`, `fullName: "Dev User"` shipped in source |
+| **Risk** | Hardcoded `email: "dev@valynt.com"`, `password: "<REDACTED>"`, `fullName: "Dev User"` shipped in source |
 | **Impact** | If the bypass button renders in production, anyone can create a session with known credentials |
 | **Mitigation** | Remove the hardcoded values. Gate the entire `handleBypass` function and its UI button behind `import.meta.env.DEV` or strip via Vite define. The `LoginPage.tsx` version correctly reads from `VITE_DEV_EMAIL` / `VITE_DEV_PASSWORD` env vars — align `SignupPage` to the same pattern, or better, remove bypass entirely from production builds. |
 

@@ -139,9 +139,9 @@ nano .env
 
 **Required Variables**:
 ```bash
-POSTGRES_PASSWORD=your_secure_password
-SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+POSTGRES_PASSWORD=sm://valueos/local/postgres/password
+SUPABASE_ANON_KEY=sm://valueos/local/supabase/anon_key
+SUPABASE_SERVICE_ROLE_KEY=sm://valueos/local/supabase/service_role_key
 ```
 
 ### Step 2: Start Services
