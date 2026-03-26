@@ -40,9 +40,15 @@ export function assertDevRoutesConfiguration(): void {
   const nodeEnv = process.env.NODE_ENV;
 
   if (enableDevRoutes && nodeEnv === "production") {
-    throw new Error(
-      "Invalid configuration: ENABLE_DEV_ROUTES=true is not allowed when NODE_ENV=production. Disable dev routes or set NODE_ENV to a non-production value."
+    // Log before exiting so the reason is visible in structured logs, then
+    // hard-exit rather than throwing — a thrown error can be caught and swallowed
+    // by a caller, whereas process.exit cannot.
+    logger.error(
+      "[Security] FATAL: ENABLE_DEV_ROUTES=true is not allowed when NODE_ENV=production. " +
+      "Dev routes include child_process.exec which must never be reachable in production. " +
+      "Disable dev routes or set NODE_ENV to a non-production value."
     );
+    process.exit(1);
   }
 }
 

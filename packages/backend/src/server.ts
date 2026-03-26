@@ -171,6 +171,8 @@ const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536")
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
 
+
+
 EntitlementsService.setInstance(new EntitlementsService(supabase));
 logger.info('[Instrumentation] EntitlementsService registered');
 
