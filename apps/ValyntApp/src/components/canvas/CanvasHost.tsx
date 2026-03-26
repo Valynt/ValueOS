@@ -124,8 +124,12 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
     return { hasError: true };
   }
 
-  override componentDidCatch(error: Error, _info: ErrorInfo) {
-    console.error(`CanvasHost: widget "${this.props.widgetId}" threw:`, error.message);
+  override componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`CanvasHost: widget "${this.props.widgetId}" threw`, {
+      error,
+      widgetId: this.props.widgetId,
+      componentStack: info.componentStack,
+    });
   }
 
   handleRetry = () => {
