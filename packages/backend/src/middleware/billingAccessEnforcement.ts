@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
+import { getRequestSupabaseClient } from "@shared/lib/supabase";
 
 import { createLogger } from "../lib/logger.js";
-import { supabase } from "../lib/supabase.js";
 import { securityAuditService } from "../services/post-v1/SecurityAuditService.js";
 
 const logger = createLogger({ component: "billingAccessEnforcement" });
@@ -58,9 +58,10 @@ export function createBillingAccessEnforcement(
     }
 
     const tenantId = req.tenantId;
-    if (!tenantId || !supabase) {
+    if (!tenantId) {
       return next();
     }
+    const supabase = getRequestSupabaseClient(req);
 
     const { data, error } = await supabase
       .from("tenants")

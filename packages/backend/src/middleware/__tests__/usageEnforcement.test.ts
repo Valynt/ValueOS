@@ -28,6 +28,10 @@ vi.mock('../../services/lib/observability/index.js', () => ({
   }),
 }));
 
+vi.mock('@shared/lib/supabase', () => ({
+  getRequestSupabaseClient: vi.fn(() => ({ from: vi.fn() })),
+}));
+
 describe('usageEnforcementMiddleware fail-open controls', () => {
   beforeEach(() => {
     vi.resetModules();
