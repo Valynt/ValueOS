@@ -442,7 +442,18 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
+        run: |
+          mkdir -p artifacts/bundle
+          npx turbo run build --filter=valynt-app 2>&1 | tee artifacts/bundle/vite-build.log
+      - name: Bundle regression gate
+        run: |
+          node scripts/ci/check-vite-bundle-regression.mjs \
+            --log artifacts/bundle/vite-build.log \
+            --metrics .github/metrics/vite-bundle-metrics.json \
+            --summary-out artifacts/bundle/summary.md \
+            --json-out artifacts/bundle/metrics.json \
+            --history-out artifacts/bundle/history-comparison.json
+          cat artifacts/bundle/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Run WCAG 2.2 AA accessibility tests
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
@@ -491,6 +502,7 @@ jobs:
             artifacts/accessibility/
             artifacts/i18n/
             artifacts/frontend-quality/
+            artifacts/bundle/
           if-no-files-found: warn
           retention-days: 30
 
