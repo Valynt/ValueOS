@@ -19,7 +19,7 @@
  * Exit 1 if any drift is detected.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join, relative } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');

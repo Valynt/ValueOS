@@ -13,7 +13,7 @@
  * Exit 1 if any PSP reference is found outside the allowlist.
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
