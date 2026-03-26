@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "../../lib/supabase.js";
 import crypto from "node:crypto";
 
 import { auditLogService } from "./AuditLogService.js";
+import { complianceEvidenceService } from "./ComplianceEvidenceService.js";
 import {
   complianceControlMappingRegistry,
   type ComplianceFramework,
@@ -512,16 +513,16 @@ export class ComplianceControlCheckService {
     };
   }
 
-  private getDeclaredCapabilities(): DeclaredFrameworkCapability[] {
-    return SUPPORTED_TECHNICAL_FRAMEWORKS.map((framework) => {
-      const status = complianceFrameworkCapabilityGate.getCapabilityStatus(framework);
+  private async getDeclaredCapabilities(tenantId: string): Promise<DeclaredFrameworkCapability[]> {
+    return Promise.all(SUPPORTED_TECHNICAL_FRAMEWORKS.map(async (framework) => {
+      const status = await complianceFrameworkCapabilityGate.getCapabilityStatus(tenantId, framework);
       return {
         framework,
         supported: status.supported,
         missing_prerequisites: status.missingPrerequisites,
         gating_label: "prerequisite_gate",
       };
-    });
+    }));
   }
 
   private getConfiguredControls(state: TenantTechnicalState): ConfiguredControlState[] {
@@ -584,9 +585,10 @@ export class ComplianceControlCheckService {
   }
 
   private async buildEvidenceFreshnessResults(tenantId: string): Promise<AutomatedControlCheckResult[]> {
+    const supportedFrameworks = await complianceFrameworkCapabilityGate.getSupportedFrameworks(tenantId);
     const controls = complianceControlMappingRegistry
       .listFrameworkMappings(
-        complianceFrameworkCapabilityGate.getSupportedFrameworks().filter(
+        supportedFrameworks.filter(
           (framework): framework is ComplianceFramework => SUPPORTED_TECHNICAL_FRAMEWORKS.includes(framework),
         ),
       )
@@ -654,7 +656,7 @@ export class ComplianceControlCheckService {
       this.collectTenantTechnicalState(tenantId),
       this.buildEvidenceFreshnessResults(tenantId),
     ]);
-    const declaredCapability = this.getDeclaredCapabilities();
+    const declaredCapability = await this.getDeclaredCapabilities(tenantId);
     const configuredControls = this.getConfiguredControls(technicalState);
     const technicalResults = this.buildTechnicalValidationResults(technicalState);
     const results = [...evidenceResults, ...technicalResults];
@@ -726,6 +728,26 @@ export class ComplianceControlCheckService {
         });
       }
     }
+
+    await complianceEvidenceService.appendEvidence({
+      tenantId,
+      actorPrincipal: "compliance-control-attestor",
+      actorType: "system",
+      triggerType: trigger === "scheduled" ? "scheduled" : "event",
+      triggerSource: "compliance_control_attestation_job",
+      collectedAt: checkedAt,
+      evidence: {
+        evidence_type: "control_attestation_snapshot",
+        immutable_snapshot: true,
+        run_id: snapshot.run_id,
+        trigger,
+        overall_status: snapshot.overall_status,
+        failing_checks: snapshot.failing_checks,
+        declared_capability: snapshot.declared_capability,
+        configured_controls: snapshot.configured_controls,
+        technically_validated_results: snapshot.results.filter((result) => result.check_kind === "technical_validation"),
+      },
+    });
 
     return snapshot;
   }
