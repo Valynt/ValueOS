@@ -1,0 +1,73 @@
+name: Control Coverage Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "packages/backend/src/lib/agent-fabric/**"
+      - "packages/backend/src/services/security/**"
+      - "packages/backend/src/services/auth/**"
+      - "packages/backend/src/middleware/**"
+      - "infra/k8s/security/**"
+      - "infra/supabase/supabase/migrations/**"
+      - "docs/security-compliance/**"
+
+concurrency:
+  group: control-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  control-coverage-pr:
+    name: control-coverage-pr
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Get changed files
+        id: changed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const paths = files.map(f => f.filename).join('\n');
+            core.setOutput('paths', paths);
+
+      - name: Check control coverage
+        env:
+          CHANGED_FILES: ${{ steps.changed.outputs.paths }}
+        run: node scripts/ci/check-control-coverage.mjs --pr
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/control-coverage
+          cat > artifacts/ci-lanes/control-coverage/summary.md <<EOF_SUMMARY
+          # control-coverage-pr
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-control-coverage-${{ github.run_id }}
+          path: artifacts/ci-lanes/control-coverage/**
+          if-no-files-found: warn
+          retention-days: 30

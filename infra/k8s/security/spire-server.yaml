@@ -11,11 +11,47 @@ metadata:
   namespace: spire
 
 ---
+# ClusterRole grants SPIRE server read access to K8s resources needed for
+# node attestation (k8s_psat) and workload registration via SPIFFE CRDs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-server
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterspiffeids", "clusterfederatedtrustdomains"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-server
+subjects:
+  - kind: ServiceAccount
+    name: spire-server
+    namespace: spire
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: spire-server
   namespace: spire
+  labels:
+    app: spire-server
+    app.kubernetes.io/name: spire-server
+    app.kubernetes.io/part-of: valueos-identity
 spec:
   replicas: 1
   selector:
@@ -39,10 +75,49 @@ spec:
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
+            - name: spire-data
+              mountPath: /run/spire/data
       volumes:
         - name: spire-config
           configMap:
             name: spire-server-config
+        - name: spire-data
+          persistentVolumeClaim:
+            claimName: spire-server-data
+
+---
+# PVC for SPIRE server key material and datastore.
+# Using persistent storage ensures CA signing keys and registered entries
+# survive pod restarts. Without this, all issued SVIDs become unverifiable
+# on restart until workloads re-attest.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spire-server-data
+  namespace: spire
+  labels:
+    app.kubernetes.io/name: spire-server
+    app.kubernetes.io/part-of: valueos-identity
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  selector:
+    app: spire-server
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
 
 ---
 apiVersion: v1
@@ -54,28 +129,45 @@ data:
   server.conf: |
     server {
       bind_address = "0.0.0.0"
-      bind_port = "8081"
-      trust_domain = "valueos"
-      data_dir = "/run/spire/data"
-      log_level = "INFO"
+      bind_port    = "8081"
+      # Canonical trust domain for all ValueOS workloads.
+      # SPIFFE IDs take the form:
+      #   spiffe://valueos.internal/ns/{namespace}/agents/{agent-slug}
+      #   spiffe://valueos.internal/ns/{namespace}/services/{service-slug}
+      #   spiffe://valueos.internal/ns/{namespace}/workers/{worker-slug}
+      trust_domain = "valueos.internal"
+      data_dir     = "/run/spire/data"
+      log_level    = "INFO"
     }
     plugins {
       DataStore "sql" {
         plugin_data {
-          database_type = "sqlite3"
+          database_type     = "sqlite3"
           connection_string = "/run/spire/data/datastore.sqlite3"
         }
       }
+      # k8s_psat: Projected Service Account Token attestation.
+      # Validates that the node running the agent has a legitimate K8s identity.
       NodeAttestor "k8s_psat" {
         plugin_data {
           clusters = {
             "valynt" = {
               service_account_allow_list = ["spire:spire-agent"]
+              audience                   = ["spire-server"]
             }
           }
         }
       }
-      KeyManager "memory" {
-        plugin_data {}
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/run/spire/data/keys.json"
+        }
       }
+    }
+    health_checks {
+      listener_enabled = true
+      bind_address     = "0.0.0.0"
+      bind_port        = "8080"
+      live_path        = "/live"
+      ready_path       = "/ready"
     }
