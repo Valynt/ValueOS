@@ -102,6 +102,8 @@ jobs:
         run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
+      - name: Kubernetes manifest maturity transition evidence gate
+        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=transition-check --ledger-path=infra/k8s/manifest-maturity-ledger.json --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
       - name: Vitest workspace topology guard
         run: node scripts/ci/check-vitest-workspace-packages.mjs
       - name: Unit suite + schema guard

@@ -20,16 +20,27 @@ Kubernetes deployment configuration for the active ValueOS shared-environment ru
 | `overlays/production/`            | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
 | `observability/`                  | Aspirational | Full OTEL + Prometheus + Grafana + Loki stack, not deployed              |
 
-### Promotion to production-ready
+### Promotion criteria by manifest class
 
-To promote these manifests to production-ready:
+Promotion status is tracked in `infra/k8s/manifest-maturity-ledger.json`. A class can only move from `Aspirational` to `Validated` when all required evidence links are attached in the ledger.
 
-1. Stand up a staging K8s cluster (EKS, GKE, or kind for local)
-2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager
-3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`
-4. Deploy to staging cluster and run smoke tests
-5. Validate HPA scaling under load (`tests/test/load/`)
-6. Update this table as manifests are validated
+| Manifest class | Promotion criteria to mark `Validated` | Required ledger evidence links |
+| --- | --- | --- |
+| Deployments | Successful staging rollout with workload health checks (`rollout status` + `/api/health`), no crash-loop regressions, and a completed rollback rehearsal on the same release candidate. | `staging_deployment_result`, `load_test_summary`, `rollback_rehearsal` |
+| HPA | HPA behavior validated under sustained staging load with thresholds within policy, no oscillation pathologies, and rollback rehearsal proving safe scale-down behavior. | `staging_deployment_result`, `load_test_summary`, `rollback_rehearsal` |
+| Network policies | Policy set applied in staging with expected east-west traffic allowed, denied paths verified, and rollback rehearsal proving policy rollback without outage. | `staging_deployment_result`, `load_test_summary`, `rollback_rehearsal` |
+| External secrets | ExternalSecrets reconciliation validated in staging against configured backend(s), secret rotation path exercised, and rollback rehearsal proving recovery to prior secret versions. | `staging_deployment_result`, `load_test_summary`, `rollback_rehearsal` |
+| Observability | Staging telemetry pipeline validated end-to-end (metrics/logs/traces), alert routing verified during load, and rollback rehearsal proving monitoring continuity after manifest rollback. | `staging_deployment_result`, `load_test_summary`, `rollback_rehearsal` |
+
+### Promotion workflow
+
+1. Stand up a staging K8s cluster (EKS, GKE, or kind for local).
+2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager.
+3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`.
+4. Deploy to staging cluster and capture staging verification evidence.
+5. Run load validation and store artifact links.
+6. Rehearse rollback and store artifact links.
+7. Update `infra/k8s/manifest-maturity-ledger.json` with owner, validation date, status, and evidence links.
 
 ## Architecture
 
