@@ -7,6 +7,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import security from "eslint-plugin-security";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ignoresConfig = {
   ignores: ["dist", "node_modules"],
@@ -136,6 +140,25 @@ const testConfig = {
       afterEach: "readonly",
     },
   },
+  rules: {
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+  },
+};
+
+const typeAwareRuntimeConfig = {
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/**/*.test.{ts,tsx}", "src/**/*.spec.{ts,tsx}", "src/**/__tests__/**"],
+  languageOptions: {
+    parserOptions: {
+      project: ["./tsconfig.json", "./tsconfig.node.json"],
+      tsconfigRootDir: __dirname,
+    },
+  },
+  rules: {
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    "@typescript-eslint/no-unsafe-assignment": "warn",
+  },
 };
 
 // Confirmed exception locations: src/lib/, src/utils/, src/mcp-*/, src/security/ may use raw fetch()
@@ -205,6 +228,7 @@ const browserBoundaryConfig = {
 export default [
   ignoresConfig,
   valyntAppConfig,
+  typeAwareRuntimeConfig,
   testConfig,
   fetchExceptionConfig,
   browserBoundaryConfig,

@@ -9,6 +9,10 @@ import security from "eslint-plugin-security";
 import storybook from "eslint-plugin-storybook";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Ignores config (must be first)
 const ignoresConfig = {
@@ -30,7 +34,6 @@ const ignoresConfig = {
     "src/mcp-ground-truth/examples",
     ".storybook",
     "storybook-static",
-    "scripts/**/*",
     "blueprint/**/*",
     "docs/**/*",
     "backup/**/*",
@@ -42,8 +45,6 @@ const ignoresConfig = {
     "playwright-report/**/*",
     "reports/**/*",
     "grafana/**/*",
-    "infra/k8s/**/*",
-    "kubernetes/**/*",
     "alembic/**/*",
     "apps/VOSAcademy/src/data/db.js",
     "apps/VOSAcademy/src/data/seed-simulations.mjs",
@@ -135,8 +136,8 @@ const baseConfig = {
     // eslint-disable-next-line no-irregular-whitespace -- intentional whitespace
     // Promoting any usage to a warning as part of Phase 1 debt reduction; tighten to error once existing usages are removed.
     "@typescript-eslint/no-explicit-any": "warn",
-    // Requires type-aware parserOptions.project (disabled to avoid OOM in monorepo)
-    // "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    // Enabled in type-aware package-scoped lanes below.
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
     // Disable base no-unused-vars in favor of TS-aware version below
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": [
@@ -289,6 +290,50 @@ const baseConfig = {
     "no-debugger": "error",
     "no-sequences": "error",
     complexity: ["warn", { max: 8 }],
+  },
+};
+
+const typeAwareRuntimePackages = {
+  files: [
+    "apps/ValyntApp/src/**/*.{ts,tsx}",
+    "packages/backend/src/**/*.ts",
+    "packages/shared/src/**/*.ts",
+  ],
+  ignores: [
+    "**/*.test.{ts,tsx}",
+    "**/*.spec.{ts,tsx}",
+    "**/__tests__/**",
+  ],
+  languageOptions: {
+    parserOptions: {
+      project: [
+        "./apps/ValyntApp/tsconfig.json",
+        "./apps/ValyntApp/tsconfig.node.json",
+        "./packages/backend/tsconfig.json",
+        "./packages/shared/tsconfig.json",
+      ],
+      tsconfigRootDir: __dirname,
+    },
+  },
+  rules: {
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    "@typescript-eslint/no-unsafe-assignment": "warn",
+    "@typescript-eslint/no-unsafe-member-access": "warn",
+  },
+};
+
+const scriptsAndInfraOverrides = {
+  files: [
+    "scripts/**/*.{js,mjs,cjs,ts}",
+    "infra/**/*.{js,mjs,cjs,ts}",
+    "infra/**/*.{yml,yaml}",
+  ],
+  rules: {
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "security/detect-child-process": "error",
+    "security/detect-object-injection": "warn",
   },
 };
 
@@ -990,6 +1035,8 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  typeAwareRuntimePackages,
+  scriptsAndInfraOverrides,
   valyntBackendServiceImportGuard,
   valyntServicesImportGuard,
   backendServiceAuthOverrides,

@@ -1,68 +1,55 @@
 #!/usr/bin/env node
 
-/**
- * ESLint warning ratchet — fails CI if the actual warning count exceeds
- * the declared --max-warnings ceiling in packages/backend/package.json.
- *
- * Also prints headroom so engineers know when to lower the ceiling.
- *
- * Usage: node scripts/ci/lint-ratchet-check.mjs
- */
-
 import { readFileSync } from "node:fs";
-import { execSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 
-const pkgPath = resolve(ROOT, "packages/backend/package.json");
-const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+const args = process.argv.slice(2);
+const laneIndex = args.indexOf("--lane");
+const reportIndex = args.indexOf("--report");
 
-const lintScript = pkg.scripts?.lint ?? "";
-const ceilingMatch = lintScript.match(/--max-warnings[=\s]+(\d+)/);
-if (!ceilingMatch) {
-  console.error("Could not parse --max-warnings from packages/backend/package.json lint script");
-  process.exit(1);
-}
-const ceiling = Number(ceilingMatch[1]);
-
-let output;
-try {
-  output = execSync("npx eslint src/ --max-warnings=99999 2>&1", {
-    cwd: resolve(ROOT, "packages/backend"),
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-} catch (e) {
-  output = e.stdout ?? "";
-}
-
-const summaryMatch = output.match(/(\d+) problems? \((\d+) errors?, (\d+) warnings?\)/);
-if (!summaryMatch) {
-  console.error("Could not parse ESLint output summary");
-  console.error(output.slice(-500));
+if (laneIndex === -1 || reportIndex === -1) {
+  console.error("Usage: node scripts/ci/lint-ratchet-check.mjs --lane <lane> --report <path>");
   process.exit(1);
 }
 
-const errors = Number(summaryMatch[2]);
-const warnings = Number(summaryMatch[3]);
-const headroom = ceiling - warnings;
+const lane = args[laneIndex + 1];
+const reportPath = resolve(ROOT, args[reportIndex + 1]);
+const baselinePath = resolve(ROOT, "scripts/ci/lint-ratchet-baseline.json");
 
-console.log(`ESLint ratchet check`);
-console.log(`  Errors:   ${errors}`);
-console.log(`  Warnings: ${warnings} / ${ceiling} ceiling`);
-console.log(`  Headroom: ${headroom}`);
+const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+const laneBaseline = baseline[lane];
 
-if (warnings > ceiling) {
-  console.error(`\nFAIL: Warning count (${warnings}) exceeds ceiling (${ceiling}).`);
-  console.error(`Fix ${warnings - ceiling} warnings or do NOT increase the ceiling without ADR justification.`);
+if (!laneBaseline) {
+  console.error(`No lint ratchet baseline configured for lane "${lane}" in ${baselinePath}`);
   process.exit(1);
 }
 
-if (headroom > 50) {
-  console.log(`\nNote: ${headroom} headroom — consider reducing --max-warnings to ${warnings + 20} in packages/backend/package.json`);
+const report = JSON.parse(readFileSync(reportPath, "utf8"));
+const totals = report.reduce(
+  (acc, fileResult) => {
+    acc.errors += fileResult.errorCount ?? 0;
+    acc.warnings += fileResult.warningCount ?? 0;
+    return acc;
+  },
+  { errors: 0, warnings: 0 }
+);
+
+console.log(`Lint ratchet lane: ${lane}`);
+console.log(`  Errors:   ${totals.errors} (baseline ${laneBaseline.errors})`);
+console.log(`  Warnings: ${totals.warnings} (baseline ${laneBaseline.warnings})`);
+
+if (totals.errors > laneBaseline.errors) {
+  console.error(`FAIL: lint errors regressed for ${lane} (${totals.errors} > ${laneBaseline.errors})`);
+  process.exit(1);
 }
 
-console.log("\nPASS");
+if (totals.warnings > laneBaseline.warnings) {
+  console.error(`FAIL: lint warnings regressed for ${lane} (${totals.warnings} > ${laneBaseline.warnings})`);
+  process.exit(1);
+}
+
+console.log("PASS");
