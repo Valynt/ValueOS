@@ -27,7 +27,7 @@ import {
   ValidationError,
 } from '../lib/errors.js';
 import { logger } from '../lib/logger.js'
-import { redactSensitiveData } from '../lib/redaction.js'
+import { sanitizeErrorEnvelope, sanitizeStructuredLog, serializeErrorForLogging } from '../lib/secureSerialization.js'
 
 // ============================================================================
 // Types
@@ -108,7 +108,7 @@ export function accessLogMiddleware(
     trace: getTraceContextForLogging(),
   };
 
-  logger.info('Request started', redactSensitiveData(startLogContext));
+  logger.info('Request started', sanitizeStructuredLog(startLogContext));
 
   // Log on response finish
   res.on('finish', () => {
@@ -129,11 +129,11 @@ export function accessLogMiddleware(
     };
 
     if (res.statusCode >= 500) {
-      logger.error('Request completed with server error', redactSensitiveData(logData));
+      logger.error('Request completed with server error', sanitizeStructuredLog(logData));
     } else if (res.statusCode >= 400) {
-      logger.warn('Request completed with client error', redactSensitiveData(logData));
+      logger.warn('Request completed with client error', sanitizeStructuredLog(logData));
     } else {
-      logger.info('Request completed', redactSensitiveData(logData));
+      logger.info('Request completed', sanitizeStructuredLog(logData));
     }
   });
 
@@ -285,14 +285,14 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
     if (!hasLoggedError) {
       if (appError.isOperational) {
-        logger.warn('Operational error', redactSensitiveData({
+        logger.warn('Operational error', sanitizeStructuredLog({
           ...logContext,
           message: appError.message,
           details: appError.details,
         }));
       } else {
         // Log full error details for non-operational errors
-        logger.error('Unexpected error', redactSensitiveData({
+        logger.error('Unexpected error', sanitizeStructuredLog({
           ...logContext,
           error: appError.toLogObject(),
         }));
@@ -300,7 +300,7 @@ export const globalErrorHandler: ErrorRequestHandler = (
     }
 
     // Build response
-    const envelope = buildErrorEnvelope(appError, requestId);
+    const envelope = sanitizeErrorEnvelope(buildErrorEnvelope(appError, requestId));
 
     // Set headers
     res.setHeader('X-Request-ID', requestId);
@@ -351,8 +351,8 @@ export function setupGlobalErrorHandlers(): void {
   // Unhandled promise rejections
   process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
     logger.error('Unhandled Promise Rejection', {
-      reason: reason instanceof Error ? reason.message : String(reason),
-      stack: reason instanceof Error ? reason.stack : undefined,
+      reason: serializeErrorForLogging(reason).message ?? serializeErrorForLogging(reason).error,
+      stack: serializeErrorForLogging(reason).stack,
       promise: String(promise),
     });
 
@@ -363,8 +363,7 @@ export function setupGlobalErrorHandlers(): void {
   // Uncaught exceptions
   process.on('uncaughtException', (error: Error) => {
     logger.error('Uncaught Exception', {
-      error: error.message,
-      stack: error.stack,
+      ...serializeErrorForLogging(error),
     });
 
     // Uncaught exceptions leave the process in an undefined state

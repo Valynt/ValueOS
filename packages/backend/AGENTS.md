@@ -18,6 +18,21 @@ Extends root `AGENTS.md`. Rules here are specific to the Express backend package
 
 **`service_role` client** is only for AuthService, tenant provisioning, and cron jobs — it bypasses RLS.
 
+Concrete allowlisted directories for backend service-role call sites:
+- `src/lib/supabase/privileged/` (factory modules)
+- `src/services/auth/`
+- `src/services/tenant/`
+- `src/workers/`
+- `src/jobs/`
+
+Every service-role call site must include:
+- an explicit justification literal with tag format
+  `service-role:justified <reason>`, for example
+  `createCronSupabaseClient({ justification: "service-role:justified nightly usage aggregation" })`.
+
+Request handlers under `src/api/**`, `src/middleware/**`, and `src/routes/**` must not import
+service-role clients directly unless CI allowlists the file.
+
 ## Agent fabric
 
 - Agents: `src/lib/agent-fabric/agents/` — one class per file, extends `BaseAgent`

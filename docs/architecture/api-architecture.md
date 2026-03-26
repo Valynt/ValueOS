@@ -460,7 +460,7 @@ Use this template to document releases, highlight breaking changes, and track de
 
 ## Compatibility and deprecation requirements
 
-- OpenAPI contract checks in CI gate pull requests against `scripts/openapi.yaml`.
+- OpenAPI contract checks in CI gate pull requests against the canonical `packages/backend/openapi.yaml`.
 - Deprecations must include replacement guidance, announced removal date, and impact notes for client teams.
 - Deprecated versions expose deprecation metadata headers until removal deadline.
 

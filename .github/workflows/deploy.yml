@@ -302,7 +302,7 @@ jobs:
           retention-days: 30
 
   release-gate-contract:
-    name: Release Gate Contract
+    name: release-readiness
     runs-on: ubuntu-latest
     needs: [release-manifest-gate, dast-gate, emergency-skip-audit]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
@@ -434,13 +434,57 @@ jobs:
             --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" \
             "${IMAGE_REF}"
 
+
+  ingress-annotation-preflight:
+    name: Ingress Annotation Preflight
+    runs-on: ubuntu-latest
+    needs: [release-manifest-gate]
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Render ingress annotation inputs
+        env:
+          STAGING_CERTIFICATE_ARN: ${{ secrets.STAGING_INGRESS_CERTIFICATE_ARN }}
+          PRODUCTION_CERTIFICATE_ARN: ${{ secrets.PRODUCTION_INGRESS_CERTIFICATE_ARN }}
+          PRODUCTION_WAF_ACL_ARN: ${{ secrets.PRODUCTION_INGRESS_WAFV2_ACL_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STAGING_CERTIFICATE_ARN}" ]; then
+            echo "::error::STAGING_INGRESS_CERTIFICATE_ARN secret is required"
+            exit 1
+          fi
+          if [ -z "${PRODUCTION_CERTIFICATE_ARN}" ]; then
+            echo "::error::PRODUCTION_INGRESS_CERTIFICATE_ARN secret is required"
+            exit 1
+          fi
+          if [ -z "${PRODUCTION_WAF_ACL_ARN}" ]; then
+            echo "::error::PRODUCTION_INGRESS_WAFV2_ACL_ARN secret is required"
+            exit 1
+          fi
+
+          cat > infra/k8s/overlays/staging/ingress-annotations.env <<EOF
+          ALB_CERTIFICATE_ARN=${STAGING_CERTIFICATE_ARN}
+          EOF
+
+          cat > infra/k8s/overlays/production/ingress-annotations.env <<EOF
+          ALB_CERTIFICATE_ARN=${PRODUCTION_CERTIFICATE_ARN}
+          ALB_WAFV2_ACL_ARN=${PRODUCTION_WAF_ACL_ARN}
+          EOF
+
+      - name: Enforce ingress TLS/WAF annotation policy
+        run: node scripts/ci/check-k8s-ingress-security-annotations.mjs
+
   # ──────────────────────────────────────────────────────────────────────────
   # 3. Deploy to staging (automatic on main push)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [release-manifest-gate, verify-supply-chain, emergency-skip-audit]
+    needs: [release-manifest-gate, verify-supply-chain, emergency-skip-audit, ingress-annotation-preflight]
     if: github.event_name != 'schedule'
     environment:
       name: staging
@@ -481,6 +525,21 @@ jobs:
           mkdir -p ~/.kube
           # [Secret] KUBE_CONFIG_STAGING: Base64-encoded kubeconfig for staging cluster authentication
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+
+
+      - name: Render staging ingress annotation inputs
+        env:
+          STAGING_CERTIFICATE_ARN: ${{ secrets.STAGING_INGRESS_CERTIFICATE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STAGING_CERTIFICATE_ARN}" ]; then
+            echo "::error::STAGING_INGRESS_CERTIFICATE_ARN secret is required"
+            exit 1
+          fi
+
+          cat > infra/k8s/overlays/staging/ingress-annotations.env <<EOF
+          ALB_CERTIFICATE_ARN=${STAGING_CERTIFICATE_ARN}
+          EOF
 
       - name: Deploy with kustomize (blue-green)
         run: |
@@ -770,14 +829,27 @@ jobs:
     with:
       target_environment: production
 
+  manifest-maturity-production-gate:
+    name: Manifest Maturity Production Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Block production if critical manifests are unvalidated
+        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=production-gate --ledger-path=infra/k8s/manifest-maturity-ledger.json
+
  # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, release-manifest-gate, secret-rotation-gate, verify-supply-chain, emergency-skip-audit]
+    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, release-manifest-gate, secret-rotation-gate, verify-supply-chain, emergency-skip-audit, ingress-annotation-preflight]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push') && needs.release-gate-contract.result == 'success'
+    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, manifest-maturity-production-gate, release-manifest-gate, secret-rotation-gate, verify-supply-chain, emergency-skip-audit]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push') && needs.release-gate-contract.result == 'success' && needs.manifest-maturity-production-gate.result == 'success'
     environment:
       name: production
       url: https://app.valueos.app
@@ -824,6 +896,27 @@ jobs:
           mkdir -p ~/.kube
           # [Secret] KUBE_CONFIG_PRODUCTION: Base64-encoded kubeconfig for production cluster authentication
           echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+
+      - name: Render production ingress annotation inputs
+        env:
+          PRODUCTION_CERTIFICATE_ARN: ${{ secrets.PRODUCTION_INGRESS_CERTIFICATE_ARN }}
+          PRODUCTION_WAF_ACL_ARN: ${{ secrets.PRODUCTION_INGRESS_WAFV2_ACL_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PRODUCTION_CERTIFICATE_ARN}" ]; then
+            echo "::error::PRODUCTION_INGRESS_CERTIFICATE_ARN secret is required"
+            exit 1
+          fi
+          if [ -z "${PRODUCTION_WAF_ACL_ARN}" ]; then
+            echo "::error::PRODUCTION_INGRESS_WAFV2_ACL_ARN secret is required"
+            exit 1
+          fi
+
+          cat > infra/k8s/overlays/production/ingress-annotations.env <<EOF
+          ALB_CERTIFICATE_ARN=${PRODUCTION_CERTIFICATE_ARN}
+          ALB_WAFV2_ACL_ARN=${PRODUCTION_WAF_ACL_ARN}
+          EOF
 
       - name: Blue-green deploy
         run: |

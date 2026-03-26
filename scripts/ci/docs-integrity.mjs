@@ -53,6 +53,54 @@ function getDirectoryMarkdownFiles(directory) {
     .sort();
 }
 
+function getDirectoryFilesByExtension(directory, extensions) {
+  const absoluteDir = path.resolve(repoRoot, directory);
+  const files = [];
+
+  for (const entry of readdirSync(absoluteDir)) {
+    const absoluteEntry = path.join(absoluteDir, entry);
+    const relativeEntry = path.join(directory, entry);
+    const stats = statSync(absoluteEntry);
+
+    if (stats.isDirectory()) {
+      files.push(...getDirectoryFilesByExtension(relativeEntry, extensions));
+      continue;
+    }
+
+    if (extensions.some((ext) => relativeEntry.endsWith(ext))) {
+      files.push(relativeEntry);
+    }
+  }
+
+  return files.sort();
+}
+
+function checkWorkflowPathReferences(sourceFile) {
+  const sourcePath = path.resolve(repoRoot, sourceFile);
+  const content = readFileSync(sourcePath, 'utf8');
+  const workflowPathRegex = /(\.github\/workflows\/[A-Za-z0-9._-]+\.ya?ml)/g;
+  const deprecatedWorkflowPaths = new Set(['.github/workflows/ci.yml']);
+  const checked = [];
+  const errors = [];
+
+  for (const match of content.matchAll(workflowPathRegex)) {
+    const workflowPath = match[1];
+    checked.push({ sourceFile, workflowPath });
+    const absoluteWorkflowPath = path.resolve(repoRoot, workflowPath);
+
+    if (deprecatedWorkflowPaths.has(workflowPath)) {
+      errors.push({ type: 'deprecated-workflow-path', sourceFile, workflowPath });
+      continue;
+    }
+
+    if (!existsSync(absoluteWorkflowPath)) {
+      errors.push({ type: 'missing-workflow-path', sourceFile, workflowPath });
+    }
+  }
+
+  return { checked, errors };
+}
+
 function parseCategoryReadme(readmePath) {
   const absoluteReadme = path.resolve(repoRoot, readmePath);
   const markdown = readFileSync(absoluteReadme, 'utf8');
@@ -166,6 +214,17 @@ if (missingAdrEntries.length > 0 || extraAdrEntries.length > 0) {
   });
 }
 
+const docsWorkflowReferenceFiles = [
+  ...getDirectoryFilesByExtension('docs/security-compliance', ['.md', '.json']),
+  ...getDirectoryFilesByExtension('docs/operations', ['.md', '.json']),
+];
+
+for (const sourceFile of docsWorkflowReferenceFiles) {
+  const { checked, errors: workflowPathErrors } = checkWorkflowPathReferences(sourceFile);
+  checks.push(...checked.map((item) => ({ sourceFile: item.sourceFile, link: item.workflowPath, resolved: item.workflowPath })));
+  errors.push(...workflowPathErrors);
+}
+
 // Validate migration file paths referenced in evidence-index.md.
 // The "Migration lineage" column contains backtick-quoted paths like
 // `infra/supabase/supabase/migrations/...`. Each path must exist on disk.
@@ -231,6 +290,18 @@ if (errors.length > 0) {
       if (error.extraAdrEntries.length > 0) {
         console.error(` - [${error.index}] ADR index references missing files: ${error.extraAdrEntries.join(', ')}`);
       }
+    }
+
+    if (error.type === 'deprecated-workflow-path') {
+      console.error(
+        ` - [${error.sourceFile}] Deprecated workflow path reference found: \`${error.workflowPath}\`. Use canonical lanes (\`.github/workflows/pr-fast.yml\`, \`.github/workflows/main-verify.yml\`, \`.github/workflows/nightly-governance.yml\`) where applicable.`,
+      );
+    }
+
+    if (error.type === 'missing-workflow-path') {
+      console.error(
+        ` - [${error.sourceFile}] Referenced workflow path does not exist on disk: \`${error.workflowPath}\``,
+      );
     }
   }
 

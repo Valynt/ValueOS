@@ -1,0 +1,96 @@
+groups:
+  - name: billing-webhook-alerts
+    rules:
+      # Fires when the Stripe webhook failure rate exceeds 5% over 10 minutes.
+      # A sustained failure rate means events are being dropped or handlers are
+      # crashing, which can lead to missed payments or incorrect enforcement state.
+      - alert: BillingWebhookFailureRateHigh
+        expr: |
+          sum(rate(billing_stripe_webhooks_total{status="failed"}[10m]))
+          /
+          clamp_min(sum(rate(billing_stripe_webhooks_total[10m])), 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Billing webhook failure rate is high"
+          description: >
+            More than 5% of Stripe webhooks have failed processing over the
+            last 10 minutes. This may cause missed payment updates, incorrect
+            subscription states, or stale enforcement flags.
+
+      # Fires when the webhook retry queue grows beyond a safe threshold.
+      # A growing retry queue means events are failing and piling up, risking
+      # data staleness and eventual TTL expiry.
+      - alert: BillingWebhookRetryQueueHigh
+        expr: billing_webhook_retry_queue_size > 50
+        for: 10m
+        labels:
+          severity: warning
+          team: billing
+        annotations:
+          summary: "Billing webhook retry queue is growing"
+          description: >
+            The webhook retry queue has exceeded 50 pending events for 10
+            minutes. Investigate handler errors or downstream service issues.
+
+      # Fires when a payment_succeeded event cannot be resolved to a tenant.
+      # Each increment means a customer paid but their enforcement state was
+      # not updated -- the tenant may be incorrectly restricted.
+      - alert: BillingWebhookUnresolvedTenant
+        expr: increase(billing_webhook_unresolved_tenant_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Payment succeeded but tenant could not be resolved"
+          description: >
+            A payment_succeeded webhook was received but no matching
+            billing_customers row was found. The tenant's enforcement state
+            has not been updated. Manual reconciliation is required.
+
+  - name: billing-pipeline-alerts
+    rules:
+      # Fires when usage records are not being aggregated in a timely manner.
+      # Stale aggregates mean billing invoices may under-report usage.
+      - alert: BillingAggregationLag
+        expr: billing_pending_aggregates_age_seconds > 3600
+        for: 15m
+        labels:
+          severity: warning
+          team: billing
+        annotations:
+          summary: "Billing aggregation lag exceeds 1 hour"
+          description: >
+            The oldest un-aggregated usage record is over 1 hour old.
+            This may cause billing invoices to under-report usage.
+
+      # Fires when Stripe API submission errors spike. This typically
+      # indicates an API outage, auth issue, or rate limiting.
+      - alert: BillingStripeSubmissionErrors
+        expr: increase(billing_stripe_submission_errors_total[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: billing
+        annotations:
+          summary: "Stripe submission errors detected"
+          description: >
+            More than 5 Stripe API submission errors in the last 15 minutes.
+            Check for Stripe API outages, authentication issues, or rate limiting.
+
+      # Fires when billing job failures spike across any job type.
+      - alert: BillingJobFailureRate
+        expr: increase(billing_jobs_failures_total[15m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: billing
+        annotations:
+          summary: "Billing job failures are elevated"
+          description: >
+            More than 10 billing job failures in the last 15 minutes.
+            Job: {{ $labels.job }}, reason: {{ $labels.reason }}.

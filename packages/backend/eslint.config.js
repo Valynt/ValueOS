@@ -1,6 +1,10 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import security from "eslint-plugin-security";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const reqAsAnyMessage =
   "Do not cast req to any. Use typed Express.Request properties from src/types/express.d.ts (e.g., req.tenantId, req.userId, req.sessionId, req.user, req.db).";
@@ -49,7 +53,16 @@ export default tseslint.config(
       "src/**/*.spec.ts",
       "src/**/__tests__/**/*.ts",
     ],
+    languageOptions: {
+      parserOptions: {
+        project: ["./tsconfig.json"],
+        tsconfigRootDir: __dirname,
+      },
+    },
     rules: {
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/no-unsafe-assignment": "warn",
+      "@typescript-eslint/no-unsafe-member-access": "warn",
       "no-restricted-syntax": [
         "error",
         {
@@ -57,13 +70,69 @@ export default tseslint.config(
             "TSAsExpression[expression.type='Identifier'][expression.name='req'] > TSAnyKeyword",
           message: reqAsAnyMessage,
         },
+        {
+          selector:
+            "ImportDeclaration[source.value=/TaskContext$/] > ImportDefaultSpecifier[local.name='TaskContext']",
+          message:
+            "TaskContext must be imported as a named type export. Use: import type { TaskContext } from '.../TaskContext'.",
+        },
       ],
+    },
+  },
+  {
+    files: ["src/api/**/*.ts", "src/middleware/**/*.ts", "src/routes/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/lib/supabase/privileged",
+                "**/lib/supabase/privileged/*",
+              ],
+              message:
+                "Request handlers must not import service-role privileged clients directly. Route through an allowlisted service module.",
+            },
+            {
+              group: [
+                "@shared/lib/supabase",
+              ],
+              importNames: ["supabase", "createServerSupabaseClient", "getSupabaseClient", "createServiceRoleSupabaseClient"],
+              message:
+                "Request handlers must use request-scoped Supabase helpers (createRequestSupabaseClient/getRequestSupabaseClient). Service-role imports are forbidden in request paths.",
+            },
+            {
+              group: [
+                "**/lib/supabase",
+                "**/lib/supabase.js",
+              ],
+              importNames: ["supabase", "createServerSupabaseClient", "getSupabaseClient"],
+              message:
+                "Request handlers must use request-scoped Supabase helpers (createRequestSupabaseClient/getRequestSupabaseClient).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "src/api/auth.ts",
+      "src/api/services/ReferralService.ts",
+      "src/api/services/ReferralAnalyticsService.ts",
+    ],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
   {
     files: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/__tests__/**/*.ts"],
     rules: {
       "no-restricted-syntax": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
     },
   },
   // Disable no-explicit-any in types/ directory — type definitions need flexible typing for external API boundaries

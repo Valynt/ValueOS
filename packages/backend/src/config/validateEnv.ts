@@ -9,6 +9,8 @@
 
 import { logger } from "../lib/logger.js";
 import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
+import { getSensitiveEnvKeys } from "./secrets/RuntimeSecretStore.js";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export interface ValidationResult {
   valid: boolean;
@@ -41,9 +43,8 @@ const REQUIRED_VARS = [
   },
 ];
 
-// TCT_SECRET is required in all environments except test mode.
-// In test mode, AuthService generates an ephemeral secret when TCT_ALLOW_EPHEMERAL_SECRET=true.
-const REQUIRED_VARS_NON_TEST = [
+// TCT_SECRET is required in all environments to keep startup behavior consistent and fail-fast.
+const REQUIRED_VARS_ALL_ENVS = [
   {
     name: "TCT_SECRET",
     fix: "Generate with: openssl rand -hex 32 and set in ops/env/.env.backend.<mode>. For test mode only, set TCT_ALLOW_EPHEMERAL_SECRET=true.",
@@ -62,6 +63,7 @@ const STRICT_POSTGRES_SSL_MODES = new Set(["require", "verify-ca", "verify-full"
 const DEPRECATED_ALIASES = [
   { deprecated: "SUPABASE_SERVICE_KEY", canonical: "SUPABASE_SERVICE_ROLE_KEY" },
 ];
+const AUTH_FALLBACK_HARD_MAX_TTL_SECONDS = 30 * 60;
 
 
 function parseUrl(raw: string): URL | null {
@@ -88,6 +90,31 @@ function validateCacheEncryptionRules(nodeEnv: string, errors: string[]): void {
   const cacheEncryptionKey = process.env.CACHE_ENCRYPTION_KEY;
   if (!cacheEncryptionKey) {
     errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_KEY is required.`);
+  }
+}
+
+
+function validateNoSecretInEnvPolicy(nodeEnv: string, errors: string[]): void {
+  if (nodeEnv !== "production") {
+    return;
+  }
+
+  const rawAllowlist = process.env.SECRET_ENV_ALLOWLIST ?? "";
+  const allowlisted = new Set(
+    rawAllowlist
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+
+  for (const key of getSensitiveEnvKeys()) {
+    if (!process.env[key]) {
+      continue;
+    }
+
+    if (!allowlisted.has(key)) {
+      errors.push(`Sensitive secret ${key} must not be sourced from process.env in production.`);
+    }
   }
 }
 
@@ -140,11 +167,115 @@ function validateSecureTransportRules(errors: string[]): void {
   }
 }
 
+function parseAuthFallbackList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
+  if (nodeEnv !== "production") {
+    return;
+  }
+
+  if (process.env.ALLOW_LOCAL_JWT_FALLBACK === "true") {
+    errors.push("ALLOW_LOCAL_JWT_FALLBACK=true is forbidden in production.");
+  }
+
+  if (process.env.AUTH_FALLBACK_EMERGENCY_MODE !== "true") {
+    return;
+  }
+
+  const ttlUntil = process.env.AUTH_FALLBACK_EMERGENCY_TTL_UNTIL;
+  if (!ttlUntil) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_EMERGENCY_TTL_UNTIL.");
+    return;
+  }
+
+  const ttlDate = new Date(ttlUntil);
+  if (Number.isNaN(ttlDate.getTime())) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_TTL_UNTIL must be a valid ISO-8601 timestamp.");
+    return;
+  }
+
+  const ttlRemainingSeconds = Math.floor((ttlDate.getTime() - Date.now()) / 1000);
+  if (ttlRemainingSeconds <= 0) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_TTL_UNTIL must be in the future.");
+    return;
+  }
+
+  const maxDuration = Number(process.env.AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS ?? "14400");
+  if (!Number.isFinite(maxDuration) || maxDuration <= 0) {
+    errors.push("AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS must be a positive number.");
+    return;
+  }
+
+  if (ttlRemainingSeconds > maxDuration) {
+    errors.push(
+      "AUTH_FALLBACK_EMERGENCY_TTL_UNTIL exceeds AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS."
+    );
+  }
+
+  if (ttlRemainingSeconds > AUTH_FALLBACK_HARD_MAX_TTL_SECONDS) {
+    errors.push(
+      `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL exceeds hard limit of ${AUTH_FALLBACK_HARD_MAX_TTL_SECONDS} seconds (30 minutes).`
+    );
+  }
+
+  const incidentId = process.env.AUTH_FALLBACK_INCIDENT_ID;
+  const incidentSeverity = process.env.AUTH_FALLBACK_INCIDENT_SEVERITY;
+  const incidentStartedAt = process.env.AUTH_FALLBACK_INCIDENT_STARTED_AT;
+  const allowedRoutes = parseAuthFallbackList(process.env.AUTH_FALLBACK_ALLOWED_ROUTES);
+  const allowedRoles = parseAuthFallbackList(process.env.AUTH_FALLBACK_ALLOWED_ROLES);
+  const signingSecret = process.env.AUTH_FALLBACK_INCIDENT_SIGNING_SECRET;
+  const signature = process.env.AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE;
+
+  if (!incidentId || !incidentSeverity || !incidentStartedAt) {
+    errors.push(
+      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_INCIDENT_ID, AUTH_FALLBACK_INCIDENT_SEVERITY, and AUTH_FALLBACK_INCIDENT_STARTED_AT."
+    );
+    return;
+  }
+
+  if (allowedRoutes.length === 0 && allowedRoles.length === 0) {
+    errors.push(
+      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_ALLOWED_ROUTES and/or AUTH_FALLBACK_ALLOWED_ROLES."
+    );
+    return;
+  }
+
+  if (!signingSecret || !signature) {
+    errors.push(
+      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_INCIDENT_SIGNING_SECRET and AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE."
+    );
+    return;
+  }
+
+  const payload = [
+    incidentId,
+    incidentSeverity,
+    incidentStartedAt,
+    ttlUntil,
+    allowedRoutes.join(","),
+    allowedRoles.join(","),
+  ].join("|");
+  const expectedSignature = createHmac("sha256", signingSecret).update(payload).digest("hex");
+  const providedSignature = signature.trim();
+
+  if (
+    providedSignature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature))
+  ) {
+    errors.push("AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE does not match signed incident context.");
+  }
+}
+
 export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const nodeEnv = process.env.NODE_ENV ?? "development";
-  const isTestMode = nodeEnv === "test" || process.env.LOCAL_TEST_MODE === "true";
   const llm = validateLLMConfig();
   const supabaseErrors: string[] = [];
   const supabaseWarnings: string[] = [];
@@ -162,12 +293,10 @@ export function validateEnv(): ValidationResult {
     }
   }
 
-  // Check vars required outside test mode
-  if (!isTestMode) {
-    for (const { name, fix } of REQUIRED_VARS_NON_TEST) {
-      if (!process.env[name]) {
-        errors.push(`Missing ${name}. Fix: ${fix}`);
-      }
+  // Check vars required in all modes
+  for (const { name, fix } of REQUIRED_VARS_ALL_ENVS) {
+    if (!process.env[name]) {
+      errors.push(`Missing ${name}. Fix: ${fix}`);
     }
   }
 
@@ -247,8 +376,10 @@ export function validateEnv(): ValidationResult {
     supabaseErrors.push("Missing SUPABASE_KEY or SUPABASE_ANON_KEY.");
   }
 
+  validateNoSecretInEnvPolicy(nodeEnv, errors);
   validateSecureTransportRules(errors);
   validateCacheEncryptionRules(nodeEnv, errors);
+  validateAuthFallbackConfig(nodeEnv, errors);
   errors.push(...validateAuditLogEncryptionConfig(process.env));
 
   return {

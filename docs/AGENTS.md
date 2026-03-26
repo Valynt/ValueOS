@@ -94,6 +94,23 @@ All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSche
 
 `service_role` bypasses RLS. Use it only for: AuthService, tenant provisioning, cron jobs.
 
+Allowed backend directories for service-role call sites:
+- `packages/backend/src/lib/supabase/privileged/` (privileged client factories only)
+- `packages/backend/src/services/auth/`
+- `packages/backend/src/services/tenant/`
+- `packages/backend/src/workers/`
+- `packages/backend/src/jobs/`
+- `scripts/jobs/`
+
+Required annotation for every service-role call site:
+- Pass an explicit justification literal with the form
+  ``justification: "service-role:justified <reason>"``.
+- Example:
+  `createAuthProvisioningSupabaseClient({ justification: "service-role:justified admin user bootstrap" })`.
+
+Request handlers (`src/api/**`, `src/middleware/**`, `src/routes/**`) must not import
+service-role clients directly unless the file is explicitly allowlisted in CI guardrails.
+
 ### 4. No cross-tenant data transfer
 
 Block any operation that copies, moves, or exports data between tenants.

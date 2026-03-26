@@ -161,6 +161,27 @@ if [ -f "${PROJECT_ROOT}/ops/env/.env.local" ]; then
 fi
 
 ###############################################################################
+# Step 3b: Ensure backend local secret exists
+###############################################################################
+BACKEND_ENV_FILE="${PROJECT_ROOT}/ops/env/.env.backend.local"
+if [ ! -f "${BACKEND_ENV_FILE}" ] && [ -f "${PROJECT_ROOT}/ops/env/.env.backend.local.example" ]; then
+    log_info "Creating ops/env/.env.backend.local from example..."
+    cp "${PROJECT_ROOT}/ops/env/.env.backend.local.example" "${BACKEND_ENV_FILE}"
+fi
+
+if [ -f "${BACKEND_ENV_FILE}" ]; then
+    if ! grep -Eq '^TCT_SECRET=' "${BACKEND_ENV_FILE}" || grep -Eq '^TCT_SECRET=\s*$' "${BACKEND_ENV_FILE}"; then
+        TCT_SECRET_VALUE="$(openssl rand -hex 32)"
+        if grep -Eq '^TCT_SECRET=' "${BACKEND_ENV_FILE}"; then
+            sed -i "s/^TCT_SECRET=.*/TCT_SECRET=${TCT_SECRET_VALUE}/" "${BACKEND_ENV_FILE}"
+        else
+            printf '\nTCT_SECRET=%s\n' "${TCT_SECRET_VALUE}" >> "${BACKEND_ENV_FILE}"
+        fi
+        log_info "Provisioned per-developer TCT_SECRET in ops/env/.env.backend.local"
+    fi
+fi
+
+###############################################################################
 # Step 4: Configure Database Connection
 ###############################################################################
 # Trust the orchestrator: app depends on db (service_healthy), so DB is ready.

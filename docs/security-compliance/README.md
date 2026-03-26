@@ -14,11 +14,13 @@
 - [Control Ownership Matrix](./control-ownership-matrix.md)
 - [Data Ownership Statement](./data-ownership-statement.md)
 - [Evidence Index](./evidence-index.md)
+- [FedRAMP Control Mapping](./fedramp-control-mapping.md)
 - [Infisical Secrets Management](./infisical-secrets-management.md)
 - [Audit Exceptions Policy](./audit-exceptions-policy.md)
 - [Observability Controls and Evidence](./observability-controls-and-evidence.md)
 - [HIPAA Applicability Profile](./hipaa-applicability-profile.md)
 - [Production Contract](./production-contract.md)
+- [Public Browser Telemetry Standard](./public-browser-telemetry.md)
 - [Public Telemetry Retention and Privacy Standard](./public-telemetry-retention-and-privacy.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
 - [Security Overview](./security-overview.md)
@@ -29,4 +31,4 @@
 
 ---
 
-**Total Documents**: 20
+**Total Documents**: 22

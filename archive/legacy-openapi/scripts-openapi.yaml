@@ -1,3 +1,7 @@
+# LEGACY ARCHIVE — NON-AUTHORITATIVE OPENAPI SNAPSHOT
+# Canonical OpenAPI source of truth: packages/backend/openapi.yaml
+# This file is retained only for historical reference and must not be used by CI, tooling, or SDK generation.
+
 openapi: 3.1.0
 info:
   title: ValueCanvas API

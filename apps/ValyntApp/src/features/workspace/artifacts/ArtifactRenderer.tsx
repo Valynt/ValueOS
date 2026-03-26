@@ -334,7 +334,7 @@ function ChartRenderer({ content }: { content: ChartContent }) {
             <span className="text-sm font-medium text-slate-600">
               ${point.value}M
             </span>
-            {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- valid ARIA usage */}
+            {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- legacy waiver: decorative chart bars carry interim ARIA value metadata until chart primitives are replaced; expires=2026-09-30; owner=@valueos-frontend */}
             <div
               className="w-16 bg-primary rounded-t-md transition-all duration-500"
               style={{ height: `calc(var(--chart-bar-max, 180px) * ${(point.value / maxValue)})` }}

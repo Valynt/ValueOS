@@ -2,19 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createBillingAccessEnforcement } from "../billingAccessEnforcement.js";
 
+const { logRequestEvent } = vi.hoisted(() => ({
+  logRequestEvent: vi.fn(async () => {}),
+}));
+
 const singleMock = vi.fn();
 const eqMock = vi.fn(() => ({ single: singleMock }));
 const selectMock = vi.fn(() => ({ eq: eqMock }));
 const fromMock = vi.fn(() => ({ select: selectMock }));
 
-vi.mock("../../lib/supabase.js", () => ({
-  supabase: {
-    from: fromMock,
-  },
+vi.mock("@shared/lib/supabase", () => ({
+  getRequestSupabaseClient: vi.fn(() => ({ from: fromMock })),
 }));
 
-const logRequestEvent = vi.fn(async () => {});
-vi.mock("../../services/security/SecurityAuditService.js", () => ({
+vi.mock("../../services/post-v1/SecurityAuditService.js", () => ({
   securityAuditService: {
     logRequestEvent,
   },

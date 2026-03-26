@@ -49,6 +49,37 @@ export interface ComplianceControlSummary {
   controls_failing: number;
 }
 
+export type ComplianceTechnicalSignalKey =
+  | "tests_passed"
+  | "policies_deployed"
+  | "retention_jobs_healthy"
+  | "encryption_config_active";
+
+export interface ComplianceTechnicalSignalStatus {
+  key: ComplianceTechnicalSignalKey;
+  status: "pass" | "fail";
+  description: string;
+  evidence_pointer: string;
+  observed_at: string;
+}
+
+export interface FrameworkControlVerificationStatus {
+  framework: "GDPR" | "HIPAA" | "CCPA" | "SOC2" | "ISO27001";
+  declared: boolean;
+  verified: boolean;
+  missingPrerequisites: string[];
+  requiredSignals: ComplianceTechnicalSignalKey[];
+  signalStatuses: ComplianceTechnicalSignalStatus[];
+}
+
+const FRAMEWORK_SIGNAL_REQUIREMENTS: Record<FrameworkControlVerificationStatus["framework"], ComplianceTechnicalSignalKey[]> = {
+  GDPR: ["tests_passed", "policies_deployed", "encryption_config_active"],
+  HIPAA: ["tests_passed", "policies_deployed", "retention_jobs_healthy", "encryption_config_active"],
+  CCPA: ["tests_passed", "retention_jobs_healthy", "policies_deployed"],
+  SOC2: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
+  ISO27001: ["tests_passed", "encryption_config_active", "retention_jobs_healthy"],
+};
+
 export class ComplianceControlStatusService {
   private _supabase: ReturnType<typeof createServerSupabaseClient> | undefined;
   private get supabase(): ReturnType<typeof createServerSupabaseClient> {
@@ -412,6 +443,126 @@ export class ComplianceControlStatusService {
           typeof payload.evidence_pointer === "string"
             ? payload.evidence_pointer
             : "audit://controls/policy-history",
+      };
+    });
+  }
+
+  private async fetchLatestAutomatedControlCheckStatus(tenantId: string): Promise<"pass" | "fail"> {
+    const { data, error } = await this.supabase
+      .from("compliance_control_audit")
+      .select("event_payload")
+      .eq("tenant_id", tenantId)
+      .eq("event_type", "automated_control_check_ran")
+      .order("evidence_ts", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn("ComplianceControlStatusService: automated control status lookup failed", { tenantId, error: error.message });
+      return "fail";
+    }
+
+    const overallStatus = (data?.event_payload as { overall_status?: string } | undefined)?.overall_status;
+    return overallStatus === "pass" ? "pass" : "fail";
+  }
+
+  private async fetchPolicyDeploymentStatus(tenantId: string): Promise<"pass" | "fail"> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await this.supabase
+      .from("compliance_control_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("event_type", "policy_changed")
+      .gte("evidence_ts", thirtyDaysAgo);
+
+    if (error) {
+      logger.warn("ComplianceControlStatusService: policy deployment lookup failed", { tenantId, error: error.message });
+      return "fail";
+    }
+
+    return (count ?? 0) > 0 ? "pass" : "fail";
+  }
+
+  private async fetchRetentionJobHealthStatus(tenantId: string): Promise<"pass" | "fail"> {
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await this.supabase
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", tenantId)
+      .in("action", ["retention:job_completed", "compliance:retention_job_completed"])
+      .eq("status", "success")
+      .gte("timestamp", fortyEightHoursAgo);
+
+    if (error) {
+      logger.warn("ComplianceControlStatusService: retention job health lookup failed", { tenantId, error: error.message });
+      return "fail";
+    }
+
+    return (count ?? 0) > 0 ? "pass" : "fail";
+  }
+
+  async getTechnicalSignalStatuses(tenantId: string): Promise<ComplianceTechnicalSignalStatus[]> {
+    const [controls, testSignalStatus, policySignalStatus, retentionSignalStatus] = await Promise.all([
+      this.getLatestControlStatus(tenantId),
+      this.fetchLatestAutomatedControlCheckStatus(tenantId),
+      this.fetchPolicyDeploymentStatus(tenantId),
+      this.fetchRetentionJobHealthStatus(tenantId),
+    ]);
+
+    const now = new Date().toISOString();
+    const encryptionControl = controls.find((control) => control.control_id === "encryption_at_rest_coverage");
+
+    return [
+      {
+        key: "tests_passed",
+        status: testSignalStatus,
+        description: "Most recent automated technical compliance test run is passing.",
+        evidence_pointer: `audit://controls/${tenantId}/automated-control-check/latest`,
+        observed_at: now,
+      },
+      {
+        key: "policies_deployed",
+        status: policySignalStatus,
+        description: "Recent policy deployment audit event recorded in compliance control audit history.",
+        evidence_pointer: `audit://controls/${tenantId}/policy-deployments/latest`,
+        observed_at: now,
+      },
+      {
+        key: "retention_jobs_healthy",
+        status: retentionSignalStatus,
+        description: "Retention job completion telemetry indicates a successful run in the last 48 hours.",
+        evidence_pointer: `audit://controls/${tenantId}/retention-jobs/latest`,
+        observed_at: now,
+      },
+      {
+        key: "encryption_config_active",
+        status: encryptionControl?.status === "pass" ? "pass" : "fail",
+        description: "Encryption-at-rest control indicates active encrypted storage configuration.",
+        evidence_pointer: encryptionControl?.evidence_pointer ?? `audit://controls/${tenantId}/encryption-at-rest/latest`,
+        observed_at: encryptionControl?.evidence_ts ?? now,
+      },
+    ];
+  }
+
+  async getFrameworkVerificationStatuses(tenantId: string): Promise<FrameworkControlVerificationStatus[]> {
+    const signalStatuses = await this.getTechnicalSignalStatuses(tenantId);
+    const signalMap = new Map(signalStatuses.map((signal) => [signal.key, signal]));
+
+    return (Object.keys(FRAMEWORK_SIGNAL_REQUIREMENTS) as FrameworkControlVerificationStatus["framework"][]).map((framework) => {
+      const requiredSignals = FRAMEWORK_SIGNAL_REQUIREMENTS[framework];
+      const missingPrerequisites = requiredSignals
+        .filter((signalKey) => signalMap.get(signalKey)?.status !== "pass")
+        .map((signalKey) => signalMap.get(signalKey)?.description ?? signalKey);
+
+      return {
+        framework,
+        declared: true,
+        verified: missingPrerequisites.length === 0,
+        missingPrerequisites,
+        requiredSignals,
+        signalStatuses: requiredSignals
+          .map((signalKey) => signalMap.get(signalKey))
+          .filter((signal): signal is ComplianceTechnicalSignalStatus => Boolean(signal)),
       };
     });
   }

@@ -1,61 +1,81 @@
 // @vitest-environment node
 /**
- * LLMCache — unit tests
+ * LLMCache — unit tests (re-export path)
  *
- * Verifies cache hit/miss behaviour and that the hit path does not perform a
- * racy read-modify-write on the entry's hitCount field.
+ * Verifies cache hit/miss behaviour through the re-export at
+ * packages/backend/src/services/LLMCache.ts and that the hit path does not
+ * perform a racy read-modify-write on the entry's hitCount field.
+ *
+ * The canonical / comprehensive test suite lives in
+ * packages/backend/src/services/core/__tests__/LLMCache.test.ts — this file
+ * covers the re-export path and verifies tenant-scoped key construction.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Redis mock
+// Redis mock (ioredis) — hoisted so the module-level singleton in LLMCache.ts
+// can reference these variables during import.
 // ---------------------------------------------------------------------------
 
-const mockGet = vi.fn();
-const mockSet = vi.fn();
-const mockHIncrBy = vi.fn();
-const mockHIncrByFloat = vi.fn();
-const mockExec = vi.fn().mockResolvedValue([]);
-const mockMulti = vi.fn(() => ({
-  set: vi.fn().mockReturnThis(),
-  hIncrBy: mockHIncrBy,
-  hIncrByFloat: mockHIncrByFloat,
-  exec: mockExec,
+const { mockGet, mockSet, mockMulti, cacheRequestsTotalInc } = vi.hoisted(
+  () => {
+    const exec = vi.fn().mockResolvedValue([]);
+    const multi = vi.fn(() => ({
+      hincrby: vi.fn().mockReturnThis(),
+      expire: vi.fn().mockReturnThis(),
+      exec,
+    }));
+
+    return {
+      mockGet: vi.fn(),
+      mockSet: vi.fn(),
+      mockDel: vi.fn(),
+      mockHGetAll: vi.fn().mockResolvedValue({}),
+      mockInfo: vi.fn().mockResolvedValue("used_memory:1024"),
+      mockMulti: multi,
+      cacheRequestsTotalInc: vi.fn(),
+    };
+  }
+);
+
+vi.mock("ioredis", () => ({
+  default: class RedisMock {
+    on = vi.fn();
+    quit = vi.fn();
+    get = mockGet;
+    set = mockSet;
+    del = vi.fn();
+    hgetall = vi.fn().mockResolvedValue({});
+    hincrby = vi.fn();
+    info = vi.fn().mockResolvedValue("used_memory:1024");
+    multi = mockMulti;
+    scanIterator = vi.fn(async function* () {});
+  },
 }));
 
-vi.mock('redis', () => ({
-  createClient: vi.fn(() => ({
-    on: vi.fn(),
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    get: mockGet,
-    set: mockSet,
-    del: vi.fn(),
-    scan: vi.fn().mockResolvedValue({ cursor: 0, keys: [] }),
-    hGetAll: vi.fn().mockResolvedValue({}),
-    hIncrBy: mockHIncrBy,
-    hIncrByFloat: mockHIncrByFloat,
-    info: vi.fn().mockResolvedValue('used_memory:1024'),
-    multi: mockMulti,
-  })),
+vi.mock("../../../lib/metrics/cacheMetrics.js", () => ({
+  cacheRequestsTotal: { inc: cacheRequestsTotalInc },
 }));
 
-vi.mock('../utils/logger.js', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), cache: vi.fn() },
-  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
-}));
+import { LLMCache } from "../LLMCache.js";
 
-import { LLMCache } from '../LLMCache.js';
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const TENANT_A = "11111111-1111-1111-1111-111111111111";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeEntry(overrides: Partial<{ hitCount: number; cost: number }> = {}) {
+function makeEntry(
+  overrides: Partial<{ hitCount: number; cost: number }> = {}
+) {
   return JSON.stringify({
-    response: 'cached response',
-    model: 'gpt-4',
+    response: "cached response",
+    model: "gpt-4",
     promptTokens: 100,
     completionTokens: 50,
     cost: 0.002,
@@ -69,60 +89,80 @@ function makeEntry(overrides: Partial<{ hitCount: number; cost: number }> = {}) 
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('LLMCache', () => {
+describe("LLMCache (re-export path)", () => {
   let cache: LLMCache;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    cache = new LLMCache({ enabled: true, keyPrefix: 'llm:cache:', ttl: 3600 });
+    cache = new LLMCache({ enabled: true, keyPrefix: "llm:cache:", ttl: 3600 });
     // Simulate connected state by setting the private field via cast
     (cache as unknown as { connected: boolean }).connected = true;
   });
 
-  describe('get — cache miss', () => {
-    it('returns null when key is not in Redis', async () => {
+  describe("get — cache miss", () => {
+    it("returns null when key is not in Redis", async () => {
       mockGet.mockResolvedValue(null);
-      const result = await cache.get('prompt', 'gpt-4');
+      const result = await cache.get(TENANT_A, "prompt", "gpt-4");
       expect(result).toBeNull();
     });
   });
 
-  describe('get — cache hit', () => {
-    it('returns the parsed entry', async () => {
+  describe("get — cache hit", () => {
+    it("returns the parsed entry", async () => {
       mockGet.mockResolvedValue(makeEntry({ cost: 0.005 }));
-      const result = await cache.get('prompt', 'gpt-4');
+      const result = await cache.get(TENANT_A, "prompt", "gpt-4");
       expect(result).not.toBeNull();
-      expect(result?.response).toBe('cached response');
+      expect(result?.response).toBe("cached response");
     });
 
-    it('does NOT write the entry back to Redis on hit (no racy SET)', async () => {
+    it("does NOT write the entry back to Redis on hit (no racy SET)", async () => {
       mockGet.mockResolvedValue(makeEntry());
-      const txMock = { set: vi.fn().mockReturnThis(), hIncrBy: vi.fn().mockReturnThis(), hIncrByFloat: vi.fn().mockReturnThis(), exec: vi.fn().mockResolvedValue([]) };
-      mockMulti.mockReturnValue(txMock);
+      const txMock = {
+        hincrby: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      };
+      mockMulti.mockReturnValueOnce(txMock);
 
-      await cache.get('prompt', 'gpt-4');
+      await cache.get(TENANT_A, "prompt", "gpt-4");
 
       // The transaction must NOT include a SET call — that was the racy path
-      expect(txMock.set).not.toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('increments totalHits and totalCostSaved in the stats hash atomically', async () => {
+    it("increments totalHits and totalCostSavedMilliCents in the stats hash atomically", async () => {
       mockGet.mockResolvedValue(makeEntry({ cost: 0.003 }));
-      const txMock = { set: vi.fn().mockReturnThis(), hIncrBy: vi.fn().mockReturnThis(), hIncrByFloat: vi.fn().mockReturnThis(), exec: vi.fn().mockResolvedValue([]) };
-      mockMulti.mockReturnValue(txMock);
+      const txMock = {
+        hincrby: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      };
+      mockMulti.mockReturnValueOnce(txMock);
 
-      await cache.get('prompt', 'gpt-4');
+      await cache.get(TENANT_A, "prompt", "gpt-4");
 
-      expect(txMock.hIncrBy).toHaveBeenCalledWith(expect.stringContaining('stats'), 'totalHits', 1);
-      expect(txMock.hIncrByFloat).toHaveBeenCalledWith(expect.stringContaining('stats'), 'totalCostSaved', 0.003);
+      expect(txMock.hincrby).toHaveBeenCalledWith(
+        expect.stringContaining("stats"),
+        "totalHits",
+        1
+      );
+      expect(txMock.hincrby).toHaveBeenCalledWith(
+        expect.stringContaining("stats"),
+        "totalCostSavedMilliCents",
+        300 // 0.003 * 100_000
+      );
       expect(txMock.exec).toHaveBeenCalled();
     });
 
-    it('does not mutate hitCount on the returned entry', async () => {
+    it("does not mutate hitCount on the returned entry", async () => {
       mockGet.mockResolvedValue(makeEntry({ hitCount: 5 }));
-      mockMulti.mockReturnValue({ set: vi.fn().mockReturnThis(), hIncrBy: vi.fn().mockReturnThis(), hIncrByFloat: vi.fn().mockReturnThis(), exec: vi.fn().mockResolvedValue([]) });
+      mockMulti.mockReturnValueOnce({
+        hincrby: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+      });
 
-      const result = await cache.get('prompt', 'gpt-4');
+      const result = await cache.get(TENANT_A, "prompt", "gpt-4");
       // hitCount on the returned object should be the stored value, not incremented
       expect(result?.hitCount).toBe(5);
     });

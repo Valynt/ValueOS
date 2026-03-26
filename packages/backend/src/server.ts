@@ -140,6 +140,7 @@ import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
+import { runtimeSecretStore } from "./config/secrets/RuntimeSecretStore.js";
 import { securityAuditService } from "./services/post-v1/SecurityAuditService.js";
 import { complianceControlCheckService } from "./services/security/ComplianceControlCheckService.js";
 import { permissionService } from "./services/auth/PermissionService.js";
@@ -469,11 +470,11 @@ app.use((req, res, next) => {
   if (!stateChangingMethods.has(req.method)) {
     return next();
   }
-  // Requests authenticated with a Bearer token are already CSRF-safe:
-  // browsers cannot attach custom Authorization headers cross-origin without
-  // a CORS preflight, which the server controls. Skip cookie-based CSRF check.
+  // Skip cookie-based CSRF checks only for Bearer-token requests that do not
+  // carry cookies. If cookies are present, enforce CSRF protection.
   const authHeader = String(req.headers["authorization"] ?? "");
-  if (/^\s*Bearer\s+/i.test(authHeader)) {
+  const hasCookieHeader = typeof req.headers.cookie === "string" && req.headers.cookie.trim().length > 0;
+  if (/^\s*Bearer\s+/i.test(authHeader) && !hasCookieHeader) {
     return next();
   }
   return csrfProtectionMiddleware(req, res, next);
@@ -731,7 +732,9 @@ async function startServer(): Promise<void> {
 
   // 0.5. Hydrate managed secrets before any service initialization.
   // This closes the race where the server could start before Vault/AWS secrets are loaded.
-  logger.info("[Instrumentation] Hydrating managed secrets");
+  logger.info("[Instrumentation] Initializing runtime secret store");
+  runtimeSecretStore.seedFromEnvironment();
+  runtimeSecretStore.enforceProductionNoSecretEnvPolicy();
   await initSecrets();
 
   // 1. Validate all secrets before starting any services (production only)

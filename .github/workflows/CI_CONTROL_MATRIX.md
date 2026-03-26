@@ -8,7 +8,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `pr-fast.yml` / `main-verify.yml` (`accessibility-audit`), `nightly-governance.yml` (`nightly/accessibility-trends`) | Accessibility and frontend-quality artifacts |
 | Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/i18n/*` |
 | UX Performance | Bundle + route-level load budgets enforced in CI | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/frontend-quality/*` |
-| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)`) | GitHub Code Scanning alerts (CodeQL SARIF) |
+| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql`) | GitHub Code Scanning alerts (CodeQL SARIF) |
 | Security | Gitleaks secret scanning — PR diff | `pr-fast.yml` (`secret-scan` lane, hard blocker) | `gitleaks-pr.sarif` → GitHub Code Scanning |
 | Security | Gitleaks secret scanning — full git history | `main-verify.yml` (`secret-scan/full-history`), `secret-scan.yml` (push + manual) | `artifacts/secret-scan/gitleaks-history.*` (90-day retention) |
 | Security | Gitleaks secret scanning — nightly | `nightly-governance.yml` | Action logs + uploaded security artifacts |
@@ -24,7 +24,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Pod Security | PodSecurityPolicy removal guard — rejects any new PSP references in manifests | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
 | Architecture Integrity | Infra readiness contract — NATS deployed, LLMCache tenant-scoped, RLS tests not silently skipped, UsageEmitter buffer bounded | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
 | Architecture Integrity | Architecture doc/runtime drift — eventing stack claims, agent names, runtime service dirs, MessageBus path, image Dockerfiles, agent count | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
-| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
+| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`main-verify`), `deploy.yml` (`release-readiness`) | CI lane artifacts + deployment summary |
 | Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
@@ -41,15 +41,24 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
 | `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault. |
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
-| `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Accessibility checks were folded into the active CI entry points. |
+| `docs/archive/workflows/accessibility.deprecated.yml.disabled` | Archived reference | team-quality | Accessibility checks were folded into active CI entry points; retained for audit history only. |
 
-## Branch Protection Required Checks
+## PR Branch-Protection Contract (Minimal)
 
-`main` branch protection must require the following checks:
+`main` pull-request branch protection must require only:
 
 - `pr-fast`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+- `infra-plan` (conditional: required only for pull requests that touch `infra/terraform/**`)
+
+`codeql` remains advisory by default. Leadership may explicitly opt-in to make `codeql` a required PR check.
+
+## Post-Merge Governance Checks
+
+Post-merge governance for release promotion is enforced separately from PR branch protection:
+
+- `main-verify` (main verification aggregate)
+- `release-readiness` (deploy workflow aggregate)
+- `DAST Gate` (deploy-time security gate; job id dast-gate)
 
 ## Scanner Version Upgrade Workflow
 

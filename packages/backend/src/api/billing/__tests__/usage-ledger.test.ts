@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type ChainResult = { data: unknown; error: unknown };
 
-const { mockFrom, mockChain, getMockQueryResult, setMockQueryResult } = vi.hoisted(() => {
+const { mockFrom, mockChain, mockGetRequestSupabaseClient, getMockQueryResult, setMockQueryResult } = vi.hoisted(() => {
   let _result: ChainResult = { data: [], error: null };
 
   const chain = {
@@ -30,13 +30,14 @@ const { mockFrom, mockChain, getMockQueryResult, setMockQueryResult } = vi.hoist
   return {
     mockChain: chain,
     mockFrom: vi.fn(() => chain),
+    mockGetRequestSupabaseClient: vi.fn(() => ({ from: mockFrom })),
     getMockQueryResult: () => _result,
     setMockQueryResult: (r: ChainResult) => { _result = r; chain.order.mockResolvedValue(r); },
   };
 });
 
-vi.mock("../../../lib/supabase.js", () => ({
-  supabase: { from: mockFrom },
+vi.mock("@shared/lib/supabase", () => ({
+  getRequestSupabaseClient: mockGetRequestSupabaseClient,
 }));
 
 vi.mock("../../../lib/logger.js", () => ({
@@ -65,7 +66,7 @@ vi.mock("../../../services/billing/InvoiceMathEngine.js", () => ({
 }));
 
 vi.mock("../../../services/billing/PriceVersionService.js", () => ({
-  default: {
+  priceVersionService: {
     getEffectiveVersionForTenant: vi.fn().mockResolvedValue(null),
   },
 }));
@@ -259,6 +260,7 @@ describe("GET /billing/usage/ledger/:dateRange handler", () => {
     const { default: request } = await import("supertest");
     await request(app).get("/usage/ledger/2026-06");
 
+    expect(mockGetRequestSupabaseClient).toHaveBeenCalled();
     expect(mockFrom).toHaveBeenCalledWith("rated_ledger");
     expect(mockChain.eq).toHaveBeenCalledWith("tenant_id", "tenant-xyz");
   });

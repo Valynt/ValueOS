@@ -57,10 +57,18 @@ export function ScenarioComparison({ data }: WidgetProps) {
       {orderedScenarios.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">No scenarios available</div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {orderedScenarios.map((scenario) => (
             <div
               key={scenario.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${scenario.name} scenario`}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                }
+              }}
               className={`rounded-lg border p-4 ${scenario.isBase
                 ? "bg-primary/5 border-primary ring-1 ring-primary/20"
                 : "bg-card border-border"

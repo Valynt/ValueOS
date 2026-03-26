@@ -121,4 +121,16 @@ describe("MemorySystem cross-workspace gate", () => {
 
     expect(Array.isArray(results)).toBe(true);
   });
+
+  it("treats include_cross_workspace as an alias and still enforces reason", async () => {
+    const system = new MemorySystem(makeConfig(3600));
+
+    await expect(
+      system.retrieve({
+        agent_id: CROSS_WORKSPACE_AGENT_ID,
+        organization_id: ORG_ID,
+        include_cross_workspace: true,
+      })
+    ).rejects.toThrow("cross_workspace_reason is required");
+  });
 });

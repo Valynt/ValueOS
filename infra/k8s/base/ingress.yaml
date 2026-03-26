@@ -33,8 +33,9 @@ metadata:
     # Certificate ARN — set via overlay patches per environment.
     # Staging: infra/k8s/overlays/staging/ingress-patch.yaml
     # Production: infra/k8s/overlays/production/ingress-patch.yaml
-    # alb.ingress.kubernetes.io/certificate-arn: ""
-    # alb.ingress.kubernetes.io/wafv2-acl-arn: ""
+    # Injected by overlay replacements from ingress-annotations.env:
+    # - alb.ingress.kubernetes.io/certificate-arn
+    # - alb.ingress.kubernetes.io/wafv2-acl-arn (production internet-facing ingress)
     
     # Tags
     alb.ingress.kubernetes.io/tags: Environment=production,Application=valynt

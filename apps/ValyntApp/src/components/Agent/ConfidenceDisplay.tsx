@@ -67,7 +67,7 @@ export function ConfidenceDisplay({
       onMouseLeave={() => setShowBreakdown(false)}
       onFocus={() => breakdown && setShowBreakdown(true)}
       onBlur={() => setShowBreakdown(false)}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable for keyboard navigation
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- legacy waiver: keyboard-triggered hover disclosure will be replaced by button+dialog pattern; expires=2026-08-31; owner=@valueos-frontend
       tabIndex={breakdown ? 0 : undefined}
       role="meter"
       aria-valuenow={pct}

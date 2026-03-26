@@ -5,6 +5,7 @@ namespace: valynt
 
 resources:
   - ../../base
+  - ../../security
   - rate-limiting-patch.yaml
 
 nameSuffix: -production
@@ -12,6 +13,34 @@ nameSuffix: -production
 labels:
   - pairs:
       environment: production
+
+configMapGenerator:
+  - name: ingress-annotations
+    behavior: create
+    envs:
+      - ingress-annotations.env
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: ingress-annotations
+      fieldPath: data.ALB_CERTIFICATE_ARN
+    targets:
+      - select:
+          kind: Ingress
+          name: valynt
+        fieldPaths:
+          - metadata.annotations.alb\.ingress\.kubernetes\.io/certificate-arn
+  - source:
+      kind: ConfigMap
+      name: ingress-annotations
+      fieldPath: data.ALB_WAFV2_ACL_ARN
+    targets:
+      - select:
+          kind: Ingress
+          name: valynt
+        fieldPaths:
+          - metadata.annotations.alb\.ingress\.kubernetes\.io/wafv2-acl-arn
 
 patches:
   - path: deployment-patch.yaml

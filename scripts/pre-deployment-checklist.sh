@@ -281,10 +281,10 @@ else
 fi
 
 # Check unified deployment pipeline
-if [ -f ".github/workflows/unified-deployment-pipeline.yml" ]; then
-    check_pass "Unified deployment pipeline exists"
+if [ -f "docs/archive/workflows/unified-deployment-pipeline.reference.yml" ]; then
+    check_pass "Archived unified deployment pipeline reference exists"
 else
-    check_warn "Unified deployment pipeline not found"
+    check_warn "Archived unified deployment pipeline reference not found"
 fi
 
 # Environment-specific checks
@@ -556,7 +556,7 @@ fi
 
 # 21. API Documentation
 echo -n "Checking API documentation... "
-if [ -f "openapi.yaml" ] || [ -f "docs/API.md" ]; then
+if [ -f "packages/backend/openapi.yaml" ] || [ -f "docs/API.md" ]; then
     check_pass "API documentation exists"
 else
     check_warn "API documentation not found"

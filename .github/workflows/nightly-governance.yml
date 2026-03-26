@@ -46,7 +46,7 @@ jobs:
       OPENAI_API_KEY: test-openai-key
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -56,7 +56,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -85,7 +85,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -146,7 +146,7 @@ jobs:
       - nightly-tenant-isolation-gate
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -163,8 +163,8 @@ jobs:
     name: nightly/accessibility-trends
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -174,7 +174,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -191,7 +191,7 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
         run: |
           mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+          npx playwright test tests/accessibility/axe-a11y.spec.ts tests/accessibility/wcag-compliance.test.ts \
             --reporter=html,json \
             --output=artifacts/accessibility
       - name: Accessibility trend gate
@@ -217,10 +217,10 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -230,7 +230,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}

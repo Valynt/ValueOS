@@ -15,6 +15,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { addServiceIdentityHeader } from '../../middleware/serviceIdentityMiddleware.js';
+import { issueCsrfTokenForBinding } from '../../middleware/securityMiddleware.js';
 
 // Mock dependencies
 vi.mock('../../lib/logger', () => ({
@@ -98,8 +99,15 @@ describe('Security Integration Tests', () => {
     app = express();
     app.use(express.json());
 
-    // Set up CSRF token
-    validCsrfToken = 'test-csrf-token-123';
+    process.env.TCT_SECRET = 'test-csrf-secret';
+    const tokenRes = {
+      setHeader: vi.fn(),
+      getHeader: vi.fn(() => undefined),
+    } as unknown as express.Response;
+    validCsrfToken = issueCsrfTokenForBinding(tokenRes, {
+      userId: 'user-123',
+      sessionId: 'session-123',
+    });
 
     // Set up valid session
     validSession = {

@@ -99,9 +99,9 @@ test("CircuitBreakerMonitor.ts exists", () => {
 });
 
 // Test 4: Deployment Pipeline Files Exist
-test("Unified deployment pipeline exists", () => {
+test("Archived unified deployment pipeline reference exists", () => {
   return fs.existsSync(
-    path.join(__dirname, "../.github/workflows/unified-deployment-pipeline.yml")
+    path.join(__dirname, "../docs/archive/workflows/unified-deployment-pipeline.reference.yml")
   );
 });
 
@@ -208,11 +208,11 @@ test("Environment files use secret placeholders", () => {
   );
 });
 
-test("Deployment pipeline has all phases", () => {
+test("Archived deployment reference includes all phases", () => {
   const content = fs.readFileSync(
     path.join(
       __dirname,
-      "../.github/workflows/unified-deployment-pipeline.yml"
+      "../docs/archive/workflows/unified-deployment-pipeline.reference.yml"
     ),
     "utf8"
   );

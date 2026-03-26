@@ -2,7 +2,7 @@
 title: Post-v1 Roadmap
 status: draft
 owner: engineering
-last_updated: 2026-08-01
+last_updated: 2026-03-26
 ---
 
 # Post-v1 Roadmap
@@ -56,6 +56,8 @@ Redis instance.
 ### OpenAPI spec — remaining undocumented routes
 
 `packages/backend/openapi.yaml`
+
+Canonical OpenAPI contract location (authoritative spec for docs, tooling, and CI).
 
 Routes added in v1.0 but not yet fully specified with request/response schemas:
 - `POST /api/v1/value-commitments/:id/milestones`
