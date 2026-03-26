@@ -86,7 +86,6 @@ interface WidgetErrorBoundaryProps {
 
 interface WidgetErrorBoundaryState {
   hasError: boolean;
-  error?: Error;
 }
 
 class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErrorBoundaryState> {
@@ -95,8 +94,8 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<WidgetErrorBoundaryState> {
-    return { hasError: true, error };
+  static getDerivedStateFromError(_: Error): Partial<WidgetErrorBoundaryState> {
+    return { hasError: true };
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -121,7 +120,7 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
             {this.props.componentType} ({this.props.widgetId})
           </p>
           <button
-            onClick={() => this.setState({ hasError: false, error: undefined })}
+            onClick={() => this.setState({ hasError: false })}
             className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
           >
             Retry
