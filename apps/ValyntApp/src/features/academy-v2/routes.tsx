@@ -5,6 +5,7 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
 // Lazy load academy pages
@@ -25,8 +26,9 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 export function AcademyV2Routes() {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
         <Route path="/" element={<AcademyHome />} />
         <Route path="dashboard" element={<AcademyDashboard />} />
         <Route path="pillar/:pillarNumber" element={<PillarOverview />} />
@@ -41,8 +43,9 @@ export function AcademyV2Routes() {
         <Route path="value-tree-builder" element={<ValueTreeBuilder />} />
         <Route path="maturity-assessment" element={<MaturityAssessment />} />
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

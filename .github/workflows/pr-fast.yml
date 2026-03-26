@@ -648,6 +648,12 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+      - name: Async view completeness check (REQ-A2)
+        if: always()
+        run: pnpm run check:a11y-completeness
+      - name: Design token contrast check (REQ-A3)
+        if: always()
+        run: pnpm run check:contrast
       - name: Build frontend quality dashboard artifacts
         if: always()
         run: |
@@ -914,7 +920,190 @@ jobs:
           fi
 
           echo "MFA production config gate: PASS"
+  # ── Flake gate (REQ-C1) ──────────────────────────────────────────────────
+  flake-gate:
+    name: flake-gate
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download unit test report
+        uses: actions/download-artifact@v4
+        with:
+          name: lane-unit-component-schema-${{ github.run_id }}
+          path: artifacts/unit-report
+      - name: Run flake gate
+        run: |
+          mkdir -p artifacts/ci-lanes/flake-report
+          REPORT_PATH="artifacts/unit-report/vitest-report.json"
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "ERROR: Vitest JSON report not found at $REPORT_PATH"
+            echo "Ensure the unit-component-schema lane runs with --reporter=json and uploads vitest-report.json"
+            exit 1
+          fi
+          node scripts/ci/flake-gate.mjs \
+            --report "$REPORT_PATH" \
+            --threshold 2 \
+            --out artifacts/ci-lanes/flake-report/flake-summary.json
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/flake-gate
+          cat > artifacts/ci-lanes/flake-gate/summary.md <<EOF_SUMMARY
+          # flake-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload flake artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-flake-gate-${{ github.run_id }}
+          path: |
+            artifacts/ci-lanes/flake-report/**
+            artifacts/ci-lanes/flake-gate/**
+          if-no-files-found: warn
+          retention-days: 30
 
+  # ── Performance smoke (REQ-C4) ───────────────────────────────────────────
+  performance-smoke:
+    name: performance-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Build frontend
+        run: npx turbo run build --filter=valynt-app
+      - name: Run route load budget tests
+        run: |
+          mkdir -p artifacts/performance
+          npx playwright test tests/performance/route-load-budgets.spec.ts \
+            --reporter=json \
+            --output=artifacts/performance
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/performance/perf-report.json
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/performance-smoke
+          cat > artifacts/ci-lanes/performance-smoke/summary.md <<EOF_SUMMARY
+          # performance-smoke
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload performance artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-performance-smoke-${{ github.run_id }}
+          path: |
+            artifacts/performance/**
+            artifacts/ci-lanes/performance-smoke/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ── SLO alert rule validation (REQ-C5) ───────────────────────────────────
+  slo-rule-validation:
+    name: slo-rule-validation
+    runs-on: ubuntu-latest
+    # Always runs — the detect-changes step skips the expensive promtool
+    # installation when no monitoring files changed. This avoids the broken
+    # contains(changed_files, ...) pattern (changed_files is an integer count,
+    # not a list of paths).
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Detect monitoring file changes
+        id: changes
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}"
+          if git diff --name-only "$BASE" HEAD -- 'infra/k8s/monitoring/' | grep -q .; then
+            echo "monitoring_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "monitoring_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install promtool
+        if: steps.changes.outputs.monitoring_changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          PROM_VERSION="2.51.2"
+          curl -fsSL "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz" \
+            | tar -xz --strip-components=1 -C /usr/local/bin \
+              "prometheus-${PROM_VERSION}.linux-amd64/promtool"
+          promtool --version
+      - name: Validate SLO recording rules
+        if: steps.changes.outputs.monitoring_changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          promtool check rules infra/k8s/monitoring/prometheus-slo-rules.yaml
+      - name: Validate SLO alert rules
+        if: steps.changes.outputs.monitoring_changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          promtool check rules infra/k8s/monitoring/slo-alerts.yaml
+      - name: Validate observability recording/alert rules
+        if: steps.changes.outputs.monitoring_changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          promtool check rules infra/k8s/monitoring/observability-recording-alerts.yaml
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/slo-rule-validation
+          cat > artifacts/ci-lanes/slo-rule-validation/summary.md <<EOF_SUMMARY
+          # slo-rule-validation
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-slo-rule-validation-${{ github.run_id }}
+          path: artifacts/ci-lanes/slo-rule-validation/**
+          if-no-files-found: warn
+          retention-days: 30
   pr-fast:
     name: pr-fast
     runs-on: ubuntu-latest
@@ -929,6 +1118,9 @@ jobs:
       - accessibility-audit
       - e2e-critical
       - mfa-production-config-gate
+      - flake-gate
+      - performance-smoke
+      - slo-rule-validation
     steps:
       - name: Enforce PR blockers
         run: |
@@ -969,12 +1161,15 @@ jobs:
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}" \
             "e2e-critical:${{ needs.e2e-critical.result }}" \
-            "mfa-production-config-gate:${{ needs.mfa-production-config-gate.result }}"; do
+            "mfa-production-config-gate:${{ needs.mfa-production-config-gate.result }}" \
+            "flake-gate:${{ needs.flake-gate.result }}" \
+            "performance-smoke:${{ needs.performance-smoke.result }}" \
+            "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # secret-scan and tenant-isolation-gate must not be skipped.
+            # These gates must not be skipped — skipped means the check did not run.
             # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ]; then
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
                 echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1

@@ -52,7 +52,9 @@
     "check:eventing-architecture": "node scripts/ci/check-eventing-architecture-tags.mjs",
     "check:k8s-ingress-security-annotations": "node scripts/ci/check-k8s-ingress-security-annotations.mjs",
     "check:docs:secrets": "node scripts/ci/check-docs-secrets.mjs",
-    "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs"
+    "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs",
+    "check:a11y-completeness": "node scripts/ci/check-async-view-completeness.mjs",
+    "check:contrast": "node scripts/ci/check-design-token-contrast.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+
 import { AdminLayout } from './AdminLayout';
 
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
@@ -16,8 +18,9 @@ const LoadingFallback = () => <div className="flex items-center justify-center h
 
 export const AdminRouter: React.FC = () => {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Routes>
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
         <Route element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
 
@@ -33,8 +36,9 @@ export const AdminRouter: React.FC = () => {
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 };
 
