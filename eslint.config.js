@@ -1031,6 +1031,41 @@ const testcafeOverrides = {
   },
 };
 
+// Production-only lint profile for staged debt burn-down in critical runtime paths.
+// This profile is consumed by scripts/ci/production-eslint-profile.mjs.
+const productionOnlyProfileOverrides = {
+  files: [
+    "apps/ValyntApp/src/**/*.{ts,tsx}",
+    "packages/backend/src/**/*.ts",
+  ],
+  ignores: [
+    "**/*.test.{ts,tsx}",
+    "**/*.spec.{ts,tsx}",
+    "**/*.integration.{test,spec}.ts",
+    "**/*.int.{test,spec}.ts",
+    "**/__tests__/**",
+  ],
+  rules: {
+    "@typescript-eslint/no-explicit-any": "error",
+    "jsx-a11y/anchor-is-valid": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/aria-role": "error",
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/interactive-supports-focus": "error",
+    "jsx-a11y/no-noninteractive-element-interactions": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/role-has-required-aria-props": "error",
+    "security/detect-child-process": "error",
+    "security/detect-eval-with-expression": "error",
+    "security/detect-non-literal-regexp": "error",
+    "security/detect-object-injection": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "react/no-danger": "error",
+  },
+};
+
 export default [
   ignoresConfig,
   pluginConfig,
@@ -1056,6 +1091,7 @@ export default [
   backendRequestScopedSupabaseGuard,
   backendEgressEnforcement,
   frontendFetchEnforcement,
+  productionOnlyProfileOverrides,
   legacyRootDirBan,
   dangerouslySetInnerHtmlAllowlist,
   testcafeOverrides,
