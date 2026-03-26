@@ -53,7 +53,7 @@ describe("Supabase RLS policy matrix hard gate", () => {
   let fixture: TenantIsolationFixture;
 
   beforeAll(async () => {
-    fixture = await createTenantIsolationFixture() as TenantIsolationFixture;
+    fixture = (await createTenantIsolationFixture()) as TenantIsolationFixture;
   });
 
   afterAll(async () => {
@@ -90,10 +90,8 @@ describe("Supabase RLS policy matrix hard gate", () => {
 
   for (const target of targets) {
     it(`enforces standardized cross-tenant semantics on ${target.table}`, async () => {
-      if (!fixture) {
-        console.warn("Skipping - env vars not set");
-        return;
-      }
+      // createTenantIsolationFixture throws when env vars are absent, so
+      // fixture is guaranteed to be defined here. No per-test guard needed.
       await bootstrapTargetRecord(fixture, target);
 
       try {
@@ -139,17 +137,17 @@ describe("Supabase RLS policy matrix hard gate", () => {
         expect(ownerViewError).toBeNull();
         expect(ownerView?.map(row => row.id)).toEqual([target.id]);
       } finally {
-        await fixture.adminClient.from(target.table).delete().eq("id", target.id);
+        await fixture.adminClient
+          .from(target.table)
+          .delete()
+          .eq("id", target.id);
       }
     });
   }
 
   it("uses tenant-distinct JWT-shaped contexts for non-admin operations", async () => {
-    if (!fixture) {
-      console.warn("Skipping - env vars not set");
-      return;
-    }
-    // TenantOne and TenantTwo have different JWTs and thus different tenant_idsTwo.accessToken
+    // createTenantIsolationFixture throws when env vars are absent, so
+    // fixture is guaranteed to be defined here. No per-test guard needed.
     expect(fixture.tenantOne.accessToken).not.toBe(
       fixture.tenantTwo.accessToken
     );

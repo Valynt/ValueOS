@@ -278,6 +278,22 @@ jobs:
             --reporter=json \
             --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
             --outputFile.json=reports/compliance/rls/vitest-rls.json
+      - name: Assert RLS test count
+        # Fail if the live-DB run produced zero passing tests — guards against
+        # a misconfigured suite that silently skips all assertions.
+        run: |
+          REPORT=reports/compliance/rls/vitest-rls.json
+          if [ ! -f "$REPORT" ]; then
+            echo "ERROR: RLS test report not found at $REPORT"
+            exit 1
+          fi
+          PASSED=$(node -e "const r=require('./$REPORT'); console.log(r.numPassedTests ?? 0)")
+          echo "RLS tests passed: $PASSED"
+          if [ "$PASSED" -lt 10 ]; then
+            echo "ERROR: Expected at least 10 RLS tests to pass, got $PASSED. Check that Supabase secrets are configured and tests are not being skipped."
+            exit 1
+          fi
+
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
