@@ -9,6 +9,9 @@ const WORKFLOW_DIR = '.github/workflows';
 const CHECK_SECTION_HEADINGS = new Set([
   '## Branch Protection Required Checks',
   '## Required Status Checks',
+  '## Branch protection required checks',
+  '## PR Branch-Protection Contract (Minimal)',
+  '## Post-Merge Governance Checks',
 ]);
 
 function resolveFromRoot(relativePath) {
@@ -94,6 +97,11 @@ function collectWorkflowJobNames() {
   return jobNames;
 }
 
+function looksLikeCheckName(token) {
+  return /^[A-Za-z0-9][A-Za-z0-9\-/. ()]*$/u.test(token)
+    && (token.includes('-') || token.includes('/') || token === 'codeql' || token === 'main-verify');
+}
+
 function extractRequiredCheckSections(file) {
   const lines = read(file).split(/\r?\n/u);
   const sections = [];
@@ -113,9 +121,13 @@ function extractRequiredCheckSections(file) {
         break;
       }
 
-      const bulletMatch = trimmed.match(/^- `([^`]+)`$/u);
-      if (bulletMatch) {
-        checks.push({ name: bulletMatch[1], lineNumber: innerIndex + 1 });
+      const backticks = [...trimmed.matchAll(/`([^`]+)`/gu)].map((match) => match[1].trim());
+      for (const token of backticks) {
+        if (!looksLikeCheckName(token)) {
+          continue;
+        }
+
+        checks.push({ name: token, lineNumber: innerIndex + 1 });
       }
     }
 
@@ -154,7 +166,7 @@ if (documentedChecks.length === 0) {
 for (const documentedCheck of documentedChecks) {
   if (!workflowJobNames.has(documentedCheck.name)) {
     failures.push(
-      `- ${documentedCheck.file}:${documentedCheck.lineNumber} documents required check \`${documentedCheck.name}\`, but no workflow job emits that exact \`name:\` value.`,
+      `- ${documentedCheck.file}:${documentedCheck.lineNumber} references check name \`${documentedCheck.name}\` in ${documentedCheck.heading}, but no workflow job emits that exact \`name:\` value.`,
     );
   }
 }
@@ -170,5 +182,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `✅ Required-check documentation/workflow consistency verified (${documentedChecks.length} documented checks, ${workflowJobNames.size} workflow job names)`,
+  `✅ Required-check documentation/workflow consistency verified (${documentedChecks.length} documented check references, ${workflowJobNames.size} workflow job names)`,
 );

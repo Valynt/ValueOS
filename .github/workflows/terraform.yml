@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   terraform-checks:
-    name: Format, Validate & Plan
+    name: infra-plan
     runs-on: ubuntu-latest
     defaults:
       run:

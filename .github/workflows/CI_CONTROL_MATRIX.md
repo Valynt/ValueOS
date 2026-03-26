@@ -8,7 +8,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `pr-fast.yml` / `main-verify.yml` (`accessibility-audit`), `nightly-governance.yml` (`nightly/accessibility-trends`) | Accessibility and frontend-quality artifacts |
 | Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/i18n/*` |
 | UX Performance | Bundle + route-level load budgets enforced in CI | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/frontend-quality/*` |
-| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)`) | GitHub Code Scanning alerts (CodeQL SARIF) |
+| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql`) | GitHub Code Scanning alerts (CodeQL SARIF) |
 | Security | Gitleaks secret scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | Action logs + uploaded security artifacts |
 | Security | Semgrep SAST scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `semgrep.sarif`, uploaded to code scanning where applicable |
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `trivy-fs.sarif`, `trivy-image.sarif` |
@@ -17,7 +17,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Type Safety | Per-package TypeScript error count ratchet (no regressions) | `pr-fast.yml` (`ts-type-ratchet`) | `artifacts/ci-lanes/ts-type-ratchet/` |
 | Compliance | RLS and DSR checks + evidence export | `pr-fast.yml`, `main-verify.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
-| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
+| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`main-verify`), `deploy.yml` (`release-readiness`) | CI lane artifacts + deployment summary |
 | Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
@@ -36,13 +36,22 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
 | `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Accessibility checks were folded into the active CI entry points. |
 
-## Branch Protection Required Checks
+## PR Branch-Protection Contract (Minimal)
 
-`main` branch protection must require the following checks:
+`main` pull-request branch protection must require only:
 
 - `pr-fast`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+- `infra-plan` (conditional: required only for pull requests that touch `infra/terraform/**`)
+
+`codeql` remains advisory by default. Leadership may explicitly opt-in to make `codeql` a required PR check.
+
+## Post-Merge Governance Checks
+
+Post-merge governance for release promotion is enforced separately from PR branch protection:
+
+- `main-verify` (main verification aggregate)
+- `release-readiness` (deploy workflow aggregate)
+- `DAST Gate` (deploy-time security gate; job id dast-gate)
 
 ## Scanner Version Upgrade Workflow
 

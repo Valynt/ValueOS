@@ -495,7 +495,7 @@ jobs:
           retention-days: 90
 
   staging-deploy-release-gates:
-    name: staging-deploy-release-gates
+    name: main-verify
     runs-on: ubuntu-latest
     needs:
       - tenant-isolation-gate
