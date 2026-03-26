@@ -1,3 +1,5 @@
+> **Legacy section (`[legacy-id]`):** If you are operating a pre-rename cluster that still uses `valynt` namespaces/configmaps, substitute those resource names for the commands below and record the override in the change ticket.
+
 # Production Sign-Off: Infra Deployment Steps
 
 Covers Condition 1 (NATS JetStream) and Condition 7 (OTel collector + billing worker scraping).
@@ -18,17 +20,17 @@ kubectl config current-context
 kubectl apply -k infra/k8s/base/
 
 # Wait for NATS StatefulSet to reach ready
-kubectl rollout status statefulset/metering-nats -n valynt --timeout=120s
+kubectl rollout status statefulset/metering-nats -n valueos --timeout=120s
 
 # Verify the service is reachable
-kubectl get service metering-nats -n valynt
+kubectl get service metering-nats -n valueos
 
 # Verify billing aggregator worker restarts cleanly after NATS is available
-kubectl rollout restart deployment/billing-aggregator-worker -n valynt
-kubectl rollout status deployment/billing-aggregator-worker -n valynt --timeout=120s
+kubectl rollout restart deployment/billing-aggregator-worker -n valueos
+kubectl rollout status deployment/billing-aggregator-worker -n valueos --timeout=120s
 
 # Confirm liveness probe passes
-kubectl get pods -n valynt -l app=billing-aggregator-worker
+kubectl get pods -n valueos -l app=billing-aggregator-worker
 ```
 
 ### End-to-end smoke test
@@ -79,7 +81,7 @@ kubectl logs -n observability deployment/otel-collector --tail=50
 Verify `OTEL_EXPORTER_OTLP_ENDPOINT` in the backend deployment points to the collector:
 
 ```bash
-kubectl get configmap valynt-config -n valynt -o yaml | grep OTEL
+kubectl get configmap valueos-config -n valueos -o yaml | grep OTEL
 # Expected: http://otel-collector.observability.svc.cluster.local:4318
 ```
 
@@ -88,7 +90,7 @@ If not set, patch the configmap or deployment env:
 ```bash
 kubectl set env deployment/backend \
   OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability.svc.cluster.local:4318 \
-  -n valynt
+  -n valueos
 ```
 
 ### Deploy the billing worker ServiceMonitor
@@ -97,7 +99,7 @@ kubectl set env deployment/backend \
 kubectl apply -f infra/k8s/monitoring/billing-worker-service-monitor.yaml
 
 # Verify the ServiceMonitor was picked up by Prometheus
-kubectl get servicemonitor billing-aggregator-worker -n valynt
+kubectl get servicemonitor billing-aggregator-worker -n valueos
 ```
 
 ### Verify end-to-end tracing
@@ -120,24 +122,24 @@ To temporarily increase it for incident investigation:
 
 ```bash
 # Increase to 100% sampling
-kubectl set env deployment/backend OTEL_TRACES_SAMPLER_ARG=1.0 -n valynt
-kubectl rollout status deployment/backend -n valynt
+kubectl set env deployment/backend OTEL_TRACES_SAMPLER_ARG=1.0 -n valueos
+kubectl rollout status deployment/backend -n valueos
 
 # Restore to 10% after investigation
-kubectl set env deployment/backend OTEL_TRACES_SAMPLER_ARG=0.1 -n valynt
-kubectl rollout status deployment/backend -n valynt
+kubectl set env deployment/backend OTEL_TRACES_SAMPLER_ARG=0.1 -n valueos
+kubectl rollout status deployment/backend -n valueos
 ```
 
 ---
 
 ## Post-deployment verification checklist
 
-- [ ] `kubectl get statefulset metering-nats -n valynt` → `READY 1/1`
-- [ ] `kubectl get pods -n valynt -l app=billing-aggregator-worker` → `Running`
+- [ ] `kubectl get statefulset metering-nats -n valueos` → `READY 1/1`
+- [ ] `kubectl get pods -n valueos -l app=billing-aggregator-worker` → `Running`
 - [ ] Billing worker health endpoint responds: `curl http://<pod-ip>:8082/` → `{"status":"ok"}`
 - [ ] `kubectl get deployment otel-collector -n observability` → `READY 1/1`
 - [ ] A test agent invocation produces a row in `usage_ledger` within 30s
 - [ ] A test request produces a trace in the tracing UI
-- [ ] `kubectl get servicemonitor billing-aggregator-worker -n valynt` → exists
+- [ ] `kubectl get servicemonitor billing-aggregator-worker -n valueos` → exists
 - [ ] Prometheus scrape of `/metrics` on the billing worker returns `billing_usage_records_unaggregated`
 - [ ] No Redis keys matching `llm:cache:<model>:` (without tenant UUID) exist after startup flush
