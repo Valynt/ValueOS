@@ -57,6 +57,12 @@ export default tseslint.config(
             "TSAsExpression[expression.type='Identifier'][expression.name='req'] > TSAnyKeyword",
           message: reqAsAnyMessage,
         },
+        {
+          selector:
+            "ImportDeclaration[source.value=/TaskContext(?:\\.js)?$/] > ImportDefaultSpecifier",
+          message:
+            "TaskContext exposes named exports only. Use: import type { TaskContext } from ...",
+        },
       ],
     },
   },

@@ -6,7 +6,7 @@
  */
 
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
-import type TaskContext from '../../lib/agent-fabric/TaskContext';
+import type { TaskContext } from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper';
 import { logger } from '../../lib/logger.js'
 import { llmConfig } from '../config/llm.js'
