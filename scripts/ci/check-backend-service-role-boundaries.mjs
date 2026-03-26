@@ -17,9 +17,6 @@ const requestImportAllowlist = new Set([
   'packages/backend/src/api/services/ReferralAnalyticsService.ts',
   'packages/backend/src/api/customer/benchmarks.ts',
   'packages/backend/src/api/customer/metrics.ts',
-  'packages/backend/src/api/billing/overrides.ts',
-  'packages/backend/src/api/billing/usage.ts',
-  'packages/backend/src/api/billing/execution-control.ts',
   'packages/backend/src/api/academy/utils.ts',
   'packages/backend/src/api/academy/routers/quiz.router.ts',
   'packages/backend/src/api/academy/routers/resources.router.ts',
@@ -30,11 +27,7 @@ const requestImportAllowlist = new Set([
   'packages/backend/src/api/academy/routers/analytics.router.ts',
   'packages/backend/src/api/academy/routers/user.router.ts',
   'packages/backend/src/api/academy/routers/certifications.router.ts',
-  'packages/backend/src/api/tenant.ts',
   'packages/backend/src/api/health/index.ts',
-  'packages/backend/src/middleware/usageTrackingMiddleware.ts',
-  'packages/backend/src/middleware/usageEnforcement.ts',
-  'packages/backend/src/middleware/billingAccessEnforcement.ts',
   'packages/backend/src/middleware/auth.ts',
 ]);
 
@@ -70,6 +63,7 @@ for (const filePath of allFiles.filter((file) => requestPrefixes.some((prefix) =
     source.includes('createServiceRoleSupabaseClient') ||
     source.includes('createServerSupabaseClient') ||
     source.includes('getSupabaseClient') ||
+    source.match(/\bimport\s+\{[^}]*\bsupabase\b[^}]*\}\s+from\s+['"][^'"]*@shared\/lib\/supabase['"]/) ||
     source.match(/\bimport\s+\{[^}]*\bsupabase\b[^}]*\}\s+from\s+['"][^'"]*lib\/supabase/);
 
   if (hasServiceRoleImport) {

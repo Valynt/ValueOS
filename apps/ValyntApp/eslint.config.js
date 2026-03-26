@@ -54,12 +54,13 @@ const valyntAppConfig = {
     "no-case-declarations": "warn",
     "no-useless-escape": "warn",
     "no-useless-catch": "warn",
-    // Downgrade problematic jsx-a11y rules to warnings (address incrementally)
-    "jsx-a11y/label-has-associated-control": "warn",
+    // Accessibility rules are merge-blocking in production code; test files override these to warn.
+    "jsx-a11y/label-has-associated-control": "error",
     "jsx-a11y/anchor-is-valid": "warn",
-    "jsx-a11y/click-events-have-key-events": "warn",
-    "jsx-a11y/no-static-element-interactions": "warn",
-    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/interactive-supports-focus": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/no-noninteractive-element-interactions": "error",
     "jsx-a11y/no-noninteractive-tabindex": "warn",
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/no-redundant-roles": "warn",
@@ -143,6 +144,12 @@ const testConfig = {
   rules: {
     "@typescript-eslint/no-unnecessary-type-assertion": "off",
     "@typescript-eslint/no-unsafe-assignment": "off",
+    // Keep tests from becoming flaky while production code remains strictly enforced.
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/interactive-supports-focus": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
   },
 };
 

@@ -770,14 +770,25 @@ jobs:
     with:
       target_environment: production
 
+  manifest-maturity-production-gate:
+    name: Manifest Maturity Production Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Block production if critical manifests are unvalidated
+        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=production-gate --ledger-path=infra/k8s/manifest-maturity-ledger.json
+
  # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, release-manifest-gate, secret-rotation-gate, verify-supply-chain, emergency-skip-audit]
-    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push') && needs.release-gate-contract.result == 'success'
+    needs: [release-gate-contract, deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, manifest-maturity-production-gate, release-manifest-gate, secret-rotation-gate, verify-supply-chain, emergency-skip-audit]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push') && needs.release-gate-contract.result == 'success' && needs.manifest-maturity-production-gate.result == 'success'
     environment:
       name: production
       url: https://app.valueos.app

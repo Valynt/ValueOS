@@ -2,7 +2,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-const OPENAPI_PATH = 'scripts/openapi.yaml';
+const OPENAPI_PATH = 'packages/backend/openapi.yaml';
 
 function run(cmd) {
   return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

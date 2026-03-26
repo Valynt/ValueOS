@@ -43,7 +43,8 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 
 - `validate-secret-key-contract.mjs` — validates canonical secret key names across Kubernetes ExternalSecrets and environment/compose definitions; fails on deprecated aliases.
 
-- `check-openapi-breaking-changes.mjs` — compares `scripts/openapi.yaml` in the current branch with the base branch and fails on removed operations or removed response codes (breaking contract signals for PRs).
+- `check-openapi-breaking-changes.mjs` — compares `packages/backend/openapi.yaml` in the current branch with the base branch and fails on removed operations or removed response codes (breaking contract signals for PRs).
+- `check-openapi-file-allowlist.mjs` — enforces `packages/backend/openapi.yaml` as the canonical OpenAPI contract path and fails CI if additional `openapi*.yaml` files appear outside the explicit allowlist.
 - `check-infra-manifest-registry.mjs` — validates the active/deprecated manifest registry in `infra/README.md` and blocks references to deprecated paths.
 - `check-k8s-architecture-conformance.mjs` — lints `infra/k8s/**` manifests for required platform labels, probes, security context, and autoscaling policy declarations.
 - `validate-agent-autoscaling-manifests.py` — validates every autoscaling manifest under `infra/k8s/base/agents/` via duplicate-key-safe YAML parsing, per-file `kustomize build`, and autoscaling contract/schema checks for HPA and KEDA resources.
@@ -62,3 +63,5 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 - `express-openapi-security-check.mjs` — maps mounted Express route registrations (method/path + middleware chain), applies explicit route security metadata tags (`packages/backend/route-security-metadata.json`), compares auth posture against `packages/backend/openapi.yaml` security declarations, checks required rate-limit tier annotations, and emits `artifacts/security/route-security-posture.json` for SOC2 evidence artifacts.
 - `require-security-signoff-if-unprotected-routes.mjs` — on PRs, inspects added backend route registrations and requires a `security-signoff` label when newly added routes do not include auth/tenant controls on the registration line.
 - `check-vite-bundle-regression.mjs` — parses Vite build output logs, enforces main bundle and top shared chunk thresholds, compares against historical `.github/metrics/vite-bundle-metrics.json` regression deltas, and emits reviewer-facing markdown + JSON artifacts for CI summaries.
+
+- `check-docs-date-integrity.mjs` — validates ADR registry dates against UTC run date, checks markdown front-matter date fields (`review_date`, `last_updated`), evaluates compliance-manifest timestamps for future values, supports explicit `planned_effective_date` metadata exceptions in `docs/engineering/adr-index.md`, and emits compliance-bundle artifacts at `artifacts/security/date-integrity-report.json` + `artifacts/security/date-integrity-report.md`.

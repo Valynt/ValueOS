@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "last_updated": "2026-03-26",
+  "manifests": [
+    {
+      "class": "deployments",
+      "critical": true,
+      "status": "Aspirational",
+      "status_owner": "Platform Engineering",
+      "date_validated": "",
+      "evidence": {
+        "staging_deployment_result": "",
+        "load_test_summary": "",
+        "rollback_rehearsal": ""
+      }
+    },
+    {
+      "class": "hpa",
+      "critical": true,
+      "status": "Aspirational",
+      "status_owner": "SRE",
+      "date_validated": "",
+      "evidence": {
+        "staging_deployment_result": "",
+        "load_test_summary": "",
+        "rollback_rehearsal": ""
+      }
+    },
+    {
+      "class": "network-policies",
+      "critical": true,
+      "status": "Aspirational",
+      "status_owner": "Security Engineering",
+      "date_validated": "",
+      "evidence": {
+        "staging_deployment_result": "",
+        "load_test_summary": "",
+        "rollback_rehearsal": ""
+      }
+    },
+    {
+      "class": "external-secrets",
+      "critical": true,
+      "status": "Aspirational",
+      "status_owner": "Platform Security",
+      "date_validated": "",
+      "evidence": {
+        "staging_deployment_result": "",
+        "load_test_summary": "",
+        "rollback_rehearsal": ""
+      }
+    },
+    {
+      "class": "observability",
+      "critical": true,
+      "status": "Aspirational",
+      "status_owner": "Observability Engineering",
+      "date_validated": "",
+      "evidence": {
+        "staging_deployment_result": "",
+        "load_test_summary": "",
+        "rollback_rehearsal": ""
+      }
+    }
+  ]
+}

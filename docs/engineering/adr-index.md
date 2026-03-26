@@ -47,3 +47,18 @@ Status values:
 - Accepted
 - Deprecated
 - Superseded
+
+## Date Integrity Exceptions
+
+Use this metadata table when an ADR has an approved **planned effective date** that is intentionally in the future relative to CI run date. Do not overload the ADR `Date` field for scheduling semantics without adding this metadata.
+
+| ADR ID   | metadata_key           | metadata_value | justification |
+| -------- | ---------------------- | -------------- | ------------- |
+| ADR-0010 | planned_effective_date | 2026-06-10     | Refactor phase effective date approved for staged rollout tracking. |
+| ADR-0011 | planned_effective_date | 2026-06-10     | Refactor phase effective date approved for staged rollout tracking. |
+| ADR-0012 | planned_effective_date | 2026-06-10     | Refactor phase effective date approved for staged rollout tracking. |
+| ADR-0013 | planned_effective_date | 2026-06-10     | Refactor phase effective date approved for staged rollout tracking. |
+| ADR-0014 | planned_effective_date | 2026-06-10     | Refactor phase effective date approved for staged rollout tracking. |
+| ADR-0015 | planned_effective_date | 2026-07-15     | Agent-fabric governance rollout date tracked for compliance readiness bundle. |
+| ADR-0016 | planned_effective_date | 2026-07-15     | CI security gate model effective date tracked for compliance readiness bundle. |
+| ADR-0017 | planned_effective_date | 2026-07-15     | Service de-duplication policy effective date tracked for compliance readiness bundle. |

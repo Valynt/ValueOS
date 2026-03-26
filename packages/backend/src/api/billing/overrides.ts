@@ -9,9 +9,9 @@
 
 import { type Request, type Response, Router } from 'express';
 import { z } from 'zod';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
 import { createLogger } from '../../lib/logger.js';
-import { supabase } from '../../lib/supabase.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import {
@@ -118,6 +118,7 @@ router.get('/reconciliation', async (req: Request, res: Response): Promise<void>
   const { period_start, period_end, format } = parsed.data;
 
   try {
+    const supabase = getRequestSupabaseClient(req);
     // Fetch usage ledger rows for the period
     const { data: ledgerRows, error: ledgerErr } = await supabase
       .from('rated_ledger')

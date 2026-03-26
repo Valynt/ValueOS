@@ -1,5 +1,5 @@
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCurrentTenantContext, tenantContextMiddleware } from '../tenantContext.js'
 
@@ -30,6 +30,10 @@ function buildReq(overrides: Record<string, unknown>) {
 }
 
 describe('tenantContextMiddleware', () => {
+  beforeEach(() => {
+    process.env.TCT_SECRET = 'test-tct-secret';
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
     process.env = { ...ORIGINAL_ENV };

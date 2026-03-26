@@ -93,7 +93,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const style = node.status ? statusStyles[node.status] : undefined;
 
   return (
-    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props -- managed by parent component
+    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props -- legacy waiver: virtualized tree semantics are parent-managed; expires=2026-09-30; owner=@valueos-frontend
     <li role="treeitem" aria-expanded={hasChildren ? isExpanded : undefined}>
       <div
         className={cn(
@@ -107,7 +107,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           onNodeClick?.(node.id);
         }}
         onFocus={() => onFocus(node.id)}
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable for keyboard navigation
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- legacy waiver: roving tabindex for tree navigation pending full treegrid migration; expires=2026-09-30; owner=@valueos-frontend
         tabIndex={isFocused ? 0 : -1}
         data-node-id={node.id}
       >
