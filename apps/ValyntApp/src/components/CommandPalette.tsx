@@ -135,9 +135,11 @@ function matchesQuery(item: CommandItem, query: string): boolean {
 
 function CommandPaletteDialog({
   commands,
+  aiSuggestions,
   onClose,
 }: {
   commands: CommandItem[];
+  aiSuggestions: CommandItem[];
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -332,6 +334,29 @@ function CommandPaletteDialog({
                 })}
               </div>
             ))}
+
+            {query.length === 0 && aiSuggestions.length > 0 && (
+              <div>
+                <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  AI Suggestions
+                </p>
+                {aiSuggestions.map((item) => (
+                  <div
+                    key={`ai-${item.id}`}
+                    onClick={() => handleSelect(item)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent/50"
+                  >
+                    <Zap className="h-4 w-4 text-primary" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.label}</p>
+                      {item.description && (
+                        <p className="text-[12px] text-muted-foreground truncate">{item.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Footer hint */}
@@ -353,6 +378,7 @@ function CommandPaletteDialog({
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [extraCommands, setExtraCommands] = useState<CommandItem[]>([]);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const navigate = useCallback((path: string) => {
     // Use window.location as a fallback; in practice the router's navigate
@@ -366,8 +392,14 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     [defaultCommands, extraCommands],
   );
 
-  const openCommandPalette = useCallback(() => setIsOpen(true), []);
-  const closeCommandPalette = useCallback(() => setIsOpen(false), []);
+  const openCommandPalette = useCallback(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setIsOpen(true);
+  }, []);
+  const closeCommandPalette = useCallback(() => {
+    setIsOpen(false);
+    previousFocusRef.current?.focus();
+  }, []);
   const registerCommands = useCallback((commands: CommandItem[]) => {
     setExtraCommands((prev) => {
       const nextById = new Map<string, CommandItem>();
@@ -407,13 +439,15 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const aiSuggestions = useMemo(() => allCommands.slice(0, 3), [allCommands]);
+
   return (
     <CommandPaletteContext.Provider
       value={{ openCommandPalette, closeCommandPalette, isOpen, registerCommands }}
     >
       {children}
       {isOpen && (
-        <CommandPaletteDialog commands={allCommands} onClose={closeCommandPalette} />
+        <CommandPaletteDialog commands={allCommands} aiSuggestions={aiSuggestions} onClose={closeCommandPalette} />
       )}
     </CommandPaletteContext.Provider>
   );

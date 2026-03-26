@@ -9,6 +9,7 @@ import { ConfidenceBadge } from "@valueos/components/components/ConfidenceBadge"
 import { Check, Edit3, TrendingUp, X } from "lucide-react";
 import React from "react";
 
+import { useToast } from "@/components/common/Toast";
 import { WidgetProps } from "../CanvasHost";
 
 export interface HypothesisData {
@@ -26,8 +27,18 @@ export interface HypothesisCardWidgetData {
 }
 
 export function HypothesisCard({ data, onAction }: WidgetProps) {
+  const { error, success } = useToast();
   const widgetData = data as unknown as HypothesisCardWidgetData;
   const hypotheses = widgetData.hypotheses ?? [];
+
+  const handleAction = async (action: "accept" | "edit" | "reject", hypothesisId: string) => {
+    try {
+      await onAction?.(action, { hypothesisId });
+      success(`Hypothesis ${action}ed.`);
+    } catch {
+      error("Could not update hypothesis. Please try again.");
+    }
+  };
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
@@ -60,6 +71,14 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
       {hypotheses.map((hypothesis) => (
         <div
           key={hypothesis.id}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+            }
+          }}
+          aria-label={`Hypothesis ${hypothesis.valueDriver}`}
           className="rounded-xl border bg-card p-5 transition-all hover:shadow-sm"
         >
           <div className="flex items-start justify-between mb-4">
@@ -106,21 +125,21 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
           {hypothesis.status === "pending" && (
             <div className="flex gap-2">
               <button
-                onClick={() => onAction?.("accept", { hypothesisId: hypothesis.id })}
+                onClick={() => void handleAction("accept", hypothesis.id)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
               >
                 <Check className="w-4 h-4" />
                 Accept
               </button>
               <button
-                onClick={() => onAction?.("edit", { hypothesisId: hypothesis.id })}
+                onClick={() => void handleAction("edit", hypothesis.id)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
               </button>
               <button
-                onClick={() => onAction?.("reject", { hypothesisId: hypothesis.id })}
+                onClick={() => void handleAction("reject", hypothesis.id)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
               >
                 <X className="w-4 h-4" />

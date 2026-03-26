@@ -8,6 +8,7 @@
 import { Edit3, Save, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
+import { useToast } from "@/components/common/Toast";
 import { WidgetProps } from "../CanvasHost";
 
 export interface InlineEditorData {
@@ -20,6 +21,7 @@ export interface InlineEditorData {
 }
 
 export function InlineEditor({ data, onAction }: WidgetProps) {
+  const { error, success } = useToast();
   const widgetData = data as unknown as InlineEditorData;
   const [isEditing, setIsEditing] = useState(false);
 
@@ -39,32 +41,43 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
 
   const hasChanges = editedContent !== originalContent;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!hasChanges) {
       setIsEditing(false);
       return;
     }
     // Inline reason flow - save directly if reason provided
     if (reason.trim()) {
-      onAction?.("save", {
-        sectionId: widgetData.sectionId,
-        content: editedContent,
-        reason: reason,
-      });
-      setIsEditing(false);
-      setReason("");
+      try {
+        await onAction?.("save", {
+          sectionId: widgetData.sectionId,
+          content: editedContent,
+          reason: reason,
+        });
+        success("Section saved.");
+        setIsEditing(false);
+        setReason("");
+      } catch {
+        error("Failed to save section.");
+      }
     }
     // If no reason, just stay in edit mode (test will provide reason)
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     if (!reason.trim()) return;
 
-    onAction?.("save", {
-      sectionId: widgetData.sectionId,
-      content: editedContent,
-      reason: reason,
-    });
+    try {
+      await onAction?.("save", {
+        sectionId: widgetData.sectionId,
+        content: editedContent,
+        reason: reason,
+      });
+      success("Section saved.");
+    } catch {
+      error("Failed to save section.");
+      return;
+    }
 
     setShowReasonPrompt(false);
     setIsEditing(false);
@@ -113,6 +126,14 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
         <div
           className={`prose prose-sm max-w-none text-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 rounded p-2 -m-2 transition-colors ${isModified ? "bg-yellow-50 border-l-2 border-yellow-400" : ""}`}
           onClick={() => setIsEditing(true)}
+          tabIndex={0}
+          aria-label={`Inline editor content for ${sectionTitle}`}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setIsEditing(true);
+            }
+          }}
         >
           {currentContent}
         </div>
@@ -137,7 +158,7 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!hasChanges}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -160,6 +181,7 @@ export function InlineEditor({ data, onAction }: WidgetProps) {
         ref={textareaRef}
         value={editedContent}
         onChange={(e) => setEditedContent(e.target.value)}
+        aria-label={`Edit ${sectionTitle}`}
         className="min-h-[200px] w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 prose prose-sm max-w-none"
         style={{ whiteSpace: "pre-wrap" }}
       />
