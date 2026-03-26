@@ -246,6 +246,54 @@ describe("MemorySystem", () => {
       expect(results[0].access_count).toBe(3);
     });
 
+    it("enforces TTL on backend results before returning them", async () => {
+      const now = Date.now();
+      const expiredAt = new Date(now - 10_000).toISOString();
+      const freshAt = new Date(now - 500).toISOString();
+
+      backend.retrieve.mockResolvedValue([
+        {
+          id: "supabase-old-1",
+          agent_id: "agent-1",
+          organization_id: ORG_ID,
+          workspace_id: "ws-1",
+          content: "expired",
+          memory_type: "episodic",
+          importance: 0.2,
+          created_at: expiredAt,
+          accessed_at: expiredAt,
+          access_count: 1,
+          metadata: { organization_id: ORG_ID },
+        },
+        {
+          id: "supabase-fresh-1",
+          agent_id: "agent-1",
+          organization_id: ORG_ID,
+          workspace_id: "ws-1",
+          content: "fresh",
+          memory_type: "episodic",
+          importance: 0.9,
+          created_at: freshAt,
+          accessed_at: freshAt,
+          access_count: 1,
+          metadata: { organization_id: ORG_ID },
+        },
+      ] satisfies Memory[]);
+
+      const ttlSystem = new MemorySystem(
+        { max_memories: 100, enable_persistence: true, ttl_seconds: 1 },
+        backend,
+      );
+
+      const results = await ttlSystem.retrieve({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].id).toBe("supabase-fresh-1");
+    });
+
     it("falls back to local cache when backend retrieve fails", async () => {
       backend.retrieve.mockRejectedValue(new Error("Supabase down"));
 
