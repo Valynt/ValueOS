@@ -4,22 +4,24 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const deployWorkflow = readFileSync(resolve(ROOT, '.github/workflows/deploy.yml'), 'utf8');
 const manifest = JSON.parse(readFileSync(resolve(ROOT, 'scripts/ci/release-gate-manifest.json'), 'utf8'));
+const workflowPath = manifest.deployWorkflow.workflowPath;
+const deployWorkflow = readFileSync(resolve(ROOT, workflowPath), 'utf8');
 
 function extractJobBlock(jobId) {
-  const pattern = new RegExp(`^  ${jobId}:\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)`, 'm');
-  const match = deployWorkflow.match(pattern);
-
-  if (!match) {
-    throw new Error(`Job \`${jobId}\` was not found in .github/workflows/deploy.yml.`);
+  const startMarker = `  ${jobId}:\n`;
+  const start = deployWorkflow.indexOf(startMarker);
+  if (start === -1) {
+    throw new Error(`Job \`${jobId}\` was not found in ${workflowPath}.`);
   }
-
-  return match[0];
+  const rest = deployWorkflow.slice(start + startMarker.length);
+  const nextJob = rest.search(/\n  [A-Za-z0-9_-]+:\n/);
+  const body = nextJob === -1 ? rest : rest.slice(0, nextJob);
+  return `${startMarker}${body}`;
 }
 
 function extractInlineNeeds(jobBlock, jobId) {
-  const match = jobBlock.match(/\n    needs:\s*\[([^\]]+)\]/);
+  const match = jobBlock.match(/needs:\s*\[([^\]]+)\]/);
   if (!match) {
     throw new Error(`Job \`${jobId}\` must declare an inline needs array.`);
   }

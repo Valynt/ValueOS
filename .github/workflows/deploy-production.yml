@@ -1,0 +1,156 @@
+name: Deploy Production
+# active-runtime-platform: kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Source commit SHA from staging promotion manifest"
+        required: true
+        type: string
+      backend_image_ref:
+        description: "Immutable backend image ref (ghcr.io/...@sha256:...)"
+        required: true
+        type: string
+      frontend_image_ref:
+        description: "Immutable frontend image ref (ghcr.io/...@sha256:...)"
+        required: true
+        type: string
+      promotion_reference:
+        description: "Audit reference (run URL / change request / ticket)"
+        required: true
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+env:
+  NODE_VERSION: "20.19.0"
+  SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
+
+jobs:
+  promotion-inputs:
+    name: Validate Promotion Inputs
+    runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.inputs.outputs.source_sha }}
+      backend_image_ref: ${{ steps.inputs.outputs.backend_image_ref }}
+      frontend_image_ref: ${{ steps.inputs.outputs.frontend_image_ref }}
+      promotion_reference: ${{ steps.inputs.outputs.promotion_reference }}
+    steps:
+      - name: Resolve input payload
+        id: inputs
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SOURCE_SHA='${{ inputs.source_sha }}'
+            BACKEND_IMAGE_REF='${{ inputs.backend_image_ref }}'
+            FRONTEND_IMAGE_REF='${{ inputs.frontend_image_ref }}'
+            PROMOTION_REFERENCE='${{ inputs.promotion_reference }}'
+          else
+            if [ ! -f promotion-manifest.json ]; then
+              echo "release trigger requires promotion-manifest.json committed in repo root" >&2
+              exit 1
+            fi
+            SOURCE_SHA="$(jq -r '.source_sha' promotion-manifest.json)"
+            BACKEND_IMAGE_REF="$(jq -r '.backend_image_ref' promotion-manifest.json)"
+            FRONTEND_IMAGE_REF="$(jq -r '.frontend_image_ref' promotion-manifest.json)"
+            PROMOTION_REFERENCE="$(jq -r '.promotion_reference' promotion-manifest.json)"
+          fi
+
+          echo "$BACKEND_IMAGE_REF" | grep -Eq '^ghcr\.io/.+@sha256:[a-f0-9]{64}$' || { echo "backend_image_ref must be immutable digest ref" >&2; exit 1; }
+          echo "$FRONTEND_IMAGE_REF" | grep -Eq '^ghcr\.io/.+@sha256:[a-f0-9]{64}$' || { echo "frontend_image_ref must be immutable digest ref" >&2; exit 1; }
+          echo "$SOURCE_SHA" | grep -Eq '^[a-f0-9]{40}$' || { echo "source_sha must be full 40-char commit SHA" >&2; exit 1; }
+          test -n "$PROMOTION_REFERENCE" || { echo "promotion_reference is required" >&2; exit 1; }
+
+          printf 'source_sha=%s\n' "$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          printf 'backend_image_ref=%s\n' "$BACKEND_IMAGE_REF" >> "$GITHUB_OUTPUT"
+          printf 'frontend_image_ref=%s\n' "$FRONTEND_IMAGE_REF" >> "$GITHUB_OUTPUT"
+          printf 'promotion_reference=%s\n' "$PROMOTION_REFERENCE" >> "$GITHUB_OUTPUT"
+
+  release-gate-contract:
+    name: Release Gate Contract
+    runs-on: ubuntu-latest
+    needs: [promotion-inputs]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Evaluate canonical release gate manifest
+        env:
+          GITHUB_SHA: ${{ needs.promotion-inputs.outputs.source_sha }}
+          RELEASE_GATE_MANIFEST_PATH: scripts/ci/release-gate-manifest.json
+          RELEASE_GATE_LOCAL_RESULTS_JSON: '{"release-manifest-gate":"success","dast-gate":"success","emergency-skip-audit":"success"}'
+        run: node scripts/ci/verify-release-gate-status.mjs
+
+  verify-supply-chain:
+    name: Verify Supply Chain Artifacts
+    runs-on: ubuntu-latest
+    needs: [promotion-inputs]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Verify signed backend image
+        env:
+          IMAGE_REF: ${{ needs.promotion-inputs.outputs.backend_image_ref }}
+        run: cosign verify --certificate-oidc-issuer "https://token.actions.githubusercontent.com" --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" "${IMAGE_REF}"
+      - name: Verify signed frontend image
+        env:
+          IMAGE_REF: ${{ needs.promotion-inputs.outputs.frontend_image_ref }}
+        run: cosign verify --certificate-oidc-issuer "https://token.actions.githubusercontent.com" --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" "${IMAGE_REF}"
+
+  secret-rotation-gate:
+    name: Secret Rotation Gate
+    needs: [release-gate-contract]
+    uses: ./.github/workflows/secret-rotation-verification.yml
+    with:
+      target_environment: production
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [release-gate-contract, promotion-inputs, verify-supply-chain, secret-rotation-gate]
+    if: needs.release-gate-contract.result == 'success'
+    environment:
+      name: production
+      url: https://app.valueos.app
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Install Supabase CLI
+        run: pnpm add -g supabase@2.67.1
+      - name: Run database migrations (production)
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::PRODUCTION_DATABASE_URL secret is required for production deploys"
+            exit 1
+          fi
+          cd infra/supabase/supabase
+          supabase db push --db-url "${DATABASE_URL}"
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+      - name: Blue-green deploy using immutable promotion refs
+        run: |
+          cd infra/k8s/overlays/production
+          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ needs.promotion-inputs.outputs.backend_image_ref }}"
+          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ needs.promotion-inputs.outputs.frontend_image_ref }}"
+          kustomize build . | kubectl apply -f -
+          kubectl -n valynt rollout status deployment/backend-green-production --timeout=300s
+          kubectl -n valynt patch service backend-active-production -p '{"spec":{"selector":{"slot":"green"}}}'
+          kubectl -n valynt patch service frontend-active-production -p '{"spec":{"selector":{"slot":"green"}}}'

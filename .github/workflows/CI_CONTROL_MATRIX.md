@@ -12,12 +12,12 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Security | Gitleaks secret scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | Action logs + uploaded security artifacts |
 | Security | Semgrep SAST scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `semgrep.sarif`, uploaded to code scanning where applicable |
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `trivy-fs.sarif`, `trivy-image.sarif` |
-| Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact |
+| Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy-staging.yml / deploy-production.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact |
 | E2E Correctness | Critical user flows: auth + dashboard data load | `pr-fast.yml` (`e2e-critical`) | `artifacts/e2e/*`, `playwright-report/` |
 | Type Safety | Per-package TypeScript error count ratchet (no regressions) | `pr-fast.yml` (`ts-type-ratchet`) | `artifacts/ci-lanes/ts-type-ratchet/` |
 | Compliance | RLS and DSR checks + evidence export | `pr-fast.yml`, `main-verify.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
-| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
+| Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy-staging.yml / deploy-production.yml` | CI lane artifacts + deployment summary |
 | Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
@@ -29,7 +29,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `main-verify.yml` | Active | team-quality | Trusted post-merge verification and release-oriented aggregation on `main`. |
 | `nightly-governance.yml` | Active | team-quality | Scheduled advisory scans, trend checks, and heavy diagnostics. |
 | `codeql.yml` | Active | team-security | Dedicated CodeQL analysis on pull requests and main pushes. |
-| `deploy.yml` | Active | team-platform | Promotion and production safety controls. |
+| `deploy-staging.yml / deploy-production.yml` | Active | team-platform | Staging automation and explicit production promotion controls. |
 | `terraform.yml` | Active | team-platform | Terraform validation and drift checks. |
 | `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
 | `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault. |

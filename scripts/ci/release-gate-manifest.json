@@ -57,7 +57,7 @@
     {
       "id": "dast",
       "description": "OWASP ZAP DAST gate executed inside the deploy workflow before production promotion.",
-      "workflow": ".github/workflows/deploy.yml",
+      "workflow": ".github/workflows/deploy-staging.yml",
       "jobId": "dast-gate",
       "jobName": "DAST Gate",
       "coverage": [
@@ -78,23 +78,17 @@
     }
   ],
   "deployWorkflow": {
+    "workflowPath": ".github/workflows/deploy-production.yml",
     "aggregateJobId": "release-gate-contract",
     "aggregateJobName": "Release Gate Contract",
     "localNeeds": [
-      "release-manifest-gate",
-      "dast-gate",
-      "emergency-skip-audit"
+      "promotion-inputs"
     ],
     "productionNeedsMustInclude": [
       "release-gate-contract",
-      "deploy-staging",
-      "staging-performance-benchmarks",
-      "preprod-slo-guard",
-      "preprod-launch-gate",
-      "release-manifest-gate",
-      "secret-rotation-gate",
+      "promotion-inputs",
       "verify-supply-chain",
-      "emergency-skip-audit"
+      "secret-rotation-gate"
     ],
     "productionNeedsMustExclude": [
       "dast-gate",

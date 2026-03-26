@@ -13,7 +13,9 @@ const requiredWorkflows = [
 const optionalWorkflows = [
   ".github/workflows/nightly-governance.yml",
   ".github/workflows/test.yml",
-  ".github/workflows/deploy.yml",
+  ".github/workflows/deploy-staging.yml",
+  ".github/workflows/deploy-production.yml",
+  ".github/workflows/reliability-weekly.yml",
   ".github/workflows/release.yml",
 ];
 

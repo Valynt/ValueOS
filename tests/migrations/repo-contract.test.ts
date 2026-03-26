@@ -26,6 +26,8 @@ const CANONICAL_MIGRATIONS_DIR = resolve(
 );
 
 const CANONICAL_RUNNER = resolve(ROOT, "scripts/db/apply-migrations.sh");
+const STAGING_DEPLOY_WORKFLOW = resolve(ROOT, ".github/workflows/deploy-staging.yml");
+const PRODUCTION_DEPLOY_WORKFLOW = resolve(ROOT, ".github/workflows/deploy-production.yml");
 
 /**
  * Directories that exist but are explicitly documented as non-deployable.
@@ -135,8 +137,7 @@ describe("canonical_migration_source_is_unique", () => {
 });
 
 describe("ci_rejects_parallel_migration_execution_paths", () => {
-  const CI_WORKFLOW = resolve(ROOT, ".github/workflows/ci.yml");
-  const DEPLOY_WORKFLOW = resolve(ROOT, ".github/workflows/deploy.yml");
+  const CI_WORKFLOW = resolve(ROOT, ".github/workflows/main-verify.yml");
   const MIGRATION_INTEGRITY_WORKFLOW = resolve(
     ROOT,
     ".github/workflows/migration-chain-integrity.yml"
@@ -168,7 +169,8 @@ describe("ci_rejects_parallel_migration_execution_paths", () => {
   });
 
   it("deploy workflow applies migrations via an approved runner only", () => {
-    const workflow = readTextFile(DEPLOY_WORKFLOW);
+    const workflow = `${readTextFile(STAGING_DEPLOY_WORKFLOW)}
+${readTextFile(PRODUCTION_DEPLOY_WORKFLOW)}`;
     // Must use either the canonical shell runner or supabase db push (which
     // reads from infra/supabase/supabase — the canonical directory).
     const usesApprovedRunner =
@@ -177,7 +179,7 @@ describe("ci_rejects_parallel_migration_execution_paths", () => {
       workflow.includes("supabase db push");
     expect(
       usesApprovedRunner,
-      "deploy.yml must apply migrations via apply-migrations.sh, db:apply-migrations, or supabase db push"
+      "deploy workflows must apply migrations via apply-migrations.sh, db:apply-migrations, or supabase db push"
     ).toBe(true);
     // Must not reference prisma migrate or any legacy runner
     expect(workflow).not.toContain("prisma migrate");
@@ -297,7 +299,8 @@ describe("ad_hoc_sql_paths_are_blocked_or_flagged", () => {
   });
 
   it("no unapproved migration runner is invoked in deploy scripts", () => {
-    const deployScript = readTextFile(DEPLOY_WORKFLOW);
+    const deployScript = `${readTextFile(STAGING_DEPLOY_WORKFLOW)}
+${readTextFile(PRODUCTION_DEPLOY_WORKFLOW)}`;
     // Unapproved runners that must not appear in the deploy workflow
     const unapprovedPatterns = [
       /prisma\s+migrate/i,
@@ -309,10 +312,8 @@ describe("ad_hoc_sql_paths_are_blocked_or_flagged", () => {
     for (const pattern of unapprovedPatterns) {
       expect(
         deployScript,
-        `deploy.yml must not invoke unapproved migration runner matching /${pattern.source}/`
+        `deploy workflows must not invoke unapproved migration runner matching /${pattern.source}/`
       ).not.toMatch(pattern);
     }
   });
-
-  const DEPLOY_WORKFLOW = resolve(ROOT, ".github/workflows/deploy.yml");
 });

@@ -12,10 +12,10 @@ When root docs, architecture summaries, or runbooks describe which deployment mo
 
 ## Active deployment contract
 
-**Kubernetes is the only active shared-environment runtime for staging and production.**
+**Kubernetes is the only active deploy target.**
 
 - **Active runtime manifests:** `infra/k8s/base/`, `infra/k8s/overlays/staging/`, `infra/k8s/overlays/production/`
-- **Active deployment workflow:** `.github/workflows/deploy.yml`
+- **Active deployment workflows:** `.github/workflows/deploy-staging.yml` and `.github/workflows/deploy-production.yml`
 - **Active supporting infrastructure:** `infra/terraform/` and `infra/environments/*/terraform/`
 - **Active database migration chain:** top-level timestamped files in `infra/supabase/supabase/migrations/`
 - **Local-only substrate:** `ops/compose/`

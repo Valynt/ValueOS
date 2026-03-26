@@ -12,7 +12,8 @@ const files = [
   'infra/README.md',
   'DEPLOY.md',
   'docs/architecture/infrastructure-architecture.md',
-  '.github/workflows/deploy.yml',
+  '.github/workflows/deploy-staging.yml',
+  '.github/workflows/deploy-production.yml',
   '.github/workflows/dr-validation.yml',
   '.github/workflows/terraform.yml',
 ];
