@@ -31,6 +31,35 @@ system: valueos-platform
 
 ---
 
+## Canonical Identity Contract (Backend + Supabase)
+
+### Primary key and aliases
+
+- **Canonical primary identity key:** `organization_id`.
+- **Accepted ingress aliases (translation-only):** `tenant_id`, `org_id`, `tid`.
+- **Prohibited in new backend business logic:** direct `org_id` usage.
+
+### Translation rules
+
+1. Normalize identifiers at boundaries (JWT claims, legacy metadata, import payloads) into `organization_id` before any authorization or repository logic.
+2. Keep alias projection in dedicated adapters only (`packages/backend/src/types/identity.ts`).
+3. In sensitive modules (`auth`, `tenant`, `repositories`), do not mix canonical and legacy identifiers in the same file unless that file is explicitly on the temporary migration allowlist and has a retirement plan.
+
+### Supabase migration conventions
+
+Active migrations under `infra/supabase/supabase/migrations/` must follow:
+
+- New tenant/org identity columns use `organization_id` unless schema compatibility requires `tenant_id`.
+- `org_id` is disallowed in active migrations.
+- Any unavoidable legacy compatibility shim must be isolated, documented in SQL comments, and scheduled for removal in a follow-up migration.
+
+### Static enforcement
+
+- Backend lint: `scripts/ci/check-identifier-mixing.mjs`.
+- Rule scope: `packages/backend/src/services/auth/**`, `packages/backend/src/services/tenant/**`, `packages/backend/src/repositories/**`.
+- Migration scope: active Supabase migration chain (archive and `_deferred` are excluded from failure checks).
+
+
 ## ValueOS Database Pre-Release Audit
 
 _Source: `engineering/database/PRE_RELEASE_AUDIT_2026-01-05.md`_

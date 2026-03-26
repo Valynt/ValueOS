@@ -12,6 +12,10 @@ import { AuditLogService } from "./AuditLogService.js"
 import { authDirectoryService } from "./AuthDirectoryService.js"
 import { ValidationError } from "./errors.js"
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
+import {
+  resolveOrganizationIdFromUnknown,
+  withLegacyOrganizationAliases,
+} from "../../types/identity.js"
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
 
@@ -165,12 +169,14 @@ export class AdminUserService {
     const metadataRole = ROLE_METADATA_MAP[role];
 
     const { error: updateError } = await this.getSupabase().auth.admin.updateUserById(userId, {
-      user_metadata: {
-        ...existingMetadata,
-        roles: [metadataRole],
-        role,
-        org_id: existingMetadata.org_id || tenantId,
-      },
+      user_metadata: withLegacyOrganizationAliases(
+        {
+          ...existingMetadata,
+          roles: [metadataRole],
+          role,
+        },
+        resolveOrganizationIdFromUnknown(existingMetadata) || tenantId,
+      ),
     });
 
     if (updateError) {
@@ -247,11 +253,13 @@ export class AdminUserService {
 
     if (!user) {
       const { data, error } = await this.getSupabase().auth.admin.inviteUserByEmail(payload.email, {
-        data: {
-          roles: [ROLE_METADATA_MAP[role]],
-          role,
-          org_id: payload.tenantId,
-        },
+        data: withLegacyOrganizationAliases(
+          {
+            roles: [ROLE_METADATA_MAP[role]],
+            role,
+          },
+          payload.tenantId,
+        ),
       });
 
       if (error || !data?.user) {
