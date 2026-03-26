@@ -10,6 +10,7 @@ import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js'
+import { createCounter } from '../../lib/observability/index.js';
 import { supabase } from '../../lib/supabase.js'
 
 // ============================================================================
@@ -81,6 +82,8 @@ export class DocumentParserService {
    * Parse a document file and extract text
    */
   async parseDocument(file: File): Promise<ParsedDocument> {
+    this.assertFileSizeWithinLimit(file);
+
     // For text files, parse locally
     if (this.isTextFile(file)) {
       const text = await file.text();
@@ -134,6 +137,9 @@ export class DocumentParserService {
         metadata: (result as { metadata: ParsedDocument['metadata'] }).metadata,
       };
     } catch (error: unknown) {
+      if (error instanceof OversizedDocumentError) {
+        throw error;
+      }
       logger.error('Document parse error', error instanceof Error ? error : undefined);
       
       // Fallback: try basic text extraction
@@ -205,6 +211,53 @@ export class DocumentParserService {
       file.name.endsWith('.txt') ||
       file.name.endsWith('.md')
     );
+  }
+
+  private assertFileSizeWithinLimit(file: File): void {
+    const allowedMimeType = this.resolveMimeType(file);
+    const maxBytes = this.getMaxBytesForMimeType(allowedMimeType);
+
+    if (file.size <= maxBytes) {
+      return;
+    }
+
+    oversizedDocumentRejectCounter.inc(
+      {
+        mime_type: allowedMimeType,
+        parser: this.isTextFile(file) ? 'local' : 'edge_or_fallback',
+      },
+      1,
+    );
+
+    const errorMessage = `Document "${file.name}" is too large to parse (${formatBytes(file.size)}). Maximum allowed for ${allowedMimeType} files is ${formatBytes(maxBytes)}.`;
+
+    logger.warn('Document rejected due to file size limit', {
+      fileName: file.name,
+      mimeType: allowedMimeType,
+      fileSizeBytes: file.size,
+      maxSizeBytes: maxBytes,
+    });
+
+    throw new OversizedDocumentError(errorMessage);
+  }
+
+  private resolveMimeType(file: File): string {
+    if (file.type) {
+      return file.type;
+    }
+
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.pdf')) return 'application/pdf';
+    if (lowerName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (lowerName.endsWith('.doc')) return 'application/msword';
+    if (lowerName.endsWith('.md')) return 'text/markdown';
+    if (lowerName.endsWith('.txt')) return 'text/plain';
+    return DEFAULT_FILE_SIZE_LIMITS.default.mimeType;
+  }
+
+  private getMaxBytesForMimeType(mimeType: string): number {
+    const config = DEFAULT_FILE_SIZE_LIMITS[mimeType] ?? DEFAULT_FILE_SIZE_LIMITS.default;
+    return getConfiguredByteLimit(config.envKey, config.defaultMaxBytes);
   }
 
   private async fallbackParse(file: File): Promise<ParsedDocument> {
@@ -368,6 +421,93 @@ export class DocumentParserService {
       summary: lines.slice(0, 3).join(' ').slice(0, 200),
     };
   }
+}
+
+class OversizedDocumentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OversizedDocumentError';
+  }
+}
+
+const oversizedDocumentRejectCounter = createCounter(
+  'document_parser_oversized_rejections_total',
+  'Number of document parsing requests rejected because the file exceeded configured limits.',
+  ['mime_type', 'parser'],
+);
+
+const DEFAULT_FILE_SIZE_LIMITS: Record<string, { envKey: string; defaultMaxBytes: number; mimeType: string }> = {
+  'text/plain': {
+    envKey: 'DOCUMENT_MAX_BYTES_TEXT',
+    defaultMaxBytes: 5 * 1024 * 1024,
+    mimeType: 'text/plain',
+  },
+  'text/markdown': {
+    envKey: 'DOCUMENT_MAX_BYTES_MARKDOWN',
+    defaultMaxBytes: 5 * 1024 * 1024,
+    mimeType: 'text/markdown',
+  },
+  'application/pdf': {
+    envKey: 'DOCUMENT_MAX_BYTES_PDF',
+    defaultMaxBytes: 20 * 1024 * 1024,
+    mimeType: 'application/pdf',
+  },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+    envKey: 'DOCUMENT_MAX_BYTES_DOCX',
+    defaultMaxBytes: 15 * 1024 * 1024,
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  },
+  'application/msword': {
+    envKey: 'DOCUMENT_MAX_BYTES_DOC',
+    defaultMaxBytes: 15 * 1024 * 1024,
+    mimeType: 'application/msword',
+  },
+  default: {
+    envKey: 'DOCUMENT_MAX_BYTES_DEFAULT',
+    defaultMaxBytes: 10 * 1024 * 1024,
+    mimeType: 'application/octet-stream',
+  },
+};
+
+function getConfiguredByteLimit(envKey: string, defaultValue: number): number {
+  const value = readDocumentLimitEnvVar(envKey);
+  if (!value) {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return defaultValue;
+  }
+
+  return Math.floor(parsed);
+}
+
+function readDocumentLimitEnvVar(envKey: string): string | undefined {
+  const viteKey = `VITE_${envKey}`;
+  const viteValue = import.meta.env?.[viteKey];
+  if (typeof viteValue === 'string' && viteValue.trim()) {
+    return viteValue.trim();
+  }
+
+  if (typeof process !== 'undefined') {
+    const processValue = process.env?.[envKey] ?? process.env?.[viteKey];
+    if (typeof processValue === 'string' && processValue.trim()) {
+      return processValue.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function formatBytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) {
+    return `${mb.toFixed(1)} MB`;
+  }
+
+  const kb = bytes / 1024;
+  return `${Math.max(kb, 1).toFixed(1)} KB`;
 }
 
 // ============================================================================

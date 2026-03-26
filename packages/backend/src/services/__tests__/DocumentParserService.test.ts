@@ -38,4 +38,19 @@ describe('DocumentParserService.parseDocument fallback', () => {
     expect(result.text).toContain('Unable to extract text');
     expect(result.metadata.fileName).toBe('binary.bin');
   });
+
+  it('rejects oversized files before calling edge parser or fallback parser', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const svc = new DocumentParserService();
+    const oversizedContent = 'x'.repeat(6 * 1024 * 1024);
+    const oversizedTextFile = new File([oversizedContent], 'large.txt', {
+      type: 'text/plain',
+      lastModified: 0,
+    });
+
+    await expect(svc.parseDocument(oversizedTextFile)).rejects.toThrow(
+      /too large to parse/i,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
