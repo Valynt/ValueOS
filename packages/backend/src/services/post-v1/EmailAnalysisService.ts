@@ -7,8 +7,10 @@
 
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
 import { createServerSupabaseClient } from '../../lib/supabase';
+import { ValidationError } from '../../lib/errors.js';
 
 const supabase = createServerSupabaseClient();
+import { createTaskContext } from '../../lib/agent-fabric/TaskContext';
 import type TaskContext from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js'
@@ -81,11 +83,30 @@ class EmailAnalysisService {
     // Then analyze with LLM
     if (!taskContext) {
       const { data: { session } } = await supabase.auth.getSession();
-      taskContext = session ? {
-        sessionId: (session as unknown as { id: string }).id,
-        userId: (session as unknown as { user: { id: string } }).user.id,
-        organizationId: ((session as unknown as { user: { raw_user_meta_data?: Record<string, unknown> } }).user.raw_user_meta_data?.tenant_id as string) || ((session as unknown as { user: { raw_user_meta_data?: Record<string, unknown> } }).user.raw_user_meta_data?.organization_id as string)
-      } : undefined;
+      if (session?.user?.id) {
+        const userMetadata = (session.user.user_metadata ??
+          session.user.app_metadata ??
+          {}) as Record<string, unknown>;
+        const organizationId = typeof userMetadata.organization_id === 'string'
+          ? userMetadata.organization_id
+          : typeof userMetadata.tenant_id === 'string'
+            ? userMetadata.tenant_id
+            : undefined;
+
+        if (organizationId) {
+          taskContext = createTaskContext({
+            task_id: `email-analysis-${Date.now()}`,
+            workspace_id: organizationId,
+            organization_id: organizationId,
+            user_id: session.user.id,
+            input: {
+              source: 'email_analysis_service',
+            },
+            lifecycle_stage: 'analysis',
+            correlation_id: `email-analysis-${session.user.id}-${Date.now()}`,
+          });
+        }
+      }
     }
 
     const analysis = await this.llmAnalyze(rawEmailText, thread, taskContext);
@@ -196,8 +217,16 @@ ${truncatedText}
 
 Provide your analysis as JSON.`;
 
+    if (!taskContext?.organization_id) {
+      throw new ValidationError('organization_id is required for EmailAnalysisService.llmAnalyze()', [
+        {
+          field: 'taskContext.organization_id',
+          message: 'Missing required organization_id in TaskContext',
+        },
+      ]);
+    }
+
     try {
-      const organizationId = taskContext?.organization_id ?? taskContext?.workspace_id ?? 'system';
       const response = await secureLLMComplete(
         this.llm,
         [
@@ -205,10 +234,10 @@ Provide your analysis as JSON.`;
           { role: 'user', content: prompt },
         ],
         {
-          organizationId,
+          organizationId: taskContext.organization_id,
           temperature: 0.3,
           max_tokens: 2048,
-          userId: taskContext?.user_id,
+          userId: taskContext.user_id,
           serviceName: 'EmailAnalysisService',
           operation: 'analyzeThread',
         },
@@ -216,6 +245,9 @@ Provide your analysis as JSON.`;
 
       return this.parseAnalysisResponse(response.content, thread);
     } catch (error: unknown) {
+      if (error instanceof ValidationError) {
+        throw error;
+      }
       logger.error('Email analysis failed', error instanceof Error ? error : undefined);
       return this.fallbackAnalysis(rawText, thread);
     }
