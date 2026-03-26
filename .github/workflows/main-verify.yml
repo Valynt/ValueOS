@@ -45,8 +45,6 @@ jobs:
             --exit-code=1 \
             --report-format=sarif \
             --report-path=artifacts/secret-scan/gitleaks-history.sarif \
-            --report-format=json \
-            --report-path=artifacts/secret-scan/gitleaks-history.json \
             --log-level=warn \
             2>&1 | tee artifacts/secret-scan/gitleaks-history.log || {
               echo ""
