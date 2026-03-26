@@ -5,6 +5,7 @@
 
 import { createLogger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js';
+import { billingWebhookRetryQueueSize } from '../../metrics/billingMetrics.js'
 
 import WebhookService from './WebhookService.js'
 
@@ -130,6 +131,9 @@ class WebhookRetryService {
     failed: number;
   }> {
     const events = await this.getEventsForRetry();
+
+    // Emit gauge so billing-alerts.yaml WebhookRetryBacklog rule can fire.
+    billingWebhookRetryQueueSize.set(events.length);
 
     logger.info(`Processing ${events.length} webhook retries`);
 

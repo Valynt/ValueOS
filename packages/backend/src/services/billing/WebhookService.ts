@@ -15,6 +15,7 @@ import {
   recordBillingJobFailure,
   recordInvoiceEvent,
   recordStripeWebhook,
+  recordWebhookUnresolvedTenant,
 } from "../../metrics/billingMetrics";
 import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
@@ -360,36 +361,48 @@ export class WebhookService {
     // Update invoice status
     await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
 
-    // Resolve tenant_id from customer
+    // Resolve tenant_id from customer — required to update enforcement state.
+    // If the customer has no billing_customers row (provisioning race, data gap),
+    // throw so the webhook is marked failed and retried rather than silently skipped.
     const tenantId = await this.resolveTenantId(invoice.customer);
 
-    if (tenantId) {
-      await this.setTenantEnforcementState(
-        tenantId,
-        {
-          accessMode: "full_access",
-          gracePeriodEnforcement: false,
-          gracePeriodStartedAt: null,
-          gracePeriodExpiresAt: null,
-          reason: null,
-        },
-        event.type
-      );
-
-      this.emitBillingEvent({
-        type: "billing.payment.status_updated",
-        payload: {
-          tenantId,
-          externalInvoiceId: invoice.id,
-          externalPaymentIntentId: invoice.payment_intent ?? undefined,
-          status: "succeeded",
-          occurredAt: new Date().toISOString(),
-          idempotencyKey: event.id,
-        },
+    if (!tenantId) {
+      recordWebhookUnresolvedTenant();
+      logger.error("Payment succeeded but tenant not found in billing_customers — enforcement state not updated", {
+        stripeCustomerId: invoice.customer,
+        invoiceId: invoice.id,
+        eventId: event.id,
       });
+      throw new Error(
+        `payment_succeeded: no billing_customers row for Stripe customer ${invoice.customer} (invoice ${invoice.id})`
+      );
     }
 
-    logger.info("Payment succeeded processed", { invoiceId: invoice.id });
+    await this.setTenantEnforcementState(
+      tenantId,
+      {
+        accessMode: "full_access",
+        gracePeriodEnforcement: false,
+        gracePeriodStartedAt: null,
+        gracePeriodExpiresAt: null,
+        reason: null,
+      },
+      event.type
+    );
+
+    this.emitBillingEvent({
+      type: "billing.payment.status_updated",
+      payload: {
+        tenantId,
+        externalInvoiceId: invoice.id,
+        externalPaymentIntentId: invoice.payment_intent ?? undefined,
+        status: "succeeded",
+        occurredAt: new Date().toISOString(),
+        idempotencyKey: event.id,
+      },
+    });
+
+    logger.info("Payment succeeded processed", { invoiceId: invoice.id, tenantId });
     recordInvoiceEvent(event.type);
   }
 

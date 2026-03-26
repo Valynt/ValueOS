@@ -17,6 +17,7 @@ import Redis from 'ioredis';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
+import { tenantContextStorage } from '../middleware/tenantContext.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
@@ -124,22 +125,33 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
 
   _worker = new Worker<ResearchJobInput>(
     RESEARCH_QUEUE_NAME,
-    async (job: Job<ResearchJobInput>) => runInTelemetrySpanAsync('queue.research.consume', {
-      service: 'research-worker',
-      env: process.env.NODE_ENV || 'development',
-      tenant_id: String(job.data.tenantId),
-      trace_id: String(job.data.traceId ?? job.data.jobId ?? job.id ?? 'unknown'),
-      attributes: { queue: RESEARCH_QUEUE_NAME },
-    }, async () => {
-      logger.info('Processing job', { jobId: job.data.jobId, tenant_id: job.data.tenantId });
-      const result = await processResearchJob(job.data, supabase, llm);
-
-      if (result.status === 'failed') {
-        throw new Error(result.error ?? 'Research job failed');
+    async (job: Job<ResearchJobInput>) => {
+      const tenantId = job.data.tenantId;
+      if (!tenantId) {
+        throw new Error('researchWorker: job payload missing tenantId — cannot establish tenant context');
       }
+      // Restore tenant context so CacheService, logger context, and audit hooks
+      // operate with the correct tenant rather than falling back to tenant:global:.
+      return tenantContextStorage.run(
+        { tid: tenantId, iss: 'worker', sub: 'worker', roles: [], tier: 'worker', exp: 0 },
+        () => runInTelemetrySpanAsync('queue.research.consume', {
+          service: 'research-worker',
+          env: process.env.NODE_ENV || 'development',
+          tenant_id: tenantId,
+          trace_id: String(job.data.traceId ?? job.data.jobId ?? job.id ?? 'unknown'),
+          attributes: { queue: RESEARCH_QUEUE_NAME },
+        }, async () => {
+          logger.info('Processing job', { jobId: job.data.jobId, tenant_id: tenantId });
+          const result = await processResearchJob(job.data, supabase, llm);
 
-      return result;
-    }),
+          if (result.status === 'failed') {
+            throw new Error(result.error ?? 'Research job failed');
+          }
+
+          return result;
+        }),
+      );
+    },
     {
       connection: getRedis(),
       concurrency: 3,

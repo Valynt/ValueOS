@@ -7,6 +7,10 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 
 import { BillingMetric } from '../../config/billing.js'
 import { createLogger } from '../../lib/logger.js'
+import {
+  billingPendingAggregatesAgeSeconds,
+  billingUsageRecordsUnaggregated,
+} from '../../metrics/billingMetrics.js'
 
 const logger = createLogger({ component: 'UsageAggregator' });
 
@@ -62,6 +66,18 @@ class UsageAggregator {
         .limit(10000);
 
       if (error) throw error;
+
+      // Emit gauge so billing-alerts.yaml UsageAggregationBacklog rule can fire.
+      billingUsageRecordsUnaggregated.set(events?.length ?? 0);
+
+      // Emit age of oldest pending record so StripePendingAggregatesStale can fire.
+      if (events && events.length > 0) {
+        const oldest = events[0] as UsageEvent;
+        const ageSeconds = (Date.now() - new Date(oldest.timestamp).getTime()) / 1000;
+        billingPendingAggregatesAgeSeconds.set(ageSeconds);
+      } else {
+        billingPendingAggregatesAgeSeconds.set(0);
+      }
 
       if (!events || events.length === 0) {
         logger.info('No events to aggregate');

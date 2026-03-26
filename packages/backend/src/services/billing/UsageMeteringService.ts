@@ -7,6 +7,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
 import { createLogger } from '../../lib/logger.js'
+import { recordStripeSubmissionError } from '../../metrics/billingMetrics.js'
 import { UsageAggregate } from '../../types/billing';
 
 import StripeService from './StripeService.js'
@@ -104,6 +105,7 @@ class UsageMeteringService {
         usageRecordId: usageRecord.id,
       });
     } catch (error) {
+      recordStripeSubmissionError();
       logger.error('Error submitting usage', error, { aggregateId: aggregate.id });
       throw error;
     }

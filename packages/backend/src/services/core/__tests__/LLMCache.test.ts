@@ -46,7 +46,10 @@ vi.mock('../../../lib/metrics/cacheMetrics.js', () => ({
   cacheRequestsTotal: { inc: cacheRequestsTotalInc },
 }));
 
-import { LLMCache } from '../LLMCache.js';
+import { buildLLMCacheKey, LLMCache } from '../LLMCache.js';
+
+const TENANT_A = '11111111-1111-1111-1111-111111111111';
+const TENANT_B = '22222222-2222-2222-2222-222222222222';
 
 function makeEntry(overrides: Partial<{ hitCount: number; cost: number }> = {}) {
   return JSON.stringify({
@@ -73,7 +76,7 @@ describe('core/LLMCache', () => {
   it('returns null on cache miss', async () => {
     mockGet.mockResolvedValueOnce(null);
 
-    await expect(cache.get('prompt', 'gpt-4')).resolves.toBeNull();
+    await expect(cache.get(TENANT_A, 'prompt', 'gpt-4')).resolves.toBeNull();
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
       cache_name: 'llm',
       cache_namespace: 'llm',
@@ -91,7 +94,7 @@ describe('core/LLMCache', () => {
     };
     mockMulti.mockReturnValueOnce(tx);
 
-    const result = await cache.get('prompt', 'gpt-4');
+    const result = await cache.get(TENANT_A, 'prompt', 'gpt-4');
 
     expect(result?.hitCount).toBe(5);
     expect(mockSet).not.toHaveBeenCalled();
@@ -114,9 +117,12 @@ describe('core/LLMCache', () => {
     };
     mockMulti.mockReturnValueOnce(tx);
 
-    await cache.get('prompt', 'gpt-4', undefined, { refreshTtlOnHit: true, ttlSeconds: 90 });
+    await cache.get(TENANT_A, 'prompt', 'gpt-4', undefined, { refreshTtlOnHit: true, ttlSeconds: 90 });
 
-    expect(tx.expire).toHaveBeenCalledWith(expect.stringContaining('llm:cache:gpt-4:'), 90);
+    expect(tx.expire).toHaveBeenCalledWith(
+      expect.stringContaining(`llm:cache:${TENANT_A}:gpt-4:`),
+      90
+    );
   });
 
   it('reads aggregate stats from Redis without scanning entries', async () => {
@@ -132,5 +138,35 @@ describe('core/LLMCache', () => {
       totalCostSaved: 0.009,
       cacheSize: 1024,
     });
+  });
+});
+
+describe('buildLLMCacheKey — tenant isolation', () => {
+  it('produces different keys for different tenants with identical prompts', () => {
+    const keyA = buildLLMCacheKey({ tenantId: TENANT_A, model: 'gpt-4', prompt: 'hello' });
+    const keyB = buildLLMCacheKey({ tenantId: TENANT_B, model: 'gpt-4', prompt: 'hello' });
+    expect(keyA).not.toBe(keyB);
+    expect(keyA).toMatch(new RegExp(`^llm:cache:${TENANT_A}:gpt-4:`));
+    expect(keyB).toMatch(new RegExp(`^llm:cache:${TENANT_B}:gpt-4:`));
+  });
+
+  it('produces the same key for the same tenant, model, and prompt', () => {
+    const key1 = buildLLMCacheKey({ tenantId: TENANT_A, model: 'gpt-4', prompt: 'hello' });
+    const key2 = buildLLMCacheKey({ tenantId: TENANT_A, model: 'gpt-4', prompt: 'hello' });
+    expect(key1).toBe(key2);
+  });
+
+  it('throws when tenantId is missing', () => {
+    expect(() =>
+      buildLLMCacheKey({ tenantId: '', model: 'gpt-4', prompt: 'hello' })
+    ).toThrow('tenantId is required for LLM cache key construction');
+  });
+
+  it('includes tenantId as the first path segment after the prefix', () => {
+    const key = buildLLMCacheKey({ tenantId: TENANT_A, model: 'gpt-4', prompt: 'test' });
+    const parts = key.split(':');
+    // format: llm:cache:{tenantId}:{model}:{hash}
+    expect(parts[2]).toBe(TENANT_A);
+    expect(parts[3]).toBe('gpt-4');
   });
 });

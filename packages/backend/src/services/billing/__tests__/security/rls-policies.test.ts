@@ -26,7 +26,17 @@ import {
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 
-describe.skipIf(!supabaseAvailable)("RLS Policy Security Tests", () => {
+// Fail hard if Supabase is unavailable — a missing secret must not produce a
+// green CI run with zero tests executed. Set VALUEOS_TEST_REAL_INTEGRATION=true
+// and provide SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in CI secrets.
+if (!supabaseAvailable) {
+  throw new Error(
+    "RLS Policy Security Tests require a real Supabase instance. " +
+    "Set VALUEOS_TEST_REAL_INTEGRATION=true and provide SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY."
+  );
+}
+
+describe("RLS Policy Security Tests", () => {
   let supabase: SupabaseClient;
   let tenant1Id: string;
   let tenant2Id: string;

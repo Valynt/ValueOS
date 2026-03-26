@@ -123,10 +123,13 @@ export const createTenantIsolationFixture =
     const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = requiredEnv("SUPABASE_ANON_KEY");
 
-    // Skip if env vars not set
+    // Fail hard if required env vars are absent — a missing secret must not
+    // produce a green CI run with zero tests executed.
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      console.warn("Skipping tenant isolation tests - env vars not set");
-      return null;
+      throw new Error(
+        "Tenant isolation tests require VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY. " +
+        "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
+      );
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {

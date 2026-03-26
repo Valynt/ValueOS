@@ -1,21 +1,25 @@
-import path from 'path';
+import path from "path";
 
-import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vitest/config';
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
-const root = path.resolve(import.meta.dirname, '../..');
+const root = path.resolve(import.meta.dirname, "../..");
 // `pnpm test` is the default unit-only workspace lane. Backend integration, perf/load,
 // and backend e2e suites are intentionally routed to dedicated commands/configs instead
 // of the default packages/backend Vitest project.
 const nonUnitBackendTestPatterns = [
-  'src/**/*.integration.{test,spec}.ts',
-  'src/**/*.int.{test,spec}.ts',
-  'src/**/*.e2e.{test,spec}.ts',
-  'src/**/*.perf.{test,spec}.ts',
-  'src/**/*.load.{test,spec}.ts',
-  'src/**/__tests__/integration/**',
-  'src/**/__integration__/**',
-  'src/**/integration/**',
+  "src/**/*.integration.{test,spec}.ts",
+  "src/**/*.int.{test,spec}.ts",
+  "src/**/*.e2e.{test,spec}.ts",
+  "src/**/*.perf.{test,spec}.ts",
+  "src/**/*.load.{test,spec}.ts",
+  "src/**/__tests__/integration/**",
+  "src/**/__integration__/**",
+  "src/**/integration/**",
+  // Security/RLS tests require a live Supabase instance and throw at module
+  // level when VALUEOS_TEST_REAL_INTEGRATION is not set.  They are executed
+  // via the dedicated security vitest config (tests/security/vitest.security.config.ts).
+  "src/**/__tests__/security/**",
 ] as const;
 
 export default defineConfig({
@@ -23,59 +27,73 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'node',
-    include: ['src/**/*.{test,spec}.ts'],
-    exclude: [
-      'node_modules/**',
-      'dist/**',
-      ...nonUnitBackendTestPatterns,
-    ],
+    environment: "node",
+    include: ["src/**/*.{test,spec}.ts"],
+    exclude: ["node_modules/**", "dist/**", ...nonUnitBackendTestPatterns],
     fileParallelism: false,
-    setupFiles: ['src/test/setup.ts'],
+    setupFiles: ["src/test/setup.ts"],
     env: {
       // AgentPolicyService defaults to process.cwd()/policies/agents.
       // Tests run from packages/backend, so point explicitly to the repo-root policies.
-      AGENT_POLICY_DIR: path.resolve(root, 'policies/agents'),
+      AGENT_POLICY_DIR: path.resolve(root, "policies/agents"),
       // Required by environment config — prevents CORS validation throw in tests
-      CORS_ORIGINS: 'http://localhost:5173',
+      CORS_ORIGINS: "http://localhost:5173",
       // Required by AuthService / TCT middleware
-      TCT_SECRET: 'test-tct-secret-32-bytes-minimum!!',
-      TCT_ALLOW_EPHEMERAL_SECRET: 'true',
-      LOCAL_TEST_MODE: 'true',
+      TCT_SECRET: "test-tct-secret-32-bytes-minimum!!",
+      TCT_ALLOW_EPHEMERAL_SECRET: "true",
+      LOCAL_TEST_MODE: "true",
       // Required by WEB_SCRAPER
-      WEB_SCRAPER_ENCRYPTION_KEY: 'a'.repeat(64),
+      WEB_SCRAPER_ENCRYPTION_KEY: "a".repeat(64),
       // Supabase stubs
-      SUPABASE_URL: 'http://localhost:54321',
-      SUPABASE_ANON_KEY: 'test-anon-key',
-      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
-      VITE_SUPABASE_URL: 'http://localhost:54321',
-      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      SUPABASE_URL: "http://localhost:54321",
+      SUPABASE_ANON_KEY: "test-anon-key",
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+      VITE_SUPABASE_URL: "http://localhost:54321",
+      VITE_SUPABASE_ANON_KEY: "test-anon-key",
       // JWT
-      JWT_SECRET: 'test-jwt-secret-for-tests-only',
+      JWT_SECRET: "test-jwt-secret-for-tests-only",
       // Stripe
-      STRIPE_WEBHOOK_SECRET: 'whsec_test_secret',
-      STRIPE_SECRET_KEY: 'sk_test_secret',
+      STRIPE_WEBHOOK_SECRET: "whsec_test_secret",
+      STRIPE_SECRET_KEY: "sk_test_secret",
       // Redis (not running in tests — services should handle gracefully)
-      REDIS_URL: 'redis://localhost:6379',
+      REDIS_URL: "redis://localhost:6379",
     },
   },
   resolve: {
     alias: [
       // Workspace package aliases — keep in sync with tsconfig.app.json paths.
-      { find: '@shared', replacement: path.resolve(root, 'packages/shared/src') },
-      { find: '@valueos/shared', replacement: path.resolve(root, 'packages/shared/src') },
-      { find: '@valueos/sdui', replacement: path.resolve(root, 'packages/sdui/src') },
-      { find: /^@sdui\/(.+)$/, replacement: path.resolve(root, 'packages/sdui/src/$1') },
-      { find: '@backend', replacement: path.resolve(root, 'packages/backend/src') },
-      { find: '@mcp', replacement: path.resolve(root, 'packages/mcp') },
+      {
+        find: "@shared",
+        replacement: path.resolve(root, "packages/shared/src"),
+      },
+      {
+        find: "@valueos/shared",
+        replacement: path.resolve(root, "packages/shared/src"),
+      },
+      {
+        find: "@valueos/sdui",
+        replacement: path.resolve(root, "packages/sdui/src"),
+      },
+      {
+        find: /^@sdui\/(.+)$/,
+        replacement: path.resolve(root, "packages/sdui/src/$1"),
+      },
+      {
+        find: "@backend",
+        replacement: path.resolve(root, "packages/backend/src"),
+      },
+      { find: "@mcp", replacement: path.resolve(root, "packages/mcp") },
       // @valueos/memory sub-path exports: @valueos/memory/<sub> → packages/memory/<sub>/index.ts
       // Must be listed before the bare @valueos/memory entry so the more-specific
       // pattern matches first.
       {
         find: /^@valueos\/memory\/(.+)$/,
-        replacement: path.resolve(root, 'packages/memory/$1/index.ts'),
+        replacement: path.resolve(root, "packages/memory/$1/index.ts"),
       },
-      { find: '@valueos/memory', replacement: path.resolve(root, 'packages/memory/index.ts') },
+      {
+        find: "@valueos/memory",
+        replacement: path.resolve(root, "packages/memory/index.ts"),
+      },
     ],
   },
 });
