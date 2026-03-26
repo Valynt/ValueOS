@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bash ../../scripts/dev/start-frontend.sh",
-    "build": "vite build",
+    "build": "node ../../scripts/security/validate-browser-api-key-governance.mjs --app=ValyntApp && vite build",
     "build:strict": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
