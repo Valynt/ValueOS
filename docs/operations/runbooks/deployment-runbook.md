@@ -68,6 +68,32 @@ Authoritative operational runbook for production deployments. This runbook is th
   - `cluster.local/ns/valueos/sa/valueos-backend`
 - If the cluster trust domain is not `cluster.local`, update `infra/k8s/security/mesh-authentication.yaml` and re-run validation prior to deployment.
 
+
+## Ingress TLS and WAF annotation policy (required)
+
+Source of truth for runtime ingress security identifiers:
+
+- **IaC overlay variables**
+  - `infra/k8s/overlays/staging/ingress-annotations.env` → `ALB_CERTIFICATE_ARN`
+  - `infra/k8s/overlays/production/ingress-annotations.env` → `ALB_CERTIFICATE_ARN`, `ALB_WAFV2_ACL_ARN`
+- **CI/CD secret inputs (authoritative values)**
+  - `STAGING_INGRESS_CERTIFICATE_ARN`
+  - `PRODUCTION_INGRESS_CERTIFICATE_ARN`
+  - `PRODUCTION_INGRESS_WAFV2_ACL_ARN`
+- **WAF IaC origin**
+  - Production WAF ACL ARN is produced by Terraform resource `aws_wafv2_web_acl.prod` in `infra/environments/prod/terraform/main.tf`.
+
+Promotion is blocked unless rendered manifests satisfy policy:
+
+```bash
+node scripts/ci/check-k8s-ingress-security-annotations.mjs
+```
+
+Policy requirements:
+
+- Staging + production ingress: `alb.ingress.kubernetes.io/certificate-arn` must be non-empty after render.
+- Production internet-facing ingress: `alb.ingress.kubernetes.io/wafv2-acl-arn` must be present and non-empty after render.
+
 ## Evidence & Audit
 
 - Attach CI run URL, release ID, and smoke test evidence to the release record.

@@ -14,6 +14,24 @@ labels:
   - pairs:
       environment: staging
 
+configMapGenerator:
+  - name: ingress-annotations
+    behavior: create
+    envs:
+      - ingress-annotations.env
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: ingress-annotations
+      fieldPath: data.ALB_CERTIFICATE_ARN
+    targets:
+      - select:
+          kind: Ingress
+          name: valynt
+        fieldPaths:
+          - metadata.annotations.alb\.ingress\.kubernetes\.io/certificate-arn
+
 patches:
   - path: deployment-patch.yaml
   - path: ingress-patch.yaml

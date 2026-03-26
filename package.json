@@ -47,7 +47,8 @@
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
     "typecheck:full": "pnpm run check 2>&1 | head -1000",
-    "check:eventing-architecture": "node scripts/ci/check-eventing-architecture-tags.mjs"
+    "check:eventing-architecture": "node scripts/ci/check-eventing-architecture-tags.mjs",
+    "check:k8s-ingress-security-annotations": "node scripts/ci/check-k8s-ingress-security-annotations.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

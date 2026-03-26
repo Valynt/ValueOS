@@ -244,6 +244,18 @@ kustomize build infra/k8s/overlays/staging | kubectl apply -f -
 kustomize build infra/k8s/overlays/production | kubectl apply -f -
 ```
 
+
+## Ingress TLS/WAF source-of-truth
+
+- Overlay annotation values are parameterized via environment files consumed by Kustomize replacements:
+  - `infra/k8s/overlays/staging/ingress-annotations.env`
+  - `infra/k8s/overlays/production/ingress-annotations.env`
+- Required keys:
+  - `ALB_CERTIFICATE_ARN` (staging + production)
+  - `ALB_WAFV2_ACL_ARN` (production)
+- CI/deploy preflight must pass `node scripts/ci/check-k8s-ingress-security-annotations.mjs` after rendering overlays.
+- Production policy: internet-facing ALB ingress must include both TLS certificate and WAF ACL annotations.
+
 ## Components
 
 ### Frontend (Nginx + React)
