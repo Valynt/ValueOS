@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   createBrowserSupabaseClient,
+  createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
   getRequestSupabaseClient,
@@ -15,13 +16,14 @@ import { assertRealSupabaseAllowed } from "../test/runtimeGuards";
 
 export {
   createBrowserSupabaseClient,
+  createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
-  createServiceRoleSupabaseClient,
   getRequestSupabaseClient,
   type BrowserSafeAnonSupabaseClient,
   type RequestScopedRlsSupabaseClient,
-  type ServiceRoleSupabaseClient,
 };
+
+export type { ServiceRoleSupabaseClient };
 
 /**
  * @deprecated Prefer createRequestSupabaseClient({ accessToken }) so the RLS-safe
@@ -50,6 +52,11 @@ export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
 
 let serviceRoleSingleton: ServiceRoleSupabaseClient | undefined;
 
+/**
+ * @deprecated Import a scoped privileged module from
+ * `src/lib/supabase/privileged/*` instead of the general-purpose
+ * `src/lib/supabase` module.
+ */
 export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
   if (process.env.VITEST) {
     assertRealSupabaseAllowed("getSupabaseClient");
@@ -62,6 +69,11 @@ export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
   return serviceRoleSingleton;
 };
 
+/**
+ * @deprecated The broad service-role proxy bypasses RLS and should not be used
+ * in new code. Use request-scoped clients by default and privileged modules
+ * (`src/lib/supabase/privileged/*`) for the limited allowlisted operations.
+ */
 export const supabase = {
   get auth() { return getSupabaseClient().auth; },
   get storage() { return getSupabaseClient().storage; },

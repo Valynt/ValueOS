@@ -210,6 +210,9 @@ jobs:
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
 
+      - name: Guard backend service-role boundaries
+        run: pnpm check:backend-service-role-boundaries
+
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
