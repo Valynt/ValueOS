@@ -1,0 +1,22 @@
+{
+  "thresholds": {
+    "mainBundleKb": 400,
+    "topSharedChunkKb": 250,
+    "topSharedChunkCount": 3
+  },
+  "regressionDeltasKb": {
+    "mainBundleKb": 25,
+    "sharedChunkKb": 20,
+    "totalJsKb": 40
+  },
+  "historical": [
+    {
+      "date": "2026-03-26",
+      "sha": "baseline",
+      "mainBundleKb": 0,
+      "topSharedChunksKb": [0, 0, 0],
+      "totalJsKb": 0,
+      "notes": "Replace these placeholders with observed values from a known-good main build."
+    }
+  ]
+}

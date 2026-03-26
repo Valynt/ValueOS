@@ -58,3 +58,4 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 - `docs-boundary-consistency-lint.mjs` — lightweight docs lint that checks canonical architecture docs for stale product names (`ValueCanvas`), invalid k8s path patterns (`infra/infra/k8s`), and legacy agent source paths (`apps/ValyntApp/src/lib/agent-fabric/agents`).
 
 - `any-ratchet.mjs` — scans non-test TypeScript files for explicit `any` usage (`: any`, `as any`, `<any>`) and enforces non-increasing per-package baselines from `.github/any-ratchet-budgets.json`.
+- `check-vite-bundle-regression.mjs` — parses Vite build output logs, enforces main bundle and top shared chunk thresholds, compares against historical `.github/metrics/vite-bundle-metrics.json` regression deltas, and emits reviewer-facing markdown + JSON artifacts for CI summaries.

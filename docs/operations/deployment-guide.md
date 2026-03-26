@@ -1749,7 +1749,7 @@ https://github.com/org/ValueCanvas/pull/123
 
 ### T+0:05 - Workflow Triggered
 
-**Event**: PR creation triggers `terraform-check.yml` workflow
+**Event**: PR creation triggers `terraform.yml` workflow
 
 **Trigger Condition Met**:
 ```yaml
@@ -3643,7 +3643,7 @@ permissions:
 
 **Diagnosis**:
 1. Check if Terraform files were modified
-2. Verify workflow file exists: `.github/workflows/terraform-check.yml`
+2. Verify workflow file exists: `.github/workflows/terraform.yml`
 3. Check workflow is enabled in repository settings
 
 **Solution**:
@@ -3839,7 +3839,7 @@ The workflow updates the same comment on subsequent pushes:
 ```
 PR Created
     ↓
-terraform-check.yml runs
+terraform.yml runs
     ↓ (validates and plans)
 PR Comment posted
     ↓
@@ -3883,7 +3883,7 @@ Monitor workflow health:
 
 ```bash
 # View recent workflow runs
-gh run list --workflow=terraform-check.yml --limit 10
+gh run list --workflow=terraform.yml --limit 10
 
 # View specific run
 gh run view <run-id>
@@ -3939,7 +3939,7 @@ Add compliance checking with Checkov:
 
 ## References
 
-- **Workflow file**: `.github/workflows/terraform-check.yml`
+- **Workflow file**: `.github/workflows/terraform.yml`
 - **Validation script**: `scripts/terraform-validate.sh`
 - **Plan parser**: `scripts/parse-terraform-plan.js`
 - **Test script**: `scripts/test-terraform-workflow.sh`

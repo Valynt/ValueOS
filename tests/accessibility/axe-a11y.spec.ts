@@ -61,6 +61,11 @@ for (const page of PAGES) {
     test(`should have no critical WCAG 2.2 AA violations`, async ({
       page: p,
     }) => {
+      test.info().annotations.push({
+        type: "a11y-evidence",
+        description: `runtime-executable:axe:${page.path}`,
+      });
+
       await p.goto(page.path, { waitUntil: "networkidle" });
 
       const navigationTiming = await p.evaluate(() => {
@@ -112,6 +117,11 @@ for (const page of PAGES) {
     test("should include audited route-level components", async ({
       page: p,
     }) => {
+      test.info().annotations.push({
+        type: "a11y-evidence",
+        description: `runtime-executable:dom-audit:${page.path}`,
+      });
+
       await p.goto(page.path, { waitUntil: "networkidle" });
 
       for (const check of page.componentChecks) {

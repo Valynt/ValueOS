@@ -26,7 +26,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
 | Code review required | Branch protection on `main` | `.github/CODEOWNERS`, repo settings |
-| CI gates before merge | Lint, typecheck, tests, tenant isolation gate, security gate, and CodeQL | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, branch protection required checks |
+| CI gates before merge | Lint, typecheck, tests, tenant isolation gate, security gate, and CodeQL | `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/codeql.yml`, branch protection required checks |
 | Dependency updates | Dependabot + Renovate | `.github/dependabot.yml`, `renovate.json` |
 
 ### CC2 — Communication and Information
@@ -40,9 +40,9 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
-| Secret scanning | Gitleaks in CI + pre-commit | `.gitleaks.toml`, `.github/workflows/ci.yml` (`security-gate` job) |
-| Dependency vulnerability scanning | `pnpm audit` (high/critical fail), Trivy filesystem + image scan (HIGH/CRITICAL fail), Dependabot alerts | `.github/workflows/ci.yml` (`security-gate`), `.github/dependabot.yml` |
-| SAST and code scanning | Semgrep in CI + dedicated CodeQL workflow for JS/TS | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml` |
+| Secret scanning | Gitleaks in CI + pre-commit | `.gitleaks.toml`, `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/nightly-governance.yml` (`security-gate`) |
+| Dependency vulnerability scanning | `pnpm audit` (high/critical fail), Trivy filesystem + image scan (HIGH/CRITICAL fail), Dependabot alerts | `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/nightly-governance.yml` (`security-gate`), `.github/dependabot.yml` |
+| SAST and code scanning | Semgrep in CI + dedicated CodeQL workflow for JS/TS | `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, `.github/workflows/nightly-governance.yml`, `.github/workflows/codeql.yml` |
 
 ### CC5 — Control Activities
 
@@ -51,7 +51,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Authentication | Supabase Auth + JWT verification | `packages/backend/src/middleware/auth.ts` |
 | Authorization (RBAC) | Permission-based middleware | `packages/backend/src/middleware/rbac.ts` |
 | Tenant isolation (RLS) | Membership-aware tenant policies plus tenant-column hot-path indexes | `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql`, `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` |
-| RLS integration tests | Fork-safe static tenant gate plus trusted live-Supabase runtime lane | `.github/workflows/ci.yml` (`tenant-isolation-static-gate`, `tenant-isolation-gate`) |
+| RLS integration tests | Fork-safe static tenant gate plus trusted live-Supabase runtime lane | `.github/workflows/pr-fast.yml` (`tenant-isolation-static-gate`, `tenant-isolation-gate`) and `.github/workflows/main-verify.yml` (`tenant-isolation-gate`) |
 | CSRF protection | Double-submit cookie (server-generated) | `packages/backend/src/middleware/securityMiddleware.ts` |
 | Rate limiting | Tiered, fail-closed on auth routes | `packages/backend/src/middleware/rateLimiter.ts` |
 | Input validation | Zod schemas + sanitization | `packages/backend/src/middleware/inputValidation.ts` |

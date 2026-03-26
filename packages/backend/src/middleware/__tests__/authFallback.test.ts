@@ -1,6 +1,7 @@
 import { __setEnvSourceForTests } from '@shared/lib/env';
 import jwt from 'jsonwebtoken';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHmac } from 'node:crypto';
 
 const redisExists = vi.fn();
 const getRedisClientMock = vi.fn();
@@ -44,6 +45,29 @@ vi.mock('../../services/AuditLogService.js', () => ({
 
 const { verifyAccessToken } = await import('../auth');
 
+function signIncidentContext(env: {
+  incidentId: string;
+  incidentSeverity: string;
+  incidentStartedAt: string;
+  ttlUntil: string;
+  allowedRoutes: string;
+  allowedRoles?: string;
+  signingSecret: string;
+}): string {
+  return createHmac('sha256', env.signingSecret)
+    .update(
+      [
+        env.incidentId,
+        env.incidentSeverity,
+        env.incidentStartedAt,
+        env.ttlUntil,
+        env.allowedRoutes,
+        env.allowedRoles ?? '',
+      ].join('|')
+    )
+    .digest('hex');
+}
+
 describe('verifyAccessToken local fallback policy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,7 +76,9 @@ describe('verifyAccessToken local fallback policy', () => {
       exists: redisExists,
     });
     const now = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const incidentStartedAt = new Date(Date.now() - 60 * 1000).toISOString();
     __setEnvSourceForTests({
+      ALLOW_LOCAL_JWT_FALLBACK: 'false',
       SUPABASE_JWT_SECRET: 'test-secret',
       SUPABASE_JWT_ISSUER: 'https://issuer.test',
       SUPABASE_JWT_AUDIENCE: 'authenticated',
@@ -60,9 +86,18 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: now,
       AUTH_FALLBACK_INCIDENT_ID: 'INC-1234',
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
-      AUTH_FALLBACK_INCIDENT_STARTED_AT: new Date(Date.now() - 60 * 1000).toISOString(),
+      AUTH_FALLBACK_INCIDENT_STARTED_AT: incidentStartedAt,
       AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '14400',
       AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: signIncidentContext({
+        incidentId: 'INC-1234',
+        incidentSeverity: 'critical',
+        incidentStartedAt,
+        ttlUntil: now,
+        allowedRoutes: '/api/test',
+        signingSecret: 'incident-signing-secret',
+      }),
+      AUTH_FALLBACK_INCIDENT_SIGNING_SECRET: 'incident-signing-secret',
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
       NODE_ENV: 'production',
     });
@@ -72,6 +107,7 @@ describe('verifyAccessToken local fallback policy', () => {
     vi.useRealTimers();
     for (const key of [
       'SUPABASE_JWT_SECRET',
+      'ALLOW_LOCAL_JWT_FALLBACK',
       'SUPABASE_JWT_ISSUER',
       'SUPABASE_JWT_AUDIENCE',
       'AUTH_FALLBACK_EMERGENCY_MODE',
@@ -82,6 +118,8 @@ describe('verifyAccessToken local fallback policy', () => {
       'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS',
       'AUTH_FALLBACK_ALLOWED_ROUTES',
       'AUTH_FALLBACK_ALLOWED_ROLES',
+      'AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE',
+      'AUTH_FALLBACK_INCIDENT_SIGNING_SECRET',
       'AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS',
       'NODE_ENV',
     ]) {
@@ -181,6 +219,30 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
+  it('denies fallback when signed incident context is missing', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: '',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
   it('denies fallback when emergency route or role allowlist is missing', async () => {
     __setEnvSourceForTests({
       AUTH_FALLBACK_EMERGENCY_MODE: 'true',
@@ -231,8 +293,103 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
+  it('denies fallback when incident signature does not match context', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: 'invalid-signature',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies emergency fallback when TTL exceeds hard 30-minute safety cap', async () => {
+    const ttlUntil = new Date(Date.now() + 31 * 60 * 1000).toISOString();
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: ttlUntil,
+      AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '3600',
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: signIncidentContext({
+        incidentId: 'INC-1234',
+        incidentSeverity: 'critical',
+        incidentStartedAt: process.env.AUTH_FALLBACK_INCIDENT_STARTED_AT ?? '',
+        ttlUntil,
+        allowedRoutes: '/api/test',
+        signingSecret: 'incident-signing-secret',
+      }),
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('refuses legacy fallback flag in production unconditionally', async () => {
+    __setEnvSourceForTests({
+      ALLOW_LOCAL_JWT_FALLBACK: 'true',
+      AUTH_FALLBACK_EMERGENCY_MODE: 'false',
+      NODE_ENV: 'production',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
   it('allows local JWT verification only in explicit emergency mode with strict checks', async () => {
-    __setEnvSourceForTests({ AUTH_FALLBACK_EMERGENCY_MODE: 'true' });
+    const ttlUntil = process.env.AUTH_FALLBACK_EMERGENCY_TTL_UNTIL ?? '';
+    const incidentStartedAt = process.env.AUTH_FALLBACK_INCIDENT_STARTED_AT ?? '';
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: signIncidentContext({
+        incidentId: 'INC-1234',
+        incidentSeverity: 'critical',
+        incidentStartedAt,
+        ttlUntil,
+        allowedRoutes: '/api/test',
+        signingSecret: 'incident-signing-secret',
+      }),
+    });
 
     const token = jwt.sign(
       {
@@ -350,8 +507,19 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
       AUTH_FALLBACK_INCIDENT_STARTED_AT: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
       AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_INCIDENT_SIGNING_SECRET: 'incident-signing-secret',
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
       NODE_ENV: 'production',
+    });
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: signIncidentContext({
+        incidentId: 'INC-1234',
+        incidentSeverity: 'critical',
+        incidentStartedAt: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+        ttlUntil: new Date(baseTime.getTime() + 2 * 60 * 1000).toISOString(),
+        allowedRoutes: '/api/test',
+        signingSecret: 'incident-signing-secret',
+      }),
     });
 
     const token = jwt.sign(
