@@ -748,6 +748,52 @@ jobs:
 
           echo "Compliance evidence completeness gate: PASS"
 
+  # ── Log level production gate ─────────────────────────────────────────────
+  log-level-production-gate:
+    name: log-level-production-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check LOG_LEVEL is not warn/error/fatal in K8s base manifests
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          MANIFESTS=(
+            "infra/k8s/base/backend-deployment.yaml"
+            "infra/k8s/base/backend-blue-deployment.yaml"
+            "infra/k8s/base/backend-green-deployment.yaml"
+            "infra/k8s/base/frontend-blue-deployment.yaml"
+            "infra/k8s/base/frontend-green-deployment.yaml"
+          )
+
+          for f in "${MANIFESTS[@]}"; do
+            if [ -f "$f" ]; then
+              level=$(grep -A1 'name: LOG_LEVEL' "$f" | grep 'value:' | sed 's/.*value: *"\?\([^"]*\)"\?.*/\1/' | tr -d ' ' | head -1)
+              if [ -z "$level" ]; then
+                echo "FAIL: $f does not set LOG_LEVEL — info or debug required for audit trail visibility"
+                FAIL=1
+              elif [ "$level" = "warn" ] || [ "$level" = "error" ] || [ "$level" = "fatal" ]; then
+                echo "FAIL: $f sets LOG_LEVEL=$level — this suppresses info-level audit trail logs in production"
+                FAIL=1
+              else
+                echo "OK: $f sets LOG_LEVEL=$level"
+              fi
+            else
+              echo "FAIL: $f not found — expected manifest is missing"
+              FAIL=1
+            fi
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "log-level-production-gate: FAIL"
+            echo "Set LOG_LEVEL=info (or debug) in the listed manifests."
+            exit 1
+          fi
+
+          echo "log-level-production-gate: PASS"
+
   staging-deploy-release-gates:
     name: main-verify
     runs-on: ubuntu-latest
@@ -758,6 +804,7 @@ jobs:
       - accessibility-audit
       - dev-routes-exclusion-gate
       - compliance-evidence-completeness
+      - log-level-production-gate
     steps:
       - name: Enforce staging/deploy blockers
         env:
@@ -780,7 +827,8 @@ jobs:
           # A skipped security gate means the check did not run, which is equivalent to unknown.
           for lane in \
             "dev-routes-exclusion-gate:${{ needs.dev-routes-exclusion-gate.result }}" \
-            "compliance-evidence-completeness:${{ needs.compliance-evidence-completeness.result }}"; do
+            "compliance-evidence-completeness:${{ needs.compliance-evidence-completeness.result }}" \
+            "log-level-production-gate:${{ needs.log-level-production-gate.result }}"; do
             status="${lane#*:}"
             if [ "$status" != "success" ]; then
               echo "Security gate did not pass (status=$status): $lane"
