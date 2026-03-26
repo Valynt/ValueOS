@@ -94,6 +94,23 @@ export default tseslint.config(
               message:
                 "Request handlers must not import service-role privileged clients directly. Route through an allowlisted service module.",
             },
+            {
+              group: [
+                "@shared/lib/supabase",
+              ],
+              importNames: ["supabase", "createServerSupabaseClient", "getSupabaseClient", "createServiceRoleSupabaseClient"],
+              message:
+                "Request handlers must use request-scoped Supabase helpers (createRequestSupabaseClient/getRequestSupabaseClient). Service-role imports are forbidden in request paths.",
+            },
+            {
+              group: [
+                "**/lib/supabase",
+                "**/lib/supabase.js",
+              ],
+              importNames: ["supabase", "createServerSupabaseClient", "getSupabaseClient"],
+              message:
+                "Request handlers must use request-scoped Supabase helpers (createRequestSupabaseClient/getRequestSupabaseClient).",
+            },
           ],
         },
       ],

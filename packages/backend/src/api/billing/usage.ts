@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from 'express';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
 import { logger } from '../../lib/logger.js';
-import { supabase } from '../../lib/supabase.js';
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js';
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js';
 import { EntitlementsService } from '../../services/billing/EntitlementsService.js';
@@ -16,8 +16,6 @@ import MetricsCollector from '../../services/metering/MetricsCollector.js';
 
 const router = express.Router();
 
-const entitlementsService = new EntitlementsService(supabase);
-const invoiceMathEngine = new InvoiceMathEngine(supabase);
 const priceVersionService = PriceVersionService;
 
 // Baseline protections applied to all usage routes
@@ -38,6 +36,9 @@ router.get('/dashboard', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const supabase = getRequestSupabaseClient(req);
+    const entitlementsService = new EntitlementsService(supabase);
+    const invoiceMathEngine = new InvoiceMathEngine(supabase);
     const usageSummary = await MetricsCollector.getUsageSummary(tenantId);
     const entitlements = await entitlementsService.getUsageWithEntitlements(tenantId);
     const upcomingInvoice = await invoiceMathEngine.calculateUpcomingInvoice(tenantId, subscriptionId);
@@ -65,6 +66,8 @@ router.get('/quota-tracking', async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const supabase = getRequestSupabaseClient(req);
+    const entitlementsService = new EntitlementsService(supabase);
     const usageSummary = await MetricsCollector.getUsageSummary(tenantId);
     const quotaStatus = await entitlementsService.getUsageWithEntitlements(tenantId);
 
@@ -93,6 +96,8 @@ router.get('/invoice-preview', async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const supabase = getRequestSupabaseClient(req);
+    const invoiceMathEngine = new InvoiceMathEngine(supabase);
     const invoicePreview = await invoiceMathEngine.calculateUpcomingInvoice(tenantId, subscriptionId);
 
     res.json({
@@ -176,6 +181,7 @@ router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<vo
       return;
     }
     const { periodStart, periodEnd } = parsed;
+    const supabase = getRequestSupabaseClient(req);
 
     const { data, error: dbError } = await supabase
       .from('rated_ledger')
