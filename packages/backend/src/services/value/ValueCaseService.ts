@@ -148,6 +148,7 @@ class ValueCaseService extends TenantAwareService {
         .from("business_cases")
         .select("*")
         .eq("owner_id", userId)
+        .eq("metadata->>tenant_id", tenantId)
         .order("updated_at", { ascending: false });
 
       if (bcError) {
@@ -200,6 +201,7 @@ class ValueCaseService extends TenantAwareService {
           .select("*")
           .eq("id", id)
           .eq("owner_id", userId)
+          .eq("metadata->>tenant_id", tenantId)
           .single();
 
         if (bcError || !bc) return null;
@@ -304,6 +306,7 @@ class ValueCaseService extends TenantAwareService {
         })
         .eq("id", id)
         .eq("owner_id", userId)
+        .eq("metadata->>tenant_id", tenantId)
         .select()
         .single();
 
@@ -327,13 +330,14 @@ class ValueCaseService extends TenantAwareService {
    */
   async deleteValueCase(id: string): Promise<boolean> {
     try {
-      const { userId } = await this.getTenantContextFromSession();
+      const { userId, tenantId } = await this.getTenantContextFromSession();
 
       const { error } = await this.supabase
         .from("business_cases")
         .delete()
         .eq("id", id)
-        .eq("owner_id", userId);
+        .eq("owner_id", userId)
+        .eq("metadata->>tenant_id", tenantId);
 
       if (error) {
         logger.error("Failed to delete value case", error);
@@ -373,7 +377,7 @@ class ValueCaseService extends TenantAwareService {
 
   private async initializeRealtimeChannel(): Promise<void> {
     try {
-      const { userId } = await this.getTenantContextFromSession();
+      const { userId, tenantId } = await this.getTenantContextFromSession();
 
       this.realtimeChannel = this.supabase
         .channel("value-cases-changes")
@@ -383,7 +387,7 @@ class ValueCaseService extends TenantAwareService {
             event: "*",
             schema: "public",
             table: "business_cases",
-            filter: `owner_id=eq.${userId}`,
+            filter: `owner_id=eq.${userId},metadata->>tenant_id=eq.${tenantId}`,
           },
           async () => {
             const cases = await this.getValueCases();
