@@ -19,11 +19,12 @@
     "typecheck:strict:security": "tsc -p tsconfig.strict-zone.security.json --noEmit",
     "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
     "typecheck:strict:zones": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data",
-    "lint": "eslint src/ --max-warnings=2443",
+    "lint": "eslint src/ --max-warnings=2443 && pnpm run lint:identity",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
-    "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
+    "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts",
+    "lint:identity": "node ../../scripts/ci/check-identifier-mixing.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-iam": "^3.1012.0",

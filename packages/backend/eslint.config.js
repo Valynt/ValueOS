@@ -66,6 +66,30 @@ export default tseslint.config(
       "no-restricted-syntax": "off",
     },
   },
+
+  {
+    files: [
+      "src/services/auth/**/*.ts",
+      "src/services/tenant/**/*.ts",
+      "src/repositories/**/*.ts",
+    ],
+    ignores: [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts",
+      "src/**/__tests__/**/*.ts",
+      "src/types/identity.ts",
+    ],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "org_id",
+          message:
+            "org_id is a deprecated alias in sensitive modules. Use canonical organization_id and convert aliases through src/types/identity.ts adapters.",
+        },
+      ],
+    },
+  },
   // Disable no-explicit-any in types/ directory — type definitions need flexible typing for external API boundaries
   {
     files: ["src/types/**/*.ts"],

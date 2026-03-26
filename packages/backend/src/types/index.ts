@@ -51,3 +51,15 @@ export { EVIDENCE_TIER, evidenceTierToLabel, evidenceTierToNumeric } from "./evi
 
 // --- Audit ---
 export type { AuditLogEntry } from "./audit";
+
+// --- Identity ---
+export type { CanonicalIdentity, IdentityAliases, LegacyOrganizationIdAlias } from "./identity";
+export {
+  CANONICAL_ORGANIZATION_ID_KEY,
+  LEGACY_ORGANIZATION_ID_ALIASES,
+  IdentityAliasesSchema,
+  resolveOrganizationId,
+  resolveOrganizationIdFromUnknown,
+  toCanonicalIdentity,
+  withLegacyOrganizationAliases,
+} from "./identity";

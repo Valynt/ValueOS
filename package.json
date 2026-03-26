@@ -41,7 +41,8 @@
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
-    "typecheck:full": "pnpm run check 2>&1 | head -1000"
+    "typecheck:full": "pnpm run check 2>&1 | head -1000",
+    "check:identity-contract": "node scripts/ci/check-identifier-mixing.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
