@@ -3,7 +3,7 @@
  * Verifies user sessions using Supabase auth
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
@@ -42,11 +42,14 @@ const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
 const AUTH_FALLBACK_INCIDENT_ID = 'AUTH_FALLBACK_INCIDENT_ID';
 const AUTH_FALLBACK_INCIDENT_SEVERITY = 'AUTH_FALLBACK_INCIDENT_SEVERITY';
 const AUTH_FALLBACK_INCIDENT_STARTED_AT = 'AUTH_FALLBACK_INCIDENT_STARTED_AT';
+const AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE = 'AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE';
+const AUTH_FALLBACK_INCIDENT_SIGNING_SECRET = 'AUTH_FALLBACK_INCIDENT_SIGNING_SECRET';
 const AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS = 'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS';
 const AUTH_FALLBACK_ALERT_THRESHOLD = 'AUTH_FALLBACK_ALERT_THRESHOLD';
 const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
 const AUTH_FALLBACK_ALLOWED_ROUTES = 'AUTH_FALLBACK_ALLOWED_ROUTES';
 const AUTH_FALLBACK_ALLOWED_ROLES = 'AUTH_FALLBACK_ALLOWED_ROLES';
+const AUTH_FALLBACK_HARD_MAX_TTL_SECONDS = 30 * 60;
 
 // In-process fallback: used only when Redis is unavailable.
 // Accurate only within a single process instance — do not rely on this for
@@ -150,9 +153,17 @@ function extractRolesFromClaims(claims: JwtPayload): string[] {
 
 function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
   const legacyFallbackEnabled = getEnvVar(LEGACY_LOCAL_JWT_FALLBACK_FLAG) === 'true';
+  const nodeEnv = getEnvVar('NODE_ENV');
+
+  if (nodeEnv === 'production' && legacyFallbackEnabled) {
+    logger.error('Refusing legacy local JWT fallback flag in production', undefined, {
+      flag: LEGACY_LOCAL_JWT_FALLBACK_FLAG,
+    });
+    return null;
+  }
 
   if (getEnvVar(AUTH_FALLBACK_EMERGENCY_MODE_FLAG) !== 'true') {
-    if (legacyFallbackEnabled && getEnvVar('NODE_ENV') !== 'production') {
+    if (legacyFallbackEnabled && nodeEnv !== 'production') {
       logger.warn('Using legacy local JWT fallback flag outside production', {
         flag: LEGACY_LOCAL_JWT_FALLBACK_FLAG,
       });
@@ -212,6 +223,14 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     return null;
   }
 
+  if (ttlRemainingSeconds > AUTH_FALLBACK_HARD_MAX_TTL_SECONDS) {
+    logger.error('Fallback emergency TTL exceeds hard safety limit', undefined, {
+      ttlRemainingSeconds,
+      hardLimitSeconds: AUTH_FALLBACK_HARD_MAX_TTL_SECONDS,
+    });
+    return null;
+  }
+
   const incidentId = getEnvVar(AUTH_FALLBACK_INCIDENT_ID);
   if (!incidentId) {
     logger.error('Fallback emergency mode requires incident reference', undefined, {
@@ -267,6 +286,44 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     logger.error('Fallback emergency mode requires route or role allowlist metadata', undefined, {
       routeFlag: AUTH_FALLBACK_ALLOWED_ROUTES,
       roleFlag: AUTH_FALLBACK_ALLOWED_ROLES,
+    });
+    return null;
+  }
+
+  const incidentContextSignature = getEnvVar(AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE);
+  if (!incidentContextSignature) {
+    logger.error('Fallback emergency mode requires signed incident context', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE,
+    });
+    return null;
+  }
+
+  const incidentSigningSecret = getEnvVar(AUTH_FALLBACK_INCIDENT_SIGNING_SECRET);
+  if (!incidentSigningSecret) {
+    logger.error('Fallback emergency mode requires incident signing secret', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_SIGNING_SECRET,
+    });
+    return null;
+  }
+
+  const signaturePayload = [
+    incidentId,
+    incidentSeverity,
+    incidentStartedAt,
+    ttlUntil,
+    allowedRoutes.join(','),
+    allowedRoles.join(','),
+  ].join('|');
+  const expectedSignature = createHmac('sha256', incidentSigningSecret).update(signaturePayload).digest('hex');
+
+  const providedSignature = incidentContextSignature.trim();
+  if (
+    providedSignature.length !== expectedSignature.length ||
+    !timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature))
+  ) {
+    logger.error('Fallback emergency incident signature verification failed', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE,
+      incidentId: sanitizeForLogging(incidentId),
     });
     return null;
   }
