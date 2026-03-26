@@ -57,10 +57,38 @@ jobs:
         if: matrix.lane == 'valynt-app'
         run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
 
+  production-eslint-ratchet:
+    name: production-eslint-ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run production lint profile
+        run: pnpm lint:ci:production-profile
+      - name: Enforce production lint allowlist and warning ratchet
+        run: pnpm check:production-eslint-profile
+
   unit-component-schema:
     name: unit/component/schema
     runs-on: ubuntu-latest
-    needs: lint-runtime-packages
+    needs: [lint-runtime-packages, production-eslint-ratchet]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
