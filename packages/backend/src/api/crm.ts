@@ -18,6 +18,7 @@ import express from 'express';
 import { z } from 'zod';
 
 import { createLogger } from '../lib/logger';
+import { isOriginAllowedExact, resolveValidatedOriginFromAppUrl } from '../lib/security/originAllowlist';
 import { requireAuth } from '../middleware/auth';
 import { createRateLimiter } from '../middleware/rateLimiter';
 import { requirePermission } from '../middleware/rbac';
@@ -75,6 +76,29 @@ function parseProvider(req: Request) {
 function getRedirectUri(req: Request, provider: string): string {
   const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
   return `${baseUrl}/api/crm/${provider}/connect/callback`;
+}
+
+
+function sendOAuthCallbackErrorHtml(
+  res: Response,
+  options: { status: number; message: string; appOrigin?: string },
+): Response {
+  const scriptNonceAttr = getScriptNonceAttribute(res);
+  const messageLiteral = JSON.stringify(options.message);
+  const appOriginLiteral = options.appOrigin ? JSON.stringify(options.appOrigin) : null;
+  const postMessageScript = appOriginLiteral
+    ? `window.opener?.postMessage({ type: 'crm-oauth-error', error: ${messageLiteral} }, ${appOriginLiteral});`
+    : '';
+
+  return res.status(options.status).send(`
+    <html><body>
+      <script${scriptNonceAttr}>
+        ${postMessageScript}
+        window.close();
+      </script>
+      <p>${options.message}</p>
+    </body></html>
+  `);
 }
 
 // ============================================================================
@@ -145,6 +169,33 @@ router.get(
         return res.status(400).json({ error: 'Missing code or state parameter' });
       }
 
+      const appOriginResolution = resolveValidatedOriginFromAppUrl(process.env.APP_URL);
+      if (!appOriginResolution.ok) {
+        logger.error('OAuth callback rejected: APP_URL is missing or invalid', {
+          provider,
+          reason: appOriginResolution.error,
+        });
+        return sendOAuthCallbackErrorHtml(res, {
+          status: 500,
+          message: `OAuth callback misconfiguration: ${appOriginResolution.error}`,
+        });
+      }
+
+      const appOrigin = appOriginResolution.origin;
+      const requestOrigin = req.get('origin')?.trim();
+      if (requestOrigin && !isOriginAllowedExact(appOrigin, requestOrigin)) {
+        logger.warn('OAuth callback rejected: unexpected origin', {
+          provider,
+          expectedOrigin: appOrigin,
+          receivedOrigin: requestOrigin,
+        });
+        return sendOAuthCallbackErrorHtml(res, {
+          status: 403,
+          message: 'OAuth callback rejected: unexpected origin',
+          appOrigin,
+        });
+      }
+
       // The state is an opaque nonce. completeOAuth validates it server-side
       // via consumeOAuthState and resolves the tenantId from the state store.
       // We pass the state-store tenantId to completeOAuth for validation.
@@ -156,17 +207,11 @@ router.get(
       const stateMeta = await consumeOAuthState(state, provider);
       if (!stateMeta) {
         logger.warn('OAuth callback rejected: invalid or expired state', { provider });
-        const appOrigin = JSON.stringify(process.env.APP_URL || '*');
-        const scriptNonceAttr = getScriptNonceAttribute(res);
-        return res.status(400).send(`
-          <html><body>
-            <script${scriptNonceAttr}>
-              window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Invalid or expired state' }, ${appOrigin});
-              window.close();
-            </script>
-            <p>Connection failed. Invalid or expired state. Please try again.</p>
-          </body></html>
-        `);
+        return sendOAuthCallbackErrorHtml(res, {
+          status: 400,
+          message: 'Connection failed. Invalid or expired state. Please try again.',
+          appOrigin,
+        });
       }
 
       const tenantId = stateMeta.tenantId;
@@ -206,12 +251,12 @@ router.get(
       // Provider is already validated by CrmProviderSchema.parse() above,
       // but we use JSON.stringify to guarantee safe embedding in script context.
       const safeProvider = JSON.stringify(provider);
-      const appOrigin = JSON.stringify(process.env.APP_URL || '*');
+      const appOriginLiteral = JSON.stringify(appOrigin);
       const scriptNonceAttr = getScriptNonceAttribute(res);
       return res.send(`
         <html><body>
           <script${scriptNonceAttr}>
-            window.opener?.postMessage({ type: 'crm-oauth-complete', provider: ${safeProvider} }, ${appOrigin});
+            window.opener?.postMessage({ type: 'crm-oauth-complete', provider: ${safeProvider} }, ${appOriginLiteral});
             window.close();
           </script>
           <p>Connected successfully. You can close this window.</p>
@@ -219,17 +264,12 @@ router.get(
       `);
     } catch (error) {
       logger.error('OAuth callback failed', error instanceof Error ? error : undefined);
-      const appOrigin = JSON.stringify(process.env.APP_URL || '*');
-      const scriptNonceAttr = getScriptNonceAttribute(res);
-      return res.status(500).send(`
-        <html><body>
-          <script${scriptNonceAttr}>
-            window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Connection failed' }, ${appOrigin});
-            window.close();
-          </script>
-          <p>Connection failed. Please try again.</p>
-        </body></html>
-      `);
+      const appOriginResolution = resolveValidatedOriginFromAppUrl(process.env.APP_URL);
+      return sendOAuthCallbackErrorHtml(res, {
+        status: 500,
+        message: 'Connection failed. Please try again.',
+        appOrigin: appOriginResolution.ok ? appOriginResolution.origin : undefined,
+      });
     }
   },
 );
