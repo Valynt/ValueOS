@@ -1,55 +1,265 @@
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: agent-default-deny
-  namespace: valynt
-spec:
-  selector:
-    matchLabels:
-      component: agent
-  action: ALLOW
-  rules: []
+# Agent pairwise ALLOW authorization policies.
+#
+# Trust domain: valueos.internal
+# SPIFFE principal format: spiffe://valueos.internal/ns/{namespace}/agents/{slug}
+#
+# These policies override the deny-by-default policy in deny-by-default-policy.yaml.
+# Every edge declared here must also appear in agent-handoff-allowlist.md.
+# Any communication path NOT listed here is denied.
+#
+# Agents covered: opportunity, target, financial-modeling, integrity, realization,
+#   expansion, narrative, compliance-auditor, context-extraction, deal-assembly, discovery
+#
+# Backend orchestrator (spiffe://valueos.internal/ns/valynt/services/backend-api)
+# is an allowed initiator for ALL agents.
 
----
+# ── Backend orchestrator → all agents ────────────────────────────────────────
+# The backend API is the sole external initiator of agent invocations.
+
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: allow-backend-to-agents
+  name: allow-backend-to-opportunity
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
 spec:
   selector:
     matchLabels:
-      component: agent
+      app.kubernetes.io/name: opportunity-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/backend
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
       to:
         - operation:
             ports: ["8080"]
 
 ---
-# Pairwise explicit allow-list from architecture manifest.
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: allow-opportunity-to-financial-modeling
+  name: allow-backend-to-target
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
 spec:
   selector:
     matchLabels:
-      app: financial-modeling-agent
+      app.kubernetes.io/name: target-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/opportunity-agent
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
       to:
         - operation:
             ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-financial-modeling
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: financial-modeling-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-integrity
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-realization
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: realization-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-expansion
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: expansion-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-narrative
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: narrative-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-compliance-auditor
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: compliance-auditor-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-context-extraction
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: context-extraction-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-deal-assembly
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: deal-assembly-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-discovery
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: discovery-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
+      to:
+        - operation:
+            ports: ["8080"]
+
+# ── Lifecycle DAG pairwise edges ──────────────────────────────────────────────
+# Source: agent-communication-graph.yaml + docs/security-compliance/agent-handoff-allowlist.md
+# Only declared edges are allowed. All other agent-to-agent paths are denied.
 
 ---
 apiVersion: security.istio.io/v1beta1
@@ -57,16 +267,65 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-opportunity-to-target
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "opportunity->target"
 spec:
   selector:
     matchLabels:
-      app: target-agent
+      app.kubernetes.io/name: target-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/opportunity-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/opportunity"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-opportunity-to-financial-modeling
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "opportunity->financial-modeling"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: financial-modeling-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/opportunity"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-opportunity-to-context-extraction
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "opportunity->context-extraction"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: context-extraction-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/opportunity"
       to:
         - operation:
             ports: ["8080"]
@@ -77,16 +336,19 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-financial-modeling-to-target
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "financial-modeling->target"
 spec:
   selector:
     matchLabels:
-      app: target-agent
+      app.kubernetes.io/name: target-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/financial-modeling-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/financial-modeling"
       to:
         - operation:
             ports: ["8080"]
@@ -97,36 +359,19 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-financial-modeling-to-integrity
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "financial-modeling->integrity"
 spec:
   selector:
     matchLabels:
-      app: integrity-agent
+      app.kubernetes.io/name: integrity-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/financial-modeling-agent
-      to:
-        - operation:
-            ports: ["8080"]
-
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: allow-target-to-integrity
-  namespace: valynt
-spec:
-  selector:
-    matchLabels:
-      app: integrity-agent
-  action: ALLOW
-  rules:
-    - from:
-        - source:
-            principals:
-              - spiffe://valueos/ns/valynt/sa/target-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/financial-modeling"
       to:
         - operation:
             ports: ["8080"]
@@ -137,16 +382,65 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-target-to-realization
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "target->realization"
 spec:
   selector:
     matchLabels:
-      app: realization-agent
+      app.kubernetes.io/name: realization-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/target-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/target"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-target-to-integrity
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "target->integrity"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/target"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-target-to-deal-assembly
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "target->deal-assembly"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: deal-assembly-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/target"
       to:
         - operation:
             ports: ["8080"]
@@ -157,16 +451,19 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-integrity-to-realization
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "integrity->realization"
 spec:
   selector:
     matchLabels:
-      app: realization-agent
+      app.kubernetes.io/name: realization-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/integrity-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/integrity"
       to:
         - operation:
             ports: ["8080"]
@@ -177,16 +474,138 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-realization-to-expansion
   namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "realization->expansion"
 spec:
   selector:
     matchLabels:
-      app: expansion-agent
+      app.kubernetes.io/name: expansion-agent
   action: ALLOW
   rules:
     - from:
         - source:
             principals:
-              - spiffe://valueos/ns/valynt/sa/realization-agent
+              - "spiffe://valueos.internal/ns/valynt/agents/realization"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-expansion-to-integrity
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "expansion->integrity"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/expansion"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-deal-assembly-to-narrative
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "deal-assembly->narrative"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: narrative-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/deal-assembly"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-discovery-to-opportunity
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "discovery->opportunity"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opportunity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/discovery"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-context-extraction-to-opportunity
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "context-extraction->opportunity"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opportunity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/agents/context-extraction"
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+# compliance-auditor reads from all agents (read-only audit path).
+# Declared as a single policy targeting the compliance-auditor agent
+# to allow the backend to invoke it for cross-agent audit queries.
+# Compliance-auditor does NOT initiate calls to other agents.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-compliance-auditor-invoke
+  namespace: valynt
+  labels:
+    valueos.io/policy-layer: explicit-allow
+    valueos.io/dag-edge: "backend->compliance-auditor"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: compliance-auditor-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "spiffe://valueos.internal/ns/valynt/services/backend-api"
       to:
         - operation:
             ports: ["8080"]

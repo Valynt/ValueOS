@@ -2,6 +2,83 @@ import { createHash, createHmac, randomUUID as nodeRandomUUID, timingSafeEqual }
 
 import { NextFunction, Request, Response } from 'express';
 
+// Canonical SPIFFE trust domain for all ValueOS workloads.
+// SPIFFE IDs take the form:
+//   spiffe://valueos.internal/ns/{namespace}/{type}/{slug}
+// where type is one of: agents | services | workers
+const SPIFFE_TRUST_DOMAIN = 'valueos.internal';
+const SPIFFE_ID_PATTERN = /^spiffe:\/\/valueos\.internal\/ns\/([^/]+)\/(agents|services|workers)\/([^/]+)$/;
+
+// Registered agent slugs — must match spire-workload-registrations.yaml.
+// Update this set when a new agent ClusterSPIFFEID is added.
+const REGISTERED_AGENT_SLUGS = new Set([
+  'opportunity',
+  'target',
+  'financial-modeling',
+  'integrity',
+  'realization',
+  'expansion',
+  'narrative',
+  'compliance-auditor',
+  'context-extraction',
+  'deal-assembly',
+  'discovery',
+]);
+
+const REGISTERED_SERVICE_SLUGS = new Set([
+  'backend-api',
+  'decision-router',
+  'execution-runtime',
+  'policy-engine',
+  'context-store',
+  'artifact-composer',
+  'recommendation-engine',
+]);
+
+// No worker slugs are registered yet. The set is defined so the validation
+// path is consistent with agents and services — any workers/ SPIFFE ID is
+// rejected until a slug is explicitly added here.
+const REGISTERED_WORKER_SLUGS = new Set<string>();
+
+type ParsedSpiffeId = {
+  spiffeId: string;
+  principalType: 'agents' | 'services' | 'workers';
+  slug: string;
+  namespace: string;
+};
+
+/**
+ * Parses and validates a SPIFFE ID against the valueos.internal trust domain.
+ * Returns null if the ID is malformed, from the wrong trust domain, or references
+ * an unregistered principal.
+ */
+function parseAndValidateSpiffeId(spiffeId: string): ParsedSpiffeId | null {
+  if (!spiffeId.startsWith(`spiffe://${SPIFFE_TRUST_DOMAIN}/`)) {
+    return null;
+  }
+
+  const match = SPIFFE_ID_PATTERN.exec(spiffeId);
+  if (!match) {
+    return null;
+  }
+
+  const [, namespace, principalType, slug] = match as [string, string, 'agents' | 'services' | 'workers', string];
+
+  // Validate slug against the registered allowlist for each principal type.
+  // All three branches must pass — unregistered slugs of any type are rejected.
+  if (principalType === 'agents' && !REGISTERED_AGENT_SLUGS.has(slug)) {
+    return null;
+  }
+  if (principalType === 'services' && !REGISTERED_SERVICE_SLUGS.has(slug)) {
+    return null;
+  }
+  if (principalType === 'workers' && !REGISTERED_WORKER_SLUGS.has(slug)) {
+    return null;
+  }
+
+  return { spiffeId, principalType, slug, namespace };
+}
+
 interface ServiceRequest extends Request {
   serviceIdentityVerified?: boolean;
   requestNonce?: string;
@@ -10,6 +87,7 @@ interface ServiceRequest extends Request {
   serviceAuthMethod?: string;
   tenantId?: string;
   organizationId?: string;
+  serviceIdentity?: ParsedSpiffeId;
 }
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
@@ -407,6 +485,21 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
     serviceReq.serviceIssuer = identity.issuer;
     serviceReq.serviceAuthMethod = identity.method;
 
+    // If the principal is a SPIFFE ID from the valueos.internal trust domain,
+    // parse and attach the structured identity for downstream authorization checks.
+    const parsedSpiffe = parseAndValidateSpiffeId(identity.principal);
+    if (parsedSpiffe) {
+      serviceReq.serviceIdentity = parsedSpiffe;
+    } else if (identity.method === 'mtls' && identity.principal.startsWith('spiffe://')) {
+      // mTLS with a SPIFFE ID from an unrecognized trust domain — reject.
+      logger.warn('Service identity rejected: SPIFFE ID from unrecognized trust domain', {
+        principal: identity.principal,
+        expectedTrustDomain: SPIFFE_TRUST_DOMAIN,
+        path: req.originalUrl || req.url,
+      });
+      return void res.status(403).json({ error: 'SPIFFE trust domain not recognized' });
+    }
+
     const organizationHeader = req.header('x-organization-id');
     if (organizationHeader) {
       serviceReq.organizationId = organizationHeader;
@@ -418,6 +511,8 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       method: identity.method,
       keyId: identity.keyId,
       audience: identity.audience,
+      spiffeSlug: parsedSpiffe?.slug,
+      spiffePrincipalType: parsedSpiffe?.principalType,
       path: req.originalUrl || req.url,
     });
     return next();

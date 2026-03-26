@@ -1,42 +1,345 @@
+# Per-agent SPIFFE workload registrations for ValueOS.
+#
+# Trust domain: valueos.internal
+# Namespace shape:
+#   Agents:   spiffe://valueos.internal/ns/{namespace}/agents/{agent-slug}
+#   Services: spiffe://valueos.internal/ns/{namespace}/services/{service-slug}
+#   Workers:  spiffe://valueos.internal/ns/{namespace}/workers/{worker-slug}
+#
+# Rules:
+# - One ClusterSPIFFEID per deployed runtime principal. No placeholders.
+# - Each agent has a dedicated ServiceAccount (defined below).
+# - GroundTruthAnalyzer is an internal library, not a runtime principal — no entry.
+# - New agents are added here when they become named runtime workloads with
+#   clear trust boundaries. See docs/security-compliance/agent-identity-contract.md.
+
+# ── ServiceAccounts ──────────────────────────────────────────────────────────
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opportunity-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: opportunity
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: target-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: target
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: financial-modeling-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: financial-modeling
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: integrity-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: integrity
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realization-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: realization
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: expansion-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: expansion
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: narrative-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: narrative
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliance-auditor-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: compliance-auditor
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: context-extraction-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: context-extraction
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deal-assembly-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: deal-assembly
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: discovery-agent
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-agents
+    valueos.io/agent-slug: discovery
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-services
+    valueos.io/service-slug: backend-api
+
+# ── ClusterSPIFFEIDs ─────────────────────────────────────────────────────────
+# One entry per deployed runtime principal.
+
+---
 apiVersion: spire.spiffe.io/v1alpha1
 kind: ClusterSPIFFEID
 metadata:
-  name: backend-workload
+  name: agent-opportunity
 spec:
-  spiffeIDTemplate: spiffe://valueos/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/opportunity"
   podSelector:
     matchLabels:
-      app: backend
+      app.kubernetes.io/name: opportunity-agent
   workloadSelectorTemplates:
-    - k8s:ns:valynt
-    - k8s:sa:backend
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:opportunity-agent"
 
 ---
 apiVersion: spire.spiffe.io/v1alpha1
 kind: ClusterSPIFFEID
 metadata:
-  name: core-agent-workloads
+  name: agent-target
 spec:
-  spiffeIDTemplate: spiffe://valueos/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/target"
   podSelector:
-    matchExpressions:
-      - key: component
-        operator: In
-        values:
-          - agent
+    matchLabels:
+      app.kubernetes.io/name: target-agent
   workloadSelectorTemplates:
-    - k8s:ns:valynt
-    - k8s:sa:{{ .PodSpec.ServiceAccountName }}
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:target-agent"
 
 ---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-financial-modeling
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/financial-modeling"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: financial-modeling-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:financial-modeling-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-integrity
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/integrity"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: integrity-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:integrity-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-realization
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/realization"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: realization-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:realization-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-expansion
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/expansion"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: expansion-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:expansion-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-narrative
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/narrative"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: narrative-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:narrative-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-compliance-auditor
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/compliance-auditor"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: compliance-auditor-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:compliance-auditor-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-context-extraction
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/context-extraction"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: context-extraction-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:context-extraction-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-deal-assembly
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/deal-assembly"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: deal-assembly-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:deal-assembly-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: agent-discovery
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/agents/discovery"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: discovery-agent
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:discovery-agent"
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: service-backend-api
+spec:
+  spiffeIDTemplate: "spiffe://valueos.internal/ns/{{ .PodMeta.Namespace }}/services/backend-api"
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  workloadSelectorTemplates:
+    - "k8s:ns:{{ .PodMeta.Namespace }}"
+    - "k8s:sa:backend"
+
+---
+# Identity contract reference — consumed by serviceIdentityMiddleware and policy enforcement.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: spire-workload-identity-contract
   namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-identity
+  annotations:
+    valueos.io/doc: "docs/security-compliance/agent-identity-contract.md"
 data:
+  trust_domain: "valueos.internal"
   README: |
-    Workload identity issuance integration:
-      1. Run SPIRE server/agent manifests in infra/k8s/security.
-      2. Ensure backend + agent workloads mount the SPIRE Workload API socket (/run/spire/sockets/agent.sock).
-      3. Use issued SVID SPIFFE identity in x-spiffe-id / mTLS principals for serviceIdentityMiddleware.
+    Workload identity contract for ValueOS agents and services.
+
+    Trust domain: valueos.internal
+    SPIFFE ID shapes:
+      Agents:   spiffe://valueos.internal/ns/{namespace}/agents/{agent-slug}
+      Services: spiffe://valueos.internal/ns/{namespace}/services/{service-slug}
+      Workers:  spiffe://valueos.internal/ns/{namespace}/workers/{worker-slug}
+
+    Integration steps:
+      1. Deploy SPIRE server/agent from infra/k8s/security/spire-server.yaml and spire-agent.yaml.
+      2. Ensure workloads mount the SPIRE socket: /run/spire/sockets/agent.sock
+      3. serviceIdentityMiddleware reads x-spiffe-id header or mTLS peer cert.
+      4. Istio AuthorizationPolicies reference SPIFFE principals from this trust domain.
+
+    Namespace handling:
+      workloadSelectorTemplates use "k8s:ns:{{ .PodMeta.Namespace }}" so that
+      SPIRE matches pods in any namespace (valynt, valynt-staging, etc.) without
+      requiring separate ClusterSPIFFEID entries per environment.
+
+    Adding a new agent:
+      - Add a ServiceAccount and ClusterSPIFFEID entry to this file.
+      - Add an AuthorizationPolicy entry to agent-pairwise-authorization-policies.yaml.
+      - Add the agent to agent-handoff-allowlist.md.
+      - Update control-registry.json if the agent introduces new governed paths.

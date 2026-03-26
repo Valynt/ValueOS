@@ -57,6 +57,18 @@ declare global {
       servicePrincipal?: string;
       serviceIssuer?: string;
       serviceAuthMethod?: "mtls" | "jwt" | "hmac";
+      /**
+       * Populated by serviceIdentityMiddleware when the caller presents a valid
+       * SPIFFE ID from the valueos.internal trust domain.
+       * Shape mirrors the canonical namespace:
+       *   spiffe://valueos.internal/ns/{namespace}/{type}/{slug}
+       */
+      serviceIdentity?: {
+        spiffeId: string;
+        principalType: "agents" | "services" | "workers";
+        slug: string;
+        namespace: string;
+      };
       useFallbackModel?: boolean;
       supabase?: SupabaseClient;
       db?: TenantDbContext;

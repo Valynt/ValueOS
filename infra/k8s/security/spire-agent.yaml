@@ -5,11 +5,40 @@ metadata:
   namespace: spire
 
 ---
+# ClusterRole grants SPIRE agent read access to pods/nodes for workload attestation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-agent
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "nodes/proxy"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-agent
+subjects:
+  - kind: ServiceAccount
+    name: spire-agent
+    namespace: spire
+
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: spire-agent
   namespace: spire
+  labels:
+    app: spire-agent
+    app.kubernetes.io/name: spire-agent
+    app.kubernetes.io/part-of: valueos-identity
 spec:
   selector:
     matchLabels:
@@ -31,6 +60,9 @@ spec:
               mountPath: /run/spire/config
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
+            # Projected service account token for k8s_psat node attestation.
+            - name: spire-token
+              mountPath: /var/run/secrets/tokens
       volumes:
         - name: spire-config
           configMap:
@@ -39,6 +71,13 @@ spec:
           hostPath:
             path: /run/spire/sockets
             type: DirectoryOrCreate
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: spire-agent
+                  expirationSeconds: 7200
+                  audience: spire-server
 
 ---
 apiVersion: v1
@@ -49,22 +88,29 @@ metadata:
 data:
   agent.conf: |
     agent {
-      data_dir = "/run/spire"
-      log_level = "INFO"
+      data_dir       = "/run/spire"
+      log_level      = "INFO"
       server_address = "spire-server.spire.svc.cluster.local"
-      server_port = "8081"
-      trust_domain = "valueos"
+      server_port    = "8081"
+      # Must match trust_domain in spire-server-config.
+      trust_domain   = "valueos.internal"
+      # Workload API socket consumed by all agent/service workloads.
+      socket_path    = "/run/spire/sockets/agent.sock"
     }
     plugins {
       NodeAttestor "k8s_psat" {
         plugin_data {
-          cluster = "valynt"
+          cluster              = "valynt"
+          token_path           = "/var/run/secrets/tokens/spire-agent"
         }
       }
       KeyManager "memory" {
         plugin_data {}
       }
       WorkloadAttestor "k8s" {
-        plugin_data {}
+        plugin_data {
+          # Skip kernel verification in environments without /proc access.
+          skip_kernel_verification = true
+        }
       }
     }

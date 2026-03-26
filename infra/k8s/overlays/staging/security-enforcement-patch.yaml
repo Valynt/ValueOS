@@ -1,0 +1,62 @@
+# Staging security enforcement patch.
+#
+# Explicitly includes the deny-by-default AuthorizationPolicies and
+# PeerAuthentication STRICT mode for the staging overlay.
+#
+# The base security manifests (infra/k8s/security/) are already included via
+# the ../../security resource reference in kustomization.yaml. This patch
+# adds staging-specific labels to make enforcement state auditable and
+# confirms that deny-by-default is active in this environment.
+#
+# Production overlay applies the same policies after Phase 1 exit criteria
+# are met (all 11 agents assigned SPIFFE IDs, CI gates green, evidence schema approved).
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-agents
+  namespace: valynt-agents
+  labels:
+    environment: staging
+    valueos.io/enforcement-phase: "phase-1"
+    valueos.io/policy-layer: base-deny
+  annotations:
+    valueos.io/enabled-in: "staging"
+    valueos.io/production-promotion: "pending-phase-1-exit-criteria"
+spec:
+  action: DENY
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-valynt-agents
+  namespace: valynt
+  labels:
+    environment: staging
+    valueos.io/enforcement-phase: "phase-1"
+    valueos.io/policy-layer: base-deny
+  annotations:
+    valueos.io/enabled-in: "staging"
+    valueos.io/production-promotion: "pending-phase-1-exit-criteria"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: valueos-agents
+  action: DENY
+
+---
+# Confirm PeerAuthentication STRICT is active in staging.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valynt-agents-strict-peer-auth
+  namespace: valynt-agents
+  labels:
+    environment: staging
+    valueos.io/enforcement-phase: "phase-1"
+  annotations:
+    valueos.io/enabled-in: "staging"
+spec:
+  mtls:
+    mode: STRICT
