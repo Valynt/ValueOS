@@ -1,6 +1,10 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import security from "eslint-plugin-security";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const reqAsAnyMessage =
   "Do not cast req to any. Use typed Express.Request properties from src/types/express.d.ts (e.g., req.tenantId, req.userId, req.sessionId, req.user, req.db).";
@@ -49,7 +53,16 @@ export default tseslint.config(
       "src/**/*.spec.ts",
       "src/**/__tests__/**/*.ts",
     ],
+    languageOptions: {
+      parserOptions: {
+        project: ["./tsconfig.json"],
+        tsconfigRootDir: __dirname,
+      },
+    },
     rules: {
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/no-unsafe-assignment": "warn",
+      "@typescript-eslint/no-unsafe-member-access": "warn",
       "no-restricted-syntax": [
         "error",
         {
@@ -94,6 +107,9 @@ export default tseslint.config(
     files: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/__tests__/**/*.ts"],
     rules: {
       "no-restricted-syntax": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
     },
   },
   // Disable no-explicit-any in types/ directory — type definitions need flexible typing for external API boundaries

@@ -13,9 +13,51 @@ permissions:
   pull-requests: read
 
 jobs:
+  lint-runtime-packages:
+    name: lint-runtime-packages (${{ matrix.lane }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: backend
+            lint_command: pnpm lint:ci:backend
+            report_path: artifacts/eslint/backend.json
+          - lane: valynt-app
+            lint_command: pnpm lint:ci:valynt-app
+            report_path: artifacts/eslint/valynt-app.json
+          - lane: shared
+            lint_command: pnpm lint:ci:shared
+            report_path: artifacts/eslint/shared.json
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run lint lane
+        run: ${{ matrix.lint_command }}
+      - name: Lint ratchet guard
+        run: node scripts/ci/lint-ratchet-check.mjs --lane "${{ matrix.lane }}" --report "${{ matrix.report_path }}"
+
   unit-component-schema:
     name: unit/component/schema
     runs-on: ubuntu-latest
+    needs: lint-runtime-packages
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -54,8 +96,6 @@ jobs:
         run: pnpm check:runtime-sentinels
       - name: Gateway CORS wildcard guard
         run: pnpm check:kong-cors-origins
-      - name: Lint
-        run: npx turbo run lint
       - name: Typecheck
         run: npx turbo run typecheck
       - name: Backend request cast guardrails
