@@ -80,6 +80,8 @@ jobs:
         run: pnpm --filter @valueos/backend run debt:summary
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Eventing architecture matrix guard
+        run: pnpm run check:eventing-architecture
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
       - name: OpenAPI single-root guard
