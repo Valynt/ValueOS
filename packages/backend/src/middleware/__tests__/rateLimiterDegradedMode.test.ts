@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRateLimiter } from '../rateLimiter.js'
+import { createRateLimiter, getRouteRiskMetadata } from '../rateLimiter.js'
 
 const mockReq = (overrides: any = {}) => {
   const headers = overrides.headers || {};
@@ -30,6 +30,47 @@ const makeRes = () => {
 };
 
 describe('rateLimiter degraded mode policy', () => {
+  it('marks security-sensitive writes as fail-closed with explicit route risk metadata', () => {
+    const metadata = getRouteRiskMetadata(
+      mockReq({
+        path: '/api/integrations/slack',
+        method: 'POST',
+        headers: { authorization: 'Bearer token' },
+      }),
+      'standard'
+    );
+
+    expect(metadata).toMatchObject({
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: 'security-sensitive-write',
+      reason: 'security-sensitive-write',
+    });
+  });
+
+  it('marks authenticated mutations as fail-closed in production distributed mode', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    const metadata = getRouteRiskMetadata(
+      mockReq({
+        path: '/api/profile/preferences',
+        method: 'PATCH',
+        headers: { authorization: 'Bearer token' },
+      }),
+      'standard'
+    );
+
+    expect(metadata).toMatchObject({
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: 'authenticated-mutation',
+      reason: 'authenticated-mutation',
+    });
+
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
   it('fails closed for auth routes regardless of tier in distributed mode', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
@@ -81,7 +122,7 @@ describe('rateLimiter degraded mode policy', () => {
     }
   });
 
-  it('allows low-risk writes to continue in degraded mode', async () => {
+  it('fails closed for authenticated write routes in degraded mode', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
     process.env.NODE_ENV = 'production';
@@ -91,10 +132,46 @@ describe('rateLimiter degraded mode policy', () => {
 
     const res = makeRes();
     const next = vi.fn();
-    await limiter(mockReq({ path: '/api/profile/preferences', method: 'POST' }), res as any, next);
+    await limiter(
+      mockReq({
+        path: '/api/profile/preferences',
+        method: 'POST',
+        headers: { authorization: 'Bearer token' },
+      }),
+      res as any,
+      next
+    );
 
-    expect(next).toHaveBeenCalledOnce();
-    expect(res.status).not.toHaveBeenCalledWith(503);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.headers['X-RateLimit-Enforcement']).toBe('degraded-protective');
+
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalOverride === undefined) {
+      delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    } else {
+      process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK = originalOverride;
+    }
+  });
+
+  it('fails closed for /api/dsr write paths in degraded mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalOverride = process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+    process.env.NODE_ENV = 'production';
+    delete process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK;
+
+    const limiter = createRateLimiter('standard');
+
+    const res = makeRes();
+    const next = vi.fn();
+    await limiter(
+      mockReq({ path: '/api/dsr/requests', method: 'POST' }),
+      res as any,
+      next
+    );
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
 
     process.env.NODE_ENV = originalNodeEnv;
     if (originalOverride === undefined) {

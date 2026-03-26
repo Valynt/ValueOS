@@ -80,6 +80,8 @@ jobs:
         run: pnpm --filter @valueos/backend run debt:summary
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Eventing architecture matrix guard
+        run: pnpm run check:eventing-architecture
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
       - name: OpenAPI single-root guard
@@ -114,6 +116,8 @@ jobs:
         run: pnpm check:browser-provider-secrets
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
+      - name: Guard backend service-role boundaries
+        run: pnpm check:backend-service-role-boundaries
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
       - name: Workflow pnpm contract guard
@@ -138,6 +142,9 @@ jobs:
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
+
+      - name: Critical control status gate (SOC2/HIPAA)
+        run: node scripts/ci/check-control-status-critical.mjs
 
   vitest-package-matrix-config:
     name: vitest/package-matrix
@@ -337,13 +344,24 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
+        run: |
+          mkdir -p artifacts/bundle
+          npx turbo run build --filter=valynt-app 2>&1 | tee artifacts/bundle/vite-build.log
+      - name: Bundle regression gate
+        run: |
+          node scripts/ci/check-vite-bundle-regression.mjs \
+            --log artifacts/bundle/vite-build.log \
+            --metrics .github/metrics/vite-bundle-metrics.json \
+            --summary-out artifacts/bundle/summary.md \
+            --json-out artifacts/bundle/metrics.json \
+            --history-out artifacts/bundle/history-comparison.json
+          cat artifacts/bundle/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Run WCAG 2.2 AA accessibility tests
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
         run: |
           mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+          npx playwright test tests/accessibility/axe-a11y.spec.ts tests/accessibility/wcag-compliance.test.ts \
             --reporter=html,json \
             --output=artifacts/accessibility
       - name: Accessibility trend gate
@@ -386,6 +404,7 @@ jobs:
             artifacts/accessibility/
             artifacts/i18n/
             artifacts/frontend-quality/
+            artifacts/bundle/
           if-no-files-found: warn
           retention-days: 30
 

@@ -444,7 +444,7 @@ export class IndustryBenchmarkModule extends BaseModule {
   // ============================================================================
   // External API Integrations
   //
-  // TODO (post-v1): Implement Census Bureau and BLS API integrations.
+  // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Implement Census Bureau and BLS API integrations (post-v1).
   //
   // Census Bureau API
   //   Docs:    https://www.census.gov/data/developers/data-sets.html
@@ -476,7 +476,7 @@ export class IndustryBenchmarkModule extends BaseModule {
 
     logger.debug('Census API lookup', { naicsCode, metric });
 
-    // TODO (post-v1): Call Census Bureau API.
+    // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Call Census Bureau API.
     // Example request:
     //   GET https://api.census.gov/data/{year}/cbp
     //     ?get=NAICS2017_LABEL,PAYANN,EMP
@@ -503,7 +503,7 @@ export class IndustryBenchmarkModule extends BaseModule {
 
     logger.debug('BLS API lookup', { occupationCode, metroArea });
 
-    // TODO (post-v1): Call BLS Public Data API v2.
+    // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Call BLS Public Data API v2.
     // Example request:
     //   POST https://api.bls.gov/publicAPI/v2/timeseries/data/
     //   Body: { "seriesid": ["OES{occupationCode}"], "registrationkey": this.blsApiKey }

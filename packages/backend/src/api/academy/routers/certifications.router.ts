@@ -309,7 +309,7 @@ export const certificationsRouter = router({
 
   /**
    * Generate certificate PDF
-   * TODO: Move to background job for better performance
+   * TODO(ticket: VOS-2314 owner: @backend-platform date: 2026-03-26): Move to background job for better performance.
    */
   generateCertificate: protectedProcedure
     .input(
