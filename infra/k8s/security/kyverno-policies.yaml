@@ -14,10 +14,9 @@
 #   2. require-seccomp-profile        — seccompProfile.type must be RuntimeDefault or Localhost
 #   3. disallow-latest-tag            — image tags must not be "latest" in production
 #   4. require-resource-limits        — all containers must declare CPU and memory limits
-#   5. disallow-host-path-write       — hostPath volumes must be readOnly
-#   6. require-tenant-label           — workloads must carry organization_id or tenant_id label
-#   7. disallow-privileged-containers — privileged: true is always rejected (belt-and-suspenders over PSA)
-#   8. require-drop-all-capabilities  — capabilities.drop must include ALL
+#   5. require-tenant-label           — workloads must carry organization_id or tenant_id label
+#   6. disallow-privileged-containers — privileged: true is always rejected (belt-and-suspenders over PSA)
+#   7. require-drop-all-capabilities  — capabilities.drop must include ALL
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
