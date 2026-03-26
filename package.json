@@ -50,6 +50,7 @@
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
     "typecheck:full": "pnpm run check 2>&1 | head -1000",
     "check:eventing-architecture": "node scripts/ci/check-eventing-architecture-tags.mjs",
+    "check:k8s-ingress-security-annotations": "node scripts/ci/check-k8s-ingress-security-annotations.mjs"
     "check:docs:secrets": "node scripts/ci/check-docs-secrets.mjs"
     "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs"
   },

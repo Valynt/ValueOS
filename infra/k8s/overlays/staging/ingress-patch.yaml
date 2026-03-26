@@ -6,7 +6,7 @@ metadata:
   annotations:
     # Set these values from your AWS Certificate Manager ARN for the staging domain.
     # Example: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID
-    alb.ingress.kubernetes.io/certificate-arn: ""
+    alb.ingress.kubernetes.io/certificate-arn: "REQUIRED_STAGING_CERTIFICATE_ARN"
     # Optional: attach the staging WAF ACL that enforces login/signup/reset/MFA
     # rate-based rules ahead of the application for fail-closed auth protection.
     # Example: arn:aws:wafv2:us-east-1:ACCOUNT_ID:regional/webacl/valueos-staging/ID
