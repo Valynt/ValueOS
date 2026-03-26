@@ -1,8 +1,9 @@
-import { getEnvVar, setEnvVar } from '../../lib/env';
+import { getEnvVar } from '../../lib/env';
 import { logger } from '../../lib/logger.js'
 
 import type { SecretValue } from './ISecretProvider.js'
 import { defaultProvider } from './ProviderFactory.js'
+import { runtimeSecretStore } from './RuntimeSecretStore.js'
 
 const isServer = typeof window === 'undefined';
 
@@ -61,7 +62,7 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
         continue;
       }
 
-      setEnvVar(envVar, normalized);
+      runtimeSecretStore.setSecret(envVar, normalized);
       hydrated[envVar] = normalized;
       logger.info('Hydrated secret from manager', {
         envVar,

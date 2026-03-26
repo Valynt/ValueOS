@@ -9,6 +9,7 @@
 
 import { logger } from "../lib/logger.js";
 import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
+import { getSensitiveEnvKeys } from "./secrets/RuntimeSecretStore.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export interface ValidationResult {
@@ -89,6 +90,31 @@ function validateCacheEncryptionRules(nodeEnv: string, errors: string[]): void {
   const cacheEncryptionKey = process.env.CACHE_ENCRYPTION_KEY;
   if (!cacheEncryptionKey) {
     errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_KEY is required.`);
+  }
+}
+
+
+function validateNoSecretInEnvPolicy(nodeEnv: string, errors: string[]): void {
+  if (nodeEnv !== "production") {
+    return;
+  }
+
+  const rawAllowlist = process.env.SECRET_ENV_ALLOWLIST ?? "";
+  const allowlisted = new Set(
+    rawAllowlist
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+
+  for (const key of getSensitiveEnvKeys()) {
+    if (!process.env[key]) {
+      continue;
+    }
+
+    if (!allowlisted.has(key)) {
+      errors.push(`Sensitive secret ${key} must not be sourced from process.env in production.`);
+    }
   }
 }
 
@@ -350,6 +376,7 @@ export function validateEnv(): ValidationResult {
     supabaseErrors.push("Missing SUPABASE_KEY or SUPABASE_ANON_KEY.");
   }
 
+  validateNoSecretInEnvPolicy(nodeEnv, errors);
   validateSecureTransportRules(errors);
   validateCacheEncryptionRules(nodeEnv, errors);
   validateAuthFallbackConfig(nodeEnv, errors);
