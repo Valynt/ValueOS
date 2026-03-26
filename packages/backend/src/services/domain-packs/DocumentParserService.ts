@@ -43,6 +43,25 @@ export interface ExtractedInsights {
   summary: string;
 }
 
+type ParseOperation = 'parse_document_edge_function';
+type ParseOperationalErrorCode = 'timeout' | 'transient' | 'upstream' | 'invalid_response';
+
+interface ParseOperationalError {
+  kind: 'ParseOperationalError';
+  code: ParseOperationalErrorCode;
+  message: string;
+  operation: ParseOperation;
+  timeout_ms: number;
+  attempt: number;
+  organization_id: string;
+  retryable: boolean;
+  cause?: Error;
+}
+
+type ParseEdgeFunctionResult =
+  | { ok: true; document: ParsedDocument }
+  | { ok: false; error: ParseOperationalError };
+
 // ============================================================================
 // Document Parser Service
 // ============================================================================
@@ -50,6 +69,9 @@ export interface ExtractedInsights {
 export class DocumentParserService {
   private llm: LLMGateway;
   private functionUrl: string;
+  private static readonly PARSE_TIMEOUT_MS = 12_000;
+  private static readonly MAX_PARSE_ATTEMPTS = 2;
+  private static readonly RETRY_BASE_DELAY_MS = 200;
 
   constructor() {
     const Gateway = LLMGateway as unknown as {
@@ -97,42 +119,23 @@ export class DocumentParserService {
     // For PDFs and DOCX, use edge function
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const organizationId = this.getOrganizationIdFromSession(session);
       
-      const formData = new FormData();
-      formData.append('file', file);
+      const parseResult = await this.parseWithTimeoutAndRetry(file, session?.access_token, organizationId);
+      if (parseResult.ok) {
+        return parseResult.document;
+      }
 
-       
-      const response = await fetch(this.functionUrl, {
-        method: 'POST',
-        headers: session ? {
-          'Authorization': `Bearer ${session.access_token}`,
-        } : {},
-        body: formData,
+      logger.warn('DocumentParserService: edge parse operational failure', {
+        operation: parseResult.error.operation,
+        timeout_ms: parseResult.error.timeout_ms,
+        attempt: parseResult.error.attempt,
+        organization_id: parseResult.error.organization_id,
+        code: parseResult.error.code,
+        retryable: parseResult.error.retryable,
       });
 
-      if (!response.ok) {
-        const error: Record<string, unknown> = await response.json();
-        throw new Error((typeof error.error === 'string' ? error.error : 'Failed to parse document'));
-      }
-
-      const result: unknown = await response.json();
-      
-      if (
-        typeof result !== 'object' ||
-        result === null ||
-        !('success' in result) ||
-        !('text' in result) ||
-        !('metadata' in result) ||
-        !(result as Record<string, unknown>).success
-      ) {
-        const res = result as Record<string, unknown>;
-        throw new Error((typeof res.error === 'string' ? res.error : 'Document parsing failed'));
-      }
-
-      return {
-        text: (result as { text: string }).text,
-        metadata: (result as { metadata: ParsedDocument['metadata'] }).metadata,
-      };
+      return this.fallbackParse(file);
     } catch (error: unknown) {
       logger.error('Document parse error', error instanceof Error ? error : undefined);
       
@@ -205,6 +208,178 @@ export class DocumentParserService {
       file.name.endsWith('.txt') ||
       file.name.endsWith('.md')
     );
+  }
+
+  private async parseWithTimeoutAndRetry(
+    file: File,
+    accessToken: string | undefined,
+    organizationId: string,
+  ): Promise<ParseEdgeFunctionResult> {
+    let lastError: ParseOperationalError | null = null;
+
+    for (let attempt = 1; attempt <= DocumentParserService.MAX_PARSE_ATTEMPTS; attempt += 1) {
+      const result = await this.parseOnce(file, accessToken, organizationId, attempt);
+      if (result.ok) {
+        return result;
+      }
+
+      lastError = result.error;
+      if (!result.error.retryable || attempt >= DocumentParserService.MAX_PARSE_ATTEMPTS) {
+        return { ok: false, error: result.error };
+      }
+
+      await this.wait(this.getRetryDelayWithJitter());
+    }
+
+    return {
+      ok: false,
+      error: lastError ?? this.createOperationalError('transient', 'Document parse failed', organizationId, DocumentParserService.MAX_PARSE_ATTEMPTS, true),
+    };
+  }
+
+  private async parseOnce(
+    file: File,
+    accessToken: string | undefined,
+    organizationId: string,
+    attempt: number,
+  ): Promise<ParseEdgeFunctionResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DocumentParserService.PARSE_TIMEOUT_MS);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(this.functionUrl, {
+        method: 'POST',
+        headers: accessToken ? {
+          'Authorization': `Bearer ${accessToken}`,
+        } : {},
+        body: formData,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const responseError = await this.safeReadError(response);
+        const code: ParseOperationalErrorCode = response.status >= 500 || response.status === 429 ? 'transient' : 'upstream';
+        return {
+          ok: false,
+          error: this.createOperationalError(
+            code,
+            responseError ?? 'Failed to parse document',
+            organizationId,
+            attempt,
+            code === 'transient',
+          ),
+        };
+      }
+
+      const result: unknown = await response.json();
+      if (
+        typeof result !== 'object' ||
+        result === null ||
+        !('success' in result) ||
+        !('text' in result) ||
+        !('metadata' in result) ||
+        !(result as Record<string, unknown>).success
+      ) {
+        const res = result as Record<string, unknown>;
+        return {
+          ok: false,
+          error: this.createOperationalError(
+            'invalid_response',
+            typeof res.error === 'string' ? res.error : 'Document parsing failed',
+            organizationId,
+            attempt,
+            false,
+          ),
+        };
+      }
+
+      return {
+        ok: true,
+        document: {
+          text: (result as { text: string }).text,
+          metadata: (result as { metadata: ParsedDocument['metadata'] }).metadata,
+        },
+      };
+    } catch (error) {
+      const timeoutError = this.isTimeoutError(error, controller.signal);
+      const code: ParseOperationalErrorCode = timeoutError ? 'timeout' : 'transient';
+      return {
+        ok: false,
+        error: this.createOperationalError(
+          code,
+          timeoutError ? 'Document parsing request timed out' : 'Document parsing request failed',
+          organizationId,
+          attempt,
+          true,
+          error instanceof Error ? error : undefined,
+        ),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private createOperationalError(
+    code: ParseOperationalErrorCode,
+    message: string,
+    organizationId: string,
+    attempt: number,
+    retryable: boolean,
+    cause?: Error,
+  ): ParseOperationalError {
+    return {
+      kind: 'ParseOperationalError',
+      code,
+      message,
+      operation: 'parse_document_edge_function',
+      timeout_ms: DocumentParserService.PARSE_TIMEOUT_MS,
+      attempt,
+      organization_id: organizationId,
+      retryable,
+      cause,
+    };
+  }
+
+  private isTimeoutError(error: unknown, signal: AbortSignal): boolean {
+    if (signal.aborted) {
+      return true;
+    }
+
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return error.name === 'AbortError' || /timed?\s*out|timeout/i.test(error.message);
+  }
+
+  private async safeReadError(response: Response): Promise<string | null> {
+    try {
+      const payload: unknown = await response.json();
+      if (typeof payload === 'object' && payload !== null && 'error' in payload && typeof (payload as { error: unknown }).error === 'string') {
+        return (payload as { error: string }).error;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private getRetryDelayWithJitter(): number {
+    const jitter = Math.floor(Math.random() * 200);
+    return DocumentParserService.RETRY_BASE_DELAY_MS + jitter;
+  }
+
+  private wait(delayMs: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  private getOrganizationIdFromSession(session: { user?: { raw_user_meta_data?: { tenant_id?: string; organization_id?: string } } } | null): string {
+    return session?.user?.raw_user_meta_data?.tenant_id
+      ?? session?.user?.raw_user_meta_data?.organization_id
+      ?? 'system';
   }
 
   private async fallbackParse(file: File): Promise<ParsedDocument> {
