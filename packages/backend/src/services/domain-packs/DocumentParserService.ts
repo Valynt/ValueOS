@@ -7,6 +7,7 @@
 
 import { llmConfig } from '../../config/llm.js'
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
+import { mapSessionToTaskContext } from '../../lib/agent-fabric/TaskContext';
 import type TaskContext from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js'
@@ -148,10 +149,13 @@ export class DocumentParserService {
    * Extract insights from document text using LLM
    */
   async extractInsights(text: string, fileName?: string, taskContext?: TaskContext): Promise<ExtractedInsights> {
+    if (!taskContext?.organization_id) {
+      throw new Error('DocumentParserService.extractInsights requires task context with organization_id');
+    }
+
     const prompt = this.buildExtractionPrompt(text, fileName);
 
     try {
-      const organizationId = taskContext?.organization_id ?? taskContext?.workspace_id ?? 'system';
       const response = await secureLLMComplete(
         this.llm,
         [
@@ -159,10 +163,10 @@ export class DocumentParserService {
           { role: 'user', content: prompt },
         ],
         {
-          organizationId,
+          organizationId: taskContext.organization_id,
           temperature: 0.3,
           max_tokens: 2048,
-          userId: taskContext?.user_id,
+          userId: taskContext.user_id,
           serviceName: 'DocumentParserService',
           operation: 'extractInsights',
         },
@@ -186,11 +190,9 @@ export class DocumentParserService {
   }> {
     const document = await this.parseDocument(file);
     const { data: { session } } = await supabase.auth.getSession();
-    const taskContext: TaskContext | undefined = session ? {
-      sessionId: (session as unknown as { id?: string }).id,
-      userId: (session as unknown as { user?: { id?: string } }).user?.id,
-      organizationId: (session as unknown as { user?: { raw_user_meta_data?: { tenant_id?: string; organization_id?: string }}}).user?.raw_user_meta_data?.tenant_id || (session as unknown as { user?: { raw_user_meta_data?: { tenant_id?: string; organization_id?: string }}}).user?.raw_user_meta_data?.organization_id
-    } : undefined;
+    const taskContext = mapSessionToTaskContext(session, {
+      fileName: document.metadata.fileName,
+    });
 
     const insights = await this.extractInsights(document.text, document.metadata.fileName, taskContext);
     
