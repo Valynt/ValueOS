@@ -171,6 +171,16 @@ jobs:
       - name: OpenAPI structural validation
         run: node scripts/ci/check-openapi-structure.mjs
 
+      - name: Express ↔ OpenAPI route security posture gate
+        run: node scripts/ci/express-openapi-security-check.mjs
+
+      - name: Security owner signoff gate for unprotected route additions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: node scripts/ci/require-security-signoff-if-unprotected-routes.mjs
+
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
@@ -274,6 +284,7 @@ jobs:
             coverage/**
             artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
+            artifacts/security/**
           if-no-files-found: warn
           retention-days: 30
 
