@@ -57,6 +57,16 @@
       ]
     },
     {
+      "id": "log-level-production-gate",
+      "description": "Fails if any K8s base manifest sets LOG_LEVEL to warn/error/fatal. The shared logger defaults to info in production; a more restrictive override silently drops audit-critical info/warn logs from auth, tenant, and subscription paths.",
+      "workflow": ".github/workflows/pr-fast.yml",
+      "jobId": "log-level-production-gate",
+      "coverage": [
+        "K8s base manifests set LOG_LEVEL to info or debug",
+        "shared logger audit trail visibility in production"
+      ]
+    },
+    {
       "id": "mfa-production-config-gate",
       "description": "Fails if any production-path env file or K8s/Helm manifest sets MFA_ENABLED=false. MFA defaults to enabled in code; this gate catches explicit opt-outs.",
       "workflow": ".github/workflows/pr-fast.yml",

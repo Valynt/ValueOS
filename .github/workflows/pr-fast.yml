@@ -920,6 +920,56 @@ jobs:
           fi
 
           echo "MFA production config gate: PASS"
+
+  # ── Log level production gate ─────────────────────────────────────────────
+  # Fails if any K8s base manifest sets LOG_LEVEL to warn/error/fatal.
+  # The shared logger defaults to "info" in production; manifests must not
+  # override that to a level that drops info-level audit trail logs.
+  log-level-production-gate:
+    name: log-level-production-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check LOG_LEVEL is not warn/error/fatal in K8s base manifests
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          MANIFESTS=(
+            "infra/k8s/base/backend-deployment.yaml"
+            "infra/k8s/base/backend-blue-deployment.yaml"
+            "infra/k8s/base/backend-green-deployment.yaml"
+            "infra/k8s/base/frontend-blue-deployment.yaml"
+            "infra/k8s/base/frontend-green-deployment.yaml"
+          )
+
+          for f in "${MANIFESTS[@]}"; do
+            if [ -f "$f" ]; then
+              level=$(grep -A1 'name: LOG_LEVEL' "$f" | grep 'value:' | sed 's/.*value: *"\?\([^"]*\)"\?.*/\1/' | tr -d ' ' | head -1)
+              if [ -z "$level" ]; then
+                echo "FAIL: $f does not set LOG_LEVEL — info or debug required for audit trail visibility"
+                FAIL=1
+              elif [ "$level" = "warn" ] || [ "$level" = "error" ] || [ "$level" = "fatal" ]; then
+                echo "FAIL: $f sets LOG_LEVEL=$level — this suppresses info-level audit trail logs in production"
+                FAIL=1
+              else
+                echo "OK: $f sets LOG_LEVEL=$level"
+              fi
+            else
+              echo "FAIL: $f not found — expected manifest is missing"
+              FAIL=1
+            fi
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "log-level-production-gate: FAIL"
+            echo "Set LOG_LEVEL=info (or debug) in the listed manifests."
+            exit 1
+          fi
+
+          echo "log-level-production-gate: PASS"
+
   # ── Flake gate (REQ-C1) ──────────────────────────────────────────────────
   flake-gate:
     name: flake-gate
@@ -1118,6 +1168,7 @@ jobs:
       - accessibility-audit
       - e2e-critical
       - mfa-production-config-gate
+      - log-level-production-gate
       - flake-gate
       - performance-smoke
       - slo-rule-validation
@@ -1151,6 +1202,11 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ needs.log-level-production-gate.result }}" != "success" ]; then
+            echo "Failing PR gate: log-level-production-gate did not pass"
+            exit 1
+          fi
+
           for lane in \
             "secret-scan:${{ needs.secret-scan.result }}" \
             "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
@@ -1162,6 +1218,7 @@ jobs:
             "accessibility-audit:${{ needs.accessibility-audit.result }}" \
             "e2e-critical:${{ needs.e2e-critical.result }}" \
             "mfa-production-config-gate:${{ needs.mfa-production-config-gate.result }}" \
+            "log-level-production-gate:${{ needs.log-level-production-gate.result }}" \
             "flake-gate:${{ needs.flake-gate.result }}" \
             "performance-smoke:${{ needs.performance-smoke.result }}" \
             "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
@@ -1169,7 +1226,7 @@ jobs:
             lane_name="${lane%%:*}"
             # These gates must not be skipped — skipped means the check did not run.
             # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ]; then
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
                 echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1
