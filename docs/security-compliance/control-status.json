@@ -1,0 +1,1069 @@
+{
+  "version": 1,
+  "generatedFrom": "docs/security-compliance/compliance-guide.md",
+  "lastUpdated": "2026-03-26",
+  "controls": [
+    {
+      "id": "CR-001",
+      "control": "Confirm the latest successful `Compliance Evidence Export` workflow run for the quarter.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 113,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-002",
+      "control": "Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.",
+      "frameworks": [
+        "HIPAA"
+      ],
+      "domain": "privacy-phi",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-hipaa@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 115,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-003",
+      "control": "Validate immutable metadata fields: commit SHA, run ID, run attempt, ref, and UTC export timestamp.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 117,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-004",
+      "control": "Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.",
+      "frameworks": [
+        "HIPAA"
+      ],
+      "domain": "privacy-phi",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-hipaa@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 119,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-005",
+      "control": "Review security scan outputs for unresolved critical findings and document approved exceptions.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 121,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-006",
+      "control": "Attach the artifact link and manifest to quarterly governance review records.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 123,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-007",
+      "control": "Download and archive the `.tar.gz` bundle to the long-term compliance archive location defined in CI/CD policy.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 125,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-008",
+      "control": "Record reviewer name, review date, and sign-off outcome in the compliance tracker.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 127,
+        "section": "HIPAA Applicability and Control Mapping"
+      }
+    },
+    {
+      "id": "CR-009",
+      "control": "No exceptions for \"admin\" users without explicit role checks",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "access-control",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/middleware/rbac.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 146,
+        "section": "1. Request Context & Tenant Binding"
+      }
+    },
+    {
+      "id": "CR-010",
+      "control": "Agent execution scoped to request organization",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 149,
+        "section": "1. Request Context & Tenant Binding"
+      }
+    },
+    {
+      "id": "CR-011",
+      "control": "API key scopes include organization_id restriction",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/middleware/apiKeyRateLimiter.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 152,
+        "section": "1. Request Context & Tenant Binding"
+      }
+    },
+    {
+      "id": "CR-012",
+      "control": "No SELECT \\* without WHERE organization_id = ?",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/repositories/WorkflowStateRepository.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 160,
+        "section": "2. Data Access Layer"
+      }
+    },
+    {
+      "id": "CR-013",
+      "control": "Joins across tables include organization_id in join conditions",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 163,
+        "section": "2. Data Access Layer"
+      }
+    },
+    {
+      "id": "CR-014",
+      "control": "Subqueries filtered by organization_id",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 166,
+        "section": "2. Data Access Layer"
+      }
+    },
+    {
+      "id": "CR-015",
+      "control": "Aggregate functions (COUNT, SUM) filtered by organization_id",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 169,
+        "section": "2. Data Access Layer"
+      }
+    },
+    {
+      "id": "CR-016",
+      "control": "Agent initialization includes organization_id parameter",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 175,
+        "section": "3. Agent & Orchestration Layer"
+      }
+    },
+    {
+      "id": "CR-017",
+      "control": "Agent memory (vector store, cache) namespaced by organization_id",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/memory/MemoryPipeline.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 178,
+        "section": "3. Agent & Orchestration Layer"
+      }
+    },
+    {
+      "id": "CR-018",
+      "control": "Agent tools receive organization context",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/services/MCPTools.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 181,
+        "section": "3. Agent & Orchestration Layer"
+      }
+    },
+    {
+      "id": "CR-019",
+      "control": "Agent outputs filtered before returning to user",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/services/AgentOutputListener.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 184,
+        "section": "3. Agent & Orchestration Layer"
+      }
+    },
+    {
+      "id": "CR-020",
+      "control": "No cross-tenant data in agent prompts/context",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/lib/agent-fabric/TaskContext.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 187,
+        "section": "3. Agent & Orchestration Layer"
+      }
+    },
+    {
+      "id": "CR-021",
+      "control": "Elasticsearch/similar: documents include organization_id field",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 199,
+        "section": "5. Search & Indexing"
+      }
+    },
+    {
+      "id": "CR-022",
+      "control": "Search queries include organization_id filter",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 202,
+        "section": "5. Search & Indexing"
+      }
+    },
+    {
+      "id": "CR-023",
+      "control": "Full-text search scoped to tenant",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 205,
+        "section": "5. Search & Indexing"
+      }
+    },
+    {
+      "id": "CR-024",
+      "control": "S3 keys include organization_id: `s3://bucket/{org_id}/...`",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/config/schema.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 211,
+        "section": "6. File Storage & CDN"
+      }
+    },
+    {
+      "id": "CR-025",
+      "control": "Pre-signed URLs scoped to organization",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/config/schema.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 214,
+        "section": "6. File Storage & CDN"
+      }
+    },
+    {
+      "id": "CR-026",
+      "control": "CloudFront cache behaviors include organization in headers",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/config/schema.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 217,
+        "section": "6. File Storage & CDN"
+      }
+    },
+    {
+      "id": "CR-027",
+      "control": "Every data access logged with organization_id",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 223,
+        "section": "7. Audit & Logging"
+      }
+    },
+    {
+      "id": "CR-028",
+      "control": "Audit log queries include organization_id filter",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 226,
+        "section": "7. Audit & Logging"
+      }
+    },
+    {
+      "id": "CR-029",
+      "control": "No cross-tenant log aggregation without filtering",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 229,
+        "section": "7. Audit & Logging"
+      }
+    },
+    {
+      "id": "CR-030",
+      "control": "JWT payload includes organization_id (claim: 'org_id')",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/middleware/auth.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 235,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-031",
+      "control": "API keys scoped to organization",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "access-control",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/middleware/apiKeyRateLimiter.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 238,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-032",
+      "control": "Service-to-service tokens include organization context",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "access-control",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "packages/backend/src/middleware/serviceIdentityMiddleware.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 241,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-033",
+      "control": "No hardcoded secrets in code or config",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "secrets-management",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/config/secretsManager.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 244,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-034",
+      "control": "Secrets rotated every 90 days",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "secrets-management",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/services/security/APIKeyRotationService.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 247,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-035",
+      "control": "AWS Secrets Manager or HashiCorp Vault used",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "secrets-management",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/config/secrets/AWSSecretProvider.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 250,
+        "section": "8. Authentication & Secrets"
+      }
+    },
+    {
+      "id": "CR-036",
+      "control": "Error logs don't expose tenant data",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "packages/backend/src/middleware/globalErrorHandler.ts",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 258,
+        "section": "9. Error Handling"
+      }
+    },
+    {
+      "id": "CR-037",
+      "control": "Penetration tests attempt cross-tenant access",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "tenant-isolation",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "tests/compliance/",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 272,
+        "section": "10. Testing"
+      }
+    },
+    {
+      "id": "CR-038",
+      "control": "Security questionnaire completed",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "vendor-risk",
+      "severity": "high",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 890,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-039",
+      "control": "Compliance certificates reviewed",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "vendor-risk",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 892,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-040",
+      "control": "DPA signed",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "vendor-risk",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 894,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-041",
+      "control": "Access controls configured (least privilege)",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "access-control",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 896,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-042",
+      "control": "Monitoring alerts set up",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 898,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-043",
+      "control": "Offboarding process documented",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 900,
+        "section": "6. Vendor Management Policy"
+      }
+    },
+    {
+      "id": "CR-044",
+      "control": "Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials; alert on failures and record upload/checksum metrics.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1254,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-045",
+      "control": "Ensure `infra/infra/k8s/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound; verify 180-day primary/archived lifecycles are enforced.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1256,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-046",
+      "control": "Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results and any manual steps in the incident log.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1258,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-047",
+      "control": "Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.",
+      "frameworks": [
+        "HIPAA"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "compliance-hipaa@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1260,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-048",
+      "control": "Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials and confirm successful uploads.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1262,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-049",
+      "control": "Ensure `infra/infra/k8s/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1264,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-050",
+      "control": "Monitor the `security-audit-retention` CronJob for a recent `lastSuccessfulTime`, alert on `suspend: true`, and verify the `audit_request_events_archive` table keeps appending rows without unexpected deletes.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1266,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-051",
+      "control": "Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results in the incident log.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1268,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-052",
+      "control": "Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.",
+      "frameworks": [
+        "HIPAA"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "compliance-hipaa@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1270,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-053",
+      "control": "Keep onboarding training updated with locations of PII-bearing tables and the audit/retention flows documented in `docs/data-protection-overview.md`.",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "audit-logging",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1272,
+        "section": "Operational checklist"
+      }
+    },
+    {
+      "id": "CR-054",
+      "control": "Quarterly security reviews",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1561,
+        "section": "Compliance Checklist"
+      }
+    },
+    {
+      "id": "CR-055",
+      "control": "Annual penetration testing",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "security-testing",
+      "severity": "critical",
+      "status": "planned",
+      "owner": "team-security@valueos",
+      "targetDate": "2026-06-30",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1563,
+        "section": "Compliance Checklist"
+      }
+    },
+    {
+      "id": "CR-056",
+      "control": "Monthly dependency scanning",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1565,
+        "section": "Compliance Checklist"
+      }
+    },
+    {
+      "id": "CR-057",
+      "control": "Quarterly access reviews",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "access-control",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1567,
+        "section": "Compliance Checklist"
+      }
+    },
+    {
+      "id": "CR-058",
+      "control": "Bi-annual disaster recovery drills",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "compliance-operations",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1569,
+        "section": "Compliance Checklist"
+      }
+    },
+    {
+      "id": "CR-059",
+      "control": "Annual vendor reassessments",
+      "frameworks": [
+        "SOC2"
+      ],
+      "domain": "vendor-risk",
+      "severity": "high",
+      "status": "planned",
+      "owner": "compliance-ops@valueos",
+      "targetDate": "2026-08-15",
+      "evidenceLocation": "docs/security-compliance/evidence-index.md",
+      "source": {
+        "file": "docs/security-compliance/compliance-guide.md",
+        "line": 1571,
+        "section": "Compliance Checklist"
+      }
+    }
+  ]
+}

@@ -137,6 +137,9 @@ jobs:
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
 
+      - name: Critical control status gate (SOC2/HIPAA)
+        run: node scripts/ci/check-control-status-critical.mjs
+
   vitest-package-matrix-config:
     name: vitest/package-matrix
     runs-on: ubuntu-latest
