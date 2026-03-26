@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const isNoMatchExit = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  (error as { status?: number }).status === 1;
+
 test.describe('UI/UX & Design System Remediation', () => {
   
   test('No inline styles in marketing components', () => {
@@ -16,8 +22,8 @@ test.describe('UI/UX & Design System Remediation', () => {
       const count = parseInt(countStr, 10);
       
       expect(count, `Found ${count} instances of inline styles in marketing components. Expected 0.`).toBe(0);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
@@ -33,8 +39,8 @@ test.describe('UI/UX & Design System Remediation', () => {
         const count = parseInt(countStr, 10);
         
         expect(count, `Found ${count} instances of hardcoded hex color ${pattern}. Expected 0.`).toBe(0);
-      } catch (e: any) {
-        if (e.status !== 1) throw e;
+      } catch (error: unknown) {
+        if (!isNoMatchExit(error)) throw error;
       }
     }
   });
@@ -51,8 +57,8 @@ test.describe('UI/UX & Design System Remediation', () => {
       
       // The audit found 16 instances. We expect this to increase significantly after remediation.
       expect(count, `Found only ${count} a11y attributes in UI components. Expected significant increase (> 50).`).toBeGreaterThan(50);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
