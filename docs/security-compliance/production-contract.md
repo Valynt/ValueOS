@@ -117,13 +117,12 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 ## Branch Protection Required Checks
 
-`main` branch protection must include these required checks:
+`main` pull-request branch protection must include only these durable checks:
 
 - `pr-fast`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+- `infra-plan` (conditional: only when `infra/terraform/**` changes in the PR)
 
-These checks map to quality, security, and code-scanning controls and should remain required for merge to `main`.
+`codeql` is advisory by default and may be promoted to blocking only by explicit leadership decision.
 
 ## Incident Response
 
