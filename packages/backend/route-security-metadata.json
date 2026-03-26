@@ -1,0 +1,53 @@
+{
+  "rules": [
+    {
+      "pattern": "GET /health",
+      "auth": "none",
+      "tenant": "none",
+      "csrf": "optional",
+      "rateLimitTier": "standard"
+    },
+    {
+      "pattern": "GET /api/docs/**",
+      "auth": "none",
+      "tenant": "none",
+      "csrf": "optional",
+      "rateLimitTier": "standard"
+    },
+    {
+      "pattern": "GET /api/openapi/**",
+      "auth": "none",
+      "tenant": "none",
+      "csrf": "optional",
+      "rateLimitTier": "standard"
+    },
+    {
+      "pattern": "POST /api/crm/webhooks/**",
+      "auth": "none",
+      "tenant": "none",
+      "csrf": "none",
+      "rateLimitTier": "strict"
+    },
+    {
+      "pattern": "* /api/auth/**",
+      "auth": "optional",
+      "tenant": "optional",
+      "csrf": "required",
+      "rateLimitTier": "auth"
+    },
+    {
+      "pattern": "* /api/approvals/webhooks/**",
+      "auth": "none",
+      "tenant": "none",
+      "csrf": "none",
+      "rateLimitTier": "strict"
+    },
+    {
+      "pattern": "* /api/**",
+      "auth": "required",
+      "tenant": "required",
+      "csrf": "required",
+      "rateLimitTier": "standard"
+    }
+  ]
+}
