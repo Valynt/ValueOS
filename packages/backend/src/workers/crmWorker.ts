@@ -18,6 +18,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
+import { tenantContextStorage } from '../middleware/tenantContext.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 
@@ -190,36 +191,42 @@ export function initCrmSyncWorker(): Worker {
     CRM_SYNC_QUEUE,
     async (job: Job) => {
       const { tenantId, provider } = job.data;
-      return runInTelemetrySpanAsync('queue.crm_sync.consume', {
-        service: 'crm-worker',
-        env: process.env.NODE_ENV || 'development',
-        tenant_id: String(tenantId ?? 'unknown'),
-        trace_id: String(job.data?.traceId ?? job.id ?? 'unknown'),
-        attributes: { queue: CRM_SYNC_QUEUE, provider: String(provider ?? 'unknown') },
-      }, async () => {
-
-      // Circuit breaker check
-      if (isCircuitOpen(tenantId, provider)) {
-        throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
+      if (!tenantId) {
+        throw new Error('crmWorker(sync): job payload missing tenantId — cannot establish tenant context');
       }
+      return tenantContextStorage.run(
+        { tid: tenantId, iss: 'worker', sub: 'worker', roles: [], tier: 'worker', exp: 0 },
+        () => runInTelemetrySpanAsync('queue.crm_sync.consume', {
+          service: 'crm-worker',
+          env: process.env.NODE_ENV || 'development',
+          tenant_id: String(tenantId),
+          trace_id: String(job.data?.traceId ?? job.id ?? 'unknown'),
+          attributes: { queue: CRM_SYNC_QUEUE, provider: String(provider ?? 'unknown') },
+        }, async () => {
 
-      logger.info(`[crm-sync] Processing ${job.name}`, {
-        tenantId,
-        provider,
-        jobId: job.id,
-        attempt: job.attemptsMade + 1,
-      });
+        // Circuit breaker check
+        if (isCircuitOpen(tenantId, provider)) {
+          throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
+        }
 
-      try {
-        const { crmSyncService } = await import('../services/crm/CrmSyncService.js');
-        const result = await crmSyncService.runDeltaSync(tenantId, provider);
-        recordCircuitSuccess(tenantId, provider);
-        return result;
-      } catch (err) {
-        recordCircuitFailure(tenantId, provider);
-        throw err;
-      }
-      });
+        logger.info(`[crm-sync] Processing ${job.name}`, {
+          tenantId,
+          provider,
+          jobId: job.id,
+          attempt: job.attemptsMade + 1,
+        });
+
+        try {
+          const { crmSyncService } = await import('../services/crm/CrmSyncService.js');
+          const result = await crmSyncService.runDeltaSync(tenantId, provider);
+          recordCircuitSuccess(tenantId, provider);
+          return result;
+        } catch (err) {
+          recordCircuitFailure(tenantId, provider);
+          throw err;
+        }
+        }),
+      );
     },
     {
       connection: getRedis(),
@@ -265,33 +272,39 @@ export function initCrmWebhookWorker(): Worker {
     CRM_WEBHOOK_QUEUE,
     async (job: Job) => {
       const { eventId, tenantId, provider } = job.data;
-      return runInTelemetrySpanAsync('queue.crm_webhook.consume', {
-        service: 'crm-worker',
-        env: process.env.NODE_ENV || 'development',
-        tenant_id: String(tenantId ?? 'unknown'),
-        trace_id: String(job.data?.traceId ?? eventId ?? job.id ?? 'unknown'),
-        attributes: { queue: CRM_WEBHOOK_QUEUE, provider: String(provider ?? 'unknown') },
-      }, async () => {
-
-      if (isCircuitOpen(tenantId, provider)) {
-        throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
+      if (!tenantId) {
+        throw new Error('crmWorker(webhook): job payload missing tenantId — cannot establish tenant context');
       }
+      return tenantContextStorage.run(
+        { tid: tenantId, iss: 'worker', sub: 'worker', roles: [], tier: 'worker', exp: 0 },
+        () => runInTelemetrySpanAsync('queue.crm_webhook.consume', {
+          service: 'crm-worker',
+          env: process.env.NODE_ENV || 'development',
+          tenant_id: String(tenantId),
+          trace_id: String(job.data?.traceId ?? eventId ?? job.id ?? 'unknown'),
+          attributes: { queue: CRM_WEBHOOK_QUEUE, provider: String(provider ?? 'unknown') },
+        }, async () => {
 
-      logger.info(`[crm-webhook] Processing event`, {
-        eventId,
-        jobId: job.id,
-        attempt: job.attemptsMade + 1,
-      });
+        if (isCircuitOpen(tenantId, provider)) {
+          throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
+        }
 
-      try {
-        const { crmWebhookService } = await import('../services/crm/CrmWebhookService.js');
-        await crmWebhookService.processEvent(eventId);
-        recordCircuitSuccess(tenantId, provider);
-      } catch (err) {
-        recordCircuitFailure(tenantId, provider);
-        throw err;
-      }
-      });
+        logger.info(`[crm-webhook] Processing event`, {
+          eventId,
+          jobId: job.id,
+          attempt: job.attemptsMade + 1,
+        });
+
+        try {
+          const { crmWebhookService } = await import('../services/crm/CrmWebhookService.js');
+          await crmWebhookService.processEvent(eventId);
+          recordCircuitSuccess(tenantId, provider);
+        } catch (err) {
+          recordCircuitFailure(tenantId, provider);
+          throw err;
+        }
+        }),
+      );
     },
     {
       connection: getRedis(),
@@ -335,24 +348,31 @@ export function initCrmPrefetchWorker(): Worker {
     CRM_PREFETCH_QUEUE,
     async (job: Job) => {
       const input = job.data;
-      return runInTelemetrySpanAsync('queue.crm_prefetch.consume', {
-        service: 'crm-worker',
-        env: process.env.NODE_ENV || 'development',
-        tenant_id: String(input?.tenantId ?? 'unknown'),
-        trace_id: String(input?.traceId ?? job.id ?? 'unknown'),
-        attributes: { queue: CRM_PREFETCH_QUEUE },
-      }, async () => {
-      logger.info(`[crm-prefetch] Processing`, {
-        valueCaseId: input.valueCaseId,
-        jobId: job.id,
-        attempt: job.attemptsMade + 1,
-      });
+      const tenantId = input?.tenantId;
+      if (!tenantId) {
+        throw new Error('crmWorker(prefetch): job payload missing tenantId — cannot establish tenant context');
+      }
+      return tenantContextStorage.run(
+        { tid: tenantId, iss: 'worker', sub: 'worker', roles: [], tier: 'worker', exp: 0 },
+        () => runInTelemetrySpanAsync('queue.crm_prefetch.consume', {
+          service: 'crm-worker',
+          env: process.env.NODE_ENV || 'development',
+          tenant_id: String(tenantId),
+          trace_id: String(input?.traceId ?? job.id ?? 'unknown'),
+          attributes: { queue: CRM_PREFETCH_QUEUE },
+        }, async () => {
+        logger.info(`[crm-prefetch] Processing`, {
+          valueCaseId: input.valueCaseId,
+          jobId: job.id,
+          attempt: job.attemptsMade + 1,
+        });
 
-      const { agentPrefetchService } = await import('../services/crm/AgentPrefetchService.js');
-      const result = await agentPrefetchService.prefetch(input);
+        const { agentPrefetchService } = await import('../services/crm/AgentPrefetchService.js');
+        const result = await agentPrefetchService.prefetch(input);
 
-      return result;
-      });
+        return result;
+        }),
+      );
     },
     {
       connection: getRedis(),

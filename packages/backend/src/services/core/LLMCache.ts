@@ -29,6 +29,37 @@ export interface LLMCacheEntry {
   hitCount: number;
 }
 
+/**
+ * Build a tenant-scoped LLM cache key.
+ *
+ * tenantId is required. Omitting it throws so that missing tenant context
+ * fails closed rather than silently sharing cache entries across tenants.
+ *
+ * Key format: llm:cache:{tenantId}:{model}:{sha256(prompt+model+options)[0:16]}
+ */
+export function buildLLMCacheKey({
+  tenantId,
+  model,
+  prompt,
+  options,
+}: {
+  tenantId: string;
+  model: string;
+  prompt: string;
+  options?: unknown;
+}): string {
+  if (!tenantId) {
+    throw new Error('tenantId is required for LLM cache key construction');
+  }
+  const content = JSON.stringify({
+    prompt: prompt.trim().toLowerCase(),
+    model,
+    options: options ?? {},
+  });
+  const hash = crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+  return `llm:cache:${tenantId}:${model}:${hash}`;
+}
+
 export class LLMCache {
   private client: RedisClientType;
   private config: CacheConfig;
@@ -66,21 +97,12 @@ export class LLMCache {
     if (this.connected) await this.client.quit();
   }
 
-  private generateCacheKey(prompt: string, model: string, options?: unknown): string {
-    const content = JSON.stringify({
-      prompt: prompt.trim().toLowerCase(),
-      model,
-      options: options ?? {},
-    });
-    const hash = crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
-    return `${this.config.keyPrefix}${model}:${hash}`;
-  }
-
   private getStatsKey(): string {
     return `${this.config.keyPrefix}stats`;
   }
 
   async get(
+    tenantId: string,
     prompt: string,
     model: string,
     options?: unknown,
@@ -89,7 +111,7 @@ export class LLMCache {
     if (!this.config.enabled || !this.connected) return null;
 
     try {
-      const key = this.generateCacheKey(prompt, model, options);
+      const key = buildLLMCacheKey({ tenantId, model, prompt, options });
       const cached = await this.client.get(key);
       if (!cached) {
         cacheRequestsTotal.inc({
@@ -130,6 +152,7 @@ export class LLMCache {
   }
 
   async set(
+    tenantId: string,
     prompt: string,
     model: string,
     response: string,
@@ -139,7 +162,7 @@ export class LLMCache {
     if (!this.config.enabled || !this.connected) return;
 
     try {
-      const key = this.generateCacheKey(prompt, model, options);
+      const key = buildLLMCacheKey({ tenantId, model, prompt, options });
       const entry: LLMCacheEntry = {
         response,
         model,
@@ -158,10 +181,10 @@ export class LLMCache {
     }
   }
 
-  async delete(prompt: string, model: string, options?: unknown): Promise<void> {
+  async delete(tenantId: string, prompt: string, model: string, options?: unknown): Promise<void> {
     if (!this.config.enabled || !this.connected) return;
     try {
-      await this.client.del(this.generateCacheKey(prompt, model, options));
+      await this.client.del(buildLLMCacheKey({ tenantId, model, prompt, options }));
     } catch {
       // Cache delete failure is non-fatal
     }
@@ -181,6 +204,39 @@ export class LLMCache {
     } catch {
       // Cache clear failure is non-fatal
     }
+  }
+
+  /**
+   * Flush all pre-migration global (non-tenant-prefixed) LLM cache keys.
+   *
+   * Old key format: llm:cache:{model}:{hash}
+   * New key format: llm:cache:{tenantId}:{model}:{hash}
+   *
+   * A UUID-shaped segment in position 3 distinguishes new keys from old ones.
+   * This method scans for all llm:cache: keys and deletes those that do NOT
+   * match the new tenant-prefixed format. Call once after deploying this change.
+   */
+  async flushLegacyGlobalKeys(): Promise<number> {
+    if (!this.config.enabled || !this.connected) return 0;
+    // New keys have the form: llm:cache:{uuid}:{model}:{hash}
+    // UUID segment is 36 chars (8-4-4-4-12). Old keys have a model name in position 3.
+    const uuidPattern = /^llm:cache:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:/i;
+    let deleted = 0;
+    try {
+      const toDelete: string[] = [];
+      for await (const key of this.client.scanIterator({ MATCH: 'llm:cache:*', COUNT: 100 })) {
+        if (!uuidPattern.test(key) && key !== this.getStatsKey()) {
+          toDelete.push(key);
+        }
+      }
+      if (toDelete.length > 0) {
+        await this.client.del(toDelete);
+        deleted = toDelete.length;
+      }
+    } catch {
+      // Non-fatal — legacy keys will expire naturally via TTL
+    }
+    return deleted;
   }
 
   async getStats(): Promise<{ totalEntries: number; totalHits: number; totalCostSaved: number; cacheSize: number }> {
@@ -214,6 +270,7 @@ export class LLMCache {
   }
 
   async setWithTTL(
+    tenantId: string,
     prompt: string,
     model: string,
     response: string,
@@ -223,7 +280,7 @@ export class LLMCache {
   ): Promise<void> {
     if (!this.config.enabled || !this.connected) return;
     try {
-      const key = this.generateCacheKey(prompt, model, options);
+      const key = buildLLMCacheKey({ tenantId, model, prompt, options });
       const entry: LLMCacheEntry = {
         response,
         model,
@@ -246,6 +303,9 @@ export const llmCache = new LLMCache();
 export async function initializeLLMCache(): Promise<void> {
   try {
     await llmCache.connect();
+    // Flush any pre-migration global (non-tenant-prefixed) keys on startup.
+    // This is idempotent — subsequent calls find nothing to delete.
+    await llmCache.flushLegacyGlobalKeys();
   } catch {
     // LLM caching will be disabled if Redis is unavailable
   }

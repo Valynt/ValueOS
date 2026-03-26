@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-aggregator-worker-metrics
+  namespace: valynt
+  labels:
+    app: billing-aggregator-worker
+    app.kubernetes.io/name: billing-aggregator-worker
+    app.kubernetes.io/component: billing
+spec:
+  selector:
+    app: billing-aggregator-worker
+  ports:
+    - name: metrics
+      port: 8082
+      targetPort: 8082
+  clusterIP: None
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: billing-aggregator-worker
+  namespace: valynt
+  labels:
+    app: billing-aggregator-worker
+    app.kubernetes.io/component: billing
+    # Must match the Prometheus operator's serviceMonitorSelector labels.
+    # Adjust if your Prometheus CR uses a different selector.
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: billing-aggregator-worker
+  namespaceSelector:
+    matchNames:
+      - valynt
+  endpoints:
+    - port: metrics
+      path: /
+      interval: 30s
+      scrapeTimeout: 10s

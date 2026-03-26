@@ -144,11 +144,13 @@ export class LLMFallbackService {
         latencyMs: latency,
       });
 
-      await llmCache.set(request.prompt, result.model, result.content, {
-        promptTokens: result.promptTokens,
-        completionTokens: result.completionTokens,
-        cost: result.cost,
-      });
+      if (request.tenantId) {
+        await llmCache.set(request.tenantId, request.prompt, result.model, result.content, {
+          promptTokens: result.promptTokens,
+          completionTokens: result.completionTokens,
+          cost: result.cost,
+        });
+      }
 
       logger.llm('Together.ai call succeeded', {
         provider: 'together_ai',
@@ -187,8 +189,10 @@ export class LLMFallbackService {
 
     assertModelAllowed('together_ai', request.model);
 
-    // Check cache first
-    const cached = await llmCache.get(request.prompt, request.model);
+    // Check cache first — only when tenantId is present (required for tenant-scoped key)
+    const cached = request.tenantId
+      ? await llmCache.get(request.tenantId, request.prompt, request.model)
+      : null;
     if (cached) {
       this.stats.cache.hits++;
 
@@ -304,8 +308,10 @@ export class LLMFallbackService {
   ): AsyncGenerator<{ content: string; done: boolean }> {
     assertModelAllowed('together_ai', request.model);
 
-    // Check cache first
-    const cached = await llmCache.get(request.prompt, request.model);
+    // Check cache first — only when tenantId is present (required for tenant-scoped key)
+    const cached = request.tenantId
+      ? await llmCache.get(request.tenantId, request.prompt, request.model)
+      : null;
     if (cached) {
       this.stats.cache.hits++;
       logger.cache(
@@ -466,11 +472,13 @@ export class LLMFallbackService {
         latencyMs: latency,
       });
 
-      await llmCache.set(request.prompt, request.model, accumulatedContent, {
-        promptTokens,
-        completionTokens,
-        cost,
-      });
+      if (request.tenantId) {
+        await llmCache.set(request.tenantId, request.prompt, request.model, accumulatedContent, {
+          promptTokens,
+          completionTokens,
+          cost,
+        });
+      }
 
       logger.llm('Together.ai stream succeeded', {
         provider: 'together_ai',

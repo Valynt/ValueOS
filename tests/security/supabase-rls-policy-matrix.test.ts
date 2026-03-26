@@ -48,10 +48,12 @@ const assertCrossTenantWrite = (outcome: {
 };
 
 describe("Supabase RLS policy matrix hard gate", () => {
-  let fixture: TenantIsolationFixture | null;
+  // createTenantIsolationFixture throws if Supabase env vars are absent,
+  // so this suite fails fast rather than passing with zero tests executed.
+  let fixture: TenantIsolationFixture;
 
   beforeAll(async () => {
-    fixture = await createTenantIsolationFixture();
+    fixture = await createTenantIsolationFixture() as TenantIsolationFixture;
   });
 
   afterAll(async () => {

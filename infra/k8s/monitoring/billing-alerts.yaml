@@ -119,6 +119,18 @@ spec:
     # ================================================================
     - name: billing.webhooks
       rules:
+        - alert: WebhookUnresolvedTenant
+          expr: |
+            increase(billing_webhook_unresolved_tenant_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: billing
+          annotations:
+            summary: "payment_succeeded event could not resolve tenant"
+            description: "A Stripe payment succeeded but no billing_customers row matched the customer ID. Tenant enforcement state was not updated — tenant paid but may remain restricted."
+            runbook_url: "https://docs.valueos.com/runbooks/billing-unresolved-tenant"
+
         - alert: WebhookRetryBacklog
           expr: |
             billing_webhook_retry_queue_size > 100

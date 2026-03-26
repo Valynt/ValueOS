@@ -23,13 +23,16 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
   let user2Id: string;
 
   beforeAll(async () => {
-    // Skip if required env vars are not set
+    // Fail hard if required env vars are absent — a missing secret must not
+    // produce a green CI run with zero tests executed.
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
-      console.warn("Skipping RLS tests - VITE_SUPABASE_URL or SUPABASE_SERVICE_KEY not set");
-      return;
+      throw new Error(
+        "RLS tests require VITE_SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY). " +
+        "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
+      );
     }
 
     // Create clients with different tenant contexts
@@ -139,10 +142,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("agent_sessions RLS Policies", () => {
     it("CRITICAL: should prevent cross-tenant access to agent_sessions", async () => {
-      // Skip if not in integration test environment
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
       }
 
       // Create session for tenant 1 using admin client (simulating tenant 1 action or admin action for tenant 1)
@@ -179,10 +178,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should reject NULL tenant_id inserts", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Attempt to insert with NULL tenant_id
       const { error } = await adminClient.from("agent_sessions").insert({
@@ -198,10 +193,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should enforce tenant_id in updates", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create session
       await adminClient.from("agent_sessions").insert({
@@ -234,10 +225,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("agent_predictions RLS Policies", () => {
     it("CRITICAL: should prevent NULL tenant_id bypass", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Attempt to insert prediction with NULL tenant_id
       const { error } = await adminClient.from("agent_predictions").insert({
@@ -254,10 +241,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should isolate predictions by tenant", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create predictions for both tenants
       await adminClient.from("agent_predictions").insert([
@@ -307,10 +290,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("Security Audit Triggers", () => {
     it("should allow service role to write security audit logs under RLS", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       const { error } = await adminClient.from("security_audit_log").insert({
         event_type: "audit_test_service_role",
@@ -321,10 +300,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should reject audit writes from authenticated users", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       const { error } = await tenant1Client.from("security_audit_log").insert({
         event_type: "audit_test_authenticated",
@@ -335,10 +310,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should log security violations to audit table", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Get initial audit log count
       const { count: initialCount } = await adminClient
@@ -369,10 +340,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should provide security_violations view", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Query security violations view
       const { data, error } = await adminClient.from("security_violations").select("*").limit(10);
@@ -386,10 +353,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("RLS Verification Function", () => {
     it("should verify RLS is enabled on all critical tables", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Call verification function
       const { data, error } = await adminClient.rpc("verify_rls_tenant_isolation");
@@ -430,10 +393,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("Cross-Tenant Attack Scenarios", () => {
     it("CRITICAL: should prevent session hijacking across tenants", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create session for tenant 1
       const { data: session } = await adminClient
@@ -461,10 +420,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should prevent prediction data leakage", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create sensitive prediction for tenant 1
       await adminClient.from("agent_predictions").insert({
@@ -494,10 +449,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("ValueCase RLS Policies - Cross-Tenant Attack Simulation", () => {
     it("CRITICAL: should prevent cross-tenant access to value_cases", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create a value case for tenant 1
       const { data: valueCase, error: createError } = await adminClient
@@ -537,10 +488,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should reject value_cases insert with wrong tenant_id", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Attempt to insert value case with tenant 2's ID using tenant 1's client
       const { error: insertError } = await tenant1Client.from("value_cases").insert({
@@ -556,10 +503,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("AuditLog RLS Policies - Cross-Tenant Attack Simulation", () => {
     it("CRITICAL: should prevent cross-tenant access to audit_logs", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Create an audit log entry for tenant 1
       const { data: auditLog, error: createError } = await adminClient
@@ -603,10 +546,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should reject audit_logs insert with wrong organization_id", async () => {
-      if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping RLS test - SUPABASE_SERVICE_KEY not set");
-        return;
-      }
 
       // Attempt to insert audit log with tenant 2's organization_id using tenant 1's client
       const { error: insertError } = await tenant1Client.from("audit_logs").insert({
