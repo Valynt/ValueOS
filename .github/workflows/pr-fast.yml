@@ -111,6 +111,9 @@ jobs:
         run: ${{ matrix.lint_command }}
       - name: Lint ratchet guard
         run: node scripts/ci/lint-ratchet-check.mjs --lane "${{ matrix.lane }}" --report "${{ matrix.report_path }}"
+      - name: A11y ESLint weekly warning ratchet
+        if: matrix.lane == 'valynt-app'
+        run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
 
   unit-component-schema:
     name: unit/component/schema
