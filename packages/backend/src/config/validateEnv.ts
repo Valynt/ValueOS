@@ -42,9 +42,8 @@ const REQUIRED_VARS = [
   },
 ];
 
-// TCT_SECRET is required in all environments except test mode.
-// In test mode, AuthService generates an ephemeral secret when TCT_ALLOW_EPHEMERAL_SECRET=true.
-const REQUIRED_VARS_NON_TEST = [
+// TCT_SECRET is required in all environments to keep startup behavior consistent and fail-fast.
+const REQUIRED_VARS_ALL_ENVS = [
   {
     name: "TCT_SECRET",
     fix: "Generate with: openssl rand -hex 32 and set in ops/env/.env.backend.<mode>. For test mode only, set TCT_ALLOW_EPHEMERAL_SECRET=true.",
@@ -251,7 +250,6 @@ export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const nodeEnv = process.env.NODE_ENV ?? "development";
-  const isTestMode = nodeEnv === "test" || process.env.LOCAL_TEST_MODE === "true";
   const llm = validateLLMConfig();
   const supabaseErrors: string[] = [];
   const supabaseWarnings: string[] = [];
@@ -269,12 +267,10 @@ export function validateEnv(): ValidationResult {
     }
   }
 
-  // Check vars required outside test mode
-  if (!isTestMode) {
-    for (const { name, fix } of REQUIRED_VARS_NON_TEST) {
-      if (!process.env[name]) {
-        errors.push(`Missing ${name}. Fix: ${fix}`);
-      }
+  // Check vars required in all modes
+  for (const { name, fix } of REQUIRED_VARS_ALL_ENVS) {
+    if (!process.env[name]) {
+      errors.push(`Missing ${name}. Fix: ${fix}`);
     }
   }
 
