@@ -10,6 +10,7 @@ pnpm monorepo. Checked-in application workspaces live in `apps/`, while the prim
 apps/
   ValyntApp/        # Customer-facing web application (workspace: valynt-app)
   mcp-dashboard/    # Internal MCP observability dashboard (workspace: mcp-dashboard)
+  agentic-ui-pro/   # Experimental agentic UI prototype workspace (workspace: agentic-ui-pro)
 
 packages/
   backend/          # Express API runtime (workspace: @valueos/backend)
@@ -44,7 +45,7 @@ Use these canonical documentation values when updating public-facing docs, examp
 - **Status:** `https://status.valueos.com`
 - **Support:** `support@valueos.com`
 - **Docs ownership:** `docs@valueos.com`
-- **Runtime inventory source of truth:** the checked-in `apps/` and `packages/` directories, summarized in [docs/architecture/README.md](docs/architecture/README.md)
+- **Runtime inventory source of truth:** [docs/architecture/runtime-inventory.json](docs/architecture/runtime-inventory.json), summarized in [docs/architecture/README.md](docs/architecture/README.md)
 
 Additional contributor guidance lives in the repository-root [AGENTS.md](AGENTS.md), the repository-wide [docs/AGENTS.md](docs/AGENTS.md), and scoped package guides such as [packages/backend/AGENTS.md](packages/backend/AGENTS.md) and [packages/shared/AGENTS.md](packages/shared/AGENTS.md).
 

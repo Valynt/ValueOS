@@ -6,7 +6,7 @@ system: valueos-platform
 
 # Architecture
 
-**Last Updated**: 2026-03-21
+**Last Updated**: 2026-03-26
 
 ---
 
@@ -27,12 +27,15 @@ Use this section as the canonical reference when updating repository-level docs,
 
 ### Runtime inventory
 
+The authoritative machine-readable runtime inventory is `docs/architecture/runtime-inventory.json`.
+
 The checked-in application workspaces under `apps/` are:
 
-- `apps/ValyntApp` (`valynt-app`) — customer-facing frontend runtime
-- `apps/mcp-dashboard` (`mcp-dashboard`) — internal MCP observability dashboard workspace
+- `apps/ValyntApp` (`valynt-app`) — **active** customer-facing frontend runtime
+- `apps/mcp-dashboard` (`mcp-dashboard`) — **active** internal MCP observability dashboard workspace
+- `apps/agentic-ui-pro` (`agentic-ui-pro`) — **experimental** agentic UI prototype workspace
 
-The primary API runtime remains `packages/backend` (`@valueos/backend`). The current top-level directories under `packages/` are `backend`, `components`, `config-v2`, `infra`, `integrations`, `mcp`, `memory`, `sdui`, `services`, `shared`, and `test-utils`. If a repository summary claims a different `apps/` or `packages/` inventory, treat the filesystem and this section as the source of truth and update the stale document.
+The primary API runtime remains `packages/backend` (`@valueos/backend`). Production package runtime entries (including owner and deploy path metadata) are also tracked in `docs/architecture/runtime-inventory.json`. The current top-level directories under `packages/` are `backend`, `components`, `config-v2`, `infra`, `integrations`, `mcp`, `memory`, `sdui`, `services`, `shared`, and `test-utils`. If a repository summary claims a different `apps/` or `packages/` inventory, treat the filesystem and this section as the source of truth and update the stale document plus the JSON inventory.
 
 ### Canonical file locations
 
