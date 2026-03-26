@@ -341,7 +341,7 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
         run: |
           mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+          npx playwright test tests/accessibility/axe-a11y.spec.ts tests/accessibility/wcag-compliance.test.ts \
             --reporter=html,json \
             --output=artifacts/accessibility
       - name: Accessibility trend gate
