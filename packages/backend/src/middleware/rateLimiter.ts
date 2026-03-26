@@ -64,10 +64,22 @@ export interface RateLimitConfig {
   failClosed?: boolean;
 }
 
-interface RouteFailClosedPolicy {
+export interface RouteRiskMetadata {
   failClosed: boolean;
-  risk: "security-critical" | "expensive-write" | "low-risk";
-  reason: "auth" | "admin" | "expensive-write" | "default";
+  requiresDistributedStore: boolean;
+  risk:
+    | "security-critical"
+    | "security-sensitive-write"
+    | "authenticated-mutation"
+    | "expensive-write"
+    | "low-risk";
+  reason:
+    | "auth"
+    | "admin-mutation"
+    | "security-sensitive-write"
+    | "authenticated-mutation"
+    | "expensive-write"
+    | "default";
 }
 
 function isSensitiveMemoryFallbackOverrideEnabled(): boolean {
@@ -110,34 +122,89 @@ function isExpensiveWritePath(path: string): boolean {
   ].some((pattern) => pattern.test(path));
 }
 
-function getRouteFailClosedPolicy(
+function isSecuritySensitiveWritePath(path: string): boolean {
+  return [
+    /^\/api\/dsr(\/|$)/,
+    /^\/api\/integrations(\/|$)/,
+    /^\/api\/teams(\/|$)/,
+    /^\/api\/billing(\/|$)/,
+    /^\/api\/admin(\/|$)/,
+  ].some((pattern) => pattern.test(path));
+}
+
+function hasAuthenticationContext(req: Request): boolean {
+  const authorization = req.header("authorization");
+  return Boolean(req.user || req.userId || req.sessionId || authorization);
+}
+
+function isMutationMethod(method: string): boolean {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+}
+
+export function getRouteRiskMetadata(
   req: Request,
   tier: RateLimitTierValue
-): RouteFailClosedPolicy {
+): RouteRiskMetadata {
   const path = req.path.toLowerCase();
   const method = req.method.toUpperCase();
+  const mutationMethod = isMutationMethod(method);
+  const authenticatedMutation =
+    mutationMethod && hasAuthenticationContext(req) && isDistributedRateLimitMode();
 
   if (/^\/(api\/)?auth(\/|$)/.test(path)) {
-    return { failClosed: true, risk: "security-critical", reason: "auth" };
+    return {
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: "security-critical",
+      reason: "auth",
+    };
   }
 
-  if (/^\/(api\/)?admin(\/|$)/.test(path)) {
-    return { failClosed: true, risk: "security-critical", reason: "admin" };
+  if (/^\/api\/admin(\/|$)/.test(path) && mutationMethod) {
+    return {
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: "security-critical",
+      reason: "admin-mutation",
+    };
+  }
+
+  if (mutationMethod && isSecuritySensitiveWritePath(path)) {
+    return {
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: "security-sensitive-write",
+      reason: "security-sensitive-write",
+    };
+  }
+
+  if (authenticatedMutation) {
+    return {
+      failClosed: true,
+      requiresDistributedStore: true,
+      risk: "authenticated-mutation",
+      reason: "authenticated-mutation",
+    };
   }
 
   if (
     tier === RateLimitTier.STRICT ||
-    (["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
-      isExpensiveWritePath(path))
+    (mutationMethod && isExpensiveWritePath(path))
   ) {
     return {
       failClosed: true,
+      requiresDistributedStore: true,
       risk: "expensive-write",
       reason: "expensive-write",
     };
   }
 
-  return { failClosed: false, risk: "low-risk", reason: "default" };
+  return {
+    failClosed: false,
+    requiresDistributedStore: false,
+    risk: "low-risk",
+    reason: "default",
+  };
 }
 
 /**
@@ -388,8 +455,10 @@ export function createRateLimiter(
       return next();
     }
 
-    const routePolicy = getRouteFailClosedPolicy(req, tier);
+    const routePolicy = getRouteRiskMetadata(req, tier);
     const failClosed = routePolicy.failClosed || (config.failClosed ?? false);
+    const requireDistributedStore =
+      routePolicy.requiresDistributedStore || failClosed;
 
     // Use unified key service
     const key = RateLimitKeyService.generateSecureKey(req, {
@@ -399,7 +468,7 @@ export function createRateLimiter(
 
     try {
       const entry = await store.increment(key, config.windowMs, {
-        requireDistributedStore: failClosed,
+        requireDistributedStore,
         allowSensitiveMemoryFallback:
           isSensitiveMemoryFallbackOverrideEnabled(),
       });
@@ -448,6 +517,7 @@ export function createRateLimiter(
         failClosed,
         policyReason: routePolicy.reason,
         policyRisk: routePolicy.risk,
+        requireDistributedStore,
         degradedMode: true,
         redisAvailable: store.isRedisAvailable(),
       });
@@ -556,7 +626,6 @@ export function getGeneralRateLimitBackendStatus(): {
   };
 }
 
-export { getRouteFailClosedPolicy };
 
 /**
  * Get rate limit status for a user

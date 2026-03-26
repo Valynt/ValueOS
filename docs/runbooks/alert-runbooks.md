@@ -32,6 +32,9 @@ Runbooks for Prometheus alert rules defined in:
 | NodeMemoryPressure | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml` |
 | DeploymentReplicasMismatch | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml` |
 | PVCAlmostFull | [x] complete | Platform SRE | `infra/k8s/observability/prometheus/alert-rules.yaml` |
+| GeneralRateLimiterBackendUnavailableWarning | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
+| GeneralRateLimiterBackendUnavailable | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
+| GeneralRateLimiterProtective503Spike | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
 
 ## HighErrorRate
 - **Trigger meaning:** 5xx ratio per pod exceeds 5% for 5m. Indicates user-visible failures and potential SLO burn.
@@ -179,6 +182,15 @@ Runbooks for Prometheus alert rules defined in:
 - **Escalation:** Page **Platform SRE** and service owner if projected exhaustion <24h.
 - **Post-incident actions:** add forecast alerting, retention tests, and storage growth dashboards.
 - **Ownership:** Platform SRE. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
+
+## GeneralRateLimiterBackendUnavailableWarning / GeneralRateLimiterBackendUnavailable / GeneralRateLimiterProtective503Spike
+- **Trigger meaning:** Distributed API rate limiting has become unavailable (warning/critical), and protective 503 responses are rising on sensitive mutation routes.
+- **Detection signals:** `rate_limit_backend_unavailable_total`, `rate_limit_protective_503_responses_total`, and API logs with `RATE_LIMIT_DEGRADED_PROTECTION`.
+- **Remediation:** prioritize Redis recovery, keep fail-closed protection enabled for auth/admin/security-sensitive writes, and optionally reduce non-essential mutation traffic at gateway/WAF.
+- **Emergency override:** only with Incident Commander + Security approval, set `RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK=true` temporarily, record timestamps, and revert immediately after Redis recovery.
+- **Escalation:** page **Backend Platform** and **Platform SRE** immediately when critical alert is active >5m or protective 503s impact multiple tenants.
+- **Runbook:** `docs/operations/runbooks/troubleshooting-runbook.md#api-rate-limiter-redis-degraded-emergency-controls`.
+- **Ownership:** Backend Platform. **Rule file:** `infra/k8s/monitoring/rate-limiter-alerts.yaml`.
 
 ## EntitlementsDependencyOutage
 - **Trigger meaning:** entitlement checks (usage/quota enforcement dependency) are failing and requests may be denied by fail-closed policy.

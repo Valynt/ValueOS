@@ -40,7 +40,7 @@ spec:
 
         - alert: GeneralRateLimiterBackendUnavailable
           expr: |
-            sum(rate(rate_limit_backend_unavailable_total[5m])) > 0
+            sum(rate(rate_limit_backend_unavailable_total[5m])) > 0.02
           for: 10m
           labels:
             severity: critical
@@ -52,6 +52,39 @@ spec:
               rate_limit_backend_unavailable_total has been increasing for at
               least 10 minutes. Admin or expensive write endpoints are no longer
               able to rely on shared rate-limit state.
+            runbook: "docs/operations/runbooks/troubleshooting-runbook.md#api-rate-limiter-redis-degraded-emergency-controls"
+
+        - alert: GeneralRateLimiterBackendUnavailableWarning
+          expr: |
+            sum(rate(rate_limit_backend_unavailable_total[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: api
+            pager: primary
+          annotations:
+            summary: "General distributed rate limiting backend is intermittently unavailable"
+            description: >
+              rate_limit_backend_unavailable_total has started incrementing in
+              the last 5 minutes. Investigate Redis health before protective
+              503 responses impact authenticated mutations.
+            runbook: "docs/operations/runbooks/troubleshooting-runbook.md#api-rate-limiter-redis-degraded-emergency-controls"
+
+        - alert: GeneralRateLimiterProtective503Spike
+          expr: |
+            sum(rate(rate_limit_protective_503_responses_total[5m])) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            component: api
+            pager: primary
+          annotations:
+            summary: "General API protective 503 responses are being emitted"
+            description: >
+              rate_limit_protective_503_responses_total has exceeded the
+              emergency threshold for 5 minutes. Sensitive mutation routes are
+              being blocked to preserve secure fail-closed behavior.
+            runbook: "docs/operations/runbooks/troubleshooting-runbook.md#api-rate-limiter-redis-degraded-emergency-controls"
 
         - alert: LlmRateLimiterBackendUnavailable
           expr: |
