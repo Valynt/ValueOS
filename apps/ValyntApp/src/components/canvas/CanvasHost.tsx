@@ -5,7 +5,7 @@
  */
 
 import { Building2 } from "lucide-react";
-import React, { ComponentType, Suspense } from "react";
+import React, { Component, ComponentType, ErrorInfo, ReactNode, Suspense } from "react";
 
 // Widget type registry - maps component_type to lazy-loaded components
 const widgetRegistry: Record<string, ComponentType<WidgetProps>> = {};
@@ -77,6 +77,61 @@ registerWidget("checkpoint-timeline", CheckpointTimeline as unknown as Component
 registerWidget("usage-meter", UsageMeter as unknown as ComponentType<WidgetProps>);
 registerWidget("plan-comparison", PlanComparison as unknown as ComponentType<WidgetProps>);
 
+// Per-widget error boundary to isolate failures (spec 3.2.1)
+interface WidgetErrorBoundaryProps {
+  widgetId: string;
+  componentType: string;
+  children: ReactNode;
+}
+
+interface WidgetErrorBoundaryState {
+  hasError: boolean;
+}
+
+class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErrorBoundaryState> {
+  constructor(props: WidgetErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error): Partial<WidgetErrorBoundaryState> {
+    return { hasError: true };
+  }
+
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error(
+      `[CanvasHost] Widget "${this.props.componentType}" (${this.props.widgetId}) crashed:`,
+      error.message,
+      errorInfo.componentStack,
+    );
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center"
+          role="alert"
+        >
+          <p className="text-sm font-medium text-destructive mb-1">
+            Widget failed to render
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {this.props.componentType} ({this.props.widgetId})
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Widget loading fallback
 function WidgetSkeleton() {
   return (
@@ -138,13 +193,19 @@ export function CanvasHost({
     };
 
     return (
-      <Suspense key={widget.id} fallback={<WidgetSkeleton />}>
-        <Widget
-          id={widget.id}
-          data={widget.props}
-          onAction={handleAction}
-        />
-      </Suspense>
+      <WidgetErrorBoundary
+        key={widget.id}
+        widgetId={widget.id}
+        componentType={widget.componentType}
+      >
+        <Suspense fallback={<WidgetSkeleton />}>
+          <Widget
+            id={widget.id}
+            data={widget.props}
+            onAction={handleAction}
+          />
+        </Suspense>
+      </WidgetErrorBoundary>
     );
   };
 
