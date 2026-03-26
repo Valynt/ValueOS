@@ -1,0 +1,47 @@
+groups:
+  - name: queue-depth-alerts
+    rules:
+      # Fires when the LLM processing queue depth exceeds a safe threshold
+      # for a sustained period. A growing queue means workers cannot keep up
+      # with incoming requests, leading to user-visible latency or timeouts.
+      - alert: LLMQueueDepthHigh
+        expr: message_worker_queue_depth > 500
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "LLM processing queue depth is high"
+          description: >
+            The LLM job queue has exceeded 500 pending jobs for 10 minutes.
+            Workers may be unable to keep up with demand. Consider scaling
+            worker concurrency or investigating downstream LLM provider issues.
+
+      # Critical threshold -- queue is severely backed up.
+      - alert: LLMQueueDepthCritical
+        expr: message_worker_queue_depth > 2000
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "LLM processing queue depth is critically high"
+          description: >
+            The LLM job queue has exceeded 2000 pending jobs for 5 minutes.
+            Users will experience significant delays or timeouts. Immediate
+            investigation and scaling action is required.
+
+      # Fires when the queue depth is growing rapidly, indicating a sudden
+      # spike in demand or a worker outage.
+      - alert: LLMQueueGrowthRateHigh
+        expr: deriv(message_worker_queue_depth[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "LLM queue is growing rapidly"
+          description: >
+            The LLM queue depth is increasing by more than 10 jobs per
+            minute sustained over 10 minutes. This may indicate a worker
+            crash, provider outage, or traffic spike.
