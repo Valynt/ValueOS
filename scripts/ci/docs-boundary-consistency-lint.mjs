@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -51,6 +51,27 @@ const archiveBoundaryRules = [
     regex: /infra\/supabase\/supabase\/migrations\/(archive\/|_archived_|_deferred_archived|migrations_archive)/i,
     hint: 'Migration archive paths must be described as archived/superseded material, never as the active chain.',
   },
+];
+
+const legacyIdentifierRules = [
+  {
+    name: 'Legacy identifier "valynt"',
+    regex: /\bvalynt(?:[-_][a-z0-9-]+)?\b/gi,
+    hint: 'Use canonical ValueOS environment/resource names. Keep legacy strings only inside archival docs or lines tagged [legacy-id].',
+  },
+  {
+    name: 'Legacy identifier "valuecanvas"',
+    regex: /\bvaluecanvas\b/gi,
+    hint: 'Use ValueOS naming unless documenting archived historical material.',
+  },
+];
+
+const LEGACY_LINE_ALLOWLIST_RE = /\[legacy-id\]/i;
+const LEGACY_FILE_ALLOWLIST = [
+  /^docs\/runbooks\//,
+  /^docs\/operations\/release-1\.0\//,
+  /^docs\/reference\//,
+  /^docs\/archive\//,
 ];
 
 const ACTIVE_CONTEXT_RE = /\b(active|canonical|authoritative|source of truth|shared-environment|staging|production|deploy(?:ment)? path|runtime(?: target| platform)?|current(?:ly)? uses?)\b/i;
@@ -125,6 +146,52 @@ for (const file of files) {
   });
 }
 
+const scanLegacyIdentifiersInDocs = (directory) => {
+  const entries = readdirSync(path.resolve(repoRoot, directory));
+  for (const entry of entries) {
+    const relativePath = path.posix.join(directory, entry);
+    const absolutePath = path.resolve(repoRoot, relativePath);
+    const stats = statSync(absolutePath);
+
+    if (stats.isDirectory()) {
+      scanLegacyIdentifiersInDocs(relativePath);
+      continue;
+    }
+
+    if (!relativePath.endsWith('.md')) {
+      continue;
+    }
+
+    if (LEGACY_FILE_ALLOWLIST.some((rule) => rule.test(relativePath))) {
+      continue;
+    }
+
+    const content = readFileSync(absolutePath, 'utf8');
+    const lines = content.split(/\r?\n/);
+    lines.forEach((line, index) => {
+      if (LEGACY_LINE_ALLOWLIST_RE.test(line)) {
+        return;
+      }
+
+      legacyIdentifierRules.forEach((rule) => {
+        rule.regex.lastIndex = 0;
+        if (rule.regex.test(line)) {
+          violations.push({
+            file: relativePath,
+            line: index + 1,
+            marker: rule.name,
+            text: line.trim(),
+            hint: rule.hint,
+          });
+        }
+      });
+    });
+  }
+};
+
+scanLegacyIdentifiersInDocs('docs/operations/runbooks');
+scanLegacyIdentifiersInDocs('docs/runbooks');
+
 if (violations.length > 0) {
   console.error('❌ Docs boundary consistency lint failed.');
   for (const violation of violations) {
@@ -134,4 +201,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`✅ Docs boundary consistency lint passed (${files.length} file(s) scanned).`);
+console.log(`✅ Docs boundary consistency lint passed (${files.length} canonical file(s) + runbook legacy-identifier scan).`);

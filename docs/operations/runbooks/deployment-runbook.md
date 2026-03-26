@@ -53,14 +53,14 @@ Authoritative operational runbook for production deployments. This runbook is th
 
 
 ## Agent identity policy validation (required)
-- Confirm each agent deployment in `infra/k8s/base/agents/*/deployment.yaml` uses a dedicated ServiceAccount (`<agent-name>-agent`), never `valynt-agent`.
+- Confirm each agent deployment in `infra/k8s/base/agents/*/deployment.yaml` uses a dedicated ServiceAccount (`<agent-name>-agent`), never `valueos-agent`.
 - Validate before promotion:
   ```bash
   node scripts/ci/check-agent-service-accounts.mjs
   ```
 - Confirm Istio AuthorizationPolicy principals match the expected trust domain and namespace format:
-  - `cluster.local/ns/valynt-agents/sa/<agent-name>-agent`
-  - `cluster.local/ns/valynt/sa/valynt-backend`
+  - `cluster.local/ns/valueos-agents/sa/<agent-name>-agent`
+  - `cluster.local/ns/valueos/sa/valueos-backend`
 - If the cluster trust domain is not `cluster.local`, update `infra/k8s/security/mesh-authentication.yaml` and re-run validation prior to deployment.
 
 ## Evidence & Audit
@@ -86,3 +86,6 @@ Authoritative operational runbook for production deployments. This runbook is th
 ## Generated Reference
 Detailed command catalogs and deep background are maintained in the generated reference:
 - [Deployment Reference (Generated)](../reference/deployment-reference.generated.md)
+
+
+> **Legacy section (`[legacy-id]`):** historical mesh policies may still show `valynt-*` principals. Keep those strings only in archived evidence or migration notes.
