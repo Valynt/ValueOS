@@ -1,8 +1,8 @@
 import {
   ALL_COMPLIANCE_FRAMEWORKS,
-  complianceFrameworkCapabilityGate,
   type ComplianceFramework,
 } from "./ComplianceFrameworkCapabilityGate.js";
+import type { ComplianceTechnicalSignalKey } from "./ComplianceControlStatusService.js";
 
 /* eslint-disable security/detect-object-injection -- Typed array/object access with controlled indices */
 
@@ -16,6 +16,7 @@ export type EvidenceType =
 export interface ControlMapping {
   control_id: string;
   required_evidence_types: EvidenceType[];
+  technical_signals: ComplianceTechnicalSignalKey[];
   retention_requirement: {
     minimum_days: number;
     policy_source: string;
@@ -43,6 +44,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "gdpr_art_30_records_of_processing",
         required_evidence_types: ["audit_logs", "control_status"],
+        technical_signals: ["tests_passed", "policies_deployed"],
         retention_requirement: {
           minimum_days: 2190,
           policy_source: "policy://gdpr/art30",
@@ -52,6 +54,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "gdpr_art_32_security_processing",
         required_evidence_types: ["security_audit_log", "control_status"],
+        technical_signals: ["tests_passed", "encryption_config_active"],
         retention_requirement: {
           minimum_days: 2190,
           policy_source: "policy://gdpr/art32",
@@ -66,6 +69,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "hipaa_164_312_b_audit_controls",
         required_evidence_types: ["security_audit_log", "security_audit_log_archive", "control_status"],
+        technical_signals: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
         retention_requirement: {
           minimum_days: 2190,
           policy_source: "policy://hipaa/164.316",
@@ -75,6 +79,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "hipaa_164_312_c_integrity",
         required_evidence_types: ["audit_logs", "control_status"],
+        technical_signals: ["tests_passed", "encryption_config_active"],
         retention_requirement: {
           minimum_days: 2190,
           policy_source: "policy://hipaa/164.316",
@@ -89,6 +94,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "ccpa_1798_105_deletion_requests",
         required_evidence_types: ["audit_logs", "audit_logs_archive"],
+        technical_signals: ["retention_jobs_healthy", "policies_deployed"],
         retention_requirement: {
           minimum_days: 1095,
           policy_source: "policy://ccpa/1798.105",
@@ -98,6 +104,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "ccpa_1798_110_disclosure",
         required_evidence_types: ["audit_logs", "control_status"],
+        technical_signals: ["tests_passed", "policies_deployed"],
         retention_requirement: {
           minimum_days: 1095,
           policy_source: "policy://ccpa/1798.110",
@@ -112,6 +119,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "soc2_cc7_monitoring",
         required_evidence_types: ["security_audit_log", "security_audit_log_archive", "control_status"],
+        technical_signals: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
         retention_requirement: {
           minimum_days: 2555,
           policy_source: "policy://soc2/cc7",
@@ -121,6 +129,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "soc2_cc6_change_mgmt",
         required_evidence_types: ["audit_logs", "control_status"],
+        technical_signals: ["tests_passed", "policies_deployed"],
         retention_requirement: {
           minimum_days: 2555,
           policy_source: "policy://soc2/cc6",
@@ -135,6 +144,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "iso27001_a8_information_classification",
         required_evidence_types: ["audit_logs", "audit_logs_archive"],
+        technical_signals: ["retention_jobs_healthy", "policies_deployed"],
         retention_requirement: {
           minimum_days: 2555,
           policy_source: "policy://iso27001/a8",
@@ -144,6 +154,7 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       {
         control_id: "iso27001_a12_logging_monitoring",
         required_evidence_types: ["security_audit_log", "security_audit_log_archive", "control_status"],
+        technical_signals: ["tests_passed", "encryption_config_active"],
         retention_requirement: {
           minimum_days: 2555,
           policy_source: "policy://iso27001/a12",
@@ -156,13 +167,11 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
 
 export class ComplianceControlMappingRegistry {
   getFrameworkMapping(framework: ComplianceFramework): FrameworkControlMapping {
-    complianceFrameworkCapabilityGate.assertFrameworksSupported([framework]);
     return CONTROL_MAPPINGS[framework];
   }
 
   listFrameworkMappings(frameworks?: ComplianceFramework[]): FrameworkControlMapping[] {
-    const selected = frameworks ?? complianceFrameworkCapabilityGate.getSupportedFrameworks();
-    complianceFrameworkCapabilityGate.assertFrameworksSupported(selected);
+    const selected = frameworks ?? ALL_COMPLIANCE_FRAMEWORKS;
     return selected.map((framework) => this.getFrameworkMapping(framework));
   }
 
