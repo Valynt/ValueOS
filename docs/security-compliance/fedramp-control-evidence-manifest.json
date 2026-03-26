@@ -20,7 +20,8 @@
       "static_evidence": [
         "docs/security-compliance/evidence-index.md",
         "docs/security-compliance/production-contract.md",
-        ".github/workflows/ci.yml"
+        ".github/workflows/pr-fast.yml",
+        ".github/workflows/main-verify.yml"
       ],
       "migration_lineage": [
         "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",

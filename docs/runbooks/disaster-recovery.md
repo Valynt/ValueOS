@@ -22,13 +22,16 @@ status: active
 
 ## Backup Strategy
 
+> **Legacy naming note (`[legacy-id]`):** Older incident records and pre-rename buckets may still reference `valynt-*` resource names. Treat those as archival aliases only.
+
+
 ### Database (PostgreSQL / Supabase)
 
 | Backup Type | Frequency | Retention | Storage |
 |-------------|-----------|-----------|---------|
-| WAL archiving | Continuous | 7 days | S3 `valynt-wal-archive/` |
-| Logical dump (`pg_dump`) | Daily 02:00 UTC | 30 days | S3 `valynt-backups/daily/` |
-| Weekly snapshot | Sunday 03:00 UTC | 90 days | S3 `valynt-backups/weekly/` |
+| WAL archiving | Continuous | 7 days | S3 `valueos-wal-archive/` |
+| Logical dump (`pg_dump`) | Daily 02:00 UTC | 30 days | S3 `valueos-backups/daily/` |
+| Weekly snapshot | Sunday 03:00 UTC | 90 days | S3 `valueos-backups/weekly/` |
 
 ### Redis
 
@@ -51,12 +54,12 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
 ### SEV-1: Full Database Failure
 
 1. **Declare incident** in `#incidents` Slack channel
-2. **Assess scope**: `kubectl get pods -n valynt` — check if DB pod is running
+2. **Assess scope**: `kubectl get pods -n valueos` — check if DB pod is running
 3. **Check WAL status**: Verify last WAL segment archived to S3
 4. **Restore from latest backup**:
    ```bash
    # Download latest daily backup
-   aws s3 cp s3://valynt-backups/daily/latest.sql.gz ./restore.sql.gz
+   aws s3 cp s3://valueos-backups/daily/latest.sql.gz ./restore.sql.gz
    gunzip restore.sql.gz
 
    # Restore to new instance.
@@ -65,8 +68,6 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
    psql "$NEW_DATABASE_URL" < restore.sql
 
    # Apply WAL replay if available
-   # (Handled by PostgreSQL point-in-time recovery configuration)
-   ```
    # (Handled by PostgreSQL point-in-time recovery configuration)
    ```
    > **Local fallback (if S3 backup unavailable):** Take a `pg_dump` of the current
@@ -96,7 +97,7 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
 
 1. Redis is ephemeral — restart the StatefulSet:
    ```bash
-   kubectl rollout restart statefulset/redis-broker -n valynt
+   kubectl rollout restart statefulset/redis-broker -n valueos
    ```
 2. Idempotency cache and DLQ will be empty. In-flight agent tasks may re-execute (idempotent by design).
 3. Monitor DLQ for duplicate entries after recovery.
@@ -112,7 +113,7 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
 ### SEV-3: Single Pod Crash
 
 1. Kubernetes handles this automatically via restart policy
-2. Check logs: `kubectl logs <pod> -n valynt --previous`
+2. Check logs: `kubectl logs <pod> -n valueos --previous`
 3. If crash-looping, check resource limits and OOM kills
 
 ## DR Validation Schedule

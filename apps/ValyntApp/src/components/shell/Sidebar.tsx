@@ -121,7 +121,7 @@ export function Sidebar({
             <a
               href={betaHubUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <BookOpen className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function Sidebar({
             <a
               href={betaHubUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="rounded-lg p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
               aria-label="Beta Hub"
             >

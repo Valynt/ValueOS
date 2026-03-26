@@ -6,9 +6,10 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
-import { supabase } from "@shared/lib/supabase";
+import { createBrowserSupabaseClient } from "@shared/lib/supabase";
 
 const logger = createLogger({ component: "TenantAPI" });
+const supabase = createBrowserSupabaseClient();
 
 /**
  * Tenant information returned from API

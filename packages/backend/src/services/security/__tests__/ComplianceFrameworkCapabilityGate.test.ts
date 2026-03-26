@@ -1,37 +1,72 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { complianceFrameworkCapabilityGate } from "../ComplianceFrameworkCapabilityGate.js";
-
-const HIPAA_ENV_VARS = [
-  "HIPAA_PHI_DATA_CLASSIFICATION_ENABLED",
-  "HIPAA_DISCLOSURE_ACCOUNTING_AND_AUDIT_RETENTION_ENABLED",
-  "HIPAA_PHI_STORE_AND_BACKUP_ENCRYPTION_ENABLED",
-  "HIPAA_BREAK_GLASS_ACCESS_LOGGING_ENABLED",
-  "HIPAA_RETENTION_AND_DELETION_POLICIES_DOCUMENTED",
-] as const;
-
-function setHipaaSupport(enabled: boolean): void {
-  for (const envVar of HIPAA_ENV_VARS) {
-    if (enabled) {
-      process.env[envVar] = "true";
-    } else {
-      delete process.env[envVar];
-    }
-  }
-}
+import { ComplianceFrameworkCapabilityGate } from "../ComplianceFrameworkCapabilityGate.js";
 
 describe("ComplianceFrameworkCapabilityGate", () => {
-  afterEach(() => {
-    setHipaaSupport(false);
+  it("marks framework as gated when required verification signals are failing", async () => {
+    const gate = new ComplianceFrameworkCapabilityGate({
+      getFrameworkVerificationStatuses: async () => [
+        {
+          framework: "GDPR",
+          declared: true,
+          verified: true,
+          missingPrerequisites: [],
+          requiredSignals: ["tests_passed", "policies_deployed", "encryption_config_active"],
+          signalStatuses: [],
+        },
+        {
+          framework: "HIPAA",
+          declared: true,
+          verified: false,
+          missingPrerequisites: ["Most recent automated technical compliance test run is passing."],
+          requiredSignals: ["tests_passed", "policies_deployed", "retention_jobs_healthy", "encryption_config_active"],
+          signalStatuses: [],
+        },
+        {
+          framework: "CCPA",
+          declared: true,
+          verified: true,
+          missingPrerequisites: [],
+          requiredSignals: ["tests_passed", "retention_jobs_healthy", "policies_deployed"],
+          signalStatuses: [],
+        },
+        {
+          framework: "SOC2",
+          declared: true,
+          verified: true,
+          missingPrerequisites: [],
+          requiredSignals: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
+          signalStatuses: [],
+        },
+        {
+          framework: "ISO27001",
+          declared: true,
+          verified: true,
+          missingPrerequisites: [],
+          requiredSignals: ["tests_passed", "encryption_config_active", "retention_jobs_healthy"],
+          signalStatuses: [],
+        },
+      ],
+    });
+
+    const hipaa = await gate.getCapabilityStatus("tenant-1", "HIPAA");
+    expect(hipaa.supported).toBe(false);
+    expect(hipaa.verified).toBe(false);
+    expect(hipaa.availability).toBe("gated");
   });
 
-  it("keeps HIPAA behind prerequisite gating until PHI prerequisites are configured", () => {
-    expect(complianceFrameworkCapabilityGate.getSupportedFrameworks()).not.toContain("HIPAA");
-  });
+  it("exposes verified frameworks as supported", async () => {
+    const gate = new ComplianceFrameworkCapabilityGate({
+      getFrameworkVerificationStatuses: async () => [
+        { framework: "GDPR", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+        { framework: "HIPAA", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+        { framework: "CCPA", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+        { framework: "SOC2", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+        { framework: "ISO27001", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+      ],
+    });
 
-  it("exposes HIPAA only when every PHI prerequisite gate is satisfied", () => {
-    setHipaaSupport(true);
-
-    expect(complianceFrameworkCapabilityGate.getSupportedFrameworks()).toContain("HIPAA");
+    const supported = await gate.getSupportedFrameworks("tenant-1");
+    expect(supported).toContain("HIPAA");
   });
 });

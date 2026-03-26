@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const isNoMatchExit = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  (error as { status?: number }).status === 1;
+
 test.describe('Testing & CI/CD Remediation', () => {
   
   test('Test coverage thresholds are increased to enterprise standards', () => {
@@ -82,8 +88,8 @@ test.describe('Testing & CI/CD Remediation', () => {
         
         expect(flowCount, `Missing E2E test for critical flow: ${flow}`).toBeGreaterThan(0);
       }
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
@@ -111,8 +117,8 @@ test.describe('Testing & CI/CD Remediation', () => {
       const gateCount = parseInt(gateCountStr, 10);
       
       expect(gateCount, 'Deployment jobs do not depend on E2E test success.').toBeGreaterThan(0);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 });

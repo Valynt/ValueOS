@@ -98,7 +98,7 @@ export class ComplianceReportGeneratorService {
 
   async generateReport(input: GenerateComplianceReportInput): Promise<ComplianceReportOutput> {
     this.assertTenant(input.tenantId);
-    complianceFrameworkCapabilityGate.assertFrameworksSupported(input.frameworks);
+    await complianceFrameworkCapabilityGate.assertFrameworksSupported(input.tenantId, input.frameworks);
 
     const evidenceBuckets = await this.collectEvidence(input.tenantId, input.startAt, input.endAt);
     const [controlStatuses, controlCheckSnapshot] = await Promise.all([
@@ -116,12 +116,14 @@ export class ComplianceReportGeneratorService {
     const technicallyValidatedControls = controlCheckSnapshot.results.filter(
       (result) => result.check_kind === "technical_validation" && input.frameworks.includes(result.framework),
     );
+    const capabilityStatuses = await complianceFrameworkCapabilityGate.getCapabilityStatuses(input.tenantId);
     const frameworkBreakdown = this.buildFrameworkBreakdown({
       frameworks: input.frameworks,
       declaredCapability,
       configuredControls,
       technicallyValidatedControls,
       missingEvidence,
+      capabilityStatuses,
     });
 
     const overallStatus = this.computeOverallStatus({
@@ -267,12 +269,14 @@ export class ComplianceReportGeneratorService {
     configuredControls: ConfiguredControlState[];
     technicallyValidatedControls: AutomatedControlCheckResult[];
     missingEvidence: ComplianceReportOutput["missing_evidence"];
+    capabilityStatuses: Awaited<ReturnType<typeof complianceFrameworkCapabilityGate.getCapabilityStatuses>>;
   }): FrameworkReportBreakdown[] {
     return input.frameworks.map((framework) => {
+      const capabilityStatus = input.capabilityStatuses.find((entry) => entry.framework === framework);
       const declaredCapability = input.declaredCapability.find((entry) => entry.framework === framework) ?? {
         framework,
-        supported: complianceFrameworkCapabilityGate.getCapabilityStatus(framework).supported,
-        missing_prerequisites: complianceFrameworkCapabilityGate.getCapabilityStatus(framework).missingPrerequisites,
+        supported: capabilityStatus?.supported ?? false,
+        missing_prerequisites: capabilityStatus?.missingPrerequisites ?? [],
         gating_label: "prerequisite_gate" as const,
       };
       const configuredControls = input.configuredControls.filter((entry) => entry.framework === framework);

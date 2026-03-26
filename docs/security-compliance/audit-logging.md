@@ -395,6 +395,8 @@ CREATE POLICY "Users can view own data"
 
 **Current Configuration (`.env`):**
 
+> ⚠️ **Never paste real secrets into docs, chat, tickets, or commits.** Use invalid placeholders or secret-manager paths only.
+
 ```bash
 # Application
 VITE_APP_ENV=development
@@ -403,12 +405,12 @@ VITE_API_BASE_URL=http://localhost:3000
 
 # Supabase Configuration
 VITE_SUPABASE_URL=http://localhost:54321
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+VITE_SUPABASE_ANON_KEY=sm://valueos/local/supabase/anon_key
+SUPABASE_SERVICE_ROLE_KEY=sm://valueos/local/supabase/service_role_key
+SUPABASE_JWT_SECRET=sm://valueos/local/supabase/jwt_secret
 
 # Authentication
-JWT_SECRET=auto-generated-secret-for-local-dev-only
+JWT_SECRET=sm://valueos/local/auth/jwt_secret
 ```
 
 **Assessment:**
@@ -590,8 +592,8 @@ auth: {
 ```bash
 # Scalekit Configuration
 SCALEKIT_ENV_URL=https://valynt.scalekit.dev
-SCALEKIT_CLIENT_ID=skc_105757062922765058
-SCALEKIT_CLIENT_SECRET=test_cbLdmXJWwMIAaPEbSus8MYDyfAlfsVgeZHSQtSw37lu0beqVv7UGx3ph3FfiB4kV
+SCALEKIT_CLIENT_ID=<EXAMPLE_ONLY_NOT_A_SECRET>
+SCALEKIT_CLIENT_SECRET=<REDACTED>
 ```
 
 **Verification:**
@@ -1083,7 +1085,7 @@ ValueOS has strong enterprise intent and broad coverage across governance artifa
 ### Example A: Canonical CI sequence
 
 ```yaml
-# .github/workflows/required-ci.yml
+# .github/workflows/pr-fast.yml + .github/workflows/main-verify.yml
 jobs:
   required-ci:
     steps:

@@ -111,18 +111,32 @@ Reference architecture and environment controls:
 Use this checklist at the end of each quarter to assemble and attest the evidence bundle:
 
 - [ ] Confirm the latest successful `Compliance Evidence Export` workflow run for the quarter.
+  - Remediation Record: `CR-001` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.
+  - Remediation Record: `CR-002` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate immutable metadata fields: commit SHA, run ID, run attempt, ref, and UTC export timestamp.
+  - Remediation Record: `CR-003` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.
+  - Remediation Record: `CR-004` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Review security scan outputs for unresolved critical findings and document approved exceptions.
+  - Remediation Record: `CR-005` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Attach the artifact link and manifest to quarterly governance review records.
+  - Remediation Record: `CR-006` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Download and archive the `.tar.gz` bundle to the long-term compliance archive location defined in CI/CD policy.
+  - Remediation Record: `CR-007` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Record reviewer name, review date, and sign-off outcome in the compliance tracker.
+  - Remediation Record: `CR-008` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 
 Evidence checkpoints are tracked in CI/governance workflows:
 
 - CI evidence and artifact retention requirements: [CI/CD Pipeline](../operations/ci-cd-pipeline.md).
 - Governance/compliance review checkpoints and ownership: this guide's checklist and audit sections.
+
+### Machine-Readable Control Tracking
+
+- Canonical control remediation source: `docs/security-compliance/control-status.json`.
+- Each unchecked control in this guide must include a `Remediation Record` (`CR-###`) with owner, target date, status, and evidence location.
+- CI gate enforcement (`scripts/ci/check-control-status-critical.mjs`) fails when SOC2/HIPAA critical controls in relevant domains are stale (target date before current UTC date) or unowned.
 
 ---
 
@@ -136,10 +150,13 @@ Evidence checkpoints are tracked in CI/governance workflows:
 - [x] `organization_id` stored in request context (not URL parameter for core data) (evidence: packages/backend/src/middleware/tenantContext.ts)
 - [x] All database queries filtered by `organization_id` (evidence: packages/backend/src/middleware/tenantDbContext.ts, packages/backend/src/api/workflow.ts, packages/backend/src/repositories/WorkflowStateRepository.ts)
 - [ ] No exceptions for "admin" users without explicit role checks
+  - Remediation Record: `CR-009` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/middleware/rbac.ts`
   - Location: packages/backend/src/middleware/rbac.ts
 - [ ] Agent execution scoped to request organization
+  - Remediation Record: `CR-010` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts`
   - Location: packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts
 - [ ] API key scopes include organization_id restriction
+  - Remediation Record: `CR-011` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/middleware/apiKeyRateLimiter.ts`
   - Location: packages/backend/src/middleware/apiKeyRateLimiter.ts
 
 ## 2. Data Access Layer
@@ -147,25 +164,34 @@ Evidence checkpoints are tracked in CI/governance workflows:
 - [x] All ORM queries use `.filter(Model.organization_id == org_id)` (evidence: packages/backend/src/repositories/WorkflowStateRepository.ts)
 - [x] Raw SQL queries include tenant filter in WHERE clause (evidence: packages/backend/src/api/workflow.ts)
 - [ ] No SELECT \* without WHERE organization_id = ?
+  - Remediation Record: `CR-012` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/repositories/WorkflowStateRepository.ts`
   - Location: packages/backend/src/repositories/WorkflowStateRepository.ts
 - [ ] Joins across tables include organization_id in join conditions
+  - Remediation Record: `CR-013` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/TenantAwareService.ts`
   - Location: packages/backend/src/services/TenantAwareService.ts
 - [ ] Subqueries filtered by organization_id
+  - Remediation Record: `CR-014` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/TenantAwareService.ts`
   - Location: packages/backend/src/services/TenantAwareService.ts
 - [ ] Aggregate functions (COUNT, SUM) filtered by organization_id
+  - Remediation Record: `CR-015` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/TenantAwareService.ts`
   - Location: packages/backend/src/services/TenantAwareService.ts
 
 ## 3. Agent & Orchestration Layer
 
 - [ ] Agent initialization includes organization_id parameter
+  - Remediation Record: `CR-016` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts`
   - Location: packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts
 - [ ] Agent memory (vector store, cache) namespaced by organization_id
+  - Remediation Record: `CR-017` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/memory/MemoryPipeline.ts`
   - Location: packages/backend/src/services/memory/MemoryPipeline.ts
 - [ ] Agent tools receive organization context
+  - Remediation Record: `CR-018` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/services/MCPTools.ts`
   - Location: packages/backend/src/services/MCPTools.ts
 - [ ] Agent outputs filtered before returning to user
+  - Remediation Record: `CR-019` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/services/AgentOutputListener.ts`
   - Location: packages/backend/src/services/AgentOutputListener.ts
 - [ ] No cross-tenant data in agent prompts/context
+  - Remediation Record: `CR-020` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/lib/agent-fabric/TaskContext.ts`
   - Location: packages/backend/src/lib/agent-fabric/TaskContext.ts
 
 ## 4. Cache Layer (Redis/Memcached)
@@ -177,43 +203,58 @@ Evidence checkpoints are tracked in CI/governance workflows:
 ## 5. Search & Indexing
 
 - [ ] Elasticsearch/similar: documents include organization_id field
+  - Remediation Record: `CR-021` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/VectorSearchService.ts`
   - Location: packages/backend/src/services/VectorSearchService.ts
 - [ ] Search queries include organization_id filter
+  - Remediation Record: `CR-022` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/VectorSearchService.ts`
   - Location: packages/backend/src/services/VectorSearchService.ts
 - [ ] Full-text search scoped to tenant
+  - Remediation Record: `CR-023` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/VectorSearchService.ts`
   - Location: packages/backend/src/services/VectorSearchService.ts
 
 ## 6. File Storage & CDN
 
 - [ ] S3 keys include organization_id: `s3://bucket/{org_id}/...`
+  - Remediation Record: `CR-024` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/config/schema.ts`
   - Location: packages/backend/src/config/schema.ts
 - [ ] Pre-signed URLs scoped to organization
+  - Remediation Record: `CR-025` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/config/schema.ts`
   - Location: packages/backend/src/config/schema.ts
 - [ ] CloudFront cache behaviors include organization in headers
+  - Remediation Record: `CR-026` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/config/schema.ts`
   - Location: packages/backend/src/config/schema.ts
 
 ## 7. Audit & Logging
 
 - [ ] Every data access logged with organization_id
+  - Remediation Record: `CR-027` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/security/AuditTrailService.ts`
   - Location: packages/backend/src/services/security/AuditTrailService.ts
 - [ ] Audit log queries include organization_id filter
+  - Remediation Record: `CR-028` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/security/AuditTrailService.ts`
   - Location: packages/backend/src/services/security/AuditTrailService.ts
 - [ ] No cross-tenant log aggregation without filtering
+  - Remediation Record: `CR-029` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/security/AuditTrailService.ts`
   - Location: packages/backend/src/services/security/AuditTrailService.ts
 
 ## 8. Authentication & Secrets
 
 - [ ] JWT payload includes organization_id (claim: 'org_id')
+  - Remediation Record: `CR-030` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/middleware/auth.ts`
   - Location: packages/backend/src/middleware/auth.ts
 - [ ] API keys scoped to organization
+  - Remediation Record: `CR-031` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/middleware/apiKeyRateLimiter.ts`
   - Location: packages/backend/src/middleware/apiKeyRateLimiter.ts
 - [ ] Service-to-service tokens include organization context
+  - Remediation Record: `CR-032` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `packages/backend/src/middleware/serviceIdentityMiddleware.ts`
   - Location: packages/backend/src/middleware/serviceIdentityMiddleware.ts
 - [ ] No hardcoded secrets in code or config
+  - Remediation Record: `CR-033` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/config/secretsManager.ts`
   - Location: packages/backend/src/config/secretsManager.ts
 - [ ] Secrets rotated every 90 days
+  - Remediation Record: `CR-034` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/services/security/APIKeyRotationService.ts`
   - Location: packages/backend/src/services/security/APIKeyRotationService.ts
 - [ ] AWS Secrets Manager or HashiCorp Vault used
+  - Remediation Record: `CR-035` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/config/secrets/AWSSecretProvider.ts`
   - Location: packages/backend/src/config/secrets/AWSSecretProvider.ts
 
 ## 9. Error Handling
@@ -221,6 +262,7 @@ Evidence checkpoints are tracked in CI/governance workflows:
 - [x] 404 returned for non-existent or unauthorized resources (not 403) (evidence: packages/backend/src/middleware/tenantContext.ts, packages/backend/src/api/workflow.ts)
 - [x] No data leakage in error messages (evidence: packages/backend/src/middleware/tenantContext.ts, packages/backend/src/services/TenantAwareService.ts)
 - [ ] Error logs don't expose tenant data
+  - Remediation Record: `CR-036` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `packages/backend/src/middleware/globalErrorHandler.ts`
   - Location: packages/backend/src/middleware/globalErrorHandler.ts
 
 ## 10. Testing
@@ -234,6 +276,7 @@ Evidence checkpoints are tracked in CI/governance workflows:
 - [x] Unit tests verify organization_id filtering (evidence: src/lib/rules/**tests**/RulesEnforcer.test.ts)
 - [x] Integration tests verify cross-tenant isolation (evidence: packages/backend/src/api/__tests__/workflow.integration.test.ts, supabase/tests/database/multi_tenant_rls.test.sql in secure CI RLS stage)
 - [ ] Penetration tests attempt cross-tenant access
+  - Remediation Record: `CR-037` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `tests/compliance/`
   - Location: tests/compliance/
 
 ---
@@ -851,11 +894,17 @@ All vendors handling Confidential or Restricted data must:
 ### Vendor Onboarding Checklist
 
 - [ ] Security questionnaire completed
+  - Remediation Record: `CR-038` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Compliance certificates reviewed
+  - Remediation Record: `CR-039` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] DPA signed
+  - Remediation Record: `CR-040` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Access controls configured (least privilege)
+  - Remediation Record: `CR-041` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Monitoring alerts set up
+  - Remediation Record: `CR-042` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Offboarding process documented
+  - Remediation Record: `CR-043` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 
 ### Vendor Monitoring
 
@@ -929,7 +978,7 @@ Field-Level Encryption Keys
 - Pre-activation validation testing
 - Automatic audit logging
 - Admin notifications (for manual steps)
-- CI lane `Verify secret rotation metadata age` in `.github/workflows/ci.yml` runs `node scripts/security/verify-secret-rotation.mjs` and fails when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
+- CI lane `Verify secret rotation metadata age` in `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` (plus scheduled verification in `.github/workflows/secret-rotation-verification.yml`) runs `node scripts/security/verify-secret-rotation.mjs` and fails when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
 - Workflow secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`, `SECRET_ROTATION_INFISICAL_SITE_URL`, `SECRET_ROTATION_INFISICAL_TOKEN`, `SECRET_ROTATION_INFISICAL_PROJECT_ID`, `SECRET_ROTATION_INFISICAL_ENVIRONMENT`, `SECRET_ROTATION_INFISICAL_SECRET_PATHS`).
 - Rotation evidence artifact is written to deterministic path `artifacts/security/rotation/rotation-evidence-latest.json` and uploaded as the `secret-rotation-evidence-<run_id>` workflow artifact.
 
@@ -1209,15 +1258,25 @@ Add a mandatory, append-only compliance stamp to every system output (UI payload
 ## Operational checklist
 
 - [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials; alert on failures and record upload/checksum metrics.
+  - Remediation Record: `CR-044` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Ensure `infra/infra/k8s/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound; verify 180-day primary/archived lifecycles are enforced.
+  - Remediation Record: `CR-045` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results and any manual steps in the incident log.
+  - Remediation Record: `CR-046` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.
+  - Remediation Record: `CR-047` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials and confirm successful uploads.
+  - Remediation Record: `CR-048` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Ensure `infra/infra/k8s/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound.
+  - Remediation Record: `CR-049` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Monitor the `security-audit-retention` CronJob for a recent `lastSuccessfulTime`, alert on `suspend: true`, and verify the `audit_request_events_archive` table keeps appending rows without unexpected deletes.
+  - Remediation Record: `CR-050` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results in the incident log.
+  - Remediation Record: `CR-051` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.
+  - Remediation Record: `CR-052` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Keep onboarding training updated with locations of PII-bearing tables and the audit/retention flows documented in `docs/data-protection-overview.md`.
+  - Remediation Record: `CR-053` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 
 ---
 
@@ -1506,11 +1565,17 @@ npm run security-scan
 ### Ongoing
 
 - [ ] Quarterly security reviews
+  - Remediation Record: `CR-054` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Annual penetration testing
+  - Remediation Record: `CR-055` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Monthly dependency scanning
+  - Remediation Record: `CR-056` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Quarterly access reviews
+  - Remediation Record: `CR-057` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Bi-annual disaster recovery drills
+  - Remediation Record: `CR-058` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Annual vendor reassessments
+  - Remediation Record: `CR-059` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 
 ---
 

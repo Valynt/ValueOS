@@ -1,3 +1,5 @@
+> **Legacy section (`[legacy-id]`):** Some older environments used `valynt` namespace and `deploy/api` naming. Keep those identifiers only when documenting archival incidents.
+
 ---
 title: RBAC Degraded-Security Runbook — Redis Unavailable
 owner: team-security
@@ -22,11 +24,11 @@ Fires when `increase(rbac_redis_unavailable_total[5m]) > 0` is sustained for 5 m
 
 ```bash
 # Check the counter directly
-kubectl exec -n valynt deploy/api -- \
+kubectl exec -n valueos deploy/backend -- \
   curl -s http://localhost:9090/metrics | grep rbac_redis_unavailable_total
 
 # Check Redis connectivity from the API pod
-kubectl exec -n valynt deploy/api -- \
+kubectl exec -n valueos deploy/backend -- \
   redis-cli -u "$REDIS_URL" ping
 ```
 
@@ -43,23 +45,23 @@ ERROR Redis unavailable — RBAC invalidation subscription skipped; this instanc
 
 1. **Check Redis pod health:**
    ```bash
-   kubectl get pods -n valynt -l app=redis
-   kubectl logs -n valynt -l app=redis --tail=50
+   kubectl get pods -n valueos -l app=redis
+   kubectl logs -n valueos -l app=redis --tail=50
    ```
 
 2. **Check Redis connectivity from API pods:**
    ```bash
-   kubectl exec -n valynt deploy/api -- redis-cli -u "$REDIS_URL" ping
+   kubectl exec -n valueos deploy/backend -- redis-cli -u "$REDIS_URL" ping
    ```
 
 3. **Check `rbacInvalidation.ts` logs for the specific error:**
    ```bash
-   kubectl logs -n valynt -l app=api --since=10m | grep -i "rbac\|redis"
+   kubectl logs -n valueos -l app=backend --since=10m | grep -i "rbac\|redis"
    ```
 
 4. **Confirm the counter is incrementing (not a stale alert):**
    ```bash
-   kubectl exec -n valynt deploy/api -- \
+   kubectl exec -n valueos deploy/backend -- \
      curl -s http://localhost:9090/metrics | grep rbac_redis_unavailable_total
    ```
 
@@ -82,17 +84,17 @@ ERROR Redis unavailable — RBAC invalidation subscription skipped; this instanc
 1. Identify the Redis failure cause (OOM, crash, network partition).
 2. Restart the Redis pod if crashed:
    ```bash
-   kubectl rollout restart deployment/redis -n valynt
+   kubectl rollout restart deployment/redis -n valueos
    ```
 3. Verify connectivity:
    ```bash
-   kubectl exec -n valynt deploy/api -- redis-cli -u "$REDIS_URL" ping
+   kubectl exec -n valueos deploy/backend -- redis-cli -u "$REDIS_URL" ping
    # Expected: PONG
    ```
 4. Confirm `rbac_redis_unavailable_total` stops incrementing.
 5. If a sensitive role was revoked during the outage, force cache flush by restarting API pods:
    ```bash
-   kubectl rollout restart deployment/api -n valynt
+   kubectl rollout restart deployment/backend -n valueos
    ```
 
 ### Option B — Reduce TTL to limit stale window (performance cost)
@@ -101,13 +103,13 @@ If Redis cannot be restored quickly and a role revocation is security-critical:
 
 1. Set `RBAC_CACHE_TTL_SECONDS=0` in the environment secret to disable in-process caching:
    ```bash
-   kubectl set env deployment/api RBAC_CACHE_TTL_SECONDS=0 -n valynt
+   kubectl set env deployment/backend RBAC_CACHE_TTL_SECONDS=0 -n valueos
    ```
    **Warning:** This causes every permission check to hit the database. Expect increased DB load and higher API latency until Redis is restored.
 
 2. Restore the default after Redis is back:
    ```bash
-   kubectl set env deployment/api RBAC_CACHE_TTL_SECONDS=300 -n valynt
+   kubectl set env deployment/backend RBAC_CACHE_TTL_SECONDS=300 -n valueos
    ```
 
 ---
@@ -118,7 +120,7 @@ If Redis cannot be restored quickly and a role revocation is security-critical:
 |---|---|
 | 0–5 min | On-call engineer investigates |
 | 5–15 min | If Redis not restored, apply Option B to limit stale window |
-| 15+ min | Restart all API instances (`kubectl rollout restart deployment/api -n valynt`) and escalate to platform lead |
+| 15+ min | Restart all API instances (`kubectl rollout restart deployment/backend -n valueos`) and escalate to platform lead |
 
 ---
 

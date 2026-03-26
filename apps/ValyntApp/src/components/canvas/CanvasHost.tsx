@@ -5,15 +5,16 @@
  */
 
 import { Building2 } from "lucide-react";
-import React, { Component, ComponentType, ErrorInfo, ReactNode, Suspense } from "react";
+import React, { Component, ComponentType, ErrorInfo, LazyExoticComponent, ReactNode, Suspense } from "react";
 
-// Widget type registry - maps component_type to lazy-loaded components
-const widgetRegistry: Record<string, ComponentType<WidgetProps>> = {};
+// Widget type registry - maps component_type to eagerly or lazily loaded components
+type RegisteredWidget = ComponentType<WidgetProps> | LazyExoticComponent<ComponentType<WidgetProps>>;
+const widgetRegistry: Record<string, RegisteredWidget> = {};
 
 export interface WidgetProps {
   id: string;
   data?: Record<string, unknown>;
-  onAction?: (action: string, payload?: unknown) => void;
+  onAction?: (action: string, payload?: unknown) => Promise<void> | void;
 }
 
 export interface SDUIWidget {
@@ -26,12 +27,13 @@ export interface SDUIWidget {
 interface CanvasHostProps {
   widgets: SDUIWidget[];
   onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+  onWidgetError?: (widgetId: string, componentType: string, error: Error, errorInfo: ErrorInfo) => void;
   emptyState?: React.ReactNode;
   className?: string;
 }
 
 // Register built-in widgets
-function registerWidget(type: string, component: ComponentType<WidgetProps>) {
+function registerWidget(type: string, component: RegisteredWidget) {
   widgetRegistry[type] = component;
 }
 
@@ -57,30 +59,31 @@ const UsageMeter = React.lazy(() => import("./widgets/UsageMeter"));
 const PlanComparison = React.lazy(() => import("./widgets/PlanComparison"));
 
 // Register built-in SDUI widget types
-registerWidget("value-summary", ValueSummaryCard as unknown as ComponentType<WidgetProps>);
-registerWidget("agent-response", AgentResponseCard as unknown as ComponentType<WidgetProps>);
-registerWidget("chat-input", ChatInputWidget as unknown as ComponentType<WidgetProps>);
+registerWidget("value-summary", ValueSummaryCard);
+registerWidget("agent-response", AgentResponseCard);
+registerWidget("chat-input", ChatInputWidget);
 
 // Register V1 Surface Widgets
-registerWidget("stakeholder-map", StakeholderMap as unknown as ComponentType<WidgetProps>);
-registerWidget("gap-resolution", GapResolution as unknown as ComponentType<WidgetProps>);
-registerWidget("hypothesis-card", HypothesisCard as unknown as ComponentType<WidgetProps>);
-registerWidget("assumption-register", AssumptionRegister as unknown as ComponentType<WidgetProps>);
-registerWidget("scenario-comparison", ScenarioComparison as unknown as ComponentType<WidgetProps>);
-registerWidget("sensitivity-tornado", SensitivityTornado as unknown as ComponentType<WidgetProps>);
-registerWidget("readiness-gauge", ReadinessGauge as unknown as ComponentType<WidgetProps>);
-registerWidget("evidence-gap-list", EvidenceGapList as unknown as ComponentType<WidgetProps>);
-registerWidget("artifact-preview", ArtifactPreview as unknown as ComponentType<WidgetProps>);
-registerWidget("inline-editor", InlineEditor as unknown as ComponentType<WidgetProps>);
-registerWidget("kpi-target-card", KPITargetCard as unknown as ComponentType<WidgetProps>);
-registerWidget("checkpoint-timeline", CheckpointTimeline as unknown as ComponentType<WidgetProps>);
-registerWidget("usage-meter", UsageMeter as unknown as ComponentType<WidgetProps>);
-registerWidget("plan-comparison", PlanComparison as unknown as ComponentType<WidgetProps>);
+registerWidget("stakeholder-map", StakeholderMap);
+registerWidget("gap-resolution", GapResolution);
+registerWidget("hypothesis-card", HypothesisCard);
+registerWidget("assumption-register", AssumptionRegister);
+registerWidget("scenario-comparison", ScenarioComparison);
+registerWidget("sensitivity-tornado", SensitivityTornado);
+registerWidget("readiness-gauge", ReadinessGauge);
+registerWidget("evidence-gap-list", EvidenceGapList);
+registerWidget("artifact-preview", ArtifactPreview);
+registerWidget("inline-editor", InlineEditor);
+registerWidget("kpi-target-card", KPITargetCard);
+registerWidget("checkpoint-timeline", CheckpointTimeline);
+registerWidget("usage-meter", UsageMeter);
+registerWidget("plan-comparison", PlanComparison);
 
 // Per-widget error boundary to isolate failures (spec 3.2.1)
 interface WidgetErrorBoundaryProps {
   widgetId: string;
   componentType: string;
+  onError?: (widgetId: string, componentType: string, error: Error, errorInfo: ErrorInfo) => void;
   children: ReactNode;
 }
 
@@ -104,6 +107,8 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
       error.message,
       errorInfo.componentStack,
     );
+
+    this.props.onError?.(this.props.widgetId, this.props.componentType, error, errorInfo);
   }
 
   override render() {
@@ -174,6 +179,7 @@ function DefaultEmptyState() {
 export function CanvasHost({
   widgets,
   onWidgetAction,
+  onWidgetError,
   emptyState,
   className = "",
 }: CanvasHostProps) {
@@ -188,7 +194,7 @@ export function CanvasHost({
       return <UnknownWidget key={widget.id} componentType={widget.componentType} />;
     }
 
-    const handleAction = (action: string, payload?: unknown) => {
+    const handleAction = async (action: string, payload?: unknown) => {
       onWidgetAction?.(widget.id, action, payload);
     };
 
@@ -197,6 +203,7 @@ export function CanvasHost({
         key={widget.id}
         widgetId={widget.id}
         componentType={widget.componentType}
+        onError={onWidgetError}
       >
         <Suspense fallback={<WidgetSkeleton />}>
           <Widget
@@ -218,5 +225,3 @@ export function CanvasHost({
 
 // Export registration function for external widgets
 export { registerWidget };
-
-export default CanvasHost;

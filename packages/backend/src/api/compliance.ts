@@ -54,13 +54,18 @@ function getActorId(req: Request): string {
   return req.user?.id ?? req.user?.sub ?? "system";
 }
 
-function getFrameworkModeStatuses() {
-  return complianceFrameworkCapabilityGate.getCapabilityStatuses().map((status) => ({
+async function getFrameworkModeStatuses(tenantId: string) {
+  const statuses = await complianceFrameworkCapabilityGate.getCapabilityStatuses(tenantId);
+  return statuses.map((status) => ({
     framework: status.framework,
     availability: status.availability,
     selectable: status.supported,
+    declared: status.declared,
+    verified: status.verified,
     prerequisites_met: status.prerequisites_met,
     gate_label: status.gate_label,
+    required_signals: status.required_signals,
+    signal_statuses: status.signal_statuses,
     missing_prerequisites: status.missingPrerequisites,
   }));
 }
@@ -107,6 +112,16 @@ router.post("/reports/generate", requirePermission(PERMISSIONS.COMPLIANCE_READ),
       strict: parsed.data.strict,
     });
 
+    const frameworkStatuses = (await complianceFrameworkCapabilityGate.getCapabilityStatuses(tenantId))
+      .filter((status) => parsed.data.frameworks.includes(status.framework))
+      .map((status) => ({
+        framework: status.framework,
+        declared: status.declared,
+        verified: status.verified,
+        missing_prerequisites: status.missingPrerequisites,
+        required_signals: status.required_signals,
+      }));
+
     return res.status(201).json({
       report_id: report.report_id,
       evidence_manifest_id: report.evidence_manifest_id,
@@ -116,6 +131,7 @@ router.post("/reports/generate", requirePermission(PERMISSIONS.COMPLIANCE_READ),
       configured_controls: report.configured_controls,
       technically_validated_controls: report.technically_validated_controls,
       framework_breakdown: report.framework_breakdown,
+      framework_statuses: frameworkStatuses,
       missing_evidence: report.missing_evidence,
       retention_summary: report.retention_summary,
       generated_at: report.generated_at,
@@ -183,6 +199,16 @@ router.post("/reports/scheduled", requirePermission(PERMISSIONS.COMPLIANCE_READ)
       strict: parsed.data.strict,
     });
 
+    const frameworkStatuses = (await complianceFrameworkCapabilityGate.getCapabilityStatuses(tenantId))
+      .filter((status) => parsed.data.frameworks.includes(status.framework))
+      .map((status) => ({
+        framework: status.framework,
+        declared: status.declared,
+        verified: status.verified,
+        missing_prerequisites: status.missingPrerequisites,
+        required_signals: status.required_signals,
+      }));
+
     return res.status(201).json({
       schedule_id: parsed.data.schedule_id,
       status: "generated",
@@ -194,6 +220,7 @@ router.post("/reports/scheduled", requirePermission(PERMISSIONS.COMPLIANCE_READ)
       configured_controls: report.configured_controls,
       technically_validated_controls: report.technically_validated_controls,
       framework_breakdown: report.framework_breakdown,
+      framework_statuses: frameworkStatuses,
       missing_evidence: report.missing_evidence,
       retention_summary: report.retention_summary,
     });
@@ -336,7 +363,7 @@ router.get("/retention", requirePermission(PERMISSIONS.COMPLIANCE_READ), (req: R
 
   return res.json({
     rules: complianceControlMappingRegistry.getRetentionSummary(frameworks),
-    supported_frameworks: complianceFrameworkCapabilityGate.getSupportedFrameworks(),
+    supported_frameworks: ALL_COMPLIANCE_FRAMEWORKS,
   });
 });
 
@@ -357,8 +384,8 @@ router.get("/mode", requirePermission(PERMISSIONS.COMPLIANCE_READ), async (req: 
 
   return res.json({
     tenant_id: tenantId,
-    active_modes: complianceFrameworkCapabilityGate.getExposedFrameworks(),
-    framework_statuses: getFrameworkModeStatuses(),
+    active_modes: await complianceFrameworkCapabilityGate.getExposedFrameworks(tenantId),
+    framework_statuses: await getFrameworkModeStatuses(tenantId),
     strict_enforcement: true,
     last_changed_at: new Date().toISOString(),
   });

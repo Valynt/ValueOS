@@ -45,6 +45,7 @@ export interface ValueTreeUpdate {
 export interface LifecycleContext {
   userId: string;
   organizationId?: string;
+  tenantId?: string;
   sessionId?: string;
 }
 
@@ -84,6 +85,8 @@ export class ValueTreeService {
     updates: ValueTreeUpdate,
     context: LifecycleContext
   ): Promise<ValueTree> {
+    const tenantId = this.requireTenantId(context);
+
     // Optimistic locking to prevent concurrent modifications
     const lockKey = `tree:${treeId}`;
 
@@ -105,6 +108,7 @@ export class ValueTreeService {
         .from('value_trees')
         .select('*, version')
         .eq('id', treeId)
+        .eq('tenant_id', tenantId)
         .single();
 
       if (error) throw error;
@@ -124,7 +128,8 @@ export class ValueTreeService {
           p_nodes: updates.nodes || currentTree.nodes,
           p_links: updates.links || currentTree.links,
           p_expected_version: currentTree.version,
-          p_user_id: context.userId
+          p_user_id: context.userId,
+          p_tenant_id: tenantId
         });
 
       if (updateError) throw updateError;
@@ -144,7 +149,7 @@ export class ValueTreeService {
     }
   }
 
-  async getValueTree(treeId: string): Promise<ValueTree> {
+  async getValueTree(treeId: string, organizationId: string): Promise<ValueTree> {
     const { data, error } = await this.supabase
       .from('value_trees')
       .select(`
@@ -153,6 +158,7 @@ export class ValueTreeService {
         value_tree_links(*)
       `)
       .eq('id', treeId)
+      .eq('tenant_id', organizationId)
       .single();
 
     if (error) throw error;
@@ -167,10 +173,11 @@ export class ValueTreeService {
   async calculateValueImpact(
     treeId: string,
     nodeId: string,
-    newValue: number
+    newValue: number,
+    organizationId: string
   ): Promise<ValueImpactAnalysis> {
     // Get tree structure
-    const tree = await this.getValueTree(treeId);
+    const tree = await this.getValueTree(treeId, organizationId);
 
     // Find the target node
     const targetNode = tree.nodes.find(n => n.node_id === nodeId);
@@ -321,5 +328,14 @@ export class ValueTreeService {
           userId: context.userId
         }
       });
+  }
+
+  private requireTenantId(context: LifecycleContext): string {
+    const tenantId = context.organizationId ?? context.tenantId;
+    if (!tenantId) {
+      throw new Error('Tenant context is required: organizationId or tenantId must be provided.');
+    }
+
+    return tenantId;
   }
 }

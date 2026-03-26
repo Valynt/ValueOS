@@ -5,7 +5,7 @@ import SwaggerParser from '@apidevtools/swagger-parser';
 import yaml from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SPEC_PATH = resolve(__dirname, 'openapi.yaml');
+const SPEC_PATH = resolve(__dirname, '../packages/backend/openapi.yaml');
 
 const httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'];
 

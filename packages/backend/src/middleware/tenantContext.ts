@@ -10,8 +10,6 @@ import {
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import { validateEnv } from "../config/validateEnv.js";
-
 import type { AuthenticatedRequest } from "./auth.js";
 
 // Extended request shape used internally by this middleware
@@ -23,26 +21,12 @@ interface TenantRequest extends AuthenticatedRequest {
 }
 
 const logger = createLogger({ component: "TenantContextMiddleware" });
-const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
 
 const assertValidTctSecret = (): string => {
-  const secret = process.env.TCT_SECRET || DEFAULT_TCT_SECRET;
-  const nodeEnv = process.env.NODE_ENV ?? "development";
-  // Require explicit TCT_SECRET in all non-development environments
-  if (nodeEnv !== "development" && secret === DEFAULT_TCT_SECRET) {
-    validateEnv();
+  const secret = process.env.TCT_SECRET;
+  if (!secret) {
     throw new Error(
-      "TCT_SECRET must be configured in non-development environments."
-    );
-  }
-  // SEC-010: Warn when using the default secret even in development —
-  // tokens signed with the well-known default can be forged by any developer.
-  // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
-  if (secret === DEFAULT_TCT_SECRET) {
-    logger.warn(
-      "TCT_SECRET is using the default value. Tokens can be trivially forged. " +
-        "Set a unique TCT_SECRET in ops/env/.env.backend.local for local development.",
-      { nodeEnv }
+      "TCT_SECRET must be configured before initializing tenant context middleware."
     );
   }
   return secret;

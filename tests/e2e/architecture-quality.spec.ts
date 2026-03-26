@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const isNoMatchExit = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  (error as { status?: number }).status === 1;
+
 test.describe('Architecture & Code Quality Remediation', () => {
   
   test('TypeScript "any" usage is strictly zero across all production modules', () => {
@@ -32,10 +38,10 @@ test.describe('Architecture & Code Quality Remediation', () => {
         const count = parseInt(countStr, 10);
         
         expect(count, `Module ${mod} still contains ${count} usages of 'any'. Expected 0.`).toBe(0);
-      } catch (e: any) {
+      } catch (error: unknown) {
         // grep returns 1 if no matches found, which is the desired state
-        if (e.status !== 1) {
-          throw e;
+        if (!isNoMatchExit(error)) {
+          throw error;
         }
       }
     }
@@ -63,8 +69,8 @@ test.describe('Architecture & Code Quality Remediation', () => {
         const count = parseInt(countStr, 10);
         
         expect(count, `Found ${count} instances of hardcoded mock data matching "${pattern}" in production code.`).toBe(0);
-      } catch (e: any) {
-        if (e.status !== 1) throw e;
+      } catch (error: unknown) {
+        if (!isNoMatchExit(error)) throw error;
       }
     }
   });
@@ -90,8 +96,8 @@ test.describe('Architecture & Code Quality Remediation', () => {
         
         // It should be defined exactly once (or zero if moved to a shared package)
         expect(count, `Component ${comp} is defined ${count} times. It should be consolidated to a single definition.`).toBeLessThanOrEqual(1);
-      } catch (e: any) {
-        if (e.status !== 1) throw e;
+      } catch (error: unknown) {
+        if (!isNoMatchExit(error)) throw error;
       }
     }
   });

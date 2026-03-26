@@ -51,4 +51,36 @@ else
   echo "[bootstrap-env] ops/env/.env.local already exists."
 fi
 
+# backend (developer-specific secrets/config)
+echo "[bootstrap-env] Checking ops/env/.env.backend.local..."
+if [[ ! -f ops/env/.env.backend.local ]]; then
+  if [[ -f ops/env/.env.backend.local.example ]]; then
+    cp ops/env/.env.backend.local.example ops/env/.env.backend.local
+    echo "[bootstrap-env] Created ops/env/.env.backend.local from template."
+  else
+    cat > ops/env/.env.backend.local <<'EOF'
+APP_ENV=local
+NODE_ENV=development
+API_PORT=3001
+BACKEND_PORT=3001
+FRONTEND_ORIGIN=http://localhost:5173
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+EOF
+    echo "[bootstrap-env] Created ops/env/.env.backend.local with defaults."
+  fi
+else
+  echo "[bootstrap-env] ops/env/.env.backend.local already exists."
+fi
+
+# Ensure every developer has a unique TCT_SECRET in backend env.
+if ! grep -Eq '^TCT_SECRET=' ops/env/.env.backend.local; then
+  TCT_SECRET_VALUE="$(openssl rand -hex 32)"
+  printf '\nTCT_SECRET=%s\n' "$TCT_SECRET_VALUE" >> ops/env/.env.backend.local
+  echo "[bootstrap-env] Added generated TCT_SECRET to ops/env/.env.backend.local."
+elif grep -Eq '^TCT_SECRET=\s*$' ops/env/.env.backend.local; then
+  TCT_SECRET_VALUE="$(openssl rand -hex 32)"
+  sed -i "s/^TCT_SECRET=.*/TCT_SECRET=${TCT_SECRET_VALUE}/" ops/env/.env.backend.local
+  echo "[bootstrap-env] Replaced empty TCT_SECRET in ops/env/.env.backend.local."
+fi
+
 echo "[bootstrap-env] Done."

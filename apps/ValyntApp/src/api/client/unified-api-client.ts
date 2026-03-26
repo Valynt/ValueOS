@@ -6,6 +6,7 @@
  */
 
 import { getClientConfig } from "@valueos/shared/config/client-config";
+import { DEFAULT_TOAST_DURATION_MS } from "@/components/ui/toast-config";
 
 import { toast } from "../../components/ui/use-toast";
 import { sanitizeInput } from "../../security/InputSanitizer";
@@ -427,7 +428,7 @@ export class UnifiedApiClient {
     this.lastFallbackNoticeAt = now;
     toast("Using fallback model", {
       description: "Your request was served by the fallback model because the monthly token budget was exceeded.",
-      duration: 6000,
+      duration: DEFAULT_TOAST_DURATION_MS,
     });
   }
 

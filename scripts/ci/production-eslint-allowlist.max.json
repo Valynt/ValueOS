@@ -1,0 +1,2319 @@
+{
+  "entries": [
+    {
+      "path": "apps/ValyntApp/src/adapters/BusinessCaseAdapter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/app/bootstrap/init.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/app/config/env.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/app/routes/audit/audit-trail.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/AppRoutes.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/admin/ConfirmationModal.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/admin/ScopeBadge.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/Agent/ConfidenceDisplay.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/Agent/ConfidenceDisplay.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/AgentChat.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/AgentChat.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ArtifactPreview.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ArtifactPreview.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ArtifactPreview.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/CanvasHost.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/ArtifactPreview.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/ArtifactPreview.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/EvidenceGapList.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/EvidenceGapList.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/GapResolution.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/InlineEditor.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/InlineEditor.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/InlineEditor.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/SensitivityTornado.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/canvas/widgets/SensitivityTornado.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/CommandPalette.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/CommandPalette.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 8
+    },
+    {
+      "path": "apps/ValyntApp/src/components/common/ConfirmationModal.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/common/ConfirmationModal.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/common/LoadingOverlay.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/common/LoadingSpinner.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/common/Spinner.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/components/deals/BenchmarkComparisonPanel.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/deals/DealImportModal.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/deals/DealStatusCapsule.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/deals/OpportunityAnalysisPanel.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/DrawerForm.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/EntityTable.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ErrorBoundary.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ExportModal.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/form/FormSystem.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "apps/ValyntApp/src/components/HelpTooltip.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/HelpTooltip.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/marketing/Analytics.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/components/marketing/FAQ.tsx",
+      "rule": "jsx-a11y/anchor-is-valid",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/marketing/Footer.tsx",
+      "rule": "jsx-a11y/anchor-is-valid",
+      "count": 12
+    },
+    {
+      "path": "apps/ValyntApp/src/components/modals/Modal.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ReasoningViewer.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ReasoningViewer.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/DiscoveryCard.tsx",
+      "rule": "jsx-a11y/no-noninteractive-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/DiscoveryCard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/NarrativeBlock.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/ValueTreeCard.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/ValueTreeCard.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/SDUI/ValueTreeCard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/settings/SettingsRow.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/shell/CommandBar.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/shell/CommandBar.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/shell/CommandBar.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/StepperWizard.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/StepperWizard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ui/avatar.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ui/badge.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/ui/skeleton.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/UserTestingDashboard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverEditor.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverEditor.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverEditor.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverSelector.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverSelector.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/value-drivers/ValueDriverSelector.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/components/wireframes/NotificationCenter.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "apps/ValyntApp/src/components/Workflow/WorkflowStatusBar.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/config/autonomy.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/billing.ts",
+      "rule": "security/detect-object-injection",
+      "count": 10
+    },
+    {
+      "path": "apps/ValyntApp/src/config/billingRollout.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/config/chatWorkflowConfig.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "apps/ValyntApp/src/config/ConfigurationManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/environment.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/config/featureFlags.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/config/llm.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/secrets/DependencyTracking.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/config/secrets/SecretHydrator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/secrets/SecretVersioning.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/settings.server.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/startupEnvValidator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/config/validateEnv.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/dashboards/AgentPerformanceDashboard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 12
+    },
+    {
+      "path": "apps/ValyntApp/src/data/calculatorTemplates.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/data/industryTemplates.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/data/store.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/academy-v2/pages/Quiz.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/academy/pages/AcademyQuiz.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/agents/components/AgentStatusBadge.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/features/billing/hooks/useSubscription.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/billing/hooks/useUsageSummary.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/components/left-rail/GraphOutlinePanel.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/components/left-rail/GraphOutlinePanel.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/hooks/useGraphData.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/store/defensibility-store.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/store/workflow-store.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/living-value-graph/utils/state-gating.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "apps/ValyntApp/src/features/opportunities/OpportunityValueBrief.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/features/templates/defaultTemplates.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/features/templates/TemplateSelector.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/templates/TemplateSelector.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/artifacts/ArtifactRenderer.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/FloatingToolbar.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/ShareModal.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/ShareModal.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/states/ClarifyPanel.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/states/ErrorRecoveryModal.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/states/ErrorRecoveryModal.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/features/workspace/components/states/ErrorRecoveryModal.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/guestPermissions.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/hooks/useAdminPermissions.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/hooks/useAgentMetrics.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/hooks/useAgentOrchestrator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/hooks/useESO.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/hooks/useNavigationPersonalization.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/i18n/I18nProvider.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/i18n/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "apps/ValyntApp/src/i18n/pseudoLocalization.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/integrations/hooks/useIntegrations.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/agent-fabric/ConfigurationManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/crypto-shim.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/env.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/piiFilter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/safeExpressionEvaluator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 9
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/securityHeaders.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/shutdown/gracefulShutdown.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/state/SDUIStateProvider.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 23
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/supabase.server.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/lib/supabase.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-common/config/ConfigurationManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-crm/config/CRMConfigManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-crm/core/MCPCRMServer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-ground-truth/core/UnifiedTruthLayer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-ground-truth/modules/EDGARModule.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-ground-truth/modules/IndustryBenchmarkModule.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-ground-truth/modules/PrivateCompanyModule.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/mcp-ground-truth/modules/XBRLModule.ts",
+      "rule": "security/detect-object-injection",
+      "count": 14
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/settings/BrandingPage.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/settings/BrandingPage.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/settings/BrandingPage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/CasesPage.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/CasesPage.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/CaseWorkspace.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/HomePage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/TemplatesPage.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/TemplatesPage.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/TemplatesPage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/pages/valueos/ValueDriverLibrary.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/security/InputSanitizer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 8
+    },
+    {
+      "path": "apps/ValyntApp/src/security/PasswordValidator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "apps/ValyntApp/src/security/SecurityConfig.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/security/SecurityHeaders.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/security/securityLogger.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/services/ValueCommitmentTrackingService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/stores/valueCanvasStore.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/styles/colors.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/test-utils/auth.helpers.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "apps/ValyntApp/src/test/setup.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "apps/ValyntApp/src/types/eso-data.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/types/execution.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/types/security.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/consoleRecorder.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/dataMasking.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/export.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/performance.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/sanitization.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/utils/templateSecurity.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/HypothesisStage.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/HypothesisStage.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/HypothesisStage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/integrity/ClaimCard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/ModelStage.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/canvas/ModelStage.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Dashboard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/ImpactCascade.tsx",
+      "rule": "jsx-a11y/no-static-element-interactions",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/LivingValueGraphPage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/onboarding/Phase1Company.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Opportunities.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "apps/ValyntApp/src/views/QuantumView.tsx",
+      "rule": "jsx-a11y/click-events-have-key-events",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/QuantumView.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/EnhancedBillingDashboard.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/OrganizationUsers.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/TeamPermissions.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/TeamSettings.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/UserNotifications.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "apps/ValyntApp/src/views/Settings/UserProfile.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/SettingsPage.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "apps/ValyntApp/src/views/ValueCaseCanvas.tsx",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/agents.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/artifacts/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/billing/plans.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/billing/usage.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/conversations/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/customer/metrics.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/dataSubjectRequests.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/domainPacks/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/domainPacks/types.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/api/initiatives/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/mcpDiscovery.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/queue.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/securityMonitoring.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/repository.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueDrivers/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueDrivers/repository.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/billing.ts",
+      "rule": "security/detect-object-injection",
+      "count": 10
+    },
+    {
+      "path": "packages/backend/src/config/chatWorkflowConfig.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/config/ConfigurationManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/config/entrypoints.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/featureFlags.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/llm.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/config/prompts.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/config/secrets/AWSSecretProvider.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/CacheEncryption.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/DependencyTracking.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/FallbackSecretProvider.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/ISecretProvider.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/SecretConfig.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/secrets/SecretHydrator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/config/secrets/SecretValidator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/config/secrets/SecretVersioning.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/config/secretsManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/config/ServiceConfigManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/config/settings.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/config/slo.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/telemetry.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/config/v1-service-scope.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/docs-api/types.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 8
+    },
+    {
+      "path": "packages/backend/src/domain/economic-kernel/economic_kernel.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/domain/value/adapters/kpiTarget.derived.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/events/DomainEventSchemas.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/AgentFactory.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/ComplianceAuditorAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/DealAssemblyAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/DiscoveryAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/GroundTruthAnalyzer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/AuditLogger.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/BaseGraphWriter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/KnowledgeFabricValidator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/lifecycleStageAdapter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/llm-types.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/LLMGateway.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/ModelRegistry.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/promptRegistry.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/schemas/SecureAgentOutput.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agent-fabric/SecureMessageBus.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/agents/core/ConfidenceScorer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/lib/agents/core/EvidenceTiering.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/lib/auth/SecureTokenManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/db/validation.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/errorMapping.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/errors.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/llm/secureLLMWrapper.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/redaction.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/telemetry/SDUITelemetry.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/lib/validation/normalizers.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/lib/validation/sanitize.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/middleware/auth.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/middleware/authRateLimiter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/middleware/costTracker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/middleware/customerRateLimit.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/middleware/inputValidation.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/middleware/latencyMetricsMiddleware.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/middleware/lineageValidationMiddleware.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/middleware/llmRateLimiter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/middleware/rateLimiter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/middleware/secureRouter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/middleware/security/headers.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/observability/agentMetrics.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/routes/value-graph.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/runtime/artifact-composer/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/runtime/context-store/sanitizeForAgent.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/runtime/execution-runtime/DecisionContextRepository.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/runtime/policy-engine/index.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/security/enhancedSecurityLogger.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/security/InputSanitizer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/security/securityLogger.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/__benchmarks__/LLMCostTracker.bench.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/__benchmarks__/TenantProvisioning.bench.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/agent-types.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/ActionRouterExport.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/agents/ActionRouterGovernance.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/agents/ActionRouterHandlers.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentAPI.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentAuditLogger.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentChatService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentExecutorService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentInitializer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentIntentConverter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentInvocationPolicy.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentMessageQueue.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentQueryService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentRegistry.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AgentScalingPolicy.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/AuditLogEncryptionConfig.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/core/IAgent.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/resilience/AgentRetryManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/agents/resilience/CircuitBreakerManager.categorized.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/agents/resilience/RetryService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/resilience/RetryService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/agents/telemetry/AgentTelemetryService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/artifacts/ArtifactEditService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/auth/AdminUserService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/auth/guestPermissions.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/auth/MFAService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/auth/RbacService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/auth/SecureSharedContext.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/auth/TokenRotationService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/auth/VersionHistoryService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/bfa/base-tool.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/bfa/registry.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/bfa/telemetry.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/bfa/types.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/CustomerService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/EntitlementSnapshotService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/billing/EntitlementsService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/FinanceExportService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/InvoiceMathEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/MetricsCollector.ts",
+      "rule": "security/detect-object-injection",
+      "count": 9
+    },
+    {
+      "path": "packages/backend/src/services/billing/RatingEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/SubscriptionService.transaction.ts",
+      "rule": "security/detect-object-injection",
+      "count": 8
+    },
+    {
+      "path": "packages/backend/src/services/billing/SubscriptionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 15
+    },
+    {
+      "path": "packages/backend/src/services/billing/SubscriptionStateMachine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/billing/TempCapIncreaseService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/billing/WebhookRetryService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/cache/AgentCache.ts",
+      "rule": "security/detect-non-literal-regexp",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/cache/AgentCache.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/cache/CachePolicy.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/CacheService.ts",
+      "rule": "security/detect-non-literal-regexp",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/core/BenchmarkService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/core/CRMFieldMapper.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/core/FeatureFlags.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/core/LayoutEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/crm/CrmConnectionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/crm/CRMOAuthService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/crm/CrmSyncService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/crm/CrmWebhookService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/crm/IntegrationControlService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/services/crm/secretsRedaction.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/deal/DealAssemblyService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/deal/TranscriptParser.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/domain-packs/GroundTruthIntegrationService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/domain-packs/GroundTruthMetrics.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/domain-packs/MCPGroundTruthService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/domain-packs/MCPTools.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/domainPacks/versioning.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/export/ArtifactEditService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/export/PptxExportService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/ground-truth/BenchmarkRetrievalService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/ground-truth/ChunkEmbedPipeline.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/ground-truth/FeasibilityAssessor.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/ground-truth/SECEdgarClient.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/ground-truth/XBRLParser.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/integrity/HallucinationChecker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/integrity/SECEdgarClient.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/services/integrity/ValueIntegrityService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/integrity/VetoController.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/llm/LLMCostTracker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/llm/LLMSanitizer.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/llm/ModelCardService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/memory/AccessService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/memory/MemoryPipeline.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/memory/ModelRunEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/memory/NarrativeEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/messaging/EmailService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/messaging/EventSchemas.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/messaging/RedisStreamBroker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/messaging/SampleMessagingWorkflow.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/metering/MeteringQueue.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/metering/MetricsCollector.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/metering/UsageAggregator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/middleware/HandoverMiddleware.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/middleware/PrivacyScrubber.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/middleware/RiskClassifier.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/middleware/SemanticIntentMiddleware.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/monitoring/DemoAnalyticsService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/onboarding/DripCampaignService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/onboarding/ResearchJobWorker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/onboarding/SuggestionExtractor.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/CodeSandbox.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/CostAwareRouter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/DynamicBaselineService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 9
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/ExternalCircuitBreaker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/IntegrityAgentService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/IntelligentCoordinator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/NetworkSegmentation.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/OfflineEvaluation.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/PlaygroundAutoSave.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/PlaygroundSessionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/ReflectionEngine.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/TelemetryGuardrailsService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/UsageTrackingService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/post-v1/ValueLifecycleOrchestrator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/privacy/DataSubjectRequestAdminService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/realtime/PresenceService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/realtime/RealtimeUpdateService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 9
+    },
+    {
+      "path": "packages/backend/src/services/realtime/WebSocketManager.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/AdvancedCausalEngine.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 9
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/CalculationEngine.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/ConfidenceMonitor.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/ConfidenceMonitor.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/ContextOptimizer.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/reasoning/ROIFormulaInterpreter.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/sdui/CanvasActionApplier.ts",
+      "rule": "security/detect-object-injection",
+      "count": 22
+    },
+    {
+      "path": "packages/backend/src/services/sdui/CanvasWorkspaceDataLoader.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 9
+    },
+    {
+      "path": "packages/backend/src/services/sdui/ComponentMutationService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/sdui/ComponentMutationService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/sdui/IntentRegistry.ts",
+      "rule": "security/detect-object-injection",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/services/sdui/SDUISandboxService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/sdui/UIGenerationTracker.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/AuditLogService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/AuditRetentionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/ImmutableAuditRetentionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/InputValidation.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityMiddleware.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityMonitor.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/tenant/base-tenant-service.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantArchivalService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantBillingProvisioning.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantDeletionService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantIsolationService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantLimits.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantOrganizationProvisioning.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantPerformanceManager.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantProvisioningTypes.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tools/ToolRegistry.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/utils/BaseService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/utils/mockSupabaseClient.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/utils/mockSupabaseClient.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/value-graph/valueDriverUtils.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/value/AssumptionService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/BaselineEstablisher.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/UnifiedAgentAPI.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 12
+    },
+    {
+      "path": "packages/backend/src/services/value/UnifiedAgentAPI.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/value/ValueCommitmentBackendService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/ValueKernel.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/services/value/ValueMetricsTracker.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/ValuePredictionTracker.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/ValuePredictionTracker.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/value/ValueTreeWriteService.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/workflow/HumanCheckpointService.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/workflow/PlaygroundSessionSchema.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/workflow/SagaCoordinator.ts",
+      "rule": "security/detect-object-injection",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/workflow/WorkflowCompensation.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/workflow/WorkflowStateMachine.ts",
+      "rule": "@typescript-eslint/no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/workflows/SagaAdapters.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/workflows/WorkflowDAGIntegration.ts",
+      "rule": "security/detect-object-injection",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/test-utils/auth.helpers.ts",
+      "rule": "security/detect-object-injection",
+      "count": 8
+    },
+    {
+      "path": "packages/backend/src/test/inMemorySupabase.ts",
+      "rule": "security/detect-object-injection",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/test/runtimeGuards.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/types/eso-data.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/types/evidence.ts",
+      "rule": "security/detect-object-injection",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/utils/encryption.ts",
+      "rule": "security/detect-object-injection",
+      "count": 1
+    }
+  ]
+}

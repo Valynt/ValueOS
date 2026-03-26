@@ -3,10 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../lib/supabase.js", () => ({
   createUserSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
+  supabase: {
+    from: vi.fn(),
+  },
 }));
 
 import type { AutomatedControlCheckSnapshot } from "../ComplianceControlCheckService.js";
 import type { ControlStatusRecord } from "../ComplianceControlStatusService.js";
+import { complianceFrameworkCapabilityGate } from "../ComplianceFrameworkCapabilityGate.js";
 import {
   ComplianceReportGeneratorService,
   MissingEvidenceError,
@@ -16,25 +20,20 @@ interface MockInsertResult {
   data: Record<string, unknown>;
 }
 
-const HIPAA_ENV_VARS = [
-  "COMPLIANCE_MANIFEST_HMAC_KEY",
-  "HIPAA_PHI_DATA_CLASSIFICATION_ENABLED",
-  "HIPAA_DISCLOSURE_ACCOUNTING_AND_AUDIT_RETENTION_ENABLED",
-  "HIPAA_PHI_STORE_AND_BACKUP_ENCRYPTION_ENABLED",
-  "HIPAA_BREAK_GLASS_ACCESS_LOGGING_ENABLED",
-  "HIPAA_RETENTION_AND_DELETION_POLICIES_DOCUMENTED",
+const FRAMEWORK_CAPABILITIES = [
+  { framework: "GDPR", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
+  { framework: "HIPAA", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
+  { framework: "CCPA", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
+  { framework: "SOC2", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
+  { framework: "ISO27001", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
 ] as const;
 
-function setHipaaSupport(enabled: boolean): void {
-  for (const envVar of HIPAA_ENV_VARS) {
-    if (enabled && envVar === "COMPLIANCE_MANIFEST_HMAC_KEY") {
-      process.env[envVar] = "test-manifest-key";
-    } else if (enabled) {
-      process.env[envVar] = "true";
-    } else {
-      delete process.env[envVar];
-    }
+function setManifestSigningKey(enabled: boolean): void {
+  if (enabled) {
+    process.env.COMPLIANCE_MANIFEST_HMAC_KEY = "test-manifest-key";
+    return;
   }
+  delete process.env.COMPLIANCE_MANIFEST_HMAC_KEY;
 }
 
 class MockClient {
@@ -204,11 +203,16 @@ function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlC
 
 describe("ComplianceReportGeneratorService", () => {
   afterEach(() => {
-    setHipaaSupport(false);
+    setManifestSigningKey(false);
+    vi.restoreAllMocks();
   });
 
   it("generates report breakdowns that distinguish declared, configured, validated, and evidence states", async () => {
-    setHipaaSupport(true);
+    setManifestSigningKey(true);
+    vi.spyOn(complianceFrameworkCapabilityGate, "assertFrameworksSupported").mockResolvedValue();
+    vi.spyOn(complianceFrameworkCapabilityGate, "getCapabilityStatuses").mockResolvedValue(
+      FRAMEWORK_CAPABILITIES.map((item) => ({ ...item })),
+    );
 
     const service = new ComplianceReportGeneratorService(
       new MockClient(
@@ -249,7 +253,11 @@ describe("ComplianceReportGeneratorService", () => {
   });
 
   it("fails strict report generation when required evidence is missing", async () => {
-    setHipaaSupport(true);
+    setManifestSigningKey(true);
+    vi.spyOn(complianceFrameworkCapabilityGate, "assertFrameworksSupported").mockResolvedValue();
+    vi.spyOn(complianceFrameworkCapabilityGate, "getCapabilityStatuses").mockResolvedValue(
+      FRAMEWORK_CAPABILITIES.map((item) => ({ ...item })),
+    );
 
     const service = new ComplianceReportGeneratorService(
       new MockClient({
@@ -277,7 +285,11 @@ describe("ComplianceReportGeneratorService", () => {
   });
 
   it("downgrades report status when technical validation fails even if evidence exists", async () => {
-    setHipaaSupport(true);
+    setManifestSigningKey(true);
+    vi.spyOn(complianceFrameworkCapabilityGate, "assertFrameworksSupported").mockResolvedValue();
+    vi.spyOn(complianceFrameworkCapabilityGate, "getCapabilityStatuses").mockResolvedValue(
+      FRAMEWORK_CAPABILITIES.map((item) => ({ ...item })),
+    );
 
     const service = new ComplianceReportGeneratorService(
       new MockClient(
@@ -312,6 +324,14 @@ describe("ComplianceReportGeneratorService", () => {
   });
 
   it("rejects HIPAA report generation when PHI-specific prerequisites are not configured", async () => {
+    setManifestSigningKey(true);
+    vi.spyOn(complianceFrameworkCapabilityGate, "assertFrameworksSupported").mockRejectedValue(
+      new Error("unsupported compliance frameworks requested: HIPAA"),
+    );
+    vi.spyOn(complianceFrameworkCapabilityGate, "getCapabilityStatuses").mockResolvedValue(
+      FRAMEWORK_CAPABILITIES.map((item) => ({ ...item })),
+    );
+
     const service = new ComplianceReportGeneratorService(
       new MockClient({
         audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],

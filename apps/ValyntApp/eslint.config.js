@@ -7,6 +7,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import security from "eslint-plugin-security";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ignoresConfig = {
   ignores: ["dist", "node_modules"],
@@ -50,12 +54,13 @@ const valyntAppConfig = {
     "no-case-declarations": "warn",
     "no-useless-escape": "warn",
     "no-useless-catch": "warn",
-    // Downgrade problematic jsx-a11y rules to warnings (address incrementally)
-    "jsx-a11y/label-has-associated-control": "warn",
+    // Accessibility rules are merge-blocking in production code; test files override these to warn.
+    "jsx-a11y/label-has-associated-control": "error",
     "jsx-a11y/anchor-is-valid": "warn",
-    "jsx-a11y/click-events-have-key-events": "warn",
-    "jsx-a11y/no-static-element-interactions": "warn",
-    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/interactive-supports-focus": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/no-noninteractive-element-interactions": "error",
     "jsx-a11y/no-noninteractive-tabindex": "warn",
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/no-redundant-roles": "warn",
@@ -136,6 +141,31 @@ const testConfig = {
       afterEach: "readonly",
     },
   },
+  rules: {
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    // Keep tests from becoming flaky while production code remains strictly enforced.
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/interactive-supports-focus": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+  },
+};
+
+const typeAwareRuntimeConfig = {
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/**/*.test.{ts,tsx}", "src/**/*.spec.{ts,tsx}", "src/**/__tests__/**"],
+  languageOptions: {
+    parserOptions: {
+      project: ["./tsconfig.json", "./tsconfig.node.json"],
+      tsconfigRootDir: __dirname,
+    },
+  },
+  rules: {
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    "@typescript-eslint/no-unsafe-assignment": "warn",
+  },
 };
 
 // Confirmed exception locations: src/lib/, src/utils/, src/mcp-*/, src/security/ may use raw fetch()
@@ -205,6 +235,7 @@ const browserBoundaryConfig = {
 export default [
   ignoresConfig,
   valyntAppConfig,
+  typeAwareRuntimeConfig,
   testConfig,
   fetchExceptionConfig,
   browserBoundaryConfig,

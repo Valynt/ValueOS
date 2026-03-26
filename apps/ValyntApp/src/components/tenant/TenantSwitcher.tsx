@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { TenantInfo } from "@/api/tenant";
+import { useToast } from "@/components/common/Toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ interface TenantSwitcherProps {
 }
 
 export function TenantSwitcher({ compact = false, className }: TenantSwitcherProps) {
+  const { error, success } = useToast();
   const { currentTenant, tenants, switchTenant, isLoading } = useTenant();
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
@@ -39,6 +41,9 @@ export function TenantSwitcher({ compact = false, className }: TenantSwitcherPro
     setSwitching(true);
     try {
       await switchTenant(tenant.id);
+      success(`Switched to ${tenant.name}.`);
+    } catch {
+      error("Could not switch organization.");
     } finally {
       setSwitching(false);
     }
@@ -53,7 +58,7 @@ export function TenantSwitcher({ compact = false, className }: TenantSwitcherPro
           type="button"
           disabled={switching}
           className={cn(
-            "flex items-center gap-2 px-3 min-h-10 rounded-xl hover:bg-zinc-100 transition-colors min-w-0",
+            "flex items-center gap-2 px-3 min-h-10 rounded-xl hover:bg-accent transition-colors min-w-0",
             switching && "opacity-60",
             className,
           )}
@@ -68,15 +73,15 @@ export function TenantSwitcher({ compact = false, className }: TenantSwitcherPro
           </div>
           {!compact && (
             <div className="text-left hidden sm:block min-w-0">
-              <p className="text-[13px] font-semibold text-zinc-900 leading-tight truncate">
+              <p className="text-[13px] font-semibold text-foreground leading-tight truncate">
                 {currentTenant.name}
               </p>
-              <p className="text-[10px] text-zinc-400 leading-tight capitalize">
+              <p className="text-[10px] text-muted-foreground leading-tight capitalize">
                 {currentTenant.role}
               </p>
             </div>
           )}
-          <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </button>
       </DropdownMenu.Trigger>
 

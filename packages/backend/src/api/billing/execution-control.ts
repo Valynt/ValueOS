@@ -1,6 +1,6 @@
 import { Router } from 'express';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
-import { supabase } from '../../lib/supabase.js';
 import type { AuthenticatedRequest } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { BillingExecutionControlService } from '../../services/billing/BillingExecutionControlService.js';
@@ -8,13 +8,13 @@ import { TenantExecutionStateService } from '../../services/billing/TenantExecut
 
 const router = Router();
 
-const executionStateService = new TenantExecutionStateService(supabase);
-const executionControlService = new BillingExecutionControlService(supabase, executionStateService);
-
 router.use(requireRole('admin'));
 
 router.post('/override', async (req, res) => {
   try {
+    const supabase = getRequestSupabaseClient(req);
+    const executionStateService = new TenantExecutionStateService(supabase);
+    const executionControlService = new BillingExecutionControlService(supabase, executionStateService);
     const authReq = req as AuthenticatedRequest;
     const organizationId = authReq.tenantId || authReq.user?.tenant_id;
     if (!organizationId || !authReq.user?.id) {
@@ -43,6 +43,9 @@ router.post('/override', async (req, res) => {
 
 router.post('/top-up', async (req, res) => {
   try {
+    const supabase = getRequestSupabaseClient(req);
+    const executionStateService = new TenantExecutionStateService(supabase);
+    const executionControlService = new BillingExecutionControlService(supabase, executionStateService);
     const authReq = req as AuthenticatedRequest;
     const organizationId = authReq.tenantId || authReq.user?.tenant_id;
     if (!organizationId || !authReq.user?.id) {

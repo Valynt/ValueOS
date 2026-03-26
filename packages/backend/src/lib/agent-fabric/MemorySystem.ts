@@ -245,7 +245,12 @@ export class MemorySystem {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
-    if (query.allow_cross_workspace) {
+    const allowCrossWorkspace = query.allow_cross_workspace || query.include_cross_workspace;
+    const normalizedQuery: MemoryQuery = allowCrossWorkspace
+      ? { ...query, allow_cross_workspace: true, include_cross_workspace: true }
+      : query;
+
+    if (allowCrossWorkspace) {
       if (!query.cross_workspace_reason) {
         throw new Error(
           "cross_workspace_reason is required when allow_cross_workspace is true",
@@ -275,9 +280,9 @@ export class MemorySystem {
     // Try persistent backend first for cross-session recall
     if (this.backend && this.config.enable_persistence) {
       try {
-        const persisted = await this.backend.retrieve(query);
+        const persisted = await this.backend.retrieve(normalizedQuery);
         if (persisted.length > 0) {
-          return persisted;
+          return this.enforceTtlOnRead(persisted);
         }
         // Fall through to local cache if backend returned empty
       } catch (error) {
@@ -289,7 +294,17 @@ export class MemorySystem {
     }
 
     // Local cache fallback
-    return this.retrieveFromCache(query);
+    return this.retrieveFromCache(normalizedQuery);
+  }
+
+  private enforceTtlOnRead(memories: Memory[]): Memory[] {
+    const now = Date.now();
+    const ttlMs = (this.config.ttl_seconds ?? 3600) * 1000;
+
+    return memories.filter((memory) => {
+      const createdAt = new Date(memory.created_at).getTime();
+      return now - createdAt <= ttlMs;
+    });
   }
 
   private retrieveFromCache(query: MemoryQuery): Memory[] {

@@ -4,10 +4,10 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
 import { BillingMetric } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
 import { EntitlementsService } from '../services/billing/EntitlementsService.js';
 import { createCounter } from '../services/lib/observability/index.js';
 import { getMetricsCollector } from '../services/monitoring/MetricsCollector.js';
@@ -18,13 +18,8 @@ const usageEnforcementFailOpenCounter = createCounter(
   'Number of requests permitted because usage enforcement fail-open override is active'
 );
 
-// Lazy singleton — instantiated on first use so supabase client is ready
-let _entitlementsService: EntitlementsService | null = null;
-function getEntitlementsService(): EntitlementsService {
-  if (!_entitlementsService) {
-    _entitlementsService = new EntitlementsService(supabase);
-  }
-  return _entitlementsService;
+function getEntitlementsService(req: Request): EntitlementsService {
+  return new EntitlementsService(getRequestSupabaseClient(req));
 }
 
 interface UsageEnforcementOptions {
@@ -54,7 +49,7 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
       const { metric, checkGracePeriod = true, allowPartialUsage = false } = options;
 
       // Check if usage is allowed
-      const entitlementCheck = await getEntitlementsService().checkUsageAllowed(
+      const entitlementCheck = await getEntitlementsService(req).checkUsageAllowed(
         tenantId,
         metric,
         1, // Assume 1 unit for middleware check

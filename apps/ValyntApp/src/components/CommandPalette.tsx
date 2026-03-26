@@ -15,6 +15,8 @@
 import { FileText, Home, LayoutDashboard, Search, Settings, Users, X, Zap } from "lucide-react";
 import {
   createContext,
+  type ElementType,
+  type KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   useCallback,
   useContext,
@@ -30,12 +32,14 @@ import { cn } from "@/lib/utils";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface CommandItem {
+type CommandCategory = "navigation" | "action" | "settings";
+
+export interface CommandItem {
   id: string;
   label: string;
   description?: string;
-  icon?: React.ElementType;
-  category: "navigation" | "action" | "settings";
+  icon?: ElementType;
+  category: CommandCategory;
   keywords?: string[];
   onSelect: () => void;
 }
@@ -44,7 +48,7 @@ interface CommandPaletteContextType {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   isOpen: boolean;
-  registerCommands: (commands: CommandItem[]) => void;
+  registerCommands: (commands: CommandItem[]) => () => void;
 }
 
 const CommandPaletteContext = createContext<CommandPaletteContextType | undefined>(undefined);
@@ -131,9 +135,11 @@ function matchesQuery(item: CommandItem, query: string): boolean {
 
 function CommandPaletteDialog({
   commands,
+  aiSuggestions,
   onClose,
 }: {
   commands: CommandItem[];
+  aiSuggestions: CommandItem[];
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -165,7 +171,7 @@ function CommandPaletteDialog({
   );
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: ReactKeyboardEvent) => {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
@@ -295,8 +301,15 @@ function CommandPaletteDialog({
                       id={`cmd-${item.id}`}
                       role="option"
                       aria-selected={isSelected}
+                      tabIndex={-1}
                       data-index={idx}
                       onClick={() => handleSelect(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelect(item);
+                        }
+                      }}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={cn(
                         "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
@@ -321,6 +334,29 @@ function CommandPaletteDialog({
                 })}
               </div>
             ))}
+
+            {query.length === 0 && aiSuggestions.length > 0 && (
+              <div>
+                <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  AI Suggestions
+                </p>
+                {aiSuggestions.map((item) => (
+                  <div
+                    key={`ai-${item.id}`}
+                    onClick={() => handleSelect(item)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent/50"
+                  >
+                    <Zap className="h-4 w-4 text-primary" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.label}</p>
+                      {item.description && (
+                        <p className="text-[12px] text-muted-foreground truncate">{item.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Footer hint */}
@@ -342,6 +378,7 @@ function CommandPaletteDialog({
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [extraCommands, setExtraCommands] = useState<CommandItem[]>([]);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const navigate = useCallback((path: string) => {
     // Use window.location as a fallback; in practice the router's navigate
@@ -355,15 +392,44 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     [defaultCommands, extraCommands],
   );
 
-  const openCommandPalette = useCallback(() => setIsOpen(true), []);
-  const closeCommandPalette = useCallback(() => setIsOpen(false), []);
+  const openCommandPalette = useCallback(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setIsOpen(true);
+  }, []);
+  const closeCommandPalette = useCallback(() => {
+    setIsOpen(false);
+    previousFocusRef.current?.focus();
+  }, []);
   const registerCommands = useCallback((commands: CommandItem[]) => {
-    setExtraCommands((prev) => [...prev, ...commands]);
+    setExtraCommands((prev) => {
+      const nextById = new Map<string, CommandItem>();
+      [...prev, ...commands].forEach((command) => {
+        nextById.set(command.id, command);
+      });
+      return [...nextById.values()];
+    });
+
+    return () => {
+      const commandIds = new Set(commands.map((command) => command.id));
+      setExtraCommands((prev) => prev.filter((command) => !commandIds.has(command.id)));
+    };
   }, []);
 
   // Global keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target;
+      const isEditableTarget =
+        target instanceof HTMLElement
+        && (target.isContentEditable
+          || target.tagName === "INPUT"
+          || target.tagName === "TEXTAREA"
+          || target.tagName === "SELECT");
+
+      if (isEditableTarget) {
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setIsOpen((prev) => !prev);
@@ -373,13 +439,15 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const aiSuggestions = useMemo(() => allCommands.slice(0, 3), [allCommands]);
+
   return (
     <CommandPaletteContext.Provider
       value={{ openCommandPalette, closeCommandPalette, isOpen, registerCommands }}
     >
       {children}
       {isOpen && (
-        <CommandPaletteDialog commands={allCommands} onClose={closeCommandPalette} />
+        <CommandPaletteDialog commands={allCommands} aiSuggestions={aiSuggestions} onClose={closeCommandPalette} />
       )}
     </CommandPaletteContext.Provider>
   );

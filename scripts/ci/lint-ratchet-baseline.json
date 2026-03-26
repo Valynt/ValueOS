@@ -1,0 +1,14 @@
+{
+  "backend": {
+    "errors": 0,
+    "warnings": 5723
+  },
+  "valynt-app": {
+    "errors": 6,
+    "warnings": 1124
+  },
+  "shared": {
+    "errors": 13,
+    "warnings": 19
+  }
+}

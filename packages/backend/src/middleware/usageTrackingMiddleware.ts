@@ -1,12 +1,11 @@
 import { createLogger } from '@shared/lib/logger';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { NextFunction, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
-import { supabase } from '../lib/supabase.js';
 import UsageEmitter from '../services/metering/UsageEmitter.js';
 
 const logger = createLogger({ component: 'UsageTrackingMiddleware' });
-const usageEmitter = new UsageEmitter(supabase);
 
 // Evidence links are useful for audit/trust portal stitching
 const getEvidenceLink = (requestId: string): string => `api://${requestId}`;
@@ -52,6 +51,7 @@ export function trackAPICall(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
+  const usageEmitter = new UsageEmitter(getRequestSupabaseClient(req));
   res.on('finish', () => {
     // Only count non-5xx responses (treat 4xx as billable if they represent usage)
     if (res.statusCode < 500) {
@@ -92,6 +92,7 @@ export function trackLLMUsage(tokens: number, model?: string) {
       return next();
     }
 
+    const usageEmitter = new UsageEmitter(getRequestSupabaseClient(req));
     res.on('finish', () => {
       if (res.statusCode === 200) {
         const requestId = (req.headers['x-request-id'] as string) || uuidv4();
@@ -132,6 +133,7 @@ export function trackAgentExecution(agentType?: string) {
       return next();
     }
 
+    const usageEmitter = new UsageEmitter(getRequestSupabaseClient(req));
     res.on('finish', () => {
       if (res.statusCode === 200) {
         const requestId = (req.headers['x-request-id'] as string) || uuidv4();

@@ -47,10 +47,10 @@ nano .env  # or use your preferred editor
 **Minimum required changes in `.env`:**
 
 ```bash
-POSTGRES_PASSWORD=your_secure_postgres_password_here
-REDIS_PASSWORD=your_secure_redis_password_here
-JWT_SECRET=your_generated_jwt_secret_here
-OPENAI_API_KEY=sk-your-openai-api-key-here
+POSTGRES_PASSWORD=sm://valueos/local/postgres/password
+REDIS_PASSWORD=sm://valueos/local/redis/password
+JWT_SECRET=sm://valueos/local/auth/jwt_secret
+OPENAI_API_KEY=sm://valueos/local/llm/openai_api_key
 ```
 
 ### 3. Start the Environment

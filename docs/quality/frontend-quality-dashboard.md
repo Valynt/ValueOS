@@ -19,6 +19,17 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 
 - **Critical WCAG violations block merge** via Playwright axe route checks (`tests/accessibility/axe-a11y.spec.ts`).
 - **Serious WCAG violations also block merge** via `scripts/ci/check-a11y-severity-budgets.mjs` and `.github/metrics/wcag-severity-budgets.json` budgets.
+- **jsx-a11y lint debt is ratcheted weekly to zero** via `scripts/ci/a11y-eslint-weekly-ratchet.mjs`, `.github/metrics/a11y-eslint-ratchet.json`, and the `a11y-eslint-ratchet-weekly` CI workflow.
+
+### Lint-to-WCAG traceability map
+
+| ESLint rule ID | WCAG success criteria | Audit intent |
+|---|---|---|
+| `jsx-a11y/label-has-associated-control` | **1.3.1 Info and Relationships**, **3.3.2 Labels or Instructions**, **4.1.2 Name, Role, Value** | Verify form labels are programmatically bound so assistive tech can announce inputs correctly. |
+| `jsx-a11y/click-events-have-key-events` | **2.1.1 Keyboard**, **2.1.3 Keyboard (No Exception)** | Ensure click handlers are keyboard-operable through equivalent key interaction handlers. |
+| `jsx-a11y/interactive-supports-focus` | **2.1.1 Keyboard**, **2.4.3 Focus Order** | Require interactive handlers on focusable controls so keyboard users can reach and operate UI affordances. |
+| `jsx-a11y/no-static-element-interactions` | **4.1.2 Name, Role, Value**, **2.1.1 Keyboard** | Prevent non-semantic elements from acting like controls without explicit role and keyboard semantics. |
+| `jsx-a11y/no-noninteractive-element-interactions` | **4.1.2 Name, Role, Value**, **1.3.1 Info and Relationships** | Avoid attaching interactive behavior to non-interactive semantics that can confuse AT users. |
 
 ### Non-blocking trend reporting
 
