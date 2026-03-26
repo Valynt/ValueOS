@@ -7,10 +7,9 @@
 import type { BillingEvent } from "@shared/types/billing-events";
 import type Stripe from "stripe";
 
-
-import { GRACE_PERIOD_MS, STRIPE_CONFIG } from "../../config/billing.js"
-import { createLogger } from "../../lib/logger.js"
-import { supabase } from '../../lib/supabase.js';
+import { GRACE_PERIOD_MS, STRIPE_CONFIG } from "../../config/billing.js";
+import { createLogger } from "../../lib/logger.js";
+import { supabase } from "../../lib/supabase.js";
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,
@@ -19,8 +18,8 @@ import {
 } from "../../metrics/billingMetrics";
 import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
-import InvoiceService from "./InvoiceService.js"
-import StripeService from "./StripeService.js"
+import InvoiceService from "./InvoiceService.js";
+import StripeService from "./StripeService.js";
 
 const logger = createLogger({ component: "WebhookService" });
 
@@ -90,10 +89,7 @@ export class WebhookService {
       .update(payload)
       .eq("tenant_id", tenantId);
 
-    await supabase
-      .from("tenants")
-      .update(payload)
-      .eq("id", tenantId);
+    await supabase.from("tenants").update(payload).eq("id", tenantId);
 
     await securityAuditService.logRequestEvent({
       requestId: `billing-enforcement-${triggerEventType}-${tenantId}-${Date.now()}`,
@@ -132,8 +128,13 @@ export class WebhookService {
 
       return event;
     } catch (error: unknown) {
-      logger.error("Webhook signature verification failed", error instanceof Error ? error : undefined);
-      throw new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        "Webhook signature verification failed",
+        error instanceof Error ? error : undefined
+      );
+      throw new Error(
+        `Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -150,7 +151,9 @@ export class WebhookService {
    * Returns isDuplicate: true when the event was already recorded (conflict),
    * meaning no handler was invoked.
    */
-  async processWebhook(event: Stripe.Event): Promise<{ isDuplicate: boolean; processed: boolean }> {
+  async processWebhook(
+    event: Stripe.Event
+  ): Promise<{ isDuplicate: boolean; processed: boolean }> {
     const isDuplicate = await this.processEvent(event);
     return { isDuplicate, processed: true };
   }
@@ -260,13 +263,13 @@ export class WebhookService {
 
   /**
    * Backward-compatible wrapper retained for older tests/helpers that still
-   * expect a class instance with `processWebhook()` returning duplicate state.
+   * need a simple in-memory deduplication check.
    *
-   * @deprecated This method is intended for use in tests only. Production code
-   *             should use the full webhook handling flow (e.g. `verifySignature`
-   *             and `processEvent`) instead.
+   * @deprecated Use the full webhook handling flow (`verifySignature` /
+   *             `processEvent` / `processWebhook`) in production code.
+   *             This helper is test-only; it throws in non-test environments.
    */
-  async processWebhook(
+  async processWebhookTestOnly(
     event: Partial<Stripe.Event> & {
       id?: string;
       type?: string;
@@ -276,12 +279,18 @@ export class WebhookService {
   ): Promise<{ processed: true; isDuplicate: boolean }> {
     if (process.env.NODE_ENV !== "test") {
       throw new Error(
-        "WebhookService.processWebhook is deprecated and only supported in the test environment. " +
-          "Use the standard webhook handling flow (verifySignature/processEvent) in production code.",
+        "WebhookService.processWebhookTestOnly is only supported in the test environment. " +
+          "Use the standard webhook handling flow (verifySignature/processEvent) in production code."
       );
     }
 
-    if (!event || typeof event !== "object" || !event.id || !event.type || !event.data) {
+    if (
+      !event ||
+      typeof event !== "object" ||
+      !event.id ||
+      !event.type ||
+      !event.data
+    ) {
       throw new Error("Invalid webhook payload");
     }
 
@@ -306,7 +315,6 @@ export class WebhookService {
       .eq("stripe_event_id", eventId);
   }
 
-
   /**
    * Mark event as failed
    */
@@ -325,7 +333,8 @@ export class WebhookService {
         throw fetchErr;
       }
 
-      const current = (existing && (existing as { retry_count?: number }).retry_count) || 0;
+      const current =
+        (existing && (existing as { retry_count?: number }).retry_count) || 0;
       const newCount = Number(current) + 1;
 
       await supabase
@@ -368,11 +377,14 @@ export class WebhookService {
 
     if (!tenantId) {
       recordWebhookUnresolvedTenant();
-      logger.error("Payment succeeded but tenant not found in billing_customers — enforcement state not updated", {
-        stripeCustomerId: invoice.customer,
-        invoiceId: invoice.id,
-        eventId: event.id,
-      });
+      logger.error(
+        "Payment succeeded but tenant not found in billing_customers — enforcement state not updated",
+        {
+          stripeCustomerId: invoice.customer,
+          invoiceId: invoice.id,
+          eventId: event.id,
+        }
+      );
       throw new Error(
         `payment_succeeded: no billing_customers row for Stripe customer ${invoice.customer} (invoice ${invoice.id})`
       );
@@ -402,7 +414,10 @@ export class WebhookService {
       },
     });
 
-    logger.info("Payment succeeded processed", { invoiceId: invoice.id, tenantId });
+    logger.info("Payment succeeded processed", {
+      invoiceId: invoice.id,
+      tenantId,
+    });
     recordInvoiceEvent(event.type);
   }
 
@@ -424,7 +439,9 @@ export class WebhookService {
 
     if (customer) {
       const graceStartedAt = new Date().toISOString();
-      const graceExpiresAt = new Date(Date.now() + GRACE_PERIOD_MS).toISOString();
+      const graceExpiresAt = new Date(
+        Date.now() + GRACE_PERIOD_MS
+      ).toISOString();
 
       await this.setTenantEnforcementState(
         customer.tenant_id,
@@ -504,7 +521,10 @@ export class WebhookService {
 
     if (prevSub && prevSub.status !== subscription.status) {
       if (prevSub.tenant_id) {
-        if (subscription.status === "active" || subscription.status === "trialing") {
+        if (
+          subscription.status === "active" ||
+          subscription.status === "trialing"
+        ) {
           await this.setTenantEnforcementState(
             prevSub.tenant_id,
             {
@@ -518,9 +538,14 @@ export class WebhookService {
           );
         }
 
-        if (subscription.status === "past_due" || subscription.status === "unpaid") {
+        if (
+          subscription.status === "past_due" ||
+          subscription.status === "unpaid"
+        ) {
           const graceStartedAt = new Date().toISOString();
-          const graceExpiresAt = new Date(Date.now() + GRACE_PERIOD_MS).toISOString();
+          const graceExpiresAt = new Date(
+            Date.now() + GRACE_PERIOD_MS
+          ).toISOString();
 
           await this.setTenantEnforcementState(
             prevSub.tenant_id,
@@ -608,20 +633,26 @@ export class WebhookService {
    * Handle charge succeeded
    */
   private async handleChargeSucceeded(event: Stripe.Event): Promise<void> {
-    logger.info("Charge succeeded", { chargeId: (event.data.object as Stripe.Charge).id });
+    logger.info("Charge succeeded", {
+      chargeId: (event.data.object as Stripe.Charge).id,
+    });
   }
 
   /**
    * Handle charge failed
    */
   private async handleChargeFailed(event: Stripe.Event): Promise<void> {
-    logger.warn("Charge failed", { chargeId: (event.data.object as Stripe.Charge).id });
+    logger.warn("Charge failed", {
+      chargeId: (event.data.object as Stripe.Charge).id,
+    });
   }
 
   /**
    * Resolve tenant_id from a Stripe customer ID.
    */
-  private async resolveTenantId(stripeCustomerId: string): Promise<string | null> {
+  private async resolveTenantId(
+    stripeCustomerId: string
+  ): Promise<string | null> {
     if (!supabase) return null;
     const { data } = await supabase
       .from("billing_customers")
