@@ -2614,9 +2614,14 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_HTTPS_ONLY=true
 JWT_SECRET=your-jwt-secret-min-32-chars
 MFA_ENABLED=true
+# OAuth callback hardening (mandatory when CRM/OAuth integrations are enabled)
+APP_URL=https://app.valuecanvas.com
 # Emergency-only escape hatch; do not leave enabled
 MFA_PRODUCTION_OVERRIDE=false
 ```
+
+> [!IMPORTANT]
+> `APP_URL` is mandatory for OAuth-enabled environments. CRM OAuth callbacks fail closed when `APP_URL` is missing or invalid.
 
 ### Optional but Recommended
 
