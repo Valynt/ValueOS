@@ -103,13 +103,28 @@ Use this procedure only when the identity provider is unavailable and user impac
 - Confirm IdP outage and incident ticket severity with on-call security + platform leads.
 - Validate Redis/shared storage availability, because revoked token/session denylist checks depend on it.
 - Define a strict expiry timestamp before enabling fallback (`AUTH_FALLBACK_EMERGENCY_TTL_UNTIL`, ISO-8601 UTC).
+- Confirm fallback authority and approvals:
+  - **Activation authority:** Security Incident Commander (IC) + Platform Incident Commander.
+  - **Dual approval chain:** (1) on-call Security lead, (2) Platform director or delegated incident approver.
+  - Record approver names and exact UTC timestamps in the incident ticket before config changes.
+- Prepare signed incident context:
+  - Generate `AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE` using `AUTH_FALLBACK_INCIDENT_SIGNING_SECRET`.
+  - Signature payload format: `incidentId|severity|incidentStartedAt|ttlUntil|allowedRoutesCsv|allowedRolesCsv`.
+  - Production startup validation rejects emergency mode if signature or signing secret is missing/invalid.
 
 ### Enable fallback (time-boxed break-glass)
 1. Set `AUTH_FALLBACK_EMERGENCY_MODE=true`.
-2. Set `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL=<ISO-8601 timestamp>` for the shortest viable window (recommended ≤ 30 minutes).
+2. Set `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL=<ISO-8601 timestamp>` for the shortest viable window (**required ≤ 30 minutes**).
 3. Ensure `SUPABASE_JWT_ISSUER` and `SUPABASE_JWT_AUDIENCE` are set and validated.
-4. Keep `ALLOW_LOCAL_JWT_FALLBACK` unset/false in non-dev environments.
-5. Deploy config and monitor high-severity audit event `auth.jwt_fallback_activated`.
+4. Set incident metadata and allowlists:
+   - `AUTH_FALLBACK_INCIDENT_ID`
+   - `AUTH_FALLBACK_INCIDENT_SEVERITY`
+   - `AUTH_FALLBACK_INCIDENT_STARTED_AT`
+   - `AUTH_FALLBACK_ALLOWED_ROUTES` and/or `AUTH_FALLBACK_ALLOWED_ROLES`
+   - `AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE`
+   - `AUTH_FALLBACK_INCIDENT_SIGNING_SECRET`
+5. Keep `ALLOW_LOCAL_JWT_FALLBACK` unset/false in non-dev environments (production startup fails if enabled).
+6. Deploy config and monitor high-severity audit event `auth.jwt_fallback_activated`.
 
 ### Required monitoring while active
 - Watch audit events for route, tenant, and fallback reason details.
@@ -127,7 +142,11 @@ Use this procedure only when the identity provider is unavailable and user impac
 - Review all `auth.jwt_fallback_activated` audit entries and impacted tenants/routes.
 - Verify no requests were served with revoked `jti`/session IDs during outage.
 - Document timeline, residual risk, and remediation actions in the incident postmortem.
-- Rotate/refresh credentials if any compromise suspicion exists.
+- Mandatory key rotation and closure tasks:
+  1. Rotate `AUTH_FALLBACK_INCIDENT_SIGNING_SECRET` within 24 hours of incident closure.
+  2. Rotate `SUPABASE_JWT_SECRET`/upstream signing material if integrity concerns exist.
+  3. Confirm old key material is revoked/disabled in secret manager.
+  4. Attach rotation evidence (secret version IDs + operator + UTC timestamp) to the incident record.
 
 
 ## Credential rotation evidence (default-secret remediation)
