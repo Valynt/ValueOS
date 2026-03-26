@@ -104,7 +104,14 @@ export function ReadinessGauge({ data }: WidgetProps) {
                 style={{ transition: "stroke-dashoffset 0.5s ease" }}
               />
             </svg>
-            <div className={`absolute inset-0 flex flex-col items-center justify-center ${getScoreColor(compositeScore)}`}>
+            <div
+              role="meter"
+              aria-label="Defense readiness score"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(compositeScore * 100)}
+              className={`absolute inset-0 flex flex-col items-center justify-center ${getScoreColor(compositeScore)}`}
+            >
               <span className="text-2xl font-bold">{Math.round(compositeScore * 100)}%</span>
               <span className="text-xs text-muted-foreground">Composite</span>
             </div>

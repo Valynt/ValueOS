@@ -13,7 +13,7 @@ const widgetRegistry: Record<string, ComponentType<WidgetProps>> = {};
 export interface WidgetProps {
   id: string;
   data?: Record<string, unknown>;
-  onAction?: (action: string, payload?: unknown) => void;
+  onAction?: (action: string, payload?: unknown) => Promise<void> | void;
 }
 
 export interface SDUIWidget {
@@ -193,7 +193,7 @@ export function CanvasHost({
       return <UnknownWidget key={widget.id} componentType={widget.componentType} />;
     }
 
-    const handleAction = (action: string, payload?: unknown) => {
+    const handleAction = async (action: string, payload?: unknown) => {
       onWidgetAction?.(widget.id, action, payload);
     };
 

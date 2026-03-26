@@ -7,3 +7,5 @@ export { Sidebar } from "./Sidebar";
 export type { ValueCase } from "./Sidebar";
 export { TopBar } from "./TopBar";
 export { CommandBar } from "./CommandBar";
+
+export { NotificationProvider, useNotifications } from "./NotificationCenter";
