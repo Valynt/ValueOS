@@ -19,7 +19,6 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { execSync } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const failures = [];
