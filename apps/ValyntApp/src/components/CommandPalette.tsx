@@ -15,6 +15,8 @@
 import { FileText, Home, LayoutDashboard, Search, Settings, Users, X, Zap } from "lucide-react";
 import {
   createContext,
+  type ElementType,
+  type KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   useCallback,
   useContext,
@@ -30,12 +32,14 @@ import { cn } from "@/lib/utils";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface CommandItem {
+type CommandCategory = "navigation" | "action" | "settings";
+
+export interface CommandItem {
   id: string;
   label: string;
   description?: string;
-  icon?: React.ElementType;
-  category: "navigation" | "action" | "settings";
+  icon?: ElementType;
+  category: CommandCategory;
   keywords?: string[];
   onSelect: () => void;
 }
@@ -44,7 +48,7 @@ interface CommandPaletteContextType {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   isOpen: boolean;
-  registerCommands: (commands: CommandItem[]) => void;
+  registerCommands: (commands: CommandItem[]) => () => void;
 }
 
 const CommandPaletteContext = createContext<CommandPaletteContextType | undefined>(undefined);
@@ -165,7 +169,7 @@ function CommandPaletteDialog({
   );
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: ReactKeyboardEvent) => {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
@@ -295,8 +299,15 @@ function CommandPaletteDialog({
                       id={`cmd-${item.id}`}
                       role="option"
                       aria-selected={isSelected}
+                      tabIndex={-1}
                       data-index={idx}
                       onClick={() => handleSelect(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelect(item);
+                        }
+                      }}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={cn(
                         "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
@@ -358,12 +369,35 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const openCommandPalette = useCallback(() => setIsOpen(true), []);
   const closeCommandPalette = useCallback(() => setIsOpen(false), []);
   const registerCommands = useCallback((commands: CommandItem[]) => {
-    setExtraCommands((prev) => [...prev, ...commands]);
+    setExtraCommands((prev) => {
+      const nextById = new Map<string, CommandItem>();
+      [...prev, ...commands].forEach((command) => {
+        nextById.set(command.id, command);
+      });
+      return [...nextById.values()];
+    });
+
+    return () => {
+      const commandIds = new Set(commands.map((command) => command.id));
+      setExtraCommands((prev) => prev.filter((command) => !commandIds.has(command.id)));
+    };
   }, []);
 
   // Global keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target;
+      const isEditableTarget =
+        target instanceof HTMLElement
+        && (target.isContentEditable
+          || target.tagName === "INPUT"
+          || target.tagName === "TEXTAREA"
+          || target.tagName === "SELECT");
+
+      if (isEditableTarget) {
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setIsOpen((prev) => !prev);

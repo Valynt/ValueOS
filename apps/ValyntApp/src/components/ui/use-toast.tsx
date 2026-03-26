@@ -6,6 +6,8 @@
 
 import { toast } from "sonner";
 
+import { DEFAULT_TOAST_DURATION_MS } from "./toast-config";
+
 export interface ToastOptions {
   title?: string;
   description?: string;
@@ -16,7 +18,7 @@ export interface ToastOptions {
 export function useToast() {
   return {
     toast: (options: ToastOptions) => {
-      const { title, description, variant = "default", duration = 3000 } = options;
+      const { title, description, variant = "default", duration = DEFAULT_TOAST_DURATION_MS } = options;
       const message = title || description || "";
 
       switch (variant) {
