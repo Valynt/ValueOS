@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const isNoMatchExit = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  (error as { status?: number }).status === 1;
+
 test.describe('Security & Multi-Tenancy Remediation', () => {
   
   test('No RLS bypass vulnerabilities (organization_id IS NULL)', () => {
@@ -22,8 +28,8 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
       const count = parseInt(countStr, 10);
       
       expect(count, `Found ${count} instances of RLS bypass vulnerabilities (IS NULL checks) in migrations. Expected 0.`).toBe(0);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
@@ -43,8 +49,8 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
       const count = parseInt(countStr, 10);
       
       expect(count, 'No migration found enabling RLS on agent_sessions table.').toBeGreaterThan(0);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
@@ -69,8 +75,8 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
       // Allowing some margin for non-tenant tables (like users, public config)
       const ratio = eqCount / fromCount;
       expect(ratio, `Only ${Math.round(ratio * 100)}% of Supabase queries include explicit tenant filters. Expected > 80% for defense-in-depth.`).toBeGreaterThan(0.8);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
