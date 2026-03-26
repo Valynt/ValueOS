@@ -1,0 +1,73 @@
+# Pod Security Admission (PSA) namespace labels
+#
+# PSA is the built-in Kubernetes replacement for the removed PodSecurityPolicy
+# API (removed in k8s 1.25). It enforces one of three standards at the namespace
+# level: privileged, baseline, or restricted.
+#
+# All ValueOS namespaces enforce the "restricted" standard, which requires:
+#   - Pods run as non-root (runAsNonRoot: true)
+#   - No privilege escalation (allowPrivilegeEscalation: false)
+#   - All Linux capabilities dropped
+#   - seccompProfile set to RuntimeDefault or Localhost
+#   - No host namespaces (hostNetwork, hostIPC, hostPID: false)
+#   - No hostPath volumes
+#   - No privileged containers
+#
+# Three modes are set on every namespace:
+#   enforce — reject non-compliant pods at admission
+#   warn    — emit a warning for non-compliant pods (does not block)
+#   audit   — log non-compliant pods to the audit log (does not block)
+#
+# Apply: kubectl apply -f infra/k8s/security/pod-security-admission.yaml
+#
+# Fine-grained rules that PSA cannot express (e.g. readOnlyRootFilesystem,
+# image tag pinning, required labels) are enforced by Kyverno policies in
+# infra/k8s/security/kyverno-policies.yaml.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valynt
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valynt-staging
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valueos-system
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valueos-tenants
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest

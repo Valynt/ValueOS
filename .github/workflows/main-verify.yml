@@ -11,8 +11,70 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  security-events: write  # for gitleaks SARIF upload
 
 jobs:
+  # ── Full-history secret scan — runs on every main push ───────────────────────
+  secret-scan-history:
+    name: secret-scan / full-history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history required
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          VERSION="8.21.2"
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            -o /tmp/gitleaks.tar.gz
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_checksums.txt" \
+            -o /tmp/gitleaks-checksums.txt
+          grep "gitleaks_${VERSION}_linux_x64.tar.gz" /tmp/gitleaks-checksums.txt | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan full git history
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/secret-scan
+          gitleaks detect \
+            --config=.gitleaks.toml \
+            --redact \
+            --exit-code=1 \
+            --report-format=sarif \
+            --report-path=artifacts/secret-scan/gitleaks-history.sarif \
+            --log-level=warn \
+            2>&1 | tee artifacts/secret-scan/gitleaks-history.log || {
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "FAIL: gitleaks detected secrets in git history."
+              echo "Remediation:"
+              echo "  1. Rotate the exposed credential immediately."
+              echo "  2. Purge from history with git-filter-repo."
+              echo "  3. Add an allowlist entry to .gitleaks.toml only for"
+              echo "     confirmed false positives with documented justification."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              exit 1
+            }
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: artifacts/secret-scan/gitleaks-history.sarif
+          category: gitleaks-history
+
+      - name: Upload scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-history-${{ github.run_id }}
+          path: artifacts/secret-scan/
+          if-no-files-found: warn
+          retention-days: 90
+
   lint-runtime-packages:
     name: lint-runtime-packages (${{ matrix.lane }})
     runs-on: ubuntu-latest
@@ -192,6 +254,9 @@ jobs:
         run: node scripts/ci/check-direct-llm-calls.mjs
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
+
+      - name: PodSecurityPolicy removal guard
+        run: node scripts/ci/check-psp-references.mjs
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
       - name: Guard frontend bundle service-role identifiers
@@ -208,6 +273,12 @@ jobs:
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
       - name: LLM readiness contract guard
         run: node scripts/ci/check-llm-readiness-contract.mjs
+
+      - name: Infra readiness contract guard
+        run: node scripts/ci/check-infra-readiness-contract.mjs
+
+      - name: Architecture doc / runtime drift guard
+        run: node scripts/ci/check-architecture-doc-drift.mjs
       - name: Supabase tenant controls guard
         run: node scripts/ci/check-supabase-tenant-controls.mjs
       - name: Security baseline verification

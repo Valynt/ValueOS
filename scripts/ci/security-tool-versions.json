@@ -1,6 +1,11 @@
 {
   "scannerActions": [
     {
+      "id": "gitleaks-secret-scan-diff",
+      "workflow": ".github/workflows/secret-scan.yml",
+      "uses": "gitleaks/gitleaks-action@v2"
+    },
+    {
       "id": "gitleaks-pr-fast",
       "workflow": ".github/workflows/pr-fast.yml",
       "uses": "gitleaks/gitleaks-action@v2"

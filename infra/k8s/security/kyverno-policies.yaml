@@ -1,0 +1,302 @@
+# Kyverno policy-as-code for ValueOS
+#
+# These policies enforce security controls that the built-in Pod Security
+# Admission (PSA) "restricted" standard cannot express. PSA handles the
+# coarse-grained baseline; Kyverno handles the fine-grained rules.
+#
+# Prerequisites:
+#   kubectl apply -f https://github.com/kyverno/kyverno/releases/download/v1.12.0/install.yaml
+#
+# Apply: kubectl apply -f infra/k8s/security/kyverno-policies.yaml
+#
+# Policy inventory:
+#   1. require-readonly-rootfs        — readOnlyRootFilesystem: true on all containers
+#   2. require-seccomp-profile        — seccompProfile.type must be RuntimeDefault or Localhost
+#   3. disallow-latest-tag            — image tags must not be "latest" in production
+#   4. require-resource-limits        — all containers must declare CPU and memory limits
+#   5. require-tenant-label           — workloads must carry organization_id or tenant_id label
+#   6. disallow-privileged-containers — privileged: true is always rejected (belt-and-suspenders over PSA)
+#   7. require-drop-all-capabilities  — capabilities.drop must include ALL
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-readonly-rootfs
+  annotations:
+    policies.kyverno.io/title: Require read-only root filesystem
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Containers must set readOnlyRootFilesystem: true. Writable root
+      filesystems allow attackers to modify binaries and persist malware.
+      Use emptyDir or PVC mounts for paths that need write access.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-readonly-rootfs
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: "All containers must set securityContext.readOnlyRootFilesystem: true"
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.readOnlyRootFilesystem }}"
+                    operator: NotEquals
+                    value: true
+          - list: "request.object.spec.initContainers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.readOnlyRootFilesystem }}"
+                    operator: NotEquals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-seccomp-profile
+  annotations:
+    policies.kyverno.io/title: Require seccomp profile
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Pods must set seccompProfile.type to RuntimeDefault or Localhost at the
+      pod level. This restricts the syscalls available to containers and is
+      required by the PSA "restricted" standard, but Kyverno enforces it
+      explicitly to catch misconfigured pods before PSA admission.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-seccomp-profile
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: >-
+          Pod must set spec.securityContext.seccompProfile.type to
+          RuntimeDefault or Localhost
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.object.spec.securityContext.seccompProfile.type }}"
+                operator: NotIn
+                value: [RuntimeDefault, Localhost]
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow latest image tag
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Container images must not use the "latest" tag in production and staging
+      namespaces. Mutable tags prevent reproducible deployments and make
+      rollbacks unreliable. Use a specific digest or semver tag.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-image-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+      validate:
+        message: >-
+          Container image must not use the 'latest' tag. Use a specific
+          version tag or image digest.
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotContains
+                    value: ":"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require CPU and memory limits
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      All containers must declare CPU and memory limits. Without limits a
+      single runaway container can exhaust node resources and cause cascading
+      failures across tenants.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-resource-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: "All containers must declare resources.limits.cpu and resources.limits.memory"
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.resources.limits.cpu || '' }}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{ element.resources.limits.memory || '' }}"
+                    operator: Equals
+                    value: ""
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+  annotations:
+    policies.kyverno.io/title: Disallow privileged containers
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      Privileged containers have full access to the host kernel and can
+      trivially escape the container boundary. Belt-and-suspenders enforcement
+      on top of PSA "restricted" to catch any admission controller bypass.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-privileged
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: "Privileged containers are not permitted"
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged }}"
+                    operator: Equals
+                    value: true
+          - list: "request.object.spec.initContainers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged }}"
+                    operator: Equals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-drop-all-capabilities
+  annotations:
+    policies.kyverno.io/title: Require drop ALL capabilities
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      All containers must drop ALL Linux capabilities. Individual capabilities
+      may be added back only via an explicit exception policy reviewed by the
+      security team.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-drop-all
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: "All containers must set securityContext.capabilities.drop: [ALL]"
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                all:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop[] }}"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-tenant-label
+  annotations:
+    policies.kyverno.io/title: Require tenant isolation label
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      All workloads in tenant namespaces must carry an organization_id or
+      tenant_id label. This enables network policy selectors, audit log
+      correlation, and cost attribution to function correctly. Unlabelled
+      workloads cannot be isolated per tenant.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-tenant-label
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces:
+                - valynt
+                - valynt-staging
+                - valueos-tenants
+      validate:
+        message: >-
+          Pods in tenant namespaces must carry an 'organization_id' or
+          'tenant_id' label on the pod template.
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.object.metadata.labels.organization_id || '' }}"
+                operator: Equals
+                value: ""
+              - key: "{{ request.object.metadata.labels.tenant_id || '' }}"
+                operator: Equals
+                value: ""

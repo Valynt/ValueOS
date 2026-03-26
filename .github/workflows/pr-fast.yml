@@ -11,8 +11,62 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  security-events: write  # for gitleaks SARIF upload
 
 jobs:
+  # ── Secret scan (diff) — must pass before any merge ─────────────────────────
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks on PR diff
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          args: >-
+            detect
+            --config=.gitleaks.toml
+            --log-opts="origin/${{ github.base_ref }}..HEAD"
+            --redact
+            --exit-code=1
+            --report-format=sarif
+            --report-path=gitleaks-pr.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-pr.sarif
+          category: gitleaks-pr
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/secret-scan
+          cat > artifacts/ci-lanes/secret-scan/summary.md <<EOF_SUMMARY
+          # secret-scan
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-secret-scan-${{ github.run_id }}
+          path: artifacts/ci-lanes/secret-scan/**
+          if-no-files-found: warn
+          retention-days: 30
+
   ts-type-ratchet:
     name: ts-type-ratchet
     runs-on: ubuntu-latest
@@ -292,6 +346,9 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      - name: PodSecurityPolicy removal guard
+        run: node scripts/ci/check-psp-references.mjs
+
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
@@ -315,6 +372,12 @@ jobs:
 
       - name: LLM readiness contract guard
         run: node scripts/ci/check-llm-readiness-contract.mjs
+
+      - name: Infra readiness contract guard
+        run: node scripts/ci/check-infra-readiness-contract.mjs
+
+      - name: Architecture doc / runtime drift guard
+        run: node scripts/ci/check-architecture-doc-drift.mjs
 
       - name: Supabase tenant controls guard
         run: node scripts/ci/check-supabase-tenant-controls.mjs
@@ -791,6 +854,7 @@ jobs:
     name: pr-fast
     runs-on: ubuntu-latest
     needs:
+      - secret-scan
       - ts-type-ratchet
       - lint-runtime-packages
       - unit-component-schema
@@ -802,6 +866,12 @@ jobs:
     steps:
       - name: Enforce PR blockers
         run: |
+          # secret-scan must never be skipped — it is a hard blocker.
+          if [ "${{ needs.secret-scan.result }}" = "skipped" ]; then
+            echo "Failing PR gate: secret-scan was skipped. This job must run on all PRs."
+            exit 1
+          fi
+
           tenant_static="${{ needs.tenant-isolation-static-gate.result }}"
           tenant_runtime="${{ needs.tenant-isolation-gate.result }}"
 
@@ -819,6 +889,7 @@ jobs:
           fi
 
           for lane in \
+            "secret-scan:${{ needs.secret-scan.result }}" \
             "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
             "lint-runtime-packages:${{ needs.lint-runtime-packages.result }}" \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
@@ -829,11 +900,11 @@ jobs:
             "e2e-critical:${{ needs.e2e-critical.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # tenant-isolation-gate must not be skipped (enforced above).
+            # secret-scan and tenant-isolation-gate must not be skipped.
             # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "tenant-isolation-gate" ]; then
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
-                echo "Failing PR gate: tenant-isolation-gate has unexpected status: $status"
+                echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1
               fi
             else

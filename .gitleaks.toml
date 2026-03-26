@@ -6,7 +6,8 @@ title = "ValueOS Gitleaks Config"
 [extend]
 useDefault = true
 
-# Custom rules for project-specific secret patterns
+# ── Custom rules ──────────────────────────────────────────────────────────────
+
 [[rules]]
 id = "stripe-secret-key"
 description = "Stripe secret key"
@@ -37,20 +38,121 @@ description = "Supabase service_role JWT embedded in source"
 regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}'''
 tags = ["supabase", "jwt", "secret"]
 [rules.allowlist]
-# Allow well-known supabase-demo anon keys used for local dev
-regexes = ['''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''']
+# Well-known supabase-demo keys used for local dev (public, not real credentials)
+regexes = [
+  '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''',
+  '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSI''',
+]
+
+# ── Global allowlist ──────────────────────────────────────────────────────────
 
 [allowlist]
 description = "Global allowlist"
+
 paths = [
+  # Template / example files — values are intentionally blank or illustrative
   '''.env\.example$''',
+  '''.env\.local\.example$''',
   '''.env\.ports\.example$''',
   '''.env\.ports$''',
+  '''.env\.template$''',
+  '''\.env\.template$''',
+
+  # Test fixtures — fake/canary tokens used to verify scrubbing/redaction logic
   '''tests/fixtures/''',
   '''tests/test/mocks/''',
+  '''tests/test/setup\.ts$''',
+  '''tests/setup\.ts$''',
+  '''test/setup\.ts$''',
+
+  # Red-team canary token file — fake tokens used to test detection pipelines.
+  # ROTATION NOTICE: if any token here matches a real credential that was ever
+  # live, rotate that credential and record it in docs/security-compliance/secret-rotation-log.md
+  '''scripts/red-team-canary-tokens\.ts$''',
+
+  # Privacy scrubber tests — tokens are inputs to scrubbing assertions, not real secrets
+  '''packages/backend/src/services/middleware/__tests__/PrivacyScrubber\.test\.ts$''',
+
+  # MemorySystem tests — fake sk_live_ strings used to assert redaction behaviour
+  '''packages/backend/src/lib/agent-fabric/__tests__/MemorySystem\.test\.ts$''',
+
+  # UI placeholder — sk_live_abc123def456 is a display mask in the API key UI, not a real key
+  '''apps/ValyntApp/src/views/SettingsPage\.tsx$''',
+
+  # pnpm content-addressed store — binary/hashed package content, not source secrets
+  '''\.pnpm-store/''',
+
+  # This config file itself
   '''\.gitleaks\.toml$''',
+
+  # Lockfile — contains package integrity hashes, not secrets
   '''pnpm-lock\.yaml$''',
+
+  # Merged docs archive — historical deployment guides with example curl commands.
+  # curl-auth-header hits are example Bearer tokens in documentation, not live credentials.
+  '''docs_merged/''',
+  '''docs/operations/deployment-guide\.md$''',
+
+  # Infra archive directories — old devcontainer compose files.
+  # Supabase JWTs in these files were local-dev demo keys; see rotation log.
+  '''\.archive/''',
+  '''archive/''',
+  '''_valueos-dev-setup/''',
+  '''modeling/value_drivers/''',
+
+  # Terraform dev environment — password is a placeholder, not production.
+  # Production credentials are managed via AWS Secrets Manager.
+  '''infra/environments/dev/terraform/main\.tf$''',
+  '''infrastructure/environments/dev/terraform/main\.tf$''',
+
+  # Security test files that embed fake tokens as test inputs
+  '''packages/backend/src/services/security/__tests__/''',
+  '''packages/backend/src/runtime/context-store/__tests__/''',
+  '''packages/backend/src/services/__tests__/LLMSanitizer\.test\.ts$''',
+  '''packages/backend/src/services/billing/__tests__/webhook-idempotency\.test\.ts$''',
+  '''packages/backend/src/__tests__/security_metrics_sanitization\.test\.ts$''',
+  '''packages/backend/src/middleware/__tests__/''',
+  '''tests/integration/security-flows\.test\.ts$''',
+
+  # SecretValidator test — fake env values used to test validation logic, not real credentials
+  '''packages/backend/src/config/secrets/__tests__/SecretValidator\.test\.ts$''',
+
+  # docsContent.ts — "Authorization: Bearer YOUR_TOKEN" is a documentation placeholder
+  '''packages/backend/src/api/docsContent\.ts$''',
+
+  # Infra Supabase reports — generated completion summaries, not live config
+  '''infra/supabase/FINAL_REPORT\.md$''',
+  '''infra/supabase/COMPLETION_SUMMARY\.md$''',
+
+  # .roo MCP config — API key placeholders, not real credentials
+  '''\.roo/mcp\.json$''',
+
+  # Dev setup scripts — JWT references are ${VAR} interpolations, not literal values
+  '''scripts/dx/env-compiler\.js$''',
+  '''scripts/setup-dev-env\.js$''',
+  '''scripts/dev-setup\.sh$''',
+  '''scripts/verify-golden-path\.sh$''',
+  '''scripts/setup-dev-failsafe\.sh$''',
   '''scripts/setup-test-environment\.sh$''',
+
+  # Docker frontend image — JWT_SECRET is an ARG/ENV reference, not a literal value
+  '''infra/docker/Dockerfile\.frontend$''',
+
+  # docker-compose files — all JWT/key values are ${VAR} interpolations, not literals
+  '''docker-compose\.yml$''',
+  '''\.devcontainer/docker-compose\.yml$''',
+  '''\.devcontainer/docker-compose\.devcontainer\.yml$''',
+
+  # ops env test template — example values for CI test environment setup
+  '''ops/env/\.env\.test\.template$''',
+
+  # Test secure storage helpers — fake keys used in storage unit tests
+  '''apps/ValyntApp/src/lib/testSecureStorage''',
+
+  # secrets-sync workflow — kubernetes Secret manifest is a template with no real values
+  '''\.github/workflows/secrets-sync\.yml$''',
+
+  # Legacy allowlist entries
   '''\.windsurf/workflows/''',
   '''docs/security-compliance/''',
   '''DEPLOY\.md$''',

@@ -66,7 +66,7 @@ pnpm monorepo. Frontend apps in `apps/` are `ValyntApp` (`valynt-app`) and `mcp-
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 8-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent, NarrativeAgent, ComplianceAuditorAgent. Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
+**Agent system:** 11-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent, NarrativeAgent, ComplianceAuditorAgent, ContextExtractionAgent, DealAssemblyAgent, DiscoveryAgent. Supporting utility: GroundTruthAnalyzer (not an agent, no BaseAgent inheritance). Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents) at `packages/backend/src/services/realtime/MessageBus.ts`.
 
 ## Non-Negotiable Rules
 
@@ -269,6 +269,70 @@ When bumping a version, update `versions.json` first, then propagate to the othe
 
 Full policy-as-code: `.windsurf/rules/global.md`
 
+## Security Controls
+
+### Secret scanning
+
+Gitleaks runs on every PR (diff scan) and every push to `main` (full git history scan). Both are hard blockers — a PR cannot merge if the diff scan fails.
+
+- **PR diff scan:** `secret-scan` lane in `pr-fast.yml` — uses `gitleaks/gitleaks-action@v2` with `.gitleaks.toml`.
+- **Full-history scan:** `secret-scan/full-history` job in `main-verify.yml` and `secret-scan.yml` — fetches full history (`fetch-depth: 0`) and scans all commits.
+- **Config:** `.gitleaks.toml` — custom rules for Stripe, OpenAI, Together AI, Supabase JWTs. Allowlist entries require a documented justification comment.
+- **Rotation log:** `docs/security-compliance/secret-rotation-log.md` — every finding must be triaged here. Real credentials must be rotated before an allowlist entry is added.
+
+**Known history exposure (action required):** Real Supabase project API keys for projects `wfhdrrpijqygytvoaafc` and `bxaiabnqalurloblfwua` were committed in earlier commits. These must be rotated via the Supabase dashboard. See the rotation log for details.
+
+When adding a new allowlist entry to `.gitleaks.toml`:
+1. Confirm the value is not a real credential (check the rotation log).
+2. Add a comment explaining why it is a false positive.
+3. Add an entry to `docs/security-compliance/secret-rotation-log.md`.
+
+### Pod security
+
+PodSecurityPolicy (`policy/v1`) was removed in Kubernetes 1.25 and is not used in this repo. Enforcement is split across two layers:
+
+1. **Pod Security Admission (PSA)** — built-in Kubernetes admission controller. All namespaces (`valynt`, `valynt-staging`, `valueos-system`, `valueos-tenants`) enforce the `restricted` standard at `enforce`/`warn`/`audit` level. Labels are defined in `infra/k8s/base/namespace.yaml` and `infra/k8s/security/pod-security-admission.yaml`.
+
+2. **Kyverno policy-as-code** — fine-grained rules in `infra/k8s/security/kyverno-policies.yaml`:
+   - `require-readonly-rootfs` — `readOnlyRootFilesystem: true` on all containers
+   - `require-seccomp-profile` — `seccompProfile.type` must be `RuntimeDefault` or `Localhost`
+   - `disallow-latest-tag` — image tags must not be `latest` in production/staging
+   - `require-resource-limits` — CPU and memory limits required on all containers
+   - `disallow-privileged-containers` — belt-and-suspenders over PSA
+   - `require-drop-all-capabilities` — `capabilities.drop: [ALL]` required
+   - `require-tenant-label` — pods in tenant namespaces must carry `organization_id` or `tenant_id`
+
+A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityPolicy` references introduced in PRs.
+
+### Infra readiness contract
+
+`scripts/ci/check-infra-readiness-contract.mjs` runs in `pr-fast.yml` and `main-verify.yml`. It enforces that production-breaking gaps identified in the sign-off review have not regressed:
+
+| Check | What it verifies |
+|---|---|
+| NATS deployment | `infra/k8s/base/nats-jetstream.yaml` exists and is in kustomization |
+| LLMCache tenant scope | `buildLLMCacheKey` includes `tenantId`, throws when absent, no un-prefixed key format |
+| RLS test count | `pr-fast.yml` asserts ≥10 RLS tests passed (not silently skipped) |
+| UsageEmitter buffer | `failedEventsBuffer` has a drain method and is bounded |
+| BullMQ tenant context | Workers call `tenantContextStorage.run()` before processing |
+
+### Architecture doc / runtime drift
+
+`scripts/ci/check-architecture-doc-drift.mjs` runs in `pr-fast.yml` and `main-verify.yml`. It detects drift between `docs/AGENTS.md` claims and runtime reality:
+
+| Check | What it verifies |
+|---|---|
+| MessageBus (CloudEvents) | Source file exists, implements `trace_id`/`event_type` envelope, enforces `tenant_id` |
+| BullMQ | Declared in `packages/backend/package.json`, worker files exist |
+| NATS JetStream | `MeteringQueue.ts` references NATS, k8s manifest exists |
+| Agent names | Each agent named in this doc has a corresponding `*Agent.ts` source file |
+| Agent count | The `N-agent fabric` count in this doc matches the actual file count |
+| Runtime services | Each named runtime service directory exists under `packages/backend/src/runtime/` |
+| MessageBus path | The path in the Key Files table resolves to an existing file |
+| Image Dockerfiles | Each image referenced in `kustomization.yaml` has a corresponding Dockerfile |
+
+**When adding or renaming an agent:** update the agent list and count in this doc, then run `node scripts/ci/check-architecture-doc-drift.mjs` locally to verify before pushing.
+
 ## Key Files
 
 | File | Purpose |
@@ -278,7 +342,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/runtime/` | Six runtime services: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
 | `packages/backend/src/types/express.d.ts` | Express `Request` augmentation — extend here, never cast |
 | `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tier limits and feature flags |
-| `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
+| `packages/backend/src/services/realtime/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
