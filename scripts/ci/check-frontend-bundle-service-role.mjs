@@ -7,6 +7,14 @@ const appPath = 'apps/ValyntApp';
 const sourcePath = `${appPath}/src`;
 const sourceForbiddenIdentifiers = ['createServerSupabaseClient', 'createServiceRoleSupabaseClient', 'getSupabaseServerConfig'];
 const bundleForbiddenIdentifiers = ['SUPABASE_SERVICE_ROLE_KEY', 'createServerSupabaseClient', 'createServiceRoleSupabaseClient'];
+const bundlePrivateKeyPatterns = [
+  { id: 'openai', regex: /\bsk-[A-Za-z0-9]{20,}\b/g },
+  { id: 'anthropic', regex: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g },
+  { id: 'google-api-key', regex: /\bAIza[0-9A-Za-z\-_]{20,}\b/g },
+  { id: 'aws-access-key', regex: /\bAKIA[0-9A-Z]{16}\b/g },
+  { id: 'stripe-secret', regex: /\bsk_(?:test|live)_[0-9a-zA-Z]{20,}\b/g },
+  { id: 'generic-secret-env-name', regex: /\b(?:OPENAI|TOGETHER|ANTHROPIC|STRIPE|SUPABASE_SERVICE_ROLE|PRIVATE|SECRET)_API_KEY\b/g },
+];
 
 function listFiles(pathExpression) {
   try {
@@ -36,6 +44,24 @@ function collectViolations(filePaths, forbiddenIdentifiers) {
     for (const identifier of forbiddenIdentifiers) {
       if (contents.includes(identifier)) {
         violations.push(`${relativePath}: ${identifier}`);
+      }
+    }
+  }
+
+  return violations;
+}
+
+function collectPatternViolations(filePaths, patterns) {
+  const violations = [];
+
+  for (const relativePath of filePaths) {
+    const absolutePath = join(process.cwd(), relativePath);
+    const contents = readFileSync(absolutePath, 'utf8');
+
+    for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
+      if (pattern.regex.test(contents)) {
+        violations.push(`${relativePath}: ${pattern.id}`);
       }
     }
   }
@@ -81,14 +107,18 @@ try {
 }
 
 const artifactPaths = files.split('\n').filter(Boolean);
-const violations = collectViolations(artifactPaths, bundleForbiddenIdentifiers);
+const identifierViolations = collectViolations(artifactPaths, bundleForbiddenIdentifiers);
+const keyPatternViolations = collectPatternViolations(artifactPaths, bundlePrivateKeyPatterns);
 
-if (violations.length > 0) {
-  console.error('❌ Service-role identifiers found in frontend build artifacts:');
-  for (const violation of violations) {
+if (identifierViolations.length > 0 || keyPatternViolations.length > 0) {
+  console.error('❌ Sensitive identifiers found in frontend build artifacts:');
+  for (const violation of identifierViolations) {
+    console.error(` - ${violation}`);
+  }
+  for (const violation of keyPatternViolations) {
     console.error(` - ${violation}`);
   }
   process.exit(1);
 }
 
-console.log('✅ Frontend source and bundle inspection passed (no privileged Supabase helpers found)');
+console.log('✅ Frontend source and bundle inspection passed (no privileged helpers or private API key patterns found)');

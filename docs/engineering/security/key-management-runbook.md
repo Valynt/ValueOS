@@ -76,3 +76,8 @@ This runbook covers KEK-backed envelope encryption used by:
 - Decrypt paths intentionally support legacy ciphertext formats.
 - New encrypt operations always emit v2 envelope payloads with key version metadata.
 - Keep previous key versions available until all persisted ciphertexts are migrated.
+
+
+## Browser API key governance
+
+For frontend `VITE_*_API_KEY` inventory, browser restriction requirements, rotation cadence, and abuse response procedures, see `docs/engineering/security/frontend-api-key-governance.md`.
