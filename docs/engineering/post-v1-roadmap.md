@@ -2,7 +2,7 @@
 title: Post-v1 Roadmap
 status: draft
 owner: engineering
-last_updated: 2026-08-01
+last_updated: 2026-03-26
 ---
 
 # Post-v1 Roadmap

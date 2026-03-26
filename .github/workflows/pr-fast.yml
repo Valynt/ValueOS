@@ -199,6 +199,8 @@ jobs:
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Docs date integrity + compliance artifact
+        run: node scripts/ci/check-docs-date-integrity.mjs
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
