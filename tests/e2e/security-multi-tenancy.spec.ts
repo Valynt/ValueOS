@@ -1,17 +1,17 @@
-import { expect, test } from '@playwright/test';
+import { describe, expect, it } from 'vitest';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-test.describe('Security & Multi-Tenancy Remediation', () => {
+describe('Security & Multi-Tenancy Remediation', () => {
   
-  test('No RLS bypass vulnerabilities (organization_id IS NULL)', () => {
+  it('No RLS bypass vulnerabilities (organization_id IS NULL)', () => {
     // This test verifies that the specific RLS bypass vulnerability identified in the audit
     // (using `organization_id IS NULL` or `tenant_id IS NULL` in policies) has been removed.
     const migrationsPath = path.join(process.cwd(), 'infra/supabase/supabase/migrations');
     
     if (!fs.existsSync(migrationsPath)) {
-      test.skip('Migrations directory not found');
+      it.skip('Migrations directory not found');
       return;
     }
 
@@ -27,12 +27,12 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
     }
   });
 
-  test('Agent sessions table has RLS enabled and policies defined', () => {
+  it('Agent sessions table has RLS enabled and policies defined', () => {
     // This test verifies that the agent_sessions table, which was missing RLS, now has it enabled.
     const migrationsPath = path.join(process.cwd(), 'infra/supabase/supabase/migrations');
     
     if (!fs.existsSync(migrationsPath)) {
-      test.skip('Migrations directory not found');
+      it.skip('Migrations directory not found');
       return;
     }
 
@@ -48,7 +48,7 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
     }
   });
 
-  test('Supabase queries include explicit tenant_id filters (Defense in Depth)', () => {
+  it('Supabase queries include explicit tenant_id filters (Defense in Depth)', () => {
     // This test verifies adherence to ADR-0006: Every supabase.from(...) call on a tenant table
     // MUST include .eq("organization_id", orgId) or .eq("tenant_id", tenantId).
     const backendPath = path.join(process.cwd(), 'packages/backend/src');
@@ -74,14 +74,14 @@ test.describe('Security & Multi-Tenancy Remediation', () => {
     }
   });
 
-  test('Agent confidence calibration incorporates historical alignment', () => {
+  it('Agent confidence calibration incorporates historical alignment', () => {
     // This test verifies that the checkConfidenceCalibration method in BaseAgent
     // has been updated to include historical alignment or data quality metrics,
     // rather than just simple averages.
     const agentPath = path.join(process.cwd(), 'packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts');
     
     if (!fs.existsSync(agentPath)) {
-      test.skip('BaseAgent.ts not found');
+      it.skip('BaseAgent.ts not found');
       return;
     }
 

@@ -1,11 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { describe, expect, it } from 'vitest';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-test.describe('Performance & Scalability Remediation', () => {
+describe('Performance & Scalability Remediation', () => {
   
-  test('Widespread use of ErrorBoundary in frontend components', () => {
+  it('Widespread use of ErrorBoundary in frontend components', () => {
     // This test verifies that ErrorBoundary usage has increased significantly
     // to prevent localized failures from crashing the entire application.
     const srcPath = path.join(process.cwd(), 'apps/ValyntApp/src');
@@ -23,7 +23,7 @@ test.describe('Performance & Scalability Remediation', () => {
     }
   });
 
-  test('Widespread use of Suspense for data-heavy components', () => {
+  it('Widespread use of Suspense for data-heavy components', () => {
     // This test verifies that Suspense usage has increased for better loading state management.
     const srcPath = path.join(process.cwd(), 'apps/ValyntApp/src');
     
@@ -39,13 +39,13 @@ test.describe('Performance & Scalability Remediation', () => {
     }
   });
 
-  test('Agent HPA configuration uses agent_queue_depth metric', () => {
+  it('Agent HPA configuration uses agent_queue_depth metric', () => {
     // This test verifies that the Kubernetes HPA for agents is correctly configured
     // to scale based on the custom agent_queue_depth metric.
     const hpaPath = path.join(process.cwd(), 'infra/k8s/base/agents/core-agent-hpa.yaml');
     
     if (!fs.existsSync(hpaPath)) {
-      test.skip('Agent HPA configuration file not found');
+      it.skip('Agent HPA configuration file not found');
       return;
     }
 
@@ -59,13 +59,13 @@ test.describe('Performance & Scalability Remediation', () => {
     expect(content).toContain('stabilizationWindowSeconds');
   });
 
-  test('Frontend API client implements retry and circuit breaker logic', () => {
+  it('Frontend API client implements retry and circuit breaker logic', () => {
     // This test verifies that the unified API client has robust error handling
     // for network failures and rate limits.
     const apiClientPath = path.join(process.cwd(), 'apps/ValyntApp/src/api/client.ts');
     
     if (!fs.existsSync(apiClientPath)) {
-      test.skip('API client file not found');
+      it.skip('API client file not found');
       return;
     }
 

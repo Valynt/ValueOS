@@ -22,15 +22,8 @@ import { AgentStatusIndicator } from "@/components/orchestration";
 import { CommandBar, Sidebar, TopBar } from "@/components/shell";
 import type { ValueCase } from "@/components/shell";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
+import { useCasesList } from "@/hooks/useCases";
 import { useCanvasState } from "@/hooks/useCanvasState";
-
-// Mock data for demonstration
-const mockCases: ValueCase[] = [
-  { id: "1", name: "Acme Corp ROI Analysis", status: "in-progress", updatedAt: "2 hours ago" },
-  { id: "2", name: "TechStart Value Model", status: "in-progress", updatedAt: "Yesterday" },
-  { id: "3", name: "Enterprise Solutions", status: "completed", updatedAt: "3 days ago" },
-  { id: "4", name: "Global Retail Assessment", status: "completed", updatedAt: "1 week ago" },
-];
 
 interface ChatCanvasLayoutProps {
   onSettingsClick?: () => void;
@@ -38,8 +31,16 @@ interface ChatCanvasLayoutProps {
 }
 
 export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLayoutProps) {
+  const { data: casesData } = useCasesList();
+  const cases: ValueCase[] = (casesData ?? []).map((valueCase) => ({
+    id: valueCase.id,
+    name: valueCase.name,
+    status: valueCase.status === "published" ? "completed" : "in-progress",
+    updatedAt: new Date(valueCase.updated_at).toLocaleDateString(),
+  }));
+
   // Shell state
-  const [selectedCaseId, setSelectedCaseId] = useState<string | null>("1");
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandBarOpen, setCommandBarOpen] = useState(false);
 
@@ -101,15 +102,21 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
     }
   }, [submitQuery]);
 
+  useEffect(() => {
+    if (!selectedCaseId && cases.length > 0) {
+      setSelectedCaseId(cases[0]!.id);
+    }
+  }, [cases, selectedCaseId]);
+
   // Derived state
-  const selectedCase = mockCases.find((c) => c.id === selectedCaseId);
+  const selectedCase = cases.find((c) => c.id === selectedCaseId);
   const title = selectedCase?.name ?? "Select a case";
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Shell Layer: Sidebar */}
       <Sidebar
-        cases={mockCases}
+        cases={cases}
         selectedCaseId={selectedCaseId}
         collapsed={sidebarCollapsed}
         onSelectCase={handleSelectCase}

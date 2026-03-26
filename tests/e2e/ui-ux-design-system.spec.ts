@@ -1,11 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { describe, expect, it } from 'vitest';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-test.describe('UI/UX & Design System Remediation', () => {
+describe('UI/UX & Design System Remediation', () => {
   
-  test('No inline styles in marketing components', () => {
+  it('No inline styles in marketing components', () => {
     // This test verifies that inline styles (style={{...}}) have been removed from marketing components
     // in favor of Tailwind utility classes and design tokens.
     const srcPath = path.join(process.cwd(), 'apps/ValyntApp/src/components/marketing');
@@ -21,7 +21,7 @@ test.describe('UI/UX & Design System Remediation', () => {
     }
   });
 
-  test('No hardcoded hex colors in marketing components', () => {
+  it('No hardcoded hex colors in marketing components', () => {
     // This test verifies that hardcoded hex colors have been replaced with design tokens
     const hexPatterns = ['#18C3A5', '#0B0C0F', '#707070', '#E0E0E0'];
     const srcPath = path.join(process.cwd(), 'apps/ValyntApp/src/components/marketing');
@@ -39,7 +39,7 @@ test.describe('UI/UX & Design System Remediation', () => {
     }
   });
 
-  test('Accessibility (a11y) attributes are present on interactive elements', () => {
+  it('Accessibility (a11y) attributes are present on interactive elements', () => {
     // This is a static analysis check to ensure aria-label or aria-describedby usage has increased
     // A more robust test would use axe-core in Playwright, but this verifies the code change
     const srcPath = path.join(process.cwd(), 'apps/ValyntApp/src/components/ui');
@@ -56,12 +56,12 @@ test.describe('UI/UX & Design System Remediation', () => {
     }
   });
 
-  test('ValueTreeCanvas uses a robust layout engine instead of hardcoded math', () => {
+  it('ValueTreeCanvas uses a robust layout engine instead of hardcoded math', () => {
     // This test verifies that the hardcoded layout math has been removed from ValueTreeCanvas
     const filePath = path.join(process.cwd(), 'apps/ValyntApp/src/features/living-value-graph/components/canvas/ValueTreeCanvas.tsx');
     
     if (!fs.existsSync(filePath)) {
-      test.skip('ValueTreeCanvas file not found');
+      it.skip('ValueTreeCanvas file not found');
       return;
     }
 

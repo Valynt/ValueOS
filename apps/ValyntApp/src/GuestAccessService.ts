@@ -63,6 +63,12 @@ export interface TokenValidationResult {
   errorMessage?: string;
 }
 
+export interface GuestValueCaseSnapshot {
+  id: string;
+  name: string;
+  companyName: string;
+}
+
 // Guest activity type
 export type GuestActivityType = 
   | 'access'
@@ -293,6 +299,33 @@ class GuestAccessService {
       logger.error('Failed to validate guest token', error as Error);
       throw error;
     }
+  }
+
+  /**
+   * Read the tenant-scoped value case metadata for a validated guest token.
+   */
+  public async getGuestValueCaseSnapshot(valueCaseId: string): Promise<GuestValueCaseSnapshot | null> {
+    const { data, error } = await supabase
+      .from('value_cases')
+      .select('id,name,company_profiles:company_profile_id(company_name)')
+      .eq('id', valueCaseId)
+      .maybeSingle();
+
+    if (error) {
+      logger.error('Failed to load guest value case snapshot', error as Error);
+      throw error;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    const companyProfile = data.company_profiles as { company_name?: string } | null;
+    return {
+      id: data.id as string,
+      name: (data.name as string) ?? 'Untitled Value Case',
+      companyName: companyProfile?.company_name ?? 'Company',
+    };
   }
 
   /**

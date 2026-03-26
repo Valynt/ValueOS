@@ -1,11 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { describe, expect, it } from 'vitest';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-test.describe('Architecture & Code Quality Remediation', () => {
+describe('Architecture & Code Quality Remediation', () => {
   
-  test('TypeScript "any" usage is strictly zero across all production modules', () => {
+  it('TypeScript "any" usage is strictly zero across all production modules', () => {
     // This test verifies that the check-any-count.sh script passes with all ceilings set to 0
     // We simulate the check by running a grep command similar to the script
     const anyPattern = ':[[:space:]]*\\bany\\b|as[[:space:]]+\\bany\\b|<any>';
@@ -41,7 +41,7 @@ test.describe('Architecture & Code Quality Remediation', () => {
     }
   });
 
-  test('No hardcoded mock data in production components', () => {
+  it('No hardcoded mock data in production components', () => {
     // This test scans for common hardcoded mock data patterns identified in the audit
     const mockPatterns = [
       'Acme Corp',
@@ -69,7 +69,7 @@ test.describe('Architecture & Code Quality Remediation', () => {
     }
   });
 
-  test('Duplicate UI components are consolidated', () => {
+  it('Duplicate UI components are consolidated', () => {
     // This test checks that duplicate component definitions have been removed
     const duplicateComponents = [
       'EditableField',
