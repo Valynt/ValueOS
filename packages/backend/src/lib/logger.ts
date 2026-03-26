@@ -1,7 +1,7 @@
 import { context, trace } from "@opentelemetry/api";
 import { structuredLogSchema, type StructuredLogSeverity } from "@shared/observability/logSchema";
 
-import { redactSensitiveData } from "./redaction.js";
+import { sanitizeStructuredLog } from "./secureSerialization.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -32,7 +32,7 @@ function getTraceContext(): { trace_id?: string; span_id?: string } {
 }
 
 function createEntry(level: LogLevel, event: string, meta?: LoggerMeta): Record<string, unknown> {
-  const sanitizedMeta = meta ? (redactSensitiveData(meta) as LoggerMeta) : {};
+  const sanitizedMeta = meta ? (sanitizeStructuredLog(meta) as LoggerMeta) : {};
   const traceContext = getTraceContext();
   const tenantId = typeof sanitizedMeta.tenant_id === "string" ? sanitizedMeta.tenant_id : "unknown";
 
