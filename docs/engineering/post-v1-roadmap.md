@@ -57,6 +57,8 @@ Redis instance.
 
 `packages/backend/openapi.yaml`
 
+Canonical OpenAPI contract location (authoritative spec for docs, tooling, and CI).
+
 Routes added in v1.0 but not yet fully specified with request/response schemas:
 - `POST /api/v1/value-commitments/:id/milestones`
 - `POST /api/v1/value-commitments/:id/metrics`

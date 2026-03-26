@@ -18,7 +18,7 @@
     "test:watch": "vitest run --passWithNoTests --watch",
     "test:perf": "vitest run --config vitest.config.ts --include \"test/performance/**/*.test.ts\" --passWithNoTests",
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",
-    "sdk:generate": "openapi-typescript openapi.yaml --output src/api/client/generated-types.ts",
+    "sdk:generate": "openapi-typescript ../packages/backend/openapi.yaml --output src/api/client/generated-types.ts",
     "db:setup": "bash infra/supabase/setup.sh",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",

@@ -556,7 +556,7 @@ fi
 
 # 21. API Documentation
 echo -n "Checking API documentation... "
-if [ -f "openapi.yaml" ] || [ -f "docs/API.md" ]; then
+if [ -f "packages/backend/openapi.yaml" ] || [ -f "docs/API.md" ]; then
     check_pass "API documentation exists"
 else
     check_warn "API documentation not found"

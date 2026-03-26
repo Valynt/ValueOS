@@ -43,7 +43,8 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 
 - `validate-secret-key-contract.mjs` — validates canonical secret key names across Kubernetes ExternalSecrets and environment/compose definitions; fails on deprecated aliases.
 
-- `check-openapi-breaking-changes.mjs` — compares `scripts/openapi.yaml` in the current branch with the base branch and fails on removed operations or removed response codes (breaking contract signals for PRs).
+- `check-openapi-breaking-changes.mjs` — compares `packages/backend/openapi.yaml` in the current branch with the base branch and fails on removed operations or removed response codes (breaking contract signals for PRs).
+- `check-openapi-file-allowlist.mjs` — enforces `packages/backend/openapi.yaml` as the canonical OpenAPI contract path and fails CI if additional `openapi*.yaml` files appear outside the explicit allowlist.
 - `check-infra-manifest-registry.mjs` — validates the active/deprecated manifest registry in `infra/README.md` and blocks references to deprecated paths.
 - `check-k8s-architecture-conformance.mjs` — lints `infra/k8s/**` manifests for required platform labels, probes, security context, and autoscaling policy declarations.
 - `validate-agent-autoscaling-manifests.py` — validates every autoscaling manifest under `infra/k8s/base/agents/` via duplicate-key-safe YAML parsing, per-file `kustomize build`, and autoscaling contract/schema checks for HPA and KEDA resources.

@@ -203,10 +203,13 @@ jobs:
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
 
-      - name: OpenAPI single-root guard
+      - name: OpenAPI canonical path allowlist guard
+        run: node scripts/ci/check-openapi-file-allowlist.mjs
+
+      - name: OpenAPI single-root guard (canonical backend spec)
         run: node scripts/ci/check-openapi-single-root.mjs
 
-      - name: OpenAPI structural validation
+      - name: OpenAPI structural validation (canonical backend spec)
         run: node scripts/ci/check-openapi-structure.mjs
 
       - name: Express ↔ OpenAPI route security posture gate
