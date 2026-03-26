@@ -1083,7 +1083,7 @@ ValueOS has strong enterprise intent and broad coverage across governance artifa
 ### Example A: Canonical CI sequence
 
 ```yaml
-# .github/workflows/required-ci.yml
+# .github/workflows/pr-fast.yml + .github/workflows/main-verify.yml
 jobs:
   required-ci:
     steps:

@@ -21,6 +21,7 @@
     "typecheck:strict:zones": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data",
     "lint": "eslint src/ --max-warnings=2443",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
+    "check:service-role-boundaries": "node ../../scripts/ci/check-backend-service-role-boundaries.mjs",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"

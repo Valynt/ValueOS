@@ -115,16 +115,12 @@ If any of those artifacts are missing, treat release-note evidence as incomplete
 
 ## Canonical Production Release Gate Set
 
-Production approval is **No-Go** unless the exact upstream jobs/checks below are green for the release SHA. This list is the deployment contract mirrored in `scripts/ci/release-gate-manifest.json` and enforced by `.github/workflows/deploy.yml` via the `release-gate-contract` job.
+Production approval is **No-Go** unless the exact upstream jobs/checks below are green for the release SHA. This list is the deployment contract mirrored in `scripts/ci/release-gate-manifest.json` and enforced by `.github/workflows/deploy.yml` via the `release-readiness` job (job id `release-gate-contract`).
 
-- `unit-component-schema` (`.github/workflows/main-verify.yml`; check name `unit/component/schema`) — lint, typecheck, unit/integration suites, and workflow DAG validation.
-- `tenant-isolation-gate` (`.github/workflows/main-verify.yml`) — RLS, tenant-isolation, vector-memory boundary, and DSR suites.
-- `security-gate` (`.github/workflows/main-verify.yml`) — SAST, SCA, secret scanning, SBOM export, and Trivy image/filesystem scans.
-- `staging-deploy-release-gates` (`.github/workflows/main-verify.yml`) — canonical CI aggregation proving the release-blocking CI lanes are green.
-- `codeql-analyze (js-ts)` (`.github/workflows/codeql.yml`) — dedicated CodeQL requirement for production promotion.
+- `main-verify` (`.github/workflows/main-verify.yml`; job id `staging-deploy-release-gates`) — canonical post-merge CI aggregation proving trusted verification lanes are green.
+- `release-readiness` (`.github/workflows/deploy.yml`; job id `release-gate-contract`) — validates deploy-local gates plus the canonical upstream release manifest checks.
 - `dast-gate` (`.github/workflows/deploy.yml`) — deploy-time DAST scan against the staging target.
 - `release-manifest-gate` (`.github/workflows/deploy.yml`) — downloads the `release.yml` manifest bundle for the target SHA, verifies the recorded upstream check conclusions, and exposes the immutable backend/frontend image refs for deploy jobs.
-- `release-gate-contract` (`.github/workflows/deploy.yml`) — validates that the deploy-local gates plus the downloaded release manifest are green before production promotion.
 
 `deploy-production` then also requires successful completion of these direct upstream deploy jobs: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `release-manifest-gate`, `secret-rotation-gate`, `verify-supply-chain`, and `emergency-skip-audit`.
 

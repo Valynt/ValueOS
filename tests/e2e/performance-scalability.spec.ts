@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+const isNoMatchExit = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  (error as { status?: number }).status === 1;
+
 test.describe('Performance & Scalability Remediation', () => {
   
   test('Widespread use of ErrorBoundary in frontend components', () => {
@@ -18,8 +24,8 @@ test.describe('Performance & Scalability Remediation', () => {
       // The audit found ~20 instances. We expect this to increase as it's applied
       // to more complex components like CanvasHost and ValueTreeCanvas.
       expect(count, `Found only ${count} ErrorBoundary usages. Expected > 40 for robust error containment.`).toBeGreaterThan(40);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 
@@ -34,8 +40,8 @@ test.describe('Performance & Scalability Remediation', () => {
       
       // The audit found ~14 instances. We expect this to increase.
       expect(count, `Found only ${count} Suspense usages. Expected > 30 for optimal loading states.`).toBeGreaterThan(30);
-    } catch (e: any) {
-      if (e.status !== 1) throw e;
+    } catch (error: unknown) {
+      if (!isNoMatchExit(error)) throw error;
     }
   });
 

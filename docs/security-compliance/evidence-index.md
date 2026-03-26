@@ -4,7 +4,7 @@ This index maps key SOC 2, GDPR, ISO 27001, and FedRAMP-aligned controls to auto
 
 ## How to use this index
 
-1. Open a successful run of `.github/workflows/ci.yml`.
+1. Open a successful run of `.github/workflows/pr-fast.yml` (PR lane) or `.github/workflows/main-verify.yml` (main lane), depending on the evidence scope.
 2. Record the numeric `GITHUB_RUN_ID` from that run.
 3. Download artifact bundle `compliance-evidence-run-<run-id>-attempt-<attempt>`.
 4. Verify the `SHA256SUMS` file and `SHA256SUMS.sig` signature in the artifact bundle.

@@ -26,7 +26,7 @@
   - `critical-workflows-gate`
   - `devcontainer-build`
   - `vitest/package-matrix`
-  - `staging-deploy-release-gates`
+  - `main-verify`
 
 ### `nightly-governance.yml`
 - Trigger: scheduled nightly cron (`0 3 * * *`) and manual dispatch.
@@ -52,14 +52,15 @@ In `pr-fast.yml`, the `pr-fast` aggregation job requires **at least one** tenant
 
 ## Branch protection required checks
 
-`main` branch protection should require:
+`main` pull-request branch protection should require only:
 
 - `pr-fast`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
+staging-deploy-release-gates
+codeql-analyze (js-ts)
+infra-plan (only for PRs touching infra/terraform/**)
 
+codeql is advisory unless leadership explicitly promotes it to a blocking requirement.
 
-## Archived Workflow References
-
-- `docs/archive/workflows/unified-deployment-pipeline.reference.yml` (archived reference; superseded by `deploy.yml`)
-- `docs/archive/workflows/accessibility.deprecated.yml.disabled` (archived disabled workflow retained for audit history)
+Archived Workflow References
+docs/archive/workflows/unified-deployment-pipeline.reference.yml (archived reference; superseded by deploy.yml)
+docs/archive/workflows/accessibility.deprecated.yml.disabled (archived disabled workflow retained for audit history)

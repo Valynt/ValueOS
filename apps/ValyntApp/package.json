@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bash ../../scripts/dev/start-frontend.sh",
-    "build": "vite build",
+    "build": "node ../../scripts/security/validate-browser-api-key-governance.mjs --app=ValyntApp && vite build",
     "build:strict": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -17,7 +17,10 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest run --watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "ts:errors:ratchet": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --enforce",
+    "ts:errors:report": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --report-only",
+    "ts:errors:update-baseline": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --update-baseline --report-only"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -106,7 +109,6 @@
     "vite": "^6.1.6",
     "vitest": "^4.0.17"
   },
-  "tsErrorBaseline": 4239,
   "valueos": {
     "classification": "production-runtime",
     "supportTier": "customer-critical",

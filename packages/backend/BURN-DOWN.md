@@ -113,3 +113,7 @@ Target 425 `no-unused-vars` warnings:
 - Re-enabled security rules that were disabled to hit artificial target
 - Raised ceiling from 1000 → 2400 to reflect actual debt with all rules enabled
 - Documented proper suppression policy with narrow overrides only
+
+## Related Plan
+
+- See `packages/backend/HARDENING-PLAN.md` for staged TS strict-zone + ESLint ratchet + CI dashboard implementation details.

@@ -1,0 +1,32 @@
+{
+  "keys": {
+    "VITE_FRONTEND_FORGE_API_KEY": {
+      "classification": "public-key-safe",
+      "provider": "Frontend Forge Maps Proxy",
+      "apps": [
+        "agentic-ui-pro"
+      ],
+      "allowedOrigins": [
+        "https://app.valueos.ai",
+        "https://staging.valueos.ai",
+        "https://agentic-ui-pro.valueos.ai"
+      ],
+      "allowedEndpoints": [
+        "/v1/maps/proxy/maps/api/js",
+        "/v1/maps/proxy/maps/api/geocode",
+        "/v1/maps/proxy/maps/api/place"
+      ],
+      "quotas": {
+        "perMinute": 300,
+        "perDay": 50000
+      },
+      "anomalyAlerts": [
+        "Burst traffic > 200 requests / minute from a single origin",
+        "Origin mismatch events > 5 within 5 minutes",
+        "Geo-anomalous traffic outside approved operating regions"
+      ],
+      "rotationCadenceDays": 30,
+      "owner": "team-frontend"
+    }
+  }
+}

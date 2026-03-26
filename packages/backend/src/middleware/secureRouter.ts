@@ -23,12 +23,12 @@ export function createSecureRouter(
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
   router.use(csrfTokenMiddleware);
-  // Skip cookie-based CSRF for Bearer-authenticated requests — the Authorization
-  // header cannot be set cross-origin without a CORS preflight, which the server
-  // controls. Cookie CSRF is only needed for cookie/session-authenticated flows.
+  // Skip cookie-based CSRF only when requests are bearer-authenticated and
+  // definitely not using cookies.
   router.use(function csrfProtectionMiddleware(req, res, next) {
     const auth = req.headers['authorization'];
-    if (typeof auth === 'string') {
+    const hasCookieHeader = typeof req.headers.cookie === 'string' && req.headers.cookie.trim().length > 0;
+    if (typeof auth === 'string' && !hasCookieHeader) {
       const scheme = auth.trim().split(/\s+/, 1)[0];
       if (scheme && scheme.toLowerCase() === 'bearer') {
         return next();
