@@ -131,6 +131,7 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
 }
 
 import {
+  assertFallbackEmergencyStartupPolicyOrThrow,
   extractTenantId,
   requireAuth,
   requireTenantRequestAlignment,
@@ -158,6 +159,8 @@ import {
 } from "./middleware/globalErrorHandler.js";
 import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter.js";
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
+
+assertFallbackEmergencyStartupPolicyOrThrow();
 import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";

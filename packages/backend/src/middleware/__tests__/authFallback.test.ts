@@ -1,4 +1,5 @@
 import { __setEnvSourceForTests } from '@shared/lib/env';
+import { createHmac, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,7 +43,23 @@ vi.mock('../../services/AuditLogService.js', () => ({
   },
 }));
 
-const { verifyAccessToken } = await import('../auth');
+const { assertFallbackEmergencyStartupPolicyOrThrow, verifyAccessToken } = await import('../auth');
+
+function createApprovalToken(
+  incidentId: string,
+  signingKey: string,
+  approvedUntil: Date,
+): string {
+  const payload = {
+    incidentId,
+    approvedUntil: approvedUntil.toISOString(),
+    issuedAt: new Date(Date.now() - 30_000).toISOString(),
+    nonce: randomUUID(),
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const signature = createHmac('sha256', signingKey).update(encodedPayload).digest('base64url');
+  return `${encodedPayload}.${signature}`;
+}
 
 describe('verifyAccessToken local fallback policy', () => {
   beforeEach(() => {
@@ -52,6 +69,7 @@ describe('verifyAccessToken local fallback policy', () => {
       exists: redisExists,
     });
     const now = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const approvalSigningKey = 'approval-signing-key';
     __setEnvSourceForTests({
       SUPABASE_JWT_SECRET: 'test-secret',
       SUPABASE_JWT_ISSUER: 'https://issuer.test',
@@ -62,8 +80,12 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
       AUTH_FALLBACK_INCIDENT_STARTED_AT: new Date(Date.now() - 60 * 1000).toISOString(),
       AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '14400',
-      AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_ALLOWED_ROUTES: '/api/health',
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
+      AUTH_FALLBACK_APPROVAL_SIGNING_KEY: approvalSigningKey,
+      AUTH_FALLBACK_APPROVAL_TOKEN: createApprovalToken('INC-1234', approvalSigningKey, new Date(Date.now() + 5 * 60 * 1000)),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_START: new Date(Date.now() - 60 * 1000).toISOString(),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_END: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       NODE_ENV: 'production',
     });
   });
@@ -83,6 +105,10 @@ describe('verifyAccessToken local fallback policy', () => {
       'AUTH_FALLBACK_ALLOWED_ROUTES',
       'AUTH_FALLBACK_ALLOWED_ROLES',
       'AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS',
+      'AUTH_FALLBACK_APPROVAL_SIGNING_KEY',
+      'AUTH_FALLBACK_APPROVAL_TOKEN',
+      'AUTH_FALLBACK_MAINTENANCE_WINDOW_START',
+      'AUTH_FALLBACK_MAINTENANCE_WINDOW_END',
       'NODE_ENV',
     ]) {
       delete process.env[key];
@@ -102,7 +128,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -127,7 +153,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -151,7 +177,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -175,7 +201,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -200,7 +226,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -225,7 +251,7 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
@@ -247,23 +273,17 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '1h' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
     expect(verified?.user.id).toBe('user-123');
     expect(verified?.session.access_token).toBe(token);
     expect(redisExists).toHaveBeenCalled();
-    expect(auditLog).toHaveBeenCalledTimes(2);
+    expect(auditLog).toHaveBeenCalledTimes(1);
     expect(auditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      action: 'auth.jwt_fallback_activated',
+      action: 'auth.jwt_fallback_request_authenticated',
       details: expect.objectContaining({
-        incidentId: 'INC-1234',
-        incidentSeverity: 'critical',
-      }),
-    }));
-    expect(auditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      action: 'auth.jwt_fallback_high_severity_alert',
-      details: expect.objectContaining({
-        severity: 'high',
+        immutable: true,
+        severity: 'critical',
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
       }),
@@ -329,8 +349,31 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '5m' },
     );
 
-    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const verified = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
 
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback requests to non-operational routes by default', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_ALLOWED_ROUTES: '/api/admin/users',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '5m' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/admin/users', method: 'GET' });
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
   });
@@ -341,6 +384,7 @@ describe('verifyAccessToken local fallback policy', () => {
     vi.setSystemTime(baseTime);
 
     __setEnvSourceForTests({
+      ...process.env,
       SUPABASE_JWT_SECRET: 'test-secret',
       SUPABASE_JWT_ISSUER: 'https://issuer.test',
       SUPABASE_JWT_AUDIENCE: 'authenticated',
@@ -349,8 +393,12 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_INCIDENT_ID: 'INC-1234',
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
       AUTH_FALLBACK_INCIDENT_STARTED_AT: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
-      AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_ALLOWED_ROUTES: '/api/health',
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
+      AUTH_FALLBACK_APPROVAL_SIGNING_KEY: 'approval-signing-key',
+      AUTH_FALLBACK_APPROVAL_TOKEN: createApprovalToken('INC-1234', 'approval-signing-key', new Date(baseTime.getTime() + 2 * 60 * 1000)),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_START: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_END: new Date(baseTime.getTime() + 10 * 60 * 1000).toISOString(),
       NODE_ENV: 'production',
     });
 
@@ -367,16 +415,26 @@ describe('verifyAccessToken local fallback policy', () => {
       { expiresIn: '5m' },
     );
 
-    const beforeExpiry = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const beforeExpiry = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
     expect(beforeExpiry?.user.id).toBe('user-123');
 
     auditLog.mockClear();
     vi.setSystemTime(new Date(baseTime.getTime() + 3 * 60 * 1000));
 
-    const afterExpiry = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    const afterExpiry = await verifyAccessToken(token, { route: '/api/health', method: 'GET' });
     expect(afterExpiry).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();
 
     vi.useRealTimers();
+  });
+
+  it('denies startup when emergency mode is enabled outside approved maintenance window', () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_START: new Date(Date.now() + 60_000).toISOString(),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_END: new Date(Date.now() + 120_000).toISOString(),
+    });
+
+    expect(() => assertFallbackEmergencyStartupPolicyOrThrow()).toThrow(/Emergency fallback startup denied/);
   });
 });
