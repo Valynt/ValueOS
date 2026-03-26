@@ -22,6 +22,7 @@ import { validateRequest, ValidationSchemas } from "../middleware/inputValidatio
 import { requireMFA } from "../middleware/mfa.js"
 import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
+import { clearCsrfToken, issueCsrfTokenForBinding } from "../middleware/securityMiddleware.js"
 import { authService } from "../services/auth/AuthService.js"
 import { userProfileDirectoryService } from "../services/auth/UserProfileDirectoryService.js"
 import { AuthenticationError, ValidationError } from "../services/errors.js"
@@ -102,6 +103,10 @@ router.post(
         status: "success",
       });
 
+      issueCsrfTokenForBinding(res, {
+        userId: result.user.id,
+      });
+
       // Return session info (client will handle token storage)
       return res.json({
         user: {
@@ -177,6 +182,7 @@ router.post(
       });
 
       if (!result.session) {
+        issueCsrfTokenForBinding(res, { userId: result.user.id });
         return res.status(202).json({
           user: {
             id: result.user.id,
@@ -187,6 +193,8 @@ router.post(
           requiresEmailVerification: true,
         });
       }
+
+      issueCsrfTokenForBinding(res, { userId: result.user.id });
 
       return res.status(201).json({
         user: {
@@ -418,6 +426,8 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
+    clearCsrfToken(res);
+
     return res.json({
       message: "Logged out successfully",
     });
@@ -467,6 +477,8 @@ router.post("/refresh", async (req: Request, res: Response) => {
     logger.info("Session refresh successful", {
       userId: String(sanitizeForLogging(result.user.id)),
     });
+
+    issueCsrfTokenForBinding(res, { userId: result.user.id });
 
     return res.json({
       user: {

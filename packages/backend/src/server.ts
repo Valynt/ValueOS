@@ -469,11 +469,11 @@ app.use((req, res, next) => {
   if (!stateChangingMethods.has(req.method)) {
     return next();
   }
-  // Requests authenticated with a Bearer token are already CSRF-safe:
-  // browsers cannot attach custom Authorization headers cross-origin without
-  // a CORS preflight, which the server controls. Skip cookie-based CSRF check.
+  // Skip cookie-based CSRF checks only for Bearer-token requests that do not
+  // carry cookies. If cookies are present, enforce CSRF protection.
   const authHeader = String(req.headers["authorization"] ?? "");
-  if (/^\s*Bearer\s+/i.test(authHeader)) {
+  const hasCookieHeader = typeof req.headers.cookie === "string" && req.headers.cookie.trim().length > 0;
+  if (/^\s*Bearer\s+/i.test(authHeader) && !hasCookieHeader) {
     return next();
   }
   return csrfProtectionMiddleware(req, res, next);
