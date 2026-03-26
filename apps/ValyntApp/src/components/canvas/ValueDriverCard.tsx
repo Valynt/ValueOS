@@ -33,24 +33,28 @@ export const ValueDriverCard: React.FC<ValueDriverCardProps> = ({
   }));
 
   const driver = component.props.driver;
+  const valueInputId = `value-driver-value-${component.id}`;
 
   return (
     <Card ref={drag} className={`cursor-move ${isDragging ? 'opacity-50' : ''}`}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-sm">{driver.name}</CardTitle>
         <div>
-          <Button size="sm" variant="ghost" onClick={onEdit}>
+          <Button size="sm" variant="ghost" onClick={onEdit} aria-label="Edit value driver">
             <Edit className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDelete}>
+          <Button size="sm" variant="ghost" onClick={onDelete} aria-label="Delete value driver">
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <label className="text-xs font-medium">Value</label>
+          <label className="text-xs font-medium" htmlFor={valueInputId}>
+            Value
+          </label>
           <Input
+            id={valueInputId}
             type="number"
             value={component.props.value || ''}
             onChange={(e) => onValueChange(parseFloat(e.target.value) || 0)}
