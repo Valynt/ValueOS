@@ -21,6 +21,7 @@ import {
   useState,
 } from "react";
 
+import { DEFAULT_TOAST_DURATION_MS, TOAST_EXIT_ANIMATION_MS } from "@/components/ui/toast-config";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -46,7 +47,6 @@ interface ToastContextType {
   info: (message: string) => void;
 }
 
-const TOAST_DURATION_MS = 5000;
 const MAX_VISIBLE_TOASTS = 5;
 
 let toastCounter = 0;
@@ -78,18 +78,44 @@ function ToastItem({
 }) {
   const Icon = iconMap[toast.type];
   const [isExiting, setIsExiting] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasDismissedRef = useRef(false);
+
+  const clearTimers = useCallback(() => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+    if (exitTimerRef.current) {
+      clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+  }, []);
+
+  const dismissWithAnimation = useCallback(() => {
+    if (hasDismissedRef.current) {
+      return;
+    }
+
+    hasDismissedRef.current = true;
+    setIsExiting(true);
+    clearTimers();
+    exitTimerRef.current = setTimeout(() => {
+      onDismiss(toast.id);
+    }, TOAST_EXIT_ANIMATION_MS);
+  }, [clearTimers, onDismiss, toast.id]);
 
   useEffect(() => {
-    timerRef.current = setTimeout(() => {
-      setIsExiting(true);
-      setTimeout(() => onDismiss(toast.id), 200);
-    }, TOAST_DURATION_MS);
+    hasDismissedRef.current = false;
+    dismissTimerRef.current = setTimeout(() => {
+      dismissWithAnimation();
+    }, DEFAULT_TOAST_DURATION_MS);
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimers();
     };
-  }, [toast.id, onDismiss]);
+  }, [clearTimers, dismissWithAnimation]);
 
   return (
     <div
@@ -105,10 +131,7 @@ function ToastItem({
       <Icon className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
       <p className="flex-1 text-sm font-medium text-foreground">{toast.message}</p>
       <button
-        onClick={() => {
-          setIsExiting(true);
-          setTimeout(() => onDismiss(toast.id), 200);
-        }}
+        onClick={dismissWithAnimation}
         className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
         aria-label="Dismiss notification"
       >

@@ -30,21 +30,21 @@ function OrgTab() {
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Organization Name</label>
-        <input type="text" placeholder="Your organization" className="w-full px-4 py-2.5 rounded-xl border border-border text-[13px] bg-card focus:border-ring outline-none text-foreground" />
+        <label htmlFor="organization-name" className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Organization Name</label>
+        <input id="organization-name" type="text" placeholder="Your organization" className="w-full px-4 py-2.5 rounded-xl border border-border text-[13px] bg-card focus:border-ring outline-none text-foreground" />
       </div>
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Slug</label>
-        <input type="text" placeholder="your-org" className="w-full px-4 py-2.5 rounded-xl border border-border text-[13px] bg-card font-mono focus:border-ring outline-none text-foreground" />
+        <label htmlFor="organization-slug" className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Slug</label>
+        <input id="organization-slug" type="text" placeholder="your-org" className="w-full px-4 py-2.5 rounded-xl border border-border text-[13px] bg-card font-mono focus:border-ring outline-none text-foreground" />
       </div>
       <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Plan</label>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">Plan</p>
         <div className="flex items-center gap-3 p-4 bg-muted rounded-xl border border-border">
           <span className="px-3 py-1 bg-primary text-primary-foreground rounded-lg text-[12px] font-semibold">Enterprise</span>
           <span className="text-[13px] text-muted-foreground">Unlimited agents, 50 users, priority support</span>
         </div>
       </div>
-      <button className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-[13px] font-medium hover:bg-primary/90 transition-colors">
+      <button type="button" aria-label="Save organization changes" className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-[13px] font-medium hover:bg-primary/90 transition-colors">
         Save Changes
       </button>
     </div>
@@ -70,7 +70,7 @@ function UsersTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[13px] text-muted-foreground">{users.length} users</span>
-        <button className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-[12px] font-medium hover:bg-primary/90">
+        <button type="button" aria-label="Invite user" className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-[12px] font-medium hover:bg-primary/90">
           <Plus className="w-3.5 h-3.5" />
           Invite User
         </button>
@@ -112,7 +112,7 @@ function ApiKeysTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[13px] text-muted-foreground">{keys.length} API keys</span>
-        <button className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-[12px] font-medium hover:bg-primary/90">
+        <button type="button" aria-label="Create API key" className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-[12px] font-medium hover:bg-primary/90">
           <Plus className="w-3.5 h-3.5" />
           Create Key
         </button>
@@ -184,7 +184,7 @@ function BillingTab() {
             </div>
           ))}
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-[13px] font-medium text-foreground hover:bg-muted w-full justify-center">
+        <button type="button" aria-label="Manage billing in Stripe" className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-[13px] font-medium text-foreground hover:bg-muted w-full justify-center">
           <ExternalLink className="w-4 h-4" />
           Manage in Stripe
         </button>
@@ -230,7 +230,7 @@ function SecurityTab() {
       <div className="bg-card border border-border rounded-2xl p-5">
         <h3 className="text-[13px] font-semibold text-foreground mb-3">Audit Log Access</h3>
         <p className="text-[12px] text-muted-foreground mb-3">Download audit logs for compliance review</p>
-        <button className="px-4 py-2 border border-border rounded-xl text-[12px] font-medium text-foreground hover:bg-muted">
+        <button type="button" aria-label="Export audit logs" className="px-4 py-2 border border-border rounded-xl text-[12px] font-medium text-foreground hover:bg-muted">
           Export Audit Logs
         </button>
       </div>
@@ -281,8 +281,9 @@ function CompanyContextTab() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {fields.map(({ name, label, placeholder, type }) => (
           <div key={name}>
-            <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">{label}</label>
+            <label htmlFor={`company-context-${name}`} className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground block mb-2">{label}</label>
             <input
+              id={`company-context-${name}`}
               name={name}
               type={type ?? "text"}
               value={form[name]}
@@ -330,6 +331,7 @@ export default function SettingsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              type="button"
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors text-left",
                 activeTab === tab.key
@@ -337,6 +339,7 @@ export default function SettingsPage() {
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
               aria-current={activeTab === tab.key ? "page" : undefined}
+              aria-label={`Open ${tab.label} settings`}
             >
               <tab.icon className="w-[18px] h-[18px]" aria-hidden="true" />
               {tab.label}

@@ -26,6 +26,7 @@ export interface SDUIWidget {
 interface CanvasHostProps {
   widgets: SDUIWidget[];
   onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+  onWidgetError?: (widgetId: string, componentType: string, error: Error, errorInfo: ErrorInfo) => void;
   emptyState?: React.ReactNode;
   className?: string;
 }
@@ -81,6 +82,7 @@ registerWidget("plan-comparison", PlanComparison as unknown as ComponentType<Wid
 interface WidgetErrorBoundaryProps {
   widgetId: string;
   componentType: string;
+  onError?: (widgetId: string, componentType: string, error: Error, errorInfo: ErrorInfo) => void;
   children: ReactNode;
 }
 
@@ -104,6 +106,8 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
       error.message,
       errorInfo.componentStack,
     );
+
+    this.props.onError?.(this.props.widgetId, this.props.componentType, error, errorInfo);
   }
 
   override render() {
@@ -174,6 +178,7 @@ function DefaultEmptyState() {
 export function CanvasHost({
   widgets,
   onWidgetAction,
+  onWidgetError,
   emptyState,
   className = "",
 }: CanvasHostProps) {
@@ -197,6 +202,7 @@ export function CanvasHost({
         key={widget.id}
         widgetId={widget.id}
         componentType={widget.componentType}
+        onError={onWidgetError}
       >
         <Suspense fallback={<WidgetSkeleton />}>
           <Widget
@@ -218,5 +224,3 @@ export function CanvasHost({
 
 // Export registration function for external widgets
 export { registerWidget };
-
-export default CanvasHost;
