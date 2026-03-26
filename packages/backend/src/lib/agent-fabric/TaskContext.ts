@@ -75,3 +75,40 @@ export function createTaskContext(params: {
     },
   };
 }
+
+interface SupabaseSessionLike {
+  id?: string;
+  user?: {
+    id?: string;
+    raw_user_meta_data?: {
+      tenant_id?: string;
+      organization_id?: string;
+    };
+  };
+}
+
+/**
+ * Maps a Supabase session into a full TaskContext shape.
+ * Returns undefined when required task context fields are missing.
+ */
+export function mapSessionToTaskContext(
+  session: SupabaseSessionLike | null | undefined,
+  input: Record<string, unknown> = {},
+): TaskContext | undefined {
+  if (!session?.id || !session.user?.id) {
+    return undefined;
+  }
+
+  const organizationId = session.user.raw_user_meta_data?.tenant_id ?? session.user.raw_user_meta_data?.organization_id;
+  if (!organizationId) {
+    return undefined;
+  }
+
+  return createTaskContext({
+    task_id: `document-parse-${session.id}`,
+    workspace_id: session.id,
+    organization_id: organizationId,
+    user_id: session.user.id,
+    input,
+  });
+}
