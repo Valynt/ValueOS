@@ -36,6 +36,9 @@ replacements:
 patches:
   - path: deployment-patch.yaml
   - path: ingress-patch.yaml
+  # Phase 1: deny-by-default + mTLS STRICT enforcement active in staging.
+  # Production overlay applies these after Phase 1 exit criteria are met.
+  - path: security-enforcement-patch.yaml
   # Override ConfigMap values for staging
   - target:
       kind: ConfigMap

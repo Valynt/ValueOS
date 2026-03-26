@@ -1,0 +1,53 @@
+# Deny-by-default authorization policy for the valynt-agents namespace.
+#
+# This is the base layer of the authorization model. It denies ALL traffic
+# to all workloads in valynt-agents unless an explicit ALLOW policy overrides it.
+#
+# Explicit ALLOW policies are declared in:
+#   infra/k8s/security/agent-pairwise-authorization-policies.yaml
+#
+# The approved communication graph is documented in:
+#   docs/security-compliance/agent-handoff-allowlist.md
+#   infra/k8s/security/agent-communication-graph.yaml
+#
+# This policy is applied to staging first (via kustomize overlay) and promoted
+# to production only after Phase 1 exit criteria are met.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-agents
+  namespace: valynt-agents
+  labels:
+    app.kubernetes.io/part-of: valueos-identity
+    valueos.io/policy-layer: base-deny
+  annotations:
+    valueos.io/doc: "docs/security-compliance/agent-handoff-allowlist.md"
+    valueos.io/override: "Add an explicit ALLOW policy in agent-pairwise-authorization-policies.yaml"
+spec:
+  # No selector — applies to all workloads in the namespace.
+  # No rules — matches all traffic, resulting in a deny for everything not
+  # explicitly allowed by a higher-priority ALLOW policy.
+  action: DENY
+
+---
+# Deny-by-default for agent workloads in the valynt namespace.
+# Scoped to pods labelled app.kubernetes.io/part-of=valueos-agents to avoid
+# blocking non-agent workloads (backend API, ingress, health probes, etc.).
+# Explicit ALLOW policies in agent-pairwise-authorization-policies.yaml override this.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-valynt-agents
+  namespace: valynt
+  labels:
+    app.kubernetes.io/part-of: valueos-identity
+    valueos.io/policy-layer: base-deny
+  annotations:
+    valueos.io/doc: "docs/security-compliance/agent-handoff-allowlist.md"
+    valueos.io/override: "Add an explicit ALLOW policy targeting the specific workload"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: valueos-agents
+  action: DENY
