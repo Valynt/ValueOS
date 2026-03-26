@@ -27,7 +27,7 @@ count_any() {
     echo "-1"
     return
   fi
-  # Use Python for accurate counting — matches the ratchet script's logic exactly.
+  # Use Python for accurate counting — both scripts exclude the same paths/files.
   # Skips comment lines (// * /*) to avoid false positives in template strings.
   python3 - "$path" <<'PYEOF'
 import sys, pathlib, re

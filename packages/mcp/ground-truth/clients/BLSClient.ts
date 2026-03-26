@@ -454,11 +454,17 @@ export class BLSClient {
   }
 
   private extractPercentile(dataPoint: Record<string, unknown>, percentile: string): number {
-    const percentileData = dataPoint.percentiles?.find((p: Record<string, unknown>) => p["percentile"] === percentile);
-    return parseFloat(percentileData?.value) || 0;
+    const percentiles = dataPoint["percentiles"];
+    if (!Array.isArray(percentiles)) return 0;
+    const percentileData = percentiles.find((p: unknown) => {
+      return typeof p === "object" && p !== null && (p as Record<string, unknown>)["percentile"] === percentile;
+    }) as Record<string, unknown> | undefined;
+    const value = percentileData?.["value"];
+    return parseFloat(typeof value === "string" || typeof value === "number" ? String(value) : "0") || 0;
   }
 
   private extractEmploymentCount(dataPoint: Record<string, unknown>): number {
-    return parseFloat(dataPoint.employment) || 0;
+    const employment = dataPoint["employment"];
+    return parseFloat(typeof employment === "string" || typeof employment === "number" ? String(employment) : "0") || 0;
   }
 }

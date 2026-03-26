@@ -29,6 +29,19 @@ interface XBRLConfig {
   companyfactsCache: boolean;
 }
 
+/** A single XBRL unit fact entry returned by the SEC EDGAR XBRL API. */
+interface UnitFact {
+  val: number | null;
+  fy: number | null;
+  fp: string | null;
+  frame: string | null;
+  filed: string;
+  form: string | null;
+  accn: string | null;
+  start: string | null;
+  end: string | null;
+}
+
 /**
  * XBRL Module - Tier 1 Structured Data Source
  * 
@@ -247,9 +260,9 @@ export class XBRLModule extends BaseModule {
       }
 
       // Filter by period if specified
-      let filteredData = unitData;
+      let filteredData = unitData as UnitFact[];
       if (period) {
-        filteredData = unitData.filter((item: Record<string, unknown>) => {
+        filteredData = (unitData as UnitFact[]).filter((item: UnitFact) => {
           return item.fy?.toString() === period || 
                  item.fp === period ||
                  item.frame === period;
@@ -261,7 +274,7 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get most recent fact
-      const sortedData = filteredData.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const sortedData = filteredData.sort((a: UnitFact, b: UnitFact) => {
         return new Date(b.filed).getTime() - new Date(a.filed).getTime();
       });
 
@@ -329,9 +342,9 @@ export class XBRLModule extends BaseModule {
       trendData.unit = Object.keys(units)[0];
 
       // Sort by filing date
-      const sortedData = unitData
-        .filter((item: Record<string, unknown>) => item["val"] !== null && item.val !== undefined)
-        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const sortedData = (unitData as UnitFact[])
+        .filter((item: UnitFact): item is UnitFact & { val: number } => item.val !== null && item.val !== undefined)
+        .sort((a: UnitFact, b: UnitFact) => {
           return new Date(a.filed).getTime() - new Date(b.filed).getTime();
         });
 
