@@ -82,8 +82,8 @@
 
 1. Navigate to `/signup`
 2. Enter valid email: `newuser@example.com`
-3. Enter valid password: `SecurePass123!@#`
-4. Confirm password: `SecurePass123!@#`
+3. Enter valid password: `<REDACTED>`
+4. Confirm password: `<REDACTED>`
 5. Enter full name: `John Doe`
 6. Accept terms of service (checkbox)
 7. Click "Create Account" button
@@ -180,11 +180,11 @@ WHERE action = 'signup' AND email = 'newuser@example.com';
 | Test Case        | Password         | Expected Error                              |
 | ---------------- | ---------------- | ------------------------------------------- |
 | Too short        | `Pass1!`         | "Password must be at least 8 characters"    |
-| No uppercase     | `password123!`   | "Password must contain an uppercase letter" |
+| No uppercase     | `<REDACTED>`   | "Password must contain an uppercase letter" |
 | No lowercase     | `PASSWORD123!`   | "Password must contain a lowercase letter"  |
 | No numbers       | `Password!@#`    | "Password must contain a number"            |
 | No special chars | `Password123`    | "Password must contain a special character" |
-| All requirements | `SecurePass123!` | ✅ Accept                                   |
+| All requirements | `<REDACTED>` | ✅ Accept                                   |
 
 **Test Steps:**
 
@@ -263,9 +263,9 @@ export async function checkPasswordBreach(password: string): Promise<boolean> {
 
 | Password         | Confirm Password | Expected Behavior                     |
 | ---------------- | ---------------- | ------------------------------------- |
-| `SecurePass123!` | `SecurePass123!` | ✅ Accept                             |
-| `SecurePass123!` | `SecurePass124!` | Error: "Passwords do not match"       |
-| `SecurePass123!` | `` (empty)       | Error: "Please confirm your password" |
+| `<REDACTED>` | `<REDACTED>` | ✅ Accept                             |
+| `<REDACTED>` | `<REDACTED>` | Error: "Passwords do not match"       |
+| `<REDACTED>` | `` (empty)       | Error: "Please confirm your password" |
 
 **Test Steps:**
 
@@ -546,13 +546,13 @@ const signupLimiter = new RateLimiter({
 
 **Prerequisites:**
 
-- Existing verified user: `user@example.com` / `SecurePass123!`
+- Existing verified user: `user@example.com` / `<REDACTED>`
 
 **Test Steps:**
 
 1. Navigate to `/login`
 2. Enter email: `user@example.com`
-3. Enter password: `SecurePass123!`
+3. Enter password: `<REDACTED>`
 4. Click "Sign In" button
 
 **Expected Results:**
@@ -593,8 +593,8 @@ expect(session.expires_at).toBeGreaterThan(Date.now());
 
 | Email                     | Password         | Expected Error              |
 | ------------------------- | ---------------- | --------------------------- |
-| `nonexistent@example.com` | `SecurePass123!` | "Invalid email or password" |
-| `user@wrong-domain.com`   | `SecurePass123!` | "Invalid email or password" |
+| `nonexistent@example.com` | `<REDACTED>` | "Invalid email or password" |
+| `user@wrong-domain.com`   | `<REDACTED>` | "Invalid email or password" |
 
 **Test Steps:**
 
@@ -630,7 +630,7 @@ expect(session.expires_at).toBeGreaterThan(Date.now());
 **Test Steps:**
 
 1. Enter valid email: `user@example.com`
-2. Enter wrong password: `WrongPassword123!`
+2. Enter wrong password: `<REDACTED>`
 3. Submit form
 
 **Expected Results:**
@@ -1344,7 +1344,7 @@ export default function () {
   // Login flow
   const loginRes = http.post("https://api.valueos.com/auth/login", {
     email: "loadtest@example.com",
-    password: "SecurePass123!",
+    password: "<REDACTED>",
   });
 
   check(loginRes, {
@@ -1872,8 +1872,8 @@ test.describe("Complete Authentication Flow", () => {
     // 2. Fill signup form
     const randomEmail = `test${Date.now()}@example.com`;
     await page.fill('[name="email"]', randomEmail);
-    await page.fill('[name="password"]', "SecurePass123!");
-    await page.fill('[name="confirmPassword"]', "SecurePass123!");
+    await page.fill('[name="password"]', "<REDACTED>");
+    await page.fill('[name="confirmPassword"]', "<REDACTED>");
     await page.fill('[name="fullName"]', "Test User");
     await page.check('[name="acceptTerms"]');
 
@@ -1891,7 +1891,7 @@ test.describe("Complete Authentication Flow", () => {
 
     // 7. Login with new credentials
     await page.fill('[name="email"]', randomEmail);
-    await page.fill('[name="password"]', "SecurePass123!");
+    await page.fill('[name="password"]', "<REDACTED>");
     await page.click('button[type="submit"]');
 
     // 8. Verify successful login
@@ -2245,19 +2245,19 @@ A test is considered complete when:
 export const VALID_USERS = [
   {
     email: "admin@example.com",
-    password: "AdminPass123!@#",
+    password: "<REDACTED>",
     role: "super_admin",
     mfaEnabled: true,
   },
   {
     email: "user@example.com",
-    password: "UserPass123!@#",
+    password: "<REDACTED>",
     role: "user",
     mfaEnabled: false,
   },
   {
     email: "guest@example.com",
-    password: "GuestPass123!@#",
+    password: "<REDACTED>",
     role: "guest",
     mfaEnabled: false,
   },
@@ -4142,13 +4142,13 @@ cat logs/test-execution.log
 Password without uppercase letter should be rejected.
 
 **Actual Behavior:**
-Password "password123!" was accepted.
+Password "<REDACTED>" was accepted.
 
 **Steps to Reproduce:**
 
 1. Navigate to /signup
 2. Enter email: test@example.com
-3. Enter password: password123! (no uppercase)
+3. Enter password: <REDACTED> (no uppercase)
 4. Submit form
 5. Account created (should have been rejected)
 

@@ -106,13 +106,15 @@ All variables are defined in [ops/env/.env.base](../../ops/env/.env.base).
 
 ### Minimal Setup
 
+> ⚠️ **Never paste real secrets into docs, chat, tickets, or commits.** Use invalid placeholders or secret-manager paths only.
+
 ```bash
 # .env or environment
 SECRETS_PROVIDER=infisical
 INFISICAL_SITE_URL=https://app.infisical.com
-INFISICAL_CLIENT_ID=mi_client_abc123
-INFISICAL_CLIENT_SECRET=mi_secret_xyz789
-INFISICAL_PROJECT_ID=proj_valueos_001
+INFISICAL_CLIENT_ID=sm://valueos/prod/infisical/client_id
+INFISICAL_CLIENT_SECRET=sm://valueos/prod/infisical/client_secret
+INFISICAL_PROJECT_ID=sm://valueos/prod/infisical/project_id
 INFISICAL_ENVIRONMENT=prod
 ```
 
@@ -123,9 +125,9 @@ When `SECRETS_FALLBACK_ENABLED=true` (default), the `ProviderFactory` automatica
 ```bash
 # Primary: Infisical, fallback to AWS then Vault
 SECRETS_PROVIDER=infisical
-INFISICAL_CLIENT_ID=...
-INFISICAL_CLIENT_SECRET=...
-INFISICAL_PROJECT_ID=...
+INFISICAL_CLIENT_ID=sm://valueos/prod/infisical/client_id
+INFISICAL_CLIENT_SECRET=sm://valueos/prod/infisical/client_secret
+INFISICAL_PROJECT_ID=sm://valueos/prod/infisical/project_id
 
 # AWS fallback (auto-detected from AWS_REGION)
 AWS_REGION=us-east-1
