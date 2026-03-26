@@ -59,9 +59,8 @@ describe("ValueDriverCard", () => {
         onValueChange={mockOnValueChange}
       />
     );
-    // Buttons contain only icons (no text/aria-label) — first button is Edit
-    const buttons = screen.getAllByRole("button");
-    fireEvent.click(buttons[0]);
+    const editButton = screen.getByRole("button", { name: "Edit value driver" });
+    fireEvent.click(editButton);
     expect(mockOnEdit).toHaveBeenCalled();
   });
 
@@ -74,9 +73,8 @@ describe("ValueDriverCard", () => {
         onValueChange={mockOnValueChange}
       />
     );
-    // Buttons contain only icons (no text/aria-label) — second button is Delete
-    const buttons = screen.getAllByRole("button");
-    fireEvent.click(buttons[1]);
+    const deleteButton = screen.getByRole("button", { name: "Delete value driver" });
+    fireEvent.click(deleteButton);
     expect(mockOnDelete).toHaveBeenCalled();
   });
 
@@ -89,8 +87,22 @@ describe("ValueDriverCard", () => {
         onValueChange={mockOnValueChange}
       />
     );
-    const input = screen.getByDisplayValue("150");
+    const input = screen.getByLabelText("Value");
     fireEvent.change(input, { target: { value: "200" } });
     expect(mockOnValueChange).toHaveBeenCalledWith(200);
+  });
+
+  it("associates value label with a stable input id", () => {
+    render(
+      <ValueDriverCard
+        component={mockComponent}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        onValueChange={mockOnValueChange}
+      />
+    );
+
+    const input = screen.getByLabelText("Value");
+    expect(input).toHaveAttribute("id", "value-driver-value-test-id");
   });
 });

@@ -118,18 +118,18 @@ pnpm run dev:backend  # In another terminal
 
 ## Key Commands
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run dev` | Start frontend and backend together |
-| `pnpm run dev:frontend` | Start `apps/ValyntApp` (React + Vite) only |
-| `pnpm run dev:backend` | Start `packages/backend` (Express API) only |
-| `pnpm run build` | Build both `apps/ValyntApp` and `packages/backend` |
-| `pnpm run start` | Start the production backend server |
-| `pnpm run check` | Run TypeScript no-emit checks |
-| `pnpm test` | Run the canonical repo-wide Vitest workspace across all maintained suites |
-| `pnpm run format` | Format code with Prettier |
-| `pnpm run db:migrate` | Apply database migrations |
-| `pnpm run dx:check` | Run preflight environment checks |
+| Command                           | Purpose                                                                                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pnpm run dev`                    | Start frontend and backend together                                                                   |
+| `pnpm run dev:frontend`           | Start `apps/ValyntApp` (React + Vite) only                                                            |
+| `pnpm run dev:backend`            | Start `packages/backend` (Express API) only                                                           |
+| `pnpm run build`                  | Build both `apps/ValyntApp` and `packages/backend`                                                    |
+| `pnpm run start`                  | Start the production backend server                                                                   |
+| `pnpm run check`                  | Run TypeScript no-emit checks                                                                         |
+| `pnpm test`                       | Run the canonical repo-wide Vitest workspace across all maintained suites                             |
+| `pnpm run format`                 | Format code with Prettier                                                                             |
+| `pnpm run db:migrate`             | Apply database migrations                                                                             |
+| `pnpm run dx:check`               | Run preflight environment checks                                                                      |
 | `pnpm run check:docs:consistency` | Verify canonical product names, domains, support contacts, and `apps/` inventory across docs surfaces |
 
 ## Testing
@@ -175,9 +175,9 @@ External APIs are mocked in tests:
 Located in `testHelpers.ts`:
 
 ```typescript
-factories.benchmark({ metric_name: "ROI" })
-factories.assumption({ name: "Test Assumption" })
-factories.case({ title: "Test Case" })
+factories.benchmark({ metric_name: "ROI" });
+factories.assumption({ name: "Test Assumption" });
+factories.case({ title: "Test Case" });
 ```
 
 ## Architecture
@@ -240,18 +240,19 @@ See [docs/security-compliance/](docs/security-compliance/) for the full security
 
 ## Documentation
 
-| Category | Path | Contents |
-| --- | --- | --- |
-| Getting Started | [docs/getting-started/](docs/getting-started/) | Introduction, quickstart, installation, FAQ |
-| Architecture | [docs/architecture/](docs/architecture/) | System overview, agent design, API design, data layer |
-| Engineering | [docs/engineering/](docs/engineering/) | Code standards, ADRs, database guide, testing |
-| Operations | [docs/operations/](docs/operations/) | CI/CD, deployment, monitoring, backup/recovery |
-| Runbooks | [docs/runbooks/](docs/runbooks/) | Deployment, database, infrastructure, emergency procedures |
-| Security | [docs/security-compliance/](docs/security-compliance/) | Auth, audit logging, compliance, data protection |
-| Environments | [docs/environments/](docs/environments/) | Local dev, staging, production setup |
-| Features | [docs/features/](docs/features/) | Agents, billing, design system, integrations |
-| DX | [docs/developer-experience/](docs/developer-experience/) | Dev environment, tooling, troubleshooting |
-| Processes | [docs/processes/](docs/processes/) | Code review, incident management, releases |
+| Category                | Path                                                               | Contents                                                      |
+| ----------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Getting Started         | [docs/getting-started/](docs/getting-started/)                     | Introduction, quickstart, installation, FAQ                   |
+| Architecture            | [docs/architecture/](docs/architecture/)                           | System overview, agent design, API design, data layer         |
+| Engineering             | [docs/engineering/](docs/engineering/)                             | Code standards, ADRs, database guide, testing                 |
+| Operations              | [docs/operations/](docs/operations/)                               | CI/CD, deployment, monitoring, backup/recovery                |
+| Launch Readiness Inputs | [docs/launch-readiness-inputs.md](docs/launch-readiness-inputs.md) | Canonical ERD, tenancy model, and SLO/error-budget references |
+| Runbooks                | [docs/runbooks/](docs/runbooks/)                                   | Deployment, database, infrastructure, emergency procedures    |
+| Security                | [docs/security-compliance/](docs/security-compliance/)             | Auth, audit logging, compliance, data protection              |
+| Environments            | [docs/environments/](docs/environments/)                           | Local dev, staging, production setup                          |
+| Features                | [docs/features/](docs/features/)                                   | Agents, billing, design system, integrations                  |
+| DX                      | [docs/developer-experience/](docs/developer-experience/)           | Dev environment, tooling, troubleshooting                     |
+| Processes               | [docs/processes/](docs/processes/)                                 | Code review, incident management, releases                    |
 
 ## Deployment
 

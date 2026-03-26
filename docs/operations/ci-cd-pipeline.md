@@ -4,6 +4,15 @@ owner: team-platform
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
 review_date: 2026-05-31
 status: active
+## Authoritative Workflow Map
+
+Treat the workflow documentation in `.github/workflows/` as the source of truth for lane ownership, trigger semantics, and required checks:
+
+- [Workflow README](../../.github/workflows/README.md)
+- [CI Control Matrix](../../.github/workflows/CI_CONTROL_MATRIX.md)
+
+All CI documentation in `docs/operations/` and `docs/security-compliance/` must align to these two files when workflow names, lane names, or required-check contracts change.
+
 ---
 
 # Ci Cd Pipeline
@@ -11,6 +20,15 @@ status: active
 **Last Updated**: 2026-03-12
 
 **Consolidated from 1 source documents**
+
+## Authoritative Workflow Map
+
+Treat the workflow documentation in `.github/workflows/` as the source of truth for lane ownership, trigger semantics, and required checks:
+
+- [Workflow README](../../.github/workflows/README.md)
+- [CI Control Matrix](../../.github/workflows/CI_CONTROL_MATRIX.md)
+
+All CI documentation in `docs/operations/` and `docs/security-compliance/` must align to these two files when workflow names, lane names, or required-check contracts change.
 
 ---
 
@@ -60,6 +78,13 @@ This runbook documents the CI testing process and introduces checks to keep test
 
 CI pipeline entry point:
 
+
+CI pipeline canonical lanes:
+
+- `.github/workflows/pr-fast.yml` — canonical pull-request merge-blocking lane (`pr-fast`).
+- `.github/workflows/main-verify.yml` — canonical post-merge verification lane on `main` (`staging-deploy-release-gates`).
+- `.github/workflows/nightly-governance.yml` — canonical scheduled governance and diagnostic lane (`nightly-governance`).
+
 - Standard workflow runs `pnpm run ci:verify`.
 - The command executes checks in this order: lint → typecheck → test → build.
 - Additional CI-only checks (legacy route validation, docs path linting, typecheck telemetry) are included inside `ci:verify`.
@@ -99,5 +124,14 @@ Best practices:
 - Use `supabase test db` when verifying RLS in migration slots.
 - Run `npx playwright install --with-deps` before Playwright invocation.
 - Limit the Playwright scope in PR pipelines, and use `.github/workflows/nightly-governance.yml` for scheduled accessibility trends and heavy diagnostics.
+
+## Authoritative Workflow Map
+
+Treat the workflow documentation in `.github/workflows/` as the source of truth for lane ownership, trigger semantics, and required checks:
+
+- [Workflow README](../../.github/workflows/README.md)
+- [CI Control Matrix](../../.github/workflows/CI_CONTROL_MATRIX.md)
+
+All CI documentation in `docs/operations/` and `docs/security-compliance/` must align to these two files when workflow names, lane names, or required-check contracts change.
 
 ---

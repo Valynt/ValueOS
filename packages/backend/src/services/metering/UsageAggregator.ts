@@ -3,7 +3,9 @@
  * Runs as background job to aggregate committed usage rows into batches
  */
 
-import { type SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
+
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { BillingMetric } from '../../config/billing.js'
 import { createLogger } from '../../lib/logger.js'
@@ -13,6 +15,7 @@ import {
 } from '../../metrics/billingMetrics.js'
 
 const logger = createLogger({ component: 'UsageAggregator' });
+const DEFAULT_BATCH_SIZE = 10000;
 
 interface UsageEvent {
   id: string;
@@ -23,6 +26,7 @@ interface UsageEvent {
   idempotency_key?: string;
   metadata?: Record<string, unknown>;
   processed?: boolean;
+  claimed_by?: string | null;
 }
 
 interface Subscription {
@@ -44,50 +48,56 @@ interface Aggregate {
   evidence_chain?: unknown[];
 }
 
-class UsageAggregator {
-  private supabase: SupabaseClient;
+interface ClaimUsageEventsParams {
+  p_worker_id: string;
+  p_batch_size: number;
+}
 
-  constructor(supabase: SupabaseClient) {
+interface UsageAggregatorOptions {
+  workerId?: string;
+  batchSize?: number;
+}
+
+export class UsageAggregator {
+  private supabase: SupabaseClient;
+  private workerId: string;
+  private batchSize: number;
+
+  constructor(supabase: SupabaseClient, options: UsageAggregatorOptions = {}) {
     this.supabase = supabase;
+    this.workerId = options.workerId ?? `usage-aggregator-${crypto.randomUUID()}`;
+    this.batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   }
   /**
    * Aggregate unprocessed events
    */
   async aggregateEvents(): Promise<number> {
-    logger.info('Starting usage aggregation');
+    logger.info('Starting usage aggregation', { workerId: this.workerId });
 
     try {
-      // Get unprocessed events
-      const { data: events, error } = await this.supabase
-        .from('usage_events')
-        .select('*')
-        .eq('processed', false)
-        .order('timestamp', { ascending: true })
-        .limit(10000);
-
-      if (error) throw error;
+      const events = await this.claimUsageEventsBatch();
 
       // Emit gauge so billing-alerts.yaml UsageAggregationBacklog rule can fire.
-      billingUsageRecordsUnaggregated.set(events?.length ?? 0);
+      billingUsageRecordsUnaggregated.set(events.length);
 
       // Emit age of oldest pending record so StripePendingAggregatesStale can fire.
-      if (events && events.length > 0) {
-        const oldest = events[0] as UsageEvent;
+      if (events.length > 0) {
+        const oldest = events[0];
         const ageSeconds = (Date.now() - new Date(oldest.timestamp).getTime()) / 1000;
         billingPendingAggregatesAgeSeconds.set(ageSeconds);
       } else {
         billingPendingAggregatesAgeSeconds.set(0);
       }
 
-      if (!events || events.length === 0) {
-        logger.info('No events to aggregate');
+      if (events.length === 0) {
+        logger.info('No events to aggregate', { workerId: this.workerId });
         return 0;
       }
 
-      logger.info(`Aggregating ${events.length} events`);
+      logger.info(`Aggregating ${events.length} events`, { workerId: this.workerId });
 
       // Group events by tenant and metric
-      const groups = this.groupEvents(events as UsageEvent[]);
+      const groups = this.groupEvents(events);
 
       // Create aggregates
       let aggregated = 0;
@@ -96,17 +106,32 @@ class UsageAggregator {
           await this.createAggregate(groupEvents);
           aggregated += groupEvents.length;
         } catch (error) {
-          logger.error('Failed to create aggregate', error as Error, { key });
+          logger.error('Failed to create aggregate', error as Error, { key, workerId: this.workerId });
         }
       }
 
-      logger.info(`Aggregated ${aggregated} events into ${Object.keys(groups).length} batches`);
+      logger.info(`Aggregated ${aggregated} events into ${Object.keys(groups).length} batches`, {
+        workerId: this.workerId,
+      });
 
       return aggregated;
     } catch (error) {
-      logger.error('Aggregation failed', error);
+      logger.error('Aggregation failed', error as Error, { workerId: this.workerId });
       throw error;
     }
+  }
+
+  private async claimUsageEventsBatch(): Promise<UsageEvent[]> {
+    const { data, error } = await this.supabase.rpc('claim_usage_events_batch', {
+      p_worker_id: this.workerId,
+      p_batch_size: this.batchSize,
+    } as ClaimUsageEventsParams);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []) as UsageEvent[];
   }
 
   /**
@@ -160,7 +185,7 @@ class UsageAggregator {
     if (subsErr) throw subsErr;
 
     if (!subscriptions || subscriptions.length === 0) {
-      logger.warn('No active subscriptions for tenant', { tenantId, metric });
+      logger.warn('No active subscriptions for tenant', { tenantId, metric, workerId: this.workerId });
       // Mark events as processed
       await this.markEventsProcessed(events.map(e => e.id));
       return;
@@ -181,7 +206,7 @@ class UsageAggregator {
     const subscriptionItem = subItems && subItems.length > 0 ? (subItems[0] as SubscriptionItem) : null;
 
     if (!subscriptionItem) {
-      logger.warn('No subscription item found', { tenantId, metric });
+      logger.warn('No subscription item found', { tenantId, metric, workerId: this.workerId });
       await this.markEventsProcessed(events.map(e => e.id));
       return;
     }
@@ -207,6 +232,7 @@ class UsageAggregator {
         metadata: {
           aggregation_timestamp: new Date().toISOString(),
           aggregator_version: '2.0',
+          worker_id: this.workerId,
           event_ids: events.map(e => e.id),
           tenant_id: tenantId,
           metric: metric,
@@ -223,6 +249,7 @@ class UsageAggregator {
           tenantId,
           metric,
           idempotencyKey,
+          workerId: this.workerId,
         });
         await this.markEventsProcessed(events.map(e => e.id));
         return;
@@ -238,6 +265,7 @@ class UsageAggregator {
       metric,
       eventCount,
       totalAmount,
+      workerId: this.workerId,
       sourceHash: sourceHash.substring(0, 8),
       evidenceChainLength: evidenceChain.length
     });
@@ -264,8 +292,7 @@ class UsageAggregator {
     const canonicalString = JSON.stringify(canonicalEvents, Object.keys(canonicalEvents[0]).sort());
 
     // Generate SHA-256 hash
-    const crypto = await import('crypto');
-    return crypto.default.createHash('sha256').update(canonicalString).digest('hex');
+    return crypto.createHash('sha256').update(canonicalString).digest('hex');
   }
 
   /**
@@ -293,6 +320,7 @@ class UsageAggregator {
       timestamp: new Date().toISOString(),
       aggregator_version: '2.0',
       processing_node: process.env.NODE_ENV || 'development',
+      worker_id: this.workerId,
       source_hash: sourceHash,
       aggregation_method: 'sum_by_tenant_metric_period'
     });
@@ -317,10 +345,30 @@ class UsageAggregator {
    * Mark events as processed helper
    */
   private async markEventsProcessed(eventIds: string[]): Promise<void> {
-    await this.supabase
+    const processedAt = new Date().toISOString();
+    const { data, error } = await this.supabase
       .from('usage_events')
-      .update({ processed: true })
-      .in('id', eventIds);
+      .update({
+        processed: true,
+        processed_at: processedAt,
+        processed_by: this.workerId,
+        claimed_by: null,
+        claimed_at: null,
+        claim_expires_at: null,
+      })
+      .in('id', eventIds)
+      .eq('processed', false)
+      .eq('claimed_by', this.workerId)
+      .select('id');
+
+    if (error) {
+      throw error;
+    }
+
+    if ((data ?? []).length !== eventIds.length) {
+      const missingCount = eventIds.length - (data?.length ?? 0);
+      throw new Error(`Worker ${this.workerId} lost claim on ${missingCount} usage events before marking processed.`);
+    }
   }
 
   /**
@@ -402,3 +450,11 @@ class UsageAggregator {
     }
   }
 }
+
+const defaultSupabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? 'http://localhost';
+const defaultSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? 'test-key';
+const defaultSupabaseClient = createClient(defaultSupabaseUrl, defaultSupabaseKey);
+
+const usageAggregator = new UsageAggregator(defaultSupabaseClient);
+
+export default usageAggregator;

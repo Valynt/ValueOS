@@ -1,0 +1,51 @@
+name: ValyntApp TS Weekly Report
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  valyntapp-ts-weekly-report:
+    name: ValyntApp TypeScript debt report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate ValyntApp TypeScript weekly report
+        run: |
+          node scripts/ci/valyntapp-ts-error-policy.mjs --report-only --report-file=artifacts/valyntapp-ts-error/valyntapp-ts-error-weekly.md
+
+      - name: Upload weekly TypeScript debt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: valyntapp-ts-weekly-report-${{ github.run_id }}
+          path: artifacts/valyntapp-ts-error/**
+          if-no-files-found: error
+          retention-days: 60

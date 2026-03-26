@@ -45,6 +45,10 @@ jobs:
       - name: TypeScript error ratchet
         run: node scripts/ci/ts-error-ratchet.mjs
 
+      - name: ValyntApp TypeScript baseline ratchet + weekly debt report
+        run: |
+          node scripts/ci/valyntapp-ts-error-policy.mjs --enforce --report-file=artifacts/ci-lanes/ts-type-ratchet/valyntapp-ts-error-weekly.md
+
       - name: Emit lane summary
         if: always()
         run: |
@@ -241,6 +245,9 @@ jobs:
 
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
+
+      - name: Critical control status gate (SOC2/HIPAA)
+        run: node scripts/ci/check-control-status-critical.mjs
 
       - name: Emit lane summary
         if: always()
@@ -442,13 +449,24 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
+        run: |
+          mkdir -p artifacts/bundle
+          npx turbo run build --filter=valynt-app 2>&1 | tee artifacts/bundle/vite-build.log
+      - name: Bundle regression gate
+        run: |
+          node scripts/ci/check-vite-bundle-regression.mjs \
+            --log artifacts/bundle/vite-build.log \
+            --metrics .github/metrics/vite-bundle-metrics.json \
+            --summary-out artifacts/bundle/summary.md \
+            --json-out artifacts/bundle/metrics.json \
+            --history-out artifacts/bundle/history-comparison.json
+          cat artifacts/bundle/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Run WCAG 2.2 AA accessibility tests
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
         run: |
           mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+          npx playwright test tests/accessibility/axe-a11y.spec.ts tests/accessibility/wcag-compliance.test.ts \
             --reporter=html,json \
             --output=artifacts/accessibility
       - name: Accessibility trend gate
@@ -491,6 +509,7 @@ jobs:
             artifacts/accessibility/
             artifacts/i18n/
             artifacts/frontend-quality/
+            artifacts/bundle/
           if-no-files-found: warn
           retention-days: 30
 
