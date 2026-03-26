@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "lastReviewed": "2026-03-26",
+  "apps": [
+    {
+      "path": "apps/ValyntApp",
+      "workspace": "valynt-app",
+      "status": "active",
+      "owner": "team-frontend",
+      "deployPath": "https://app.valueos.com"
+    },
+    {
+      "path": "apps/mcp-dashboard",
+      "workspace": "mcp-dashboard",
+      "status": "active",
+      "owner": "team-platform",
+      "deployPath": "internal://mcp-dashboard"
+    },
+    {
+      "path": "apps/agentic-ui-pro",
+      "workspace": "agentic-ui-pro",
+      "status": "experimental",
+      "owner": "team-agent-platform",
+      "deployPath": "local://apps/agentic-ui-pro"
+    }
+  ],
+  "productionPackages": [
+    {
+      "path": "packages/backend",
+      "workspace": "@valueos/backend",
+      "status": "active",
+      "owner": "team-platform",
+      "deployPath": "https://api.valueos.com"
+    },
+    {
+      "path": "packages/mcp",
+      "workspace": "@valueos/mcp",
+      "status": "active",
+      "owner": "team-platform",
+      "deployPath": "internal://mcp-services"
+    },
+    {
+      "path": "packages/sdui",
+      "workspace": "@valueos/sdui",
+      "status": "active",
+      "owner": "team-platform",
+      "deployPath": "workspace://packages/sdui"
+    },
+    {
+      "path": "packages/shared",
+      "workspace": "@valueos/shared",
+      "status": "active",
+      "owner": "team-platform",
+      "deployPath": "workspace://packages/shared"
+    }
+  ]
+}
