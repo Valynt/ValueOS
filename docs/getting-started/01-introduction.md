@@ -508,13 +508,15 @@ services:
     environment:
       SUPABASE_URL: http://kong:8000
       # CRITICAL: sslmode=disable required - container postgres has no TLS
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
+      # LOCAL DEV ONLY: replace <password> with your PGPASSWORD from .devcontainer/.env
+      DATABASE_URL: postgresql://postgres:<password>@db:5432/postgres?sslmode=disable
       REDIS_URL: redis://redis:6379
 
   db:
     image: supabase/postgres:15.1.0.117
     environment:
-      POSTGRES_PASSWORD: postgres
+      # LOCAL DEV ONLY: set via PGPASSWORD env var — do not hardcode a password here
+      POSTGRES_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set}
 
   kong:
     # NOTE: Kong declarative config is baked into the image (no host bind-mounts)

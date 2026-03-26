@@ -78,7 +78,8 @@ function buildConfig() {
     requireNonEmpty: true,
   });
 
-  const mfaEnabled = process.env.MFA_ENABLED === "true";
+  // MFA defaults to enabled. Set MFA_ENABLED=false explicitly to disable (non-production only).
+  const mfaEnabled = process.env.MFA_ENABLED !== "false";
   const env = (process.env.NODE_ENV || "development") as AppEnvironment;
 
   return {

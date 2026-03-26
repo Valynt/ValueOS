@@ -92,7 +92,7 @@ services:
     environment:
       POSTGRES_DB: ${PGDATABASE:-valueos}
       POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXP: 3600
@@ -147,8 +147,8 @@ services:
       DB_PORT: 5432
       DB_NAME: ${PGDATABASE:-valueos}
       DB_USER: ${PGUSER:-postgres}
-      DB_PASSWORD: ${PGPASSWORD:-postgres}
-      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}?sslmode=disable
+      DB_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}
+      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}@postgres:5432/${PGDATABASE:-valueos}?sslmode=disable
       SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_API_URL: http://auth:9999
@@ -186,7 +186,7 @@ services:
     image: postgrest/postgrest:v12.0.2
     container_name: valueos-rest
     environment:
-      PGRST_DB_URI: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
+      PGRST_DB_URI: postgres://${PGUSER:-postgres}:${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}@postgres:5432/${PGDATABASE:-valueos}
       PGRST_DB_SCHEMA: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
@@ -210,7 +210,7 @@ services:
       DB_PORT: 5432
       DB_NAME: ${PGDATABASE:-valueos}
       DB_USER: ${PGUSER:-postgres}
-      DB_PASSWORD: ${PGPASSWORD:-postgres}
+      DB_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env}
@@ -232,7 +232,7 @@ services:
     image: supabase/storage-api:v0.46.4
     container_name: valueos-storage
     environment:
-      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
+      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}@postgres:5432/${PGDATABASE:-valueos}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env}
       SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env}
@@ -263,7 +263,7 @@ services:
     environment:
       SUPABASE_URL: http://kong:8000
       STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}
       DEFAULT_PROJECT_NAME: ValueOS
       SUPABASE_PUBLIC_URL: http://localhost:${KONG_PROXY_PORT:-54321}
     depends_on:
@@ -286,7 +286,7 @@ services:
       PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${PGDATABASE:-valueos}
       PG_META_DB_USER: ${PGUSER:-postgres}
-      PG_META_DB_PASSWORD: ${PGPASSWORD:-postgres}
+      PG_META_DB_PASSWORD: ${PGPASSWORD:?PGPASSWORD must be set — do not use default credentials. See .devcontainer/.env.template}
     depends_on:
       postgres:
         condition: service_healthy

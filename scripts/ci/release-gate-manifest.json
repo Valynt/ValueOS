@@ -30,6 +30,57 @@
       "coverage": [
         "DAST"
       ]
+    },
+    {
+      "id": "architecture-drift-gate",
+      "description": "Verifies runtime code matches architecture documentation claims (eventing stack, agent inventory, deployment entities). Fails if docs and code diverge.",
+      "workflow": ".github/workflows/main-verify.yml",
+      "jobId": "critical-workflows-gate",
+      "script": "scripts/ci/check-architecture-doc-drift.mjs",
+      "evidenceDoc": "docs/security-compliance/drift-gate-evidence.md",
+      "coverage": [
+        "eventing stack claims (MessageBus, BullMQ, NATS JetStream)",
+        "agent inventory (11 agents)",
+        "runtime service directories",
+        "Docker image Dockerfiles"
+      ]
+    },
+    {
+      "id": "dev-routes-exclusion-gate",
+      "description": "Verifies child_process.exec (from dev.ts) is absent from the production backend bundle. Prevents latent RCE risk from dev route code shipping in production.",
+      "workflow": ".github/workflows/main-verify.yml",
+      "jobId": "dev-routes-exclusion-gate",
+      "script": "scripts/ci/check-backend-dev-routes-excluded.mjs",
+      "coverage": [
+        "child_process import absent from production bundle",
+        "dev route registration absent from production bundle"
+      ]
+    },
+    {
+      "id": "mfa-production-config-gate",
+      "description": "Fails if any production-path env file or K8s/Helm manifest sets MFA_ENABLED=false. MFA defaults to enabled in code; this gate catches explicit opt-outs.",
+      "workflow": ".github/workflows/pr-fast.yml",
+      "jobId": "mfa-production-config-gate",
+      "coverage": [
+        "production env files do not disable MFA",
+        "K8s/Helm manifests do not disable MFA"
+      ]
+    },
+    {
+      "id": "compliance-evidence-completeness",
+      "description": "Verifies required compliance evidence documents exist and are non-empty. Blocks production promotion when evidence artifacts are missing.",
+      "workflow": ".github/workflows/main-verify.yml",
+      "jobId": "staging-deploy-release-gates",
+      "evidenceDocs": [
+        "docs/security-compliance/secret-scan-evidence.md",
+        "docs/security-compliance/audit-log-evidence.md",
+        "docs/security-compliance/drift-gate-evidence.md"
+      ],
+      "coverage": [
+        "secret scan evidence present",
+        "audit log evidence present",
+        "architecture drift gate evidence present"
+      ]
     }
   ],
   "externalRequiredChecks": [

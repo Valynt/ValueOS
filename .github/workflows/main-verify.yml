@@ -666,6 +666,88 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+  # ── Dev routes exclusion gate ────────────────────────────────────────────────
+  # Builds the backend and verifies child_process is absent from production output.
+  dev-routes-exclusion-gate:
+    name: dev-routes-exclusion-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build backend (production)
+        run: pnpm --filter @valueos/backend build
+        env:
+          NODE_ENV: production
+      - name: Check dev routes excluded from production bundle
+        run: node scripts/ci/check-backend-dev-routes-excluded.mjs packages/backend/dist
+
+  # ── Compliance evidence completeness gate ────────────────────────────────────
+  # Fails when required compliance evidence documents are absent or empty.
+  # These documents are the human-readable proof that security controls have
+  # been verified. Production promotion is blocked without them.
+  compliance-evidence-completeness:
+    name: compliance-evidence-completeness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify required compliance evidence documents exist and are non-empty
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          REQUIRED_DOCS=(
+            "docs/security-compliance/secret-scan-evidence.md"
+            "docs/security-compliance/audit-log-evidence.md"
+            "docs/security-compliance/drift-gate-evidence.md"
+          )
+
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "FAIL: Missing evidence document: $doc"
+              FAIL=1
+            elif [ ! -s "$doc" ]; then
+              echo "FAIL: Evidence document is empty: $doc"
+              FAIL=1
+            else
+              echo "OK: $doc"
+            fi
+          done
+
+          # Also verify secret-scan-evidence.md does not contain an unresolved
+          # BLOCKED status — production promotion requires the block to be lifted.
+          if grep -q "^\\*\\*Status: BLOCKED\\*\\*" docs/security-compliance/secret-scan-evidence.md 2>/dev/null; then
+            echo "FAIL: Secret scan evidence is still BLOCKED — rotate all true positive credentials"
+            echo "      and update docs/security-compliance/secret-scan-evidence.md before promoting."
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "Compliance evidence completeness gate: FAIL"
+            echo "All required evidence documents must exist, be non-empty, and have no"
+            echo "unresolved BLOCKED status before production promotion."
+            exit 1
+          fi
+
+          echo "Compliance evidence completeness gate: PASS"
+
   staging-deploy-release-gates:
     name: main-verify
     runs-on: ubuntu-latest
@@ -674,11 +756,14 @@ jobs:
       - critical-workflows-gate
       - security-gate
       - accessibility-audit
+      - dev-routes-exclusion-gate
+      - compliance-evidence-completeness
     steps:
       - name: Enforce staging/deploy blockers
         env:
           STAGING_HEALTHCHECK_URL: ${{ vars.STAGING_HEALTHCHECK_URL }}
         run: |
+          # Pre-existing lanes: skipped is acceptable (branch-conditional jobs)
           for lane in \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
@@ -686,6 +771,20 @@ jobs:
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Gate failed: $lane"
+              exit 1
+            fi
+          done
+
+          # Security gates added in this change: must explicitly succeed — skipped is not acceptable.
+          # A skipped security gate means the check did not run, which is equivalent to unknown.
+          for lane in \
+            "dev-routes-exclusion-gate:${{ needs.dev-routes-exclusion-gate.result }}" \
+            "compliance-evidence-completeness:${{ needs.compliance-evidence-completeness.result }}"; do
+            status="${lane#*:}"
+            if [ "$status" != "success" ]; then
+              echo "Security gate did not pass (status=$status): $lane"
+              echo "These gates must explicitly succeed — skipped or failed results block promotion."
               exit 1
             fi
           done

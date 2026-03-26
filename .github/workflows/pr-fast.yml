@@ -773,6 +773,23 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: SCA — pnpm audit (fail on high/critical)
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+      - name: Dev routes static check — child_process must be behind dynamic import
+        run: |
+          set -euo pipefail
+          # Verify dev.ts is only ever loaded via dynamic import() in devRoutes.ts,
+          # never via a static top-level import in server.ts or any other entry point.
+          if grep -rn "^import.*from.*['\"].*dev\.js['\"]" packages/backend/src/server.ts packages/backend/src/app.ts 2>/dev/null; then
+            echo "FAIL: dev.ts is statically imported in a server entry point."
+            echo "It must only be loaded via dynamic import() inside registerDevRoutes()."
+            exit 1
+          fi
+          # Verify the dynamic import guard is still in place
+          if ! grep -q "await import.*dev\.js" packages/backend/src/routes/devRoutes.ts; then
+            echo "FAIL: Dynamic import guard for dev.ts not found in devRoutes.ts."
+            echo "registerDevRoutes() must use dynamic import() to load dev.ts."
+            exit 1
+          fi
+          echo "Dev routes static check: PASS"
       - name: Secret scan — gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -850,6 +867,54 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+  # ── MFA production config gate ───────────────────────────────────────────────
+  # Fails if any env file that could reach production has MFA_ENABLED=false.
+  # MFA defaults to enabled in code; this gate catches explicit opt-outs.
+  mfa-production-config-gate:
+    name: mfa-production-config-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check MFA_ENABLED is not false in production-path env files
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          # Files that are explicitly for production or could reach production.
+          # .env.example is excluded — it is documentation, not a deployed artifact.
+          PROD_ENV_FILES=(
+            ".env"
+            "envs/production.env"
+            "envs/prod.env"
+            "ops/env/.env.prod"
+            "ops/env/.env.production"
+          )
+
+          for f in "${PROD_ENV_FILES[@]}"; do
+            if [ -f "$f" ]; then
+              if grep -qE '^MFA_ENABLED=false\s*$' "$f"; then
+                echo "FAIL: $f sets MFA_ENABLED=false — MFA must be enabled in production"
+                FAIL=1
+              fi
+            fi
+          done
+
+          # Also scan Helm values and K8s manifests for explicit MFA_ENABLED=false
+          if grep -rE 'MFA_ENABLED.*false' infra/k8s/ infra/helm/ 2>/dev/null | grep -v '#'; then
+            echo "FAIL: K8s/Helm manifest sets MFA_ENABLED=false"
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "MFA production config gate: FAIL"
+            echo "MFA_ENABLED defaults to true in code. Remove MFA_ENABLED=false from"
+            echo "production-path env files, or set it to true explicitly."
+            exit 1
+          fi
+
+          echo "MFA production config gate: PASS"
+
   pr-fast:
     name: pr-fast
     runs-on: ubuntu-latest
@@ -863,6 +928,7 @@ jobs:
       - security-gate
       - accessibility-audit
       - e2e-critical
+      - mfa-production-config-gate
     steps:
       - name: Enforce PR blockers
         run: |
@@ -888,6 +954,11 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ needs.mfa-production-config-gate.result }}" != "success" ]; then
+            echo "Failing PR gate: mfa-production-config-gate did not pass"
+            exit 1
+          fi
+
           for lane in \
             "secret-scan:${{ needs.secret-scan.result }}" \
             "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
@@ -897,7 +968,8 @@ jobs:
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}" \
-            "e2e-critical:${{ needs.e2e-critical.result }}"; do
+            "e2e-critical:${{ needs.e2e-critical.result }}" \
+            "mfa-production-config-gate:${{ needs.mfa-production-config-gate.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
             # secret-scan and tenant-isolation-gate must not be skipped.
