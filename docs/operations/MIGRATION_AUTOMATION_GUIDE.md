@@ -264,12 +264,12 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=54323
 POSTGRES_DB=postgres
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_secure_password
+POSTGRES_PASSWORD=sm://valueos/local/postgres/password
 
 # Optional: Supabase Configuration
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_ANON_KEY=sm://valueos/local/supabase/anon_key
+SUPABASE_SERVICE_ROLE_KEY=sm://valueos/local/supabase/service_role_key
 ```
 
 ### Directory Structure

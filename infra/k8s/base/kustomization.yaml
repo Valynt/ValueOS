@@ -34,9 +34,6 @@ resources:
   - billing-aggregator-worker-deployment.yaml
   - worker-deployment.yaml
   - prometheus-adapter-rules.yaml
-  # Security policies are in infra/k8s/security/ and applied separately:
-  # kubectl apply -f ../security/istio-service-mesh.yaml
-  # kubectl apply -f ../security/mesh-authentication.yaml
 
 labels:
   - pairs:

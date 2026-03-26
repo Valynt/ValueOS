@@ -271,7 +271,7 @@ Design test strategies, generate comprehensive test cases, and validate software
 // Unit test pattern
 describe('UserService', () => {
   it('should create user with hashed password', async () => {
-    const input = { email: 'test@example.com', password: 'secret123' };
+    const input = { email: 'test@example.com', password: '<REDACTED>' };
     const result = await userService.create(input);
 
     expect(result.email).toBe(input.email);

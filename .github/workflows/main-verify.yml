@@ -53,11 +53,13 @@ jobs:
         run: ${{ matrix.lint_command }}
       - name: Lint ratchet guard
         run: node scripts/ci/lint-ratchet-check.mjs --lane "${{ matrix.lane }}" --report "${{ matrix.report_path }}"
+      - name: A11y ESLint weekly warning ratchet
+        if: matrix.lane == 'valynt-app'
+        run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
 
-  unit-component-schema:
-    name: unit/component/schema
+  production-eslint-ratchet:
+    name: production-eslint-ratchet
     runs-on: ubuntu-latest
-    needs: lint-runtime-packages
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -78,6 +80,35 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Run production lint profile
+        run: pnpm lint:ci:production-profile
+      - name: Enforce production lint allowlist and warning ratchet
+        run: pnpm check:production-eslint-profile
+
+  unit-component-schema:
+    name: unit/component/schema
+    runs-on: ubuntu-latest
+    needs: [lint-runtime-packages, production-eslint-ratchet]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Install autoscaling manifest validation tools
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
@@ -88,6 +119,8 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Agent autoscaling manifest validation
         run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
+      - name: Kubernetes security policy render validation
+        run: node scripts/ci/validate-k8s-security-policies.mjs
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
       - name: Canonical CI workflow self-check
@@ -102,6 +135,8 @@ jobs:
         run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
+      - name: Kubernetes manifest maturity transition evidence gate
+        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=transition-check --ledger-path=infra/k8s/manifest-maturity-ledger.json --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
       - name: Vitest workspace topology guard
         run: node scripts/ci/check-vitest-workspace-packages.mjs
       - name: Unit suite + schema guard
@@ -120,13 +155,18 @@ jobs:
         run: pnpm --filter @valueos/backend run debt:summary
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Docs date integrity + compliance artifact
+        run: node scripts/ci/check-docs-date-integrity.mjs
       - name: Eventing architecture matrix guard
         run: pnpm run check:eventing-architecture
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
-      - name: OpenAPI single-root guard
+      - name: OpenAPI canonical path allowlist guard
+        run: node scripts/ci/check-openapi-file-allowlist.mjs
+
+      - name: OpenAPI single-root guard (canonical backend spec)
         run: node scripts/ci/check-openapi-single-root.mjs
-      - name: OpenAPI structural validation
+      - name: OpenAPI structural validation (canonical backend spec)
         run: node scripts/ci/check-openapi-structure.mjs
       - name: Express ↔ OpenAPI route security posture gate
         run: node scripts/ci/express-openapi-security-check.mjs
@@ -218,7 +258,7 @@ jobs:
       OPENAI_API_KEY: test-openai-key
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -228,7 +268,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -259,7 +299,7 @@ jobs:
           cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload package coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-${{ matrix.package.id }}-${{ github.run_id }}
           path: |
@@ -275,7 +315,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -297,7 +337,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -345,7 +385,7 @@ jobs:
       - tenant-isolation-gate
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -362,8 +402,8 @@ jobs:
     name: accessibility-audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -373,7 +413,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -436,7 +476,7 @@ jobs:
             --json-out artifacts/frontend-quality/dashboard.json
       - name: Upload accessibility artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: accessibility-audit-${{ github.run_id }}
           path: |
@@ -455,10 +495,10 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -468,7 +508,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -543,7 +583,7 @@ jobs:
           fi
       - name: Upload security artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-gate-${{ github.run_id }}
           path: |

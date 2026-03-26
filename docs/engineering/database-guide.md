@@ -3009,8 +3009,8 @@ await supabase
     organization_id: orgId,
     adapter_type: 'salesforce',
     credentials: {
-      access_token: 'your_token',
-      refresh_token: 'your_refresh'
+      access_token: '<EXAMPLE_ONLY_NOT_A_SECRET>',
+      refresh_token: '<EXAMPLE_ONLY_NOT_A_SECRET>'
     }
   });
 

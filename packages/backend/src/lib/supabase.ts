@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import {
   createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
@@ -11,18 +9,17 @@ import {
   type ServiceRoleSupabaseClient,
 } from "@shared/lib/supabase";
 
-import { getValidatedSupabaseRuntimeConfig } from "./env";
-import { assertRealSupabaseAllowed } from "../test/runtimeGuards";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export {
   createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
+  createServiceRoleSupabaseClient,
   getRequestSupabaseClient,
   type BrowserSafeAnonSupabaseClient,
   type RequestScopedRlsSupabaseClient,
 };
-
 export type { ServiceRoleSupabaseClient };
 
 /**
@@ -30,60 +27,43 @@ export type { ServiceRoleSupabaseClient };
  * monorepo helper is explicit at the call site.
  */
 export const createUserSupabaseClient = (userAccessToken: string): RequestScopedRlsSupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createUserSupabaseClient");
-  }
-
   return createRequestSupabaseClient({ accessToken: userAccessToken });
 };
 
 /**
- * @deprecated Prefer createServiceRoleSupabaseClient() so service-role usage is
- * explicit at the call site.
+ * @deprecated Hard-fail: service-role access must route through
+ * src/lib/supabase/privileged/* with explicit scope + justification metadata.
  */
 export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createServerSupabaseClient");
-  }
-
-  getValidatedSupabaseRuntimeConfig();
-  return createServiceRoleSupabaseClient();
+  throw new Error(
+    "createServerSupabaseClient is deprecated and blocked. Use src/lib/supabase/privileged/* factories with service-role justification metadata."
+  );
 };
 
-let serviceRoleSingleton: ServiceRoleSupabaseClient | undefined;
-
 /**
- * @deprecated Import a scoped privileged module from
- * `src/lib/supabase/privileged/*` instead of the general-purpose
- * `src/lib/supabase` module.
+ * @deprecated Hard-fail: service-role access must route through
+ * src/lib/supabase/privileged/* with explicit scope + justification metadata.
  */
 export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("getSupabaseClient");
-  }
-
-  if (!serviceRoleSingleton) {
-    getValidatedSupabaseRuntimeConfig();
-    serviceRoleSingleton = createServiceRoleSupabaseClient();
-  }
-  return serviceRoleSingleton;
+  throw new Error(
+    "getSupabaseClient is deprecated and blocked. Use src/lib/supabase/privileged/* factories with service-role justification metadata."
+  );
 };
 
 /**
- * @deprecated The broad service-role proxy bypasses RLS and should not be used
- * in new code. Use request-scoped clients by default and privileged modules
- * (`src/lib/supabase/privileged/*`) for the limited allowlisted operations.
+ * @deprecated Hard-fail: broad service-role proxy is blocked.
  */
-export const supabase = {
-  get auth() { return getSupabaseClient().auth; },
-  get storage() { return getSupabaseClient().storage; },
-  get realtime() { return getSupabaseClient().realtime; },
-  from: (...args: Parameters<SupabaseClient["from"]>) => getSupabaseClient().from(...args),
-  rpc: (...args: Parameters<SupabaseClient["rpc"]>) => getSupabaseClient().rpc(...args),
-  channel: (...args: Parameters<SupabaseClient["channel"]>) => getSupabaseClient().channel(...args),
-  removeChannel: (...args: Parameters<SupabaseClient["removeChannel"]>) => getSupabaseClient().removeChannel(...args),
-  getChannels: () => getSupabaseClient().getChannels(),
-  removeAllChannels: () => getSupabaseClient().removeAllChannels(),
-} as unknown as SupabaseClient;
+export const supabase = new Proxy({} as SupabaseClient, {
+  get() {
+    throw new Error(
+      "supabase export is deprecated and blocked. Use createRequestSupabaseClient/getRequestSupabaseClient in request paths or src/lib/supabase/privileged/* factories for allowlisted service-role operations."
+    );
+  },
+  apply() {
+    throw new Error(
+      "supabase export is deprecated and blocked. Use createRequestSupabaseClient/getRequestSupabaseClient in request paths or src/lib/supabase/privileged/* factories for allowlisted service-role operations."
+    );
+  },
+}) as SupabaseClient;
 
 export type { SupabaseClient };

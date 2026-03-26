@@ -192,7 +192,6 @@ const isServer = typeof window === "undefined";
 
 // Load managed secrets on the server before parsing the environment
 // Use dynamic import to avoid bundling Node.js-only code in the browser
-let managedSecrets: Record<string, string> = {};
 // optimization: Skip secret hydration in development to prevent startup hangs
 // caused by unreachable Vault/AWS endpoints
 // We use import.meta.env.SSR check if available (Vite), otherwise runtime check
@@ -209,7 +208,7 @@ export const initSecrets = async (): Promise<void> => {
       const { hydrateServerSecretsFromManager } = await import(
         /* @vite-ignore */ hydratorPath
       );
-      managedSecrets = await hydrateServerSecretsFromManager();
+      await hydrateServerSecretsFromManager();
     } catch {
       // SecretHydrator not available in browser or failed to load
     }
@@ -218,13 +217,7 @@ export const initSecrets = async (): Promise<void> => {
 
 // We need to handle the case where the server might not have the VITE_ prefix.
 // This function helps merge the two possibilities.
-const readEnv = (key: string, fallback?: string) => {
-  if (isServer && managedSecrets[key]) {
-    return managedSecrets[key];
-  }
-
-  return getEnvVar(key, { defaultValue: fallback });
-};
+const readEnv = (key: string, fallback?: string) => getEnvVar(key, { defaultValue: fallback });
 
 const DEPRECATED_ENV_ALIASES: Record<string, string> = {
   SUPABASE_SERVICE_KEY: "SUPABASE_SERVICE_ROLE_KEY",

@@ -218,9 +218,9 @@ Coverage: 66.66%
 ```typescript
 vi.mock("../../../config/billing", () => ({
   STRIPE_CONFIG: {
-    secretKey: "sk_test_mock_key_for_testing",
-    publishableKey: "pk_test_mock_key_for_testing",
-    webhookSecret: "whsec_test_mock_secret",
+    secretKey: "<EXAMPLE_ONLY_NOT_A_SECRET>",
+    publishableKey: "<EXAMPLE_ONLY_NOT_A_SECRET>",
+    webhookSecret: "<EXAMPLE_ONLY_NOT_A_SECRET>",
     apiVersion: "2023-10-16",
   },
 }));
@@ -436,9 +436,9 @@ supabase db push --db-url $PRODUCTION_DATABASE_URL
 
 ```bash
 # Required
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_SECRET_KEY=sm://valueos/prod/payments/stripe_secret_key
+STRIPE_WEBHOOK_SECRET=sm://valueos/prod/payments/stripe_webhook_secret
+VITE_STRIPE_PUBLISHABLE_KEY=sm://valueos/prod/payments/stripe_publishable_key
 
 # Optional (defaults shown)
 GRACE_PERIOD_MS=86400000  # 24 hours

@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
 
@@ -32,7 +32,7 @@ jobs:
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-ts-type-ratchet-${{ github.run_id }}
           path: artifacts/ci-lanes/ts-type-ratchet/**
@@ -111,6 +111,37 @@ jobs:
         run: ${{ matrix.lint_command }}
       - name: Lint ratchet guard
         run: node scripts/ci/lint-ratchet-check.mjs --lane "${{ matrix.lane }}" --report "${{ matrix.report_path }}"
+      - name: A11y ESLint weekly warning ratchet
+        if: matrix.lane == 'valynt-app'
+        run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
+
+  production-eslint-ratchet:
+    name: production-eslint-ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run production lint profile
+        run: pnpm lint:ci:production-profile
+      - name: Enforce production lint allowlist and warning ratchet
+        run: pnpm check:production-eslint-profile
 
   unit-component-schema:
     name: unit/component/schema
@@ -118,7 +149,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
 
@@ -131,7 +162,7 @@ jobs:
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -152,6 +183,8 @@ jobs:
 
       - name: Agent autoscaling manifest validation
         run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
+      - name: Kubernetes security policy render validation
+        run: node scripts/ci/validate-k8s-security-policies.mjs
 
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
@@ -173,6 +206,8 @@ jobs:
 
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
+      - name: Kubernetes manifest maturity transition evidence gate
+        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=transition-check --ledger-path=infra/k8s/manifest-maturity-ledger.json --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
 
       - name: Vitest workspace topology guard
         run: node scripts/ci/check-vitest-workspace-packages.mjs
@@ -199,14 +234,19 @@ jobs:
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Docs date integrity + compliance artifact
+        run: node scripts/ci/check-docs-date-integrity.mjs
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
 
-      - name: OpenAPI single-root guard
+      - name: OpenAPI canonical path allowlist guard
+        run: node scripts/ci/check-openapi-file-allowlist.mjs
+
+      - name: OpenAPI single-root guard (canonical backend spec)
         run: node scripts/ci/check-openapi-single-root.mjs
 
-      - name: OpenAPI structural validation
+      - name: OpenAPI structural validation (canonical backend spec)
         run: node scripts/ci/check-openapi-structure.mjs
 
       - name: Express ↔ OpenAPI route security posture gate
@@ -315,7 +355,7 @@ jobs:
 
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-unit-component-schema-${{ github.run_id }}
           path: |
@@ -333,7 +373,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -360,7 +400,7 @@ jobs:
           EOF_SUMMARY
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-tenant-isolation-static-gate-${{ github.run_id }}
           path: artifacts/ci-lanes/tenant-isolation-static-gate/**
@@ -380,7 +420,7 @@ jobs:
       # Fork PRs run without this permission; live-DB steps are skipped via per-step if:.
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -466,7 +506,7 @@ jobs:
           EOF_SUMMARY
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-tenant-isolation-gate-${{ github.run_id }}
           path: |
@@ -479,8 +519,8 @@ jobs:
     name: accessibility-audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -490,7 +530,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -553,7 +593,7 @@ jobs:
             --json-out artifacts/frontend-quality/dashboard.json
       - name: Upload accessibility artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: accessibility-audit-${{ github.run_id }}
           path: |
@@ -569,9 +609,9 @@ jobs:
     name: e2e-critical
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
 
@@ -584,7 +624,7 @@ jobs:
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -630,7 +670,7 @@ jobs:
 
       - name: Upload E2E artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-critical-${{ github.run_id }}
           path: |
@@ -647,10 +687,10 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.x
       - uses: pnpm/action-setup@v5
@@ -660,7 +700,7 @@ jobs:
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-store.outputs.store_path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -735,7 +775,7 @@ jobs:
           fi
       - name: Upload security artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-gate-${{ github.run_id }}
           path: |

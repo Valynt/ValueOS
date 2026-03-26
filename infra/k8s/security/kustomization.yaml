@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Cluster and namespace network isolation baseline
+  - network-policies.yaml
+  - zero-trust-network-policies.yaml
+  - agent-pairwise-network-policies.yaml
+  # Mesh authentication and authorization baseline
+  - istio-service-mesh.yaml
+  - mesh-authentication.yaml
+  - agent-authorization-policies.yaml
+  - agent-pairwise-authorization-policies.yaml

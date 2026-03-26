@@ -692,6 +692,12 @@ Detailed development guides are consolidated into the following specialized docu
 - **Reset:** `pnpm run dx:reset` (Soft) or `pnpm run dx:clean` (Hard)
 - **Database:** `pnpm run db:push` | `pnpm run seed:demo` | `pnpm run db:types`
 
+### Migration note: `TCT_SECRET` is now mandatory in local development
+
+- Backend startup now fails fast in **every** environment (including `development` and `test`) if `TCT_SECRET` is not set.
+- Run `bash scripts/dx/bootstrap-env.sh` to create/update `ops/env/.env.backend.local` and provision a per-developer `TCT_SECRET`.
+- If you manage env files manually, add `TCT_SECRET=$(openssl rand -hex 32)` to `ops/env/.env.backend.local`.
+
 ---
 
 **Maintainer:** AI Implementation Team

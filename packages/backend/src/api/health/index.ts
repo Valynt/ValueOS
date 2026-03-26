@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Request, Response, Router } from "express";
 
 import { validateEnv } from "../../config/validateEnv.js"
+import { runtimeSecretStore } from "../../config/secrets/RuntimeSecretStore.js"
 import { getAuthRateLimitBackendStatus } from "../../middleware/authRateLimiter.js"
 import { getLlmRateLimitBackendStatus } from "../../middleware/llmRateLimiter.js"
 import { getGeneralRateLimitBackendStatus, rateLimiters } from "../../middleware/rateLimiter.js"
@@ -107,7 +108,9 @@ export interface HealthStatus {
 async function checkTogetherAI(): Promise<HealthStatus> {
   const startTime = Date.now();
 
-  if (!process.env.TOGETHER_API_KEY) {
+  const togetherKey = await runtimeSecretStore.getSecret("TOGETHER_API_KEY");
+
+  if (!togetherKey) {
     return {
       status: "not_configured",
       message: "Together.ai API key not configured",
@@ -120,7 +123,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
     const response = await fetch("https://api.together.ai/v1/models", {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
+        Authorization: `Bearer ${togetherKey}`,
       },
       signal: AbortSignal.timeout(5000),
     });
@@ -162,7 +165,9 @@ async function checkTogetherAI(): Promise<HealthStatus> {
 async function checkOpenAI(): Promise<HealthStatus> {
   const startTime = Date.now();
 
-  if (!process.env.OPENAI_API_KEY) {
+  const openAIKey = await runtimeSecretStore.getSecret("OPENAI_API_KEY");
+
+  if (!openAIKey) {
     return {
       status: "not_configured",
       message: "OpenAI API key not configured (fallback not available)",
@@ -175,7 +180,7 @@ async function checkOpenAI(): Promise<HealthStatus> {
     const response = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openAIKey}`,
       },
       signal: AbortSignal.timeout(5000),
     });
@@ -214,7 +219,8 @@ async function checkSupabase(): Promise<HealthStatus> {
   const startTime = Date.now();
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey = await runtimeSecretStore.getSecret("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseKey = supabaseServiceRoleKey || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return {
@@ -268,7 +274,7 @@ async function checkDatabase(): Promise<HealthStatus> {
   try {
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
+      (await runtimeSecretStore.getSecret("SUPABASE_SERVICE_ROLE_KEY")) || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
     );
 
     const { error } = await supabase.from("tenants").select("id").limit(1);

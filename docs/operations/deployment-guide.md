@@ -483,9 +483,9 @@ ls -la supabase/functions/
 #### 4.2 Configure Secrets for Each Function
 ```bash
 # Set secrets via Supabase CLI
-supabase secrets set OPENAI_API_KEY="sk-..." --project-ref your-project-ref
-supabase secrets set ANTHROPIC_API_KEY="sk-ant-..." --project-ref your-project-ref
-supabase secrets set STRIPE_SECRET_KEY="sk_live_..." --project-ref your-project-ref
+supabase secrets set OPENAI_API_KEY="sm://valueos/prod/llm/openai_api_key" --project-ref your-project-ref
+supabase secrets set ANTHROPIC_API_KEY="sm://valueos/prod/llm/anthropic_api_key" --project-ref your-project-ref
+supabase secrets set STRIPE_SECRET_KEY="sm://valueos/prod/payments/stripe_secret_key" --project-ref your-project-ref
 
 # Verify secrets (without exposing values)
 supabase secrets list --project-ref your-project-ref
@@ -1231,7 +1231,7 @@ scheduler.start()
 // Schedule for each tenant
 scheduler.scheduleRotation({
   tenantId: 'acme-corp',
-  secretKey: 'database_credentials',
+  secretKey: 'sm://valueos/prod/database/credentials',
   policy: RotationPolicies.DATABASE_CREDENTIALS,
   cronSchedule: '0 2 */90 * *' // Every 90 days at 2 AM
 })
@@ -2608,15 +2608,20 @@ VITE_AGENT_API_URL=https://agents.valuecanvas.com/api/agents
 
 # Database
 VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_ANON_KEY=sm://valueos/prod/supabase/anon_key
 
 # Security
 VITE_HTTPS_ONLY=true
-JWT_SECRET=your-jwt-secret-min-32-chars
+JWT_SECRET=sm://valueos/prod/auth/jwt_secret
 MFA_ENABLED=true
+# OAuth callback hardening (mandatory when CRM/OAuth integrations are enabled)
+APP_URL=https://app.valuecanvas.com
 # Emergency-only escape hatch; do not leave enabled
 MFA_PRODUCTION_OVERRIDE=false
 ```
+
+> [!IMPORTANT]
+> `APP_URL` is mandatory for OAuth-enabled environments. CRM OAuth callbacks fail closed when `APP_URL` is missing or invalid.
 
 ### Optional but Recommended
 
@@ -3612,15 +3617,15 @@ The workflow requires these GitHub secrets:
 
 | Secret | Description | Example |
 |--------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | AWS access key | `AKIAIOSFODNN7EXAMPLE` |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+| `AWS_ACCESS_KEY_ID` | AWS access key | `sm://valueos/prod/aws/access_key_id` |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key | `sm://valueos/prod/aws/secret_access_key` |
 | `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
-| `SUPABASE_SERVICE_KEY` | Supabase service key | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
-| `TOGETHER_API_KEY` | Together.ai API key | `xxx` |
-| `OPENAI_API_KEY` | OpenAI API key | `sk-xxx` |
-| `JWT_SECRET` | JWT secret | `xxx` |
-| `DB_PASSWORD` | Database password | `xxx` |
+| `SUPABASE_ANON_KEY` | Supabase anon key | `sm://valueos/prod/supabase/anon_key` |
+| `SUPABASE_SERVICE_KEY` | Supabase service key | `sm://valueos/prod/supabase/service_key` |
+| `TOGETHER_API_KEY` | Together.ai API key | `sm://valueos/prod/llm/together_api_key` |
+| `OPENAI_API_KEY` | OpenAI API key | `sm://valueos/prod/llm/openai_api_key` |
+| `JWT_SECRET` | JWT secret | `sm://valueos/prod/auth/jwt_secret` |
+| `DB_PASSWORD` | Database password | `sm://valueos/prod/database/password` |
 | `ACM_CERTIFICATE_ARN` | ACM certificate ARN | `arn:aws:acm:us-east-1:...` |
 
 ### Workflow Permissions

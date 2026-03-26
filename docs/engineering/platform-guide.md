@@ -45,7 +45,7 @@ PROMETHEUS_PORT=9090
 GRAFANA_PORT=3000
 
 # Security Configuration
-GRAFANA_ADMIN_PASSWORD=change_me_in_production
+GRAFANA_ADMIN_PASSWORD=sm://valueos/local/observability/grafana_admin_password
 
 # Development Domain
 DEV_DOMAIN=localhost
