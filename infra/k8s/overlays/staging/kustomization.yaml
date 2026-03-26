@@ -5,6 +5,7 @@ namespace: valynt-staging
 
 resources:
   - ../../base
+  - ../../security
   # Staging-only resources
   - rate-limiting-patch.yaml
 

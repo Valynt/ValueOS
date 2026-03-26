@@ -5,7 +5,7 @@ owner: team-platform
 backstage_owner: team:platform-engineering
 backstage_system: value-engineering-platform
 review_cadence: monthly
-last_reviewed: 2026-02-13
+last_reviewed: 2026-03-26
 tags:
   [runbook, operations, deployment, ownership:team-platform, cadence:monthly]
 source_reference: ../reference/deployment-reference.generated.md
@@ -45,7 +45,9 @@ Authoritative operational runbook for production deployments. This runbook is th
      - `hmacKeys` containing an active key for the caller service, or
      - `jwtIssuers` containing an active signing key/secret for the caller service.
    - Reject the deploy if the environment still depends on the legacy shared `X-Service-Identity` token.
-4. Deploy backend services, then frontend workloads.
+4. Execute a single deterministic overlay rollout command for the target environment (security policies are included automatically via overlay dependencies):
+   - Staging: `kustomize build infra/k8s/overlays/staging | kubectl apply -f -`
+   - Production: `kustomize build infra/k8s/overlays/production | kubectl apply -f -`
 5. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, workflow execution, and at least one protected internal route using per-request service assertions.
    - Include blocking chaos/smoke release suite: `node scripts/chaos/launch-chaos-smoke.mjs`.
 6. Monitor error rate, p95 latency, queue depth, and `Service identity verification failed` / `Service principal revoked` log volume for 15 minutes.
