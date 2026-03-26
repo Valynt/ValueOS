@@ -5,6 +5,12 @@ metadata:
   labels:
     name: valueos-system
     security: zero-trust
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
 ---
 apiVersion: v1
 kind: Namespace
@@ -13,6 +19,12 @@ metadata:
   labels:
     name: valueos-tenants
     security: zero-trust
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -195,34 +207,18 @@ spec:
           port: 53 # DNS
         - protocol: UDP
           port: 53
----
-apiVersion: policy/v1
-kind: PodSecurityPolicy
-metadata:
-  name: zero-trust-psp
-spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-    - ALL
-  volumes:
-    - "configMap"
-    - "secret"
-    - "hostPath"
-  hostNetwork: false
-  hostIPC: false
-  hostPID: false
-  runAsUser:
-    rule: "MustRunAsNonRoot"
-  seLinux:
-    rule: "RunAsAny"
-  supplementalGroups:
-    rule: "MustRunAs"
-    ranges:
-      - min: 1
-        max: 65535
-  fsGroup:
-    rule: "MustRunAs"
-    ranges:
-      - min: 1
-        max: 65535
+# PodSecurityPolicy was removed — it was deprecated in Kubernetes 1.21 and
+# removed in 1.25. Enforcement is now split across two layers:
+#
+#   1. Pod Security Admission (PSA) — built-in Kubernetes admission controller.
+#      Namespace labels enforce the "restricted" standard at the warn+audit+enforce
+#      level. Labels are applied to every namespace in this repo (see namespace
+#      manifests and infra/k8s/security/pod-security-admission.yaml).
+#
+#   2. Kyverno policy-as-code — fine-grained rules that PSA cannot express
+#      (e.g. required seccompProfile, readOnlyRootFilesystem, image tag pinning).
+#      Policies live in infra/k8s/security/kyverno-policies.yaml.
+#
+# To apply:
+#   kubectl apply -f infra/k8s/security/pod-security-admission.yaml
+#   kubectl apply -f infra/k8s/security/kyverno-policies.yaml

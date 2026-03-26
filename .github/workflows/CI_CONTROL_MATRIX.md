@@ -9,7 +9,9 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/i18n/*` |
 | UX Performance | Bundle + route-level load budgets enforced in CI | `pr-fast.yml` and `main-verify.yml` (`accessibility-audit`) | `artifacts/frontend-quality/*` |
 | Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)`) | GitHub Code Scanning alerts (CodeQL SARIF) |
-| Security | Gitleaks secret scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | Action logs + uploaded security artifacts |
+| Security | Gitleaks secret scanning — PR diff | `pr-fast.yml` (`secret-scan` lane, hard blocker) | `gitleaks-pr.sarif` → GitHub Code Scanning |
+| Security | Gitleaks secret scanning — full git history | `main-verify.yml` (`secret-scan/full-history`), `secret-scan.yml` (push + manual) | `artifacts/secret-scan/gitleaks-history.*` (90-day retention) |
+| Security | Gitleaks secret scanning — nightly | `nightly-governance.yml` | Action logs + uploaded security artifacts |
 | Security | Semgrep SAST scanning | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `semgrep.sarif`, uploaded to code scanning where applicable |
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `pr-fast.yml`, `main-verify.yml`, `nightly-governance.yml` | `trivy-fs.sarif`, `trivy-image.sarif` |
 | Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact |
@@ -17,6 +19,11 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Type Safety | Per-package TypeScript error count ratchet (no regressions) | `pr-fast.yml` (`ts-type-ratchet`) | `artifacts/ci-lanes/ts-type-ratchet/` |
 | Compliance | RLS and DSR checks + evidence export | `pr-fast.yml`, `main-verify.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
+| Pod Security | PSA namespace labels (`restricted` enforce/warn/audit) | `infra/k8s/security/pod-security-admission.yaml`, `infra/k8s/base/namespace.yaml` | Applied at cluster admission time |
+| Pod Security | Kyverno policy-as-code (readOnlyRootFilesystem, seccomp, no-latest-tag, resource limits, drop-ALL caps, tenant label) | `infra/k8s/security/kyverno-policies.yaml` | Kyverno admission webhook |
+| Pod Security | PodSecurityPolicy removal guard — rejects any new PSP references in manifests | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
+| Architecture Integrity | Infra readiness contract — NATS deployed, LLMCache tenant-scoped, RLS tests not silently skipped, UsageEmitter buffer bounded | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
+| Architecture Integrity | Architecture doc/runtime drift — eventing stack claims, agent names, runtime service dirs, MessageBus path, image Dockerfiles, agent count | `pr-fast.yml`, `main-verify.yml` (`unit/component/schema`) | CI step exit code |
 | Release Safety | Main-branch release aggregation, staging health verification, deploy-time gates | `main-verify.yml` (`staging-deploy-release-gates`), `deploy.yml` | CI lane artifacts + deployment summary |
 | Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |

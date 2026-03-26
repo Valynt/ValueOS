@@ -6,3 +6,14 @@ metadata:
     name: valynt
     app.kubernetes.io/name: valynt
     app.kubernetes.io/part-of: valynt-platform
+    # Pod Security Admission — enforce the "restricted" standard.
+    # Pods that do not meet the standard are rejected at admission time.
+    # "restricted" requires: non-root user, no privilege escalation, all
+    # capabilities dropped, seccomp RuntimeDefault or Localhost, no host
+    # namespaces, no hostPath volumes.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
