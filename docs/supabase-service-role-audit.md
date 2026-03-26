@@ -112,3 +112,18 @@ These call sites were previously request-path or repository fallbacks and were r
 ## Guardrail outcome
 
 The backend ESLint boundary override now blocks importing `createServerSupabaseClient`, `getSupabaseClient`, or `supabase` from request handlers, middleware, and repositories unless the file is explicitly allowlisted in `backendModuleBoundaryOverrides.ignores`.
+## Current policy (effective 2026-03-26)
+
+- General-purpose imports from `packages/backend/src/lib/supabase.ts` must not be used for new service-role access.
+- Use privileged modules only:
+  - `packages/backend/src/lib/supabase/privileged/authProvisioning.ts`
+  - `packages/backend/src/lib/supabase/privileged/cron.ts`
+  - `packages/backend/src/lib/supabase/privileged/platformAdmin.ts`
+- Service-role call sites are allowed only in:
+  - `packages/backend/src/services/auth/`
+  - `packages/backend/src/services/tenant/`
+  - `packages/backend/src/workers/`
+  - `packages/backend/src/jobs/`
+  - `scripts/jobs/`
+- Every call site must include `justification: "service-role:justified <reason>"`.
+- CI guard: `pnpm check:backend-service-role-boundaries`.

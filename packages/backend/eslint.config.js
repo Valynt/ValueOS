@@ -61,6 +61,36 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/api/**/*.ts", "src/middleware/**/*.ts", "src/routes/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/lib/supabase/privileged",
+                "**/lib/supabase/privileged/*",
+              ],
+              message:
+                "Request handlers must not import service-role privileged clients directly. Route through an allowlisted service module.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "src/api/auth.ts",
+      "src/api/services/ReferralService.ts",
+      "src/api/services/ReferralAnalyticsService.ts",
+    ],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
     files: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/__tests__/**/*.ts"],
     rules: {
       "no-restricted-syntax": "off",

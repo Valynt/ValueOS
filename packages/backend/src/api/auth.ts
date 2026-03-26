@@ -12,7 +12,7 @@
 import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
+import { createAuthProvisioningSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { Request, Response } from "express";
 
 import { getConfig } from "../config/environment.js"
@@ -31,11 +31,13 @@ import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
-let serverSupabase: ReturnType<typeof createServiceRoleSupabaseClient> | null = null;
+let serverSupabase: ReturnType<typeof createAuthProvisioningSupabaseClient> | null = null;
 
 function getServerSupabase() {
   if (!serverSupabase) {
-    serverSupabase = createServiceRoleSupabaseClient();
+    serverSupabase = createAuthProvisioningSupabaseClient({
+      justification: "service-role:justified auth API admin adapter provisioning",
+    });
   }
   return serverSupabase;
 }
