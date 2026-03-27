@@ -6,7 +6,10 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-import { getRedisClient } from '../../lib/redis.js';
+// Use the synchronous shared Redis client — this returns a live ioredis instance
+// (lazy-connected) rather than a Promise. The async version in lib/redis.ts
+// returns Promise<Redis | null> and must not be called synchronously.
+import { getRedisClient } from '../../lib/redisClient.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   billingDuplicateSubmissionPreventedTotal,

@@ -94,11 +94,20 @@ export class CacheService {
       void this.redisClient.connect().catch((err: Error) => {
         logger.warn("redis-connect-failed", { error: err.message, namespace });
       });
+    } else if (process.env.NODE_ENV === "production") {
+      // In production, Redis is a required dependency. Falling back to an
+      // in-memory Map is unsafe for multi-pod deployments — cache state would
+      // be pod-local and inconsistent. Fail fast so the issue is caught at
+      // startup rather than silently serving stale or incorrect data.
+      throw new Error(
+        "CacheService: REDIS_URL must be set in production. " +
+        "In-memory fallback is not safe for multi-pod deployments."
+      );
     } else {
       logger.warn("cache-service-fallback-mode", {
         message:
           "REDIS_URL is not set. CacheService is running in in-memory fallback mode. " +
-          "This is not suitable for multi-pod production deployments.",
+          "This is acceptable for local development but not for production.",
         namespace,
       });
     }

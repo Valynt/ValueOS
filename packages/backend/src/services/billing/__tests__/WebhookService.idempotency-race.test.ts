@@ -21,20 +21,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const _insertedIds = new Set<string>();
 const _handlerCallCount: Record<string, number> = {};
 
+vi.mock("../WebhookPayloadStore.js", () => ({
+  storeWebhookPayload: vi.fn().mockResolvedValue({ mode: "inline", rawPayload: {}, payloadRef: null }),
+}));
+
 vi.mock("../../../lib/supabase.js", () => ({
   supabase: {
     from: vi.fn().mockImplementation((_table: string) => ({
-      upsert: vi.fn().mockImplementation((data: Record<string, unknown>, opts: Record<string, unknown>) => {
+      upsert: vi.fn().mockImplementation((data: Record<string, unknown>, _opts: Record<string, unknown>) => {
         const eventId = data?.stripe_event_id as string;
         // ignoreDuplicates: true → INSERT ... ON CONFLICT DO NOTHING
-        // First caller wins; subsequent callers get null back.
+        // First caller wins; subsequent callers get null back (PGRST116).
         const isNew = !_insertedIds.has(eventId);
         if (isNew) _insertedIds.add(eventId);
         return {
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
-              data: isNew ? { id: "row-1", processed: false } : null,
-              error: null,
+              // null data + PGRST116 code simulates ON CONFLICT DO NOTHING
+              data: isNew ? { id: "row-1", processed: false, status: "pending" } : null,
+              error: isNew ? null : { code: "PGRST116", message: "no rows" },
             }),
           }),
         };
@@ -46,7 +51,11 @@ vi.mock("../../../lib/supabase.js", () => ({
       }),
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({
+            // Existing row returned on duplicate fetch
+            data: { id: "row-1", processed: false, status: "pending" },
+            error: null,
+          }),
         }),
       }),
     })),
@@ -63,11 +72,22 @@ vi.mock("../../../lib/logger.js", () => ({
   })),
 }));
 
-vi.mock("../../../metrics/billingMetrics", () => ({
-  recordStripeWebhook: vi.fn(),
-  recordInvoiceEvent: vi.fn(),
-  recordBillingJobFailure: vi.fn(),
-}));
+vi.mock("../../../metrics/billingMetrics", () => {
+  const mc = () => ({ labels: vi.fn().mockReturnValue({ inc: vi.fn() }), inc: vi.fn() });
+  const mg = () => ({ labels: vi.fn().mockReturnValue({ set: vi.fn(), inc: vi.fn(), dec: vi.fn() }), set: vi.fn(), inc: vi.fn(), dec: vi.fn() });
+  return {
+    recordStripeWebhook: vi.fn(),
+    recordInvoiceEvent: vi.fn(),
+    recordBillingJobFailure: vi.fn(),
+    webhooksReceivedTotal: mc(),
+    webhooksProcessedTotal: mc(),
+    webhookProcessingFailuresTotal: mc(),
+    webhookDlqSize: mg(),
+    webhookReconciliationRunsTotal: mc(),
+    webhookReconciliationFailuresTotal: mc(),
+    webhookReconciliationDriftCount: mg(),
+  };
+});
 
 vi.mock("../../../config/billing.js", () => ({
   GRACE_PERIOD_MS: 86400000,
@@ -186,5 +206,33 @@ describe("WebhookService.processEvent — single atomic idempotency (AC-4, AC-5)
     expect(r1).toBe(false);
     expect(r2).toBe(false);
     expect(r3).toBe(true);
+  });
+
+  it("duplicate detection emits 'duplicate' metric, not 'processed'", async () => {
+    const { recordStripeWebhook } = await import("../../../metrics/billingMetrics");
+    const { WebhookService } = await import("../WebhookService.js");
+    const service = new WebhookService();
+    const event = makeEvent("evt_metric_001");
+
+    await service.processEvent(event);          // first — new
+    await service.processEvent(event);          // second — duplicate
+
+    const calls = (recordStripeWebhook as ReturnType<typeof vi.fn>).mock.calls;
+    const duplicateCalls = calls.filter(([, status]) => status === "duplicate");
+    expect(duplicateCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("no event is silently dropped: duplicate returns structured result, not undefined", async () => {
+    const { WebhookService } = await import("../WebhookService.js");
+    const service = new WebhookService();
+    const event = makeEvent("evt_no_drop_001");
+
+    await service.processEvent(event);
+    const result = await service.processWebhook(event); // duplicate via processWebhook
+
+    // Must return a structured result — not throw, not return undefined
+    expect(result).toBeDefined();
+    expect(result.isDuplicate).toBe(true);
+    expect(result.processed).toBe(true);
   });
 });

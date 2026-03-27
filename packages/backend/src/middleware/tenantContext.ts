@@ -215,11 +215,21 @@ export const tenantContextMiddleware = (enforce = true) => {
     // Note: route-param (tenantSource='request') is intentionally removed.
     // Route parameters are user-controlled and must not be trusted for tenant
     // identity resolution.
+    //
+    // Source 4 should be rare in production — it fires only when an authenticated
+    // user has no tenant_id / organization_id claim in their JWT. This typically
+    // indicates a misconfigured client or a legacy token. Log a warning so
+    // operators can detect and remediate.
     if (!resolvedTenantId && userId) {
       const userTenantId = await getUserTenantId(userId);
       if (userTenantId) {
         resolvedTenantId = userTenantId;
         tenantSource = "user-lookup";
+        logger.warn("Tenant resolved via DB lookup (source 4) — JWT missing tenant claim", {
+          userId,
+          resolvedTenantId,
+          path: req.path,
+        });
       }
     }
 
