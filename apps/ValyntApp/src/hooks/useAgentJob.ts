@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
+
 /**
  * useAgentJob
  *
@@ -9,6 +11,9 @@ import { apiClient } from "@/api/client/unified-api-client";
  *
  * When the invoke endpoint returns a direct-mode result (mode: "direct"),
  * the caller can pass a pre-resolved `directResult` to skip polling entirely.
+ *
+ * The query key is tenant-scoped to prevent cross-tenant cache bleed during
+ * session switching. The query is disabled when tenantId is unavailable.
  */
 
 
@@ -50,19 +55,29 @@ const TERMINAL_STATUSES: AgentJobStatus[] = ["completed", "failed", "error", "un
  * @param jobId - Job ID to poll. Null = no active run.
  * @param directResult - Pre-resolved result from a direct-mode invoke. When
  *   provided, polling is skipped and this value is returned immediately.
+ *
+ * @requires TenantProvider — this hook calls `useTenant()` internally and must
+ *   be rendered within a `TenantProvider` context. Rendering outside one will
+ *   throw: "useTenant must be used within a TenantProvider".
  */
 export function useAgentJob(
   jobId: string | null,
   directResult?: AgentJobResult | null,
 ) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? null;
+
   return useQuery<AgentJobResult>({
-    queryKey: ["agent-job", jobId, directResult?.mode],
+    // tenantId is included to prevent cross-tenant cache bleed when the user
+    // switches organizations mid-session. Without it, Tenant B could read
+    // Tenant A's in-flight job result from the React Query cache.
+    queryKey: ["agent-job", tenantId, jobId, directResult?.mode],
     queryFn: () => {
       // Direct mode: result already available, no network call needed
       if (directResult) return Promise.resolve(directResult);
       return fetchJobStatus(jobId!);
     },
-    enabled: !!jobId,
+    enabled: !!jobId && !!tenantId,
     // No polling for direct results or terminal states
     refetchInterval: (query) => {
       if (directResult) return false;
