@@ -1328,8 +1328,9 @@ jobs:
             status="${lane#*:}"
             lane_name="${lane%%:*}"
             # These gates must not be skipped — skipped means the check did not run.
-            # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ]; then
+            # e2e-critical is included here: it contains security-multi-tenancy.spec.ts
+            # and real-backend-critical-flows.spec.ts. A skipped run is a missing gate.
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ] || [ "$lane_name" = "e2e-critical" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
                 echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1

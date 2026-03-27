@@ -347,7 +347,10 @@ BEGIN
         'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
         p1_name, tbl, m1_start, m1_end
       );
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p1_name);
+      -- PostgreSQL partition children do NOT inherit RLS from the parent table.
+      -- Enable RLS and recreate the parent's policies on each new partition so
+      -- tenant isolation is enforced on direct child-table queries.
+      PERFORM public._apply_partition_rls(p1_name, tbl);
     END IF;
 
     -- Create partition 2 if it doesn't exist
@@ -360,16 +363,123 @@ BEGIN
         'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
         p2_name, tbl, m2_start, m2_end
       );
-      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p2_name);
+      PERFORM public._apply_partition_rls(p2_name, tbl);
     END IF;
   END LOOP;
 END;
 $$;
 
+-- ---------------------------------------------------------------------------
+-- Helper: apply the correct RLS policies to a newly created partition child.
+-- Called by create_next_monthly_partitions() after each CREATE TABLE.
+-- Policies mirror those on the parent tables defined above in this migration.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._apply_partition_rls(
+  p_name text,   -- child partition table name
+  p_parent text  -- parent table name (used to select the right policy set)
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  -- Enable RLS on the child partition
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p_name);
+
+  -- Drop existing policies before (re)creating them so this function is
+  -- idempotent: safe to call on migration re-runs or manual invocations.
+  IF p_parent = 'usage_ledger' THEN
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_tenant_isolation', p_name);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR ALL TO authenticated '
+      'USING (tenant_id = (auth.jwt() ->> ''tenant_id'')::uuid) '
+      'WITH CHECK (tenant_id = (auth.jwt() ->> ''tenant_id'')::uuid)',
+      p_name || '_tenant_isolation', p_name
+    );
+
+  ELSIF p_parent = 'rated_ledger' THEN
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_tenant_select', p_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_service_role', p_name);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT '
+      'USING (security.user_has_tenant_access(tenant_id::text))',
+      p_name || '_tenant_select', p_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR ALL TO service_role '
+      'USING (true) WITH CHECK (true)',
+      p_name || '_service_role', p_name
+    );
+
+  ELSIF p_parent = 'saga_transitions' THEN
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_select', p_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_insert', p_name);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT '
+      'USING (security.user_has_tenant_access(organization_id::text))',
+      p_name || '_select', p_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR INSERT '
+      'WITH CHECK (security.user_has_tenant_access(organization_id::text))',
+      p_name || '_insert', p_name
+    );
+
+  ELSIF p_parent = 'value_loop_events' THEN
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_tenant_select', p_name);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p_name || '_tenant_insert', p_name);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT '
+      'USING (security.user_has_tenant_access(organization_id::text))',
+      p_name || '_tenant_select', p_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR INSERT '
+      'WITH CHECK (security.user_has_tenant_access(organization_id::text))',
+      p_name || '_tenant_insert', p_name
+    );
+  END IF;
+END;
+$$;
+
 GRANT EXECUTE ON FUNCTION public.create_next_monthly_partitions() TO service_role;
+GRANT EXECUTE ON FUNCTION public._apply_partition_rls(text, text) TO service_role;
 
 COMMENT ON FUNCTION public.create_next_monthly_partitions() IS
   'Creates the next two monthly partitions for all four high-volume partitioned tables. '
   'Call monthly via pg_cron: SELECT cron.schedule(''0 0 1 * *'', $$SELECT public.create_next_monthly_partitions()$$);';
+
+COMMENT ON FUNCTION public._apply_partition_rls(text, text) IS
+  'Applies RLS policies to a newly created partition child table. '
+  'PostgreSQL does not inherit RLS from parent partitioned tables, so this '
+  'function must be called after every CREATE TABLE ... PARTITION OF.';
+
+-- Apply RLS to the static initial partitions created above.
+-- These were created before _apply_partition_rls existed, so we call it
+-- explicitly here to backfill the missing policies.
+DO $$
+DECLARE
+  partitions text[][] := ARRAY[
+    ARRAY['usage_ledger_p_default',       'usage_ledger'],
+    ARRAY['usage_ledger_p_2026_04',       'usage_ledger'],
+    ARRAY['usage_ledger_p_2026_05',       'usage_ledger'],
+    ARRAY['rated_ledger_p_default',       'rated_ledger'],
+    ARRAY['rated_ledger_p_2026_04',       'rated_ledger'],
+    ARRAY['rated_ledger_p_2026_05',       'rated_ledger'],
+    ARRAY['saga_transitions_p_default',   'saga_transitions'],
+    ARRAY['saga_transitions_p_2026_04',   'saga_transitions'],
+    ARRAY['saga_transitions_p_2026_05',   'saga_transitions'],
+    ARRAY['value_loop_events_p_default',  'value_loop_events'],
+    ARRAY['value_loop_events_p_2026_04',  'value_loop_events'],
+    ARRAY['value_loop_events_p_2026_05',  'value_loop_events']
+  ];
+  pair text[];
+BEGIN
+  FOREACH pair SLICE 1 IN ARRAY partitions LOOP
+    PERFORM public._apply_partition_rls(pair[1], pair[2]);
+  END LOOP;
+END;
+$$;
 
 COMMIT;

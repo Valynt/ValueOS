@@ -73,3 +73,18 @@ export function initAlertingRulesWorker(): Worker {
 
   return _worker;
 }
+
+export async function closeAlertingRulesWorker(): Promise<void> {
+  if (_worker) {
+    await _worker.close();
+    _worker = null;
+  }
+  if (_queue) {
+    await _queue.close();
+    _queue = null;
+  }
+  if (_redis) {
+    await _redis.quit();
+    _redis = null;
+  }
+}

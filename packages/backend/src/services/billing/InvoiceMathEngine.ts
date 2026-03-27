@@ -9,6 +9,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 
 import { BillingMetric } from '../../config/billing.js';
 import { createLogger } from '../../lib/logger.js';
+import { CreditsLedgerService } from './CreditsLedgerService.js';
 
 const logger = createLogger({ component: 'InvoiceMathEngine' });
 
@@ -71,6 +72,7 @@ export interface InvoiceCalculationInput {
 
 export class InvoiceMathEngine {
   private supabase: SupabaseClient;
+  private creditsLedger: CreditsLedgerService;
 
   // Singleton for static-style access used by tests.
   private static _instance: InvoiceMathEngine | null = null;
@@ -104,6 +106,7 @@ export class InvoiceMathEngine {
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
+    this.creditsLedger = new CreditsLedgerService(supabase);
   }
 
   // For testing: allow setting a custom instance with mocked dependencies
@@ -138,16 +141,17 @@ export class InvoiceMathEngine {
     // Calculate totals
     const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
-    // Fetch tenant settings once and derive both credits and tax from it
+    // Apply credits from the ledger (idempotent debit — safe to call on every calculation)
+    const { appliedDollars: appliedCredits } = await this.creditsLedger.applyCreditsToInvoice({
+      tenantId: tenant_id,
+      subscriptionId: subscription_id,
+      periodStart: period_start,
+      periodEnd: period_end,
+      invoiceSubtotalDollars: subtotal,
+    });
+
+    // Fetch tenant settings for tax derivation only
     const tenantSettings = await this.fetchTenantSettings(tenant_id);
-    const appliedCredits = await this.calculateAppliedCredits(
-      tenant_id,
-      subscription_id,
-      period_start,
-      period_end,
-      subtotal,
-      tenantSettings
-    );
     const taxAmount = this.calculateTaxAmount(subtotal - appliedCredits, tenant_id, tenantSettings);
 
     const totalAmount = subtotal - appliedCredits + taxAmount;
@@ -320,8 +324,7 @@ export class InvoiceMathEngine {
   }
 
   /**
-   * Fetch tenant settings from organizations once per invoice calculation.
-   * Both credit and tax derivation read from this result to avoid duplicate queries.
+   * Fetch tenant settings from organizations for tax derivation.
    * Returns null on any error — callers treat null as "no settings".
    */
   private async fetchTenantSettings(tenantId: string): Promise<Record<string, unknown> | null> {
@@ -337,87 +340,6 @@ export class InvoiceMathEngine {
     } catch {
       return null;
     }
-  }
-
-  /**
-   * Derive credits from pre-fetched tenant settings.
-   *
-   * Reads `billing_credits` (cents) from `organizations.settings` JSONB.
-   * Returns the credit amount in dollars. Returns 0 when absent or invalid.
-   *
-   * Note: this reads a static balance — a dedicated credits ledger table
-   * should be introduced before production use to prevent double-application.
-   */
-  private async calculateAppliedCredits(
-    tenantId: string,
-    subscriptionId: string,
-    periodStart: string,
-    periodEnd: string,
-    subtotal: number,
-    settings: Record<string, unknown> | null
-  ): Promise<number> {
-    const creditsCents = settings?.['billing_credits'];
-    const seedCreditAmount = typeof creditsCents === 'number' && creditsCents > 0
-      ? Math.round(creditsCents) / 100
-      : 0;
-    const legacyCreditId = 'legacy-billing-credits';
-
-    if (seedCreditAmount > 0) {
-      await this.supabase.from('billing_credits_ledger').upsert(
-        {
-          tenant_id: tenantId,
-          credit_id: legacyCreditId,
-          amount: seedCreditAmount,
-          type: 'credit',
-          invoice_id: null,
-          idempotency_key: `${tenantId}:seed:${legacyCreditId}`,
-        },
-        { onConflict: 'idempotency_key', ignoreDuplicates: true }
-      );
-    }
-
-    const { data, error } = await this.supabase
-      .from('billing_credits_ledger')
-      .select('credit_id,type,amount')
-      .eq('tenant_id', tenantId);
-
-    if (error) {
-      logger.error('Unable to read billing_credits_ledger; defaulting applied credits to 0', error);
-      return 0;
-    }
-
-    const availableByCredit = new Map<string, number>();
-    for (const row of data ?? []) {
-      const signedAmount = row.type === 'debit' ? -Math.abs(Number(row.amount)) : Math.abs(Number(row.amount));
-      availableByCredit.set(row.credit_id, (availableByCredit.get(row.credit_id) ?? 0) + signedAmount);
-    }
-
-    let remaining = Math.max(0, subtotal);
-    let applied = 0;
-    const invoiceId = `invoice:${tenantId}:${subscriptionId}:${periodStart}:${periodEnd}`;
-    for (const [creditId, available] of availableByCredit.entries()) {
-      if (remaining <= 0 || available <= 0) {
-        continue;
-      }
-
-      const debitAmount = Math.min(remaining, available);
-      const idempotencyKey = `${tenantId}:${periodStart}:${periodEnd}:${creditId}`;
-      await this.supabase.from('billing_credits_ledger').upsert(
-        {
-          tenant_id: tenantId,
-          credit_id: creditId,
-          amount: debitAmount,
-          type: 'debit',
-          invoice_id: invoiceId,
-          idempotency_key: idempotencyKey,
-        },
-        { onConflict: 'idempotency_key', ignoreDuplicates: true }
-      );
-      applied += debitAmount;
-      remaining -= debitAmount;
-    }
-
-    return applied;
   }
 
   /**

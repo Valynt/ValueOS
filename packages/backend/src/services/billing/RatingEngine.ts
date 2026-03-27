@@ -5,7 +5,7 @@
  * Core properties: deterministic, reproducible, append-only ledger.
  */
 
-import crypto from "node:crypto";
+import { createHash } from "node:crypto";
 
 import type { MeterKey } from "@shared/types/billing-events";
 import { type SupabaseClient } from "@supabase/supabase-js";
@@ -191,11 +191,22 @@ class RatingEngine {
   }
 
   /**
-   * Convert hash to UUID format for database compatibility.
+   * Convert a SHA-256 digest to UUID v4 format for database compatibility.
+   *
+   * Uses the first 128 bits of a SHA-256 hash (2^128 space) rather than the
+   * previous 32-bit djb2 hash, eliminating birthday-paradox collision risk at
+   * realistic rated_ledger cardinalities.
    */
   private hashToUuid(input: string): string {
-    const hex = crypto.createHash('sha256').update(input).digest('hex').slice(0, 32);
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+    const hex = createHash("sha256").update(input).digest("hex");
+    // Format as UUID: 8-4-4-4-12 (first 32 hex chars = 128 bits)
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      hex.slice(12, 16),
+      hex.slice(16, 20),
+      hex.slice(20, 32),
+    ].join("-");
   }
 
   /**

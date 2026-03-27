@@ -47,6 +47,7 @@ import {
 } from './WorkflowWatchdogWorker.js';
 import {
   ALERTING_QUEUE_NAME,
+  closeAlertingRulesWorker,
   getAlertingQueue,
   initAlertingRulesWorker,
   scheduleAlertingEvaluationJob,
@@ -209,6 +210,11 @@ healthServer.listen(HEALTH_PORT, () => {
 const shutdown = (signal: string) => {
   logger.info(`Worker received ${signal}, shutting down`);
   healthy = false;
+  void closeAlertingRulesWorker().catch((err) => {
+    logger.warn('Error closing alerting rules worker', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
   healthServer.close(() => {
     process.exit(0);
   });

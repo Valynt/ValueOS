@@ -86,7 +86,7 @@ class SubscriptionService {
       // Derive a stable idempotency key for this creation attempt.
       // If the caller supplies one, use it; otherwise generate from tenantId +
       // planTier + a random nonce so concurrent calls don't collide.
-      const creationKey = idempotencyKey
+      const creationKey = createRequestId
         ?? `${tenantId}:${planTier}:${crypto.randomUUID()}`;
 
       // ── Step 1: Write intent log BEFORE touching Stripe ──────────────────
@@ -187,7 +187,11 @@ class SubscriptionService {
       }
 
       // ── Step 3: Advance intent to stripe_created ──────────────────────────
-      await supabase
+      // If this write fails, the intent stays in `pending`. The reconciler
+      // treats pending + a live Stripe subscription as needs_reconciliation,
+      // so the subscription will be cancelled on the next reconciler run.
+      // Throw so the caller surfaces the error rather than silently continuing.
+      const { error: stripeCreatedError } = await supabase
         .from("pending_subscription_creations")
         .update({
           status: "stripe_created",
@@ -195,6 +199,15 @@ class SubscriptionService {
           stripe_created_at: new Date().toISOString(),
         })
         .eq("id", intentId);
+
+      if (stripeCreatedError) {
+        logger.error(
+          "Failed to advance intent to stripe_created — Stripe subscription exists but intent is in pending state",
+          stripeCreatedError,
+          { tenantId, stripeSubscriptionId: stripeSubscription.id, intentId },
+        );
+        throw stripeCreatedError;
+      }
 
       // ── Step 4: Insert DB subscription row ───────────────────────────────
       let subscription: Subscription;
@@ -234,16 +247,6 @@ class SubscriptionService {
           throw error;
         }
         subscription = data;
-        if (pendingCreation?.id) {
-          await supabase
-            .from("pending_subscription_creations")
-            .update({
-              status: "completed",
-              stripe_subscription_id: stripeSubscription.id,
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", pendingCreation.id);
-        }
       } catch (dbError) {
         // DB insert failed after Stripe subscription was created.
         // Attempt best-effort rollback; if that also fails, leave the intent
@@ -277,11 +280,7 @@ class SubscriptionService {
           logger.error(
             "Stripe rollback failed — subscription creation split-brain; marked needs_reconciliation",
             rollbackError as Error,
-            {
-              tenantId,
-              stripeSubscriptionId: stripeSubscription.id,
-              intentId,
-            }
+            { tenantId, stripeSubscriptionId: stripeSubscription.id, intentId }
           );
           await supabase
             .from("pending_subscription_creations")
@@ -309,10 +308,8 @@ class SubscriptionService {
         })
         .eq("id", intentId);
 
-      // Store subscription items
+      // Store subscription items and initialize usage quotas
       await this.storeSubscriptionItems(subscription.id, stripeSubscription.items.data, planTier);
-
-      // Initialize usage quotas
       await this.initializeUsageQuotas(tenantId, subscription.id, planTier);
 
       logger.info("Subscription created", {
