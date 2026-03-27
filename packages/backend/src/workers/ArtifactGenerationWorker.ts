@@ -26,6 +26,7 @@ import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { ArtifactJobRepository } from '../services/artifacts/ArtifactJobRepository.js';
+import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import { ArtifactRepository } from '../services/artifacts/ArtifactRepository.js';
 import type { LifecycleContext } from '../types/agent.js';
 
@@ -158,6 +159,10 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
   const { jobId, tenantId, organizationId, caseId, artifactType, format, requestedBy, traceId } =
     job.data;
 
+  if (!tenantId) {
+    throw new Error('ArtifactGenerationWorker: job payload missing tenantId');
+  }
+
   logger.info('ArtifactGenerationWorker: starting job', {
     jobId,
     caseId,
@@ -283,9 +288,16 @@ export function createArtifactGenerationWorker(): Worker<ArtifactGenerationJobPa
 
   const worker = new Worker<ArtifactGenerationJobPayload>(
     QUEUE_NAME,
-    async (job) => {
-      await processJob(job);
-    },
+    async (job) => runJobWithTenantContext(
+      {
+        workerName: 'ArtifactGenerationWorker',
+        tenantId: job.data.tenantId,
+        organizationId: job.data.organizationId,
+      },
+      async () => {
+        await processJob(job);
+      },
+    ),
     {
       connection: { url: redisUrl },
       concurrency: 3,

@@ -21,6 +21,7 @@ import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { CertificateJobRepository } from '../services/certificates/CertificateJobRepository.js';
+import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import type { LifecycleContext } from '../types/agent.js';
 
 // ---------------------------------------------------------------------------
@@ -141,6 +142,10 @@ async function processCertificateJob(job: Job<CertificateGenerationJobPayload>):
   };
 }> {
   const { jobId, tenantId, organizationId, userId, certificationId, format, traceId } = job.data;
+
+  if (!tenantId) {
+    throw new Error('CertificateGenerationWorker: job payload missing tenantId');
+  }
 
   logger.info("[CertificateWorker] Processing certificate generation", {
     jobId,
@@ -287,9 +292,14 @@ export function getCertificateGenerationWorker(): Worker<CertificateGenerationJo
 
     _worker = new Worker<CertificateGenerationJobPayload>(
       QUEUE_NAME,
-      async (job: Job<CertificateGenerationJobPayload>) => {
-        return await processCertificateJob(job);
-      },
+      async (job: Job<CertificateGenerationJobPayload>) => runJobWithTenantContext(
+        {
+          workerName: 'CertificateGenerationWorker',
+          tenantId: job.data.tenantId,
+          organizationId: job.data.organizationId,
+        },
+        async () => processCertificateJob(job),
+      ),
       {
         connection: { url: redisUrl },
         concurrency: config.queue.concurrency || 5,

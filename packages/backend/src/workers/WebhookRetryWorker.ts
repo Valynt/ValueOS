@@ -24,6 +24,7 @@ import { createLogger } from '../lib/logger.js';
 import { billingWebhookExhaustedTotal, webhookDlqSize } from '../metrics/billingMetrics.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { WebhookRetryService } from '../services/billing/WebhookRetryService.js';
+import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 
 const logger = createLogger({ component: 'webhook-retry-worker' });
 
@@ -224,7 +225,13 @@ export function initWebhookRetryWorker(): Worker<WebhookRetryJobPayload> {
 
   _worker = new Worker<WebhookRetryJobPayload>(
     WEBHOOK_RETRY_QUEUE_NAME,
-    (job) => processWebhookRetryJob(job, supabase),
+    (job) => runJobWithTenantContext(
+      {
+        workerName: 'WebhookRetryWorker',
+        tenantId: job.data.tenantId,
+      },
+      async () => processWebhookRetryJob(job, supabase),
+    ),
     {
       connection: getRedis(),
       concurrency: 5,
