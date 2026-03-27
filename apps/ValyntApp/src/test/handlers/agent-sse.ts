@@ -117,7 +117,6 @@ export function makeSseStreamHandler(scenario: SseScenarioController) {
     });
 
     // Re-read the scenario after incrementing
-    const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
