@@ -286,7 +286,7 @@ export function ModernLoginPage() {
                 fill="#EA4335"
               />
             </svg>
-            {oauthLoading ? "Connecting..." : "Google"}
+            {oauthLoading ? "Connecting..." : "Continue with Google"}
           </button>
         </div>
 
