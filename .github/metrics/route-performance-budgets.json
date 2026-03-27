@@ -1,0 +1,19 @@
+{
+  "routes": {
+    "ModernLoginPage": { "maxRawKb": 12, "maxGzipKb": 4 },
+    "ModernSignupPage": { "maxRawKb": 12, "maxGzipKb": 4 },
+    "ResetPasswordPage": { "maxRawKb": 5, "maxGzipKb": 2 },
+    "CompanyOnboarding": { "maxRawKb": 60, "maxGzipKb": 12 },
+    "MainLayout": { "maxRawKb": 28, "maxGzipKb": 9 },
+    "Dashboard": { "maxRawKb": 10, "maxGzipKb": 3 },
+    "Opportunities": { "maxRawKb": 20, "maxGzipKb": 6 },
+    "OpportunityDetail": { "maxRawKb": 18, "maxGzipKb": 6 },
+    "ValueCaseCanvas": { "maxRawKb": 90, "maxGzipKb": 18 },
+    "ValueCaseWorkspace": { "maxRawKb": 30, "maxGzipKb": 8 }
+  },
+  "sharedVendor": {
+    "chunkName": "vendor",
+    "baselineRawKb": 821.94,
+    "maxGrowthPercent": 5
+  }
+}

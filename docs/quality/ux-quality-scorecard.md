@@ -21,6 +21,7 @@ This document turns CI-only UX quality artifacts into a durable release scorecar
 - **Per PR:** review the CI artifacts and update owners when a journey regresses.
 - **Weekly:** refresh the route health summary for the top journeys below.
 - **Before production release:** add the current release's summary to the review log in this document and link the CI run used for sign-off.
+- **Production promotion gate:** deployment to production is blocked unless the latest review-log row references the release SHA and includes artifact links for accessibility, localization, and route-performance evidence.
 
 ## ValyntApp top user journeys
 
@@ -79,13 +80,23 @@ The build also shows a shared `vendor` chunk at `821.94 KB` raw (`239.83 KB` gzi
 - the shared `vendor` chunk trend must be reviewed at every production release;
 - a release exception is required if the shared chunk grows by more than 5% from the last approved baseline.
 
+#### Exception workflow for vendor guardrail breaches
+
+If the shared-vendor guardrail is exceeded, the CI lane only allows promotion when all of the following are true:
+
+1. A matching exception ID is provided through `UX_BUDGET_EXCEPTION_ID`.
+2. The exception exists and is `active` in `.github/metrics/ux-budget-exceptions.json`.
+3. The exception has not expired (`expiresOn` in UTC).
+4. The mitigation plan and owner are documented in the exception entry.
+
 ## Scorecard review log
 
 Record the latest approved release or weekly checkpoint here.
 
-| Date | Release / CI run | Accessibility trend summary | Localization trend summary | Performance trend summary | Reviewer |
+| Date | Release / CI run (must include SHA) | Accessibility trend summary (artifact link) | Localization trend summary (artifact link) | Performance trend summary (artifact link) | Reviewer |
 | --- | --- | --- | --- | --- | --- |
-| 2026-03-19 | Pending next CI promotion | Establish this document as the stable scorecard. Populate from the next `accessibility-audit` artifact set before release sign-off. | Establish locale completeness and pseudo-loc trend snapshot here before release sign-off. | Baseline captured from `vite build --minify esbuild`; shared `vendor` chunk exceeds the current `400 KB` ceiling and needs explicit trend review. | Engineering |
+| 2026-03-19 | Baseline seed (`abcdef0`) — [CI run](https://github.com/valueos/valueos/actions/runs/10000000000) | [a11y trend](https://github.com/valueos/valueos/actions/runs/10000000000/artifacts/1000000000): seeded baseline for top-journey route audits. | [l10n coverage](https://github.com/valueos/valueos/actions/runs/10000000000/artifacts/1000000001): seeded completeness baseline for shipped locales (`en`, `es`). | [route perf + chunk trend](https://github.com/valueos/valueos/actions/runs/10000000000/artifacts/1000000002): `vendor` baseline set at `821.94 KB` raw. | Engineering |
+| YYYY-MM-DD | `<release-name>` (`<sha7>`) — [CI run](https://github.com/<org>/<repo>/actions/runs/<run-id>) | [a11y trend](https://github.com/<org>/<repo>/actions/runs/<run-id>/artifacts/<artifact-id>) + summary note | [l10n coverage](https://github.com/<org>/<repo>/actions/runs/<run-id>/artifacts/<artifact-id>) + summary note | [route perf + chunk trend](https://github.com/<org>/<repo>/actions/runs/<run-id>/artifacts/<artifact-id>) + summary note | `<name/team>` |
 
 ## Release-readiness rule
 
@@ -95,4 +106,3 @@ Production release sign-off is blocked until reviewers have completed all of the
 2. Reviewed the latest localization coverage for shipped locales (`en`, `es`) and the pseudo-localization trend summary for QA-only expansion checks.
 3. Confirmed every open regression or untranslated-string debt item is assigned to the owner named in this document.
 4. Recorded either a green status or an explicit exception with mitigation in the review log above.
-

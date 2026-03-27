@@ -512,6 +512,15 @@ jobs:
             --json-out artifacts/bundle/metrics.json \
             --history-out artifacts/bundle/history-comparison.json
           cat artifacts/bundle/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Enforce route chunk budgets + vendor trend guardrail
+        env:
+          UX_BUDGET_EXCEPTION_ID: ${{ vars.UX_BUDGET_EXCEPTION_ID }}
+        run: |
+          node scripts/ci/check-route-chunk-budgets.mjs \
+            --log artifacts/bundle/vite-build.log \
+            --budget .github/metrics/route-performance-budgets.json \
+            --exceptions .github/metrics/ux-budget-exceptions.json \
+            --out artifacts/bundle/route-chunk-budget-report.json
       - name: Run WCAG 2.2 AA accessibility tests
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
@@ -544,6 +553,41 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+      - name: Promote top-journey accessibility + localization thresholds
+        if: always()
+        run: |
+          node scripts/ci/check-top-journey-ux-gates.mjs \
+            --config .github/metrics/top-journey-quality-gates.json \
+            --playwright artifacts/accessibility/playwright-report.json \
+            --i18n artifacts/i18n/coverage-dashboard.json \
+            --out artifacts/frontend-quality/top-journey-gates.json
+      - name: Run route load performance checks
+        if: always()
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/performance/perf-report.json
+        run: |
+          mkdir -p artifacts/performance
+          npx playwright test tests/performance/route-load-budgets.spec.ts \
+            --reporter=json \
+            --output=artifacts/performance
+      - name: Enforce route load budgets
+        if: always()
+        run: |
+          node scripts/ci/check-ux-performance-budgets.mjs \
+            --budget .github/metrics/ux-performance-budgets.json \
+            --route-metrics artifacts/performance/route-load-metrics.json \
+            --output artifacts/performance/ux-performance-metrics.json
+      - name: Generate UX regression dashboard
+        if: always()
+        run: |
+          node scripts/ci/generate-ux-regression-dashboard.mjs \
+            --baseline .github/metrics/ux-release-baseline.json \
+            --a11y artifacts/accessibility/a11y-metrics.json \
+            --i18n artifacts/i18n/coverage-dashboard.json \
+            --perf artifacts/performance/route-load-metrics.json \
+            --chunk artifacts/bundle/route-chunk-budget-report.json \
+            --md-out artifacts/frontend-quality/regression-dashboard.md \
+            --json-out artifacts/frontend-quality/regression-dashboard.json
       - name: Build frontend quality dashboard artifacts
         if: always()
         run: |
@@ -560,6 +604,7 @@ jobs:
             artifacts/accessibility/
             artifacts/i18n/
             artifacts/frontend-quality/
+            artifacts/performance/
             artifacts/bundle/
           if-no-files-found: warn
           retention-days: 30
