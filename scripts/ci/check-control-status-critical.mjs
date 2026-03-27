@@ -59,6 +59,19 @@ const controls = Array.isArray(payload.controls) ? payload.controls : [];
 
 const failures = [];
 
+function hasEvidenceLink(control) {
+  if (typeof control.evidenceLocation !== "string") {
+    return false;
+  }
+
+  const value = control.evidenceLocation.trim();
+  if (!value) {
+    return false;
+  }
+
+  return /^(https?:\/\/|[^\s]+\.[a-z0-9]+|[^\s]+\/[^\s]+)$/i.test(value);
+}
+
 for (const control of controls) {
   if (!isRelevant(control)) {
     continue;
@@ -71,6 +84,11 @@ for (const control of controls) {
   const owner = typeof control.owner === "string" ? control.owner.trim() : "";
   if (!owner) {
     failures.push(`UNOWNED ${control.id}: ${control.control}`);
+    continue;
+  }
+
+  if (!hasEvidenceLink(control)) {
+    failures.push(`MISSING_EVIDENCE_LINK ${control.id}: ${control.control}`);
     continue;
   }
 
@@ -94,5 +112,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Control status gate passed for ${controls.length} records (${TODAY_UTC}). No stale/unowned critical SOC2/HIPAA controls found.`,
+  `Control status gate passed for ${controls.length} records (${TODAY_UTC}). No stale/unowned critical SOC2/HIPAA controls and all critical controls include evidence links.`,
 );

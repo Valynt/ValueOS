@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedFrom": "docs/security-compliance/compliance-guide.md",
-  "lastUpdated": "2026-03-26",
+  "generatedFrom": "docs/security-compliance/compliance-guide.md#remediation-records",
+  "lastUpdated": "2026-03-27",
   "controls": [
     {
       "id": "CR-001",
@@ -17,8 +17,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 113,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 114,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -35,8 +35,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 115,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 116,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -53,8 +53,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 117,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 118,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -71,8 +71,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 119,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 120,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -89,8 +89,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 121,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 122,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -107,8 +107,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 123,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 124,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -125,8 +125,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 125,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 126,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -143,8 +143,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 127,
-        "section": "HIPAA Applicability and Control Mapping"
+        "line": 128,
+        "section": "Quarterly Compliance Evidence Bundle Checklist"
       }
     },
     {
@@ -161,7 +161,7 @@
       "evidenceLocation": "packages/backend/src/middleware/rbac.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 146,
+        "line": 153,
         "section": "1. Request Context & Tenant Binding"
       }
     },
@@ -179,7 +179,7 @@
       "evidenceLocation": "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 149,
+        "line": 156,
         "section": "1. Request Context & Tenant Binding"
       }
     },
@@ -197,7 +197,7 @@
       "evidenceLocation": "packages/backend/src/middleware/apiKeyRateLimiter.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 152,
+        "line": 159,
         "section": "1. Request Context & Tenant Binding"
       }
     },
@@ -215,7 +215,7 @@
       "evidenceLocation": "packages/backend/src/repositories/WorkflowStateRepository.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 160,
+        "line": 167,
         "section": "2. Data Access Layer"
       }
     },
@@ -233,7 +233,7 @@
       "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 163,
+        "line": 170,
         "section": "2. Data Access Layer"
       }
     },
@@ -251,7 +251,7 @@
       "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 166,
+        "line": 173,
         "section": "2. Data Access Layer"
       }
     },
@@ -269,7 +269,7 @@
       "evidenceLocation": "packages/backend/src/services/TenantAwareService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 169,
+        "line": 176,
         "section": "2. Data Access Layer"
       }
     },
@@ -287,7 +287,7 @@
       "evidenceLocation": "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 175,
+        "line": 182,
         "section": "3. Agent & Orchestration Layer"
       }
     },
@@ -305,7 +305,7 @@
       "evidenceLocation": "packages/backend/src/services/memory/MemoryPipeline.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 178,
+        "line": 185,
         "section": "3. Agent & Orchestration Layer"
       }
     },
@@ -323,7 +323,7 @@
       "evidenceLocation": "packages/backend/src/services/MCPTools.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 181,
+        "line": 188,
         "section": "3. Agent & Orchestration Layer"
       }
     },
@@ -341,7 +341,7 @@
       "evidenceLocation": "packages/backend/src/services/AgentOutputListener.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 184,
+        "line": 191,
         "section": "3. Agent & Orchestration Layer"
       }
     },
@@ -359,7 +359,7 @@
       "evidenceLocation": "packages/backend/src/lib/agent-fabric/TaskContext.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 187,
+        "line": 194,
         "section": "3. Agent & Orchestration Layer"
       }
     },
@@ -377,7 +377,7 @@
       "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 199,
+        "line": 206,
         "section": "5. Search & Indexing"
       }
     },
@@ -395,7 +395,7 @@
       "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 202,
+        "line": 209,
         "section": "5. Search & Indexing"
       }
     },
@@ -413,7 +413,7 @@
       "evidenceLocation": "packages/backend/src/services/VectorSearchService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 205,
+        "line": 212,
         "section": "5. Search & Indexing"
       }
     },
@@ -431,7 +431,7 @@
       "evidenceLocation": "packages/backend/src/config/schema.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 211,
+        "line": 218,
         "section": "6. File Storage & CDN"
       }
     },
@@ -449,7 +449,7 @@
       "evidenceLocation": "packages/backend/src/config/schema.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 214,
+        "line": 221,
         "section": "6. File Storage & CDN"
       }
     },
@@ -467,7 +467,7 @@
       "evidenceLocation": "packages/backend/src/config/schema.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 217,
+        "line": 224,
         "section": "6. File Storage & CDN"
       }
     },
@@ -485,7 +485,7 @@
       "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 223,
+        "line": 230,
         "section": "7. Audit & Logging"
       }
     },
@@ -503,7 +503,7 @@
       "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 226,
+        "line": 233,
         "section": "7. Audit & Logging"
       }
     },
@@ -521,7 +521,7 @@
       "evidenceLocation": "packages/backend/src/services/security/AuditTrailService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 229,
+        "line": 236,
         "section": "7. Audit & Logging"
       }
     },
@@ -539,7 +539,7 @@
       "evidenceLocation": "packages/backend/src/middleware/auth.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 235,
+        "line": 242,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -557,7 +557,7 @@
       "evidenceLocation": "packages/backend/src/middleware/apiKeyRateLimiter.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 238,
+        "line": 245,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -575,7 +575,7 @@
       "evidenceLocation": "packages/backend/src/middleware/serviceIdentityMiddleware.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 241,
+        "line": 248,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -593,7 +593,7 @@
       "evidenceLocation": "packages/backend/src/config/secretsManager.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 244,
+        "line": 251,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -611,7 +611,7 @@
       "evidenceLocation": "packages/backend/src/services/security/APIKeyRotationService.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 247,
+        "line": 254,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -629,7 +629,7 @@
       "evidenceLocation": "packages/backend/src/config/secrets/AWSSecretProvider.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 250,
+        "line": 257,
         "section": "8. Authentication & Secrets"
       }
     },
@@ -647,7 +647,7 @@
       "evidenceLocation": "packages/backend/src/middleware/globalErrorHandler.ts",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 258,
+        "line": 265,
         "section": "9. Error Handling"
       }
     },
@@ -665,8 +665,8 @@
       "evidenceLocation": "tests/compliance/",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 272,
-        "section": "10. Testing"
+        "line": 279,
+        "section": "Tenant isolation acceptance criteria"
       }
     },
     {
@@ -683,8 +683,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 890,
-        "section": "6. Vendor Management Policy"
+        "line": 897,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -701,8 +701,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 892,
-        "section": "6. Vendor Management Policy"
+        "line": 899,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -719,8 +719,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 894,
-        "section": "6. Vendor Management Policy"
+        "line": 901,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -737,8 +737,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 896,
-        "section": "6. Vendor Management Policy"
+        "line": 903,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -755,8 +755,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 898,
-        "section": "6. Vendor Management Policy"
+        "line": 905,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -773,8 +773,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 900,
-        "section": "6. Vendor Management Policy"
+        "line": 907,
+        "section": "Vendor Onboarding Checklist"
       }
     },
     {
@@ -791,7 +791,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1254,
+        "line": 1261,
         "section": "Operational checklist"
       }
     },
@@ -809,7 +809,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1256,
+        "line": 1263,
         "section": "Operational checklist"
       }
     },
@@ -827,7 +827,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1258,
+        "line": 1265,
         "section": "Operational checklist"
       }
     },
@@ -845,7 +845,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1260,
+        "line": 1267,
         "section": "Operational checklist"
       }
     },
@@ -863,7 +863,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1262,
+        "line": 1269,
         "section": "Operational checklist"
       }
     },
@@ -881,7 +881,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1264,
+        "line": 1271,
         "section": "Operational checklist"
       }
     },
@@ -899,7 +899,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1266,
+        "line": 1273,
         "section": "Operational checklist"
       }
     },
@@ -917,7 +917,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1268,
+        "line": 1275,
         "section": "Operational checklist"
       }
     },
@@ -935,7 +935,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1270,
+        "line": 1277,
         "section": "Operational checklist"
       }
     },
@@ -953,7 +953,7 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1272,
+        "line": 1279,
         "section": "Operational checklist"
       }
     },
@@ -971,8 +971,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1561,
-        "section": "Compliance Checklist"
+        "line": 1568,
+        "section": "Ongoing"
       }
     },
     {
@@ -989,8 +989,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1563,
-        "section": "Compliance Checklist"
+        "line": 1570,
+        "section": "Ongoing"
       }
     },
     {
@@ -1007,8 +1007,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1565,
-        "section": "Compliance Checklist"
+        "line": 1572,
+        "section": "Ongoing"
       }
     },
     {
@@ -1025,8 +1025,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1567,
-        "section": "Compliance Checklist"
+        "line": 1574,
+        "section": "Ongoing"
       }
     },
     {
@@ -1043,8 +1043,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1569,
-        "section": "Compliance Checklist"
+        "line": 1576,
+        "section": "Ongoing"
       }
     },
     {
@@ -1061,8 +1061,8 @@
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
-        "line": 1571,
-        "section": "Compliance Checklist"
+        "line": 1578,
+        "section": "Ongoing"
       }
     }
   ]

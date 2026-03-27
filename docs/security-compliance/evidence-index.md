@@ -56,6 +56,23 @@ Each secret-rotation bundle contains:
 
 For the release checklist item **“Secrets rotation confirmed”**, the secret-rotation artifact above is the authoritative evidence to attach to the sign-off packet.
 
+
+## Quarterly evidence completeness (CI-required artifacts)
+
+The quarterly `Compliance Evidence Export` CI run must produce and keep these artifacts non-empty:
+
+- `evidence/security-scans/pnpm-audit.json`
+- `evidence/security-scans/pnpm-audit-status.txt`
+- `evidence/privacy/dsr-workflow.json`
+- `evidence/rls/rls-validation.json`
+- `evidence/metadata/run-metadata.json`
+- `evidence/metadata/fedramp-control-evidence-manifest.json`
+- `reports/compliance/dsr/vitest-dsr.json`
+- `reports/compliance/rls/vitest-rls.json`
+- `reports/compliance/metadata/workflow-run.json`
+
+CI gate: `scripts/ci/check-quarterly-evidence-completeness.mjs`.
+
 ## Quarterly evidence export
 
 Use:
