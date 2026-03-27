@@ -165,16 +165,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-          RELEASE_GATE_LOCAL_RESULTS_JSON: '{}'
+          RELEASE_GATE_LOCAL_RESULTS_JSON: "{}"
           RELEASE_GATE_POLL_TIMEOUT_SECONDS: "5400"
           RELEASE_GATE_POLL_INTERVAL_SECONDS: "30"
         run: |
           node scripts/ci/verify-release-gate-status.mjs
 
+  manifest-maturity-release-gate:
+    name: Manifest Maturity Release Gate
+    runs-on: ubuntu-latest
+    needs: [await-upstream-release-gates]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Block release if critical manifests lack evidence links
+        run: |
+          node scripts/ci/check-k8s-manifest-maturity.mjs             --mode=release-gate             --environment=production             --ledger-path=infra/k8s/manifest-maturity-ledger.json             --require-critical-evidence-links=true
+
   release:
     name: Version or Release
     runs-on: ubuntu-latest
-    needs: [reproducibility-compare, await-upstream-release-gates]
+    needs:
+      [
+        reproducibility-compare,
+        await-upstream-release-gates,
+        manifest-maturity-release-gate,
+      ]
     steps:
       - uses: actions/checkout@v6
         with:
