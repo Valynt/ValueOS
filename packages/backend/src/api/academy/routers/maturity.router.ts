@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 /**
  * Maturity Router
  * Handles user maturity level tracking and assessments with tenant isolation

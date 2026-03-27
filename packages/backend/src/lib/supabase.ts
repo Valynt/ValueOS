@@ -14,6 +14,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "./logger.js";
 import { createCounter } from "./observability/index.js";
 
+// Test-environment guard — imported lazily to avoid pulling test utilities into
+// production bundles. Only active when vitest is running.
+function assertNotTestEnv(caller: string): void {
+  if (
+    typeof process !== "undefined" &&
+    process.env["VITEST"] &&
+    !process.env["VALUEOS_TEST_REAL_INTEGRATION"] &&
+    !process.env["VALUEOS_TEST_ALLOW_SUPABASE"]
+  ) {
+    throw new Error(
+      `Unexpected Supabase client creation during tests (${caller}). Mock src/lib/supabase.ts or set VALUEOS_TEST_REAL_INTEGRATION=true for an explicit integration run.`,
+    );
+  }
+}
+
 export {
   createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
@@ -88,6 +103,7 @@ export const createUserSupabaseClient = (userAccessToken: string): RequestScoped
  * remains unblocked while callsites migrate to src/lib/supabase/privileged/*.
  */
 export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
+  assertNotTestEnv("createServerSupabaseClient");
   logDeprecatedCompatUsage("createServerSupabaseClient");
   return createServiceRoleSupabaseClient();
 };
@@ -98,6 +114,7 @@ export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
  * remains unblocked while callsites migrate to src/lib/supabase/privileged/*.
  */
 export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
+  assertNotTestEnv("getSupabaseClient");
   logDeprecatedCompatUsage("getSupabaseClient");
   return createServiceRoleSupabaseClient();
 };

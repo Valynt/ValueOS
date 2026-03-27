@@ -3,23 +3,28 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-
+import { ToastProvider } from "../../../common/Toast";
 import { InlineEditor } from "../InlineEditor";
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 describe("InlineEditor", () => {
   const mockContent = "The projected ROI is 150% based on current assumptions.";
 
   it("enters edit mode when activated", () => {
-    render(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
+    renderWithProviders(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
 
     fireEvent.click(screen.getByText(mockContent));
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
   it("shows save and cancel buttons in edit mode", () => {
-    render(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
+    renderWithProviders(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
 
     fireEvent.click(screen.getByText(mockContent));
     expect(screen.getByText("Save")).toBeInTheDocument();
@@ -28,7 +33,7 @@ describe("InlineEditor", () => {
 
   it("emits save action with content and reason", () => {
     const onAction = vi.fn();
-    render(
+    renderWithProviders(
       <InlineEditor
         id="inline-editor"
         data={{ content: mockContent, sectionId: "sec-1" }}
@@ -54,7 +59,7 @@ describe("InlineEditor", () => {
 
   it("reverts to original content on cancel", () => {
     const onAction = vi.fn();
-    render(
+    renderWithProviders(
       <InlineEditor
         id="inline-editor"
         data={{ content: mockContent, sectionId: "sec-1" }}
@@ -71,14 +76,14 @@ describe("InlineEditor", () => {
   });
 
   it("highlights modified sections with diff styling", () => {
-    render(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1", isModified: true }} />);
+    renderWithProviders(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1", isModified: true }} />);
 
     const content = screen.getByText(mockContent).closest("div");
     expect(content?.className).toContain("bg-yellow");
   });
 
   it("announces state changes via aria-live", () => {
-    render(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
+    renderWithProviders(<InlineEditor id="inline-editor" data={{ content: mockContent, sectionId: "sec-1" }} />);
 
     fireEvent.click(screen.getByText(mockContent));
     const liveRegion = screen.getByRole("status");

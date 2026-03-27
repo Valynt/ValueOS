@@ -27,6 +27,18 @@ vi.mock("@/api/client/unified-api-client", () => ({
   apiClient: { get: mockGet },
 }));
 
+// Prevent the browser Supabase client from throwing at module load time when
+// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are absent in the test env.
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+    },
+  },
+  createBrowserSupabaseClient: vi.fn(() => ({ auth: {} })),
+}));
+
 vi.mock("@/contexts/TenantContext", () => ({
   useTenant: mockUseTenant,
 }));
@@ -175,6 +187,7 @@ describe("useAgentJob — multi-tenant cache isolation", () => {
   });
 
   it("stops polling when job reaches a terminal status", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     mockUseTenant.mockReturnValue(makeTenant("tenant-A"));
     mockGet
       .mockResolvedValueOnce(makeJobResponse("job-4", "processing"))
@@ -187,16 +200,25 @@ describe("useAgentJob — multi-tenant cache isolation", () => {
     // First fetch: processing
     await waitFor(() => expect(result.current.data?.status).toBe("processing"));
 
+    // Advance timers past the refetchInterval (2000ms) to trigger the second poll
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await Promise.resolve();
+    });
+
     // Second fetch: completed — polling should stop
     await waitFor(() => expect(result.current.data?.status).toBe("completed"));
 
     // No further fetches should occur — call count must not increase after terminal state
     const callCountAfterTerminal = mockGet.mock.calls.length;
-    // Give React Query one tick to potentially schedule another refetch
+    // Advance timers again — no new fetch should fire
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
     });
     expect(mockGet.mock.calls.length).toBe(callCountAfterTerminal);
+
+    vi.useRealTimers();
   });
 
   it("returns direct result immediately without fetching when provided", async () => {

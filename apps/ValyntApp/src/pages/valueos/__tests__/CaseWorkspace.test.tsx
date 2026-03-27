@@ -1,6 +1,8 @@
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, it, vi, expect as vitestExpect } from "vitest";
 
@@ -42,13 +44,16 @@ import { CaseWorkspace } from "../CaseWorkspace";
 // ---------------------------------------------------------------------------
 
 function renderAtPath(path: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/app/cases/new" element={<CaseWorkspace />} />
-        <Route path="/app/cases/:caseId" element={<CaseWorkspace />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/app/cases/new" element={<CaseWorkspace />} />
+          <Route path="/app/cases/:caseId" element={<CaseWorkspace />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

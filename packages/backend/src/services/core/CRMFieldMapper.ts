@@ -129,7 +129,7 @@ class CRMFieldMapperService {
     const stage = this.mapStage(deal.stage, provider);
     return {
       name: this.generateCaseName(deal),
-      company: deal.companyName ?? 'Unknown Company',
+      company: deal.companyName || 'Unknown Company',
       stage,
       status: this.mapStatus(deal),
       metadata: {

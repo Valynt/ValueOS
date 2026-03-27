@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 /**
  * Resources Router
  * Handles learning resources, templates, and downloadable content with tenant isolation

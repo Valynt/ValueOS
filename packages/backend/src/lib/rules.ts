@@ -16,6 +16,7 @@
  * enforceRulesDetailed().
  */
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from './supabase.js';
 import { logger } from './logger.js';
 

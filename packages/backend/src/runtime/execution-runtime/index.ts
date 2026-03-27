@@ -145,6 +145,7 @@ export class ExecutionRuntime implements IExecutionRuntime {
 
 import { PolicyEngine as PolicyEngineImpl } from '../policy-engine/index.js';
 import { decisionRouter } from '../decision-router/index.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 /**

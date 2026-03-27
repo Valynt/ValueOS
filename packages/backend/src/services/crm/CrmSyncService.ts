@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto';
 
 import { createLogger } from '../../lib/logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { auditLogService } from '../AuditLogService.js';
 

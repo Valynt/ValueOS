@@ -6,6 +6,7 @@
  */
 
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase';
 import { ValidationError } from '../../lib/errors.js';
 

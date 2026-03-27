@@ -1,6 +1,7 @@
 import { USER_ROLE_PERMISSIONS } from "@shared/lib/permissions";
 
 import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { ValidationError } from "../errors.js";
 import { auditLogService } from "../security/AuditLogService.js";

@@ -3,10 +3,18 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
-
 import { ExecutiveOutputStudio } from "../../views/ExecutiveOutputStudio";
+
+function renderWithQuery(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  );
+}
 
 // Mock CanvasHost to render artifact content directly
 vi.mock("@/components/canvas/CanvasHost", () => ({
@@ -54,7 +62,7 @@ vi.mock("react-router-dom", () => ({
 
 describe("ExecutiveOutputStudio", () => {
   it("renders artifact tabs", () => {
-    render(<ExecutiveOutputStudio />);
+    renderWithQuery(<ExecutiveOutputStudio />);
 
     expect(screen.getByText("Executive Memo")).toBeInTheDocument();
     expect(screen.getByText("CFO Recommendation")).toBeInTheDocument();
@@ -63,21 +71,21 @@ describe("ExecutiveOutputStudio", () => {
   });
 
   it("displays artifact content", () => {
-    render(<ExecutiveOutputStudio />);
+    renderWithQuery(<ExecutiveOutputStudio />);
 
     expect(screen.getByText("Q1 Assessment")).toBeInTheDocument();
     expect(screen.getByText("150%")).toBeInTheDocument();
   });
 
   it("has data-claim-id attributes on financial figures", () => {
-    render(<ExecutiveOutputStudio />);
+    renderWithQuery(<ExecutiveOutputStudio />);
 
     const claimElement = screen.getByText("150%").closest("[data-claim-id]");
     expect(claimElement).toHaveAttribute("data-claim-id", "c1");
   });
 
   it("does not show empty-state actions when artifacts already exist", () => {
-    render(<ExecutiveOutputStudio />);
+    renderWithQuery(<ExecutiveOutputStudio />);
 
     fireEvent.click(screen.getByText("150%"));
     expect(screen.queryByText("Generate Artifacts")).not.toBeInTheDocument();
@@ -87,7 +95,7 @@ describe("ExecutiveOutputStudio", () => {
   it("shows generate button when no artifacts", () => {
     // This test would need a different approach - mocking at the module level
     // For now, skip this test or test the existing state
-    render(<ExecutiveOutputStudio />);
+    renderWithQuery(<ExecutiveOutputStudio />);
     // When artifacts exist, no generate button should show in the header area
     expect(screen.queryByText("No artifacts yet")).not.toBeInTheDocument();
   });

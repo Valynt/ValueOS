@@ -8,6 +8,9 @@ const createServerMock = vi.fn();
 
 vi.mock('../../lib/supabase.js', () => ({
   createServerSupabaseClient: createServerSupabaseClientMock,
+  createServiceRoleSupabaseClient: createServerSupabaseClientMock,
+  // Named export used by transitive imports
+  supabase: { from: vi.fn() },
 }));
 
 vi.mock('../../services/metering/UsageQueueConsumerWorker.js', () => ({

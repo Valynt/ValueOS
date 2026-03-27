@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { logger } from '../../lib/logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 // ---------------------------------------------------------------------------
