@@ -141,7 +141,6 @@ export const agentSseHandler = http.get(
   "/api/agents/jobs/:jobId/stream",
   () => {
     const encoder = new TextEncoder();
-
     const stream = new ReadableStream({
       async start(controller) {
         for (const event of ([] as SseScenario["events"])) {
