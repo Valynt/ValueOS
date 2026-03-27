@@ -179,6 +179,20 @@ export const billingSubscriptionCreateRollbackFailuresTotal = new Counter({
   registers: [registry],
 });
 
+/** Unix timestamp of the last successful partition maintenance run. */
+export const partitionMaintenanceLastSuccessTimestamp = new Gauge({
+  name: 'partition_maintenance_last_success_timestamp',
+  help: 'Unix timestamp of the most recent successful partition maintenance run',
+  registers: [registry],
+});
+
+/** Total partition maintenance failures observed from cron.job_run_details. */
+export const partitionMaintenanceFailuresTotal = new Counter({
+  name: 'partition_maintenance_failures_total',
+  help: 'Total failed partition maintenance executions',
+  registers: [registry],
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed' | 'duplicate'): void {
