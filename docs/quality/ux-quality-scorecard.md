@@ -15,6 +15,8 @@ This document turns CI-only UX quality artifacts into a durable release scorecar
 | Release localization coverage | `artifacts/i18n/release-coverage-dashboard.json` | Validate launch locales meet release thresholds. |
 | Pseudo-localization integrity (`en-XA` QA only) | `artifacts/i18n/pseudo-localization-report.json` | Detect overflow, token corruption, and truncation risk before release without implying an additional shipped locale. |
 | Aggregated frontend scorecard | `artifacts/frontend-quality/dashboard.json` and `dashboard.md` | Copy the release summary into this document's review log. |
+| Top-tier journey gate (blocking) | `artifacts/frontend-quality/top-tier-journey-gate.json` | Enforce route-level accessibility severity and journey-scoped locale completeness thresholds. |
+| Release-over-release regression dashboard | `artifacts/frontend-quality/regression-dashboard.json` and `regression-dashboard.md` | Compare the current release against `.github/metrics/ux-release-baselines.json` for accessibility, localization, and route performance drift. |
 
 ### Operating cadence
 
@@ -79,13 +81,22 @@ The build also shows a shared `vendor` chunk at `821.94 KB` raw (`239.83 KB` gzi
 - the shared `vendor` chunk trend must be reviewed at every production release;
 - a release exception is required if the shared chunk grows by more than 5% from the last approved baseline.
 
+### Exception workflow for performance guardrails (required)
+
+When any route chunk or the shared vendor trend exceeds budget, the release owner must either fix the regression or add an explicit temporary exception in `.github/metrics/ux-performance-exceptions.json`:
+
+1. Add an exception object with a unique `id`, `guardrailKeys`, `reason`, `approvedBy`, and `expiresOn`.
+2. Keep the scope narrow (only the specific guardrail key, e.g., `vendor-trend` or `route-chunk:ValueCaseCanvas`).
+3. Reference the mitigation issue/ticket in `reason`.
+4. Remove the exception in the first release where metrics are back inside budget.
+
 ## Scorecard review log
 
 Record the latest approved release or weekly checkpoint here.
 
-| Date | Release / CI run | Accessibility trend summary | Localization trend summary | Performance trend summary | Reviewer |
+| Date | Release / CI run + artifact links | Accessibility trend summary | Localization trend summary | Performance trend summary | Reviewer |
 | --- | --- | --- | --- | --- | --- |
-| 2026-03-19 | Pending next CI promotion | Establish this document as the stable scorecard. Populate from the next `accessibility-audit` artifact set before release sign-off. | Establish locale completeness and pseudo-loc trend snapshot here before release sign-off. | Baseline captured from `vite build --minify esbuild`; shared `vendor` chunk exceeds the current `400 KB` ceiling and needs explicit trend review. | Engineering |
+| 2026-03-27 | [PR Fast run](https://github.com/valueos/valueos/actions/runs/REPLACE_WITH_RUN_ID) · `accessibility-audit` artifacts (`artifacts/accessibility/`, `artifacts/i18n/`, `artifacts/frontend-quality/regression-dashboard.md`) · `performance-smoke` artifact (`artifacts/performance/route-load-metrics.json`) | Top-tier journey gate passed (`critical=0`, `serious=0`) for auth, dashboard, and settings routes. | `en`/`es` journey-scoped completeness met threshold for release-critical UI surfaces. | Route-load budgets and route chunk budgets enforced in CI; vendor growth requires an approved exception when above 5% baseline. | Engineering |
 
 ## Release-readiness rule
 
@@ -95,4 +106,4 @@ Production release sign-off is blocked until reviewers have completed all of the
 2. Reviewed the latest localization coverage for shipped locales (`en`, `es`) and the pseudo-localization trend summary for QA-only expansion checks.
 3. Confirmed every open regression or untranslated-string debt item is assigned to the owner named in this document.
 4. Recorded either a green status or an explicit exception with mitigation in the review log above.
-
+5. Updated the latest review-log row with artifact links from the promotion candidate CI run (accessibility, i18n, and frontend-quality regression dashboard artifacts).

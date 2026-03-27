@@ -31,8 +31,13 @@ describe("validateEnv transport security", () => {
 
   it("accepts strict TLS URLs in staging", () => {
     vi.stubEnv("NODE_ENV", "staging");
+    // Required vars
     vi.stubEnv("DATABASE_URL", "postgresql://user:pass@db.internal:5432/valueos?sslmode=verify-full");
     vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_KEY", "staging-anon-key");
+    vi.stubEnv("WEB_SCRAPER_ENCRYPTION_KEY", "a".repeat(64));
+    vi.stubEnv("TCT_SECRET", "staging-tct-secret-value-32chars!!");
+    // TLS config
     vi.stubEnv("REDIS_URL", "rediss://redis.internal:6379");
     vi.stubEnv("REDIS_TLS_REJECT_UNAUTHORIZED", "true");
     vi.stubEnv("REDIS_TLS_CA_CERT_PATH", "/run/secrets/redis-ca.crt");

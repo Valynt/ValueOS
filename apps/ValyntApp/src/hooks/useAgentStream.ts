@@ -300,6 +300,10 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
     applySuggestion,
     executeTool,
     clearMessages,
+    /** Manually open a stream for a given jobId (e.g. on reconnect). */
+    openStream,
+    /** Abort the active stream and set isStreaming to false. */
+    closeStream,
     context: {
       sessionId: options?.context?.sessionId ?? "",
       agentId: options?.context?.agentId ?? "",

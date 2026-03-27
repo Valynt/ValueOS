@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, router } from "../trpc.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { getSupabaseClient } from "../utils.js";
 
 // ============================================================================

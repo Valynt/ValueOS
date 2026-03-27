@@ -1,0 +1,30 @@
+{
+  "sourceLocale": "en",
+  "targetLocales": ["es"],
+  "journeys": [
+    {
+      "id": "auth-entry",
+      "name": "Auth and tenant entry",
+      "routePaths": ["/", "/auth/login"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/Auth/**/*.tsx", "apps/ValyntApp/src/views/CreateOrganization.tsx", "apps/ValyntApp/src/views/CompanyOnboarding.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    },
+    {
+      "id": "dashboard-landing",
+      "name": "Dashboard landing",
+      "routePaths": ["/dashboard"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/Dashboard.tsx", "apps/ValyntApp/src/layouts/MainLayout.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    },
+    {
+      "id": "settings-billing",
+      "name": "Admin, settings, and billing",
+      "routePaths": ["/settings"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/SettingsPage.tsx", "apps/ValyntApp/src/views/Integrations.tsx", "apps/ValyntApp/src/views/BillingPortal.tsx", "apps/ValyntApp/src/views/CompanyKnowledge.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    }
+  ]
+}

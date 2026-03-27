@@ -978,6 +978,19 @@ jobs:
         run: |
           node scripts/ci/check-k8s-manifest-maturity.mjs             --mode=environment-gate             --environment=production             --ledger-path=infra/k8s/manifest-maturity-ledger.json             --require-critical-evidence-links=true             --require-production-evidence-artifacts=true
 
+  ux-scorecard-release-log-gate:
+    name: UX Scorecard Release Log Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Block production promotion if UX scorecard release log is stale
+        run: |
+          node scripts/ci/check-ux-release-log-scorecard.mjs \
+            --scorecard docs/quality/ux-quality-scorecard.md
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
@@ -993,6 +1006,7 @@ jobs:
         preprod-launch-gate,
         infra-conformance-post-deploy,
         manifest-maturity-production-gate,
+        ux-scorecard-release-log-gate,
         release-manifest-gate,
         reliability-indicators-gate,
         secret-rotation-gate,

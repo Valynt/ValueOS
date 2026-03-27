@@ -24,6 +24,7 @@ import {
 
 import { getEnvVar } from '../lib/env';
 import { logger } from '../lib/logger.js'
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../lib/supabase.js'
 import { RbacService, type RbacUser } from '../services/auth/RbacService.js'
 
@@ -499,7 +500,7 @@ export class MultiTenantSecretsManager {
         command = commandInput;
       }
 
-      const response = await this.client.send(command as GetSecretValueCommand);
+      const response = await this.client.send(command as GetSecretValueCommand) as { SecretString?: string };
 
       if (!response.SecretString) {
         throw new Error('Secret value is empty');

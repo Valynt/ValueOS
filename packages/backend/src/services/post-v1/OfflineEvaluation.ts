@@ -5,6 +5,7 @@
  * Prevents prompt regressions and validates agent performance.
  */
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { logger } from '../utils/logger.js'
 

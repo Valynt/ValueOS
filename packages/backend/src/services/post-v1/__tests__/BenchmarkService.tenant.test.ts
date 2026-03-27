@@ -27,6 +27,17 @@ vi.mock("@supabase/supabase-js", async () => {
   };
 });
 
+// Stub CacheService so Redis connections are never attempted in unit tests
+vi.mock("../../CacheService.js", () => ({
+  CacheService: vi.fn().mockImplementation(() => ({
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+    purge: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 import { BenchmarkService } from "../../core/index.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

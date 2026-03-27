@@ -476,10 +476,6 @@ class SubscriptionService {
     }
   }
 
-  /**
-   * Legacy update subscription method (deprecated - use updateSubscription instead)
-   * @deprecated Use updateSubscription for transaction safety
-   */
   /** @deprecated Legacy direct Stripe + DB update path; use updateSubscription instead. */
   private async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
     if (!supabase || !this.stripe || !this.stripeService) {

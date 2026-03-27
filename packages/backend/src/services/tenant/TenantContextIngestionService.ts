@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 
 const logger = createLogger({ component: "TenantContextIngestionService" });

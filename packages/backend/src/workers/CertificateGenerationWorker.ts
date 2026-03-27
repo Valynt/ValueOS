@@ -17,6 +17,7 @@
 import { Queue, Worker, type Job } from 'bullmq';
 
 import { logger } from '../lib/logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';

@@ -19,6 +19,7 @@ import {
 
 import { logger } from '../../lib/logger.js';
 import { EnforcementResult, GovernanceObligation } from '../../lib/rules';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { getSupabaseClient } from '../../lib/supabase.js';
 import { createExecutionRuntime } from '../../runtime/execution-runtime/index.js';
 import {

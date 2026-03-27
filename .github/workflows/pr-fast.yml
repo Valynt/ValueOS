@@ -657,6 +657,13 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+      - name: Enforce top-tier journey a11y/l10n thresholds
+        if: always()
+        run: |
+          node scripts/ci/check-top-tier-journey-ux-gates.mjs \
+            --policy .github/metrics/top-tier-journey-thresholds.json \
+            --a11y-report artifacts/accessibility/playwright-report.json \
+            --output artifacts/frontend-quality/top-tier-journey-gate.json
       - name: Async view completeness check (REQ-A2)
         if: always()
         run: pnpm run check:a11y-completeness
@@ -669,6 +676,16 @@ jobs:
           node scripts/ci/collect-frontend-quality-dashboard.mjs \
             --dashboard-out artifacts/frontend-quality/dashboard.md \
             --json-out artifacts/frontend-quality/dashboard.json
+      - name: Build UX regression dashboard (vs previous release baseline)
+        if: always()
+        run: |
+          node scripts/ci/build-ux-regression-dashboard.mjs \
+            --baseline .github/metrics/ux-release-baselines.json \
+            --a11y artifacts/accessibility/a11y-metrics.json \
+            --i18n artifacts/i18n/coverage-dashboard.json \
+            --top-tier artifacts/frontend-quality/top-tier-journey-gate.json \
+            --json-out artifacts/frontend-quality/regression-dashboard.json \
+            --md-out artifacts/frontend-quality/regression-dashboard.md
       - name: Upload accessibility artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -1139,7 +1156,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
+        run: |
+          mkdir -p artifacts/bundle
+          npx turbo run build --filter=valynt-app 2>&1 | tee artifacts/bundle/vite-build.log
       - name: Run route load budget tests
         run: |
           mkdir -p artifacts/performance
@@ -1148,6 +1167,13 @@ jobs:
             --output=artifacts/performance
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/performance/perf-report.json
+      - name: Enforce route chunk budgets and vendor trend guardrails
+        run: |
+          node scripts/ci/check-ux-performance-budgets.mjs \
+            --budget .github/metrics/ux-performance-budgets.json \
+            --exceptions .github/metrics/ux-performance-exceptions.json \
+            --route-metrics artifacts/performance/route-load-metrics.json \
+            --output artifacts/performance/ux-performance-metrics.json
       - name: Emit lane summary
         if: always()
         run: |
@@ -1351,4 +1377,6 @@ jobs:
             src/services/billing/__tests__/security/rls-policies.test.ts \
             src/services/billing/__tests__/resiliency/advisory-lock-idempotency.test.ts \
             src/services/billing/__tests__/integration/subscription-lifecycle.test.ts \
-            src/services/billing/__tests__/integration/quota-enforcement.test.ts
+            src/services/billing/__tests__/integration/quota-enforcement.test.ts \
+            src/services/billing/__tests__/integration/metering-pipeline.test.ts \
+            src/services/billing/__tests__/integration/webhook-events.test.ts

@@ -544,6 +544,16 @@ export class WebScraperService {
   /**
    * Validate URL and return safe IP address for fetching, or null if unsafe
    */
+  /**
+   * Returns true if the URL resolves to a non-private IP (SSRF check).
+   * Exposed for testing — the TOCTOU vulnerability is that fetch() uses the
+   * original URL, not the validated IP, so DNS rebinding attacks are possible.
+   */
+  private async isSafeUrl(urlString: string): Promise<boolean> {
+    const result = await this.validateUrlAndGetSafeIP(urlString);
+    return result !== null;
+  }
+
   private async validateUrlAndGetSafeIP(
     urlString: string
   ): Promise<{ ip: string; hostname: string } | null> {

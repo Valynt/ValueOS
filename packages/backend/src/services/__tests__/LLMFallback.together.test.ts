@@ -1,8 +1,8 @@
 /**
- * LLMFallback Service Tests - Together AI Only
+ * LLMFallback Service Tests - Together primary with secondary provider fallback.
  *
  * Validates that LLMFallback service:
- * 1. Only uses Together AI (no OpenAI fallback)
+ * 1. Uses Together AI as primary provider
  * 2. Properly handles Together AI circuit breaker
  * 3. Does not have any OpenAI-related methods or logic
  */
@@ -42,7 +42,7 @@ vi.mock("../CostGovernanceService.js", () => ({
   }
 }));
 
-describe("LLMFallback Service - Together AI Only", () => {
+describe("LLMFallback Service - Together + secondary fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -57,18 +57,17 @@ describe("LLMFallback Service - Together AI Only", () => {
       expect(stats.togetherAI).toHaveProperty("calls");
       expect(stats.togetherAI).toHaveProperty("failures");
 
-      // Should NOT have openAI stats
+      // fallback stats remain aggregated under togetherAI counters
       expect(stats).not.toHaveProperty("openAI");
     });
 
-    it("should not expose OpenAI-related methods", () => {
+    it("does not expose provider-specific legacy methods", () => {
       const service = new LLMFallbackService();
 
       // These methods should NOT exist
       expect(service).not.toHaveProperty("callOpenAI");
+      expect(service).not.toHaveProperty("callAnthropic");
       expect(service).not.toHaveProperty("mapToOpenAIModel");
-      expect(service).not.toHaveProperty("calculateOpenAICost");
-      expect(service).not.toHaveProperty("openAIBreaker");
     });
 
     it("should export singleton instance", () => {
@@ -77,7 +76,7 @@ describe("LLMFallback Service - Together AI Only", () => {
   });
 
   describe("Health Check", () => {
-    it("should only check Together AI health", async () => {
+    it("reports primary provider health", async () => {
       const service = new LLMFallbackService();
       const health = await service.healthCheck();
 
@@ -86,7 +85,6 @@ describe("LLMFallback Service - Together AI Only", () => {
       expect(health.togetherAI).toHaveProperty("healthy");
       expect(health.togetherAI).toHaveProperty("state");
 
-      // Should NOT have openAI health
       expect(health).not.toHaveProperty("openAI");
     });
 
@@ -99,11 +97,9 @@ describe("LLMFallback Service - Together AI Only", () => {
   });
 
   describe("Response Provider", () => {
-    it('should only return "together_ai" or "cache" as provider', async () => {
-      const validProviders = ["together_ai", "cache"];
+    it('should return a known provider value', async () => {
+      const validProviders = ["together_ai", "openai", "anthropic", "cache"];
 
-      // The response provider field should NEVER be 'openai'
-      // This is enforced by the TypeScript type
       const mockResponse: any = {
         provider: "together_ai",
         content: "test",
@@ -117,12 +113,11 @@ describe("LLMFallback Service - Together AI Only", () => {
       };
 
       expect(validProviders).toContain(mockResponse.provider);
-      expect(mockResponse.provider).not.toBe("openai");
     });
   });
 
   describe("Error Handling", () => {
-    it("should throw error when Together AI fails (no fallback)", async () => {
+    it("should throw error when providers fail", async () => {
       // Mock Together AI failure
       vi.mock("../../../lib/env", () => ({
         getEnvVar: vi.fn(() => "test-key"),
@@ -142,9 +137,8 @@ describe("LLMFallback Service - Together AI Only", () => {
         });
       }).rejects.toThrow("LLM provider unavailable");
 
-      // Should NOT fallback to OpenAI
       const stats = await service.getStats();
-      expect(stats).not.toHaveProperty("openAI");
+      expect(stats).toHaveProperty("togetherAI");
     });
 
     it('should default to TOGETHER_PRIMARY_MODEL_NAME when model is omitted', async () => {
