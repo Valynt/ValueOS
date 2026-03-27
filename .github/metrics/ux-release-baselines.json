@@ -1,0 +1,17 @@
+{
+  "releaseId": "2026-03-19-baseline",
+  "capturedAt": "2026-03-19T00:00:00Z",
+  "accessibility": {
+    "passRate": 100,
+    "keyboardCoverage": 100
+  },
+  "localization": {
+    "localesBelowCoverageThreshold": 0,
+    "localesBelowCompletenessThreshold": 0
+  },
+  "performance": {
+    "totalJsKb": 700,
+    "largestChunkKb": 400,
+    "vendorChunkKb": 821.94
+  }
+}

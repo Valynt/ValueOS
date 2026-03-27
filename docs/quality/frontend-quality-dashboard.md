@@ -12,6 +12,8 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 - `artifacts/i18n/coverage-dashboard.json` (locale key completeness and coverage).
 - `artifacts/i18n/pseudo-localization-report.json` (pseudo-localization expansion/token integrity checks).
 - `artifacts/frontend-quality/dashboard.md` + `dashboard.json` (aggregated scorecard).
+- `artifacts/frontend-quality/top-tier-journey-gate.json` (blocking top-tier route a11y/l10n thresholds).
+- `artifacts/frontend-quality/regression-dashboard.md` + `regression-dashboard.json` (previous-release baseline comparison for accessibility, localization, and route performance).
 
 ## Quality gates
 
@@ -19,6 +21,7 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 
 - **Critical WCAG violations block merge** via Playwright axe route checks (`tests/accessibility/axe-a11y.spec.ts`).
 - **Serious WCAG violations also block merge** via `scripts/ci/check-a11y-severity-budgets.mjs` and `.github/metrics/wcag-severity-budgets.json` budgets.
+- **Top-tier route a11y and l10n thresholds block merge** via `scripts/ci/check-top-tier-journey-ux-gates.mjs` and `.github/metrics/top-tier-journey-thresholds.json`.
 - **jsx-a11y lint debt is ratcheted weekly to zero** via `scripts/ci/a11y-eslint-weekly-ratchet.mjs`, `.github/metrics/a11y-eslint-ratchet.json`, and the `a11y-eslint-ratchet-weekly` CI workflow.
 
 ### Lint-to-WCAG traceability map
@@ -51,6 +54,7 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 
 1. Open the `accessibility-audit` artifact bundle on each PR.
 2. Inspect `artifacts/frontend-quality/dashboard.md` for at-a-glance status.
-3. Promote the release summary, route regressions, and ownership updates into `docs/quality/ux-quality-scorecard.md`.
-4. Drill into linked JSON artifacts when a metric regresses.
-5. If thresholds are intentionally updated, update the metrics baseline/budget files in the same PR.
+3. Review `artifacts/frontend-quality/top-tier-journey-gate.json` and ensure all top-tier journey thresholds are green.
+4. Review `artifacts/frontend-quality/regression-dashboard.md` for drift against the previous release baseline.
+5. Promote the release summary, route regressions, and ownership updates into `docs/quality/ux-quality-scorecard.md`.
+6. If thresholds are intentionally updated, update the metrics baseline/budget files in the same PR.
