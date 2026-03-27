@@ -17,8 +17,8 @@ import Redis from 'ioredis';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
-import { tenantContextStorage } from '../middleware/tenantContext.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
+import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
@@ -132,8 +132,12 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
       }
       // Restore tenant context so CacheService, logger context, and audit hooks
       // operate with the correct tenant rather than falling back to tenant:global:.
-      return tenantContextStorage.run(
-        { tid: tenantId, iss: 'worker', sub: 'worker', roles: [], tier: 'worker', exp: 0 },
+      return runJobWithTenantContext(
+        {
+          workerName: 'researchWorker',
+          tenantId: job.data.tenantId,
+          organizationId: job.data.organizationId,
+        },
         () => runInTelemetrySpanAsync('queue.research.consume', {
           service: 'research-worker',
           env: process.env.NODE_ENV || 'development',

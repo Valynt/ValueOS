@@ -39,6 +39,10 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
   6. After purge, update `.gitleaks.toml` allowlist entries for any residual commit SHAs.
   7. Link rotation ticket below once complete.
 - **Evidence:** _Rotation ticket: [LINK TO BE ADDED AFTER ROTATION]_
+- **Execution log (2026-03-27 UTC):**
+  - Attempted in-repo rotation follow-through from this environment, but no Supabase operator credentials/session are available in the runtime (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_URL` all unset).
+  - Local evidence command: `python - <<'PY' ...` (env presence check only; no secret values printed).
+  - Result: **blocked pending Security/Platform operator dashboard access**. Status remains action-required until dashboard/API rotation evidence is attached.
 - **Rotation policy reference:** `docs/security-compliance/secret-rotation-policy.md` (AWS KMS / Infisical split)
 
 ---
@@ -47,6 +51,15 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 Full-history scan run as part of security hardening (see PR adding `secret-scan.yml`).
 414 raw findings across 5,334 commits. Triaged below.
+
+Local verification rerun on **2026-03-27** (working tree) using:
+
+```bash
+/tmp/gitleaks detect --config=.gitleaks.toml --source . --redact \
+  --report-format json --report-path artifacts/secret-scan/gitleaks-workingtree.json --exit-code 1
+```
+
+Result: 3 findings, triaged as non-production credentials/test fixtures/placeholders; no newly discovered real production credential beyond the known pending Supabase rotations. Evidence artifact: `artifacts/secret-scan/gitleaks-workingtree.json`.
 
 ---
 
