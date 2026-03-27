@@ -117,11 +117,16 @@ const buildRequestContext = (
  *   3. User JWT claim (tenant_id / organization_id)
  *   4. User lookup (DB) — only when authenticated user has no claim
  *
+ * Sources are consulted in this order; a lower-priority source is only used
+ * when no higher-priority source has already resolved a tenant.
+ *
  * Route parameters are NOT a resolution source. They are user-controlled
  * input and must not be trusted for tenant identity.
  *
- * If two sources produce different tenant IDs, the request is rejected with
- * 403 regardless of path. This is fail-closed behavior.
+ * If a verified Tenant Context Token conflicts with an already-resolved
+ * tenant or the authenticated user identity, the request is rejected with
+ * 403. Other sources are treated as fallbacks rather than cross-validated
+ * against every possible combination.
  */
 export const tenantContextMiddleware = (enforce = true) => {
   const tctSecret = assertValidTctSecret();
