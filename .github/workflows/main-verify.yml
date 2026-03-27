@@ -441,6 +441,14 @@ jobs:
             --reporter=json \
             --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
             --outputFile.json=reports/compliance/rls/vitest-rls.json
+      - name: Assert tenant-isolation executed test count and pass rate
+        run: |
+          node scripts/ci/assert-test-minimums.mjs \
+            --format vitest \
+            --label "tenant-isolation-gate" \
+            --report reports/compliance/rls/vitest-rls.json \
+            --min-executed 10 \
+            --min-pass-rate 100
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -471,6 +479,24 @@ jobs:
         run: |
           node scripts/ci/verify-critical-claims.mjs
           pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts
+      - name: Critical backend workflow + billing integration lanes
+        run: |
+          mkdir -p artifacts/critical-workflows
+          npx vitest run \
+            tests/security/tenant-isolation-e2e.test.ts \
+            packages/backend/src/services/billing/__tests__/integration/webhook-events.test.ts \
+            packages/backend/src/services/billing/__tests__/integration/metering-pipeline.test.ts \
+            --reporter=verbose \
+            --reporter=json \
+            --outputFile.json=artifacts/critical-workflows/vitest-critical-workflows.json
+      - name: Assert critical-workflows executed test count and pass rate
+        run: |
+          node scripts/ci/assert-test-minimums.mjs \
+            --format vitest \
+            --label "critical-workflows-gate" \
+            --report artifacts/critical-workflows/vitest-critical-workflows.json \
+            --min-executed 10 \
+            --min-pass-rate 100
 
   accessibility-audit:
     name: accessibility-audit
