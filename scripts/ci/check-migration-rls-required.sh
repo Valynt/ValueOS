@@ -23,7 +23,7 @@ if [ -n "${GITHUB_EVENT_NAME:-}" ] && [ "${GITHUB_EVENT_NAME}" = "pull_request" 
   BASE_REF="${GITHUB_BASE_REF:-main}"
   git fetch origin "$BASE_REF" --depth=1 2>/dev/null || true
   mapfile -t CHANGED_FILES < <(
-    git diff --name-only "origin/$BASE_REF...HEAD" -- "${MIGRATION_DIR}" 2>/dev/null \
+    git diff --name-only "origin/$BASE_REF..HEAD" -- "${MIGRATION_DIR}" 2>/dev/null \
     | grep '\.sql$' \
     | grep -v '\.rollback\.sql$' \
     | grep -v '/archive/' \
