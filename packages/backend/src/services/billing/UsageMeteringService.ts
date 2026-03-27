@@ -7,133 +7,232 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
 import { getRedisClient } from '../../lib/redis.js';
-import { createLogger } from '../../lib/logger.js'
-import { recordStripeSubmissionError } from '../../metrics/billingMetrics.js'
+import { createLogger } from '../../lib/logger.js';
+import {
+  billingDuplicateSubmissionPreventedTotal,
+  billingInboundRateLimitedTotal,
+  billingRateLimitRedisUnavailableTotal,
+  billingStripeRateLimitedTotal,
+  recordStripeSubmissionError,
+} from '../../metrics/billingMetrics.js';
 import { UsageAggregate } from '../../types/billing';
 
-import StripeService from './StripeService.js'
+import StripeService from './StripeService.js';
 
 const logger = createLogger({ component: 'UsageMeteringService' });
 
-class RateLimitError extends Error {
-  readonly isRateLimit = true as const;
-  constructor(message: string) {
-    super(message);
-    this.name = 'RateLimitError';
+// ---------------------------------------------------------------------------
+// Rate limit configuration
+// ---------------------------------------------------------------------------
+
+const INBOUND_RATE_LIMIT_PER_TENANT = Number(
+  process.env.BILLING_INBOUND_RATE_LIMIT_PER_TENANT ?? '1000',
+);
+const INBOUND_RATE_WINDOW_SECONDS = 60;
+const MAX_CONCURRENT_STRIPE_SUBMISSIONS = Number(
+  process.env.BILLING_MAX_CONCURRENT_STRIPE_SUBMISSIONS ?? '10',
+);
+const STRIPE_TOKENS_PER_SECOND = Number(
+  process.env.BILLING_STRIPE_TOKENS_PER_SECOND ?? '80',
+);
+
+// ---------------------------------------------------------------------------
+// Redis rate limiter helpers
+// ---------------------------------------------------------------------------
+
+async function checkRedisRateLimit(
+  key: string,
+  limitPerWindow: number,
+  windowSeconds: number,
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  try {
+    const redis = getRedisClient();
+    const now = Math.floor(Date.now() / 1000);
+    const windowKey = `${key}:${Math.floor(now / windowSeconds)}`;
+    const pipeline = redis.pipeline();
+    pipeline.incr(windowKey);
+    pipeline.expire(windowKey, windowSeconds * 2);
+    const results = await pipeline.exec();
+    const count = (results?.[0]?.[1] as number) ?? 0;
+    const remaining = Math.max(0, limitPerWindow - count);
+    const resetAt = (Math.floor(now / windowSeconds) + 1) * windowSeconds;
+    return { allowed: count <= limitPerWindow, remaining, resetAt };
+  } catch (err) {
+    logger.warn('Redis rate limiter unavailable — failing open', {
+      key,
+      error: (err as Error).message,
+    });
+    billingRateLimitRedisUnavailableTotal.inc();
+    return { allowed: true, remaining: limitPerWindow, resetAt: Date.now() / 1000 + windowSeconds };
   }
 }
 
-// Redis key: rate:tenant:{tenantId}:query-cost
-// Stores the accumulated cost for the current sliding window as an integer string.
-// TTL is set to QUERY_WINDOW_SECONDS on first write and refreshed on each increment.
-const RATE_LIMIT_KEY_PREFIX = 'rate:tenant';
-const RATE_LIMIT_KEY_SUFFIX = 'query-cost';
+async function checkStripeTokenBucket(): Promise<boolean> {
+  const result = await checkRedisRateLimit('rate:stripe:global', STRIPE_TOKENS_PER_SECOND, 1);
+  return result.allowed;
+}
+
+// Global semaphore key — shared across all pods so the cap is enforced
+// at the cluster level, not per-process.
+const STRIPE_SUBMISSION_SEMAPHORE_KEY = 'sem:stripe:submissions:global';
+
+async function acquireStripeSubmissionSlot(): Promise<boolean> {
+  try {
+    const redis = getRedisClient();
+    // Pipeline incr + expire together so the key always has a TTL even if
+    // the process crashes immediately after incr. Using EXPIRE NX (Redis 7+,
+    // ioredis 5) ensures the TTL is only set on first creation — subsequent
+    // acquires do not reset it, preventing the cap from being exceeded if the
+    // key expires while slots are still held.
+    const pipeline = redis.pipeline();
+    pipeline.incr(STRIPE_SUBMISSION_SEMAPHORE_KEY);
+    // 'NX' = set TTL only if the key has no expiry yet (i.e. first acquire).
+    pipeline.expire(STRIPE_SUBMISSION_SEMAPHORE_KEY, 120, 'NX');
+    const results = await pipeline.exec();
+    const count = (results?.[0]?.[1] as number) ?? 0;
+
+    if (count > MAX_CONCURRENT_STRIPE_SUBMISSIONS) {
+      await redis.decr(STRIPE_SUBMISSION_SEMAPHORE_KEY);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logger.warn('Redis semaphore unavailable — failing open', { error: (err as Error).message });
+    billingRateLimitRedisUnavailableTotal.inc();
+    return true;
+  }
+}
+
+async function releaseStripeSubmissionSlot(): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    await redis.decr(STRIPE_SUBMISSION_SEMAPHORE_KEY);
+  } catch {
+    // Non-fatal — key expires automatically
+  }
+}
+
+function jitteredBackoffMs(attempt: number, baseMs = 500, maxMs = 30_000): number {
+  const exp = Math.min(baseMs * 2 ** attempt, maxMs);
+  return exp * (0.5 + Math.random() * 0.5);
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 class UsageMeteringService {
   private supabase: SupabaseClient;
   private stripeService: ReturnType<typeof StripeService.getInstance>;
   private stripe: Stripe;
+  private workerId: string;
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, workerId?: string) {
     this.supabase = supabase;
     this.stripeService = StripeService.getInstance();
     this.stripe = this.stripeService.getClient();
+    this.workerId = workerId ?? `worker-${process.pid}`;
   }
 
-  private static QUERY_WINDOW_SECONDS = 60; // 1 minute sliding window
-  private static MAX_COST_PER_WINDOW = 1000; // cost units per window
-
-  /**
-   * Check and increment per-tenant query cost using a Redis sliding window.
-   *
-   * Uses INCRBY + EXPIRE in a pipeline for atomicity within a single round-trip.
-   * The key TTL is set only when the key is new (NX flag) so the window is
-   * anchored to the first request and resets naturally on expiry.
-   *
-   * Fails open when Redis is unavailable — rate limiting should not block
-   * billing submissions due to infrastructure unavailability.
-   */
-  private async checkAndIncrementTenantCost(tenantId: string, cost: number): Promise<void> {
-    const redisKey = `${RATE_LIMIT_KEY_PREFIX}:${tenantId}:${RATE_LIMIT_KEY_SUFFIX}`;
-
-    try {
-      const redis = await getRedisClient('control-plane');
-      if (!redis) {
-        logger.warn('rate-limit-redis-unavailable', {
-          tenantId,
-          message: 'Redis unavailable for rate limiting — failing open',
-        });
-        return;
-      }
-
-      // INCRBY returns the new total after incrementing.
-      // EXPIRE NX sets the TTL only if the key has no expiry (i.e. first write in window).
-      const pipeline = redis.pipeline();
-      pipeline.incrby(redisKey, cost);
-      pipeline.expire(redisKey, UsageMeteringService.QUERY_WINDOW_SECONDS, 'NX');
-      const results = await pipeline.exec();
-
-      // results[0] is [cmdError, newTotal] — inspect both.
-      // A command-level error (e.g. WRONGTYPE) means the counter is unreadable;
-      // log it and fail open rather than silently skipping the limit check.
-      const [cmdErr, newTotal] = (results?.[0] ?? [null, null]) as [Error | null, number | null];
-      if (cmdErr) {
-        logger.warn('rate-limit-incrby-failed', {
-          tenantId,
-          error: cmdErr.message,
-          message: 'INCRBY command failed — failing open',
-        });
-        return;
-      }
-      if (newTotal !== null && newTotal > UsageMeteringService.MAX_COST_PER_WINDOW) {
-        logger.warn('tenant-query-cost-limit-exceeded', {
-          tenantId,
-          newTotal,
-          limit: UsageMeteringService.MAX_COST_PER_WINDOW,
-        });
-        throw new RateLimitError('Per-tenant query cost limit exceeded. Please retry later.');
-      }
-    } catch (err) {
-      // Re-throw rate limit errors; swallow Redis infrastructure errors (fail open).
-      if ((err as RateLimitError).isRateLimit) {
-        throw err;
-      }
-      logger.warn('rate-limit-check-failed', {
+  // REQ-R1a: Per-tenant inbound rate limiting (Redis-backed, replaces static Map)
+  async checkInboundRateLimit(tenantId: string): Promise<boolean> {
+    const result = await checkRedisRateLimit(
+      `rate:inbound:${tenantId}`,
+      INBOUND_RATE_LIMIT_PER_TENANT,
+      INBOUND_RATE_WINDOW_SECONDS,
+    );
+    if (!result.allowed) {
+      logger.warn('Inbound rate limit exceeded', {
         tenantId,
-        error: (err as Error).message,
-        message: 'Rate limit check failed — failing open',
+        remaining: result.remaining,
+        resetAt: new Date(result.resetAt * 1000).toISOString(),
       });
+      billingInboundRateLimitedTotal.labels({ tenant_id: tenantId }).inc();
     }
+    return result.allowed;
   }
-  // stripe and stripeService initialized in constructor
 
-  /**
-   * Submit usage record to Stripe
-   */
-  async submitUsageRecord(aggregate: UsageAggregate): Promise<void> {
-    // Enforce per-tenant query cost limit (cost = total_quantity or 1)
-    try {
-      await this.checkAndIncrementTenantCost(aggregate.organization_id, aggregate.total_quantity || 1);
-    } catch (err) {
-      logger.error('Throttling usage record due to tenant IOPS/cost limit', { tenantId: aggregate.organization_id, error: err });
-      throw err;
+  // REQ-R3b: Pre-Stripe validation — find any already-submitted aggregate for
+  // this tenant+metric+period before calling Stripe.
+  private async findExistingSubmission(aggregate: UsageAggregate): Promise<UsageAggregate | null> {
+    const { data, error } = await this.supabase
+      .from('usage_aggregates')
+      .select('id, submitted_to_stripe, idempotency_key')
+      .eq('tenant_id', aggregate.organization_id)
+      .eq('metric', aggregate.metric)
+      .eq('period_start', aggregate.period_start)
+      .eq('period_end', aggregate.period_end)
+      .eq('submitted_to_stripe', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('Pre-Stripe validation query failed — proceeding with submission', {
+        aggregateId: aggregate.id,
+        error: error.message,
+      });
+      return null;
     }
-    try {
-      if (aggregate.submitted_to_stripe) {
-        logger.warn('Aggregate already submitted', { aggregateId: aggregate.id });
-        return;
-      }
+    return data as UsageAggregate | null;
+  }
 
+  async submitUsageRecord(aggregate: UsageAggregate): Promise<void> {
+    // Fast path: flag already set on this row
+    if (aggregate.submitted_to_stripe) {
+      logger.warn('Aggregate already submitted (flag set)', { aggregateId: aggregate.id });
+      return;
+    }
+
+    // REQ-R3b: Pre-Stripe DB check
+    const existing = await this.findExistingSubmission(aggregate);
+    if (existing) {
+      logger.warn('Duplicate submission prevented', {
+        aggregateId: aggregate.id,
+        existingId: existing.id,
+        tenantId: aggregate.organization_id,
+        metric: aggregate.metric,
+      });
+      billingDuplicateSubmissionPreventedTotal.labels({
+        tenant_id: aggregate.organization_id,
+        metric: aggregate.metric,
+      }).inc();
+      await this.supabase
+        .from('usage_aggregates')
+        .update({ submitted_to_stripe: true, submitted_at: new Date().toISOString() })
+        .eq('id', aggregate.id);
+      return;
+    }
+
+    try {
       logger.info('Submitting usage to Stripe', {
         aggregateId: aggregate.id,
         metric: aggregate.metric,
         amount: aggregate.total_amount,
       });
 
-      // Submit to Stripe with idempotency
       if (!aggregate.subscription_item_id) {
         throw new Error('subscription_item_id required for Stripe usage submission');
       }
+
+      // REQ-R1c: Global Stripe token bucket with exponential backoff
+      let stripeAllowed = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        stripeAllowed = await checkStripeTokenBucket();
+        if (stripeAllowed) break;
+        billingStripeRateLimitedTotal.inc();
+        const backoff = jitteredBackoffMs(attempt);
+        logger.info('Stripe token bucket full — backing off', {
+          aggregateId: aggregate.id,
+          attempt,
+          backoffMs: Math.round(backoff),
+        });
+        await new Promise((r) => setTimeout(r, backoff));
+      }
+
+      if (!stripeAllowed) {
+        throw new Error('Stripe rate limit: token bucket exhausted after backoff');
+      }
+
       const usageRecord = await this.stripe.subscriptionItems.createUsageRecord(
         aggregate.subscription_item_id,
         {
@@ -141,12 +240,10 @@ class UsageMeteringService {
           timestamp: Math.floor(new Date(aggregate.period_end).getTime() / 1000),
           action: 'set',
         },
-        {
-          idempotencyKey: aggregate.idempotency_key,
-        }
+        { idempotencyKey: aggregate.idempotency_key },
       );
 
-      // Mark as submitted
+      // Optimistic lock: only update if not yet submitted (prevents race on retry)
       const { error } = await this.supabase
         .from('usage_aggregates')
         .update({
@@ -154,7 +251,8 @@ class UsageMeteringService {
           submitted_at: new Date().toISOString(),
           stripe_usage_record_id: usageRecord.id,
         })
-        .eq('id', aggregate.id);
+        .eq('id', aggregate.id)
+        .eq('submitted_to_stripe', false);
 
       if (error) throw error;
 
@@ -169,13 +267,10 @@ class UsageMeteringService {
     }
   }
 
-  /**
-   * Submit all pending aggregates
-   */
+  // REQ-R1b: Batch loop bounded by Redis concurrency semaphore
   async submitPendingAggregates(): Promise<number> {
     logger.info('Processing pending usage aggregates');
 
-    // Get pending aggregates
     const { data: aggregates, error } = await this.supabase
       .from('usage_aggregates')
       .select('*')
@@ -197,23 +292,29 @@ class UsageMeteringService {
 
     let submitted = 0;
     for (const aggregate of aggregates) {
+      const slotAcquired = await acquireStripeSubmissionSlot();
+      if (!slotAcquired) {
+        logger.warn('Stripe submission concurrency limit reached — deferring remaining', {
+          workerId: this.workerId,
+          submitted,
+          remaining: aggregates.length - submitted,
+        });
+        break;
+      }
       try {
-        await this.submitUsageRecord(aggregate);
+        await this.submitUsageRecord(aggregate as UsageAggregate);
         submitted++;
-      } catch (error) {
-        logger.error('Failed to submit aggregate', error, { aggregateId: aggregate.id });
-        // Continue with next aggregate
+      } catch (err) {
+        logger.error('Failed to submit aggregate', err, { aggregateId: aggregate.id });
+      } finally {
+        await releaseStripeSubmissionSlot();
       }
     }
 
     logger.info(`Submitted ${submitted}/${aggregates.length} aggregates`);
-
     return submitted;
   }
 
-  /**
-   * Get submission status
-   */
   async getSubmissionStatus(aggregateId: string): Promise<UsageAggregate | null> {
     const { data, error } = await this.supabase
       .from('usage_aggregates')
@@ -225,23 +326,18 @@ class UsageMeteringService {
       logger.error('Error fetching aggregate', error);
       throw error;
     }
-
     return data;
   }
 
-  /**
-   * Sync usage from Stripe (for verification)
-   */
   async syncUsageFromStripe(
     subscriptionItemId: string,
     _startDate: Date,
-    _endDate: Date
+    _endDate: Date,
   ): Promise<Stripe.UsageRecordSummary[]> {
     try {
       const usageRecords = await this.stripe.subscriptionItems.listUsageRecordSummaries(
-        subscriptionItemId
+        subscriptionItemId,
       );
-
       return usageRecords.data;
     } catch (error) {
       return this.stripeService.handleError(error, 'syncUsageFromStripe');

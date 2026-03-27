@@ -211,3 +211,44 @@ Runbooks for Prometheus alert rules defined in:
 - **Escalation:** Page **Revenue Platform** + **Backend Platform** immediately. Security on-call must be notified when override is enabled.
 - **Post-incident actions:** attach outage timeline, override start/end timestamps, impacted tenants/routes, and reconciliation outcome.
 - **Ownership:** Revenue Platform + Backend Platform.
+
+## high_failure_rate
+- **Trigger meaning:** A service's success rate has dropped below 80% over at least 10 requests. Indicates a degraded but still partially functional service; user-visible errors are likely increasing.
+- **Source:** `AlertManager` default rule in `packages/shared/src/lib/health/alerts.ts`. Fires when `successRate < 0.8` with `total >= 10`. Cooldown: 5 minutes.
+- **Triage commands:**
+  - `kubectl -n <ns> logs deploy/<service> --since=10m | rg -n "error|exception|timeout"`
+  - `kubectl -n <ns> top pod`
+  - Check the service's health dashboard for error rate trend and recent deploy history.
+- **Common causes:** bad deploy or config rollout; upstream dependency degradation; database query slowdown; rate-limit regression.
+- **Remediation:** roll back the most recent release if correlated with deploy time; disable the offending feature flag; check upstream dependencies and apply circuit-breaker or fallback if available.
+- **Escalation:** Notify **Backend Platform** if the alert persists beyond 15 minutes or if success rate continues to fall toward the `critical_failure` threshold.
+- **Post-incident actions:** add a regression test for the failure mode; review alert threshold against SLO budget.
+- **Ownership:** Backend Platform.
+
+## critical_failure
+- **Trigger meaning:** A service's success rate has dropped below 50% over at least 5 requests. More than half of requests are failing; the service is effectively unavailable for a significant portion of traffic.
+- **Source:** `AlertManager` default rule in `packages/shared/src/lib/health/alerts.ts`. Fires when `successRate < 0.5` with `total >= 5`. Cooldown: 1 minute.
+- **Triage commands:**
+  - `kubectl -n <ns> get pods` — check for crash loops or pending pods.
+  - `kubectl -n <ns> describe pod <pod>` — look for OOMKill, image pull failures, probe failures.
+  - `kubectl -n <ns> logs <pod> --previous` — capture last crash output.
+  - Check downstream dependencies (DB, Redis, external APIs) for outages.
+- **Common causes:** crash loop or OOMKill; broken startup config or missing secret; complete upstream dependency outage; runaway error loop exhausting resources.
+- **Remediation:** if caused by a bad deploy, roll back immediately; restart pods only after identifying root cause to avoid masking the issue; isolate the service from traffic if rollback is not immediately possible.
+- **Escalation:** Page **Backend Platform** immediately. If the service handles auth, tenant provisioning, or billing, also page the relevant domain team. Incident Commander should be engaged if multiple services are affected.
+- **Post-incident actions:** add startup/readiness probe improvements; add canary gate to catch this before full rollout; document dependency guardrails.
+- **Ownership:** Backend Platform.
+
+## high_latency
+- **Trigger meaning:** A service's P95 response latency has exceeded 2000ms. Requests are completing but slowly; user experience is degraded and SLO burn may be accelerating.
+- **Source:** `AlertManager` default rule in `packages/shared/src/lib/health/alerts.ts`. Fires when `p95Latency > 2000`. Cooldown: 5 minutes.
+- **Triage commands:**
+  - `kubectl -n <ns> top pod <pod>` — check for CPU saturation.
+  - `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`
+  - Inspect the Grafana backend latency dashboard for the affected service and route breakdown.
+  - Check DB query latency and connection pool utilisation.
+- **Common causes:** noisy-neighbour CPU contention; DB query regression (missing index, stats drift, lock contention); cold cache after deploy; upstream provider latency; insufficient replicas under load.
+- **Remediation:** scale out replicas if CPU-bound; identify and fix slow DB queries; restore cache layer if recently disabled; move slow synchronous work behind async boundaries if latency is structural.
+- **Escalation:** Engage **Backend Platform** and **Data Platform** if P95 stays above 2000ms for more than 15 minutes or if interactive routes are affected.
+- **Post-incident actions:** capture the latency profile; add or update route-level SLO guardrails; add the slow query or path to the performance test suite.
+- **Ownership:** Backend Platform.

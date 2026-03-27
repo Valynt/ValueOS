@@ -21,6 +21,28 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ## Entries
 
+### 2026-05-24 supabase-service-role-jwt — Production key rotation required (production-readiness spec)
+
+- **Status:** ⚠️ ACTION REQUIRED — rotate keys immediately via Supabase dashboard
+- **Severity:** Critical
+- **Exposure:** Git history (public repository — treat as fully compromised)
+- **Projects:**
+  - `wfhdrrpijqygytvoaafc` — `anon` + `service_role` keys in commits `aca8a162`, `76f85346`
+  - `bxaiabnqalurloblfwua` — `anon` key in commit `6d4d6f15`
+- **Classification:** Real Supabase project JWTs confirmed in prior triage (2026-03-26 entry below). The `service_role` key for `wfhdrrpijqygytvoaafc` bypasses all RLS policies.
+- **Required actions:**
+  1. Rotate both API keys for `wfhdrrpijqygytvoaafc` via Supabase dashboard → Project Settings → API → Regenerate keys.
+  2. Rotate `anon` key for `bxaiabnqalurloblfwua` via the same path.
+  3. Update all environments (CI secrets, staging, production) with new keys.
+  4. Audit Supabase access logs for both projects for unauthorized access since first commit date.
+  5. Run `git filter-repo` to purge non-demo keys from history, then force-push and notify all collaborators to re-clone.
+  6. After purge, update `.gitleaks.toml` allowlist entries for any residual commit SHAs.
+  7. Link rotation ticket below once complete.
+- **Evidence:** _Rotation ticket: [LINK TO BE ADDED AFTER ROTATION]_
+- **Rotation policy reference:** `docs/security-compliance/secret-rotation-policy.md` (AWS KMS / Infisical split)
+
+---
+
 ### 2026-03-26 — Deep-history scan baseline (gitleaks v8.21.2)
 
 Full-history scan run as part of security hardening (see PR adding `secret-scan.yml`).

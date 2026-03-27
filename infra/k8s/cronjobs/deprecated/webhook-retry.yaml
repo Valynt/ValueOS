@@ -1,0 +1,89 @@
+# DEPRECATED — do not apply to any environment.
+#
+# This CronJob polled WebhookRetryService.processRetries() every 5 minutes.
+# Webhook retries are now driven by the BullMQ WebhookRetryWorker, which
+# enqueues jobs with deterministic IDs and exponential backoff on first
+# delivery failure — no polling required.
+#
+# Migration completed: WebhookRetryWorker initialised in packages/backend/src/workers/WebhookRetryWorker.ts
+# Replacement metrics: billing_webhook_exhausted_total, queue_job_total{queue="webhook-retry"}
+# Replacement alerts:  infra/prometheus/alerts/billing-alerts.yml (billing-webhook-dlq-alerts group)
+#
+# To decommission: run `kubectl delete cronjob webhook-retry -n valynt` if this
+# was ever applied, then delete this file.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: webhook-retry
+  labels:
+    app: valynt
+    component: billing
+    job-type: webhook-retry
+    deprecated: "true"
+spec:
+  # Suspended — worker is replaced by BullMQ WebhookRetryWorker.
+  suspend: true
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 100
+  jobTemplate:
+    metadata:
+      labels:
+        app: valynt
+        component: billing
+        job-type: webhook-retry
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: valynt
+            component: billing
+            job-type: webhook-retry
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: webhook-retry
+            image: ghcr.io/valynt/valueos-backend:latest
+            imagePullPolicy: Always
+            command:
+            - node
+            - scripts/jobs/webhook-retry.js
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-credentials
+                  key: url
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: supabase-url
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key: service-role-key
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-credentials
+                  key: secret-key
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-credentials
+                  key: webhook-secret
+            - name: NODE_ENV
+              value: "production"
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"

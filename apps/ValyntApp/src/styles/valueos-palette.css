@@ -45,9 +45,12 @@
   --valueos-neutral-muted: 0 0% 55%;
   --valueos-neutral-border: 0 0% 18%;
 
-  /* Semantic status */
+  /* Semantic status
+   * on-status is dark navy (222 47% 11%) in dark mode, providing WCAG AA
+   * contrast (≥ 3:1) against success, warning, and error backgrounds.
+   * Use --valueos-on-status for all status badge text in both light and dark. */
   --valueos-success: 160 84% 39%;
   --valueos-warning: 38 92% 50%;
   --valueos-error: 0 84% 60%;
-  --valueos-on-status: 0 0% 100%;
+  --valueos-on-status: 222 47% 11%;
 }

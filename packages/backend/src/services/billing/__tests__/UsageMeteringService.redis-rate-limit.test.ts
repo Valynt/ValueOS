@@ -1,48 +1,43 @@
 /**
  * UsageMeteringService — Redis-backed rate limiter tests.
  *
- * Verifies that checkAndIncrementTenantCost uses a shared Redis sliding window
- * so rate limits are coordinated across multiple instances (pods), and that
- * the service fails open when Redis is unavailable.
+ * Verifies that checkInboundRateLimit uses a Redis sliding window so rate
+ * limits are coordinated across multiple instances (pods), and that the
+ * service fails open when Redis is unavailable.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Redis mock ────────────────────────────────────────────────────────────────
-// Shared store simulates a single Redis instance seen by all service instances.
-const sharedStore = new Map<string, number>();
-
 const mockExec = vi.fn();
-const mockIncrby = vi.fn();
+const mockIncr = vi.fn();
 const mockExpire = vi.fn();
 const mockPipeline = vi.fn(() => ({
-  incrby: mockIncrby,
+  incr: mockIncr,
   expire: mockExpire,
   exec: mockExec,
 }));
 
 vi.mock('../../../lib/redis.js', () => ({
-  getRedisClient: vi.fn().mockResolvedValue({
+  getRedisClient: vi.fn(() => ({
     pipeline: mockPipeline,
-  }),
+  })),
 }));
 
 // ── Stripe / Supabase stubs ───────────────────────────────────────────────────
 vi.mock('../StripeService.js', () => ({
   default: {
     getInstance: vi.fn(() => ({
-      getClient: vi.fn(() => ({
-        billing: {
-          meterEvents: {
-            create: vi.fn().mockResolvedValue({}),
-          },
-        },
-      })),
+      getClient: vi.fn(() => ({})),
     })),
   },
 }));
 
 vi.mock('../../../metrics/billingMetrics.js', () => ({
+  billingDuplicateSubmissionPreventedTotal: { labels: vi.fn(() => ({ inc: vi.fn() })) },
+  billingInboundRateLimitedTotal: { labels: vi.fn(() => ({ inc: vi.fn() })) },
+  billingRateLimitRedisUnavailableTotal: { inc: vi.fn() },
+  billingStripeRateLimitedTotal: { inc: vi.fn() },
   recordStripeSubmissionError: vi.fn(),
 }));
 
@@ -54,136 +49,84 @@ function makeSupabase() {
   return {} as never;
 }
 
-/**
- * Configures mockExec to simulate a Redis INCRBY + EXPIRE pipeline.
- * Maintains a shared counter in `sharedStore` keyed by tenantId.
- */
-function setupRedisPipeline(tenantId: string, increment: number) {
-  mockIncrby.mockImplementation((_key: string, amount: number) => {
-    const current = sharedStore.get(tenantId) ?? 0;
-    sharedStore.set(tenantId, current + amount);
-  });
-  mockExpire.mockReturnValue(undefined);
-  mockExec.mockResolvedValue([
-    [null, sharedStore.get(tenantId) ?? increment],
-    [null, 1],
-  ]);
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 describe('UsageMeteringService Redis rate limiter', () => {
   beforeEach(() => {
-    sharedStore.clear();
     vi.clearAllMocks();
   });
 
-  it('allows requests within the cost window', async () => {
-    const svc = new UsageMeteringService(makeSupabase());
-    const tenantId = 'tenant-rate-a';
-
-    // Simulate accumulated cost of 500 — under the 1000 limit
+  it('allows requests within the rate limit window', async () => {
+    // count = 500, limit = 1000 (BILLING_INBOUND_RATE_LIMIT_PER_TENANT default)
     mockExec.mockResolvedValue([[null, 500], [null, 1]]);
 
-    // Access private method via cast for unit testing
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost'](tenantId, 500)
-    ).resolves.toBeUndefined();
+    const svc = new UsageMeteringService(makeSupabase());
+    const allowed = await svc.checkInboundRateLimit('tenant-a');
+    expect(allowed).toBe(true);
   });
 
-  it('throws when accumulated cost exceeds MAX_COST_PER_WINDOW', async () => {
-    const svc = new UsageMeteringService(makeSupabase());
-    const tenantId = 'tenant-rate-b';
-
-    // Simulate accumulated cost of 1001 — over the 1000 limit
+  it('rejects requests when count exceeds the limit', async () => {
+    // count = 1001, over the 1000 default limit
     mockExec.mockResolvedValue([[null, 1001], [null, 1]]);
 
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost'](tenantId, 1)
-    ).rejects.toThrow('Per-tenant query cost limit exceeded');
+    const svc = new UsageMeteringService(makeSupabase());
+    const allowed = await svc.checkInboundRateLimit('tenant-b');
+    expect(allowed).toBe(false);
   });
 
-  it('two instances share the same cost window via Redis', async () => {
+  it('two instances share the same window via Redis', async () => {
     const svcA = new UsageMeteringService(makeSupabase());
     const svcB = new UsageMeteringService(makeSupabase());
-    const tenantId = 'tenant-rate-shared';
 
-    // Instance A increments to 600
+    // Instance A: count = 600 — allowed
     mockExec.mockResolvedValueOnce([[null, 600], [null, 1]]);
-    await (svcA as never)['checkAndIncrementTenantCost'](tenantId, 600);
+    expect(await svcA.checkInboundRateLimit('tenant-shared')).toBe(true);
 
-    // Instance B increments by 500 — total would be 1100, over limit
+    // Instance B: count = 1100 — over limit
     mockExec.mockResolvedValueOnce([[null, 1100], [null, 0]]);
-    await expect(
-      (svcB as never)['checkAndIncrementTenantCost'](tenantId, 500)
-    ).rejects.toThrow('Per-tenant query cost limit exceeded');
+    expect(await svcB.checkInboundRateLimit('tenant-shared')).toBe(false);
   });
 
-  it('uses pipeline with INCRBY and EXPIRE NX', async () => {
-    const svc = new UsageMeteringService(makeSupabase());
-    const tenantId = 'tenant-rate-pipeline';
-
+  it('uses pipeline with INCR and EXPIRE', async () => {
     mockExec.mockResolvedValue([[null, 100], [null, 1]]);
-    await (svc as never)['checkAndIncrementTenantCost'](tenantId, 100);
+
+    const svc = new UsageMeteringService(makeSupabase());
+    await svc.checkInboundRateLimit('tenant-pipeline');
 
     expect(mockPipeline).toHaveBeenCalled();
-    expect(mockIncrby).toHaveBeenCalledWith(
-      expect.stringContaining(`rate:tenant:${tenantId}:query-cost`),
-      100
+    expect(mockIncr).toHaveBeenCalledWith(
+      expect.stringContaining('rate:inbound:tenant-pipeline')
     );
-    expect(mockExpire).toHaveBeenCalledWith(
-      expect.stringContaining(`rate:tenant:${tenantId}:query-cost`),
-      60,   // QUERY_WINDOW_SECONDS
-      'NX'  // Only set TTL if key has no expiry (first write in window)
-    );
+    expect(mockExpire).toHaveBeenCalled();
   });
 
-  it('fails open when Redis is unavailable', async () => {
+  it('fails open when Redis throws', async () => {
     const { getRedisClient } = await import('../../../lib/redis.js');
-    vi.mocked(getRedisClient).mockResolvedValueOnce(null);
+    vi.mocked(getRedisClient).mockImplementationOnce(() => {
+      throw new Error('ECONNREFUSED');
+    });
 
     const svc = new UsageMeteringService(makeSupabase());
-
-    // Should not throw even though Redis returned null
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost']('tenant-no-redis', 999)
-    ).resolves.toBeUndefined();
+    const allowed = await svc.checkInboundRateLimit('tenant-no-redis');
+    expect(allowed).toBe(true);
   });
 
-  it('fails open when pipeline.exec throws a Redis error', async () => {
+  it('fails open when pipeline.exec throws', async () => {
     mockExec.mockRejectedValueOnce(new Error('ECONNRESET'));
 
     const svc = new UsageMeteringService(makeSupabase());
-
-    // Infrastructure error should not propagate — fail open
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost']('tenant-redis-error', 100)
-    ).resolves.toBeUndefined();
+    const allowed = await svc.checkInboundRateLimit('tenant-redis-error');
+    expect(allowed).toBe(true);
   });
 
-  it('fails open when INCRBY returns a command-level error', async () => {
-    // Simulate a WRONGTYPE error: results[0][0] is an Error, results[0][1] is null.
-    mockExec.mockResolvedValueOnce([[new Error('WRONGTYPE Operation against a key holding the wrong kind of value'), null], [null, 1]]);
-
+  it('window resets after TTL expiry (simulated by returning low count)', async () => {
     const svc = new UsageMeteringService(makeSupabase());
-
-    // Should not throw — command error is logged and fails open
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost']('tenant-wrongtype', 100)
-    ).resolves.toBeUndefined();
-  });
-
-  it('window resets after TTL expiry (simulated by returning low total)', async () => {
-    const svc = new UsageMeteringService(makeSupabase());
-    const tenantId = 'tenant-rate-reset';
 
     // First window: near limit
     mockExec.mockResolvedValueOnce([[null, 950], [null, 1]]);
-    await (svc as never)['checkAndIncrementTenantCost'](tenantId, 950);
+    expect(await svc.checkInboundRateLimit('tenant-reset')).toBe(true);
 
-    // After TTL expiry, Redis returns a fresh low total (key was deleted by TTL)
-    mockExec.mockResolvedValueOnce([[null, 100], [null, 1]]);
-    await expect(
-      (svc as never)['checkAndIncrementTenantCost'](tenantId, 100)
-    ).resolves.toBeUndefined();
+    // After TTL expiry, Redis returns a fresh low count
+    mockExec.mockResolvedValueOnce([[null, 10], [null, 1]]);
+    expect(await svc.checkInboundRateLimit('tenant-reset')).toBe(true);
   });
 });

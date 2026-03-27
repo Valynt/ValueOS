@@ -36,6 +36,25 @@ SELECT is_empty(
   'All tenant-column tables are explicitly listed in tenant scope inventory'
 );
 
+-- Guardrail: every public table (regardless of columns) must have RLS enabled.
+-- This catches service-only tables that lack tenant_id but still need RLS as
+-- defense-in-depth. Excludes partition children of partitioned parents
+-- (they inherit policies; RLS must be enabled separately — covered by the
+-- create_next_monthly_partitions() function and the 20260917 migration).
+SELECT is_empty(
+  $$
+  SELECT format('%I.%I', n.nspname, c.relname) AS table_without_rls
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.relkind IN ('r', 'p')
+    AND n.nspname = 'public'
+    AND c.relname NOT IN ('schema_migrations', 'spatial_ref_sys')
+    AND NOT c.relrowsecurity
+  ORDER BY 1
+  $$,
+  'RLS is enabled on every public table (defense-in-depth)'
+);
+
 -- Tenant-scoped tables must exist.
 SELECT is_empty(
   $$

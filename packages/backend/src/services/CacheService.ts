@@ -1,15 +1,21 @@
 /**
  * CacheService
  *
- * Tenant-scoped cache with Redis backend.
- * Keys are namespaced as `tenant:<tenantId>:<namespace>:<key>` to enforce isolation.
+ * Tenant-scoped cache with optional Redis backend.
  *
- * When REDIS_URL is set, all reads and writes go through Redis. The in-memory
- * Map is retained as an explicit dev-only fallback when Redis is absent, and a
- * warning is logged at construction time so the degraded mode is never silent.
+ * Key format (in-memory):  tenant:{tid}:{namespace}:{key}
+ * Key format (Redis):      tenant:{tid}:{namespace}:v{n}:{key}
  *
- * In a multi-pod deployment, only the Redis-backed path provides shared state.
- * The in-memory fallback is intentionally not suitable for production.
+ * Redis clear() uses versioned namespace invalidation: incrementing the version
+ * counter makes all existing keys unreachable in O(1) without a SCAN. Old keys
+ * expire naturally via TTL. This is cluster-safe and race-condition-free.
+ *
+ * Round-trip efficiency: get() and set() use a Lua script to fetch the current
+ * version and perform the data operation atomically in a single round-trip.
+ *
+ * For maintenance/admin use, purge() performs a SCAN+UNLINK sweep. Note: on a
+ * Redis Cluster, SCAN only covers the local node — a full cluster purge requires
+ * iterating all nodes externally.
  */
 
 import { createClient } from "redis";
@@ -19,10 +25,9 @@ import { tenantContextStorage } from "../middleware/tenantContext.js";
 
 const logger = createLogger({ component: "CacheService" });
 
-interface SetOptions {
+export interface SetOptions {
   namespace?: string;
-  /** TTL in seconds. Only enforced when Redis is available. */
-  ttl?: number;
+  ttl?: number; // seconds; defaults to CacheService constructor defaultTtl
 }
 
 interface DeleteManyOptions {
@@ -30,30 +35,64 @@ interface DeleteManyOptions {
   namespace?: string;
 }
 
+const DEFAULT_TTL_SECONDS = 3600;
+
+/**
+ * Lua: atomically fetch the current version then GET the versioned key.
+ * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+ * ARGV[1] = the cache key suffix
+ * Returns the stored value string or nil.
+ */
+const LUA_GET = `
+local v = redis.call('GET', KEYS[1])
+v = v and tonumber(v) or 0
+local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
+return redis.call('GET', full_key)
+`;
+
+/**
+ * Lua: atomically fetch the current version then SET the versioned key with TTL.
+ * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+ * ARGV[1] = cache key suffix, ARGV[2] = serialized value, ARGV[3] = TTL seconds
+ */
+const LUA_SET = `
+local v = redis.call('GET', KEYS[1])
+v = v and tonumber(v) or 0
+local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
+return redis.call('SET', full_key, ARGV[2], 'EX', ARGV[3])
+`;
+
+/**
+ * Lua: atomically fetch the current version then DEL the versioned key.
+ * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+ * ARGV[1] = cache key suffix
+ */
+const LUA_DEL = `
+local v = redis.call('GET', KEYS[1])
+v = v and tonumber(v) or 0
+local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
+return redis.call('DEL', full_key)
+`;
+
 export class CacheService {
   private namespace: string;
-  /** Fallback store used only when Redis is unavailable (dev/test). */
+  private defaultTtl: number;
   private store: Map<string, unknown> = new Map();
   private redisClient: ReturnType<typeof createClient> | null = null;
-  private redisReady = false;
 
-  constructor(namespace = "default") {
+  constructor(namespace = "default", defaultTtl = DEFAULT_TTL_SECONDS) {
     this.namespace = namespace;
-
+    this.defaultTtl = defaultTtl;
     if (process.env.REDIS_URL) {
       this.redisClient = createClient({ url: process.env.REDIS_URL });
       this.redisClient.on("error", (err: Error) => {
-        logger.warn("redis-client-error", { error: err.message });
-        this.redisReady = false;
+        logger.warn("redis-client-error", { error: err.message, namespace });
       });
       this.redisClient.on("ready", () => {
-        this.redisReady = true;
         logger.info("redis-client-ready", { namespace });
       });
-      void this.redisClient.connect().then(() => {
-        this.redisReady = true;
-      }).catch((err: Error) => {
-        logger.warn("redis-connect-failed", { error: err.message });
+      void this.redisClient.connect().catch((err: Error) => {
+        logger.warn("redis-connect-failed", { error: err.message, namespace });
       });
     } else {
       logger.warn("cache-service-fallback-mode", {
@@ -65,111 +104,41 @@ export class CacheService {
     }
   }
 
-  private get useRedis(): boolean {
-    return this.redisClient !== null && this.redisReady;
+  // ── Key helpers ────────────────────────────────────────────────────────────
+
+  private currentTid(): string {
+    return tenantContextStorage.getStore()?.tid ?? "global";
   }
 
-  private tenantPrefix(): string {
-    const ctx = tenantContextStorage.getStore();
-    const tid = ctx?.tid ?? "global";
-    return `tenant:${tid}:${this.namespace}`;
+  /** Base prefix without version: tenant:{tid}:{namespace} */
+  private basePrefix(tid?: string): string {
+    return `tenant:${tid ?? this.currentTid()}:${this.namespace}`;
   }
 
-  private fullKey(key: string, ns?: string): string {
-    const prefix = ns ?? this.tenantPrefix();
-    return `${prefix}:${key}`;
+  /** Redis key for the namespace version counter. */
+  private versionKey(tid?: string): string {
+    return `${this.basePrefix(tid)}:_v`;
   }
 
-  async get<T>(key: string): Promise<T | null> {
-    const fk = this.fullKey(key);
+  /** In-memory full key. Always uses basePrefix() — never the raw ns option. */
+  private memKey(key: string): string {
+    return `${this.basePrefix()}:${key}`;
+  }
 
-    if (this.useRedis) {
-      try {
-        const raw = await this.redisClient!.get(fk);
-        if (raw === null) return null;
-        return JSON.parse(raw) as T;
-      } catch (err) {
-        logger.warn("cache-get-redis-error", {
-          key: fk,
-          error: (err as Error).message,
-        });
-        // Fall through to in-memory on transient Redis error
-      }
+  // ── Namespace validation ───────────────────────────────────────────────────
+
+  private assertNamespaceOwnership(ns: string): void {
+    const tid = this.currentTid();
+    if (!ns.startsWith(`tenant:${tid}:`)) {
+      throw new Error(
+        `Tenant cache namespace mismatch: expected prefix tenant:${tid}: but got ${ns}`
+      );
     }
-
-    const val = this.store.get(fk);
-    return val !== undefined ? (val as T) : null;
   }
 
-  async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
-    const ns = options?.namespace;
+  // ── In-memory prefix clear helper ─────────────────────────────────────────
 
-    if (ns) {
-      const ctx = tenantContextStorage.getStore();
-      const tid = ctx?.tid ?? "global";
-      if (!ns.startsWith(`tenant:${tid}:`)) {
-        throw new Error(
-          `Tenant cache namespace mismatch: expected prefix tenant:${tid}: but got ${ns}`
-        );
-      }
-    }
-
-    const fk = this.fullKey(key, ns);
-
-    if (this.useRedis) {
-      try {
-        const serialized = JSON.stringify(value);
-        if (options?.ttl) {
-          await this.redisClient!.set(fk, serialized, { EX: options.ttl });
-        } else {
-          await this.redisClient!.set(fk, serialized);
-        }
-        return;
-      } catch (err) {
-        logger.warn("cache-set-redis-error", {
-          key: fk,
-          error: (err as Error).message,
-        });
-        // Fall through to in-memory on transient Redis error
-      }
-    }
-
-    this.store.set(fk, value);
-  }
-
-  async delete(key: string): Promise<void> {
-    const fk = this.fullKey(key);
-
-    if (this.useRedis) {
-      try {
-        await this.redisClient!.del(fk);
-        return;
-      } catch (err) {
-        logger.warn("cache-delete-redis-error", {
-          key: fk,
-          error: (err as Error).message,
-        });
-      }
-    }
-
-    this.store.delete(fk);
-  }
-
-  async clear(): Promise<void> {
-    const prefix = this.tenantPrefix();
-
-    if (this.useRedis) {
-      try {
-        await this._scanAndDelete(`${prefix}:*`);
-        return;
-      } catch (err) {
-        logger.warn("cache-clear-redis-error", {
-          prefix,
-          error: (err as Error).message,
-        });
-      }
-    }
-
+  private clearMemPrefix(prefix: string): void {
     for (const k of this.store.keys()) {
       if (k.startsWith(prefix)) {
         this.store.delete(k);
@@ -177,44 +146,137 @@ export class CacheService {
     }
   }
 
-  async deleteMany(keys: string[], options?: DeleteManyOptions): Promise<void> {
-    const ns = options?.namespace ?? this.tenantPrefix();
-    const fullKeys = keys.map((k) => `${ns}:${k}`);
+  // ── Public API ─────────────────────────────────────────────────────────────
 
-    if (this.useRedis) {
+  async get<T>(key: string): Promise<T | null> {
+    if (this.redisClient) {
       try {
-        if (fullKeys.length > 0) {
-          await this.redisClient!.del(fullKeys);
-        }
-        return;
-      } catch (err) {
-        logger.warn("cache-delete-many-redis-error", {
-          error: (err as Error).message,
+        const raw = await this.redisClient.eval(LUA_GET, {
+          keys: [this.versionKey(), this.basePrefix()],
+          arguments: [key],
+        }) as string | null;
+        if (raw === null) return null;
+        return JSON.parse(raw) as T;
+      } catch {
+        /* fall through to in-memory on Redis error */
+      }
+    }
+    const val = this.store.get(this.memKey(key));
+    return val !== undefined ? (val as T) : null;
+  }
+
+  async set(key: string, value: unknown, options?: SetOptions): Promise<void> {
+    const ns = options?.namespace;
+    if (ns) {
+      // Validate ownership only — ns is not used as the storage key
+      this.assertNamespaceOwnership(ns);
+    }
+    const ttl = options?.ttl ?? this.defaultTtl;
+
+    if (this.redisClient) {
+      try {
+        await this.redisClient.eval(LUA_SET, {
+          keys: [this.versionKey(), this.basePrefix()],
+          arguments: [key, JSON.stringify(value), String(ttl)],
         });
+        return;
+      } catch {
+        /* fall through to in-memory on Redis error */
       }
     }
 
-    for (const fk of fullKeys) {
-      this.store.delete(fk);
+    // Always use basePrefix()-derived key, never the raw ns option
+    this.store.set(this.memKey(key), value);
+  }
+
+  async delete(key: string): Promise<void> {
+    if (this.redisClient) {
+      try {
+        await this.redisClient.eval(LUA_DEL, {
+          keys: [this.versionKey(), this.basePrefix()],
+          arguments: [key],
+        });
+      } catch {
+        /* ignore redis delete failures */
+      }
+    }
+    this.store.delete(this.memKey(key));
+  }
+
+  /**
+   * Invalidate all keys for the current tenant+namespace.
+   *
+   * Redis path: atomically increments the namespace version counter. All
+   * existing keys become unreachable immediately; they expire via TTL.
+   * This is O(1) and cluster-safe. Also clears the in-memory store for the
+   * same prefix so that Redis-error fallthrough does not serve stale data.
+   *
+   * In-memory path: iterates the Map and removes matching prefix keys.
+   */
+  async clear(): Promise<void> {
+    const prefix = this.basePrefix();
+    if (this.redisClient) {
+      try {
+        await this.redisClient.incr(this.versionKey());
+      } catch {
+        /* ignore incr failure — fall through to in-memory clear */
+      }
+    }
+    // Always clear in-memory entries for this prefix. When Redis is active this
+    // ensures that any Redis-error fallthrough reads do not serve stale data.
+    this.clearMemPrefix(prefix);
+  }
+
+  /**
+   * Physically remove all Redis keys matching the current tenant+namespace
+   * prefix using SCAN+UNLINK. For maintenance/admin use only — not the hot path.
+   *
+   * The pattern `v*:*` targets only versioned data keys, deliberately excluding
+   * the version counter key (`_v`) so that the invalidation mechanism remains
+   * intact after a purge.
+   *
+   * WARNING: Redis Cluster limitation: SCAN only covers the local node. A full
+   * cluster purge requires iterating all nodes externally.
+   */
+  async purge(): Promise<void> {
+    if (this.redisClient) {
+      try {
+        // Match versioned data keys only: tenant:{tid}:{namespace}:v*:*
+        // The _v version counter key does NOT match this pattern.
+        const pattern = `${this.basePrefix()}:v*:*`;
+        let cursor = 0;
+        do {
+          const result = await this.redisClient.scan(cursor, {
+            MATCH: pattern,
+            COUNT: 100,
+          });
+          cursor = result.cursor;
+          if (result.keys.length > 0) {
+            await this.redisClient.unlink(result.keys);
+          }
+        } while (cursor !== 0);
+      } catch {
+        /* ignore purge failures */
+      }
+    }
+    this.clearMemPrefix(this.basePrefix());
+  }
+
+  async deleteMany(keys: string[], options?: DeleteManyOptions): Promise<void> {
+    if (options?.storage === "redis" && this.redisClient) {
+      // Use the versioned delete path so keys are resolved against the current
+      // namespace version, consistent with get() and set().
+      await Promise.all(keys.map((k) => this.delete(k)));
+    } else {
+      // In-memory path: keys are stored under basePrefix(), not a raw ns option.
+      for (const k of keys) {
+        this.store.delete(this.memKey(k));
+      }
     }
   }
 
   async invalidatePattern(pattern: string): Promise<void> {
-    const prefix = this.tenantPrefix();
-    const redisPattern = `${prefix}:${pattern}`;
-
-    if (this.useRedis) {
-      try {
-        await this._scanAndDelete(redisPattern);
-        return;
-      } catch (err) {
-        logger.warn("cache-invalidate-pattern-redis-error", {
-          pattern: redisPattern,
-          error: (err as Error).message,
-        });
-      }
-    }
-
+    const prefix = this.basePrefix();
     const regex = new RegExp(
       `^${prefix}:${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`
     );
@@ -233,25 +295,6 @@ export class CacheService {
     if (this.redisClient) {
       await this.redisClient.quit();
       this.redisClient = null;
-      this.redisReady = false;
     }
-  }
-
-  /**
-   * Iterates Redis keys matching a glob pattern using SCAN and deletes them.
-   * Uses cursor-based iteration to avoid blocking the Redis server on large keyspaces.
-   */
-  private async _scanAndDelete(pattern: string): Promise<void> {
-    let cursor = 0;
-    do {
-      const result = await this.redisClient!.scan(cursor, {
-        MATCH: pattern,
-        COUNT: 100,
-      });
-      cursor = result.cursor;
-      if (result.keys.length > 0) {
-        await this.redisClient!.del(result.keys);
-      }
-    } while (cursor !== 0);
   }
 }

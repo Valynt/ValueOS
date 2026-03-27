@@ -54,9 +54,15 @@ class Logger {
   private listeners: Array<(entry: LogEntry) => void> = [];
 
   constructor() {
-    // Set minimum log level based on environment
-    if (isProduction()) {
-      this.minLevel = "warn";
+    // Honour LOG_LEVEL env var when set to a valid level; otherwise fall back
+    // to environment-based defaults. Production default is "info" so that
+    // audit-critical info/warn calls (auth, tenant, subscriptions) are visible.
+    const envLevel = process.env.LOG_LEVEL as LogLevel | undefined;
+    const validLevels: LogLevel[] = ["debug", "info", "warn", "error"];
+    if (envLevel && validLevels.includes(envLevel)) {
+      this.minLevel = envLevel;
+    } else if (isProduction()) {
+      this.minLevel = "info";
     } else if (isTest()) {
       this.minLevel = "error";
     } else {
@@ -177,15 +183,10 @@ class Logger {
       }
     });
 
-    // Output to console in development
-    if (isDevelopment() || isTest()) {
-      this.consoleOutput(entry);
-    }
-
-    // In production, only log errors to console
-    if (isProduction() && level === "error") {
-      this.consoleOutput(entry);
-    }
+    // Output to console in all environments. shouldLog() already enforces the
+    // minimum level; a second level gate here would silently drop warn/info in
+    // production even when LOG_LEVEL or the production default permits them.
+    this.consoleOutput(entry);
   }
 
   /**

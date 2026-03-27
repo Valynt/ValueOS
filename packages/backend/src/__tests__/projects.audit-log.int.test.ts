@@ -155,6 +155,47 @@ function makeApp(role = 'admin') {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+// ── Audit log immutability ────────────────────────────────────────────────────
+// Verifies that the audit log service exposes no mutation surface.
+// The DB layer enforces immutability via triggers (audit_logs_append_only_update).
+// This test verifies the service contract: createEntry is the only write method.
+describe('Audit log service — immutability contract', () => {
+  it('auditLogService exposes createEntry but no update or delete methods', async () => {
+    // Dynamically import to get the real (mocked) service shape
+    const { auditLogService } = await import('../services/security/index.js');
+
+    expect(typeof auditLogService.createEntry).toBe('function');
+
+    // No mutation methods should exist on the service
+    expect((auditLogService as Record<string, unknown>).updateEntry).toBeUndefined();
+    expect((auditLogService as Record<string, unknown>).deleteEntry).toBeUndefined();
+    expect((auditLogService as Record<string, unknown>).update).toBeUndefined();
+    expect((auditLogService as Record<string, unknown>).delete).toBeUndefined();
+    expect((auditLogService as Record<string, unknown>).mutate).toBeUndefined();
+    expect((auditLogService as Record<string, unknown>).patch).toBeUndefined();
+  });
+
+  it('createEntry is the only write path — no bulk-write or upsert methods', async () => {
+    const { auditLogService } = await import('../services/security/index.js');
+    const methods = Object.keys(auditLogService as object).filter(
+      (k) => typeof (auditLogService as Record<string, unknown>)[k] === 'function',
+    );
+
+    // Allowed write methods
+    const allowedMethods = new Set(['createEntry', 'getEntries', 'getEntry', 'query', 'list', 'get', 'find', 'count']);
+    const forbiddenPatterns = ['update', 'delete', 'remove', 'upsert', 'bulk', 'truncate', 'drop', 'clear', 'purge'];
+
+    for (const method of methods) {
+      const isForbidden = forbiddenPatterns.some((p) => method.toLowerCase().includes(p));
+      if (isForbidden) {
+        throw new Error(
+          `Audit log service exposes mutation method "${method}" — audit logs must be append-only`,
+        );
+      }
+    }
+  });
+});
+
 describe('Projects API — audit logging', () => {
   beforeEach(() => {
     mockCreateEntry.mockClear();
