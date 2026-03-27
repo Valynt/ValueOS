@@ -8,7 +8,7 @@
 
 import { AsyncLocalStorage } from "async_hooks";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mock tenantContextStorage (hoisted) ───────────────────────────────────────
 
