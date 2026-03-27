@@ -60,7 +60,7 @@
     "check:a11y-completeness": "node scripts/ci/check-async-view-completeness.mjs",
     "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
     "check:required-checks-policy": "node scripts/ci/check-required-checks-policy.mjs",
-    "report:required-check-compliance": "node scripts/ci/report-required-check-compliance.mjs"
+    "report:required-check-compliance": "node scripts/ci/report-required-check-compliance.mjs",
     "validate:devcontainer": "bash scripts/validate-devcontainer.sh"
   },
   "dependencies": {
