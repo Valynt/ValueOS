@@ -141,7 +141,6 @@ export const agentSseHandler = http.get(
   "/api/agents/jobs/:jobId/stream",
   () => {
     const encoder = new TextEncoder();
-    const scenario = defaultScenario;
 
     const stream = new ReadableStream({
       async start(controller) {
