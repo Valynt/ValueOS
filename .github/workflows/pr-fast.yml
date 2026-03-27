@@ -326,9 +326,20 @@ jobs:
 
       - name: Direct LLM call guard
         run: node scripts/ci/check-direct-llm-calls.mjs
+      - name: Guard updateSubscriptionLegacy callsites
+        run: |
+          set -euo pipefail
+          hits="$(rg --line-number --glob '*.ts' 'updateSubscriptionLegacy\\(' packages/backend/src | rg -v 'packages/backend/src/services/billing/SubscriptionService.ts' || true)"
+          if [ -n "$hits" ]; then
+            echo "Forbidden updateSubscriptionLegacy callsite(s) found:"
+            echo "$hits"
+            exit 1
+          fi
 
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
+      - name: Auth fallback defaults guard
+        run: node scripts/ci/check-auth-fallback-defaults.mjs
 
       - name: PodSecurityPolicy removal guard
         run: node scripts/ci/check-psp-references.mjs
@@ -1299,9 +1310,45 @@ jobs:
                 exit 1
               fi
             else
-              if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              if [ "$lane_name" = "e2e-critical" ]; then
+                if [ "$status" != "success" ]; then
+                  echo "Failing PR gate due to lane status: $lane"
+                  exit 1
+                fi
+              elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
                 echo "Failing PR gate due to lane status: $lane"
                 exit 1
               fi
             fi
           done
+
+  integration-supabase:
+    name: integration-supabase
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Start Supabase
+        run: supabase start
+      - name: Run real integration matrix
+        env:
+          VALUEOS_TEST_REAL_INTEGRATION: "true"
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_CI }}
+        run: |
+          pnpm --filter @valueos/backend vitest run \
+            src/services/billing/__tests__/security/rls-policies.test.ts \
+            src/services/billing/__tests__/resiliency/advisory-lock-idempotency.test.ts \
+            src/services/billing/__tests__/integration/subscription-lifecycle.test.ts \
+            src/services/billing/__tests__/integration/quota-enforcement.test.ts

@@ -47,11 +47,11 @@ import {
 } from './WorkflowWatchdogWorker.js';
 import {
   ALERTING_QUEUE_NAME,
-  closeAlertingWorker,
+  closeAlertingRulesWorker,
   getAlertingQueue,
-  initAlertingWorker,
-  scheduleAlertRuleJobs,
-} from './AlertingWorker.js';
+  initAlertingRulesWorker,
+  scheduleAlertingEvaluationJob,
+} from './AlertingRulesWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -125,17 +125,15 @@ try {
 }
 
 try {
-  initAlertingWorker();
-  // Import DEFAULT_ALERT_RULES lazily to avoid circular imports at module load
-  const { DEFAULT_ALERT_RULES } = await import('../services/billing/AlertingService.js');
-  scheduleAlertRuleJobs(DEFAULT_ALERT_RULES).catch((err) => {
-    logger.warn('Failed to schedule alert rule jobs', {
+  initAlertingRulesWorker();
+  scheduleAlertingEvaluationJob().catch((err) => {
+    logger.warn('Failed to schedule alerting rules job', {
       error: err instanceof Error ? err.message : String(err),
     });
   });
-  logger.info('Alerting worker initialized');
+  logger.info('Alerting rules worker initialized');
 } catch (err) {
-  logger.warn('Alerting worker failed to start', {
+  logger.warn('Alerting rules worker failed to start', {
     error: err instanceof Error ? err.message : String(err),
   });
 }
@@ -169,7 +167,7 @@ const queueHealthSamplers = [
   {
     queue: getAlertingQueue,
     queueName: ALERTING_QUEUE_NAME,
-    workerClass: 'alerting-worker',
+    workerClass: 'alerting-rules-worker',
   },
 ] as const;
 
@@ -212,8 +210,8 @@ healthServer.listen(HEALTH_PORT, () => {
 const shutdown = (signal: string) => {
   logger.info(`Worker received ${signal}, shutting down`);
   healthy = false;
-  void closeAlertingWorker().catch((err) => {
-    logger.warn('Error closing alerting worker', {
+  void closeAlertingRulesWorker().catch((err) => {
+    logger.warn('Error closing alerting rules worker', {
       error: err instanceof Error ? err.message : String(err),
     });
   });

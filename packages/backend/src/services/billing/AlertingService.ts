@@ -180,83 +180,23 @@ export class AlertingService {
   private metricsCollector = getMetricsCollector();
   private alertRules: AlertRule[] = DEFAULT_ALERT_RULES;
   private activeAlerts: Map<string, Alert> = new Map();
-  private checkIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
   }
 
   /**
-   * Start monitoring with all enabled alert rules.
-   *
-   * Pass `useWorkerScheduling: true` when the AlertingWorker BullMQ repeatable
-   * job is active. In that mode, setInterval is not started — the worker
-   * calls evaluateRuleById() on each pod-exclusive job execution, preventing
-   * duplicate notifications from multi-replica deployments.
-   *
-   * The default (false) preserves the original in-process behaviour for
-   * single-instance deployments and tests.
+   * Evaluate all enabled rules once.
+   * This method is executed by the BullMQ repeatable worker job
+   * `alerting:evaluate-rules` to avoid duplicate evaluation across pods.
    */
-  start(options: { useWorkerScheduling?: boolean } = {}): void {
-    logger.info('Starting alerting service', {
-      ruleCount: this.alertRules.filter(r => r.enabled).length,
-      useWorkerScheduling: options.useWorkerScheduling ?? false,
-    });
-
-    if (options.useWorkerScheduling) {
-      // Scheduling is handled by AlertingWorker — do not start setIntervals.
-      // Log the rules that will be evaluated by the worker.
-      for (const rule of this.alertRules) {
-        if (rule.enabled) {
-          logger.debug('Alert rule delegated to BullMQ worker', {
-            ruleId: rule.id,
-            ruleName: rule.name,
-            intervalMinutes: rule.checkIntervalMinutes,
-          });
-        }
-      }
-      return;
-    }
-
+  async evaluateEnabledRules(): Promise<void> {
     for (const rule of this.alertRules) {
-      if (rule.enabled) {
-        this.startRuleMonitoring(rule);
+      if (!rule.enabled) {
+        continue;
       }
+      await this.checkRule(rule);
     }
-  }
-
-  /**
-   * Stop all monitoring
-   */
-  stop(): void {
-    logger.info('Stopping alerting service');
-
-    for (const [ruleId, interval] of this.checkIntervals) {
-      clearInterval(interval);
-      this.checkIntervals.delete(ruleId);
-    }
-  }
-
-  /**
-   * Start monitoring for a specific rule
-   */
-  private startRuleMonitoring(rule: AlertRule): void {
-    // Initial check
-    this.checkRule(rule);
-
-    // Schedule periodic checks
-    const interval = setInterval(
-      () => this.checkRule(rule),
-      rule.checkIntervalMinutes * 60 * 1000
-    );
-
-    this.checkIntervals.set(rule.id, interval);
-
-    logger.debug('Started monitoring for rule', {
-      ruleId: rule.id,
-      ruleName: rule.name,
-      intervalMinutes: rule.checkIntervalMinutes
-    });
   }
 
   /**

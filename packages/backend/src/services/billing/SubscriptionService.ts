@@ -12,6 +12,7 @@ import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
 import { supabase as supabaseClient } from '../../lib/supabase.js';
+import { billingSubscriptionCreateRollbackFailuresTotal } from '../../metrics/billingMetrics.js';
 import { Subscription, SubscriptionItem } from "../../types/billing";
 
 import CustomerService from "./CustomerService.js"
@@ -60,13 +61,13 @@ class SubscriptionService {
     tenantId: string,
     planTier: PlanTier,
     trialDays?: number,
-    idempotencyKey?: string
+    createRequestId?: string
   ): Promise<Subscription> {
     if (!this.stripe || !supabase || !this.stripeService) {
       throw new Error("Billing service not configured");
     }
     try {
-      logger.info("Creating subscription", { tenantId, planTier, idempotencyKey });
+      logger.info("Creating subscription", { tenantId, planTier, createRequestId });
 
       // Get or create customer
       const customer = await CustomerService.getCustomerByTenantId(tenantId);
@@ -191,6 +192,16 @@ class SubscriptionService {
           throw error;
         }
         subscription = data;
+        if (pendingCreation?.id) {
+          await supabase
+            .from("pending_subscription_creations")
+            .update({
+              status: "completed",
+              stripe_subscription_id: stripeSubscription.id,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", pendingCreation.id);
+        }
       } catch (dbError) {
         // DB insert failed after Stripe succeeded. The intent record is in
         // `stripe_updated` state — the reconciler will detect this and either
@@ -387,7 +398,8 @@ class SubscriptionService {
    * Legacy update subscription method (deprecated - use updateSubscription instead)
    * @deprecated Use updateSubscription for transaction safety
    */
-  async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
+  /** @deprecated Legacy direct Stripe + DB update path; use updateSubscription instead. */
+  private async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
     if (!supabase || !this.stripe || !this.stripeService) {
       throw new Error("Billing service not configured");
     }

@@ -29,7 +29,6 @@ const logger = createLogger({ component: "WebhookService" });
 
 export class WebhookService {
   private stripe: Stripe | null;
-  private processedWebhookIds = new Set<string>();
 
   /**
    * Listeners for billing domain events emitted during webhook processing.
@@ -336,47 +335,6 @@ export class WebhookService {
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
     }
-  }
-
-  /**
-   * Backward-compatible wrapper retained for older tests/helpers that still
-   * need a simple in-memory deduplication check.
-   *
-   * @deprecated Use the full webhook handling flow (`verifySignature` /
-   *             `processEvent` / `processWebhook`) in production code.
-   *             This helper is test-only; it throws in non-test environments.
-   */
-  async processWebhookTestOnly(
-    event: Partial<Stripe.Event> & {
-      id?: string;
-      type?: string;
-      data?: Stripe.Event.Data;
-      request?: { idempotency_key?: string | null } | null;
-    }
-  ): Promise<{ processed: true; isDuplicate: boolean }> {
-    if (process.env.NODE_ENV !== "test") {
-      throw new Error(
-        "WebhookService.processWebhookTestOnly is only supported in the test environment. " +
-          "Use the standard webhook handling flow (verifySignature/processEvent) in production code."
-      );
-    }
-
-    if (
-      !event ||
-      typeof event !== "object" ||
-      !event.id ||
-      !event.type ||
-      !event.data
-    ) {
-      throw new Error("Invalid webhook payload");
-    }
-
-    const isDuplicate = this.processedWebhookIds.has(event.id);
-    if (!isDuplicate) {
-      this.processedWebhookIds.add(event.id);
-    }
-
-    return { processed: true, isDuplicate };
   }
 
   /**

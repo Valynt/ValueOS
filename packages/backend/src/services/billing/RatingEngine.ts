@@ -294,3 +294,4 @@ class RatingEngine {
 export { RatingEngine };
 /** @deprecated Use named import `RatingEngine` instead. */
 export default RatingEngine;
+import crypto from "node:crypto";
