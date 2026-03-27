@@ -1,14 +1,15 @@
 /**
  * LLM Service with Circuit Breaker
  *
- * Implements circuit breaker pattern for Together.ai with resilience against service outages and rate limits.
- * Together AI is the only supported LLM provider.
+ * Implements provider-level fallback with circuit breaker resilience.
+ * Primary provider defaults to Together AI; fallback provider can be configured.
  */
 
 import { getEnvVar } from "@shared/lib/env";
 
 import { assertModelAllowed } from '../config/models.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js'
+import { llmCacheHitsTotal, llmProviderActive, llmProviderFallbackActivationsTotal } from '../metrics/llmMetrics.js';
 import { logger } from "../utils/logger.js"
 
 import { costGovernance } from "./CostGovernanceService.js"
@@ -30,7 +31,7 @@ export interface LLMRequest {
 
 export interface LLMResponse {
   content: string;
-  provider: "together_ai" | "cache";
+  provider: "together_ai" | "openai" | "cache";
   model: string;
   promptTokens: number;
   completionTokens: number;
@@ -59,6 +60,7 @@ type LLMFallbackStats = {
 export class LLMFallbackService {
   private readonly circuitBreaker: ExternalCircuitBreaker;
   private readonly gateway: LLMGateway;
+  private readonly fallbackGateway: LLMGateway;
   private readonly togetherChatBreakerKey = "external:together_ai:chat";
   private readonly togetherStreamBreakerKey = "external:together_ai:stream";
   private readonly breakerConfig = {
@@ -79,6 +81,11 @@ export class LLMFallbackService {
     this.gateway = new LLMGateway({
       provider: 'together',
       model: (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || 'gpt-4o-mini',
+      timeout_ms: 25000,
+    });
+    this.fallbackGateway = new LLMGateway({
+      provider: getEnvVar('LLM_FALLBACK_PROVIDER', { defaultValue: 'openai' }),
+      model: (getEnvVar('OPENAI_FALLBACK_MODEL_NAME') as string) || 'gpt-4o-mini',
       timeout_ms: 25000,
     });
   }
@@ -195,6 +202,7 @@ export class LLMFallbackService {
       : null;
     if (cached) {
       this.stats.cache.hits++;
+      llmCacheHitsTotal.labels({ circuit_state: this.circuitBreaker.getState(this.togetherChatBreakerKey) }).inc();
 
       logger.cache(
         "hit",
@@ -258,7 +266,9 @@ export class LLMFallbackService {
           () => this.callTogetherAI(request),
           { config: this.breakerConfig }
         );
-
+        llmProviderActive.labels({ provider: 'together' }).set(1);
+        llmProviderActive.labels({ provider: 'openai' }).set(0);
+        llmProviderActive.labels({ provider: 'cache' }).set(0);
         return resp;
       } catch (err) {
         lastError = err;
@@ -269,19 +279,28 @@ export class LLMFallbackService {
       }
     }
 
-    // Primary exhausted — attempt secondary if enabled/configured
+    // Primary exhausted — attempt fallback provider if enabled/configured
     if (fallbackEnabled && secondaryModel) {
       try {
-        assertModelAllowed('together_ai', String(secondaryModel));
         const secondaryReq = { ...request, model: String(secondaryModel) };
-        const secResp = await this.circuitBreaker.execute(
-          this.togetherChatBreakerKey,
-          () => this.callTogetherAI(secondaryReq),
-          { config: this.breakerConfig }
-        );
+        const response = await this.fallbackGateway.completeRaw({
+          model: secondaryReq.model,
+          messages: [{ role: 'user', content: secondaryReq.prompt }],
+          temperature: secondaryReq.temperature,
+          max_tokens: secondaryReq.maxTokens,
+          metadata: {
+            tenantId: secondaryReq.tenantId ?? 'unknown',
+            userId: secondaryReq.userId,
+            sessionId: secondaryReq.sessionId,
+            dealId: secondaryReq.dealId,
+          },
+        });
 
-        // Track fallback usage
         this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
+        llmProviderFallbackActivationsTotal.labels({ from_provider: 'together', to_provider: 'openai' }).inc();
+        llmProviderActive.labels({ provider: 'together' }).set(0);
+        llmProviderActive.labels({ provider: 'openai' }).set(1);
+        llmProviderActive.labels({ provider: 'cache' }).set(0);
 
         logger.warn('LLMFallback used secondary model after primary failures', {
           primary: primaryModel,
@@ -289,7 +308,17 @@ export class LLMFallbackService {
           fallback_reason: lastError instanceof Error ? lastError.message : String(lastError),
         });
 
-        return secResp;
+        return {
+          content: response.content,
+          provider: 'openai',
+          model: response.model,
+          promptTokens: response.usage?.prompt_tokens || 0,
+          completionTokens: response.usage?.completion_tokens || 0,
+          totalTokens: response.usage?.total_tokens || 0,
+          cost: llmCostTracker.calculateCost(response.model, response.usage?.prompt_tokens || 0, response.usage?.completion_tokens || 0),
+          latency: 0,
+          cached: false,
+        };
       } catch (secErr) {
         logger.error('Together.ai secondary fallback failed', secErr as Error);
         throw new Error('LLM provider unavailable. Please try again later.');

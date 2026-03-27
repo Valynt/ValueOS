@@ -172,6 +172,13 @@ export const webhookReconciliationDriftCount = new Gauge<'tenant_id'>({
   registers: [registry],
 });
 
+/** Stripe create-subscription rollback failures (possible Stripe/DB split-brain). */
+export const billingSubscriptionCreateRollbackFailuresTotal = new Counter({
+  name: 'billing_subscription_create_rollback_failures_total',
+  help: 'Stripe subscriptions that could not be rolled back after DB create failure',
+  registers: [registry],
+});
+
 /**
  * Incremented each time a subscription creation split-brain is detected:
  * Stripe subscription exists but DB insert failed AND rollback also failed.

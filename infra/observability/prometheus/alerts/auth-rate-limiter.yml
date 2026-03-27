@@ -21,3 +21,14 @@ groups:
                (REDIS_RECONNECT_DELAY_MS = 30s, REDIS_FAILURE_THRESHOLD = 3).
             4. Once Redis reconnects, the store auto-recovers; no restart needed.
             5. Monitor auth_rate_limiter_fallback_active_total to confirm rate drops to 0.
+      - alert: AuthJwtFallbackActivated
+        expr: increase(auth_fallback_activations_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Emergency JWT fallback mode activated"
+          description: >
+            AUTH_FALLBACK_EMERGENCY_MODE path was executed. Treat as incident-level
+            security signal and verify incident metadata, TTL, and containment immediately.
