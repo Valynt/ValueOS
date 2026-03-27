@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { logger } from '../../lib/logger.js'
-import { supabase } from '../../lib/supabase.js'
+import { createPlatformAdminSupabaseClient } from '../../lib/supabase/privileged/index.js'
 import { CustomerAccessService } from '../CustomerAccessService.js'
 import { emailService } from '../tenant/EmailService.js'
 
@@ -21,19 +21,32 @@ vi.mock('../../lib/logger', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-    from: vi.fn()
-  }
+const privilegedClientMock = {
+  rpc: vi.fn(),
+  from: vi.fn(),
+};
+
+vi.mock('../../lib/supabase/privileged/index.js', () => ({
+  createPlatformAdminSupabaseClient: vi.fn(() => privilegedClientMock),
 }));
 
 describe('CustomerAccessService', () => {
   let service: CustomerAccessService;
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     service = new CustomerAccessService();
     vi.clearAllMocks();
+    delete process.env.APP_URL;
+  });
+
+  it('creates a privileged client with explicit service-role justification', () => {
+    expect(createPlatformAdminSupabaseClient).toHaveBeenCalledWith({
+      justification: 'service-role:justified customer token lifecycle operations',
+    });
   });
 
   describe('generateCustomerToken', () => {
@@ -42,7 +55,7 @@ describe('CustomerAccessService', () => {
       const mockExpiresAt = '2026-04-06T00:00:00Z';
       const valueCaseId = 'value-case-123';
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: [{
           token: mockToken,
           expires_at: mockExpiresAt
@@ -61,7 +74,7 @@ describe('CustomerAccessService', () => {
       expect(result.portal_url).not.toContain('?token=');
       expect(result.portal_url).toContain(`#token=${encodeURIComponent(mockToken)}`);
 
-      expect(supabase.rpc).toHaveBeenCalledWith('create_customer_access_token', {
+      expect(privilegedClientMock.rpc).toHaveBeenCalledWith('create_customer_access_token', {
         p_value_case_id: valueCaseId,
         p_expires_in_days: 90
       });
@@ -71,7 +84,7 @@ describe('CustomerAccessService', () => {
       const valueCaseId = 'value-case-123';
       const expiresInDays = 30;
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: [{
           token: 'token',
           expires_at: '2026-02-05T00:00:00Z'
@@ -81,14 +94,14 @@ describe('CustomerAccessService', () => {
 
       await service.generateCustomerToken(valueCaseId, expiresInDays);
 
-      expect(supabase.rpc).toHaveBeenCalledWith('create_customer_access_token', {
+      expect(privilegedClientMock.rpc).toHaveBeenCalledWith('create_customer_access_token', {
         p_value_case_id: valueCaseId,
         p_expires_in_days: expiresInDays
       });
     });
 
     it('should throw error on database failure', async () => {
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: null,
         error: { message: 'Database error' }
       });
@@ -105,7 +118,7 @@ describe('CustomerAccessService', () => {
       const valueCaseId = 'value-case-123';
       const organizationId = 'org-123';
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: [{
           value_case_id: valueCaseId,
           organization_id: organizationId,
@@ -124,7 +137,7 @@ describe('CustomerAccessService', () => {
         error_message: null
       });
 
-      expect(supabase.rpc).toHaveBeenCalledWith('validate_customer_token', {
+      expect(privilegedClientMock.rpc).toHaveBeenCalledWith('validate_customer_token', {
         p_token: token
       });
     });
@@ -132,7 +145,7 @@ describe('CustomerAccessService', () => {
     it('should return invalid for expired token', async () => {
       const token = 'expired-token';
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: [{
           value_case_id: null,
           organization_id: null,
@@ -151,7 +164,7 @@ describe('CustomerAccessService', () => {
     it('should return invalid for revoked token', async () => {
       const token = 'revoked-token';
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: [{
           value_case_id: null,
           organization_id: null,
@@ -168,7 +181,7 @@ describe('CustomerAccessService', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: null,
         error: { message: 'Database error' }
       });
@@ -186,7 +199,7 @@ describe('CustomerAccessService', () => {
       const revokedBy = 'user-123';
       const reason = 'Customer requested';
 
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: true,
         error: null
       });
@@ -194,7 +207,7 @@ describe('CustomerAccessService', () => {
       const result = await service.revokeCustomerToken(token, revokedBy, reason);
 
       expect(result).toBe(true);
-      expect(supabase.rpc).toHaveBeenCalledWith('revoke_customer_token', {
+      expect(privilegedClientMock.rpc).toHaveBeenCalledWith('revoke_customer_token', {
         p_token: token,
         p_revoked_by: revokedBy,
         p_reason: reason
@@ -202,7 +215,7 @@ describe('CustomerAccessService', () => {
     });
 
     it('should return false for non-existent token', async () => {
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: false,
         error: null
       });
@@ -213,7 +226,7 @@ describe('CustomerAccessService', () => {
     });
 
     it('should throw error on database failure', async () => {
-      (supabase.rpc as any).mockResolvedValue({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValue({
         data: null,
         error: { message: 'Database error' }
       });
@@ -241,12 +254,12 @@ describe('CustomerAccessService', () => {
         })
       };
 
-      (supabase.from as any).mockReturnValue(mockFrom);
+      vi.mocked(privilegedClientMock.from).mockReturnValue(mockFrom as never);
 
       const result = await service.getTokensForValueCase(valueCaseId);
 
       expect(result).toEqual(mockTokens);
-      expect(supabase.from).toHaveBeenCalledWith('customer_access_tokens');
+      expect(privilegedClientMock.from).toHaveBeenCalledWith('customer_access_tokens');
     });
   });
 
@@ -268,7 +281,7 @@ describe('CustomerAccessService', () => {
         })
       };
 
-      (supabase.from as any).mockReturnValue(mockFrom);
+      vi.mocked(privilegedClientMock.from).mockReturnValue(mockFrom as never);
 
       const result = await service.getActiveTokensForValueCase(valueCaseId);
 
@@ -284,13 +297,13 @@ describe('CustomerAccessService', () => {
       const newToken = 'new-token';
 
       // Mock revoke
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValueOnce({
         data: true,
         error: null
       });
 
       // Mock generate
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(privilegedClientMock.rpc).mockResolvedValueOnce({
         data: [{
           token: newToken,
           expires_at: '2026-04-06T00:00:00Z'
@@ -305,7 +318,26 @@ describe('CustomerAccessService', () => {
       );
 
       expect(result.token).toBe(newToken);
-      expect(supabase.rpc).toHaveBeenCalledTimes(2);
+      expect(privilegedClientMock.rpc).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('buildPortalUrl', () => {
+    it('uses APP_URL under node runtime without browser globals', () => {
+      process.env.APP_URL = 'https://app.valueos.com/';
+      vi.stubGlobal('window', undefined);
+
+      const portalUrl = service.getPortalUrl('token-123');
+
+      expect(portalUrl).toBe('https://app.valueos.com/customer/portal#token=token-123');
+    });
+
+    it('falls back to localhost when APP_URL is not set', () => {
+      vi.stubGlobal('window', undefined);
+
+      const portalUrl = service.getPortalUrl('token-123');
+
+      expect(portalUrl).toBe('http://localhost:3000/customer/portal#token=token-123');
     });
   });
 
