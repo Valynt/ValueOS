@@ -82,6 +82,16 @@ export class DefaultIntegrityVetoService implements IntegrityVetoService {
   }
 
   async evaluateStructuralTruthVeto(payload: unknown, options: IntegrityCheckOptions): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+    // Only apply structural truth veto when the payload is attempting to be a
+    // StructuralTruthModule response (i.e. it contains at least one of the
+    // canonical fields). Generic agent payloads (e.g. economic_deltas) are not
+    // subject to this schema check — they are validated by evaluateIntegrityVeto.
+    if (typeof payload !== "object" || payload === null) return { vetoed: false };
+    const hasStructuralTruthFields = STRUCTURAL_TRUTH_SCHEMA_FIELDS.some(
+      (f) => f in (payload as Record<string, unknown>)
+    );
+    if (!hasStructuralTruthFields) return { vetoed: false };
+
     const validation = StructuralTruthModuleSchema.safeParse(payload);
     if (validation.success) return { vetoed: false };
     const deviationPercent = Math.min(100, (validation.error.issues.length / Math.max(1, STRUCTURAL_TRUTH_SCHEMA_FIELDS.length)) * 100);
@@ -103,9 +113,20 @@ export class DefaultIntegrityVetoService implements IntegrityVetoService {
       const refinePrompt = `${originalQuery}\n\nREFINE: grounded rerun. Attempt: ${attempt}`;
       const response = await this.deps.invokeRefinement(agentType, refinePrompt, agentContext, attempt).catch(() => ({ success: false }));
       if (!response.success) continue;
-      const structural = await this.evaluateStructuralTruthVeto(response.data, { traceId, agentType, query: originalQuery, context: agentContext });
+
+      // Reject responses with no recognizable economic content — they cannot
+      // be validated and are treated as structurally empty (re-refine required).
+      const responseData = (response as { success: boolean; data?: unknown }).data;
+      const claims = this.extractNumericClaims(responseData);
+      const hasStructuralTruthFields =
+        typeof responseData === "object" &&
+        responseData !== null &&
+        STRUCTURAL_TRUTH_SCHEMA_FIELDS.some((f) => f in (responseData as Record<string, unknown>));
+      if (claims.length === 0 && !hasStructuralTruthFields) continue;
+
+      const structural = await this.evaluateStructuralTruthVeto(responseData, { traceId, agentType, query: originalQuery, context: agentContext });
       if (structural.vetoed) continue;
-      const integrity = await this.evaluateIntegrityVeto(response.data, { traceId, agentType, query: originalQuery, context: agentContext });
+      const integrity = await this.evaluateIntegrityVeto(responseData, { traceId, agentType, query: originalQuery, context: agentContext });
       if (!integrity.vetoed && !integrity.reRefine) return { success: true, response, attempts: attempt };
     }
     return { success: false, attempts: maxAttempts };

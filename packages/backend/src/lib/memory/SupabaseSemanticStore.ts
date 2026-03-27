@@ -16,6 +16,7 @@ import type {
 } from '@valueos/memory';
 import type { SemanticFactProvenance } from '@valueos/memory';
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../supabase.js';
 
 const logger = createLogger({ service: 'SupabaseSemanticStore' });

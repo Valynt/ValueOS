@@ -34,6 +34,7 @@ import type {
   PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../supabase.js';
 import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';

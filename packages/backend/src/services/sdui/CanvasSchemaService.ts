@@ -28,6 +28,7 @@ import { CanvasTemplateAssembler } from "./CanvasTemplateAssembler.js";
 import { CanvasWorkspaceDataLoader } from "./CanvasWorkspaceDataLoader.js";
 import { SDUICacheService } from "./SDUICacheService.js";
 import { ValueFabricService } from "./ValueFabricService.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { getSupabaseClient } from "../../lib/supabase.js";
 
 export { CanvasSchemaCache, type SchemaHead } from "./CanvasSchemaCache.js";

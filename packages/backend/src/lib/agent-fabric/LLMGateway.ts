@@ -93,6 +93,17 @@ export interface LLMRequest {
    * Zod validation still runs post-response regardless.
    */
   responseSchema?: Record<string, unknown>;
+  /**
+   * AbortSignal to cancel the in-flight request (e.g. on timeout or user cancel).
+   * Forwarded to the underlying fetch/SDK call.
+   */
+  signal?: AbortSignal;
+  /**
+   * When true, the gateway falls back to a cheaper/faster model if the
+   * primary model is unavailable or over capacity.
+   * Declared in express.d.ts for request-level override.
+   */
+  useFallbackModel?: boolean;
 }
 
 export interface LLMMessage {
@@ -125,6 +136,9 @@ export class LLMGateway {
   private llmFallbackEnabled: boolean = true;
   private llmFallbackMaxAttempts: number = 1;
   private llmRetryBackoffMs: number = 200;
+
+  // OpenAI API key — read once at construction so misconfiguration fails fast.
+  private openAiApiKey?: string;
 
   constructor(
     config: LLMGatewayConfig | string,
@@ -167,6 +181,17 @@ export class LLMGateway {
         getEnvVar("LLM_RETRY_BACKOFF_MS") || "200"
       );
     }
+
+    // Cache the OpenAI key at construction so a missing key fails fast
+    // rather than on the first request.
+    if (this.config.provider === "openai") {
+      this.openAiApiKey = process.env["OPENAI_API_KEY"];
+      if (!this.openAiApiKey) {
+        throw new Error(
+          "OPENAI_API_KEY is not set. Configure it to use the OpenAI provider."
+        );
+      }
+    }
   }
 
   protected async executeCompletion(
@@ -177,7 +202,101 @@ export class LLMGateway {
       return this.executeTogetherCompletion(request, startTime);
     }
 
+    if (this.config.provider === "openai") {
+      return this.executeOpenAICompletion(request, startTime);
+    }
+
     throw new Error("Provider not implemented: " + this.config.provider);
+  }
+
+  /**
+   * OpenAI chat completions via REST API.
+   * Uses fetch so no additional SDK dependency is required.
+   * Circuit breaker is applied at the secureInvoke() layer.
+   */
+  protected async executeOpenAICompletion(
+    request: LLMRequest,
+    startTime: number
+  ): Promise<LLMResponse> {
+    // Key is validated at construction; this guard is a safety net for
+    // subclasses or test scenarios that bypass the constructor check.
+    const apiKey = this.openAiApiKey;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is not set. Configure it to use the OpenAI provider."
+      );
+    }
+
+    const model = request.model || this.config.model || "gpt-4o-mini";
+    assertModelAllowed("openai", model);
+
+    const body: Record<string, unknown> = {
+      model,
+      messages: request.messages,
+      max_tokens: request.max_tokens ?? this.config.max_tokens ?? 1000,
+      temperature: request.temperature ?? this.config.temperature ?? 0.7,
+    };
+
+    // Structured outputs (JSON schema mode) when schema is provided
+    if (request.responseSchema) {
+      body["response_format"] = {
+        type: "json_schema",
+        json_schema: {
+          name: "response",
+          strict: true,
+          schema: request.responseSchema,
+        },
+      };
+    }
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: request.signal as AbortSignal | undefined,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "unknown error");
+      throw new Error(
+        `OpenAI API error ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = (await response.json()) as {
+      id: string;
+      choices: Array<{
+        message: { content: string | null };
+        finish_reason: string;
+      }>;
+      usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+      };
+    };
+
+    return {
+      id: data.id || `llm_${Date.now()}`,
+      model,
+      content: data.choices?.[0]?.message?.content || "",
+      finish_reason:
+        (data.choices?.[0]?.finish_reason as LLMResponse["finish_reason"]) ||
+        "stop",
+      usage: {
+        prompt_tokens: data.usage?.prompt_tokens || 0,
+        completion_tokens: data.usage?.completion_tokens || 0,
+        total_tokens: data.usage?.total_tokens || 0,
+      },
+      metadata: {
+        ...(request.metadata || {}),
+        duration_ms: Date.now() - startTime,
+        structured_outputs_used: !!request.responseSchema,
+      },
+    };
   }
 
   protected async executeTogetherCompletion(
@@ -195,20 +314,23 @@ export class LLMGateway {
       request.responseSchema != null &&
       (capabilities?.supportsStructuredOutputs ?? false);
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: request.messages,
-      max_tokens: request.max_tokens ?? this.config.max_tokens ?? 1000,
-      temperature: request.temperature ?? this.config.temperature ?? 0.7,
-      ...(useStructuredOutputs
-        ? {
-            response_format: {
-              type: "json_schema",
-              schema: request.responseSchema as Record<string, string>,
-            },
-          }
-        : {}),
-    });
+    const response = await client.chat.completions.create(
+      {
+        model,
+        messages: request.messages,
+        max_tokens: request.max_tokens ?? this.config.max_tokens ?? 1000,
+        temperature: request.temperature ?? this.config.temperature ?? 0.7,
+        ...(useStructuredOutputs
+          ? {
+              response_format: {
+                type: "json_schema",
+                schema: request.responseSchema as Record<string, string>,
+              },
+            }
+          : {}),
+      },
+      { signal: request.signal }
+    );
 
     return {
       id: response.id || `llm_${Date.now()}`,
@@ -347,10 +469,19 @@ export class LLMGateway {
       });
 
       // Get routing decision
+      const rawPriority = (metadata as Record<string, unknown>).priority;
+      const priority = (
+        rawPriority === "critical" ||
+        rawPriority === "high" ||
+        rawPriority === "medium" ||
+        rawPriority === "low"
+          ? rawPriority
+          : "medium"
+      ) as "critical" | "high" | "medium" | "low";
       const routingDecision = await this.costAwareRouter.routeRequest({
         tenantId,
         agentType,
-        priority: (metadata as Record<string, unknown>).priority || "medium",
+        priority,
         tokenEstimate: estimatedPromptTokens,
         sessionId,
       });
@@ -593,11 +724,14 @@ export class LLMGateway {
         },
       });
 
+      const trackerProvider = (
+        this.config.provider === "together" ? "together_ai" : this.config.provider
+      ) as "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
       void this.costTracker.trackUsage({
         userId,
         tenantId,
         sessionId,
-        provider: this.config.provider,
+        provider: trackerProvider,
         model,
         promptTokens: response.usage?.prompt_tokens || 0,
         completionTokens: response.usage?.completion_tokens || 0,
@@ -617,11 +751,14 @@ export class LLMGateway {
       return response;
     } catch (error: unknown) {
       const latencyMs = Date.now() - startTime;
+      const trackerProviderErr = (
+        this.config.provider === "together" ? "together_ai" : this.config.provider
+      ) as "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
       void this.costTracker.trackUsage({
         userId,
         tenantId,
         sessionId,
-        provider: this.config.provider,
+        provider: trackerProviderErr,
         model,
         promptTokens: 0,
         completionTokens: 0,
@@ -701,9 +838,10 @@ export class LLMGateway {
   /**
    * Generate method for backward compatibility
    */
-  async generate(prompt: string): Promise<string> {
+  async generate(prompt: string, tenantId: string): Promise<string> {
     const response = await this.complete({
       messages: [{ role: "user", content: prompt }],
+      metadata: { tenantId },
     });
     return response.content;
   }

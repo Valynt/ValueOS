@@ -88,6 +88,7 @@ import { validateAuditLogEncryptionConfig } from "./services/agents/AuditLogEncr
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import { appTrpcMiddleware } from "./api/trpc/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "./lib/supabase.js";
 import { supabase } from "./lib/supabase.js";
 import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";

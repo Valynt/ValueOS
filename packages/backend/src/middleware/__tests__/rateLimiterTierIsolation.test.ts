@@ -30,7 +30,7 @@ const makeRes = () => {
 };
 
 describe('rateLimiter tier isolation', () => {
-  it('separates counters for different tiers even for same user', () => {
+  it('separates counters for different tiers even for same user', async () => {
     const strictLimiter = createRateLimiter('strict', { max: 5 });
     const standardLimiter = createRateLimiter('standard', { max: 60 });
 
@@ -39,7 +39,7 @@ describe('rateLimiter tier isolation', () => {
     // 1. Hit strict limiter
     const resStrict = makeRes();
     const nextStrict = vi.fn();
-    strictLimiter(userReq, resStrict as any, nextStrict);
+    await strictLimiter(userReq, resStrict as any, nextStrict);
 
     // Strict limit is 5. Used 1. Remaining 4.
     expect(resStrict.headers['X-RateLimit-Remaining']).toBe('4');
@@ -47,7 +47,7 @@ describe('rateLimiter tier isolation', () => {
     // 2. Hit standard limiter
     const resStandard = makeRes();
     const nextStandard = vi.fn();
-    standardLimiter(userReq, resStandard as any, nextStandard);
+    await standardLimiter(userReq, resStandard as any, nextStandard);
 
     // Standard limit is 60. Used 1. Remaining 59.
     // If they collided, this would be 60 - 2 = 58 (if they shared the count 2).
@@ -58,7 +58,7 @@ describe('rateLimiter tier isolation', () => {
 
     // 3. Hit strict again
     const resStrict2 = makeRes();
-    strictLimiter(userReq, resStrict2 as any, nextStrict);
+    await strictLimiter(userReq, resStrict2 as any, nextStrict);
     // Should be 3 remaining
     expect(resStrict2.headers['X-RateLimit-Remaining']).toBe('3');
   });

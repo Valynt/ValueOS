@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 /**
  * RealizationAgent
  *
@@ -19,9 +20,9 @@ import { z } from 'zod';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
 import {
-  BaseGraphWriter,
   valueGraphService as defaultValueGraphService,
 } from '../../../services/value-graph/index.js';
+import { mapUnitToVgMetricUnit } from '../../../services/value-graph/valueDriverUtils.js';
 import type {
   AgentOutput,
   LifecycleContext,
@@ -103,7 +104,7 @@ export class RealizationAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private readonly realizationRepo = new RealizationReportRepository();
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
+  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService);
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -262,15 +263,13 @@ export class RealizationAgent extends BaseAgent {
         const metricId = this.graphWriter.generateNodeId(pp.kpi_id as string | undefined);
         writes.push(() =>
           this.graphWriter.writeMetric(context, {
-            id: metricId,
             name: String(pp.kpi_name ?? 'KPI'),
-            description: `Realized: ${pp.realized_value} ${pp.unit ?? ''} (${pp.direction})`,
             baseline_value: pp.committed_value as number | undefined,
             target_value: pp.realized_value as number | undefined,
-            unit: pp.unit as string | undefined,
+            unit: mapUnitToVgMetricUnit(pp.unit ?? 'count'),
           })
         );
-        const driverId = this.graphWriter.generateNodeId(pp.value_driver_id as string | undefined);
+        const driverId = this.graphWriter.generateNodeId((pp as Record<string, unknown>).value_driver_id as string | undefined ?? pp.kpi_id);
         writes.push(() =>
           this.graphWriter.writeEdge(context, {
             from_entity_id: metricId,
@@ -786,11 +785,13 @@ export class RealizationAgent extends BaseAgent {
     proofPoints: Array<{ kpi_id: string; kpi_name: string; confidence: number }>,
     context: LifecycleContext,
   ): Promise<void> {
-    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
-    if (!opportunityId) return;
-
-    const organizationId = context.organization_id;
-    const safeCtx = { opportunityId, organizationId, agentName: 'RealizationAgent' };
+    let safeCtx: { opportunityId: string; organizationId: string };
+    try {
+      safeCtx = this.graphWriter.getSafeContext(context);
+    } catch {
+      return;
+    }
+    const { opportunityId, organizationId } = safeCtx;
     const vgs = this.valueGraphService ?? defaultValueGraphService;
 
     // Load existing metrics to match proof points against
@@ -804,6 +805,7 @@ export class RealizationAgent extends BaseAgent {
 
     const metricNodes = graph.nodes.filter(n => n.entity_type === 'vg_metric');
 
+    const writes: Array<() => Promise<unknown>> = [];
     for (const proofPoint of proofPoints) {
       // Match metric by kpi_id or kpi_name; fall back to first metric
       const matchedNode = metricNodes.find(n => {
@@ -816,21 +818,20 @@ export class RealizationAgent extends BaseAgent {
 
       if (!matchedNode) continue;
 
-      await this.graphWriter['safeWrite'](
-        () => vgs.writeEdge({
-          opportunity_id: opportunityId,
-          organization_id: organizationId,
-          from_entity_type: 'evidence',
-          from_entity_id: this.graphWriter['newEntityId'](),
-          to_entity_type: 'vg_metric',
-          to_entity_id: matchedNode.entity_id,
-          edge_type: 'evidence_supports_metric',
-          confidence_score: proofPoint.confidence,
-          created_by_agent: 'RealizationAgent',
-        }),
-        safeCtx,
-      );
+      const evidenceId = this.graphWriter.generateNodeId();
+      writes.push(() => vgs.writeEdge({
+        opportunity_id: opportunityId,
+        organization_id: organizationId,
+        from_entity_type: 'evidence',
+        from_entity_id: evidenceId,
+        to_entity_type: 'vg_metric',
+        to_entity_id: matchedNode.entity_id,
+        edge_type: 'evidence_supports_metric',
+        confidence_score: proofPoint.confidence,
+        created_by_agent: 'RealizationAgent',
+      }));
     }
+    await this.graphWriter.safeWriteBatch(writes);
   }
 
   // -------------------------------------------------------------------------

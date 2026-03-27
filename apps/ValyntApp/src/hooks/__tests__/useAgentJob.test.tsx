@@ -23,9 +23,27 @@ vi.mock("@/api/client/unified-api-client", () => ({
   },
 }));
 
-// Grab the mock reference after the module is mocked
+vi.mock("@/contexts/TenantContext", () => ({
+  useTenant: vi.fn(() => ({ currentTenant: { id: "tenant-test" }, tenants: [], isLoading: false })),
+}));
+
+// Prevent the browser Supabase client from throwing at module load time when
+// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are absent in the test env.
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+    },
+  },
+  createBrowserSupabaseClient: vi.fn(() => ({ auth: {} })),
+}));
+
+// Grab mock references after modules are mocked
 import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
 const mockFetchJobStatus = vi.mocked(apiClient.get);
+const mockUseTenant = vi.mocked(useTenant);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,6 +69,8 @@ function createWrapper() {
 
 beforeEach(() => {
   mockFetchJobStatus.mockReset();
+  // Default: tenant is available
+  mockUseTenant.mockReturnValue({ currentTenant: { id: "tenant-test" }, tenants: [], isLoading: false } as ReturnType<typeof useTenant>);
 });
 
 // ---------------------------------------------------------------------------
@@ -60,13 +80,15 @@ beforeEach(() => {
 describe("useAgentJob", () => {
   describe("tenant-scoped cache key", () => {
     it("does not execute when tenantId is null", () => {
+      // Simulate no active tenant — hook should disable the query
+      mockUseTenant.mockReturnValue({ currentTenant: null, tenants: [], isLoading: false } as ReturnType<typeof useTenant>);
       mockFetchJobStatus.mockResolvedValue({
         success: true,
         data: { data: makeResult({ status: "completed" }) },
       });
 
       const { result } = renderHook(
-        () => useAgentJob("job-1", null, null),
+        () => useAgentJob("job-1"),
         { wrapper: createWrapper() },
       );
 
@@ -76,13 +98,14 @@ describe("useAgentJob", () => {
     });
 
     it("executes when both jobId and tenantId are provided", async () => {
+      mockUseTenant.mockReturnValue({ currentTenant: { id: "tenant-abc" }, tenants: [], isLoading: false } as ReturnType<typeof useTenant>);
       mockFetchJobStatus.mockResolvedValue({
         success: true,
         data: { data: makeResult({ status: "completed" }) },
       });
 
       const { result } = renderHook(
-        () => useAgentJob("job-1", null, "tenant-abc"),
+        () => useAgentJob("job-1"),
         { wrapper: createWrapper() },
       );
 
@@ -94,25 +117,25 @@ describe("useAgentJob", () => {
       const resultA = makeResult({ status: "completed", jobId: "job-1" });
       const resultB = makeResult({ status: "processing", jobId: "job-1" });
 
-      mockFetchJobStatus
-        .mockResolvedValueOnce({ success: true, data: { data: resultA } })
-        .mockResolvedValueOnce({ success: true, data: { data: resultB } });
-
+      // Pre-populate the cache for each tenant so no network calls are needed.
+      // This avoids the race condition where mockUseTenant changes between renders.
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
+      queryClient.setQueryData(["agent-job", "tenant-A", "job-1"], resultA);
+      queryClient.setQueryData(["agent-job", "tenant-B", "job-1"], resultB);
+
       const wrapper = ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
-      const { result: hookA } = renderHook(
-        () => useAgentJob("job-1", null, "tenant-A"),
-        { wrapper },
-      );
-      const { result: hookB } = renderHook(
-        () => useAgentJob("job-1", null, "tenant-B"),
-        { wrapper },
-      );
+      // hookA reads from tenant-A's cache entry
+      mockUseTenant.mockReturnValue({ currentTenant: { id: "tenant-A" }, tenants: [], isLoading: false } as ReturnType<typeof useTenant>);
+      const { result: hookA } = renderHook(() => useAgentJob("job-1"), { wrapper });
+
+      // hookB reads from tenant-B's cache entry
+      mockUseTenant.mockReturnValue({ currentTenant: { id: "tenant-B" }, tenants: [], isLoading: false } as ReturnType<typeof useTenant>);
+      const { result: hookB } = renderHook(() => useAgentJob("job-1"), { wrapper });
 
       await waitFor(() => expect(hookA.current.isSuccess).toBe(true));
       await waitFor(() => expect(hookB.current.isSuccess).toBe(true));
@@ -143,7 +166,7 @@ describe("useAgentJob", () => {
         });
 
       const { result } = renderHook(
-        () => useAgentJob("job-1", null, "tenant-abc"),
+        () => useAgentJob("job-1"),
         { wrapper: createWrapper() },
       );
 
@@ -165,7 +188,7 @@ describe("useAgentJob", () => {
       });
 
       const { result } = renderHook(
-        () => useAgentJob("job-1", null, "tenant-abc"),
+        () => useAgentJob("job-1"),
         { wrapper: createWrapper() },
       );
 
@@ -183,7 +206,7 @@ describe("useAgentJob", () => {
       const direct = makeResult({ status: "completed", mode: "direct" });
 
       const { result } = renderHook(
-        () => useAgentJob("job-1", direct, "tenant-abc"),
+        () => useAgentJob("job-1", direct),
         { wrapper: createWrapper() },
       );
 

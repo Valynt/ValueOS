@@ -6,10 +6,12 @@
  * detection) and memory access for all lifecycle agents.
  */
 
+import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
 
 import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
 import { reasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import { getTracer } from "../../../config/telemetry.js";
 import type { ReasoningTraceWrite } from "@valueos/shared";
 import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
 import type { AgentType } from "../../../services/agent-types.js";
@@ -170,8 +172,8 @@ export abstract class BaseAgent {
     };
     return {
       agent_id: this.name,
-      agent_type: this.lifecycleStage,
-      lifecycle_stage: this.lifecycleStage,
+      agent_type: this.lifecycleStage as AgentType,
+      lifecycle_stage: this.lifecycleStage as LifecycleStage,
       status,
       result,
       confidence,
@@ -362,204 +364,234 @@ export abstract class BaseAgent {
       throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
     }
 
-    return this.circuitBreaker.execute(async () => {
-      // Start the timer inside the closure so circuit-breaker queue time is
-      // not included in the reported LLM latency.
-      const invokeStartMs = Date.now();
-
-      const traceId =
-        typeof context.trace_id === "string"
-          ? context.trace_id
-          : typeof context.traceId === "string"
-            ? context.traceId
-            : sessionId;
-
-      // Sanitize context before injecting into the LLM request — removes PII/secret fields.
-      const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
-
-      const request = {
-        messages: [{ role: "user" as const, content: prompt }],
-        metadata: {
-          // Spread sanitized context first so explicit named fields below
-          // take precedence and cannot be overridden by caller-supplied values.
-          // sanitizeForAgent redacts PII/secret fields; non-sensitive fields
-          // (e.g. trace_id, custom metadata) pass through unchanged.
-          ...sanitizedContext,
-          tenantId: this.organizationId,
-          sessionId,
-          userId: resolvedUserId,
-          trace_id: traceId,
-          idempotencyKey,
-          // agentType drives policy lookup in LLMGateway — prefer the
-          // canonical agentType (factory key) and fall back to name for
-          // agents that don't override it.
-          agentType: this.agentType ?? this.name,
+    // Create an OTel span for this agent invocation so traces include
+    // agent.name, agent.lifecycle_stage, and tenant_id attributes.
+    const tracer = getTracer();
+    return tracer.startActiveSpan(
+      "agent.secureInvoke",
+      {
+        attributes: {
+          "agent.name": this.name,
+          "agent.lifecycle_stage": (options.context?.["lifecycle_stage"] as string) ?? "unknown",
+          "tenant_id": this.organizationId ?? "unknown",
+          "session_id": sessionId,
         },
-      };
+      },
+      async (agentSpan) => {
+        // End the OTel span after the circuit breaker resolves or rejects.
+        // circuitBreaker.execute() is inside the try so a synchronous throw
+        // (e.g. circuit open) is also caught and the span is always closed.
+        try {
+          const circuitResult = this.circuitBreaker.execute(async () => {
+            // Start the timer inside the closure so circuit-breaker queue time is
+            // not included in the reported LLM latency.
+            const invokeStartMs = Date.now();
 
-       
-      const response = await this.llmGateway.complete(request);
+            const traceId =
+              typeof context.trace_id === "string"
+                ? context.trace_id
+                : typeof context.traceId === "string"
+                  ? context.traceId
+                  : sessionId;
 
-      // Knowledge Fabric cross-reference (runs in parallel with parse)
-      const kfResultPromise = this.validateWithKnowledgeFabric(
-        response.content
-      );
+            // Sanitize context before injecting into the LLM request — removes PII/secret fields.
+            const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
 
-      // Validate response with Zod (fails fast on bad JSON)
-      let parsedJson: unknown;
-      try {
-        parsedJson = JSON.parse(response.content);
-      } catch (err) {
-        logger.error("Failed to parse LLM response as JSON", {
-          agent: this.name,
-          session_id: sessionId,
-          error: BaseAgent.getErrorMessage(err),
-          content: response.content,
-        });
-        throw new Error(
-          "LLM response was not valid JSON: " + BaseAgent.getErrorMessage(err)
-        );
-      }
-      const parsed = zodSchema.parse(parsedJson);
+            const request = {
+              messages: [{ role: "user" as const, content: prompt }],
+              metadata: {
+                // Spread sanitized context first so explicit named fields below
+                // take precedence and cannot be overridden by caller-supplied values.
+                // sanitizeForAgent redacts PII/secret fields; non-sensitive fields
+                // (e.g. trace_id, custom metadata) pass through unchanged.
+                ...sanitizedContext,
+                tenantId: this.organizationId,
+                sessionId,
+                userId: resolvedUserId,
+                trace_id: traceId,
+                idempotencyKey,
+                // agentType drives policy lookup in LLMGateway — prefer the
+                // canonical agentType (factory key) and fall back to name for
+                // agents that don't override it.
+                agentType: this.agentType ?? this.name,
+              },
+            };
 
-      // Run multi-signal hallucination detection
-      const hallucinationResult = await this.checkHallucination(
-        response.content,
-        parsed as Record<string, unknown>,
-        sessionId
-      );
+            const response = await this.llmGateway.complete(request);
 
-      // Merge Knowledge Fabric result
-      const kfResult = await kfResultPromise;
-      hallucinationResult.knowledgeFabric = kfResult;
+            // Knowledge Fabric cross-reference (runs in parallel with parse)
+            const kfResultPromise = this.validateWithKnowledgeFabric(
+              response.content
+            );
 
-      if (!kfResult.passed) {
-        hallucinationResult.passed = false;
-        hallucinationResult.requiresEscalation = true;
-        hallucinationResult.groundingScore = Math.min(
-          hallucinationResult.groundingScore,
-          kfResult.confidence
-        );
-      }
+            // Validate response with Zod (fails fast on bad JSON)
+            let parsedJson: unknown;
+            try {
+              parsedJson = JSON.parse(response.content);
+            } catch (err) {
+              logger.error("Failed to parse LLM response as JSON", {
+                agent: this.name,
+                session_id: sessionId,
+                error: BaseAgent.getErrorMessage(err),
+                content: response.content,
+              });
+              throw new Error(
+                "LLM response was not valid JSON: " + BaseAgent.getErrorMessage(err)
+              );
+            }
+            const parsed = zodSchema.parse(parsedJson);
 
-      // Track prediction if enabled
-      if (trackPrediction) {
-        await this.memorySystem.storeSemanticMemory(
-          sessionId,
-          this.name,
-          "episodic",
-          `LLM Response: ${response.content.substring(0, 200)}...`,
-          {
-            confidence: hallucinationResult.groundingScore,
-            hallucination_check: hallucinationResult.passed,
-            hallucination_signals: hallucinationResult.signals.length,
-            requires_escalation: hallucinationResult.requiresEscalation,
-            validation_method: kfResult.method,
-            contradiction_count: kfResult.contradictions.length,
-            benchmark_misalignment_count:
-              kfResult.benchmarkMisalignments.length,
-          },
-          this.organizationId
-        );
-      }
+            // Run multi-signal hallucination detection
+            const hallucinationResult = await this.checkHallucination(
+              response.content,
+              parsed as Record<string, unknown>,
+              sessionId
+            );
 
-      if (hallucinationResult.requiresEscalation) {
-        logger.warn("Hallucination escalation triggered", {
-          agent: this.name,
-          session_id: sessionId,
-          signals: hallucinationResult.signals.map(s => s.type),
-          grounding_score: hallucinationResult.groundingScore,
-        });
-      }
+            // Merge Knowledge Fabric result
+            const kfResult = await kfResultPromise;
+            hallucinationResult.knowledgeFabric = kfResult;
 
-      // Surface token counts so the API layer can emit usage events without
-      // re-parsing the raw LLM response.
-      const tokenUsage = response.usage
-        ? {
-            input_tokens: response.usage.prompt_tokens,
-            output_tokens: response.usage.completion_tokens,
-            total_tokens: response.usage.total_tokens,
-          }
-        : undefined;
+            if (!kfResult.passed) {
+              hallucinationResult.passed = false;
+              hallucinationResult.requiresEscalation = true;
+              hallucinationResult.groundingScore = Math.min(
+                hallucinationResult.groundingScore,
+                kfResult.confidence
+              );
+            }
 
-      // Emit audit entry for this LLM invocation (non-blocking).
-      void this.auditLogger.logLLMInvocation({
-        agentName: this.name,
-        sessionId,
-        tenantId: this.organizationId,
-        userId: resolvedUserId,
-        model: response.model ?? "unknown",
-        latencyMs: Date.now() - invokeStartMs,
-        hallucinationPassed: hallucinationResult.passed,
-        groundingScore: hallucinationResult.groundingScore,
-        tokenUsage,
-      });
+            // Track prediction if enabled
+            if (trackPrediction) {
+              await this.memorySystem.storeSemanticMemory(
+                sessionId,
+                this.name,
+                "episodic",
+                `LLM Response: ${response.content.substring(0, 200)}...`,
+                {
+                  confidence: hallucinationResult.groundingScore,
+                  hallucination_check: hallucinationResult.passed,
+                  hallucination_signals: hallucinationResult.signals.length,
+                  requires_escalation: hallucinationResult.requiresEscalation,
+                  validation_method: kfResult.method,
+                  contradiction_count: kfResult.contradictions.length,
+                  benchmark_misalignment_count:
+                    kfResult.benchmarkMisalignments.length,
+                },
+                this.organizationId
+              );
+            }
 
-      // Append execution lineage row (non-blocking — failure must not propagate).
-      void agentExecutionLineageRepository
-        .appendLineage({
-          session_id: sessionId,
-          agent_name: this.name,
-          organization_id: this.organizationId,
-          memory_reads: [],
-          tool_calls: [],
-          db_writes: [],
-        })
-        .catch((err: unknown) => {
-          logger.warn("secureInvoke: lineage write failed", {
-            agent: this.name,
-            session_id: sessionId,
-            error: err instanceof Error ? err.message : String(err),
+            if (hallucinationResult.requiresEscalation) {
+              logger.warn("Hallucination escalation triggered", {
+                agent: this.name,
+                session_id: sessionId,
+                signals: hallucinationResult.signals.map(s => s.type),
+                grounding_score: hallucinationResult.groundingScore,
+              });
+            }
+
+            // Surface token counts so the API layer can emit usage events without
+            // re-parsing the raw LLM response.
+            const tokenUsage = response.usage
+              ? {
+                  input_tokens: response.usage.prompt_tokens,
+                  output_tokens: response.usage.completion_tokens,
+                  total_tokens: response.usage.total_tokens,
+                }
+              : undefined;
+
+            // Emit audit entry for this LLM invocation (non-blocking).
+            void this.auditLogger.logLLMInvocation({
+              agentName: this.name,
+              sessionId,
+              tenantId: this.organizationId,
+              userId: resolvedUserId,
+              model: response.model ?? "unknown",
+              latencyMs: Date.now() - invokeStartMs,
+              hallucinationPassed: hallucinationResult.passed,
+              groundingScore: hallucinationResult.groundingScore,
+              tokenUsage,
+            });
+
+            // Append execution lineage row (non-blocking — failure must not propagate).
+            void agentExecutionLineageRepository
+              .appendLineage({
+                session_id: sessionId,
+                agent_name: this.name,
+                organization_id: this.organizationId,
+                memory_reads: [],
+                tool_calls: [],
+                db_writes: [],
+              })
+              .catch((err: unknown) => {
+                logger.warn("secureInvoke: lineage write failed", {
+                  agent: this.name,
+                  session_id: sessionId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              });
+
+            // Persist reasoning trace (non-blocking — failure must not propagate).
+            // value_case_id is the primary anchor; falls back to sessionId for
+            // background invocations that run outside a case context.
+            const reasoningTracePayload: ReasoningTraceWrite = {
+              organization_id: this.organizationId,
+              session_id: sessionId,
+              value_case_id:
+                typeof context.value_case_id === "string"
+                  ? context.value_case_id
+                  : sessionId,
+              opportunity_id:
+                typeof context.opportunity_id === "string"
+                  ? context.opportunity_id
+                  : null,
+              agent_name: this.name,
+              agent_version: this.version,
+              trace_id: traceId,
+              inputs: sanitizedContext,
+              transformations: traceOptions?.transformations ?? [],
+              assumptions: traceOptions?.assumptions ?? [],
+              confidence_breakdown: traceOptions?.confidence_breakdown ?? {},
+              evidence_links: traceOptions?.evidence_links ?? [],
+              grounding_score: hallucinationResult.groundingScore,
+              latency_ms: Date.now() - invokeStartMs,
+              token_usage: tokenUsage ?? null,
+            };
+
+            void reasoningTraceRepository
+              .create(reasoningTracePayload)
+              .catch((err: unknown) => {
+                logger.warn("secureInvoke: reasoning trace write failed", {
+                  agent: this.name,
+                  session_id: sessionId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              });
+
+            return {
+              ...parsed,
+              hallucination_check: hallucinationResult.passed,
+              hallucination_details: hallucinationResult,
+              token_usage: tokenUsage,
+              // Returned directly so callers can pass to buildOutput without
+              // relying on shared instance state (safe under concurrent invocations).
+              _trace_id: traceId,
+            };
           });
-        });
 
-      // Persist reasoning trace (non-blocking — failure must not propagate).
-      // value_case_id is the primary anchor; falls back to sessionId for
-      // background invocations that run outside a case context.
-      const reasoningTracePayload: ReasoningTraceWrite = {
-        organization_id: this.organizationId,
-        session_id: sessionId,
-        value_case_id:
-          typeof context.value_case_id === "string"
-            ? context.value_case_id
-            : sessionId,
-        opportunity_id:
-          typeof context.opportunity_id === "string"
-            ? context.opportunity_id
-            : null,
-        agent_name: this.name,
-        agent_version: this.version,
-        trace_id: traceId,
-        inputs: sanitizedContext,
-        transformations: traceOptions?.transformations ?? [],
-        assumptions: traceOptions?.assumptions ?? [],
-        confidence_breakdown: traceOptions?.confidence_breakdown ?? {},
-        evidence_links: traceOptions?.evidence_links ?? [],
-        grounding_score: hallucinationResult.groundingScore,
-        latency_ms: Date.now() - invokeStartMs,
-        token_usage: tokenUsage ?? null,
-      };
+          const result = await circuitResult;
+          agentSpan.setStatus({ code: SpanStatusCode.OK });
+          return result;
+        } catch (err) {
+          agentSpan.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+          throw err;
+        } finally {
+          agentSpan.end();
+        }
+      }
+    );
 
-      void reasoningTraceRepository
-        .create(reasoningTracePayload)
-        .catch((err: unknown) => {
-          logger.warn("secureInvoke: reasoning trace write failed", {
-            agent: this.name,
-            session_id: sessionId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-
-      return {
-        ...parsed,
-        hallucination_check: hallucinationResult.passed,
-        hallucination_details: hallucinationResult,
-        token_usage: tokenUsage,
-        // Returned directly so callers can pass to buildOutput without
-        // relying on shared instance state (safe under concurrent invocations).
-        _trace_id: traceId,
-      };
-    });
   }
 
   // -------------------------------------------------------------------------

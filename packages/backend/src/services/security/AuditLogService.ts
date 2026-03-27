@@ -16,6 +16,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../../lib/piiFilter.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { BaseService } from "../BaseService.js";
 

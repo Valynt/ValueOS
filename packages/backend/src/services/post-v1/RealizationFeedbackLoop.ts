@@ -5,7 +5,7 @@
  * when prediction accuracy degrades.
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js"
 
@@ -69,9 +69,11 @@ export class FeedbackLoopError extends Error {
 
 export class RealizationFeedbackLoop {
   private compensations: Map<string, (() => Promise<void>)[]> = new Map();
-  private supabase: ReturnType<typeof createClient>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private supabase: SupabaseClient<any, any, any>;
 
-  constructor(supabaseClient: ReturnType<typeof createClient>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(supabaseClient: SupabaseClient<any, any, any>) {
     this.supabase = supabaseClient;
   }
 

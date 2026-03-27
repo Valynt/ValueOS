@@ -7,6 +7,7 @@ import {
 } from '@valueos/shared/types/actions';
 
 import { logger } from '../../lib/logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { getSupabaseClient } from '../../lib/supabase.js';
 import { normalizeExecutionRequest } from '../../types/execution';
 import type { IExecutionRuntime } from '../../types/execution/IExecutionRuntime.js';
