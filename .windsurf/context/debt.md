@@ -27,7 +27,11 @@ _No active items._
 
 ## P2 — Medium (feature completeness)
 
-_No active items._
+- **DEBT-012 — Migrate deprecated Supabase compat imports to privileged factories**  
+  **Owner:** Backend Platform  
+  **Opened:** 2026-03-27  
+  **Scope:** Replace all imports of `createServerSupabaseClient`, `getSupabaseClient`, and `supabase` with `src/lib/supabase/privileged/*` factories and explicit `justification: "service-role:justified <reason>"` literals.  
+  **Exit criteria:** `scripts/ci/deprecated-supabase-import-allowlist.json` `allowedLegacyPaths` is empty and deprecated compatibility shims can be removed.
 
 ---
 

@@ -359,6 +359,8 @@ jobs:
 
       - name: Guard backend service-role boundaries
         run: pnpm check:backend-service-role-boundaries
+      - name: Guard deprecated Supabase imports
+        run: node scripts/ci/check-deprecated-supabase-imports.mjs
 
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
@@ -429,6 +431,7 @@ jobs:
             coverage/**
             artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
+            artifacts/compliance/control-status-gate/**
             artifacts/security/**
           if-no-files-found: warn
           retention-days: 30

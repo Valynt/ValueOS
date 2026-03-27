@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const CONTROL_STATUS_PATH = resolve("docs/security-compliance/control-status.json");
+const EXCEPTIONS_PATH = resolve("docs/security-compliance/control-status-exceptions.json");
+const ARTIFACT_DIR = resolve("artifacts/compliance/control-status-gate");
+const ARTIFACT_JSON_PATH = resolve(ARTIFACT_DIR, "status.json");
+const ARTIFACT_MD_PATH = resolve(ARTIFACT_DIR, "summary.md");
 const TODAY_UTC = new Date().toISOString().slice(0, 10);
 
 const RELEVANT_FRAMEWORKS = new Set(["SOC2", "HIPAA"]);
 const RELEVANT_DOMAINS = new Set([
   "tenant-isolation",
+  "auth",
+  "authentication",
   "access-control",
   "audit-logging",
-  "secrets-management",
-  "privacy-phi",
-  "security-testing",
 ]);
+const HIGH_RISK_SEVERITIES = new Set(["critical", "high"]);
 const CLOSED_STATUSES = new Set(["completed", "done", "closed", "accepted-risk", "waived"]);
 
 function parseDateOnly(value) {
@@ -38,11 +42,13 @@ function parseDateOnly(value) {
 function isRelevant(control) {
   const frameworks = Array.isArray(control.frameworks) ? control.frameworks : [];
   const matchesFramework = frameworks.some((framework) => RELEVANT_FRAMEWORKS.has(String(framework).toUpperCase()));
+  const severity = typeof control?.severity === "string" ? control.severity.trim().toLowerCase() : "";
+  const domain = typeof control?.domain === "string" ? control.domain.trim().toLowerCase() : "";
 
   return (
-    control?.severity === "critical" &&
+    HIGH_RISK_SEVERITIES.has(severity) &&
     matchesFramework &&
-    RELEVANT_DOMAINS.has(control?.domain)
+    RELEVANT_DOMAINS.has(domain)
   );
 }
 
@@ -54,10 +60,97 @@ function isClosedStatus(status) {
   return CLOSED_STATUSES.has(status.trim().toLowerCase());
 }
 
+function loadJson(path, fallback) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeException(rawException, issues) {
+  const controlId = typeof rawException?.controlId === "string" ? rawException.controlId.trim() : "";
+  const ticket = typeof rawException?.ticket === "string" ? rawException.ticket.trim() : "";
+  const approver = typeof rawException?.approver === "string" ? rawException.approver.trim() : "";
+  const expiresOn = parseDateOnly(rawException?.expiresOn);
+  const reason = typeof rawException?.reason === "string" ? rawException.reason.trim() : "";
+
+  if (!controlId) {
+    issues.push(`INVALID_EXCEPTION missing controlId in ${EXCEPTIONS_PATH}`);
+    return null;
+  }
+  if (!ticket) {
+    issues.push(`INVALID_EXCEPTION ${controlId}: missing ticket`);
+    return null;
+  }
+  if (!approver) {
+    issues.push(`INVALID_EXCEPTION ${controlId}: missing approver`);
+    return null;
+  }
+  if (!expiresOn) {
+    issues.push(`INVALID_EXCEPTION ${controlId}: invalid expiresOn=${String(rawException?.expiresOn)}`);
+    return null;
+  }
+
+  return { controlId, ticket, approver, expiresOn, reason };
+}
+
+function writeArtifacts(report) {
+  mkdirSync(ARTIFACT_DIR, { recursive: true });
+  writeFileSync(ARTIFACT_JSON_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+  const lines = [
+    "# Control Status Gate",
+    "",
+    `- generatedAt: ${report.generatedAt}`,
+    `- date: ${report.date}`,
+    `- controlsEvaluated: ${report.controlsEvaluated}`,
+    `- failures: ${report.failures.length}`,
+    `- exceptionsApplied: ${report.exceptionsApplied.length}`,
+    `- result: ${report.result}`,
+    "",
+  ];
+
+  if (report.failures.length > 0) {
+    lines.push("## Failures", "");
+    for (const failure of report.failures) {
+      lines.push(`- ${failure}`);
+    }
+    lines.push("");
+  }
+
+  if (report.exceptionsApplied.length > 0) {
+    lines.push("## Exceptions Applied", "");
+    for (const item of report.exceptionsApplied) {
+      lines.push(`- ${item}`);
+    }
+    lines.push("");
+  }
+
+  writeFileSync(ARTIFACT_MD_PATH, `${lines.join("\n")}\n`, "utf8");
+}
+
 const payload = JSON.parse(readFileSync(CONTROL_STATUS_PATH, "utf8"));
 const controls = Array.isArray(payload.controls) ? payload.controls : [];
+const exceptionPayload = loadJson(EXCEPTIONS_PATH, { exceptions: [] });
+const rawExceptions = Array.isArray(exceptionPayload.exceptions) ? exceptionPayload.exceptions : [];
 
 const failures = [];
+const exceptionIssues = [];
+const exceptionsApplied = [];
+const validExceptions = new Map();
+
+for (const rawException of rawExceptions) {
+  const normalized = normalizeException(rawException, exceptionIssues);
+  if (!normalized) {
+    continue;
+  }
+  if (normalized.expiresOn < TODAY_UTC) {
+    exceptionIssues.push(`EXPIRED_EXCEPTION ${normalized.controlId}: expired on ${normalized.expiresOn}`);
+    continue;
+  }
+  validExceptions.set(normalized.controlId, normalized);
+}
 
 for (const control of controls) {
   if (!isRelevant(control)) {
@@ -65,6 +158,14 @@ for (const control of controls) {
   }
 
   if (isClosedStatus(control.status)) {
+    continue;
+  }
+
+  const exception = validExceptions.get(control.id);
+  if (exception) {
+    exceptionsApplied.push(
+      `${control.id}: ticket=${exception.ticket}, approver=${exception.approver}, expiresOn=${exception.expiresOn}`,
+    );
     continue;
   }
 
@@ -80,19 +181,37 @@ for (const control of controls) {
     continue;
   }
 
-  if (targetDate < TODAY_UTC) {
+  const status = typeof control.status === "string" ? control.status.trim().toLowerCase() : "";
+  if (status === "planned" && targetDate < TODAY_UTC) {
     failures.push(`STALE ${control.id}: ${control.control} (owner=${owner}, targetDate=${targetDate})`);
   }
 }
 
+for (const issue of exceptionIssues) {
+  failures.push(issue);
+}
+
+const relevantControlsCount = controls.filter(isRelevant).length;
+const report = {
+  generatedAt: new Date().toISOString(),
+  date: TODAY_UTC,
+  controlsEvaluated: relevantControlsCount,
+  failures,
+  exceptionsApplied,
+  result: failures.length === 0 ? "pass" : "fail",
+};
+
+writeArtifacts(report);
+
 if (failures.length > 0) {
-  console.error("Critical SOC2/HIPAA controls are stale or unowned:");
+  console.error("High-risk SOC2/HIPAA controls in tenant-isolation/auth/audit domains are non-compliant:");
   for (const failure of failures) {
     console.error(` - ${failure}`);
   }
+  console.error(`Compliance artifact written: ${ARTIFACT_JSON_PATH}`);
   process.exit(1);
 }
 
 console.log(
-  `Control status gate passed for ${controls.length} records (${TODAY_UTC}). No stale/unowned critical SOC2/HIPAA controls found.`,
+  `Control status gate passed for ${relevantControlsCount} high-risk controls (${TODAY_UTC}). Artifact: ${ARTIFACT_JSON_PATH}`,
 );

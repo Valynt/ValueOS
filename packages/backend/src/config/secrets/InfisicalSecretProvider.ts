@@ -1,22 +1,20 @@
 /**
  * Infisical Secret Provider
  *
- * Implementation of ISecretProvider for Infisical secrets management platform.
- * Supports Universal Auth (Machine Identity) with tenant-isolated folder paths.
+ * Implementation of ISecretProvider using the official @infisical/sdk.
+ * Replaces the previous hand-rolled fetch-based HTTP client with the SDK,
+ * which handles token renewal, retries, and API versioning automatically.
  *
- * Infisical organizes secrets as:
+ * Infisical organises secrets as:
  *   project → environment → folder path → secret name
  *
  * Tenant isolation uses folder paths: /tenants/{tenantId}/{secretKey}
  * Shared secrets live at: /shared/{secretKey}
  */
 
+import { InfisicalSDK } from "@infisical/sdk";
 import { logger } from "../../lib/logger.js";
-import {
-  CircuitBreaker,
-  type CircuitBreakerConfig,
-} from "../../lib/resilience/CircuitBreaker.js";
-
+import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker.js";
 import { InputValidator } from "./InputValidator.js";
 import type {
   AuditAction,
@@ -35,30 +33,8 @@ import {
 } from "./SecretCacheCrypto.js";
 
 /**
- * Infisical API response types (subset used by provider)
- */
-interface InfisicalSecret {
-  id: string;
-  secretKey: string;
-  secretValue: string;
-  version: number;
-  type: string;
-  environment: string;
-  secretPath: string;
-}
-
-interface InfisicalListResponse {
-  secrets: InfisicalSecret[];
-}
-
-interface InfisicalAuthResponse {
-  accessToken: string;
-  expiresIn: number;
-  tokenType: string;
-}
-
-/**
- * Infisical configuration
+ * Configuration for InfisicalSecretProvider.
+ * Identical to the previous shape so ProviderFactory requires no changes.
  */
 export interface InfisicalProviderConfig {
   siteUrl: string;
@@ -70,31 +46,43 @@ export interface InfisicalProviderConfig {
 }
 
 /**
- * Infisical secret provider implementation
+ * Infisical secret provider — SDK-backed implementation.
+ *
+ * Key improvements over the previous fetch-based implementation:
+ *  - Token renewal is handled automatically by the SDK (no manual expiry math).
+ *  - Retry logic with exponential back-off is built into the SDK's Axios client.
+ *  - API versioning is abstracted; upgrading the SDK picks up new endpoints.
+ *  - All existing caching, circuit-breaking, and audit-logging behaviour is preserved.
  */
 export class InfisicalSecretProvider implements ISecretProvider {
-  private siteUrl: string;
-  private clientId: string;
-  private clientSecret: string;
-  private projectId: string;
-  private environmentSlug: string;
-  private cache: Map<string, { value: string; expiresAt: number }> = new Map();
-  private cacheTTL: number;
-  private auditLogger: StructuredSecretAuditLogger;
+  private readonly client: InfisicalSDK;
+  private readonly projectId: string;
+  private readonly environmentSlug: string;
+  private readonly cache: Map<string, { value: string; expiresAt: number }> =
+    new Map();
+  private readonly cacheTTL: number;
+  private readonly auditLogger: StructuredSecretAuditLogger;
   private readonly cacheCrypto: SecretCacheCrypto;
-  private circuitBreaker: CircuitBreaker;
+  private readonly circuitBreaker: CircuitBreaker;
 
-  /** Current access token and its expiry timestamp */
-  private accessToken: string | null = null;
-  private tokenExpiresAt = 0;
+  /** Tracks whether universalAuth.login() has completed successfully. */
+  private isAuthenticated = false;
+
+  /** Stored so authenticate() can be re-called on healthCheck failures. */
+  private readonly clientId: string;
+  private readonly clientSecret: string;
 
   constructor(config: InfisicalProviderConfig) {
-    this.siteUrl = config.siteUrl.replace(/\/+$/, ""); // strip trailing slash
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
     this.projectId = config.projectId;
     this.environmentSlug = config.environment || "prod";
     this.cacheTTL = config.cacheTTL ?? 300_000; // 5 minutes
+
+    // Initialise the official SDK — token management is fully delegated to it.
+    this.client = new InfisicalSDK({
+      siteUrl: config.siteUrl.replace(/\/+$/, ""),
+    });
 
     this.auditLogger = new StructuredSecretAuditLogger();
     this.cacheCrypto = new SecretCacheCrypto({
@@ -111,9 +99,15 @@ export class InfisicalSecretProvider implements ISecretProvider {
       successThreshold: 3,
     });
 
-    logger.info("Infisical Secret Provider initialized", {
+    // Kick off authentication in the background so the first real request
+    // does not have to pay the round-trip cost.
+    this.authenticate().catch((err) => {
+      logger.error("Initial Infisical authentication failed", err);
+    });
+
+    logger.info("Infisical Secret Provider initialised via @infisical/sdk", {
       provider: "infisical",
-      siteUrl: this.siteUrl,
+      siteUrl: config.siteUrl,
       projectId: this.projectId,
       environment: this.environmentSlug,
       cacheEncryptionKeyVersion: this.cacheCrypto.getCurrentKeyVersion(),
@@ -125,140 +119,25 @@ export class InfisicalSecretProvider implements ISecretProvider {
   // ---------------------------------------------------------------------------
 
   /**
-   * Authenticate via Universal Auth (Machine Identity) and cache the token.
+   * Authenticate via Universal Auth (Machine Identity).
+   * The SDK stores the access token internally and renews it automatically,
+   * so this only needs to be called once (or on explicit re-auth).
    */
-  private async authenticate(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiresAt) {
-      return this.accessToken;
-    }
+  private async authenticate(): Promise<void> {
+    if (this.isAuthenticated) return;
 
-    const url = `${this.siteUrl}/api/v1/auth/universal-auth/login`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: this.clientId,
-        clientSecret: this.clientSecret,
-      }),
+    await this.client.auth().universalAuth.login({
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
     });
 
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(
-        `Infisical authentication failed (${res.status}): ${body}`
-      );
-    }
-
-    const data = (await res.json()) as InfisicalAuthResponse;
-    this.accessToken = data.accessToken;
-    // Refresh 60 s before actual expiry
-    this.tokenExpiresAt = Date.now() + (data.expiresIn - 60) * 1_000;
-
+    this.isAuthenticated = true;
     logger.info("Infisical authentication successful");
-    return this.accessToken;
   }
 
-  // ---------------------------------------------------------------------------
-  // HTTP helpers
-  // ---------------------------------------------------------------------------
-
-  private async apiGet<T>(
-    path: string,
-    params?: Record<string, string>
-  ): Promise<T> {
-    const token = await this.authenticate();
-    const url = new URL(`${this.siteUrl}${path}`);
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        url.searchParams.set(k, v);
-      }
-    }
-
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(
-        `Infisical API GET ${path} failed (${res.status}): ${body}`
-      );
-    }
-
-    return (await res.json()) as T;
-  }
-
-  private async apiPost<T>(
-    path: string,
-    body: Record<string, unknown>
-  ): Promise<T> {
-    const token = await this.authenticate();
-    const res = await fetch(`${this.siteUrl}${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        `Infisical API POST ${path} failed (${res.status}): ${text}`
-      );
-    }
-
-    return (await res.json()) as T;
-  }
-
-  private async apiPatch<T>(
-    path: string,
-    body: Record<string, unknown>
-  ): Promise<T> {
-    const token = await this.authenticate();
-    const res = await fetch(`${this.siteUrl}${path}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        `Infisical API PATCH ${path} failed (${res.status}): ${text}`
-      );
-    }
-
-    return (await res.json()) as T;
-  }
-
-  private async apiDelete(
-    path: string,
-    body?: Record<string, unknown>
-  ): Promise<void> {
-    const token = await this.authenticate();
-    const res = await fetch(`${this.siteUrl}${path}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        `Infisical API DELETE ${path} failed (${res.status}): ${text}`
-      );
+  private async ensureAuthenticated(): Promise<void> {
+    if (!this.isAuthenticated) {
+      await this.authenticate();
     }
   }
 
@@ -299,7 +178,7 @@ export class InfisicalSecretProvider implements ISecretProvider {
 
   /**
    * Tenant-isolated folder path inside the Infisical project.
-   * Maps to `/tenants/{tenantId}` so RBAC can restrict by path.
+   * Maps to `/tenants/{tenantId}` so RBAC can restrict access by path.
    */
   private getTenantSecretPath(tenantId: string): string {
     return `/tenants/${tenantId}`;
@@ -319,6 +198,8 @@ export class InfisicalSecretProvider implements ISecretProvider {
     version?: string,
     userId?: string
   ): Promise<SecretValue> {
+    await this.ensureAuthenticated();
+
     const validatedTenantId = InputValidator.validateOrThrow<string>(
       tenantId,
       InputValidator.validateTenantId,
@@ -333,7 +214,7 @@ export class InfisicalSecretProvider implements ISecretProvider {
     const startTime = Date.now();
     const cacheKey = this.getCacheKey(validatedTenantId, validatedSecretKey);
 
-    // Check in-memory cache
+    // Check in-memory cache first.
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       const decrypted = this.deserializeCachedSecret(cacheKey, cached.value);
@@ -344,10 +225,7 @@ export class InfisicalSecretProvider implements ISecretProvider {
         "SUCCESS",
         userId,
         undefined,
-        {
-          source: "cache",
-          latency_ms: Date.now() - startTime,
-        }
+        { source: "cache", latency_ms: Date.now() - startTime }
       );
       return decrypted;
     }
@@ -355,21 +233,18 @@ export class InfisicalSecretProvider implements ISecretProvider {
     try {
       const secretPath = this.getTenantSecretPath(validatedTenantId);
 
-      const data = await this.circuitBreaker.execute(() =>
-        this.apiGet<{ secret: InfisicalSecret }>(
-          "/api/v3/secrets/raw/" + encodeURIComponent(validatedSecretKey),
-          {
-            workspaceId: this.projectId,
-            environment: this.environmentSlug,
-            secretPath,
-            ...(version ? { version } : {}),
-          }
-        )
+      const secret = await this.circuitBreaker.execute(() =>
+        this.client.secrets().getSecret({
+          environment: this.environmentSlug,
+          projectId: this.projectId,
+          secretPath,
+          secretName: validatedSecretKey,
+          version: version ? parseInt(version, 10) : undefined,
+        })
       );
 
-      const secretValue: SecretValue = { value: data.secret.secretValue };
+      const secretValue: SecretValue = { value: secret.secretValue };
 
-      // Populate cache
       this.cache.set(cacheKey, {
         value: this.serializeCachedSecret(cacheKey, secretValue),
         expiresAt: Date.now() + this.cacheTTL,
@@ -385,10 +260,9 @@ export class InfisicalSecretProvider implements ISecretProvider {
         {
           source: "infisical",
           latency_ms: Date.now() - startTime,
-          version: data.secret.version,
+          version: secret.version,
         }
       );
-
       return secretValue;
     } catch (error: unknown) {
       await this.auditAccess(
@@ -400,13 +274,11 @@ export class InfisicalSecretProvider implements ISecretProvider {
         error instanceof Error ? error.message : String(error),
         { latency_ms: Date.now() - startTime }
       );
-
       logger.error(
         "Failed to get secret from Infisical",
         error instanceof Error ? error : new Error(String(error)),
         { tenantId, secretKey }
       );
-
       throw error;
     }
   }
@@ -418,54 +290,43 @@ export class InfisicalSecretProvider implements ISecretProvider {
     metadata: SecretMetadata,
     userId?: string
   ): Promise<boolean> {
+    await this.ensureAuthenticated();
+
     const secretPath = this.getTenantSecretPath(tenantId);
+    const stringValue = value.value ?? JSON.stringify(value);
 
     try {
-      // Try to create; if it already exists, update instead
       const exists = await this.secretExists(tenantId, secretKey, userId);
 
       if (exists) {
         await this.circuitBreaker.execute(() =>
-          this.apiPatch<unknown>(
-            "/api/v3/secrets/raw/" + encodeURIComponent(secretKey),
-            {
-              workspaceId: this.projectId,
-              environment: this.environmentSlug,
-              secretPath,
-              secretValue: value.value ?? JSON.stringify(value),
-              tagIds: metadata.tags
-                ? Object.entries(metadata.tags).map(([k, v]) => `${k}:${v}`)
-                : [],
-            }
-          )
+          this.client.secrets().updateSecret(secretKey, {
+            environment: this.environmentSlug,
+            projectId: this.projectId,
+            secretPath,
+            secretValue: stringValue,
+          })
         );
       } else {
         await this.circuitBreaker.execute(() =>
-          this.apiPost<unknown>(
-            "/api/v3/secrets/raw/" + encodeURIComponent(secretKey),
-            {
-              workspaceId: this.projectId,
-              environment: this.environmentSlug,
-              secretPath,
-              secretValue: value.value ?? JSON.stringify(value),
-              type: "shared",
-            }
-          )
+          this.client.secrets().createSecret(secretKey, {
+            environment: this.environmentSlug,
+            projectId: this.projectId,
+            secretPath,
+            secretValue: stringValue,
+            type: "shared" as const,
+          })
         );
       }
 
-      // Invalidate cache
-      const cacheKey = this.getCacheKey(tenantId, secretKey);
-      this.cache.delete(cacheKey);
-
+      this.cache.delete(this.getCacheKey(tenantId, secretKey));
       await this.auditAccess(tenantId, secretKey, "WRITE", "SUCCESS", userId);
 
-      logger.info("Secret set successfully in Infisical", {
+      logger.info("Secret written to Infisical", {
         tenantId,
         secretKey,
-        sensitivityLevel: metadata.sensitivityLevel,
+        operation: exists ? "update" : "create",
       });
-
       return true;
     } catch (error: unknown) {
       await this.auditAccess(
@@ -476,13 +337,11 @@ export class InfisicalSecretProvider implements ISecretProvider {
         userId,
         error instanceof Error ? error.message : String(error)
       );
-
       logger.error(
-        "Failed to set secret in Infisical",
+        "Failed to write secret to Infisical",
         error instanceof Error ? error : new Error(String(error)),
         { tenantId, secretKey }
       );
-
       throw error;
     }
   }
@@ -493,13 +352,6 @@ export class InfisicalSecretProvider implements ISecretProvider {
     userId?: string
   ): Promise<boolean> {
     try {
-      const currentSecret = await this.getSecret(
-        tenantId,
-        secretKey,
-        undefined,
-        userId
-      );
-
       const crypto = await import("crypto");
       const newValue: SecretValue = {
         value: crypto.randomBytes(32).toString("hex"),
@@ -525,7 +377,6 @@ export class InfisicalSecretProvider implements ISecretProvider {
         userId
       );
 
-      // Invalidate cache
       this.cache.delete(this.getCacheKey(tenantId, secretKey));
 
       await this.auditAccess(tenantId, secretKey, "ROTATE", "SUCCESS", userId);
@@ -544,13 +395,11 @@ export class InfisicalSecretProvider implements ISecretProvider {
         userId,
         error instanceof Error ? error.message : String(error)
       );
-
       logger.error(
         "Failed to rotate secret in Infisical",
         error instanceof Error ? error : new Error(String(error)),
         { tenantId, secretKey }
       );
-
       throw error;
     }
   }
@@ -560,13 +409,15 @@ export class InfisicalSecretProvider implements ISecretProvider {
     secretKey: string,
     userId?: string
   ): Promise<boolean> {
+    await this.ensureAuthenticated();
+
     const secretPath = this.getTenantSecretPath(tenantId);
 
     try {
       await this.circuitBreaker.execute(() =>
-        this.apiDelete("/api/v3/secrets/raw/" + encodeURIComponent(secretKey), {
-          workspaceId: this.projectId,
+        this.client.secrets().deleteSecret(secretKey, {
           environment: this.environmentSlug,
+          projectId: this.projectId,
           secretPath,
         })
       );
@@ -585,30 +436,30 @@ export class InfisicalSecretProvider implements ISecretProvider {
         userId,
         error instanceof Error ? error.message : String(error)
       );
-
       logger.error(
         "Failed to delete secret from Infisical",
         error instanceof Error ? error : new Error(String(error)),
         { tenantId, secretKey }
       );
-
       throw error;
     }
   }
 
   async listSecrets(tenantId: string, userId?: string): Promise<string[]> {
+    await this.ensureAuthenticated();
+
     const secretPath = this.getTenantSecretPath(tenantId);
 
     try {
-      const data = await this.circuitBreaker.execute(() =>
-        this.apiGet<InfisicalListResponse>("/api/v3/secrets/raw", {
-          workspaceId: this.projectId,
+      const response = await this.circuitBreaker.execute(() =>
+        this.client.secrets().listSecrets({
           environment: this.environmentSlug,
+          projectId: this.projectId,
           secretPath,
         })
       );
 
-      const secretKeys = data.secrets.map(s => s.secretKey);
+      const secretKeys = response.secrets.map((s) => s.secretKey);
 
       await this.auditAccess(
         tenantId,
@@ -617,9 +468,7 @@ export class InfisicalSecretProvider implements ISecretProvider {
         "SUCCESS",
         userId,
         undefined,
-        {
-          count: secretKeys.length,
-        }
+        { count: secretKeys.length }
       );
 
       return secretKeys;
@@ -632,13 +481,11 @@ export class InfisicalSecretProvider implements ISecretProvider {
         userId,
         error instanceof Error ? error.message : String(error)
       );
-
       logger.error(
         "Failed to list secrets from Infisical",
         error instanceof Error ? error : new Error(String(error)),
         { tenantId }
       );
-
       throw error;
     }
   }
@@ -646,27 +493,25 @@ export class InfisicalSecretProvider implements ISecretProvider {
   async getSecretMetadata(
     tenantId: string,
     secretKey: string,
-    userId?: string
+    _userId?: string
   ): Promise<SecretMetadata | null> {
     try {
+      await this.ensureAuthenticated();
+
       const secretPath = this.getTenantSecretPath(tenantId);
 
-      const data = await this.apiGet<{ secret: InfisicalSecret }>(
-        "/api/v3/secrets/raw/" + encodeURIComponent(secretKey),
-        {
-          workspaceId: this.projectId,
-          environment: this.environmentSlug,
-          secretPath,
-        }
-      );
-
-      const s = data.secret;
+      const secret = await this.client.secrets().getSecret({
+        environment: this.environmentSlug,
+        projectId: this.projectId,
+        secretPath,
+        secretName: secretKey,
+      });
 
       return {
         tenantId,
-        secretPath: `${s.secretPath}/${s.secretKey}`,
-        version: String(s.version),
-        createdAt: new Date().toISOString(), // Infisical doesn't expose createdAt in GET
+        secretPath: `${secret.secretPath ?? secretPath}/${secret.secretKey}`,
+        version: String(secret.version),
+        createdAt: secret.createdAt ?? new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
         sensitivityLevel: "high",
       };
@@ -685,16 +530,8 @@ export class InfisicalSecretProvider implements ISecretProvider {
     secretKey: string,
     userId?: string
   ): Promise<boolean> {
-    try {
-      const metadata = await this.getSecretMetadata(
-        tenantId,
-        secretKey,
-        userId
-      );
-      return metadata !== null;
-    } catch {
-      return false;
-    }
+    const metadata = await this.getSecretMetadata(tenantId, secretKey, userId);
+    return metadata !== null;
   }
 
   async auditAccess(
@@ -736,6 +573,9 @@ export class InfisicalSecretProvider implements ISecretProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
+      // Re-authenticate if needed; the SDK will renew the token automatically
+      // on subsequent calls, but we explicitly verify connectivity here.
+      this.isAuthenticated = false;
       await this.authenticate();
       return true;
     } catch (error: unknown) {
@@ -748,7 +588,8 @@ export class InfisicalSecretProvider implements ISecretProvider {
   }
 
   /**
-   * Clear cache for testing/maintenance
+   * Clear the in-memory secret cache.
+   * Pass a tenantId to evict only that tenant's entries.
    */
   clearCache(tenantId?: string): void {
     if (tenantId) {

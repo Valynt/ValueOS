@@ -149,16 +149,19 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
 
     // Build comparisons
     const comparisons: BenchmarkComparison[] = (benchmarks || []).map(benchmark => {
-      const currentValue = metricMap.get(benchmark.kpi_name) || null;
+      const metricValue = metricMap.get(benchmark.kpi_name);
+      const currentValue = typeof metricValue === 'number' && Number.isFinite(metricValue)
+        ? metricValue
+        : null;
 
       return {
         kpi_name: benchmark.kpi_name,
         current_value: currentValue,
         benchmark,
-        percentile: currentValue ? calculatePercentile(currentValue, benchmark) : null,
-        gap_to_median: currentValue ? currentValue - benchmark.median : null,
-        gap_to_best_in_class: currentValue ? currentValue - benchmark.best_in_class : null,
-        performance_rating: currentValue ? ratePerformance(currentValue, benchmark) : 'unknown'
+        percentile: currentValue !== null ? calculatePercentile(currentValue, benchmark) : null,
+        gap_to_median: currentValue !== null ? currentValue - benchmark.median : null,
+        gap_to_best_in_class: currentValue !== null ? currentValue - benchmark.best_in_class : null,
+        performance_rating: currentValue !== null ? ratePerformance(currentValue, benchmark) : 'unknown'
       };
     });
 
@@ -198,21 +201,55 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
 /**
  * Calculate percentile rank for a value
  */
-function calculatePercentile(value: number, benchmark: BenchmarkData): number {
+function isValidBenchmarkDistribution(benchmark: BenchmarkData): boolean {
+  const quantiles = [benchmark.p25, benchmark.median, benchmark.p75, benchmark.best_in_class];
+
+  if (quantiles.some(q => !Number.isFinite(q))) {
+    return false;
+  }
+
+  if (benchmark.p25 <= 0) {
+    return false;
+  }
+
+  return (
+    benchmark.p25 <= benchmark.median &&
+    benchmark.median <= benchmark.p75 &&
+    benchmark.p75 <= benchmark.best_in_class
+  );
+}
+
+function interpolatePercentile(
+  value: number,
+  lowerValue: number,
+  upperValue: number,
+  lowerPercentile: number,
+  upperPercentile: number
+): number {
+  const range = upperValue - lowerValue;
+
+  if (range <= 0) {
+    return upperPercentile;
+  }
+
+  const position = value - lowerValue;
+  const percentile = lowerPercentile + (position / range) * (upperPercentile - lowerPercentile);
+  return Math.round(Math.min(Math.max(percentile, lowerPercentile), upperPercentile));
+}
+
+export function calculatePercentile(value: number, benchmark: BenchmarkData): number | null {
+  if (!Number.isFinite(value) || !isValidBenchmarkDistribution(benchmark)) {
+    return null;
+  }
+
   if (value <= benchmark.p25) {
     return Math.round((value / benchmark.p25) * 25);
   } else if (value <= benchmark.median) {
-    const range = benchmark.median - benchmark.p25;
-    const position = value - benchmark.p25;
-    return Math.round(25 + (position / range) * 25);
+    return interpolatePercentile(value, benchmark.p25, benchmark.median, 25, 50);
   } else if (value <= benchmark.p75) {
-    const range = benchmark.p75 - benchmark.median;
-    const position = value - benchmark.median;
-    return Math.round(50 + (position / range) * 25);
+    return interpolatePercentile(value, benchmark.median, benchmark.p75, 50, 75);
   } else if (value <= benchmark.best_in_class) {
-    const range = benchmark.best_in_class - benchmark.p75;
-    const position = value - benchmark.p75;
-    return Math.round(75 + (position / range) * 25);
+    return interpolatePercentile(value, benchmark.p75, benchmark.best_in_class, 75, 100);
   } else {
     return 100;
   }
@@ -221,11 +258,14 @@ function calculatePercentile(value: number, benchmark: BenchmarkData): number {
 /**
  * Rate performance based on percentile
  */
-function ratePerformance(
+export function ratePerformance(
   value: number,
   benchmark: BenchmarkData
-): 'excellent' | 'good' | 'average' | 'below_average' | 'poor' {
+): 'excellent' | 'good' | 'average' | 'below_average' | 'poor' | 'unknown' {
   const percentile = calculatePercentile(value, benchmark);
+  if (percentile === null) {
+    return 'unknown';
+  }
 
   if (percentile >= 90) return 'excellent';
   if (percentile >= 75) return 'good';
