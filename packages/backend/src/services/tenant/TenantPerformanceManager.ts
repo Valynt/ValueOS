@@ -269,6 +269,8 @@ export class TenantPerformanceManager extends EventEmitter {
 
   private performanceMonitor = getAgentPerformanceMonitor();
   private config: TenantManagerConfig;
+  private monitoringTaskHandles = new Map<string, ReturnType<typeof setInterval>>();
+  private monitoringTasksStarted = false;
 
   constructor(config: Partial<TenantManagerConfig> = {}) {
     super();
@@ -283,9 +285,10 @@ export class TenantPerformanceManager extends EventEmitter {
       resourceCleanupInterval: 5 * 60 * 1000, // 5 minutes
       ...config,
     };
-
-    this.initializeIndexes();
-    this.startMonitoringTasks();
+    
+    this.initializeIndexes();          // data layer, idempotent
+    this.initializeMonitoringTasks();  // define tasks, no execution
+    this.startMonitoringTasks();       // execution boundary
   }
 
   /**
@@ -652,40 +655,68 @@ export class TenantPerformanceManager extends EventEmitter {
   // Private Methods
   // ============================================================================
 
+  private initializeMonitoringTasks(): void {
+    this.startMonitoringTasks();
+  }
+
+  private registerMonitoringTask(
+    taskName: string,
+    callback: () => void,
+    intervalMs: number
+  ): void {
+    const intervalHandle = setInterval(callback, intervalMs);
+    this.monitoringTaskHandles.set(taskName, intervalHandle);
+  }
+
   private startMonitoringTasks(): void {
+    if (this.monitoringTasksStarted) {
+      logger.warn("Tenant performance monitoring tasks already running");
+      return;
+    }
+
     // Collect metrics
-    setInterval(() => {
+    this.registerMonitoringTask("collect_metrics", () => {
       this.collectMetrics();
     }, this.config.monitoringInterval);
 
     // Enforce isolation policies
-    setInterval(
-      () => {
-        this.enforceIsolationPolicies();
-      },
-      5 * 60 * 1000
-    ); // Every 5 minutes
+    this.registerMonitoringTask("enforce_isolation_policies", () => {
+      this.enforceIsolationPolicies();
+    }, 5 * 60 * 1000); // Every 5 minutes
 
     // Perform fair scheduling
-    setInterval(() => {
+    this.registerMonitoringTask("perform_fair_scheduling", () => {
       this.performFairScheduling();
     }, 60 * 1000); // Every minute
 
     // Check SLA compliance
-    setInterval(
-      () => {
-        this.checkAllSLACompliance();
-      },
-      15 * 60 * 1000
-    ); // Every 15 minutes
+    this.registerMonitoringTask("check_all_sla_compliance", () => {
+      this.checkAllSLACompliance();
+    }, 15 * 60 * 1000); // Every 15 minutes
 
     // Cleanup old metrics
-    setInterval(
-      () => {
-        this.cleanupOldMetrics();
-      },
-      60 * 60 * 1000
-    ); // Every hour
+    this.registerMonitoringTask("cleanup_old_metrics", () => {
+      this.cleanupOldMetrics();
+    }, 60 * 60 * 1000); // Every hour
+
+    this.monitoringTasksStarted = true;
+  }
+
+  public stopMonitoringTasks(): void {
+    if (!this.monitoringTasksStarted) {
+      return;
+    }
+
+    for (const intervalHandle of this.monitoringTaskHandles.values()) {
+      clearInterval(intervalHandle);
+    }
+
+    this.monitoringTaskHandles.clear();
+    this.monitoringTasksStarted = false;
+  }
+
+  public teardown(): void {
+    this.stopMonitoringTasks();
   }
 
   private async collectMetrics(): Promise<void> {
