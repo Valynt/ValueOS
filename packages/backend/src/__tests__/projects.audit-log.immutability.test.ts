@@ -155,10 +155,12 @@ function makeApp(role = 'admin') {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-// ── Audit log immutability ────────────────────────────────────────────────────
-// Verifies that the audit log service exposes no mutation surface.
-// The DB layer enforces immutability via triggers (audit_logs_append_only_update).
-// This test verifies the service contract: createEntry is the only write method.
+// ── Audit log service-layer contract ─────────────────────────────────────────
+// Verifies that the audit log service exposes no mutation surface at the
+// JavaScript API level. This is a service-layer contract test — it does NOT
+// prove DB-level immutability (that is enforced by the append-only triggers in
+// migration 20260319010000_audit_retention_verification.sql and requires an
+// integration test against a live DB to verify). See audit-log-evidence.md.
 describe('Audit log service — immutability contract', () => {
   it('auditLogService exposes createEntry but no update or delete methods', async () => {
     // Dynamically import to get the real (mocked) service shape
@@ -181,8 +183,6 @@ describe('Audit log service — immutability contract', () => {
       (k) => typeof (auditLogService as Record<string, unknown>)[k] === 'function',
     );
 
-    // Allowed write methods
-    const allowedMethods = new Set(['createEntry', 'getEntries', 'getEntry', 'query', 'list', 'get', 'find', 'count']);
     const forbiddenPatterns = ['update', 'delete', 'remove', 'upsert', 'bulk', 'truncate', 'drop', 'clear', 'purge'];
 
     for (const method of methods) {

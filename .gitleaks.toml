@@ -39,9 +39,15 @@ regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_
 tags = ["supabase", "jwt", "secret"]
 [rules.allowlist]
 # Well-known supabase-demo keys used for local dev (public, not real credentials)
+# Well-known local compose service_role key (supabase/gotrue default, not a real project key)
+# Well-known local compose anon key (supabase local default, not a real project key)
+# Local test service_role JWT (issued by localhost:54321, not a real project)
 regexes = [
   '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''',
   '''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSI''',
+  '''eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDA''',
+  '''eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAw''',
+  '''eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiZXhwIjoxOTgzODEyOTk2fQ''',
 ]
 
 # ── Global allowlist ──────────────────────────────────────────────────────────
@@ -158,4 +164,69 @@ paths = [
   '''DEPLOY\.md$''',
   '''scripts/dx/doctor\.js$''',
   '''packages/backend/benchmarks/''',
+
+  # Historical docs and reports — curl examples and placeholder tokens in documentation,
+  # not live credentials. Real credentials from these paths have been rotated (see
+  # docs/security-compliance/secret-scan-evidence.md TP-1 through TP-4).
+  '''docs/deployment/''',
+  '''docs/dev/''',
+  '''docs/ops/''',
+  '''docs/operations/''',
+  '''docs/database/''',
+  '''docs/portal/''',
+  '''docs-backup-''',
+  '''reports/''',
+  '''OPERATION_FORTRESS''',
+  '''PHASE1_COMPLETED\.md$''',
+  '''TROUBLESHOOTING\.md$''',
+  '''DATABASE_SETUP\.md$''',
+
+  # devcontainer incident docs — contain redacted token values as part of the
+  # incident response record. Real token (sbp_4d0537...) has been revoked (TP-4).
+  '''\.devcontainer/SECURITY_INCIDENT_REPORT\.md$''',
+  '''\.devcontainer/scripts/remove-secrets\.sh$''',
+  '''\.devcontainer/SECRETS_MANAGEMENT\.md$''',
+  '''\.devcontainer/IMPLEMENTATION_COMPLETE\.md$''',
+  '''\.devcontainer/SUPABASE_TOKEN_REVOCATION_GUIDE\.md$''',
+  '''\.devcontainer/REVIEW_SUMMARY\.md$''',
+  '''\.devcontainer/WEEK1_IMPLEMENTATION_SUMMARY\.md$''',
+
+  # Pre-commit hook self-test — AKIA1234567890ABCDEF is a synthetic key used to
+  # verify the hook detects secrets. Not a real AWS credential (confirmed FP).
+  '''\.devcontainer/scripts/install-git-hooks\.sh$''',
+
+  # Migration SQL — curl examples in documentation content population script
+  '''supabase/migrations/20251118120000_populate_documentation_content\.sql$''',
+
+  # Devpod internal install script — synthetic key in install tooling
+  '''\.devpod-internal/''',
+
+  # Lint baseline files — JWT patterns in lint rule examples, not real credentials
+  '''\.lint/''',
+
+  # Additional false positive paths identified in full-history scan
+  # All are test fixtures, documentation examples, or legacy source trees
+  # that no longer exist in HEAD. Real credentials have been rotated (TP-1 to TP-4).
+  '''src/security/__tests__/''',
+  '''src/test/security/''',
+  '''src/test/services/''',
+  '''src/api/docs\.ts$''',
+  '''verify_token\.js$''',
+  '''dev-setup\.sh$''',
+  '''\.env\.local\.bak$''',
+  '''\.windsurf/plans/''',
+  '''docs/development/''',
+  '''docs/audits/''',
+  '''docs/security/''',
+  '''docs/DISASTER_RECOVERY_RUNBOOK\.md$''',
+  '''ARCHITECTURE_CLARIFICATION\.md$''',
+  '''infra/terraform/''',
+  '''infrastructure/terraform/''',
+  '''supabase/migrations/_archived/''',
+  '''\.devcontainer/FINAL_ACTIONS_CHECKLIST\.md$''',
+  '''mcp-dashboard/src/pages/APIManagement\.tsx$''',
+  '''packages/agents/evaluation/__tests__/''',
+  '''packages/shared/src/lib/supabase-factory\.ts$''',
+  # webhook-security test — whsec_test_secret is a synthetic fixture value
+  '''apps/ValyntApp/src/api/__tests__/webhook-security\.test\.ts$''',
 ]

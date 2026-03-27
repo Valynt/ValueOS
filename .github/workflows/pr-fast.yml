@@ -779,6 +779,23 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: SCA — pnpm audit (fail on high/critical)
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+      - name: Dev routes static check — child_process must be behind dynamic import
+        run: |
+          set -euo pipefail
+          # Verify dev.ts is only ever loaded via dynamic import() in devRoutes.ts,
+          # never via a static top-level import in server.ts or any other entry point.
+          if grep -rn "^import.*from.*['\"].*dev\.js['\"]" packages/backend/src/server.ts packages/backend/src/app.ts 2>/dev/null; then
+            echo "FAIL: dev.ts is statically imported in a server entry point."
+            echo "It must only be loaded via dynamic import() inside registerDevRoutes()."
+            exit 1
+          fi
+          # Verify the dynamic import guard is still in place
+          if ! grep -q "await import.*dev\.js" packages/backend/src/routes/devRoutes.ts; then
+            echo "FAIL: Dynamic import guard for dev.ts not found in devRoutes.ts."
+            echo "registerDevRoutes() must use dynamic import() to load dev.ts."
+            exit 1
+          fi
+          echo "Dev routes static check: PASS"
       - name: Secret scan — gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -855,6 +872,104 @@ jobs:
             sbom.json
           if-no-files-found: warn
           retention-days: 90
+
+  # ── MFA production config gate ───────────────────────────────────────────────
+  # Fails if any env file that could reach production has MFA_ENABLED=false.
+  # MFA defaults to enabled in code; this gate catches explicit opt-outs.
+  mfa-production-config-gate:
+    name: mfa-production-config-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check MFA_ENABLED is not false in production-path env files
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          # Files that are explicitly for production or could reach production.
+          # .env.example is excluded — it is documentation, not a deployed artifact.
+          PROD_ENV_FILES=(
+            ".env"
+            "envs/production.env"
+            "envs/prod.env"
+            "ops/env/.env.prod"
+            "ops/env/.env.production"
+          )
+
+          for f in "${PROD_ENV_FILES[@]}"; do
+            if [ -f "$f" ]; then
+              if grep -qE '^MFA_ENABLED=false\s*$' "$f"; then
+                echo "FAIL: $f sets MFA_ENABLED=false — MFA must be enabled in production"
+                FAIL=1
+              fi
+            fi
+          done
+
+          # Also scan Helm values and K8s manifests for explicit MFA_ENABLED=false
+          if grep -rE 'MFA_ENABLED.*false' infra/k8s/ infra/helm/ 2>/dev/null | grep -v '#'; then
+            echo "FAIL: K8s/Helm manifest sets MFA_ENABLED=false"
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "MFA production config gate: FAIL"
+            echo "MFA_ENABLED defaults to true in code. Remove MFA_ENABLED=false from"
+            echo "production-path env files, or set it to true explicitly."
+            exit 1
+          fi
+
+          echo "MFA production config gate: PASS"
+
+  # ── Log level production gate ─────────────────────────────────────────────
+  # Fails if any K8s base manifest sets LOG_LEVEL to warn/error/fatal.
+  # The shared logger defaults to "info" in production; manifests must not
+  # override that to a level that drops info-level audit trail logs.
+  log-level-production-gate:
+    name: log-level-production-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check LOG_LEVEL is not warn/error/fatal in K8s base manifests
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          MANIFESTS=(
+            "infra/k8s/base/backend-deployment.yaml"
+            "infra/k8s/base/backend-blue-deployment.yaml"
+            "infra/k8s/base/backend-green-deployment.yaml"
+            "infra/k8s/base/frontend-blue-deployment.yaml"
+            "infra/k8s/base/frontend-green-deployment.yaml"
+          )
+
+          for f in "${MANIFESTS[@]}"; do
+            if [ -f "$f" ]; then
+              level=$(grep -A1 'name: LOG_LEVEL' "$f" | grep 'value:' | sed 's/.*value: *"\?\([^"]*\)"\?.*/\1/' | tr -d ' ' | head -1)
+              if [ -z "$level" ]; then
+                echo "FAIL: $f does not set LOG_LEVEL — info or debug required for audit trail visibility"
+                FAIL=1
+              elif [ "$level" = "warn" ] || [ "$level" = "error" ] || [ "$level" = "fatal" ]; then
+                echo "FAIL: $f sets LOG_LEVEL=$level — this suppresses info-level audit trail logs in production"
+                FAIL=1
+              else
+                echo "OK: $f sets LOG_LEVEL=$level"
+              fi
+            else
+              echo "FAIL: $f not found — expected manifest is missing"
+              FAIL=1
+            fi
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "log-level-production-gate: FAIL"
+            echo "Set LOG_LEVEL=info (or debug) in the listed manifests."
+            exit 1
+          fi
+
+          echo "log-level-production-gate: PASS"
+
 
   # ── Flake gate (REQ-C1) ──────────────────────────────────────────────────
   flake-gate:
@@ -1054,6 +1169,8 @@ jobs:
       - security-gate
       - accessibility-audit
       - e2e-critical
+      - mfa-production-config-gate
+      - log-level-production-gate
       - flake-gate
       - performance-smoke
       - slo-rule-validation
@@ -1082,6 +1199,16 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ needs.mfa-production-config-gate.result }}" != "success" ]; then
+            echo "Failing PR gate: mfa-production-config-gate did not pass"
+            exit 1
+          fi
+
+          if [ "${{ needs.log-level-production-gate.result }}" != "success" ]; then
+            echo "Failing PR gate: log-level-production-gate did not pass"
+            exit 1
+          fi
+
           for lane in \
             "secret-scan:${{ needs.secret-scan.result }}" \
             "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
@@ -1092,14 +1219,16 @@ jobs:
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}" \
             "e2e-critical:${{ needs.e2e-critical.result }}" \
+            "mfa-production-config-gate:${{ needs.mfa-production-config-gate.result }}" \
+            "log-level-production-gate:${{ needs.log-level-production-gate.result }}" \
             "flake-gate:${{ needs.flake-gate.result }}" \
             "performance-smoke:${{ needs.performance-smoke.result }}" \
             "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # secret-scan and tenant-isolation-gate must not be skipped.
+            # These gates must not be skipped — skipped means the check did not run.
             # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ]; then
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
                 echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1

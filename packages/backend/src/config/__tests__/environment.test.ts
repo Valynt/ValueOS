@@ -223,17 +223,44 @@ describe('Environment Configuration', () => {
 
   describe('MFA configuration', () => {
     it('enables MFA when MFA_ENABLED=true', () => {
-      process.env.MFA_ENABLED = 'true';
+      vi.stubEnv('MFA_ENABLED', 'true');
+      resetConfig();
       const config = getConfig();
 
       expect(config.auth.mfaEnabled).toBe(true);
     });
 
-    it('defaults MFA to disabled when MFA_ENABLED is not explicitly true', () => {
+    it('defaults MFA to enabled when MFA_ENABLED is absent from env', () => {
       delete process.env.MFA_ENABLED;
+      resetConfig();
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(true);
+    });
+
+    it('defaults MFA to enabled when MFA_ENABLED is set to empty string', () => {
+      vi.stubEnv('MFA_ENABLED', '');
+      resetConfig();
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(true);
+    });
+
+    it('disables MFA only when MFA_ENABLED=false is explicit', () => {
+      vi.stubEnv('MFA_ENABLED', 'false');
+      resetConfig();
       const config = getConfig();
 
       expect(config.auth.mfaEnabled).toBe(false);
+    });
+
+    it('treats any value other than "false" as MFA enabled', () => {
+      for (const val of ['true', '1', 'yes', 'TRUE', '']) {
+        vi.stubEnv('MFA_ENABLED', val);
+        resetConfig();
+        const config = getConfig();
+        expect(config.auth.mfaEnabled).toBe(true);
+      }
     });
   });
 

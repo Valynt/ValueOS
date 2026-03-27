@@ -95,8 +95,8 @@ pnpm run dx:reset
 # Check if DB container is healthy
 docker inspect valueos-db --format '{{.State.Health.Status}}'
 
-# Try direct connection
-psql "postgresql://postgres:postgres@localhost:54322/postgres?sslmode=disable" -c "SELECT 1;"
+# Try direct connection (local dev only — replace password with your PGPASSWORD value)
+psql "postgresql://postgres:<your-PGPASSWORD>@localhost:54322/postgres?sslmode=disable" -c "SELECT 1;"
 ```
 
 ### "Kong API Gateway not responding"
@@ -144,7 +144,7 @@ Key environment variables are set in `.env.local`:
 | Variable            | Purpose               | Default                                           |
 | ------------------- | --------------------- | ------------------------------------------------- |
 | `SUPABASE_URL`      | Supabase API URL      | `http://kong:8000`                                |
-| `DATABASE_URL`      | Postgres connection   | `postgresql://postgres:postgres@db:5432/postgres?sslmode=disable` |
+| `DATABASE_URL`      | Postgres connection   | `postgresql://postgres:<PGPASSWORD>@db:5432/postgres?sslmode=disable` — **local dev only; set PGPASSWORD in `.devcontainer/.env`** |
 | `VITE_SUPABASE_URL` | Frontend Supabase URL | `http://localhost:54321`                          |
 
 ## Network Topology (Devcontainer)

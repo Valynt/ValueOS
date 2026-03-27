@@ -24,6 +24,7 @@ export interface Alert {
   resolvedAt?: number;
   lastTriggered: number;
   triggerCount: number;
+  runbookUrl?: string;
 }
 
 export interface ServiceStats {
@@ -40,6 +41,7 @@ export interface AlertRule {
   severity: AlertSeverity;
   condition: (stats: ServiceStats) => boolean;
   cooldownMs: number; // Minimum time between alerts
+  runbookUrl: string;
 }
 
 class AlertManager {
@@ -60,6 +62,7 @@ class AlertManager {
       condition: stats =>
         (stats.total ?? 0) >= 10 && (stats.successRate ?? 1) < 0.8,
       cooldownMs: 300000, // 5 minutes
+      runbookUrl: "docs/runbooks/alert-runbooks.md#high_failure_rate",
     });
 
     // Critical failure alert
@@ -71,6 +74,7 @@ class AlertManager {
       condition: stats =>
         (stats.total ?? 0) >= 5 && (stats.successRate ?? 1) < 0.5,
       cooldownMs: 60000, // 1 minute
+      runbookUrl: "docs/runbooks/alert-runbooks.md#critical_failure",
     });
 
     // High latency alert
@@ -81,6 +85,7 @@ class AlertManager {
       severity: AlertSeverity.WARNING,
       condition: stats => (stats.p95Latency ?? 0) > 2000,
       cooldownMs: 300000, // 5 minutes
+      runbookUrl: "docs/runbooks/alert-runbooks.md#high_latency",
     });
   }
 
@@ -114,6 +119,7 @@ class AlertManager {
               startedAt: now,
               lastTriggered: now,
               triggerCount: 1,
+              runbookUrl: rule.runbookUrl,
             };
             this.alerts.set(alertId, alert);
             newAlerts.push(alert);
