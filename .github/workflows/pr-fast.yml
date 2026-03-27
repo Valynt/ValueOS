@@ -429,6 +429,7 @@ jobs:
             coverage/**
             artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
+            artifacts/compliance/control-status-gate/**
             artifacts/security/**
           if-no-files-found: warn
           retention-days: 30
