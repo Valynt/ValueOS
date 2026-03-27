@@ -1,0 +1,54 @@
+name: Required Checks Weekly Compliance
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  required-checks-weekly-compliance:
+    name: weekly/required-check-enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Required-check policy-as-code validation
+        run: pnpm run check:required-checks-policy
+
+      - name: Generate weekly required-check enforcement report
+        run: pnpm run report:required-check-compliance
+
+      - name: Upload governance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-required-check-enforcement-${{ github.run_id }}
+          path: artifacts/governance/required-check-enforcement-weekly.*
+          if-no-files-found: error
+          retention-days: 90
