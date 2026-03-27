@@ -240,31 +240,11 @@ jobs:
       - name: Kubernetes security policy render validation
         run: node scripts/ci/validate-k8s-security-policies.mjs
 
-      - name: Canonical governance gate
-        run: pnpm run typecheck:signal --verify
-
-      - name: Canonical CI workflow self-check
-        run: pnpm run ci:governance:self-check
-
-      - name: Check runtime sentinels
-        run: pnpm check:runtime-sentinels
-
-      - name: Gateway CORS wildcard guard
-        run: pnpm check:kong-cors-origins
-
-      - name: Typecheck
-        run: npx turbo run typecheck
-
-      - name: Backend request cast guardrails
-        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
-
-      - name: Generated src artifacts guard
-        run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
-      - name: Kubernetes manifest maturity transition evidence gate
-        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=transition-check --ledger-path=infra/k8s/manifest-maturity-ledger.json --base-sha="${{ github.event.pull_request.base.sha }}" --head-sha="${{ github.sha }}"
-
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
+      - name: Shared governance assertions
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci/run-shared-governance-assertions.mjs
 
       - name: Unit suite + schema guard
         run: |
