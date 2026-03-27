@@ -630,6 +630,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          args: >-
+            detect
+            --config=.gitleaks.toml
+            --redact
+            --exit-code=1
+            --report-format=sarif
+            --report-path=gitleaks.sarif
       - name: SAST — Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
@@ -688,6 +696,18 @@ jobs:
             echo "SBOM generation failed: sbom.json is missing or empty" >&2
             exit 1
           fi
+      - name: Security debt budget gate + weekly trend report
+        run: |
+          node scripts/ci/check-security-debt-budget.mjs \
+            --policy scripts/ci/appsec-debt-budget-policy.json \
+            --report-md artifacts/security/appsec-debt-weekly-trend.md \
+            --report-json artifacts/security/appsec-debt-weekly-trend.json
+      - name: AppSec controls consolidated attestation gate
+        run: |
+          node scripts/ci/check-appsec-controls-attestation.mjs \
+            --sbom sbom.json \
+            --secret-scan gitleaks.sarif \
+            --out artifacts/security/appsec-controls-attestation.json
       - name: Upload security artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -695,10 +715,14 @@ jobs:
           name: security-gate-${{ github.run_id }}
           path: |
             npm-audit-report.json
+            gitleaks.sarif
             semgrep.sarif
             trivy-fs.sarif
             trivy-image.sarif
             sbom.json
+            artifacts/security/appsec-debt-weekly-trend.md
+            artifacts/security/appsec-debt-weekly-trend.json
+            artifacts/security/appsec-controls-attestation.json
           if-no-files-found: warn
           retention-days: 90
 

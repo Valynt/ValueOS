@@ -169,19 +169,32 @@ for (const control of controls) {
     continue;
   }
 
-  const owner = typeof control.owner === "string" ? control.owner.trim() : "";
+  const remediationOwner = typeof control?.remediation?.owner === "string"
+    ? control.remediation.owner.trim()
+    : "";
+  const owner = remediationOwner || (typeof control.owner === "string" ? control.owner.trim() : "");
+
   if (!owner) {
     failures.push(`UNOWNED ${control.id}: ${control.control}`);
     continue;
   }
 
-  const targetDate = parseDateOnly(control.targetDate);
+  const remediationTargetDate = parseDateOnly(control?.remediation?.targetDate);
+  const targetDate = remediationTargetDate ?? parseDateOnly(control.targetDate);
   if (!targetDate) {
     failures.push(`INVALID_TARGET_DATE ${control.id}: ${control.control} (targetDate=${String(control.targetDate)})`);
     continue;
   }
 
-  const status = typeof control.status === "string" ? control.status.trim().toLowerCase() : "";
+const status = typeof control.status === "string" ? control.status.trim().toLowerCase() : "";
+
+  if (!remediationOwner || !remediationTargetDate) {
+    failures.push(
+      `MISSING_REMEDIATION_METADATA ${control.id}: ${control.control} (require remediation.owner + remediation.targetDate)`,
+    );
+    continue;
+  }
+
   if (status === "planned" && targetDate < TODAY_UTC) {
     failures.push(`STALE ${control.id}: ${control.control} (owner=${owner}, targetDate=${targetDate})`);
   }
