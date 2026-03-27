@@ -68,7 +68,7 @@
     "NODE_ENV": "development",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
   },
-  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libstdc++6 libgcc-s1 libatomic1 procps net-tools dnsutils && sudo rm -rf /var/lib/apt/lists/*",
+  "onCreateCommand": "sudo mkdir -p /home/vscode/.windsurf-server/bin && sudo chown -R vscode:vscode /home/vscode/.windsurf-server && sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libstdc++6 libgcc-s1 libatomic1 procps net-tools dnsutils && sudo rm -rf /var/lib/apt/lists/*",
   "postCreateCommand": "rm -f ~/.windsurf-server/.installation_lock 2>/dev/null; find ~/.windsurf-server/bin -maxdepth 1 -type d 2>/dev/null | tail -n +2 | head -n -1 | xargs rm -rf 2>/dev/null; echo 'Windsurf server cache pruned'",
   "postStartCommand": "curl -fsS --max-time 5 https://windsurf-stable.codeiumdata.com > /dev/null && echo '[devcontainer] Windsurf CDN reachable' || echo '[devcontainer] WARNING: Windsurf CDN unreachable'"
 }
