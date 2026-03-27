@@ -17,8 +17,7 @@ test.describe("Workflow orchestration UI", () => {
     const newCaseButton = page
       .getByRole("button", { name: /new case|new chat/i })
       .first();
-    if (!(await newCaseButton.isVisible().catch(() => false)))
-      test.skip("New case button not visible");
+    await expect(newCaseButton, "Expected a visible New case entry point in orchestration UI").toBeVisible({ timeout: TIMEOUTS.ui });
     await newCaseButton.click();
 
     const companyInput = page.getByLabel(/company name/i);
@@ -36,8 +35,7 @@ test.describe("Workflow orchestration UI", () => {
         name: /start workflow|run orchestration|execute workflow/i,
       })
       .first();
-    if (!(await startWorkflow.isVisible().catch(() => false)))
-      test.skip("Start workflow button not visible");
+    await expect(startWorkflow, "Expected visible workflow start control").toBeVisible({ timeout: TIMEOUTS.ui });
     await startWorkflow.click();
 
     // Expect a notification or workflow state change element
