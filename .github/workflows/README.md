@@ -52,14 +52,45 @@ In `pr-fast.yml`, the `pr-fast` aggregation job requires **at least one** tenant
 
 ## Branch protection required checks
 
-`main` pull-request branch protection should require only:
+Branch-protection required checks are policy-managed in:
 
-- `pr-fast`
-staging-deploy-release-gates
-codeql-analyze (js-ts)
-infra-plan (only for PRs touching infra/terraform/**)
+- `.github/branch-protection/required-checks.json` (machine-readable source of truth)
+- `scripts/ci/check-required-checks-policy.mjs` (policy-as-code validation)
 
-codeql is advisory unless leadership explicitly promotes it to a blocking requirement.
+The README snapshot below **must** stay in sync with that JSON policy.
+
+<!-- REQUIRED_CHECKS:START -->
+```json
+{
+  "main": [
+    "pr-fast",
+    "staging-deploy-release-gates",
+    "codeql",
+    "infra-plan (only for PRs touching infra/terraform/**)"
+  ],
+  "release/*": [
+    "pr-fast",
+    "staging-deploy-release-gates",
+    "codeql",
+    "infra-plan (only for PRs touching infra/terraform/**)"
+  ]
+}
+```
+<!-- REQUIRED_CHECKS:END -->
+
+`codeql` is required for both `main` and `release/*` branch protections.
+
+## Emergency override policy (required-check bypass)
+
+Emergency override of required checks is allowed only for production-risk mitigation and must satisfy all requirements:
+
+1. Mandatory security sign-off from Security On-Call **and** a security leadership approver.
+2. Platform on-call lead approval.
+3. An incident ticket that records: impacted branch, bypassed checks, blast radius, and containment plan.
+4. Post-incident remediation SLA:
+   - Critical: remediation complete in 24 hours.
+   - High: remediation complete in 72 hours.
+   - Required checks restored in branch protection within 24 hours.
 
 Archived Workflow References
 docs/archive/workflows/unified-deployment-pipeline.reference.yml (archived reference; superseded by deploy.yml)

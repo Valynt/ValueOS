@@ -265,6 +265,8 @@ jobs:
         run: pnpm check:backend-service-role-boundaries
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
+      - name: Required-check policy contract guard
+        run: pnpm run check:required-checks-policy
       - name: Workflow pnpm contract guard
         run: pnpm run check:workflow-pnpm-contract
       - name: Workspace package governance inventory

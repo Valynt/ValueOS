@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-03-27",
+  "requiredChecksByBranch": {
+    "main": [
+      {
+        "check": "pr-fast",
+        "required": true,
+        "notes": "Canonical pull-request merge gate for branch protection."
+      },
+      {
+        "check": "staging-deploy-release-gates",
+        "required": true,
+        "notes": "Post-merge release readiness aggregation gate."
+      },
+      {
+        "check": "codeql",
+        "required": true,
+        "notes": "CodeQL static analysis gate from .github/workflows/codeql.yml."
+      },
+      {
+        "check": "infra-plan",
+        "required": true,
+        "scope": "only for PRs touching infra/terraform/**",
+        "notes": "Terraform plan gate for infrastructure changes."
+      }
+    ],
+    "release/*": [
+      {
+        "check": "pr-fast",
+        "required": true,
+        "notes": "Canonical pull-request merge gate for release branches."
+      },
+      {
+        "check": "staging-deploy-release-gates",
+        "required": true,
+        "notes": "Post-merge release readiness aggregation gate."
+      },
+      {
+        "check": "codeql",
+        "required": true,
+        "notes": "CodeQL static analysis gate from .github/workflows/codeql.yml."
+      },
+      {
+        "check": "infra-plan",
+        "required": true,
+        "scope": "only for PRs touching infra/terraform/**",
+        "notes": "Terraform plan gate for infrastructure changes."
+      }
+    ]
+  },
+  "emergencyOverride": {
+    "approvalRequirements": [
+      "Security sign-off is mandatory and must be recorded by Security On-Call and one security leadership approver.",
+      "Platform on-call lead approval is mandatory for change-risk acknowledgement.",
+      "Override ticket must include impacted branch, skipped checks, and containment plan."
+    ],
+    "postIncidentRemediationSLA": {
+      "severityCritical": "24 hours",
+      "severityHigh": "72 hours",
+      "maximumTimeToRestoreRequiredChecks": "24 hours"
+    }
+  }
+}

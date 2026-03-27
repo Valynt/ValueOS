@@ -77,6 +77,7 @@ The following non-CI artifacts are required for governance traceability:
 - Vendor annual risk review evidence files (one per in-scope vendor per year).
 - Vendor remediation tracker with action IDs, owners, due dates, and closure evidence.
 - Quarterly risk review summary linked to incident and compliance outputs.
+- Weekly required-check enforcement artifact: `weekly-required-check-enforcement-<run_id>` from `.github/workflows/required-checks-weekly-compliance.yml`, containing `artifacts/governance/required-check-enforcement-weekly.md` and `.json`.
 
 Reference workflows:
 
