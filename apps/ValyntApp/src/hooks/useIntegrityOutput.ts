@@ -78,9 +78,10 @@ export function useIntegrityOutput(caseId: string | undefined): UseIntegrityOutp
 
   const mutation = useMutation<unknown, Error, string>({
     mutationFn: async (organizationId: string) => {
+      const idempotency_key = crypto.randomUUID();
       const res = await apiClient.post<{ mode: "direct" | "async"; jobId?: string; result?: unknown }>(
         "/api/agents/integrity/invoke",
-        { caseId, organizationId, query: "validate claims" },
+        { caseId, organizationId, query: "validate claims", idempotency_key },
       );
       if (!res.success) throw new Error(res.error?.message ?? "Request failed");
       return res.data;

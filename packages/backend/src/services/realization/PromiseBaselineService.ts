@@ -288,7 +288,7 @@ export class PromiseBaselineService {
       throw new Error(`Failed to archive original baseline: ${archiveError.message}`);
     }
 
-    // Copy and adjust KPI targets
+    // Copy and adjust KPI targets — bulk insert instead of per-row loop
     const { data: originalKpis, error: kpisError } = await supabase
       .from("promise_kpi_targets")
       .select("*")
@@ -299,26 +299,65 @@ export class PromiseBaselineService {
       throw new Error(`Failed to fetch KPI targets for amendment: ${kpisError.message}`);
     }
 
-    for (const kpi of originalKpis || []) {
-      const adjustment = amendments.kpiAdjustments?.find(
-        (a) => a.kpiTargetId === kpi.id,
-      );
-
-      const { error: kpiInsertError } = await supabase.from("promise_kpi_targets").insert({
-        id: crypto.randomUUID(),
-        organization_id: organizationId,
-        baseline_id: newBaselineId,
-        metric_name: kpi.metric_name,
-        baseline_value: kpi.baseline_value,
-        target_value: adjustment?.newTarget ?? kpi.target_value,
-        unit: kpi.unit,
-        timeline_months: kpi.timeline_months,
-        source_classification: kpi.source_classification,
-        confidence_score: kpi.confidence_score,
+    if (originalKpis && originalKpis.length > 0) {
+      const kpiRows = originalKpis.map((kpi) => {
+        const adjustment = amendments.kpiAdjustments?.find(
+          (a) => a.kpiTargetId === kpi.id,
+        );
+        return {
+          id: crypto.randomUUID(),
+          organization_id: organizationId,
+          baseline_id: newBaselineId,
+          metric_name: kpi.metric_name,
+          baseline_value: kpi.baseline_value,
+          target_value: adjustment?.newTarget ?? kpi.target_value,
+          unit: kpi.unit,
+          timeline_months: kpi.timeline_months,
+          source_classification: kpi.source_classification,
+          confidence_score: kpi.confidence_score,
+        };
       });
 
+      const { error: kpiInsertError } = await supabase
+        .from("promise_kpi_targets")
+        .insert(kpiRows);
+
       if (kpiInsertError) {
-        throw new Error(`Failed to copy KPI target ${kpi.id}: ${kpiInsertError.message}`);
+        // Compensating rollback: the original baseline was already marked
+        // "amended" and the new baseline record was already written. Revert
+        // both so the system is not left with a superseded-but-unreplaced
+        // baseline. Best-effort — log if compensation itself fails.
+        logger.error(`KPI insert failed for amendment of ${baselineId}, attempting rollback`, {
+          error: kpiInsertError.message,
+          newBaselineId,
+        });
+        const [revertResult, deleteResult] = await Promise.allSettled([
+          supabase
+            .from("promise_baselines")
+            .update({ status: "active", superseded_at: null, superseded_by_id: null })
+            .eq("id", baselineId)
+            .eq("organization_id", organizationId),
+          supabase
+            .from("promise_baselines")
+            .delete()
+            .eq("id", newBaselineId)
+            .eq("organization_id", organizationId),
+        ]);
+        if (revertResult.status === "rejected") {
+          logger.error("Rollback revert of original baseline failed — manual intervention required", {
+            reason: revertResult.reason,
+            baselineId,
+            organizationId,
+          });
+        }
+        if (deleteResult.status === "rejected") {
+          logger.error("Rollback delete of orphaned baseline failed — manual intervention required", {
+            reason: deleteResult.reason,
+            newBaselineId,
+            organizationId,
+          });
+        }
+        throw new Error(`Failed to insert amended KPI targets: ${kpiInsertError.message}`);
       }
     }
 
@@ -400,6 +439,9 @@ export class PromiseBaselineService {
     const checkpoints: Array<{ id: string; kpiTargetId: string; measurementDate: string }> = [];
     const now = new Date();
 
+    // Collect all checkpoint rows across all targets and quarters, then bulk insert.
+    const checkpointRows: Array<Record<string, unknown>> = [];
+
     for (const target of kpiTargets) {
       // Create quarterly checkpoints
       const quarters = Math.ceil(target.timeline_months / 3);
@@ -414,7 +456,7 @@ export class PromiseBaselineService {
 
         const checkpointId = crypto.randomUUID();
 
-        const { error: checkpointError } = await supabase.from("promise_checkpoints").insert({
+        checkpointRows.push({
           id: checkpointId,
           organization_id: organizationId,
           baseline_id: baselineId,
@@ -426,15 +468,21 @@ export class PromiseBaselineService {
           created_at: now.toISOString(),
         });
 
-        if (checkpointError) {
-          throw new Error(`Failed to create checkpoint for KPI target ${target.id}: ${checkpointError.message}`);
-        }
-
         checkpoints.push({
           id: checkpointId,
           kpiTargetId: target.id,
           measurementDate: checkpointDate.toISOString(),
         });
+      }
+    }
+
+    if (checkpointRows.length > 0) {
+      const { error: checkpointInsertError } = await supabase
+        .from("promise_checkpoints")
+        .insert(checkpointRows);
+
+      if (checkpointInsertError) {
+        throw new Error(`Failed to insert checkpoints: ${checkpointInsertError.message}`);
       }
     }
 

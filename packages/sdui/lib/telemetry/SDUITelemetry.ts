@@ -12,6 +12,7 @@ export enum TelemetryEventType {
   COMPONENT_RESOLVE = "component_resolve",
   HYDRATION_CACHE_HIT = "hydration_cache_hit",
   CIRCUIT_BREAKER_EVENT = "circuit_breaker_event",
+  COMPONENT_NOT_FOUND = "component_not_found",
 }
 
 export class SDUITelemetry {

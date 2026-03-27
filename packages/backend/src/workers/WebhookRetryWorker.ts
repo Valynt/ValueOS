@@ -21,7 +21,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
-import { billingWebhookExhaustedTotal } from '../metrics/billingMetrics.js';
+import { billingWebhookExhaustedTotal, webhookDlqSize } from '../metrics/billingMetrics.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { WebhookRetryService } from '../services/billing/WebhookRetryService.js';
 
@@ -195,6 +195,7 @@ async function processWebhookRetryJob(
       }
 
       billingWebhookExhaustedTotal.labels({ event_type: eventType }).inc();
+      webhookDlqSize.inc(); // event moved to DLQ
     } else {
       logger.warn('Webhook delivery failed — will retry', {
         jobId: job.id,

@@ -7,6 +7,70 @@ metadata:
 spec:
   groups:
     # ================================================================
+    # Webhook Reliability (Sprint 1.5)
+    # ================================================================
+    - name: billing.webhook_reliability
+      rules:
+        - alert: WebhookProcessingDrift
+          expr: |
+            (
+              rate(webhooks_processed_total{status="success"}[5m])
+              /
+              rate(webhooks_received_total[5m])
+            ) < 0.95
+          for: 10m
+          labels:
+            severity: critical
+            component: billing
+          annotations:
+            summary: "Webhook processing rate below 95%"
+            description: >
+              Less than 95% of received webhooks are being successfully processed
+              over the last 5 minutes. Current ratio: {{ $value | humanizePercentage }}.
+              Silent revenue loss may be occurring.
+            runbook_url: "https://docs.valueos.com/runbooks/webhook-processing-drift"
+
+        - alert: WebhookDLQGrowing
+          expr: webhook_dlq_size > 10
+          for: 15m
+          labels:
+            severity: warning
+            component: billing
+          annotations:
+            summary: "Webhook DLQ depth above threshold"
+            description: >
+              {{ $value }} webhook events are permanently failed (DLQ depth > 10)
+              and have not been replayed for 15 minutes.
+            runbook_url: "https://docs.valueos.com/runbooks/webhook-dlq"
+
+        - alert: ReconciliationJobFailing
+          expr: increase(webhook_reconciliation_failures_total[1h]) > 0
+          for: 0m
+          labels:
+            severity: warning
+            component: billing
+          annotations:
+            summary: "Stripe reconciliation job failed"
+            description: >
+              The Stripe↔DB reconciliation job has failed {{ $value }} time(s)
+              in the last hour. Missing events may not be recovered automatically.
+            runbook_url: "https://docs.valueos.com/runbooks/reconciliation-failure"
+
+        - alert: ReconciliationDriftDetected
+          expr: webhook_reconciliation_drift_count > 0
+          for: 0m
+          labels:
+            severity: warning
+            component: billing
+          annotations:
+            summary: "Stripe↔DB reconciliation drift detected"
+            description: >
+              {{ $value }} Stripe event(s) were found in Stripe but not in the
+              local database during the last reconciliation run. Backfill has
+              been attempted automatically.
+            runbook_url: "https://docs.valueos.com/runbooks/reconciliation-drift"
+
+    # ================================================================
     # Usage Aggregation Cronjob Health
     # ================================================================
     - name: billing.usage_aggregation

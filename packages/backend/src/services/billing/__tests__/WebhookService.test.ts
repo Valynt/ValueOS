@@ -113,17 +113,32 @@ vi.mock("../../../lib/logger", () => ({
   })),
 }));
 
-vi.mock("../../../metrics/billingMetrics", () => ({
-  recordStripeWebhook: vi.fn(),
-  recordInvoiceEvent: vi.fn(),
-  recordBillingJobFailure: vi.fn(),
-  recordWebhookUnresolvedTenant: vi.fn(),
-}));
+vi.mock("../../../metrics/billingMetrics", () => {
+  const mc = () => ({ labels: vi.fn().mockReturnValue({ inc: vi.fn() }), inc: vi.fn() });
+  const mg = () => ({ labels: vi.fn().mockReturnValue({ set: vi.fn(), inc: vi.fn(), dec: vi.fn() }), set: vi.fn(), inc: vi.fn(), dec: vi.fn() });
+  return {
+    recordStripeWebhook: vi.fn(),
+    recordInvoiceEvent: vi.fn(),
+    recordBillingJobFailure: vi.fn(),
+    recordWebhookUnresolvedTenant: vi.fn(),
+    webhooksReceivedTotal: mc(),
+    webhooksProcessedTotal: mc(),
+    webhookProcessingFailuresTotal: mc(),
+    webhookDlqSize: mg(),
+    webhookReconciliationRunsTotal: mc(),
+    webhookReconciliationFailuresTotal: mc(),
+    webhookReconciliationDriftCount: mg(),
+  };
+});
 
 vi.mock("../../post-v1/SecurityAuditService", () => ({
   securityAuditService: {
     logRequestEvent: vi.fn().mockResolvedValue(undefined),
   },
+}));
+
+vi.mock("../WebhookPayloadStore.js", () => ({
+  storeWebhookPayload: vi.fn().mockResolvedValue({ mode: "inline", rawPayload: {}, payloadRef: null }),
 }));
 
 vi.mock("../InvoiceService", () => ({
@@ -230,10 +245,13 @@ describe("WebhookService", () => {
       const event = makeEvent("invoice.created", { id: "evt_dup" });
       _db.webhookEvents.set("evt_dup", { id: "row-evt_dup", processed: true });
 
-      await service.processEvent(event);
+      const isDuplicate = await service.processEvent(event);
 
+      // Handler must not be called for a duplicate
       expect(InvoiceService.storeInvoice).not.toHaveBeenCalled();
-      expect(recordStripeWebhook).not.toHaveBeenCalled();
+      expect(isDuplicate).toBe(true);
+      // Duplicate is explicitly recorded (not silently dropped)
+      expect(recordStripeWebhook).toHaveBeenCalledWith(event.type, "duplicate");
     });
   });
 

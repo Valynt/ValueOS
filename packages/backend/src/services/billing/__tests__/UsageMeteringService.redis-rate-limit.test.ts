@@ -18,7 +18,9 @@ const mockPipeline = vi.fn(() => ({
   exec: mockExec,
 }));
 
-vi.mock('../../../lib/redis.js', () => ({
+// UsageMeteringService now imports from lib/redisClient.js (synchronous shared client)
+// rather than lib/redis.js (async, returns Promise<Redis|null>).
+vi.mock('../../../lib/redisClient.js', () => ({
   getRedisClient: vi.fn(() => ({
     pipeline: mockPipeline,
   })),
@@ -100,7 +102,7 @@ describe('UsageMeteringService Redis rate limiter', () => {
   });
 
   it('fails open when Redis throws', async () => {
-    const { getRedisClient } = await import('../../../lib/redis.js');
+    const { getRedisClient } = await import('../../../lib/redisClient.js');
     vi.mocked(getRedisClient).mockImplementationOnce(() => {
       throw new Error('ECONNREFUSED');
     });

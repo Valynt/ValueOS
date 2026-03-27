@@ -38,6 +38,10 @@ export * from "./realtime";
 // Performance optimization
 export * from "./performance";
 
+// Request ID context for error boundary correlation
+export { RequestIdContext, RequestIdRow, useRequestId } from "./lib/RequestIdContext";
+export type { RequestIdContextValue } from "./lib/RequestIdContext";
+
 // Caching system
 export * from "./cache";
 

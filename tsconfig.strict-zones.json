@@ -6,6 +6,9 @@
     },
     {
       "path": "./packages/memory/tsconfig.strict-zone.json"
+    },
+    {
+      "path": "./packages/backend/tsconfig.strict-zone.json"
     }
   ]
 }

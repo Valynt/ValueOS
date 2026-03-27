@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { usePdfExport, usePptxExport } from "@/hooks/useCaseExport";
 import { useNarrativeDraft, useRunNarrativeAgent } from "@/hooks/useNarrative";
@@ -62,6 +62,17 @@ export function NarrativeStage({
   const { data: graphData } = useValueGraph(opportunityId ?? null);
   const topPaths = graphData?.paths.slice(0, 3) ?? [];
 
+  // Debounced handler — prevents double-enqueue during network latency.
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRunAgent = useCallback(() => {
+    if (runAgent.isPending || !caseId) return;
+    if (debounceTimer.current) return; // already scheduled
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+    }, 300);
+    runAgent.mutate({});
+  }, [runAgent, caseId]);
+
   const formats = [
     { key: "executive" as const, label: "Executive Summary", desc: "Board-ready, impact-focused" },
     { key: "technical" as const, label: "Technical Brief", desc: "Architecture and implementation" },
@@ -85,16 +96,16 @@ export function NarrativeStage({
           No narrative draft yet. Run the Narrative Agent to assemble the value case story.
         </p>
         <button
-          onClick={() => runAgent.mutate({})}
+          onClick={handleRunAgent}
           disabled={runAgent.isPending || !caseId}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-semibold hover:bg-zinc-800 disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-semibold hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {runAgent.isPending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
             <Play className="w-3.5 h-3.5" />
           )}
-          Run Narrative Agent
+          {runAgent.isPending ? "Running…" : "Run Narrative Agent"}
         </button>
         {runAgent.error && (
           <p className="text-[11px] text-red-500">{runAgent.error.message}</p>
@@ -124,16 +135,16 @@ export function NarrativeStage({
               </span>
             )}
             <button
-              onClick={() => runAgent.mutate({})}
+              onClick={handleRunAgent}
               disabled={runAgent.isPending || !caseId}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {runAgent.isPending ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
                 <RotateCcw className="w-3 h-3" />
               )}
-              Regenerate
+              {runAgent.isPending ? "Running…" : "Regenerate"}
             </button>
           </div>
         </div>
