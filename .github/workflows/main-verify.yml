@@ -265,6 +265,8 @@ jobs:
         run: pnpm check:frontend-bundle-service-role
       - name: Guard backend service-role boundaries
         run: pnpm check:backend-service-role-boundaries
+      - name: Guard deprecated Supabase imports
+        run: node scripts/ci/check-deprecated-supabase-imports.mjs
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
       - name: Required-check policy contract guard
