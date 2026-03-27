@@ -347,6 +347,7 @@ BEGIN
         'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
         p1_name, tbl, m1_start, m1_end
       );
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p1_name);
     END IF;
 
     -- Create partition 2 if it doesn't exist
@@ -359,6 +360,7 @@ BEGIN
         'CREATE TABLE public.%I PARTITION OF public.%I FOR VALUES FROM (%L) TO (%L)',
         p2_name, tbl, m2_start, m2_end
       );
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', p2_name);
     END IF;
   END LOOP;
 END;

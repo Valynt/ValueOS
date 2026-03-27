@@ -179,59 +179,23 @@ export class AlertingService {
   private metricsCollector = getMetricsCollector();
   private alertRules: AlertRule[] = DEFAULT_ALERT_RULES;
   private activeAlerts: Map<string, Alert> = new Map();
-  private checkIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
   }
 
   /**
-   * Start monitoring with all enabled alert rules
+   * Evaluate all enabled rules once.
+   * This method is executed by the BullMQ repeatable worker job
+   * `alerting:evaluate-rules` to avoid duplicate evaluation across pods.
    */
-  start(): void {
-    logger.info('Starting alerting service', {
-      ruleCount: this.alertRules.filter(r => r.enabled).length
-    });
-
+  async evaluateEnabledRules(): Promise<void> {
     for (const rule of this.alertRules) {
-      if (rule.enabled) {
-        this.startRuleMonitoring(rule);
+      if (!rule.enabled) {
+        continue;
       }
+      await this.checkRule(rule);
     }
-  }
-
-  /**
-   * Stop all monitoring
-   */
-  stop(): void {
-    logger.info('Stopping alerting service');
-
-    for (const [ruleId, interval] of this.checkIntervals) {
-      clearInterval(interval);
-      this.checkIntervals.delete(ruleId);
-    }
-  }
-
-  /**
-   * Start monitoring for a specific rule
-   */
-  private startRuleMonitoring(rule: AlertRule): void {
-    // Initial check
-    this.checkRule(rule);
-
-    // Schedule periodic checks
-    const interval = setInterval(
-      () => this.checkRule(rule),
-      rule.checkIntervalMinutes * 60 * 1000
-    );
-
-    this.checkIntervals.set(rule.id, interval);
-
-    logger.debug('Started monitoring for rule', {
-      ruleId: rule.id,
-      ruleName: rule.name,
-      intervalMinutes: rule.checkIntervalMinutes
-    });
   }
 
   /**

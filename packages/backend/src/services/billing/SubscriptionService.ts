@@ -10,6 +10,7 @@ import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
 import { supabase as supabaseClient } from '../../lib/supabase.js';
+import { billingSubscriptionCreateRollbackFailuresTotal } from '../../metrics/billingMetrics.js';
 import { Subscription, SubscriptionItem } from "../../types/billing";
 
 import CustomerService from "./CustomerService.js"
@@ -46,13 +47,13 @@ class SubscriptionService {
     tenantId: string,
     planTier: PlanTier,
     trialDays?: number,
-    idempotencyKey?: string
+    createRequestId?: string
   ): Promise<Subscription> {
     if (!this.stripe || !supabase || !this.stripeService) {
       throw new Error("Billing service not configured");
     }
     try {
-      logger.info("Creating subscription", { tenantId, planTier, idempotencyKey });
+      logger.info("Creating subscription", { tenantId, planTier, createRequestId });
 
       // Get or create customer
       const customer = await CustomerService.getCustomerByTenantId(tenantId);
@@ -64,6 +65,23 @@ class SubscriptionService {
 
       // Build subscription items for all metrics
       const items = this.buildSubscriptionItems(planTier);
+
+      const creationIdempotencyKey = this.stripeService.generateIdempotencyKey(
+        tenantId,
+        'sub_create',
+        `${planTier}:${createRequestId ?? 'default'}`
+      );
+      const { data: pendingCreation } = await supabase
+        .from("pending_subscription_creations")
+        .insert({
+          tenant_id: tenantId,
+          plan_tier: planTier,
+          status: "pending",
+          idempotency_key: creationIdempotencyKey,
+          create_request_id: createRequestId ?? null,
+        })
+        .select("id")
+        .single();
 
       // Create subscription in Stripe first
       const stripeSubscription = await this.stripe.subscriptions.create(
@@ -77,9 +95,7 @@ class SubscriptionService {
           },
         },
         {
-          idempotencyKey: idempotencyKey
-            ? this.stripeService.generateIdempotencyKey(tenantId, "sub_create", idempotencyKey)
-            : undefined,
+          idempotencyKey: creationIdempotencyKey,
         }
       );
 
@@ -123,6 +139,16 @@ class SubscriptionService {
           throw error;
         }
         subscription = data;
+        if (pendingCreation?.id) {
+          await supabase
+            .from("pending_subscription_creations")
+            .update({
+              status: "completed",
+              stripe_subscription_id: stripeSubscription.id,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", pendingCreation.id);
+        }
       } catch (dbError) {
         // Rollback: Cancel the Stripe subscription since DB insert failed
         logger.error("DB insert failed, rolling back Stripe subscription", dbError as Error, {
@@ -138,6 +164,29 @@ class SubscriptionService {
           logger.error("Failed to rollback Stripe subscription", rollbackError as Error, {
             stripeSubscriptionId: stripeSubscription.id,
           });
+          billingSubscriptionCreateRollbackFailuresTotal.inc();
+          if (pendingCreation?.id) {
+            await supabase
+              .from("pending_subscription_creations")
+              .update({
+                status: "needs_reconciliation",
+                stripe_subscription_id: stripeSubscription.id,
+                failure_reason: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+                failed_at: new Date().toISOString(),
+              })
+              .eq("id", pendingCreation.id);
+          }
+        }
+        if (pendingCreation?.id) {
+          await supabase
+            .from("pending_subscription_creations")
+            .update({
+              status: "failed",
+              stripe_subscription_id: stripeSubscription.id,
+              failure_reason: dbError instanceof Error ? dbError.message : String(dbError),
+              failed_at: new Date().toISOString(),
+            })
+            .eq("id", pendingCreation.id);
         }
         throw dbError;
       }
@@ -315,7 +364,8 @@ class SubscriptionService {
    * Legacy update subscription method (deprecated - use updateSubscription instead)
    * @deprecated Use updateSubscription for transaction safety
    */
-  async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
+  /** @deprecated Legacy direct Stripe + DB update path; use updateSubscription instead. */
+  private async updateSubscriptionLegacy(tenantId: string, newPlanTier: PlanTier): Promise<Subscription> {
     if (!supabase || !this.stripe || !this.stripeService) {
       throw new Error("Billing service not configured");
     }

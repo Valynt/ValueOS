@@ -5,6 +5,8 @@
  * Core properties: deterministic, reproducible, append-only ledger.
  */
 
+import crypto from "node:crypto";
+
 import type { MeterKey } from "@shared/types/billing-events";
 import { type SupabaseClient } from "@supabase/supabase-js";
 
@@ -192,23 +194,8 @@ class RatingEngine {
    * Convert hash to UUID format for database compatibility.
    */
   private hashToUuid(input: string): string {
-    const hash = this.simpleHash(input);
-    // Convert to UUID format: 8-4-4-4-12
-    const hex = hash.toString(16).padStart(32, '0');
+    const hex = crypto.createHash('sha256').update(input).digest('hex').slice(0, 32);
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-  }
-
-  /**
-   * Simple deterministic hash function.
-   */
-  private simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
   }
 
   /**
@@ -296,3 +283,4 @@ class RatingEngine {
 export { RatingEngine };
 /** @deprecated Use named import `RatingEngine` instead. */
 export default RatingEngine;
+import crypto from "node:crypto";

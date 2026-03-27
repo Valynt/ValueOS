@@ -41,6 +41,12 @@ jobs:
       - name: Required-check policy-as-code validation
         run: pnpm run check:required-checks-policy
 
+      - name: Branch protection drift detection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/ci/check-branch-protection-drift.mjs
+
       - name: Generate weekly required-check enforcement report
         run: pnpm run report:required-check-compliance
 
