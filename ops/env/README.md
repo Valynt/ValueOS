@@ -135,7 +135,7 @@ No local Postgres, Redis, or NATS required. These services are either hosted (Su
 
 Shared: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 Backend: `DATABASE_URL`, `DATABASE_POOL_ROLE`, `DATABASE_EXPECTED_CONCURRENCY`
-Optional: `REDIS_URL`, `NATS_URL`
+Optional: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`
 
 ### `test`
 
@@ -144,3 +144,12 @@ Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE
 ### `prod`
 
 All vars injected by the deployment platform. Include `APP_ENV`, `DATABASE_POOL_ROLE`, and `DATABASE_EXPECTED_CONCURRENCY` for the backend deployments. Never committed.
+
+## MCP Ground Truth benchmark behavior
+
+`IndustryBenchmarkModule` (ValyntApp MCP ground truth) reads:
+
+- `BLS_API_KEY` for BLS wage benchmarks
+- `CENSUS_API_KEY` for Census industry benchmarks
+
+When API keys are unset, benchmark requests can still resolve via static embedded data **only if** request policy allows fallback. Requests that set `require_authoritative_external_benchmark=true` are blocked with `EVIDENCE_REQUIRED` instead of silently returning fallback data.

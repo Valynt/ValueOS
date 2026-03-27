@@ -318,6 +318,22 @@ BLS_API_KEY=your_key_here
 CENSUS_API_KEY=your_key_here
 ```
 
+### Industry benchmark runtime policy (Census + BLS)
+
+`IndustryBenchmarkModule` now supports live provider mode with policy-aware static fallback controls:
+
+- `options.require_authoritative_external_benchmark=true` blocks static data and requires live Census/BLS evidence.
+- `options.allow_static_fallback=false` disables static fallback even when `enableStaticData=true`.
+- By default, `enableStaticData=true` allows static benchmark usage for local/degraded scenarios.
+
+Returned benchmark/wage metrics include provenance metadata fields to support UX confidence labeling:
+
+- `metadata.source`
+- `metadata.year`
+- `metadata.is_fallback_data` (`true` for embedded static benchmark data)
+- `metadata.data_mode` (`static`, `live_api`, `cache`)
+- `metadata.authoritative_external`
+
 ### Testing
 
 ```bash
@@ -351,7 +367,7 @@ All errors follow a standardized format:
 ```typescript
 {
   error: {
-    code: 'NO_DATA_FOUND' | 'UPSTREAM_FAILURE' | 'RATE_LIMIT_EXCEEDED' | ...,
+    code: 'MISSING_API_KEY' | 'PROVIDER_OUTAGE' | 'INVALID_CLASSIFICATION_CODE' | 'EXTERNAL_NO_DATA' | 'EVIDENCE_REQUIRED' | ...,
     message: 'Human-readable error message',
     details: { /* Additional context */ }
   }
