@@ -15,6 +15,8 @@
 import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
+import { RequestIdContext, RequestIdContextValue, RequestIdRow } from "../lib/RequestIdContext";
+
 declare global {
   interface Window {
     analytics?: { track: (event: string, props?: Record<string, unknown>) => void };
@@ -62,7 +64,10 @@ interface State {
   retryCount: number;
 }
 
-export class SDUIErrorBoundary extends Component<Props, State> {
+export class SDUIErrorBoundary extends Component<Props, State, RequestIdContextValue> {
+  static override contextType = RequestIdContext;
+  declare context: RequestIdContextValue;
+
   private tracer = getTracer("SDUIErrorBoundary");
 
   constructor(props: Props) {
@@ -235,6 +240,9 @@ export class SDUIErrorBoundary extends Component<Props, State> {
                   Maximum retry attempts reached. Please refresh the page.
                 </p>
               )}
+
+              {/* Request ID for support correlation */}
+              <RequestIdRow requestId={this.context?.lastFailedRequestId ?? null} />
             </div>
           </div>
         </div>

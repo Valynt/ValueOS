@@ -8,6 +8,7 @@ import { validateFrontendStartupEnv } from "./config/startupEnvValidator";
 import { analyticsClient } from "./lib/analyticsClient";
 import { logger } from "./lib/logger";
 import { initFrontendObservability } from "./lib/observability";
+import { bootstrapSDUITelemetry } from "./lib/telemetry/SDUITelemetry";
 
 // Apply theme before first render to avoid flash of unstyled content.
 // Default to dark; respect stored user preference if present.
@@ -36,6 +37,7 @@ bootstrap({
     console.error("Bootstrap failed:", result.errors);
   }
 
+  bootstrapSDUITelemetry();
   analyticsClient.initialize({ betaCohort: true });
 
   initFrontendObservability({

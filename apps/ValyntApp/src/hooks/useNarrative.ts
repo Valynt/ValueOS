@@ -71,10 +71,11 @@ export function useRunNarrativeAgent(caseId: string | undefined) {
 
   return useMutation<AgentRunResponse, Error, Record<string, unknown> | undefined>({
     mutationFn: async (context) => {
+      const idempotency_key = crypto.randomUUID();
       try {
         const res = await apiClient.post<{ data: AgentRunResponse }>(
           `/api/v1/cases/${caseId}/narrative/run`,
-          { context: context ?? {} },
+          { context: context ?? {}, idempotency_key },
         );
         if (!res.success) throw new Error(res.error?.message ?? "Request failed");
         if (!res.data?.data) throw new Error("Empty response from narrative/run");

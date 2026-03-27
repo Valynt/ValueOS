@@ -3,6 +3,7 @@ import { CheckCircle, Clock, RefreshCw, Shield, XCircle, Zap } from "lucide-reac
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 import { isDevelopment, isProduction } from "../../config/environment";
+import { RequestIdContext, RequestIdContextValue, RequestIdRow } from "../lib/RequestIdContext";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 
 /**
@@ -145,8 +146,12 @@ interface EnhancedComponentErrorBoundaryState {
  */
 export class EnhancedComponentErrorBoundary extends Component<
   EnhancedComponentErrorBoundaryProps,
-  EnhancedComponentErrorBoundaryState
+  EnhancedComponentErrorBoundaryState,
+  RequestIdContextValue
 > {
+  static override contextType = RequestIdContext;
+  declare context: RequestIdContextValue;
+
   private retryTimer?: NodeJS.Timeout;
   private correlationIdCounter = 0;
   private errorTimestampRef = React.createRef<number>();
@@ -734,6 +739,9 @@ export class EnhancedComponentErrorBoundary extends Component<
                 </div>
               )}
             </div>
+
+            {/* Request ID for support correlation */}
+            <RequestIdRow requestId={this.context?.lastFailedRequestId ?? null} />
           </div>
         </div>
       </div>
