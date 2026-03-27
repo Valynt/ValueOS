@@ -143,3 +143,36 @@ kubectl rollout status deployment/backend -n valueos
 - [ ] `kubectl get servicemonitor billing-aggregator-worker -n valueos` → exists
 - [ ] Prometheus scrape of `/metrics` on the billing worker returns `billing_usage_records_unaggregated`
 - [ ] No Redis keys matching `llm:cache:<model>:` (without tenant UUID) exist after startup flush
+
+---
+
+## CI/CD Infra Conformance pass/fail criteria (required for production promotion)
+
+`deploy.yml` runs **Infra Conformance Post-Deploy Validation** after staging deployment using
+`node scripts/ci/check-infra-readiness-contract.mjs` with live `kubectl` checks enabled.
+Artifacts are written to `artifacts/infra-conformance/` and uploaded as `infra-conformance-<run_id>`.
+
+### Pass criteria
+
+All criteria below must be true:
+
+- Artifact exists: `artifacts/infra-conformance/infra-readiness-report-<run_id>.json`.
+- `status` in the JSON artifact is `passed`.
+- `live_checks_enabled` is `true`.
+- `failures` is an empty array.
+- `live_checks` contains `pass` entries for:
+  - `NATS JetStream` readiness in the app namespace.
+  - `OTel collector` availability in `observability`.
+  - `Monitoring target present` for `servicemonitor/billing-aggregator-worker`.
+
+### Fail criteria (block production promotion)
+
+Any of the following is an automatic fail:
+
+- Missing infra conformance artifact.
+- `status != passed`.
+- `live_checks_enabled != true`.
+- One or more `failures` entries.
+- Missing pass marker for any required live check (messaging, collectors, monitoring scrape target).
+
+When any fail criterion is met, `preprod-launch-gate` exits non-zero and `deploy-production` is blocked.

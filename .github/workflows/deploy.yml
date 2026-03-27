@@ -801,12 +801,47 @@ jobs:
             artifacts/slo-gate/slo-gate-summary.md
           if-no-files-found: warn
 
+  infra-conformance-post-deploy:
+    name: Infra Conformance Post-Deploy Validation
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig (staging)
+        run: |
+          mkdir -p ~/.kube
+          # [Secret] KUBE_CONFIG_STAGING: Base64-encoded kubeconfig for staging cluster authentication
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+
+      - name: Run infra readiness contract with live-state checks
+        env:
+          INFRA_READINESS_LIVE_CHECKS: "true"
+          INFRA_READINESS_NAMESPACE: valynt-staging
+          INFRA_READINESS_OBSERVABILITY_NAMESPACE: observability
+          INFRA_CONFORMANCE_ARTIFACT_DIR: artifacts/infra-conformance
+        run: |
+          node scripts/ci/check-infra-readiness-contract.mjs
+
+      - name: Upload infra conformance artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: infra-conformance-${{ github.run_id }}
+          path: artifacts/infra-conformance/**
+          if-no-files-found: error
+
   preprod-launch-gate:
     name: Pre-Production Launch Gate
     runs-on: ubuntu-latest
     needs:
       [
         deploy-staging,
+        infra-conformance-post-deploy,
         preprod-slo-guard,
         error-budget-policy-gate,
         dast-gate,
@@ -819,6 +854,42 @@ jobs:
         with:
           name: post-deploy-verification-staging-${{ github.run_id }}
           path: preprod-launch-gate
+
+      - name: Download infra conformance artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: infra-conformance-${{ github.run_id }}
+          path: preprod-launch-gate/infra-conformance
+
+      - name: Validate infra conformance evidence and pass criteria
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report_candidates = sorted(Path("preprod-launch-gate/infra-conformance").glob("infra-readiness-report-*.json"))
+          if not report_candidates:
+            raise SystemExit("Missing infra conformance JSON report artifact")
+
+          report = json.loads(report_candidates[-1].read_text(encoding="utf-8"))
+          if report.get("status") != "passed":
+            raise SystemExit("Infra conformance report status is not passed")
+          if not report.get("live_checks_enabled"):
+            raise SystemExit("Infra conformance report did not enable live checks")
+          if report.get("failures"):
+            raise SystemExit(f"Infra conformance report contains failures: {report['failures']}")
+
+          required_markers = [
+            "NATS JetStream",
+            "OTel collector",
+            "Monitoring target present",
+          ]
+
+          checks = report.get("live_checks", [])
+          for marker in required_markers:
+            if not any(item.get("status") == "pass" and marker in item.get("message", "") for item in checks):
+              raise SystemExit(f"Infra conformance live check missing pass marker: {marker}")
+          PY
 
       - name: Validate deployed staging verification evidence
         env:
@@ -851,6 +922,7 @@ jobs:
                 f"- sha: {artifact['sha']}",
                 f"- image_ref: {artifact['image_ref']}",
                 "- smoke_test_evidence: inherited from deploy-staging",
+                "- infra_conformance_live_checks: passed",
                 "- preprod_slo_guard: passed",
                 "- error_budget_policy_gate: passed",
                 "- dast_gate: passed",
@@ -869,6 +941,7 @@ jobs:
           path: |
             preprod-launch-gate/post-deploy-verification-staging-${{ github.run_id }}.json
             preprod-launch-gate/post-deploy-verification-staging-${{ github.run_id }}.md
+            preprod-launch-gate/infra-conformance/**
             preprod-launch-gate/preprod-launch-summary.md
 
   secret-rotation-gate:
@@ -904,6 +977,7 @@ jobs:
         staging-performance-benchmarks,
         preprod-slo-guard,
         preprod-launch-gate,
+        infra-conformance-post-deploy,
         manifest-maturity-production-gate,
         release-manifest-gate,
         secret-rotation-gate,
