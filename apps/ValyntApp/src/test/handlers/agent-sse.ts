@@ -111,7 +111,6 @@ export const agentJobStatusHandler = http.get(
 
 export function makeSseStreamHandler(scenario: SseScenarioController) {
   return http.get("/api/agents/jobs/:jobId/stream", () => {
-    const connectionNumber = scenario.connectionCount() + 1;
     scenario.set({
       ...{ events: [] }, // keep current events
       dropOnFirst: false,
@@ -131,6 +130,7 @@ export function makeSseStreamHandler(scenario: SseScenarioController) {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
+        Connection: "keep-alive",
         Connection: "keep-alive",
       },
     });
