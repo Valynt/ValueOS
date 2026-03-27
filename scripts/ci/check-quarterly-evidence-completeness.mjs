@@ -18,8 +18,12 @@ const sectionBody = markdown.slice(sectionStart + REQUIRED_SECTION_TITLE.length)
 const nextHeadingMatch = sectionBody.match(/\n##\s+/);
 const bounded = nextHeadingMatch ? sectionBody.slice(0, nextHeadingMatch.index) : sectionBody;
 
-const requiredArtifacts = Array.from(bounded.matchAll(/`([^`]+)`/g), (match) => match[1])
-  .filter((candidate) => candidate.includes("/"));
+const requiredArtifacts = Array.from(
+  bounded.matchAll(/^\s*-\s+`([^`]+)`/gm),
+  (match) => match[1],
+).filter(
+  (candidate) => candidate.startsWith("evidence/") || candidate.startsWith("reports/"),
+);
 
 if (requiredArtifacts.length === 0) {
   console.error("No required artifacts found in quarterly evidence completeness section.");
