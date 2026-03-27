@@ -6,6 +6,7 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
+import { getRedisClient } from '../../lib/redis.js';
 import { createLogger } from '../../lib/logger.js'
 import { recordStripeSubmissionError } from '../../metrics/billingMetrics.js'
 import { UsageAggregate } from '../../types/billing';
@@ -13,6 +14,20 @@ import { UsageAggregate } from '../../types/billing';
 import StripeService from './StripeService.js'
 
 const logger = createLogger({ component: 'UsageMeteringService' });
+
+class RateLimitError extends Error {
+  readonly isRateLimit = true as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'RateLimitError';
+  }
+}
+
+// Redis key: rate:tenant:{tenantId}:query-cost
+// Stores the accumulated cost for the current sliding window as an integer string.
+// TTL is set to QUERY_WINDOW_SECONDS on first write and refreshed on each increment.
+const RATE_LIMIT_KEY_PREFIX = 'rate:tenant';
+const RATE_LIMIT_KEY_SUFFIX = 'query-cost';
 
 class UsageMeteringService {
   private supabase: SupabaseClient;
@@ -24,28 +39,71 @@ class UsageMeteringService {
     this.stripeService = StripeService.getInstance();
     this.stripe = this.stripeService.getClient();
   }
-  // Per-tenant query cost tracking (in-memory, for demo; use Redis in prod)
-  private static tenantQueryCosts: Map<string, { windowStart: number; cost: number }> = new Map();
-  private static QUERY_WINDOW_MS = 60 * 1000; // 1 minute
-  private static MAX_COST_PER_WINDOW = 1000; // Example: 1000 cost units per minute
+
+  private static QUERY_WINDOW_SECONDS = 60; // 1 minute sliding window
+  private static MAX_COST_PER_WINDOW = 1000; // cost units per window
 
   /**
-   * Check and increment per-tenant query cost. Throws if over limit.
+   * Check and increment per-tenant query cost using a Redis sliding window.
+   *
+   * Uses INCRBY + EXPIRE in a pipeline for atomicity within a single round-trip.
+   * The key TTL is set only when the key is new (NX flag) so the window is
+   * anchored to the first request and resets naturally on expiry.
+   *
+   * Fails open when Redis is unavailable — rate limiting should not block
+   * billing submissions due to infrastructure unavailability.
    */
-  private checkAndIncrementTenantCost(tenantId: string, cost: number) {
-    const now = Date.now();
-    const entry = UsageMeteringService.tenantQueryCosts.get(tenantId);
-    if (!entry || now - entry.windowStart > UsageMeteringService.QUERY_WINDOW_MS) {
-      // Reset window
-      UsageMeteringService.tenantQueryCosts.set(tenantId, { windowStart: now, cost });
-      return;
+  private async checkAndIncrementTenantCost(tenantId: string, cost: number): Promise<void> {
+    const redisKey = `${RATE_LIMIT_KEY_PREFIX}:${tenantId}:${RATE_LIMIT_KEY_SUFFIX}`;
+
+    try {
+      const redis = await getRedisClient('control-plane');
+      if (!redis) {
+        logger.warn('rate-limit-redis-unavailable', {
+          tenantId,
+          message: 'Redis unavailable for rate limiting — failing open',
+        });
+        return;
+      }
+
+      // INCRBY returns the new total after incrementing.
+      // EXPIRE NX sets the TTL only if the key has no expiry (i.e. first write in window).
+      const pipeline = redis.pipeline();
+      pipeline.incrby(redisKey, cost);
+      pipeline.expire(redisKey, UsageMeteringService.QUERY_WINDOW_SECONDS, 'NX');
+      const results = await pipeline.exec();
+
+      // results[0] is [cmdError, newTotal] — inspect both.
+      // A command-level error (e.g. WRONGTYPE) means the counter is unreadable;
+      // log it and fail open rather than silently skipping the limit check.
+      const [cmdErr, newTotal] = (results?.[0] ?? [null, null]) as [Error | null, number | null];
+      if (cmdErr) {
+        logger.warn('rate-limit-incrby-failed', {
+          tenantId,
+          error: cmdErr.message,
+          message: 'INCRBY command failed — failing open',
+        });
+        return;
+      }
+      if (newTotal !== null && newTotal > UsageMeteringService.MAX_COST_PER_WINDOW) {
+        logger.warn('tenant-query-cost-limit-exceeded', {
+          tenantId,
+          newTotal,
+          limit: UsageMeteringService.MAX_COST_PER_WINDOW,
+        });
+        throw new RateLimitError('Per-tenant query cost limit exceeded. Please retry later.');
+      }
+    } catch (err) {
+      // Re-throw rate limit errors; swallow Redis infrastructure errors (fail open).
+      if ((err as RateLimitError).isRateLimit) {
+        throw err;
+      }
+      logger.warn('rate-limit-check-failed', {
+        tenantId,
+        error: (err as Error).message,
+        message: 'Rate limit check failed — failing open',
+      });
     }
-    if (entry.cost + cost > UsageMeteringService.MAX_COST_PER_WINDOW) {
-      logger.warn('Tenant query cost limit exceeded', { tenantId, attempted: cost, windowCost: entry.cost });
-      throw new Error('Per-tenant query cost limit exceeded. Please retry later.');
-    }
-    entry.cost += cost;
-    UsageMeteringService.tenantQueryCosts.set(tenantId, entry);
   }
   // stripe and stripeService initialized in constructor
 
@@ -55,7 +113,7 @@ class UsageMeteringService {
   async submitUsageRecord(aggregate: UsageAggregate): Promise<void> {
     // Enforce per-tenant query cost limit (cost = total_quantity or 1)
     try {
-      this.checkAndIncrementTenantCost(aggregate.organization_id, aggregate.total_quantity || 1);
+      await this.checkAndIncrementTenantCost(aggregate.organization_id, aggregate.total_quantity || 1);
     } catch (err) {
       logger.error('Throttling usage record due to tenant IOPS/cost limit', { tenantId: aggregate.organization_id, error: err });
       throw err;
