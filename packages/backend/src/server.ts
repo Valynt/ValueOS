@@ -147,6 +147,7 @@ import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
+import { registerSupabaseInstrumentation } from "./lib/supabaseInstrumentation.js";
 import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
@@ -170,6 +171,11 @@ const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536")
 
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
+
+// Register Supabase query instrumentation (metrics + slow-query logs).
+// Must run before any Supabase client is used.
+registerSupabaseInstrumentation();
+logger.info('[Instrumentation] Supabase query instrumentation registered');
 
 
 

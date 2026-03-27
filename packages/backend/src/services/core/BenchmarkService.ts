@@ -8,6 +8,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
+import { CacheService } from '../CacheService.js';
+
 // ---------------------------------------------------------------------------
 // Benchmark domain type (extended shape used by this service)
 // ---------------------------------------------------------------------------
@@ -59,19 +61,17 @@ export interface BenchmarkImportResult {
 // Service
 // ---------------------------------------------------------------------------
 
-interface CacheEntry<T> {
-  data: T;
-  expiresAt: number;
-}
-
 type Percentiles = { p25?: number; p50?: number; p75?: number; p90?: number };
 
 export class BenchmarkService {
   private supabase: SupabaseClient;
   private organizationId: string;
-  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
-  // Instance-scoped: each BenchmarkService instance (one per tenant) has its own cache.
-  private readonly percentileCache = new Map<string, CacheEntry<Percentiles>>();
+  // TTL in seconds for the Redis-backed percentile cache (5 minutes).
+  private static readonly CACHE_TTL_SECONDS = 5 * 60;
+  // Redis-backed cache shared across all pods. Replaces the previous in-memory
+  // Map which was instance-scoped and could not be invalidated cross-pod.
+  // organizationId is embedded in every cache key to preserve tenant isolation.
+  private readonly percentileCache: CacheService;
 
   constructor(supabase: SupabaseClient, organizationId: string) {
     if (!organizationId) {
@@ -79,6 +79,13 @@ export class BenchmarkService {
     }
     this.supabase = supabase;
     this.organizationId = organizationId;
+    // Namespace includes organizationId so that clear() only invalidates keys
+    // for this tenant, even when called outside a request context where
+    // tenantContextStorage has no active store (tid would fall back to "global").
+    this.percentileCache = new CacheService(
+      `benchmark-percentiles:${organizationId}`,
+      BenchmarkService.CACHE_TTL_SECONDS,
+    );
   }
 
   async compareToBenchmark(
@@ -94,10 +101,10 @@ export class BenchmarkService {
     }
 
     const cacheKey = this.getPercentileCacheKey(kpiName, filters);
-    let percentiles = this.getCachedPercentiles(cacheKey);
+    let percentiles = await this.getCachedPercentiles(cacheKey);
     if (!percentiles) {
       percentiles = this.calculatePercentiles(benchmarks);
-      this.setPercentileCache(cacheKey, percentiles);
+      await this.setPercentileCache(cacheKey, percentiles);
     }
 
     return {
@@ -152,14 +159,9 @@ export class BenchmarkService {
   }
 
   async createBenchmark(benchmark: Omit<Benchmark, 'id' | 'created_at'>): Promise<Benchmark> {
-    const { data, error } = await this.supabase
-      .from('benchmarks')
-      .insert({ ...benchmark, organization_id: this.organizationId })
-      .select()
-      .single();
-    if (error) throw error;
-    this.invalidatePercentileCache();
-    return data as Benchmark;
+    const data = await this.insertBenchmarkRow(benchmark);
+    await this.invalidatePercentileCache();
+    return data;
   }
 
   async importBenchmarks(
@@ -174,7 +176,9 @@ export class BenchmarkService {
           const existing = await this.findDuplicateBenchmark(benchmark);
           if (existing) { result.skipped_count++; continue; }
         }
-        await this.createBenchmark(benchmark);
+        // Use insertBenchmarkRow directly to avoid per-item cache invalidation.
+        // A single invalidation is issued after all rows are processed below.
+        await this.insertBenchmarkRow(benchmark);
         result.imported_count++;
       } catch (err) {
         result.errors.push(`Failed to import ${benchmark.kpi_name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -182,8 +186,20 @@ export class BenchmarkService {
     }
 
     result.success = result.errors.length === 0;
-    this.invalidatePercentileCache();
+    // Invalidate once after the full import, not once per row.
+    await this.invalidatePercentileCache();
     return result;
+  }
+
+  /** Inserts a single benchmark row without touching the cache. */
+  private async insertBenchmarkRow(benchmark: Omit<Benchmark, 'id' | 'created_at'>): Promise<Benchmark> {
+    const { data, error } = await this.supabase
+      .from('benchmarks')
+      .insert({ ...benchmark, organization_id: this.organizationId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Benchmark;
   }
 
   private async findDuplicateBenchmark(benchmark: Omit<Benchmark, 'id' | 'created_at'>): Promise<Benchmark | null> {
@@ -248,22 +264,26 @@ export class BenchmarkService {
   }
 
   private getPercentileCacheKey(kpiName: string, filters: { industry: string; vertical?: string; company_size?: string; region?: string }): string {
+    // Tenant isolation is enforced by the CacheService namespace
+    // (benchmark-percentiles:{organizationId}), so the key itself only needs
+    // to encode the query dimensions.
     return [kpiName, filters.industry, filters.vertical ?? '', filters.company_size ?? '', filters.region ?? ''].join('|');
   }
 
-  private getCachedPercentiles(key: string): Percentiles | null {
-    const entry = this.percentileCache.get(key);
-    if (!entry) return null;
-    if (entry.expiresAt < Date.now()) { this.percentileCache.delete(key); return null; }
-    return entry.data;
+  private async getCachedPercentiles(key: string): Promise<Percentiles | null> {
+    return this.percentileCache.get<Percentiles>(key);
   }
 
-  private setPercentileCache(key: string, percentiles: Percentiles): void {
-    this.percentileCache.set(key, { data: percentiles, expiresAt: Date.now() + BenchmarkService.CACHE_TTL_MS });
+  private async setPercentileCache(key: string, percentiles: Percentiles): Promise<void> {
+    await this.percentileCache.set(key, percentiles, {
+      ttl: BenchmarkService.CACHE_TTL_SECONDS,
+    });
   }
 
-  private invalidatePercentileCache(): void {
-    this.percentileCache.clear();
+  private async invalidatePercentileCache(): Promise<void> {
+    // clear() increments the Redis namespace version counter atomically,
+    // making all existing keys unreachable across all pods in O(1).
+    await this.percentileCache.clear();
   }
 
   async checkBenchmarkFreshness(filters: { industry: string; kpi_name?: string }): Promise<{

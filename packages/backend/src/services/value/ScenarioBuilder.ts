@@ -8,6 +8,37 @@
  * Reference: openspec/changes/value-modeling-engine/tasks.md §6
  */
 
+// ---------------------------------------------------------------------------
+// CACHING DECISION — Phase 4a.3b (implementation deferred, boundaries defined)
+//
+// buildScenarios() is a candidate for result caching. Scenario generation
+// involves multiple DB reads (hypotheses, assumptions) plus economic kernel
+// calculations across three scenario types. The output is deterministic for
+// a given set of inputs and changes only when assumptions or hypotheses change.
+//
+// Proposed cache key:
+//   scenario-build:{tenant_id}:{case_id}
+//   tenant_id MUST be part of the key — tenant isolation is non-negotiable.
+//
+// Proposed TTL: 10 minutes (600 seconds).
+//   Rationale: scenario builds are triggered by user actions (not background
+//   jobs), so a moderate TTL reduces redundant recalculation during review
+//   sessions without serving stale data for too long.
+//
+// Invalidation trigger:
+//   Any write to assumptions, value_hypotheses, or financial_models for the
+//   same (tenant_id, case_id) must invalidate this key. The safest approach
+//   is to invalidate on every assumption/hypothesis mutation, not on TTL alone.
+//
+// Correctness risk:
+//   Stale scenarios could be presented to users after an assumption edit.
+//   Invalidate eagerly on write to prevent this. Do not cache if the caller
+//   passes force_rebuild=true or equivalent.
+//
+// Implementation: use CacheService from packages/backend/src/services/CacheService.ts.
+// Do not implement until Phase 4a.3b is reviewed and approved.
+// ---------------------------------------------------------------------------
+
 import Decimal from 'decimal.js';
 import { z } from "zod";
 

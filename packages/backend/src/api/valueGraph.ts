@@ -293,6 +293,18 @@ valueGraphRouter.post(
 );
 
 // ---------------------------------------------------------------------------
+// Node table constants — used to validate the source_table returned by the
+// resolve_value_graph_node RPC before using it in a .from() call.
+// ---------------------------------------------------------------------------
+
+const VALID_NODE_TABLES = ["vg_capabilities", "vg_metrics", "vg_value_drivers"] as const;
+type NodeTable = (typeof VALID_NODE_TABLES)[number];
+
+function isValidNodeTable(value: unknown): value is NodeTable {
+  return VALID_NODE_TABLES.includes(value as NodeTable);
+}
+
+// ---------------------------------------------------------------------------
 // PATCH /:opportunityId/nodes/:nodeId
 // ---------------------------------------------------------------------------
 
@@ -322,27 +334,51 @@ valueGraphRouter.patch(
     }
 
     try {
-      // Attempt update across all node tables — first match wins
-      const tables = ["vg_capabilities", "vg_metrics", "vg_value_drivers"] as const;
-      let updated: unknown = null;
+      // Resolve which table owns this node in a single RPC call, then dispatch
+      // one targeted update. Replaces the previous sequential 3-table loop.
+      const { data: resolved, error: resolveError } = await supabase
+        .rpc("resolve_value_graph_node", {
+          p_node_id: nodeId,
+          p_opportunity_id: opportunityId,
+          p_organization_id: organizationId,
+        })
+        .maybeSingle();
 
-      for (const table of tables) {
-        const { data, error } = await supabase
-          .from(table)
-          .update({ ...parsed.data, updated_at: new Date().toISOString() })
-          .eq("id", nodeId)
-          .eq("opportunity_id", opportunityId)
-          .eq("organization_id", organizationId)
-          .select()
-          .maybeSingle();
-
-        if (!error && data) {
-          updated = data;
-          break;
-        }
+      if (resolveError) {
+        logger.error("PATCH /nodes/:nodeId: resolve RPC failed", {
+          opportunityId,
+          nodeId,
+          error: resolveError.message,
+        });
+        res.status(500).json({ error: "Failed to update node." });
+        return;
       }
 
-      if (!updated) {
+      if (!resolved) {
+        res.status(404).json({ error: "Node not found." });
+        return;
+      }
+
+      if (!isValidNodeTable(resolved.source_table)) {
+        logger.error("PATCH /nodes/:nodeId: unexpected source_table from resolver", {
+          opportunityId,
+          nodeId,
+          source_table: resolved.source_table,
+        });
+        res.status(500).json({ error: "Failed to update node." });
+        return;
+      }
+
+      const { data: updated, error: updateError } = await supabase
+        .from(resolved.source_table)
+        .update({ ...parsed.data, updated_at: new Date().toISOString() })
+        .eq("id", nodeId)
+        .eq("opportunity_id", opportunityId)
+        .eq("organization_id", organizationId)
+        .select()
+        .maybeSingle();
+
+      if (updateError || !updated) {
         res.status(404).json({ error: "Node not found." });
         return;
       }
@@ -383,29 +419,50 @@ valueGraphRouter.delete(
     }
 
     try {
-      const tables = ["vg_capabilities", "vg_metrics", "vg_value_drivers"] as const;
-      let deleted = false;
-      let deletedTable = "";
+      // Resolve which table owns this node in a single RPC call, then dispatch
+      // one targeted delete. Replaces the previous sequential 3-table loop.
+      const { data: resolved, error: resolveError } = await supabase
+        .rpc("resolve_value_graph_node", {
+          p_node_id: nodeId,
+          p_opportunity_id: opportunityId,
+          p_organization_id: organizationId,
+        })
+        .maybeSingle();
 
-      for (const table of tables) {
-        const { data, error } = await supabase
-          .from(table)
-          .delete()
-          .eq("id", nodeId)
-          .eq("opportunity_id", opportunityId)
-          .eq("organization_id", organizationId)
-          .select()
-          .maybeSingle();
-
-        if (!error && data) {
-          deleted = true;
-          deletedTable = table;
-          break;
-        }
+      if (resolveError) {
+        logger.error("DELETE /nodes/:nodeId: resolve RPC failed", {
+          opportunityId,
+          nodeId,
+          error: resolveError.message,
+        });
+        res.status(500).json({ error: "Failed to delete node." });
+        return;
       }
 
-      if (!deleted) {
+      if (!resolved) {
         res.status(404).json({ error: "Node not found." });
+        return;
+      }
+
+      if (!isValidNodeTable(resolved.source_table)) {
+        logger.error("DELETE /nodes/:nodeId: unexpected source_table from resolver", {
+          opportunityId,
+          nodeId,
+          source_table: resolved.source_table,
+        });
+        res.status(500).json({ error: "Failed to delete node." });
+        return;
+      }
+
+      const { error: deleteError } = await supabase
+        .from(resolved.source_table)
+        .delete()
+        .eq("id", nodeId)
+        .eq("opportunity_id", opportunityId)
+        .eq("organization_id", organizationId);
+
+      if (deleteError) {
+        res.status(500).json({ error: "Failed to delete node." });
         return;
       }
 
@@ -421,7 +478,7 @@ valueGraphRouter.delete(
           resourceId: nodeId,
           details: {
             opportunity_id: opportunityId,
-            table: deletedTable,
+            table: resolved.source_table,
           },
           status: "success",
         });
