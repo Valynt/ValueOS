@@ -32,6 +32,19 @@
       ]
     },
     {
+      "id": "reliability-indicators-gate",
+      "description": "Release reliability indicators gate enforcing critical check pass-rate, flake threshold, and rollback drill recency before production promotion.",
+      "workflow": ".github/workflows/deploy.yml",
+      "jobId": "reliability-indicators-gate",
+      "jobName": "reliability-indicators-gate",
+      "script": "scripts/ci/check-release-reliability-indicators.mjs",
+      "coverage": [
+        "critical check pass rate",
+        "flaky-test threshold",
+        "rollback drill recency"
+      ]
+    },
+    {
       "id": "architecture-drift-gate",
       "description": "Verifies runtime code matches architecture documentation claims (eventing stack, agent inventory, deployment entities). Fails if docs and code diverge.",
       "workflow": ".github/workflows/main-verify.yml",
@@ -106,7 +119,8 @@
     "localNeeds": [
       "release-manifest-gate",
       "dast-gate",
-      "emergency-skip-audit"
+      "emergency-skip-audit",
+      "reliability-indicators-gate"
     ],
     "productionNeedsMustInclude": [
       "release-gate-contract",
@@ -115,6 +129,7 @@
       "preprod-slo-guard",
       "preprod-launch-gate",
       "release-manifest-gate",
+      "reliability-indicators-gate",
       "secret-rotation-gate",
       "verify-supply-chain",
       "emergency-skip-audit"
