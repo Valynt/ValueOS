@@ -460,13 +460,26 @@ Events:
 
 ## Monitoring
 
+### Webhook delivery guarantees
+
+Stripe webhooks are processed with the following guarantees:
+
+| Property | Implementation |
+|---|---|
+| **Idempotency** | `stripe_event_id` has a DB-level UNIQUE constraint. Duplicate deliveries are detected and short-circuited before any state mutation. |
+| **Durable payload storage** | Payloads ≤256 KB are stored inline in `webhook_events.raw_payload`. Payloads >256 KB are archived to Supabase Storage and referenced via `webhook_events.payload_ref`. |
+| **Dead-letter queue (DLQ)** | Events that exhaust all BullMQ retries are marked `status='failed'` in `webhook_events`. The DLQ is observable via `GET /internal/billing/dlq` and replayable via `POST /internal/billing/dlq/:id/replay`. |
+| **Reconciliation** | `StripeReconciliationWorker` runs every 6 hours, fetches recent Stripe events, diffs against the DB, and backfills any missing events. |
+| **Observability** | `webhook_dlq_size`, `stripe_webhook_events_total`, `stripe_reconciliation_backfill_total`, and `stripe_reconciliation_run_duration_seconds` are exported to Prometheus. Alert rules are in `infra/k8s/monitoring/billing-alerts.yaml`. |
+
 ### Key Metrics to Track
 
 1. **Webhook Processing:**
    - `stripe_webhook_events_total{status="processed"}`
    - `stripe_webhook_events_total{status="failed"}`
-   - Webhook retry success rate
-   - Dead letter queue size
+   - `stripe_webhook_events_total{status="duplicate"}`
+   - `webhook_dlq_size` — events exhausted all retries
+   - `stripe_reconciliation_backfill_total` — events recovered by reconciliation worker
 
 2. **Grace Periods:**
    - Active grace periods by metric
@@ -503,9 +516,9 @@ Events:
    - Requires manual cleanup of old records
 
 3. **Webhook Retry:**
-   - Max 5 retries (configurable)
-   - Manual replay required for dead letter queue
-   - No automatic dead letter queue processing
+   - Max 5 retries (configurable via BullMQ job options)
+   - DLQ events are replayable via `POST /internal/billing/dlq/:id/replay`
+   - `StripeReconciliationWorker` provides a safety net for events missed entirely
 
 ---
 

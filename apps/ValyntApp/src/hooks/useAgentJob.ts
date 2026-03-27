@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
+
 /**
  * useAgentJob
  *
@@ -9,6 +11,9 @@ import { apiClient } from "@/api/client/unified-api-client";
  *
  * When the invoke endpoint returns a direct-mode result (mode: "direct"),
  * the caller can pass a pre-resolved `directResult` to skip polling entirely.
+ *
+ * The query key is tenant-scoped to prevent cross-tenant cache bleed during
+ * session switching. The query is disabled when tenantId is unavailable.
  */
 
 
@@ -61,29 +66,31 @@ const TERMINAL_STATUSES: AgentJobStatus[] = ["completed", "failed", "error", "un
  * @param jobId - Job ID to poll. Null = no active run.
  * @param directResult - Pre-resolved result from a direct-mode invoke. When
  *   provided, polling is skipped and this value is returned immediately.
- * @param tenantId - Current tenant context. Query is disabled when null to
- *   prevent cross-tenant cache bleed during session switching.
  */
 export function useAgentJob(
   jobId: string | null,
   directResult?: AgentJobResult | null,
-  tenantId?: string | null,
 ) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? null;
+
   return useQuery<AgentJobResult>({
     // tenantId scopes the cache key — prevents stale data from a previous
     // tenant being served if jobId collides after a context switch.
-    // Always normalise to null so the key is stable regardless of whether
-    // the caller passes null or undefined.
-    queryKey: ["agent-job", jobId, tenantId ?? null],
-    queryFn: () => fetchJobStatus(jobId!),
+    queryKey: ["agent-job", tenantId, jobId],
+    queryFn: () => {
+      // Direct mode: result already available, no network call needed
+      if (directResult) return Promise.resolve(directResult);
+      return fetchJobStatus(jobId!);
+    },
     // directResult bypasses the network entirely — served as initialData so
     // the result is available synchronously on the first render.
     initialData: directResult ?? undefined,
-    // Use loose equality (!=) to guard against both null and undefined —
-    // callers that omit tenantId receive undefined, which !== null would
-    // incorrectly allow the query to fire without a tenant scope.
-    enabled: !!jobId && !directResult && tenantId != null,
-    // No polling for direct results or terminal states
+    // Disable when tenantId is unavailable to prevent cross-tenant cache bleed,
+    // or when directResult is already provided (no polling needed).
+    enabled: !!jobId && !!tenantId && !directResult,
+    // No polling for direct results or terminal states.
+    // "retrying" is intentionally excluded — polling must continue while the backend retries.
     refetchInterval: (query) => {
       if (directResult) return false;
       const status = query.state.data?.status;

@@ -65,6 +65,8 @@ function makeId(): string {
 export function useAgentStream(options?: UseAgentStreamOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [error, setError] = useState<Error | null>(null);
 
   // AbortController ref — passed to fetchEventSource so closeStream() terminates the fetch
@@ -76,6 +78,7 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsStreaming(false);
+    setIsReconnecting(false);
   }, []);
 
   const openStream = useCallback(
@@ -116,6 +119,10 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
           if (event.id) {
             lastEventIdRef.current = event.id;
           }
+
+          // Reset reconnect indicators on successful message receipt
+          setIsReconnecting(false);
+          setReconnectAttempts(0);
 
           try {
             const data = JSON.parse(event.data) as Record<string, unknown>;
@@ -162,8 +169,10 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
           if (controller.signal.aborted) {
             throw err; // Stop retrying — user cancelled
           }
-          // Notify the caller that a retry is in progress so the UI can show
-          // a "reconnecting…" indicator, but do not close the stream.
+          // Surface the transient error and mark as reconnecting so the UI
+          // can show a "reconnecting…" indicator.
+          setIsReconnecting(true);
+          setReconnectAttempts((n) => n + 1);
           options?.onError?.(err instanceof Error ? err : new Error("SSE connection lost — retrying"));
           // Return undefined to let the library retry with backoff
         },
@@ -185,6 +194,11 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
       };
       setMessages((prev) => [...prev, userMsg]);
       setError(null);
+
+      // Reset reconnect state for the new job
+      lastEventIdRef.current = null;
+      setReconnectAttempts(0);
+      setIsReconnecting(false);
 
       try {
         const res = await apiClient.post<{ data: AgentInvokeResult }>(
@@ -272,17 +286,20 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
     setMessages([]);
     setError(null);
     closeStream();
+    lastEventIdRef.current = null;
+    setReconnectAttempts(0);
+    setIsReconnecting(false);
   }, [closeStream]);
 
   return {
     messages,
     isStreaming,
+    isReconnecting,
+    reconnectAttempts,
     sendMessage,
     applySuggestion,
     executeTool,
     clearMessages,
-    openStream,
-    closeStream,
     context: {
       sessionId: options?.context?.sessionId ?? "",
       agentId: options?.context?.agentId ?? "",

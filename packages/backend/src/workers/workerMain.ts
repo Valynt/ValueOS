@@ -33,6 +33,18 @@ import {
   getCertificateGenerationWorker,
 } from './CertificateGenerationWorker.js';
 import { getResearchQueue, initResearchWorker, RESEARCH_QUEUE_NAME } from './researchWorker.js';
+import {
+  getReconciliationQueue,
+  initStripeReconciliationWorker,
+  RECONCILIATION_QUEUE_NAME,
+  scheduleReconciliationJob,
+} from './StripeReconciliationWorker.js';
+import {
+  getWatchdogQueue,
+  initWorkflowWatchdogWorker,
+  scheduleWatchdogJob,
+  WATCHDOG_QUEUE_NAME,
+} from './WorkflowWatchdogWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -77,6 +89,34 @@ try {
   });
 }
 
+try {
+  initStripeReconciliationWorker();
+  scheduleReconciliationJob().catch((err) => {
+    logger.warn('Failed to schedule Stripe reconciliation job', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Stripe reconciliation worker initialized');
+} catch (err) {
+  logger.warn('Stripe reconciliation worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+try {
+  initWorkflowWatchdogWorker();
+  scheduleWatchdogJob().catch((err) => {
+    logger.warn('Failed to schedule workflow watchdog job', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Workflow watchdog worker initialized');
+} catch (err) {
+  logger.warn('Workflow watchdog worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 const queueSamplerIntervalMs = 30_000;
 const queueHealthSamplers = [
   { queue: getResearchQueue, queueName: RESEARCH_QUEUE_NAME, workerClass: 'research-worker' },
@@ -87,6 +127,16 @@ const queueHealthSamplers = [
     queue: getArtifactGenerationQueue,
     queueName: ARTIFACT_GENERATION_QUEUE_NAME,
     workerClass: 'artifact-generation-worker',
+  },
+  {
+    queue: getReconciliationQueue,
+    queueName: RECONCILIATION_QUEUE_NAME,
+    workerClass: 'stripe-reconciliation-worker',
+  },
+  {
+    queue: getWatchdogQueue,
+    queueName: WATCHDOG_QUEUE_NAME,
+    workerClass: 'workflow-watchdog-worker',
   },
   {
     queue: getCertificateGenerationQueue,

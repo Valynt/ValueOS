@@ -464,12 +464,25 @@ class SubscriptionService {
 
       logger.info("Canceling subscription", { tenantId, immediately });
 
-      // Cancel in Stripe
+      // Cancel in Stripe — idempotency key is stable per subscription+operation
+      // so retries after a network failure don't double-cancel or create
+      // conflicting state in Stripe.
+      const cancelKey = this.stripeService.generateIdempotencyKey(
+        tenantId,
+        immediately ? "sub_cancel_immediate" : "sub_cancel_period_end",
+        subscription.stripe_subscription_id,
+      );
       const _stripeSubscription = immediately
-        ? await this.stripe.subscriptions.cancel(subscription.stripe_subscription_id)
-        : await this.stripe.subscriptions.update(subscription.stripe_subscription_id, {
-            cancel_at_period_end: true,
-          });
+        ? await this.stripe.subscriptions.cancel(
+            subscription.stripe_subscription_id,
+            undefined,
+            { idempotencyKey: cancelKey },
+          )
+        : await this.stripe.subscriptions.update(
+            subscription.stripe_subscription_id,
+            { cancel_at_period_end: true },
+            { idempotencyKey: cancelKey },
+          );
 
       // Update in database
       const { data, error } = await supabase

@@ -117,9 +117,64 @@ export const billingWebhookExhaustedTotal = new Counter<'event_type'>({
   registers: [registry],
 });
 
+// ── Webhook reliability metrics (Sprint 1.3 / 1.5) ───────────────────────────
+
+/** Total webhooks received at the ingest endpoint. */
+export const webhooksReceivedTotal = new Counter<'event_type'>({
+  name: 'webhooks_received_total',
+  help: 'Stripe webhook events received at the ingest endpoint',
+  labelNames: ['event_type'],
+  registers: [registry],
+});
+
+/** Total webhooks processed, labelled by outcome. */
+export const webhooksProcessedTotal = new Counter<'event_type' | 'status'>({
+  name: 'webhooks_processed_total',
+  help: 'Stripe webhook events processed, by event_type and status (success|duplicate|failed)',
+  labelNames: ['event_type', 'status'],
+  registers: [registry],
+});
+
+/** Current number of permanently-failed webhook events in the DLQ. */
+export const webhookDlqSize = new Gauge({
+  name: 'webhook_dlq_size',
+  help: 'Number of webhook events with status=failed (dead-letter queue depth)',
+  registers: [registry],
+});
+
+/** Total webhook processing failures (handler threw). */
+export const webhookProcessingFailuresTotal = new Counter<'event_type'>({
+  name: 'webhook_processing_failures_total',
+  help: 'Webhook events that failed during handler execution',
+  labelNames: ['event_type'],
+  registers: [registry],
+});
+
+/** Total reconciliation job runs. */
+export const webhookReconciliationRunsTotal = new Counter({
+  name: 'webhook_reconciliation_runs_total',
+  help: 'Total Stripe↔DB reconciliation job executions',
+  registers: [registry],
+});
+
+/** Total reconciliation job failures. */
+export const webhookReconciliationFailuresTotal = new Counter({
+  name: 'webhook_reconciliation_failures_total',
+  help: 'Stripe↔DB reconciliation jobs that failed',
+  registers: [registry],
+});
+
+/** Current drift count from the last reconciliation run, per tenant. */
+export const webhookReconciliationDriftCount = new Gauge<'tenant_id'>({
+  name: 'webhook_reconciliation_drift_count',
+  help: 'Number of Stripe events not found in DB during last reconciliation, per tenant',
+  labelNames: ['tenant_id'],
+  registers: [registry],
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed'): void {
+export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed' | 'duplicate'): void {
   stripeWebhooksTotal.labels({ event_type: eventType, status }).inc();
 }
 

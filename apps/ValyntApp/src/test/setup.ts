@@ -2,6 +2,16 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
+// MSW lifecycle — uncomment once `msw@^2` is installed via:
+//   pnpm --filter ValyntApp add -D msw@^2
+// Then activate src/test/msw/server.ts and src/test/msw/handlers/agent.ts.
+//
+// import { beforeAll, afterAll } from 'vitest';
+// import { server } from './msw/server';
+// beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+// afterEach(() => server.resetHandlers());
+// afterAll(() => server.close());
+
 // react-router-dom: mock useLocation/useNavigate/useParams so components that
 // call these hooks render without a Router wrapper in unit tests.
 vi.mock("react-router-dom", async (importOriginal) => {

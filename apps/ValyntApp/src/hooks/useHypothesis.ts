@@ -100,6 +100,7 @@ export function useRunHypothesisAgent(caseId: string | undefined) {
 
   return useMutation<AgentInvokeResponse, Error, { companyName?: string; query?: string }>({
     mutationFn: async (input) => {
+      const idempotency_key = crypto.randomUUID();
       const res = await apiClient.post<{ data: AgentInvokeResponse }>(
         `/api/agents/opportunity/invoke`,
         {
@@ -108,6 +109,7 @@ export function useRunHypothesisAgent(caseId: string | undefined) {
           query: input.query ?? input.companyName ?? "Analyze this value case",
           company_name: input.companyName,
           context: { value_case_id: caseId },
+          idempotency_key,
         },
       );
       if (!res.success) throw new Error(res.error?.message ?? "Request failed");
