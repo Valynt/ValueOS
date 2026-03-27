@@ -4,11 +4,13 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  RefreshCw,
   Shield,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
 
+import { useTenant } from "@/contexts/TenantContext";
 import { useAgentJob } from "@/hooks/useAgentJob";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { cn } from "@/lib/utils";
@@ -21,10 +23,15 @@ interface AgentThreadProps {
    * When provided, polling is skipped and this result is displayed immediately.
    */
   directResult?: AgentJobResult | null;
+  /** Current sub-task text from a processing heartbeat, if available. */
+  currentSubTask?: string | null;
 }
 
-export function AgentThread({ runId, directResult }: AgentThreadProps) {
-  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult);
+export function AgentThread({ runId, directResult, currentSubTask }: AgentThreadProps) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? null;
+
+  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult, tenantId);
   const [message, setMessage] = useState("");
 
   const statusIcon = () => {
@@ -38,6 +45,8 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
         return <XCircle className="w-3.5 h-3.5 text-red-500" />;
       case "unavailable":
         return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
+      case "retrying":
+        return <RefreshCw className="w-3.5 h-3.5 text-orange-500 animate-spin" />;
       default:
         return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />;
     }
@@ -49,12 +58,37 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
     const modeTag = job?.mode === "direct" ? " · direct" : job?.mode === "kafka" ? " · async" : "";
     switch (job?.status) {
       case "queued": return "Queued";
-      case "processing": return `Running${job.agentId ? ` · ${job.agentId}` : ""}`;
+      case "processing": return currentSubTask
+        ? currentSubTask
+        : `Running${job.agentId ? ` · ${job.agentId}` : ""}`;
+      case "retrying": return `Retrying${job.attemptsMade != null ? ` (attempt ${job.attemptsMade})` : ""}`;
       case "completed": return `Completed${modeTag}`;
       case "failed":
       case "error": return `Failed${modeTag}`;
       case "unavailable": return "Infrastructure unavailable";
       default: return "Unknown";
+    }
+  };
+
+  const statusBg = () => {
+    switch (job?.status) {
+      case "completed": return "bg-emerald-50";
+      case "error":
+      case "failed": return "bg-red-50";
+      case "unavailable": return "bg-amber-50";
+      case "retrying": return "bg-orange-50";
+      default: return "bg-blue-50";
+    }
+  };
+
+  const iconBg = () => {
+    switch (job?.status) {
+      case "completed": return "bg-emerald-100";
+      case "error":
+      case "failed": return "bg-red-100";
+      case "unavailable": return "bg-amber-100";
+      case "retrying": return "bg-orange-100";
+      default: return "bg-blue-100";
     }
   };
 
@@ -75,20 +109,8 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
       {/* Active run status */}
       {runId && (
         <div className="space-y-2">
-          <div className={cn(
-            "flex items-center gap-3 p-3 rounded-xl",
-            job?.status === "completed" ? "bg-emerald-50" :
-            job?.status === "error" ? "bg-red-50" :
-            job?.status === "unavailable" ? "bg-amber-50" :
-            "bg-blue-50"
-          )}>
-            <div className={cn(
-              "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
-              job?.status === "completed" ? "bg-emerald-100" :
-              job?.status === "error" ? "bg-red-100" :
-              job?.status === "unavailable" ? "bg-amber-100" :
-              "bg-blue-100"
-            )}>
+          <div className={cn("flex items-center gap-3 p-3 rounded-xl", statusBg())}>
+            <div className={cn("w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0", iconBg())}>
               {statusIcon()}
             </div>
             <div className="flex-1 min-w-0">
@@ -108,6 +130,21 @@ export function AgentThread({ runId, directResult }: AgentThreadProps) {
               )}
             </div>
           </div>
+
+          {/* Retry details */}
+          {job?.status === "retrying" && (
+            <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 text-[12px] text-orange-800">
+              <p className="font-medium">
+                Retrying after a transient error
+                {job.attemptsMade != null ? ` — attempt ${job.attemptsMade}` : ""}
+              </p>
+              {job.nextRetryAt && (
+                <p className="text-[11px] text-orange-600 mt-0.5">
+                  Next attempt at {new Date(job.nextRetryAt).toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+          )}
 
           {job?.status === "unavailable" && (
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
