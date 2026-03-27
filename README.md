@@ -1,6 +1,6 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an eight-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an 11-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
@@ -45,6 +45,7 @@ Use these canonical documentation values when updating public-facing docs, examp
 - **Status:** `https://status.valueos.com`
 - **Support:** `support@valueos.com`
 - **Docs ownership:** `docs@valueos.com`
+- **Package manager:** `pnpm@10.4.1`
 - **Runtime inventory source of truth:** [docs/architecture/runtime-inventory.json](docs/architecture/runtime-inventory.json), summarized in [docs/architecture/README.md](docs/architecture/README.md)
 
 Additional contributor guidance lives in the repository-root [AGENTS.md](AGENTS.md), the repository-wide [docs/AGENTS.md](docs/AGENTS.md), and scoped package guides such as [packages/backend/AGENTS.md](packages/backend/AGENTS.md) and [packages/shared/AGENTS.md](packages/shared/AGENTS.md).
@@ -205,10 +206,11 @@ ValueOS is a modular monolith deployed to Kubernetes.
 |    RecommendationEngine — next-best-action generation     |
 +-----------------------------------------------------------+
 |  Agent Fabric (packages/backend/src/lib/agent-fabric/)    |
-|  8 agents · BaseAgent · secureInvoke                      |
+|  11 agents · BaseAgent · secureInvoke                     |
 |  OpportunityAgent · TargetAgent · FinancialModelingAgent  |
 |  IntegrityAgent · RealizationAgent · ExpansionAgent       |
 |  NarrativeAgent · ComplianceAuditorAgent                  |
+|  ContextExtractionAgent · DealAssemblyAgent · DiscoveryAgent |
 +-----------------------------------------------------------+
 |  Domain Model (packages/shared/src/domain/)               |
 |  9 Zod-typed objects: Account, Opportunity, Stakeholder,  |

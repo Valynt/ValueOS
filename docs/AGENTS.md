@@ -66,6 +66,8 @@ pnpm monorepo. Frontend apps in `apps/` are `ValyntApp` (`valynt-app`) and `mcp-
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
+**Package manager:** pnpm 10.4.1.
+
 **Agent system:** 11-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent, NarrativeAgent, ComplianceAuditorAgent, ContextExtractionAgent, DealAssemblyAgent, DiscoveryAgent. Supporting utility: GroundTruthAnalyzer (not an agent, no BaseAgent inheritance). Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents) at `packages/backend/src/services/realtime/MessageBus.ts`.
 
 ## Non-Negotiable Rules
