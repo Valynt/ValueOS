@@ -280,6 +280,7 @@ jobs:
       - name: TypeScript any-count gate
         run: |
           node scripts/ci/any-ratchet.mjs
+          node scripts/ci/strict-exception-ratchet.mjs
           bash scripts/check-any-count.sh
 
       - name: Backend debt summary artifact

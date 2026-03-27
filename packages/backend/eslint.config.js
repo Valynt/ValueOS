@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import security from "eslint-plugin-security";
+import importPlugin from "eslint-plugin-import";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +17,18 @@ export default tseslint.config(
   {
     plugins: {
       security: security,
+      import: importPlugin,
+    },
+    settings: {
+      "import/parsers": {
+        "@typescript-eslint/parser": [".ts"],
+      },
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+          project: ["./tsconfig.json", "./tsconfig.strict-exceptions.json"],
+        },
+      },
     },
     rules: {
       ...security.configs.recommended.rules,
@@ -44,6 +57,7 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "warn",
       "@typescript-eslint/no-namespace": "warn",
       "@typescript-eslint/no-non-null-asserted-optional-chain": "warn",
+      "import/no-unresolved": ["error", { ignore: ["^node:"] }],
     },
   },
   {

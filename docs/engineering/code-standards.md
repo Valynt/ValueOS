@@ -141,3 +141,45 @@ Use these only for migration windows and package-scoped typecheck jobs. Producti
 - Replace `any` with `unknown` at external boundaries first, then narrow with schemas/type guards.
 - Non-test paths are measured; tests are excluded from ratchet counts.
 - When a package reaches its `nextTarget`, lower its baseline in `.github/any-ratchet-budgets.json` in the same PR.
+
+
+### Backend strict-exception process (effective 2026-03-27)
+
+`packages/backend/tsconfig.strict-exceptions.json` now carries per-folder `strictExceptionBudgets` metadata. Each entry must include:
+
+- `id`
+- `path` (folder glob)
+- `baseline` (current exception file count, non-test)
+- `nextTarget` (next ratchet objective)
+- `sunsetDate` (hard removal date)
+- optional `gate: "zero-new"` for prohibited boundary modules
+
+**Exception approval process**
+
+1. Prove strict failure in a narrow folder (not a top-level domain wildcard).
+2. Add a single-folder include glob in `packages/backend/tsconfig.strict-exceptions.json`.
+3. Add or update its matching `strictExceptionBudgets` entry with measured baseline + sunset date.
+4. Run `pnpm run check:strict-exception-ratchet` and attach output in the PR description.
+5. For each follow-up PR, reduce `baseline` when the measured count drops.
+
+**CI enforcement**
+
+- `node scripts/ci/strict-exception-ratchet.mjs` validates schema, folder-to-budget mapping, and baseline non-regression.
+- This ratchet runs in `pr-fast.yml`, `main-verify.yml`, and `pnpm run ci:verify`.
+
+**Protected modules (zero new strictness exceptions)**
+
+The following scopes are blocked from strict exceptions and must stay at `baseline: 0` with `gate: "zero-new"`:
+
+- `src/services/security/**`
+- `src/services/auth/**`
+- `src/services/tenant/**`
+- `src/api/**`
+- `src/middleware/**`
+
+**Current backend strict exception sunset dates**
+
+- Runtime exception folders: **2026-05-15**
+- Billing/realtime folders: **2026-05-31**
+- Post-v1/export folders: **2026-06-15**
+- Protected module exceptions: **2026-03-31** (must remain zero)

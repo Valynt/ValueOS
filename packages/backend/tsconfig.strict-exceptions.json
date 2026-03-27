@@ -9,15 +9,111 @@
     "allowImportingTsExtensions": false
   },
   "include": [
-    "src/api/**/*.ts",
-    "src/middleware/**/*.ts",
-    "src/runtime/**/*.ts",
-    "src/services/auth/**/*.ts",
+    "src/runtime/decision-router/**/*.ts",
+    "src/runtime/execution-runtime/**/*.ts",
+    "src/runtime/artifact-composer/**/*.ts",
     "src/services/billing/**/*.ts",
-    "src/services/security/**/*.ts",
-    "src/services/tenant/**/*.ts",
+    "src/services/realtime/**/*.ts",
+    "src/services/post-v1/**/*.ts",
+    "src/services/export/**/*.ts",
     "src/types/**/*.ts",
     "src/types/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**"
+  ],
+  "strictExceptionBudgets": [
+    {
+      "id": "runtime-decision-router",
+      "path": "src/runtime/decision-router/**/*.ts",
+      "baseline": 4,
+      "nextTarget": 3,
+      "sunsetDate": "2026-05-15"
+    },
+    {
+      "id": "runtime-execution-runtime",
+      "path": "src/runtime/execution-runtime/**/*.ts",
+      "baseline": 5,
+      "nextTarget": 4,
+      "sunsetDate": "2026-05-15"
+    },
+    {
+      "id": "runtime-artifact-composer",
+      "path": "src/runtime/artifact-composer/**/*.ts",
+      "baseline": 1,
+      "nextTarget": 0,
+      "sunsetDate": "2026-05-15"
+    },
+    {
+      "id": "services-billing",
+      "path": "src/services/billing/**/*.ts",
+      "baseline": 28,
+      "nextTarget": 27,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "id": "services-realtime",
+      "path": "src/services/realtime/**/*.ts",
+      "baseline": 18,
+      "nextTarget": 17,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "id": "services-post-v1",
+      "path": "src/services/post-v1/**/*.ts",
+      "baseline": 77,
+      "nextTarget": 76,
+      "sunsetDate": "2026-06-15"
+    },
+    {
+      "id": "services-export",
+      "path": "src/services/export/**/*.ts",
+      "baseline": 4,
+      "nextTarget": 3,
+      "sunsetDate": "2026-06-15"
+    },
+    {
+      "id": "security-module-zero-exceptions",
+      "path": "src/services/security/**/*.ts",
+      "baseline": 0,
+      "nextTarget": 0,
+      "sunsetDate": "2026-03-31",
+      "gate": "zero-new"
+    },
+    {
+      "id": "auth-module-zero-exceptions",
+      "path": "src/services/auth/**/*.ts",
+      "baseline": 0,
+      "nextTarget": 0,
+      "sunsetDate": "2026-03-31",
+      "gate": "zero-new"
+    },
+    {
+      "id": "tenant-module-zero-exceptions",
+      "path": "src/services/tenant/**/*.ts",
+      "baseline": 0,
+      "nextTarget": 0,
+      "sunsetDate": "2026-03-31",
+      "gate": "zero-new"
+    },
+    {
+      "id": "api-boundary-zero-exceptions",
+      "path": "src/api/**/*.ts",
+      "baseline": 0,
+      "nextTarget": 0,
+      "sunsetDate": "2026-03-31",
+      "gate": "zero-new"
+    }
+  ],
+  "strictExceptionProtectedScopes": [
+    "src/services/security/",
+    "src/services/auth/",
+    "src/services/tenant/",
+    "src/api/",
+    "src/middleware/"
+  ]
 }

@@ -13,7 +13,7 @@
     "check": "turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run build",
+    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:strict-exception-ratchet && pnpm run check:debt-ratchet && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -54,7 +54,8 @@
     "check:docs:secrets": "node scripts/ci/check-docs-secrets.mjs",
     "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs",
     "check:a11y-completeness": "node scripts/ci/check-async-view-completeness.mjs",
-    "check:contrast": "node scripts/ci/check-design-token-contrast.mjs"
+    "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
+    "check:strict-exception-ratchet": "node scripts/ci/strict-exception-ratchet.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
