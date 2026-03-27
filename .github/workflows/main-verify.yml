@@ -301,6 +301,11 @@ jobs:
       - name: Critical control status gate (SOC2/HIPAA)
         run: node scripts/ci/check-control-status-critical.mjs
 
+      - name: Extract governance trust KPI snapshots
+        run: |
+          node scripts/ci/extract-governance-risk-control-kpis.mjs \
+            --output-dir artifacts/security/governance
+
   vitest-package-matrix-config:
     name: vitest/package-matrix
     runs-on: ubuntu-latest

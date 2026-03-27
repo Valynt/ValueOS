@@ -25,6 +25,24 @@ Security sign-off must confirm the linked threat model plus both SOC 2 and FedRA
 - **Security:** Avery Chen — _Approved_ — `signed: 2026-03-12T17:14:00Z`
 - **Design evidence (optional, non-blocking):** Mateo Alvarez — _Reviewed_ — `signed: 2026-03-12T17:15:00Z`
 
+## Trust KPI Snapshot + Exception Risk Acceptance (Required)
+
+Release sign-off must include a current trust KPI snapshot generated from CI artifacts and explicit risk-acceptance records for any exceptions.
+
+### Required attachments
+
+- Trust KPI snapshot artifact: `artifacts/security/governance/trust-kpi-snapshot.json` (from CI run for release SHA).
+- Open risk export: `artifacts/security/governance/open-risks.json`.
+- Stale control export: `artifacts/security/governance/stale-controls.json`.
+
+### Exception record format (mandatory when any release exception exists)
+
+| Exception ID | Related Control/Risk ID | Business Justification | Compensating Controls | Risk Acceptance Owner | Approval Date | Expiry/Re-review Date |
+|---|---|---|---|---|---|---|
+| EXC-YYYY-NNN | CR-### / RISK-#### | ... | ... | Security + Executive Owner | YYYY-MM-DD | YYYY-MM-DD |
+
+If no exceptions are accepted for the release, document: `No accepted exceptions for this release.`
+
 ## Linked evidence
 
 - Acceptance mapping: `docs/operations/release-acceptance-mapping.md`

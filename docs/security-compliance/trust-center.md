@@ -81,3 +81,17 @@ Program evidence references:
 - Latest penetration test executive summary and remediation posture.
 - Recent compliance evidence pack manifest and integrity ledger summary.
 - Incident response process overview.
+
+## Live Control and Risk Transparency Links
+
+Customer-facing trust artifacts are linked to current control/risk snapshots so readers can validate posture against the latest governance evidence.
+
+- Current control status snapshot: [`docs/security-compliance/control-status.json`](./control-status.json)
+- Current risk register snapshot: [`docs/security-compliance/risk-register.json`](./risk-register.json)
+- Evidence index and artifact chain: [`docs/security-compliance/evidence-index.md`](./evidence-index.md)
+- CI-generated trust KPI artifact set (release/PR evidence):
+  - `artifacts/security/governance/trust-kpi-snapshot.json`
+  - `artifacts/security/governance/open-risks.json`
+  - `artifacts/security/governance/stale-controls.json`
+
+For customer assurance responses, include the latest workflow run URL and the artifact files above so control assertions map to timestamped evidence.

@@ -86,6 +86,9 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
 - [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Security approvals required for release tag `v1.0.0`; Design review may be attached as additional evidence only) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
+- [ ] Trust KPI snapshot attached from CI artifact: `artifacts/security/governance/trust-kpi-snapshot.json` (same release SHA as sign-off packet).
+- [ ] Open risk and stale control exports attached: `artifacts/security/governance/open-risks.json` and `artifacts/security/governance/stale-controls.json`.
+- [ ] Any release exceptions include explicit risk acceptance records (owner, approval date, expiry date) in `docs/operations/release-scope-ga-signoff.md`; if none, packet states `No accepted exceptions for this release.`
 - [ ] Threat model review record attached: `docs/security-compliance/threat-model.md` (Review and Approver Record for release tag `v1.0.0`, reviewed by the Security approver before sign-off).
 - [ ] **Hard Go/No-Go**: Security approver reviewed `docs/security-compliance/threat-model.md` and the linked release evidence chain in `docs/security-compliance/evidence-index.md` for this release, and verified that the GA `v1.0.0` entry records Product/Engineering/Security approvers and dates before Product/Engineering/Security sign-off is accepted.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
