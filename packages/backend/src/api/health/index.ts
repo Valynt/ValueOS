@@ -17,22 +17,30 @@ import { healthMetrics } from "@shared/lib/health/metrics";
 import { createClient } from "@supabase/supabase-js";
 import { Request, Response, Router } from "express";
 
-import { validateEnv } from "../../config/validateEnv.js"
-import { runtimeSecretStore } from "../../config/secrets/RuntimeSecretStore.js"
-import { getAuthRateLimitBackendStatus } from "../../middleware/authRateLimiter.js"
-import { getLlmRateLimitBackendStatus } from "../../middleware/llmRateLimiter.js"
-import { getGeneralRateLimitBackendStatus, rateLimiters } from "../../middleware/rateLimiter.js"
-import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware.js"
-import { securityHeadersMiddleware } from "../../middleware/securityHeaders.js"
-import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware.js"
-import { checkAllT1TableFreshness } from "../../observability/dataFreshness.js"
-import { getQueueHealth } from "../../observability/queueMetrics.js"
-import { getCrmSyncQueue, getCrmWebhookQueue, getPrefetchQueue } from "../../workers/crmWorker.js"
-import { getResearchQueue } from "../../workers/researchWorker.js"
-
-
+import { validateEnv } from "../../config/validateEnv.js";
+import { runtimeSecretStore } from "../../config/secrets/RuntimeSecretStore.js";
+import { getAuthRateLimitBackendStatus } from "../../middleware/authRateLimiter.js";
+import { getLlmRateLimitBackendStatus } from "../../middleware/llmRateLimiter.js";
+import {
+  getGeneralRateLimitBackendStatus,
+  rateLimiters,
+} from "../../middleware/rateLimiter.js";
+import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware.js";
+import { securityHeadersMiddleware } from "../../middleware/securityHeaders.js";
+import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware.js";
+import { checkAllT1TableFreshness } from "../../observability/dataFreshness.js";
+import { getQueueHealth } from "../../observability/queueMetrics.js";
+import {
+  getCrmSyncQueue,
+  getCrmWebhookQueue,
+  getPrefetchQueue,
+} from "../../workers/crmWorker.js";
+import { getResearchQueue } from "../../workers/researchWorker.js";
 
 const router = Router();
+
+/** Returns current timestamp in ISO format */
+const now = (): string => new Date().toISOString();
 
 // Health endpoint authentication middleware
 const healthAuthMiddleware = (req: Request, res: Response, next: Function) => {
@@ -114,12 +122,11 @@ async function checkTogetherAI(): Promise<HealthStatus> {
     return {
       status: "not_configured",
       message: "Together.ai API key not configured",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
   try {
-     
     const response = await fetch("https://api.together.ai/v1/models", {
       method: "GET",
       headers: {
@@ -138,7 +145,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
           latency < 2000
             ? "Together.ai API responding normally"
             : "Together.ai API slow",
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     } else {
       const errorText = await response.text();
@@ -146,7 +153,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
         status: "unhealthy",
         latency,
         message: `Together.ai API error: ${response.status} - ${errorText}`,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     }
   } catch (error) {
@@ -154,7 +161,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `Together.ai API unreachable: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 }
@@ -171,12 +178,11 @@ async function checkOpenAI(): Promise<HealthStatus> {
     return {
       status: "not_configured",
       message: "OpenAI API key not configured (fallback not available)",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
   try {
-     
     const response = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
       headers: {
@@ -192,14 +198,14 @@ async function checkOpenAI(): Promise<HealthStatus> {
         status: "healthy",
         latency,
         message: "OpenAI API available as fallback",
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     } else {
       return {
         status: "unhealthy",
         latency,
         message: `OpenAI API error: ${response.status}`,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     }
   } catch (error) {
@@ -207,7 +213,7 @@ async function checkOpenAI(): Promise<HealthStatus> {
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `OpenAI API unreachable: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 }
@@ -219,24 +225,26 @@ async function checkSupabase(): Promise<HealthStatus> {
   const startTime = Date.now();
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseServiceRoleKey = await runtimeSecretStore.getSecret("SUPABASE_SERVICE_ROLE_KEY");
-  const supabaseKey = supabaseServiceRoleKey || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey = await runtimeSecretStore.getSecret(
+    "SUPABASE_SERVICE_ROLE_KEY"
+  );
+  const supabaseKey =
+    supabaseServiceRoleKey ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return {
       status: "not_configured",
       message: "Supabase not configured",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { error } = await supabase
-      .from("tenants")
-      .select("id")
-      .limit(1);
+    const { error } = await supabase.from("tenants").select("id").limit(1);
 
     const latency = Date.now() - startTime;
 
@@ -245,14 +253,14 @@ async function checkSupabase(): Promise<HealthStatus> {
         status: latency < 1000 ? "healthy" : "degraded",
         latency,
         message: "Supabase responding normally",
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     } else {
       return {
         status: "unhealthy",
         latency,
         message: `Supabase error: ${error.message}`,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     }
   } catch (error) {
@@ -260,7 +268,7 @@ async function checkSupabase(): Promise<HealthStatus> {
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `Supabase unreachable: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 }
@@ -274,7 +282,10 @@ async function checkDatabase(): Promise<HealthStatus> {
   try {
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
-      (await runtimeSecretStore.getSecret("SUPABASE_SERVICE_ROLE_KEY")) || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
+      (await runtimeSecretStore.getSecret("SUPABASE_SERVICE_ROLE_KEY")) ||
+        process.env.VITE_SUPABASE_ANON_KEY ||
+        process.env.SUPABASE_ANON_KEY ||
+        ""
     );
 
     const { error } = await supabase.from("tenants").select("id").limit(1);
@@ -286,14 +297,14 @@ async function checkDatabase(): Promise<HealthStatus> {
         status: "healthy",
         latency,
         message: "Database responding normally",
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     } else {
       return {
         status: "unhealthy",
         latency,
         message: `Database error: ${error.message}`,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       };
     }
   } catch (error) {
@@ -301,7 +312,7 @@ async function checkDatabase(): Promise<HealthStatus> {
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `Database unreachable: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 }
@@ -316,7 +327,7 @@ async function checkRedis(): Promise<HealthStatus> {
     return {
       status: "not_configured",
       message: "Redis not configured",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
@@ -338,14 +349,14 @@ async function checkRedis(): Promise<HealthStatus> {
       status: "healthy",
       latency,
       message: "Redis responding normally",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   } catch (error) {
     return {
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `Redis error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 }
@@ -354,14 +365,16 @@ function checkRateLimitingBackends(): HealthStatus {
   const general = getGeneralRateLimitBackendStatus();
   const auth = getAuthRateLimitBackendStatus();
   const llm = getLlmRateLimitBackendStatus();
-  const requiredBackends = [general, auth, llm].filter((backend) => backend.required);
-  const allRequiredHealthy = requiredBackends.every((backend) => backend.healthy);
+  const requiredBackends = [general, auth, llm].filter(
+    backend => backend.required
+  );
+  const allRequiredHealthy = requiredBackends.every(backend => backend.healthy);
 
   if (requiredBackends.length === 0) {
     return {
       status: "not_configured",
       message: "Distributed rate limiting not required in this environment",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
@@ -369,7 +382,7 @@ function checkRateLimitingBackends(): HealthStatus {
     return {
       status: "healthy",
       message: "Distributed rate-limiting backends are healthy",
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     };
   }
 
@@ -377,7 +390,7 @@ function checkRateLimitingBackends(): HealthStatus {
     status: "unhealthy",
     message:
       "One or more required distributed rate-limiting backends are unavailable; rollout must remain blocked.",
-    lastChecked: new Date().toISOString(),
+    lastChecked: now(),
   };
 }
 
@@ -424,11 +437,9 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
   ].filter(Boolean) as HealthStatus[];
 
   const hasUnhealthy = criticalChecks.some(
-    (check) => check.status === "unhealthy"
+    check => check.status === "unhealthy"
   );
-  const hasDegraded = criticalChecks.some(
-    (check) => check.status === "degraded"
-  );
+  const hasDegraded = criticalChecks.some(check => check.status === "degraded");
 
   let overallStatus: "healthy" | "degraded" | "unhealthy";
   if (hasUnhealthy) {
@@ -447,7 +458,7 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
 
   const result: HealthCheckResult = {
     status: overallStatus,
-    timestamp: new Date().toISOString(),
+    timestamp: now(),
     version: process.env.APP_VERSION || "1.0.0",
     uptime: process.uptime(),
     checks,
@@ -490,7 +501,7 @@ router.get("/healthz", async (_req: Request, res: Response) => {
 
     const result = {
       status: isHealthy ? "healthy" : "unhealthy",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
       environment: process.env.NODE_ENV,
       checks: {
         supabase: supabaseCheck,
@@ -504,7 +515,7 @@ router.get("/healthz", async (_req: Request, res: Response) => {
     // If checks fail entirely, return unhealthy
     res.status(503).json({
       status: "unhealthy",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
       environment: process.env.NODE_ENV,
       error: error instanceof Error ? error.message : "Health check failed",
     });
@@ -519,7 +530,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
   if (isShuttingDown) {
     res.status(503).json({
       status: "shutting_down",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
     return;
   }
@@ -539,13 +550,13 @@ router.get("/ready", async (_req: Request, res: Response) => {
     if (isReady) {
       res.status(200).json({
         status: "ready",
-        timestamp: new Date().toISOString(),
+        timestamp: now(),
         checks: { database, redis, rateLimiting },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
-        timestamp: new Date().toISOString(),
+        timestamp: now(),
         checks: { database, redis, rateLimiting },
       });
     }
@@ -553,7 +564,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
     res.status(503).json({
       status: "not_ready",
       error: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
   }
 });
@@ -564,7 +575,7 @@ router.get("/ready", async (_req: Request, res: Response) => {
 router.get("/health/live", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "alive",
-    timestamp: new Date().toISOString(),
+    timestamp: now(),
   });
 });
 
@@ -576,7 +587,7 @@ router.get("/health/ready", async (_req: Request, res: Response) => {
   if (isShuttingDown) {
     res.status(503).json({
       status: "shutting_down",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
     return;
   }
@@ -596,13 +607,13 @@ router.get("/health/ready", async (_req: Request, res: Response) => {
     if (isReady) {
       res.status(200).json({
         status: "ready",
-        timestamp: new Date().toISOString(),
+        timestamp: now(),
         checks: { database, redis, rateLimiting },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
-        timestamp: new Date().toISOString(),
+        timestamp: now(),
         checks: { database, redis, rateLimiting },
       });
     }
@@ -610,7 +621,7 @@ router.get("/health/ready", async (_req: Request, res: Response) => {
     res.status(503).json({
       status: "not_ready",
       error: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
   }
 });
@@ -625,13 +636,13 @@ router.get("/health/startup", async (_req: Request, res: Response) => {
     res.status(200).json({
       status: "started",
       uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
   } else {
     res.status(503).json({
       status: "starting",
       uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
     });
   }
 });
@@ -679,10 +690,13 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
     try {
       const freshnessResults = await checkAllT1TableFreshness(systemOrgId);
       dataFreshness = Object.fromEntries(
-        freshnessResults.map((r) => [
+        freshnessResults.map(r => [
           r.table,
-          { status: r.status, lagMinutes: r.lagMinutes !== null ? Math.round(r.lagMinutes) : null },
-        ]),
+          {
+            status: r.status,
+            lagMinutes: r.lagMinutes !== null ? Math.round(r.lagMinutes) : null,
+          },
+        ])
       );
     } catch {
       dataFreshness = { error: "freshness check unavailable" };
@@ -699,7 +713,7 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
       getQueueHealth(getResearchQueue(), "onboarding-research"),
     ]);
     queues = Object.fromEntries(
-      queueEntries.map((q) => [
+      queueEntries.map(q => [
         q.queue,
         {
           waiting: q.waiting,
@@ -709,14 +723,14 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
           stalledCount: q.stalledCount,
           lastFailedAt: q.lastFailedAt,
         },
-      ]),
+      ])
     );
   } catch {
     queues = { error: "queue health unavailable" };
   }
 
   res.json({
-    timestamp: new Date().toISOString(),
+    timestamp: now(),
     checks,
     ...(dataFreshness ? { data_freshness: dataFreshness } : {}),
     ...(queues ? { queues } : {}),
@@ -735,7 +749,7 @@ router.get(
     const serviceStats = healthMetrics.getServiceStats(timeWindowMs);
 
     res.json({
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
       timeWindowMs,
       services: serviceStats,
     });
@@ -755,7 +769,7 @@ router.get(
       : alertManager.getAllAlerts();
 
     res.json({
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
       alerts,
     });
   }
@@ -777,7 +791,7 @@ router.get(
       : undefined;
 
     res.json({
-      timestamp: new Date().toISOString(),
+      timestamp: now(),
       timeWindowMs,
       history,
       trends,
@@ -795,7 +809,7 @@ router.get("/health/dashboard", (_req: Request, res: Response) => {
     "health-dashboard.html"
   );
 
-  res.sendFile(dashboardPath, (err) => {
+  res.sendFile(dashboardPath, err => {
     if (err) {
       if (!res.headersSent) {
         res.status(500).json({ error: "Dashboard not available" });
@@ -808,13 +822,9 @@ router.get("/health/dashboard", (_req: Request, res: Response) => {
  * Health dashboard JS
  */
 router.get("/health/health-dashboard.js", (_req: Request, res: Response) => {
-  const jsPath = path.join(
-    process.cwd(),
-    "public",
-    "health-dashboard.js"
-  );
+  const jsPath = path.join(process.cwd(), "public", "health-dashboard.js");
 
-  res.sendFile(jsPath, (err) => {
+  res.sendFile(jsPath, err => {
     if (err) {
       if (!res.headersSent) {
         res.status(500).json({ error: "Dashboard JS not available" });
@@ -852,7 +862,8 @@ router.get("/health/memory", async (_req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
-    const { createServiceRoleSupabaseClient } = await import("../../lib/supabase.js");
+    const { createServiceRoleSupabaseClient } =
+      await import("../../lib/supabase.js");
     const supabase = createServiceRoleSupabaseClient();
 
     const { count, error } = await supabase
@@ -866,7 +877,7 @@ router.get("/health/memory", async (_req: Request, res: Response) => {
         status: "unhealthy",
         latency,
         message: `semantic_memory unreachable: ${error.message}`,
-        lastChecked: new Date().toISOString(),
+        lastChecked: now(),
       });
     }
 
@@ -875,14 +886,14 @@ router.get("/health/memory", async (_req: Request, res: Response) => {
       latency,
       message: `semantic_memory reachable — ${count ?? 0} total rows`,
       row_count: count ?? 0,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     });
   } catch (err) {
     return res.status(503).json({
       status: "unhealthy",
       latency: Date.now() - startTime,
       message: `Memory health check failed: ${err instanceof Error ? err.message : String(err)}`,
-      lastChecked: new Date().toISOString(),
+      lastChecked: now(),
     });
   }
 });

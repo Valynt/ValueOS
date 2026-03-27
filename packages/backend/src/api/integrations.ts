@@ -9,7 +9,10 @@ import { Request, Response } from "express";
 
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
+import {
+  validateRequest,
+  ValidationSchemas,
+} from "../middleware/inputValidation";
 import { requirePermission } from "../middleware/rbac";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
@@ -35,8 +38,8 @@ function getActor(req: Request) {
     "Unknown";
 
   return {
-    id: user?.id as string,
-    email: user?.email as string,
+    id: user?.id || "",
+    email: user?.email || "",
     name: userName,
   };
 }
@@ -50,21 +53,32 @@ function handleError(res: Response, error: unknown, message: string) {
   });
 }
 
-router.get("/", requirePermission("integrations:view"), async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-    const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
+router.get(
+  "/",
+  requirePermission("integrations:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as AuthenticatedRequest).tenantId as
+        | string
+        | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as
+        | string
+        | undefined;
 
-    if (!tenantId || !userId) {
-      return res.status(400).json({ error: "Tenant context is required" });
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      const integrations = await integrationConnectionService.listConnections(
+        userId,
+        tenantId
+      );
+      return res.json({ integrations });
+    } catch (error) {
+      return handleError(res, error, "Failed to list integrations");
     }
-
-    const integrations = await integrationConnectionService.listConnections(userId, tenantId);
-    return res.json({ integrations });
-  } catch (error) {
-    return handleError(res, error, "Failed to list integrations");
   }
-});
+);
 
 router.post(
   "/",
@@ -72,14 +86,19 @@ router.post(
   validateRequest(ValidationSchemas.integrationConnect),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
+      const tenantId = (req as AuthenticatedRequest).tenantId as
+        | string
+        | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as
+        | string
+        | undefined;
 
       if (!tenantId || !userId) {
         return res.status(400).json({ error: "Tenant context is required" });
       }
 
-      const enabled = await integrationControlService.areIntegrationsEnabled(tenantId);
+      const enabled =
+        await integrationControlService.areIntegrationsEnabled(tenantId);
       if (!enabled) {
         return res.status(403).json({
           error: "Integrations are disabled for this organization.",
@@ -87,7 +106,11 @@ router.post(
       }
 
       const payload = req.body as IntegrationConnectPayload;
-      const integration = await integrationConnectionService.connect(userId, tenantId, payload);
+      const integration = await integrationConnectionService.connect(
+        userId,
+        tenantId,
+        payload
+      );
 
       const actor = getActor(req);
       await auditLogService.logAudit({
@@ -117,8 +140,12 @@ router.delete(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
+      const tenantId = (req as AuthenticatedRequest).tenantId as
+        | string
+        | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as
+        | string
+        | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -159,8 +186,12 @@ router.post(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
+      const tenantId = (req as AuthenticatedRequest).tenantId as
+        | string
+        | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as
+        | string
+        | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -201,8 +232,12 @@ router.post(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
+      const tenantId = (req as AuthenticatedRequest).tenantId as
+        | string
+        | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as
+        | string
+        | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {

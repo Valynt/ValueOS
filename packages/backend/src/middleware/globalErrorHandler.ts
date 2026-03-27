@@ -10,11 +10,14 @@
  * - Logging latency timing and access logs
  */
 
-import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { ZodError } from 'zod';
+import { ErrorRequestHandler, NextFunction, Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
+import { ZodError } from "zod";
 
-import { getTraceContextForLogging, recordSpanException } from '../config/telemetry.js'
+import {
+  getTraceContextForLogging,
+  recordSpanException,
+} from "../config/telemetry.js";
 import {
   AppError,
   getSafeErrorMessage,
@@ -25,9 +28,13 @@ import {
   UnauthorizedError,
   PayloadTooLargeError,
   ValidationError,
-} from '../lib/errors.js';
-import { logger } from '../lib/logger.js'
-import { sanitizeErrorEnvelope, sanitizeStructuredLog, serializeErrorForLogging } from '../lib/secureSerialization.js'
+} from "../lib/errors.js";
+import { logger } from "../lib/logger.js";
+import {
+  sanitizeErrorEnvelope,
+  sanitizeStructuredLog,
+  serializeErrorForLogging,
+} from "../lib/secureSerialization.js";
 
 // ============================================================================
 // Types
@@ -71,15 +78,15 @@ export function requestIdMiddleware(
 
   // Use existing correlation ID or generate new one
   const upstreamId =
-    (req.headers['x-request-id'] as string) ||
-    (req.headers['x-correlation-id'] as string);
+    (req.headers["x-request-id"] as string) ||
+    (req.headers["x-correlation-id"] as string);
   trackedReq.requestId = upstreamId || `req-${uuidv4()}`;
 
   // Start timing
   trackedReq.startTime = Date.now();
 
   // Propagate request ID in response headers
-  res.setHeader('X-Request-ID', trackedReq.requestId);
+  res.setHeader("X-Request-ID", trackedReq.requestId);
 
   next();
 }
@@ -104,14 +111,14 @@ export function accessLogMiddleware(
     path: req.path,
     query: Object.keys(req.query).length > 0 ? req.query : undefined,
     ip: req.ip || req.socket.remoteAddress,
-    userAgent: req.headers['user-agent']?.substring(0, 200),
+    userAgent: req.headers["user-agent"]?.substring(0, 200),
     trace: getTraceContextForLogging(),
   };
 
-  logger.info('Request started', sanitizeStructuredLog(startLogContext));
+  logger.info("Request started", sanitizeStructuredLog(startLogContext));
 
   // Log on response finish
-  res.on('finish', () => {
+  res.on("finish", () => {
     const latencyMs = Date.now() - (trackedReq.startTime || Date.now());
     const logData = {
       requestId: trackedReq.requestId,
@@ -120,8 +127,8 @@ export function accessLogMiddleware(
       query: Object.keys(req.query).length > 0 ? req.query : undefined,
       status: res.statusCode,
       latencyMs,
-      contentLength: res.get('Content-Length'),
-      userAgent: req.headers['user-agent']?.substring(0, 200),
+      contentLength: res.get("Content-Length"),
+      userAgent: req.headers["user-agent"]?.substring(0, 200),
       ip: req.ip || req.socket.remoteAddress,
       userId: (req as unknown as { user?: { id: string } }).user?.id,
       tenantId: (req as unknown as { tenantId?: string }).tenantId,
@@ -129,11 +136,17 @@ export function accessLogMiddleware(
     };
 
     if (res.statusCode >= 500) {
-      logger.error('Request completed with server error', sanitizeStructuredLog(logData));
+      logger.error(
+        "Request completed with server error",
+        sanitizeStructuredLog(logData)
+      );
     } else if (res.statusCode >= 400) {
-      logger.warn('Request completed with client error', sanitizeStructuredLog(logData));
+      logger.warn(
+        "Request completed with client error",
+        sanitizeStructuredLog(logData)
+      );
     } else {
-      logger.info('Request completed', sanitizeStructuredLog(logData));
+      logger.info("Request completed", sanitizeStructuredLog(logData));
     }
   });
 
@@ -181,23 +194,26 @@ function transformError(error: unknown): AppError {
   // Standard Error
   if (error instanceof Error) {
     // Check for specific error types by name/message
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return new UnauthorizedError(
-        'Invalid or expired token',
-        error
-      );
+    if (
+      error.name === "JsonWebTokenError" ||
+      error.name === "TokenExpiredError"
+    ) {
+      return new UnauthorizedError("Invalid or expired token", error);
     }
 
-    if (error.name === 'PayloadTooLargeError' || error.message.includes('request entity too large')) {
+    if (
+      error.name === "PayloadTooLargeError" ||
+      error.message.includes("request entity too large")
+    ) {
       return new PayloadTooLargeError(
-        'Request payload too large',
+        "Request payload too large",
         undefined,
         error
       );
     }
 
     // Wrap as internal error
-    return new InternalError('An unexpected error occurred', error);
+    return new InternalError("An unexpected error occurred", error);
   }
 
   // Unknown error type
@@ -259,11 +275,12 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
     // Transform to AppError
     const appError = transformError(err);
-    const errorInstance = appError.cause instanceof Error
-      ? appError.cause
-      : appError instanceof Error
-        ? appError
-        : undefined;
+    const errorInstance =
+      appError.cause instanceof Error
+        ? appError.cause
+        : appError instanceof Error
+          ? appError
+          : undefined;
 
     if (errorInstance) {
       recordSpanException(errorInstance);
@@ -285,41 +302,57 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
     if (!hasLoggedError) {
       if (appError.isOperational) {
-        logger.warn('Operational error', sanitizeStructuredLog({
-          ...logContext,
-          message: appError.message,
-          details: appError.details,
-        }));
+        logger.warn(
+          "Operational error",
+          sanitizeStructuredLog({
+            ...logContext,
+            message: appError.message,
+            details: appError.details,
+          })
+        );
       } else {
         // Log full error details for non-operational errors
-        logger.error('Unexpected error', sanitizeStructuredLog({
-          ...logContext,
-          error: appError.toLogObject(),
-        }));
+        logger.error(
+          "Unexpected error",
+          sanitizeStructuredLog({
+            ...logContext,
+            error: appError.toLogObject(),
+          })
+        );
       }
     }
 
     // Build response
-    const envelope = sanitizeErrorEnvelope(buildErrorEnvelope(appError, requestId));
+    const envelope = sanitizeErrorEnvelope(
+      buildErrorEnvelope(appError, requestId)
+    );
 
     // Set headers
-    res.setHeader('X-Request-ID', requestId);
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader("X-Request-ID", requestId);
+    res.setHeader("Content-Type", "application/json");
 
     // Set Retry-After for rate limit errors
     if (appError instanceof RateLimitError && appError.retryAfter) {
-      res.setHeader('Retry-After', appError.retryAfter.toString());
+      res.setHeader("Retry-After", appError.retryAfter.toString());
     }
 
     // Prevent caching of error responses
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader("Cache-Control", "no-store");
 
     // Send response
     res.status(appError.status).json(envelope);
   } catch (handlerError) {
     // Last resort error handling
-    console.error('Error in globalErrorHandler:', handlerError);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Handler crashed', requestId: 'error' } });
+    logger.error("Error in globalErrorHandler", handlerError);
+    res
+      .status(500)
+      .json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Handler crashed",
+          requestId: "error",
+        },
+      });
   }
 };
 
@@ -336,7 +369,7 @@ export function notFoundHandler(
   _res: Response,
   next: NextFunction
 ): void {
-  next(new NotFoundError('Route', `${req.method} ${req.path}`));
+  next(new NotFoundError("Route", `${req.method} ${req.path}`));
 }
 
 // ============================================================================
@@ -349,20 +382,25 @@ export function notFoundHandler(
  */
 export function setupGlobalErrorHandlers(): void {
   // Unhandled promise rejections
-  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
-    logger.error('Unhandled Promise Rejection', {
-      reason: serializeErrorForLogging(reason).message ?? serializeErrorForLogging(reason).error,
-      stack: serializeErrorForLogging(reason).stack,
-      promise: String(promise),
-    });
+  process.on(
+    "unhandledRejection",
+    (reason: unknown, promise: Promise<unknown>) => {
+      logger.error("Unhandled Promise Rejection", {
+        reason:
+          serializeErrorForLogging(reason).message ??
+          serializeErrorForLogging(reason).error,
+        stack: serializeErrorForLogging(reason).stack,
+        promise: String(promise),
+      });
 
-    // In production, you might want to gracefully shutdown
-    // For now, we log and continue
-  });
+      // In production, you might want to gracefully shutdown
+      // For now, we log and continue
+    }
+  );
 
   // Uncaught exceptions
-  process.on('uncaughtException', (error: Error) => {
-    logger.error('Uncaught Exception', {
+  process.on("uncaughtException", (error: Error) => {
+    logger.error("Uncaught Exception", {
       ...serializeErrorForLogging(error),
     });
 
@@ -371,7 +409,7 @@ export function setupGlobalErrorHandlers(): void {
     process.exit(1);
   });
 
-  logger.info('Global error handlers initialized');
+  logger.info("Global error handlers initialized");
 }
 
 // ============================================================================
@@ -400,7 +438,4 @@ export function applyErrorHandling(app: {
 // Exports
 // ============================================================================
 
-export {
-  transformError,
-  buildErrorEnvelope,
-};
+export { transformError, buildErrorEnvelope };

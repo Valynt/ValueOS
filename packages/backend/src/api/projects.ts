@@ -33,7 +33,7 @@ const projectCreateSchema = z.object({
 
 const projectUpdateSchema = projectCreateSchema
   .partial()
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine(value => Object.keys(value).length > 0, {
     message: "At least one field must be provided",
   });
 
@@ -45,7 +45,12 @@ const listQuerySchema = z.object({
 });
 
 function getTenantId(req: Request): string {
-  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string; headers: Record<string, string | string[] | undefined> });
+  const tenantId = getTenantIdFromRequest(
+    req as unknown as {
+      tenantId?: string;
+      headers: Record<string, string | string[] | undefined>;
+    }
+  );
   if (!tenantId) {
     throw new UnauthorizedError("Tenant context required");
   }
@@ -71,7 +76,9 @@ function requireWriteRole(req: Request, allowedRoles: string[]): void {
   const user = (req as unknown as { user?: Record<string, unknown> }).user;
   const role =
     (user?.role as string | undefined) ??
-    (user?.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined;
+    ((user?.app_metadata as Record<string, unknown> | undefined)?.role as
+      | string
+      | undefined);
   if (!role || !allowedRoles.includes(role)) {
     throw new ForbiddenError("Insufficient permissions for this action");
   }
@@ -79,7 +86,9 @@ function requireWriteRole(req: Request, allowedRoles: string[]): void {
 
 function deriveOwnerId(req: Request): string {
   // Owner is the authenticated user's ID from JWT claims, never a header.
-  return ((req as unknown as { user?: { id?: string } }).user?.id as string | undefined) ?? "unknown-user";
+  return (
+    (req as unknown as { user?: { id?: string } }).user?.id ?? "unknown-user"
+  );
 }
 
 async function invalidateProjectCache(req: Request): Promise<void> {
@@ -107,21 +116,22 @@ function toApiProject(project: ProjectRecord) {
 async function writeProjectAuditLog(
   req: Request,
   action: "create" | "update" | "delete",
-  projectId: string,
+  projectId: string
 ): Promise<void> {
   const user = (req as unknown as { user?: Record<string, unknown> }).user;
   const tenantId = getTenantId(req);
   await auditLogService.createEntry({
     tenantId,
-    userId: ((user?.id as string | undefined) ?? "unknown-user"),
-    userName: ((user?.name as string | undefined) ?? "unknown-user"),
-    userEmail: ((user?.email as string | undefined) ?? "unknown@example.com"),
+    userId: (user?.id as string | undefined) ?? "unknown-user",
+    userName: (user?.name as string | undefined) ?? "unknown-user",
+    userEmail: (user?.email as string | undefined) ?? "unknown@example.com",
     action,
     resourceType: "project",
     resourceId: projectId,
     details: {
       actorId: (user?.id as string | undefined) ?? "unknown-user",
-      correlationId: req.header("x-correlation-id") ?? req.header("x-request-id") ?? null,
+      correlationId:
+        req.header("x-correlation-id") ?? req.header("x-request-id") ?? null,
       traceId: req.header("x-trace-id") ?? null,
       route: req.originalUrl,
       method: req.method,
@@ -139,7 +149,10 @@ router.post(
     const normalizedName = payload.name.toLowerCase();
 
     const tenantId = getTenantId(req);
-    const existing = await projectRepository.findByName(tenantId, normalizedName);
+    const existing = await projectRepository.findByName(
+      tenantId,
+      normalizedName
+    );
 
     if (existing) {
       throw new ConflictError("Project name already exists");
@@ -215,7 +228,10 @@ router.get(
         tier: "cold",
       },
       async () => {
-        const project = await projectRepository.getById(tenantId, req.params.projectId);
+        const project = await projectRepository.getById(
+          tenantId,
+          req.params.projectId
+        );
         if (!project) {
           throw new NotFoundError("Project", req.params.projectId);
         }
@@ -235,24 +251,37 @@ router.patch(
     requireWriteRole(req, ["admin", "editor"]);
 
     const tenantId = getTenantId(req);
-    const existing = await projectRepository.getById(tenantId, req.params.projectId);
+    const existing = await projectRepository.getById(
+      tenantId,
+      req.params.projectId
+    );
     if (!existing) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
     const payload = projectUpdateSchema.parse(req.body);
-    if (payload.name && payload.name.toLowerCase() !== existing.name.toLowerCase()) {
-      const duplicate = await projectRepository.findByName(tenantId, payload.name.toLowerCase());
+    if (
+      payload.name &&
+      payload.name.toLowerCase() !== existing.name.toLowerCase()
+    ) {
+      const duplicate = await projectRepository.findByName(
+        tenantId,
+        payload.name.toLowerCase()
+      );
       if (duplicate && duplicate.id !== req.params.projectId) {
         throw new ConflictError("Project name already exists");
       }
     }
 
-    const updated = await projectRepository.update(tenantId, req.params.projectId, {
-      ...payload,
-      tags: payload.tags ?? existing.tags,
-      description: payload.description ?? existing.description ?? undefined,
-    });
+    const updated = await projectRepository.update(
+      tenantId,
+      req.params.projectId,
+      {
+        ...payload,
+        tags: payload.tags ?? existing.tags,
+        description: payload.description ?? existing.description ?? undefined,
+      }
+    );
 
     if (!updated) {
       throw new NotFoundError("Project", req.params.projectId);
@@ -272,7 +301,10 @@ router.delete(
     requireWriteRole(req, ["admin"]);
 
     const tenantId = getTenantId(req);
-    const exists = await projectRepository.getById(tenantId, req.params.projectId);
+    const exists = await projectRepository.getById(
+      tenantId,
+      req.params.projectId
+    );
     if (!exists) {
       throw new NotFoundError("Project", req.params.projectId);
     }

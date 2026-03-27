@@ -11,17 +11,17 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
-import { requireAuth } from "../middleware/auth.js"
-import { validateRequest } from "../middleware/inputValidation.js"
-import { createRateLimiter } from "../middleware/rateLimiter.js"
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { auditLogService } from "../services/security/AuditLogService.js"
+import { requireAuth } from "../middleware/auth.js";
+import { validateRequest } from "../middleware/inputValidation.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { createSecureRouter } from "../middleware/secureRouter.js";
+import { auditLogService } from "../services/security/AuditLogService.js";
 
-import { referralService } from "./services/ReferralService.js"
-
+import { referralService } from "./services/ReferralService.js";
 
 const logger = createLogger({ component: "ReferralAPI" });
-const router: ReturnType<typeof createSecureRouter> = createSecureRouter("standard");
+const router: ReturnType<typeof createSecureRouter> =
+  createSecureRouter("standard");
 
 // Strict per-IP rate limiter for unauthenticated referral endpoints
 // to prevent code enumeration and claim spam
@@ -54,11 +54,11 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
 
     await auditLogService.logAudit({
       userId,
-      userName: (req.user?.user_metadata?.full_name as string) || req.user?.email || "User",
-      userEmail: (req.user?.email as string) || "",
+      userName: req.user?.user_metadata?.full_name || req.user?.email || "User",
+      userEmail: req.user?.email || "",
       action: "referral.code_generated",
       resourceType: "referral",
-      resourceId: (result.referral_code?.id as string) || "",
+      resourceId: result.referral_code?.id || "",
       details: {
         referralCode: result.referral_code?.code,
         ipAddress: req.ip,
@@ -87,7 +87,12 @@ router.post(
   "/claim",
   referralPublicLimiter,
   validateRequest({
-    referral_code: { type: "string", required: true, minLength: 8, maxLength: 8 },
+    referral_code: {
+      type: "string",
+      required: true,
+      minLength: 8,
+      maxLength: 8,
+    },
     referee_email: { type: "email", required: true },
   }),
   async (req: Request, res: Response) => {
@@ -124,7 +129,8 @@ router.post(
         success: true,
         referral_id: result.referral_id,
         reward: result.reward,
-        message: "Referral claimed successfully! You'll receive your discount when you sign up.",
+        message:
+          "Referral claimed successfully! You'll receive your discount when you sign up.",
       });
     } catch (error) {
       logger.error("Failed to claim referral", error as Error, {
@@ -298,7 +304,9 @@ router.post(
     try {
       const { code } = req.body;
 
-      const isValid = await referralService.validateReferralCode(code.toUpperCase());
+      const isValid = await referralService.validateReferralCode(
+        code.toUpperCase()
+      );
 
       logger.info("Referral code validation", {
         code: sanitizeForLogging(code) as string,
@@ -309,7 +317,9 @@ router.post(
       return res.json({
         success: true,
         valid: isValid,
-        message: isValid ? "Referral code is valid" : "Invalid or inactive referral code",
+        message: isValid
+          ? "Referral code is valid"
+          : "Invalid or inactive referral code",
       });
     } catch (error) {
       logger.error("Failed to validate referral code", error as Error, {
@@ -341,24 +351,29 @@ router.post(
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const success = await referralService.completeReferral(referral_id, userId);
+      const success = await referralService.completeReferral(
+        referral_id,
+        userId
+      );
 
       if (!success) {
         return res.status(400).json({
           success: false,
-          error: "Failed to complete referral - invalid referral ID or already completed",
+          error:
+            "Failed to complete referral - invalid referral ID or already completed",
         });
       }
 
       logger.info("Referral completed", {
         referral_id: sanitizeForLogging(referral_id) as string,
-        referee_id: sanitizeForLogging(userId) as string,
+        referee_id: sanitizeForLogging(userId),
       });
 
       await auditLogService.logAudit({
         userId,
-        userName: (req.user?.user_metadata?.full_name as string) || req.user?.email || "User",
-        userEmail: (req.user?.email as string) || "",
+        userName:
+          req.user?.user_metadata?.full_name || req.user?.email || "User",
+        userEmail: req.user?.email || "",
         action: "referral.completed",
         resourceType: "referral",
         resourceId: referral_id,
@@ -387,48 +402,55 @@ router.post(
  * DELETE /api/referrals/deactivate
  * Deactivate user's referral code
  */
-router.delete("/deactivate", requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
+router.delete(
+  "/deactivate",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const success = await referralService.deactivateReferralCode(userId);
+
+      if (!success) {
+        return res
+          .status(400)
+          .json({ error: "Failed to deactivate referral code" });
+      }
+
+      logger.info("Referral code deactivated", {
+        userId: sanitizeForLogging(userId),
+      });
+
+      await auditLogService.logAudit({
+        userId,
+        userName:
+          req.user?.user_metadata?.full_name || req.user?.email || "User",
+        userEmail: req.user?.email || "",
+        action: "referral.code_deactivated",
+        resourceType: "referral",
+        resourceId: userId,
+        details: {
+          ipAddress: req.ip,
+        },
+        status: "success",
+      });
+
+      return res.json({
+        success: true,
+        message: "Referral code deactivated successfully",
+      });
+    } catch (error) {
+      logger.error("Failed to deactivate referral code", error as Error, {
+        userId: sanitizeForLogging(req.user?.id) as string,
+      });
+
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    const success = await referralService.deactivateReferralCode(userId);
-
-    if (!success) {
-      return res.status(400).json({ error: "Failed to deactivate referral code" });
-    }
-
-    logger.info("Referral code deactivated", {
-      userId: sanitizeForLogging(userId) as string,
-    });
-
-    await auditLogService.logAudit({
-      userId,
-      userName: (req.user?.user_metadata?.full_name as string) || req.user?.email || "User",
-      userEmail: (req.user?.email as string) || "",
-      action: "referral.code_deactivated",
-      resourceType: "referral",
-      resourceId: userId,
-      details: {
-        ipAddress: req.ip,
-      },
-      status: "success",
-    });
-
-    return res.json({
-      success: true,
-      message: "Referral code deactivated successfully",
-    });
-  } catch (error) {
-    logger.error("Failed to deactivate referral code", error as Error, {
-      userId: sanitizeForLogging(req.user?.id) as string,
-    });
-
-    return res.status(500).json({ error: "Internal server error" });
   }
-});
+);
 
 export default router;
