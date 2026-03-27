@@ -69,7 +69,22 @@ function hasEvidenceLink(control) {
     return false;
   }
 
-  return /^(https?:\/\/|[^\s]+\.[a-z0-9]+|[^\s]+\/[^\s]+)$/i.test(value);
+  // Explicitly reject values that look like emails or contain '@'
+  if (value.includes("@")) {
+    return false;
+  }
+
+  // Accept only http(s) URLs
+  if (/^https?:\/\/\S+$/i.test(value)) {
+    return true;
+  }
+
+  // Accept repo-relative paths (must contain '/' and no whitespace or '@')
+  if (value.includes("/") && /^[^\s@]+\/[^\s@]+$/.test(value)) {
+    return true;
+  }
+
+  return false;
 }
 
 for (const control of controls) {
