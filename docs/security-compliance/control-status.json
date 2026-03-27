@@ -199,6 +199,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 152,
         "section": "1. Request Context & Tenant Binding"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -217,6 +222,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 160,
         "section": "2. Data Access Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -235,6 +245,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 163,
         "section": "2. Data Access Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -253,6 +268,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 166,
         "section": "2. Data Access Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -271,6 +291,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 169,
         "section": "2. Data Access Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -289,6 +314,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 175,
         "section": "3. Agent & Orchestration Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -307,6 +337,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 178,
         "section": "3. Agent & Orchestration Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -361,6 +396,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 187,
         "section": "3. Agent & Orchestration Layer"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -379,6 +419,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 199,
         "section": "5. Search & Indexing"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -397,6 +442,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 202,
         "section": "5. Search & Indexing"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -415,6 +465,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 205,
         "section": "5. Search & Indexing"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -433,6 +488,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 211,
         "section": "6. File Storage & CDN"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -487,6 +547,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 223,
         "section": "7. Audit & Logging"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -505,6 +570,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 226,
         "section": "7. Audit & Logging"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -523,6 +593,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 229,
         "section": "7. Audit & Logging"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -541,6 +616,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 235,
         "section": "8. Authentication & Secrets"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -559,6 +639,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 238,
         "section": "8. Authentication & Secrets"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -595,6 +680,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 244,
         "section": "8. Authentication & Secrets"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -613,6 +703,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 247,
         "section": "8. Authentication & Secrets"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -631,6 +726,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 250,
         "section": "8. Authentication & Secrets"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -649,6 +749,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 258,
         "section": "9. Error Handling"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -667,6 +772,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 272,
         "section": "10. Testing"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -811,6 +921,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1256,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -847,6 +962,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1260,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "compliance-hipaa@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -883,6 +1003,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1264,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -901,6 +1026,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1266,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -937,6 +1067,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1270,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "compliance-hipaa@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -955,6 +1090,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1272,
         "section": "Operational checklist"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
@@ -991,6 +1131,11 @@
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 1563,
         "section": "Compliance Checklist"
+      },
+      "remediation": {
+        "owner": "team-security@valueos",
+        "targetDate": "2026-06-30",
+        "status": "in-progress"
       }
     },
     {
