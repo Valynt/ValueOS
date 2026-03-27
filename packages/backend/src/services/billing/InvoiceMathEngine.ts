@@ -9,6 +9,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 
 import { BillingMetric } from '../../config/billing.js';
 import { createLogger } from '../../lib/logger.js';
+import { CreditsLedgerService } from './CreditsLedgerService.js';
 
 const logger = createLogger({ component: 'InvoiceMathEngine' });
 
@@ -71,6 +72,7 @@ export interface InvoiceCalculationInput {
 
 export class InvoiceMathEngine {
   private supabase: SupabaseClient;
+  private creditsLedger: CreditsLedgerService;
 
   // Singleton for static-style access used by tests.
   private static _instance: InvoiceMathEngine | null = null;
@@ -104,6 +106,7 @@ export class InvoiceMathEngine {
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
+    this.creditsLedger = new CreditsLedgerService(supabase);
   }
 
   // For testing: allow setting a custom instance with mocked dependencies
@@ -138,9 +141,17 @@ export class InvoiceMathEngine {
     // Calculate totals
     const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
-    // Fetch tenant settings once and derive both credits and tax from it
+    // Apply credits from the ledger (idempotent debit — safe to call on every calculation)
+    const { appliedDollars: appliedCredits } = await this.creditsLedger.applyCreditsToInvoice({
+      tenantId: tenant_id,
+      subscriptionId: subscription_id,
+      periodStart: period_start,
+      periodEnd: period_end,
+      invoiceSubtotalDollars: subtotal,
+    });
+
+    // Fetch tenant settings for tax derivation only
     const tenantSettings = await this.fetchTenantSettings(tenant_id);
-    const appliedCredits = this.calculateAppliedCredits(tenantSettings);
     const taxAmount = this.calculateTaxAmount(subtotal - appliedCredits, tenant_id, tenantSettings);
 
     const totalAmount = subtotal - appliedCredits + taxAmount;
@@ -313,8 +324,7 @@ export class InvoiceMathEngine {
   }
 
   /**
-   * Fetch tenant settings from organizations once per invoice calculation.
-   * Both credit and tax derivation read from this result to avoid duplicate queries.
+   * Fetch tenant settings from organizations for tax derivation.
    * Returns null on any error — callers treat null as "no settings".
    */
   private async fetchTenantSettings(tenantId: string): Promise<Record<string, unknown> | null> {
@@ -330,21 +340,6 @@ export class InvoiceMathEngine {
     } catch {
       return null;
     }
-  }
-
-  /**
-   * Derive credits from pre-fetched tenant settings.
-   *
-   * Reads `billing_credits` (cents) from `organizations.settings` JSONB.
-   * Returns the credit amount in dollars. Returns 0 when absent or invalid.
-   *
-   * Note: this reads a static balance — a dedicated credits ledger table
-   * should be introduced before production use to prevent double-application.
-   */
-  private calculateAppliedCredits(settings: Record<string, unknown> | null): number {
-    const creditsCents = settings?.['billing_credits'];
-    if (typeof creditsCents !== 'number' || creditsCents <= 0) return 0;
-    return Math.round(creditsCents) / 100;
   }
 
   /**

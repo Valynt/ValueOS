@@ -21,6 +21,7 @@ import { createLogger } from '../lib/logger.js';
 import { tenantContextStorage } from '../middleware/tenantContext.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
+import { RedisCircuitBreaker } from '../services/post-v1/RedisCircuitBreaker.js';
 
 const logger = createLogger({ component: 'CrmWorker' });
 
@@ -49,51 +50,39 @@ export const CRM_PREFETCH_QUEUE = 'crm-prefetch';
 export const CRM_DEAD_LETTER_QUEUE = 'crm-dead-letter';
 
 // ============================================================================
-// Circuit breaker state (in-memory, per-process)
+// Circuit breaker — Redis-backed for multi-pod consistency
+//
+// The previous implementation used a module-level Map (in-process memory).
+// With replicas: 2, each pod maintained independent state: Pod A could have
+// an open circuit while Pod B continued sending requests to a degraded CRM
+// provider. RedisCircuitBreaker stores state in Redis so all pods share the
+// same view of each circuit.
 // ============================================================================
 
-interface CircuitState {
-  failures: number;
-  lastFailure: number;
-  open: boolean;
+const crmCircuitBreaker = new RedisCircuitBreaker({
+  failureThreshold: 5,
+  recoveryTimeout: 5 * 60_000, // 5 min cooldown
+  monitoringPeriod: 120_000,
+});
+
+function getCrmCircuitKey(tenantId: string, provider: string): string {
+  return `crm:${provider}:${tenantId}`;
 }
 
-const circuitBreakers = new Map<string, CircuitState>();
-const CIRCUIT_THRESHOLD = 5;       // failures before opening
-const CIRCUIT_RESET_MS = 5 * 60_000; // 5 min cooldown
-
-function getCircuitKey(tenantId: string, provider: string): string {
-  return `${tenantId}:${provider}`;
-}
-
-function isCircuitOpen(tenantId: string, provider: string): boolean {
-  const key = getCircuitKey(tenantId, provider);
-  const state = circuitBreakers.get(key);
-  if (!state || !state.open) return false;
-  // Auto-reset after cooldown
-  if (Date.now() - state.lastFailure > CIRCUIT_RESET_MS) {
-    state.open = false;
-    state.failures = 0;
-    return false;
-  }
-  return true;
-}
-
-function recordCircuitFailure(tenantId: string, provider: string): void {
-  const key = getCircuitKey(tenantId, provider);
-  const state = circuitBreakers.get(key) || { failures: 0, lastFailure: 0, open: false };
-  state.failures++;
-  state.lastFailure = Date.now();
-  if (state.failures >= CIRCUIT_THRESHOLD) {
-    state.open = true;
-    logger.warn('[circuit-breaker] Circuit opened', { tenantId, provider, failures: state.failures });
-  }
-  circuitBreakers.set(key, state);
-}
-
-function recordCircuitSuccess(tenantId: string, provider: string): void {
-  const key = getCircuitKey(tenantId, provider);
-  circuitBreakers.delete(key);
+/**
+ * Execute a CRM operation through the shared Redis-backed circuit breaker.
+ * Throws if the circuit is open (caller should let BullMQ retry the job).
+ */
+async function withCrmCircuit<T>(
+  tenantId: string,
+  provider: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const operationName = getCrmCircuitKey(tenantId, provider);
+  return crmCircuitBreaker.execute({
+    operationName,
+    operation: fn,
+  });
 }
 
 // ============================================================================
@@ -204,11 +193,6 @@ export function initCrmSyncWorker(): Worker {
           attributes: { queue: CRM_SYNC_QUEUE, provider: String(provider ?? 'unknown') },
         }, async () => {
 
-        // Circuit breaker check
-        if (isCircuitOpen(tenantId, provider)) {
-          throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
-        }
-
         logger.info(`[crm-sync] Processing ${job.name}`, {
           tenantId,
           provider,
@@ -216,15 +200,10 @@ export function initCrmSyncWorker(): Worker {
           attempt: job.attemptsMade + 1,
         });
 
-        try {
+        return withCrmCircuit(tenantId, provider, async () => {
           const { crmSyncService } = await import('../services/crm/CrmSyncService.js');
-          const result = await crmSyncService.runDeltaSync(tenantId, provider);
-          recordCircuitSuccess(tenantId, provider);
-          return result;
-        } catch (err) {
-          recordCircuitFailure(tenantId, provider);
-          throw err;
-        }
+          return crmSyncService.runDeltaSync(tenantId, provider);
+        });
         }),
       );
     },
@@ -285,24 +264,16 @@ export function initCrmWebhookWorker(): Worker {
           attributes: { queue: CRM_WEBHOOK_QUEUE, provider: String(provider ?? 'unknown') },
         }, async () => {
 
-        if (isCircuitOpen(tenantId, provider)) {
-          throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
-        }
-
         logger.info(`[crm-webhook] Processing event`, {
           eventId,
           jobId: job.id,
           attempt: job.attemptsMade + 1,
         });
 
-        try {
+        await withCrmCircuit(tenantId, provider, async () => {
           const { crmWebhookService } = await import('../services/crm/CrmWebhookService.js');
           await crmWebhookService.processEvent(eventId);
-          recordCircuitSuccess(tenantId, provider);
-        } catch (err) {
-          recordCircuitFailure(tenantId, provider);
-          throw err;
-        }
+        });
         }),
       );
     },

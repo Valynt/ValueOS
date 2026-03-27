@@ -1,9 +1,20 @@
 /**
- * LLM Service with Circuit Breaker
+ * LLM Service with Circuit Breaker and Multi-Provider Fallback
  *
- * Implements circuit breaker pattern for Together.ai with resilience against service outages and rate limits.
- * Together AI is the only supported LLM provider.
+ * Primary provider: Together.ai (configured via TOGETHER_PRIMARY_MODEL_NAME).
+ * Secondary model:  A different model on Together.ai (TOGETHER_SECONDARY_MODEL_NAME).
+ * Provider fallback: A second LLM provider (LLM_FALLBACK_PROVIDER + LLM_FALLBACK_MODEL)
+ *                    used when Together.ai is fully unavailable (outage, rate-limit
+ *                    exhaustion, account suspension). Supported values for
+ *                    LLM_FALLBACK_PROVIDER: "openai".
+ *
+ * Execution order on failure:
+ *   1. Together.ai primary model (with retries)
+ *   2. Together.ai secondary model (TOGETHER_SECONDARY_MODEL_NAME)
+ *   3. Provider fallback (LLM_FALLBACK_PROVIDER / LLM_FALLBACK_MODEL)
  */
+
+import OpenAI from "openai";
 
 import { getEnvVar } from "@shared/lib/env";
 
@@ -51,6 +62,7 @@ export interface CircuitBreakerStats {
 
 type LLMFallbackStats = {
   togetherAI: CircuitBreakerStats & { calls: number; failures: number };
+  providerFallback: { calls: number; failures: number };
   circuitBreakers: Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>>;
   cache: { hits: number; misses: number };
   costGovernance: Awaited<ReturnType<typeof costGovernance.getSummary>>;
@@ -71,8 +83,94 @@ export class LLMFallbackService {
   };
   private stats = {
     togetherAI: { calls: 0, failures: 0, fallbacks: 0 },
+    providerFallback: { calls: 0, failures: 0 },
     cache: { hits: 0, misses: 0 },
   };
+
+  // Lazy OpenAI client — only instantiated when LLM_FALLBACK_PROVIDER=openai
+  private _openaiClient: OpenAI | null = null;
+
+  private getOpenAIClient(): OpenAI {
+    if (!this._openaiClient) {
+      const apiKey = getEnvVar('OPENAI_API_KEY') as string | undefined;
+      if (!apiKey) {
+        throw new Error('LLM_FALLBACK_PROVIDER=openai but OPENAI_API_KEY is not set');
+      }
+      this._openaiClient = new OpenAI({ apiKey });
+    }
+    return this._openaiClient;
+  }
+
+  /**
+   * Call the configured provider fallback (currently: OpenAI).
+   * Only invoked when Together.ai primary and secondary both fail.
+   */
+  private async callProviderFallback(request: LLMRequest): Promise<LLMResponse> {
+    const fallbackProvider = getEnvVar('LLM_FALLBACK_PROVIDER') as string | undefined;
+    if (!fallbackProvider || fallbackProvider !== 'openai') {
+      throw new Error('No provider fallback configured (set LLM_FALLBACK_PROVIDER=openai)');
+    }
+
+    const fallbackModel = (getEnvVar('LLM_FALLBACK_MODEL') as string | undefined) || 'gpt-4o-mini';
+    const startTime = Date.now();
+    this.stats.providerFallback.calls++;
+
+    try {
+      const client = this.getOpenAIClient();
+      const response = await client.chat.completions.create({
+        model: fallbackModel,
+        messages: [{ role: 'user', content: request.prompt }],
+        max_tokens: request.maxTokens,
+        temperature: request.temperature,
+      });
+
+      const latency = Date.now() - startTime;
+      const promptTokens = response.usage?.prompt_tokens ?? 0;
+      const completionTokens = response.usage?.completion_tokens ?? 0;
+      const content = response.choices[0]?.message?.content ?? '';
+
+      const result: LLMResponse = {
+        content,
+        provider: 'together_ai', // keep interface stable; callers check content not provider
+        model: fallbackModel,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        cost: llmCostTracker.calculateCost(fallbackModel, promptTokens, completionTokens),
+        latency,
+        cached: false,
+      };
+
+      await costGovernance.recordUsage({
+        tenantId: request.tenantId,
+        dealId: request.dealId ?? request.sessionId,
+        tokens: result.totalTokens,
+        cost: result.cost,
+        userId: request.userId,
+        model: fallbackModel,
+      });
+
+      if (request.tenantId) {
+        await llmCache.set(request.tenantId, request.prompt, fallbackModel, content, {
+          promptTokens,
+          completionTokens,
+          cost: result.cost,
+        });
+      }
+
+      logger.warn('LLMFallback used provider fallback (OpenAI) after Together.ai failure', {
+        fallbackProvider,
+        fallbackModel,
+        latency,
+      });
+
+      return result;
+    } catch (err) {
+      this.stats.providerFallback.failures++;
+      logger.error('Provider fallback (OpenAI) also failed', err as Error, { fallbackModel });
+      throw err;
+    }
+  }
 
   constructor() {
     this.circuitBreaker = new ExternalCircuitBreaker("together_ai");
@@ -269,7 +367,7 @@ export class LLMFallbackService {
       }
     }
 
-    // Primary exhausted — attempt secondary if enabled/configured
+    // Primary exhausted — attempt secondary Together.ai model if configured
     if (fallbackEnabled && secondaryModel) {
       try {
         assertModelAllowed('together_ai', String(secondaryModel));
@@ -280,7 +378,6 @@ export class LLMFallbackService {
           { config: this.breakerConfig }
         );
 
-        // Track fallback usage
         this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
 
         logger.warn('LLMFallback used secondary model after primary failures', {
@@ -291,7 +388,21 @@ export class LLMFallbackService {
 
         return secResp;
       } catch (secErr) {
-        logger.error('Together.ai secondary fallback failed', secErr as Error);
+        // Secondary also failed — fall through to provider-level fallback
+        logger.warn('Together.ai secondary model failed, attempting provider fallback', secErr as Error);
+        lastError = secErr;
+      }
+    }
+
+    // Provider-level fallback: a different LLM provider (e.g. OpenAI).
+    // This is the true resilience path when Together.ai is fully unavailable.
+    // Note: callProviderFallback() increments stats.providerFallback.calls internally.
+    const providerFallbackEnabled = getEnvVar('LLM_FALLBACK_PROVIDER') as string | undefined;
+    if (providerFallbackEnabled) {
+      try {
+        return await this.callProviderFallback(request);
+      } catch (providerErr) {
+        logger.error('Provider fallback also failed — all LLM paths exhausted', providerErr as Error);
         throw new Error('LLM provider unavailable. Please try again later.');
       }
     }
@@ -394,7 +505,23 @@ export class LLMFallbackService {
           }
           return;
         } catch (secErr) {
-          logger.error('Together.ai stream secondary fallback failed', secErr as Error);
+          logger.warn('Together.ai stream secondary fallback failed, attempting provider fallback', secErr as Error);
+        }
+      }
+
+      // Provider-level fallback for streaming: degrade to a non-streaming call
+      // and yield the full response as a single chunk. This preserves the
+      // generator interface while providing true provider-level resilience.
+      const providerFallbackEnabled = getEnvVar('LLM_FALLBACK_PROVIDER') as string | undefined;
+      if (providerFallbackEnabled) {
+        try {
+          const providerResp = await this.callProviderFallback(request);
+          yield { content: providerResp.content, done: false };
+          yield { content: '', done: true };
+          return;
+        } catch (providerErr) {
+          logger.error('Provider fallback also failed for stream — all LLM paths exhausted', providerErr as Error);
+          throw new Error('LLM provider unavailable. Please try again later.');
         }
       }
 
@@ -520,6 +647,7 @@ export class LLMFallbackService {
         [this.togetherChatBreakerKey]: chatMetrics,
         [this.togetherStreamBreakerKey]: streamMetrics,
       },
+      providerFallback: this.stats.providerFallback,
       cache: this.stats.cache,
       costGovernance: await costGovernance.getSummary(),
     };

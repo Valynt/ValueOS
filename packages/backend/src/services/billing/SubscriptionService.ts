@@ -3,6 +3,8 @@
  * Manages subscription creation, updates, and cancellation
  */
 
+import crypto from "node:crypto";
+
 import { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
@@ -40,7 +42,19 @@ class SubscriptionService {
   }
 
   /**
-   * Create subscription for tenant
+   * Create subscription for tenant.
+   *
+   * Uses the intent-log pattern from TransactionalSubscriptionService:
+   *   1. Write a `pending_subscription_changes` record (status=pending) BEFORE
+   *      calling Stripe. If the process crashes mid-flight the reconciler can
+   *      detect the divergence.
+   *   2. Call Stripe with a stable idempotency key derived from the intent ID.
+   *   3. Write the DB subscription record.
+   *   4. Mark the intent completed.
+   *
+   * If the DB insert fails after Stripe succeeds, the intent record remains in
+   * `stripe_updated` state. The reconciler will detect it and either complete
+   * the DB write or cancel the Stripe subscription — no silent split-brain.
    */
   async createSubscription(
     tenantId: string,
@@ -62,29 +76,84 @@ class SubscriptionService {
 
       const plan = PLANS[planTier];
 
-      // Build subscription items for all metrics
-      const items = this.buildSubscriptionItems(planTier);
-
-      // Create subscription in Stripe first
-      const stripeSubscription = await this.stripe.subscriptions.create(
-        {
-          customer: customer.stripe_customer_id,
-          items,
-          trial_period_days: trialDays,
-          metadata: {
-            tenant_id: tenantId,
-            plan_tier: planTier,
-          },
-        },
-        {
-          idempotencyKey: idempotencyKey
-            ? this.stripeService.generateIdempotencyKey(tenantId, "sub_create", idempotencyKey)
-            : undefined,
-        }
+      // ── Step 1: Write intent record ──────────────────────────────────────
+      // This must happen before any Stripe call. If the process crashes after
+      // Stripe succeeds but before the DB write, the reconciler detects the
+      // `stripe_updated` record and completes or rolls back the operation.
+      const intentId = crypto.randomUUID();
+      const stripeIdempotencyKey = this.stripeService.generateIdempotencyKey(
+        tenantId,
+        "sub_create",
+        idempotencyKey ?? intentId,
       );
 
-      // Store in database with unique constraint on tenant_id for active subscriptions
-      // Using upsert-like pattern: insert will fail if active subscription exists (DB constraint)
+      const { error: intentError } = await supabase
+        .from("pending_subscription_changes")
+        .insert({
+          id: intentId,
+          tenant_id: tenantId,
+          subscription_id: null, // not yet created
+          old_plan_tier: null,   // null signals a creation (not a plan change)
+          new_plan_tier: planTier,
+          idempotency_key: stripeIdempotencyKey,
+          status: "pending",
+        });
+
+      if (intentError) {
+        logger.error("Failed to write subscription creation intent", intentError, { tenantId });
+        throw intentError;
+      }
+
+      // ── Step 2: Call Stripe ──────────────────────────────────────────────
+      const items = this.buildSubscriptionItems(planTier);
+      let stripeSubscription: Stripe.Subscription;
+      try {
+        stripeSubscription = await this.stripe.subscriptions.create(
+          {
+            customer: customer.stripe_customer_id,
+            items,
+            trial_period_days: trialDays,
+            metadata: { tenant_id: tenantId, plan_tier: planTier },
+          },
+          { idempotencyKey: stripeIdempotencyKey },
+        );
+      } catch (stripeError) {
+        // Stripe call failed — mark intent failed so the reconciler skips it
+        await supabase
+          .from("pending_subscription_changes")
+          .update({
+            status: "failed",
+            error_message: stripeError instanceof Error ? stripeError.message : String(stripeError),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", intentId);
+        throw stripeError;
+      }
+
+      // Mark intent as stripe_updated so the reconciler knows Stripe has state.
+      // If this write fails, the intent stays in `pending` — the reconciler
+      // would incorrectly treat it as "Stripe never called" and mark it failed,
+      // leaving an active Stripe subscription with no DB record. Throw so the
+      // caller surfaces the error and the intent is not silently misclassified.
+      const { error: stripeUpdatedError } = await supabase
+        .from("pending_subscription_changes")
+        .update({
+          status: "stripe_updated",
+          stripe_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intentId);
+
+      if (stripeUpdatedError) {
+        logger.error(
+          "Failed to mark intent stripe_updated — Stripe subscription exists but intent is in pending state. Manual reconciliation required.",
+          stripeUpdatedError,
+          { tenantId, stripeSubscriptionId: stripeSubscription.id, intentId },
+        );
+        throw stripeUpdatedError;
+      }
+
+      // ── Step 3: Write DB subscription record ────────────────────────────
       let subscription: Subscription;
       try {
         const { data, error } = await supabase
@@ -116,7 +185,6 @@ class SubscriptionService {
           .single();
 
         if (error) {
-          // Check for unique constraint violation (duplicate active subscription)
           if (error.code === "23505") {
             throw new Error("Active subscription already exists");
           }
@@ -124,33 +192,37 @@ class SubscriptionService {
         }
         subscription = data;
       } catch (dbError) {
-        // Rollback: Cancel the Stripe subscription since DB insert failed
-        logger.error("DB insert failed, rolling back Stripe subscription", dbError as Error, {
-          tenantId,
-          stripeSubscriptionId: stripeSubscription.id,
-        });
-        try {
-          await this.stripe!.subscriptions.cancel(stripeSubscription.id);
-          logger.info("Stripe subscription rolled back", {
-            stripeSubscriptionId: stripeSubscription.id,
-          });
-        } catch (rollbackError) {
-          logger.error("Failed to rollback Stripe subscription", rollbackError as Error, {
-            stripeSubscriptionId: stripeSubscription.id,
-          });
-        }
+        // DB insert failed after Stripe succeeded. The intent record is in
+        // `stripe_updated` state — the reconciler will detect this and either
+        // retry the DB write or cancel the Stripe subscription. No silent
+        // split-brain: the intent record is the recovery path.
+        logger.error(
+          "DB insert failed after Stripe subscription created — intent record left in stripe_updated for reconciler",
+          dbError as Error,
+          { tenantId, stripeSubscriptionId: stripeSubscription.id, intentId },
+        );
         throw dbError;
       }
 
-      // Store subscription items
-      await this.storeSubscriptionItems(subscription.id, stripeSubscription.items.data, planTier);
+      // ── Step 4: Mark intent completed ───────────────────────────────────
+      await supabase
+        .from("pending_subscription_changes")
+        .update({
+          status: "completed",
+          subscription_id: subscription.id,
+          db_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intentId);
 
-      // Initialize usage quotas
+      // Store subscription items and initialize usage quotas
+      await this.storeSubscriptionItems(subscription.id, stripeSubscription.items.data, planTier);
       await this.initializeUsageQuotas(tenantId, subscription.id, planTier);
 
       logger.info("Subscription created", {
         tenantId,
         subscriptionId: stripeSubscription.id,
+        intentId,
       });
 
       return subscription;

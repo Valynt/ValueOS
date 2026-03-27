@@ -42,9 +42,10 @@ export interface AlertRule {
 }
 
 /**
- * Default alert rules
+ * Default alert rules.
+ * Exported so AlertingWorker can schedule repeatable jobs for each rule.
  */
-const DEFAULT_ALERT_RULES: AlertRule[] = [
+export const DEFAULT_ALERT_RULES: AlertRule[] = [
   {
     id: 'high-error-rate',
     name: 'High Error Rate',
@@ -186,12 +187,36 @@ export class AlertingService {
   }
 
   /**
-   * Start monitoring with all enabled alert rules
+   * Start monitoring with all enabled alert rules.
+   *
+   * Pass `useWorkerScheduling: true` when the AlertingWorker BullMQ repeatable
+   * job is active. In that mode, setInterval is not started — the worker
+   * calls evaluateRuleById() on each pod-exclusive job execution, preventing
+   * duplicate notifications from multi-replica deployments.
+   *
+   * The default (false) preserves the original in-process behaviour for
+   * single-instance deployments and tests.
    */
-  start(): void {
+  start(options: { useWorkerScheduling?: boolean } = {}): void {
     logger.info('Starting alerting service', {
-      ruleCount: this.alertRules.filter(r => r.enabled).length
+      ruleCount: this.alertRules.filter(r => r.enabled).length,
+      useWorkerScheduling: options.useWorkerScheduling ?? false,
     });
+
+    if (options.useWorkerScheduling) {
+      // Scheduling is handled by AlertingWorker — do not start setIntervals.
+      // Log the rules that will be evaluated by the worker.
+      for (const rule of this.alertRules) {
+        if (rule.enabled) {
+          logger.debug('Alert rule delegated to BullMQ worker', {
+            ruleId: rule.id,
+            ruleName: rule.name,
+            intervalMinutes: rule.checkIntervalMinutes,
+          });
+        }
+      }
+      return;
+    }
 
     for (const rule of this.alertRules) {
       if (rule.enabled) {
@@ -232,6 +257,23 @@ export class AlertingService {
       ruleName: rule.name,
       intervalMinutes: rule.checkIntervalMinutes
     });
+  }
+
+  /**
+   * Evaluate a single rule by ID.
+   *
+   * Called by AlertingWorker on each BullMQ job execution. Using the worker
+   * ensures only one pod evaluates each rule per cycle, preventing duplicate
+   * alert notifications in multi-replica deployments.
+   *
+   * Throws if the rule is not found so BullMQ can retry the job.
+   */
+  async evaluateRuleById(ruleId: string): Promise<void> {
+    const rule = this.alertRules.find(r => r.id === ruleId);
+    if (!rule) {
+      throw new Error(`Alert rule not found: ${ruleId}`);
+    }
+    await this.checkRule(rule);
   }
 
   /**

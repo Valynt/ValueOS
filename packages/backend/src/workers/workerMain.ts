@@ -45,6 +45,13 @@ import {
   scheduleWatchdogJob,
   WATCHDOG_QUEUE_NAME,
 } from './WorkflowWatchdogWorker.js';
+import {
+  ALERTING_QUEUE_NAME,
+  closeAlertingWorker,
+  getAlertingQueue,
+  initAlertingWorker,
+  scheduleAlertRuleJobs,
+} from './AlertingWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -117,6 +124,22 @@ try {
   });
 }
 
+try {
+  initAlertingWorker();
+  // Import DEFAULT_ALERT_RULES lazily to avoid circular imports at module load
+  const { DEFAULT_ALERT_RULES } = await import('../services/billing/AlertingService.js');
+  scheduleAlertRuleJobs(DEFAULT_ALERT_RULES).catch((err) => {
+    logger.warn('Failed to schedule alert rule jobs', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Alerting worker initialized');
+} catch (err) {
+  logger.warn('Alerting worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 const queueSamplerIntervalMs = 30_000;
 const queueHealthSamplers = [
   { queue: getResearchQueue, queueName: RESEARCH_QUEUE_NAME, workerClass: 'research-worker' },
@@ -142,6 +165,11 @@ const queueHealthSamplers = [
     queue: getCertificateGenerationQueue,
     queueName: 'certificate-generation',
     workerClass: 'certificate-generation-worker',
+  },
+  {
+    queue: getAlertingQueue,
+    queueName: ALERTING_QUEUE_NAME,
+    workerClass: 'alerting-worker',
   },
 ] as const;
 
@@ -184,6 +212,11 @@ healthServer.listen(HEALTH_PORT, () => {
 const shutdown = (signal: string) => {
   logger.info(`Worker received ${signal}, shutting down`);
   healthy = false;
+  void closeAlertingWorker().catch((err) => {
+    logger.warn('Error closing alerting worker', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
   healthServer.close(() => {
     process.exit(0);
   });
