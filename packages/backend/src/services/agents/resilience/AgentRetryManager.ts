@@ -306,15 +306,62 @@ export class AgentRetryManager {
       );
     }
 
+    type AgentAccumulator = {
+      attempts: number;
+      successes: number;
+      successfulDurationSum: number;
+      successfulDurationCount: number;
+    };
+
+    const agentAccumulators: Partial<Record<AgentType, AgentAccumulator>> = {};
+    const errorDistribution: Record<string, number> = {};
+
     const totalRetries = history.length;
-    const successfulRetries = history.filter((r) => r.success).length;
+    let successfulRetries = 0;
+    let fallbackUsageCount = 0;
+    let totalAttemptsAcrossRetries = 0;
+
+    history.forEach((result) => {
+      totalAttemptsAcrossRetries += result.totalAttempts;
+
+      if (result.success) {
+        successfulRetries++;
+      }
+
+      if (result.fallbackUsed) {
+        fallbackUsageCount++;
+      }
+
+      result.attempts.forEach((attempt) => {
+        const existingAccumulator = agentAccumulators[attempt.agentType];
+        const accumulator: AgentAccumulator = existingAccumulator ?? {
+          attempts: 0,
+          successes: 0,
+          successfulDurationSum: 0,
+          successfulDurationCount: 0,
+        };
+
+        accumulator.attempts++;
+
+        if (attempt.success) {
+          accumulator.successes++;
+          if (typeof attempt.duration === "number") {
+            accumulator.successfulDurationSum += attempt.duration;
+            accumulator.successfulDurationCount++;
+          }
+        }
+
+        agentAccumulators[attempt.agentType] = accumulator;
+
+        if (attempt.error) {
+          errorDistribution[attempt.error.type] = (errorDistribution[attempt.error.type] || 0) + 1;
+        }
+      });
+    });
+
     const successRate = totalRetries > 0 ? successfulRetries / totalRetries : 0;
-
-    const avgAttempts =
-      totalRetries > 0 ? history.reduce((sum, r) => sum + r.totalAttempts, 0) / totalRetries : 0;
-
-    const fallbackUsageRate =
-      totalRetries > 0 ? history.filter((r) => r.fallbackUsed).length / totalRetries : 0;
+    const avgAttempts = totalRetries > 0 ? totalAttemptsAcrossRetries / totalRetries : 0;
+    const fallbackUsageRate = totalRetries > 0 ? fallbackUsageCount / totalRetries : 0;
 
     const agentPerformance: Record<
       AgentType,
@@ -325,47 +372,20 @@ export class AgentRetryManager {
         avgDuration: number;
       }
     > = {};
+    Object.entries(agentAccumulators).forEach(([agentType, accumulator]) => {
+      if (!accumulator) {
+        return;
+      }
 
-    history.forEach((result) => {
-      result.attempts.forEach((attempt) => {
-        if (!agentPerformance[attempt.agentType]) {
-          agentPerformance[attempt.agentType] = {
-            attempts: 0,
-            successes: 0,
-            successRate: 0,
-            avgDuration: 0,
-          };
-        }
-
-        const perf = agentPerformance[attempt.agentType];
-        perf.attempts++;
-        if (attempt.success) {
-          perf.successes++;
-        }
-      });
-    });
-
-    // Calculate success rates and average durations
-    Object.entries(agentPerformance).forEach(([agentType, perf]) => {
-      perf.successRate = perf.attempts > 0 ? perf.successes / perf.attempts : 0;
-
-      const agentAttempts = history
-        .flatMap((r) => r.attempts)
-        .filter((a) => a.agentType === agentType && a.success && a.duration);
-
-      perf.avgDuration =
-        agentAttempts.length > 0
-          ? agentAttempts.reduce((sum, a) => sum + a.duration!, 0) / agentAttempts.length
-          : 0;
-    });
-
-    const errorDistribution: Record<string, number> = {};
-    history.forEach((result) => {
-      result.attempts.forEach((attempt) => {
-        if (attempt.error) {
-          errorDistribution[attempt.error.type] = (errorDistribution[attempt.error.type] || 0) + 1;
-        }
-      });
+      agentPerformance[agentType as AgentType] = {
+        attempts: accumulator.attempts,
+        successes: accumulator.successes,
+        successRate: accumulator.attempts > 0 ? accumulator.successes / accumulator.attempts : 0,
+        avgDuration:
+          accumulator.successfulDurationCount > 0
+            ? accumulator.successfulDurationSum / accumulator.successfulDurationCount
+            : 0,
+      };
     });
 
     return {

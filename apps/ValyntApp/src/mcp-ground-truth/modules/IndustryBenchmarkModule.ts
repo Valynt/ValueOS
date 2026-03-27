@@ -31,6 +31,11 @@ interface BenchmarkConfig {
   cacheTTL: number; // Cache time in seconds (benchmarks change infrequently)
 }
 
+interface BenchmarkQueryPolicy {
+  requireAuthoritativeExternal: boolean;
+  allowStaticFallback: boolean;
+}
+
 /**
  * Industry Benchmark Module - Tier 3 Contextual Data
  *
@@ -207,15 +212,24 @@ export class IndustryBenchmarkModule extends BaseModule {
       this.validateRequest(request, ['identifier']);
 
       const { identifier, metric, options } = request;
+      const queryOptions = (options ?? {}) as Record<string, unknown>;
+      const policy: BenchmarkQueryPolicy = {
+        requireAuthoritativeExternal: Boolean(queryOptions.require_authoritative_external_benchmark),
+        allowStaticFallback: queryOptions.allow_static_fallback !== false,
+      };
 
       // Determine if identifier is NAICS or occupation code
       const isNAICS = /^\d{6}$/.test(identifier);
       const isOccupation = /^\d{2}-\d{4}$/.test(identifier);
 
       if (isNAICS) {
-        return await this.getIndustryBenchmark(identifier, metric);
+        return await this.getIndustryBenchmark(identifier, metric, policy);
       } else if (isOccupation) {
-        return await this.getWageData(identifier, (options as Record<string, string> | undefined)?.metro_area);
+        return await this.getWageData(
+          identifier,
+          typeof queryOptions.metro_area === 'string' ? queryOptions.metro_area : undefined,
+          policy
+        );
       }
 
       throw new GroundTruthError(
@@ -230,18 +244,26 @@ export class IndustryBenchmarkModule extends BaseModule {
    */
   private async getIndustryBenchmark(
     naicsCode: string,
-    metric?: string
+    metric: string | undefined,
+    policy: BenchmarkQueryPolicy
   ): Promise<FinancialMetric> {
     // Check cache first
     const cacheKey = `naics:${naicsCode}:${metric || 'all'}`;
     const cached = this.getCachedData(cacheKey);
     if (cached) {
       logger.debug('Industry benchmark cache hit', { naicsCode, metric });
-      return this.createMetricFromBenchmark(cached as IndustryBenchmark, true);
+      const benchmark = cached as IndustryBenchmark;
+      return this.createMetricFromBenchmark(
+        benchmark,
+        true,
+        this.isFallbackBenchmarkSource(benchmark.source),
+        'cache'
+      );
     }
 
     // Try static data first
-    if (this.enableStaticData && this.STATIC_BENCHMARKS[naicsCode]) {
+    const staticAllowed = this.enableStaticData && policy.allowStaticFallback && !policy.requireAuthoritativeExternal;
+    if (staticAllowed && this.STATIC_BENCHMARKS[naicsCode]) {
       const benchmarks = this.STATIC_BENCHMARKS[naicsCode];
 
       // Filter by metric if specified
@@ -265,23 +287,45 @@ export class IndustryBenchmarkModule extends BaseModule {
       }
       this.setCachedData(cacheKey, benchmark);
 
-      return this.createMetricFromBenchmark(benchmark, false);
+      return this.createMetricFromBenchmark(benchmark, false, true, 'static');
     }
 
     // Try Census API
-    if (this.censusApiKey) {
-      try {
-        const benchmark = await this.getCensusBenchmark(naicsCode, metric);
-        this.setCachedData(cacheKey, benchmark);
-        return this.createMetricFromBenchmark(benchmark, false);
-      } catch (error: unknown) {
-        logger.warn('Census API lookup failed', { naicsCode, error });
+    try {
+      const benchmark = await this.getCensusBenchmark(naicsCode, metric);
+      this.setCachedData(cacheKey, benchmark);
+      return this.createMetricFromBenchmark(benchmark, false, false, 'live_api');
+    } catch (error: unknown) {
+      const typedError = error instanceof GroundTruthError
+        ? error
+        : new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, 'Census provider error', { error });
+      logger.warn('Census API lookup failed', { naicsCode, error: typedError.message, code: typedError.code });
+
+      if (typedError.code === ErrorCodes.INVALID_CLASSIFICATION_CODE) {
+        throw typedError;
+      }
+
+      if (policy.requireAuthoritativeExternal) {
+        throw new GroundTruthError(
+          ErrorCodes.EVIDENCE_REQUIRED,
+          `Authoritative Census benchmark required for NAICS ${naicsCode}, but live lookup failed`,
+          { naicsCode, reason: typedError.code, provider: 'census' }
+        );
+      }
+
+      if (!policy.allowStaticFallback) {
+        throw typedError;
       }
     }
 
     throw new GroundTruthError(
-      ErrorCodes.NO_DATA_FOUND,
-      `No benchmark data available for NAICS ${naicsCode}`
+      ErrorCodes.EXTERNAL_NO_DATA,
+      `No benchmark data available for NAICS ${naicsCode}`,
+      {
+        naicsCode,
+        provider: 'census',
+        staticFallbackAllowed: this.enableStaticData && policy.allowStaticFallback,
+      }
     );
   }
 
@@ -290,38 +334,69 @@ export class IndustryBenchmarkModule extends BaseModule {
    */
   private async getWageData(
     occupationCode: string,
-    metroArea?: string
+    metroArea: string | undefined,
+    policy: BenchmarkQueryPolicy
   ): Promise<FinancialMetric> {
     // Check cache first
     const cacheKey = `wage:${occupationCode}:${metroArea || 'national'}`;
     const cached = this.getCachedData(cacheKey);
     if (cached) {
       logger.debug('Wage data cache hit', { occupationCode, metroArea });
-      return this.createMetricFromWageData(cached as WageData, true);
+      const wageData = cached as WageData;
+      return this.createMetricFromWageData(
+        wageData,
+        true,
+        this.isFallbackWageSource(wageData.source),
+        'cache'
+      );
     }
 
     // Try static data first
-    if (this.enableStaticData && this.STATIC_WAGE_DATA[occupationCode]) {
+    const staticAllowed = this.enableStaticData && policy.allowStaticFallback && !policy.requireAuthoritativeExternal;
+    if (staticAllowed && this.STATIC_WAGE_DATA[occupationCode]) {
       const wageData = this.STATIC_WAGE_DATA[occupationCode];
       this.setCachedData(cacheKey, wageData);
 
-      return this.createMetricFromWageData(wageData, false);
+      return this.createMetricFromWageData(wageData, false, true, 'static');
     }
 
     // Try BLS API
-    if (this.blsApiKey) {
-      try {
-        const wageData = await this.getBLSWageData(occupationCode, metroArea);
-        this.setCachedData(cacheKey, wageData);
-        return this.createMetricFromWageData(wageData, false);
-      } catch (error: unknown) {
-        logger.warn('BLS API lookup failed', { occupationCode, error });
+    try {
+      const wageData = await this.getBLSWageData(occupationCode, metroArea);
+      this.setCachedData(cacheKey, wageData);
+      return this.createMetricFromWageData(wageData, false, false, 'live_api');
+    } catch (error: unknown) {
+      const typedError = error instanceof GroundTruthError
+        ? error
+        : new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, 'BLS provider error', { error });
+      logger.warn('BLS API lookup failed', {
+        occupationCode,
+        metroArea,
+        error: typedError.message,
+        code: typedError.code,
+      });
+
+      if (policy.requireAuthoritativeExternal) {
+        throw new GroundTruthError(
+          ErrorCodes.EVIDENCE_REQUIRED,
+          `Authoritative BLS wage data required for occupation ${occupationCode}, but live lookup failed`,
+          { occupationCode, reason: typedError.code, provider: 'bls' }
+        );
+      }
+
+      if (typedError.code === ErrorCodes.INVALID_CLASSIFICATION_CODE || !policy.allowStaticFallback) {
+        throw typedError;
       }
     }
 
     throw new GroundTruthError(
-      ErrorCodes.NO_DATA_FOUND,
-      `No wage data available for occupation ${occupationCode}`
+      ErrorCodes.EXTERNAL_NO_DATA,
+      `No wage data available for occupation ${occupationCode}`,
+      {
+        occupationCode,
+        provider: 'bls',
+        staticFallbackAllowed: this.enableStaticData && policy.allowStaticFallback,
+      }
     );
   }
 
@@ -444,8 +519,6 @@ export class IndustryBenchmarkModule extends BaseModule {
   // ============================================================================
   // External API Integrations
   //
-  // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Implement Census Bureau and BLS API integrations (post-v1).
-  //
   // Census Bureau API
   //   Docs:    https://www.census.gov/data/developers/data-sets.html
   //   Key env: CENSUS_API_KEY (set in .env.local.example)
@@ -457,9 +530,6 @@ export class IndustryBenchmarkModule extends BaseModule {
   //   Key env: BLS_API_KEY (set in .env.local.example)
   //   Endpoint: https://api.bls.gov/publicAPI/v2/timeseries/data/
   //   Use case: occupation wage percentiles by SOC code and metro area.
-  //
-  // Both methods fall back to STATIC_BENCHMARKS / STATIC_WAGE_DATA when the
-  // API key is absent, so the module degrades gracefully in development.
   // ============================================================================
 
   private async getCensusBenchmark(
@@ -467,26 +537,92 @@ export class IndustryBenchmarkModule extends BaseModule {
     metric?: string
   ): Promise<IndustryBenchmark> {
     if (!this.censusApiKey) {
-      // Degrade gracefully — callers fall back to static data when this throws.
       throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        'Census API key not configured. Set CENSUS_API_KEY to enable live benchmark data.'
+        ErrorCodes.MISSING_API_KEY,
+        'Census API key not configured. Set CENSUS_API_KEY to enable live benchmark data.',
+        { provider: 'census' }
       );
     }
 
-    logger.debug('Census API lookup', { naicsCode, metric });
+    const year = new Date().getUTCFullYear() - 1;
+    const selectedMetric = metric ?? 'revenue_per_employee';
+    const fields = selectedMetric === 'payroll_per_employee'
+      ? 'PAYANN,EMP,NAICS2017_LABEL'
+      : 'RCPTOT,EMP,NAICS2017_LABEL';
+    const url = `https://api.census.gov/data/${year}/cbp?get=${encodeURIComponent(fields)}&for=us:1&NAICS2017=${encodeURIComponent(naicsCode)}&key=${encodeURIComponent(this.censusApiKey)}`;
 
-    // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Call Census Bureau API.
-    // Example request:
-    //   GET https://api.census.gov/data/{year}/cbp
-    //     ?get=NAICS2017_LABEL,PAYANN,EMP
-    //     &for=us:*
-    //     &NAICS2017={naicsCode}
-    //     &key={this.censusApiKey}
-    throw new GroundTruthError(
-      ErrorCodes.NO_DATA_FOUND,
-      'Census API integration is not yet implemented. Tracked in post-v1 roadmap (P2-001).'
-    );
+    logger.debug('Census API lookup', { naicsCode, metric: selectedMetric, year });
+
+    // eslint-disable-next-line no-restricted-globals
+    const response = await fetch(url);
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 422) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_CLASSIFICATION_CODE,
+          `Invalid NAICS code ${naicsCode}`,
+          { naicsCode, provider: 'census', status: response.status }
+        );
+      }
+      throw new GroundTruthError(
+        ErrorCodes.PROVIDER_OUTAGE,
+        `Census API returned ${response.status}`,
+        { provider: 'census', status: response.status }
+      );
+    }
+
+    const payload = await response.json() as unknown;
+    if (!Array.isArray(payload) || payload.length < 2) {
+      throw new GroundTruthError(
+        ErrorCodes.EXTERNAL_NO_DATA,
+        `No Census data available for NAICS ${naicsCode}`,
+        { naicsCode, provider: 'census', year }
+      );
+    }
+
+    const [headerRow, firstRow] = payload as Array<unknown>;
+    if (!Array.isArray(headerRow) || !Array.isArray(firstRow)) {
+      throw new GroundTruthError(
+        ErrorCodes.PARSE_ERROR,
+        'Unexpected Census payload shape',
+        { provider: 'census', payload }
+      );
+    }
+
+    const row = Object.fromEntries(headerRow.map((key, idx) => [String(key), firstRow[idx]])) as Record<string, string>;
+    const emp = Number(row.EMP);
+    if (!Number.isFinite(emp) || emp <= 0) {
+      throw new GroundTruthError(
+        ErrorCodes.EXTERNAL_NO_DATA,
+        `Census returned no employment data for NAICS ${naicsCode}`,
+        { naicsCode, provider: 'census', year }
+      );
+    }
+
+    const receipts = Number(row.RCPTOT);
+    const payroll = Number(row.PAYANN);
+    const metricName = selectedMetric === 'payroll_per_employee' || !Number.isFinite(receipts)
+      ? 'payroll_per_employee'
+      : 'revenue_per_employee';
+    const numerator = metricName === 'revenue_per_employee' ? receipts : payroll;
+
+    if (!Number.isFinite(numerator)) {
+      throw new GroundTruthError(
+        ErrorCodes.EXTERNAL_NO_DATA,
+        `Census returned no ${metricName === 'revenue_per_employee' ? 'receipts' : 'payroll'} for NAICS ${naicsCode}`,
+        { naicsCode, provider: 'census', year }
+      );
+    }
+
+    return {
+      naics_code: naicsCode,
+      industry_name: row.NAICS2017_LABEL || `NAICS ${naicsCode}`,
+      metric_name: metricName,
+      value: Math.round((numerator * 1000) / emp),
+      unit: 'USD',
+      year,
+      source: 'US Census CBP API',
+      percentile: 50,
+    };
   }
 
   private async getBLSWageData(
@@ -494,23 +630,92 @@ export class IndustryBenchmarkModule extends BaseModule {
     metroArea?: string
   ): Promise<WageData> {
     if (!this.blsApiKey) {
-      // Degrade gracefully — callers fall back to static data when this throws.
       throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        'BLS API key not configured. Set BLS_API_KEY to enable live wage data.'
+        ErrorCodes.MISSING_API_KEY,
+        'BLS API key not configured. Set BLS_API_KEY to enable live wage data.',
+        { provider: 'bls' }
       );
     }
 
     logger.debug('BLS API lookup', { occupationCode, metroArea });
 
-    // TODO(ticket: VOS-2316 owner: @ground-truth date: 2026-03-26): Call BLS Public Data API v2.
-    // Example request:
-    //   POST https://api.bls.gov/publicAPI/v2/timeseries/data/
-    //   Body: { "seriesid": ["OES{occupationCode}"], "registrationkey": this.blsApiKey }
-    throw new GroundTruthError(
-      ErrorCodes.NO_DATA_FOUND,
-      'BLS API integration is not yet implemented. Tracked in post-v1 roadmap (P2-001).'
-    );
+    const seriesId = `OEUN000000000000000000${occupationCode.replace('-', '')}01`;
+    // eslint-disable-next-line no-restricted-globals
+    const response = await fetch('https://api.bls.gov/publicAPI/v2/timeseries/data/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seriesid: [seriesId],
+        registrationkey: this.blsApiKey,
+        latest: true,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 422) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_CLASSIFICATION_CODE,
+          `Invalid SOC code ${occupationCode}`,
+          { occupationCode, provider: 'bls', status: response.status }
+        );
+      }
+      throw new GroundTruthError(
+        ErrorCodes.PROVIDER_OUTAGE,
+        `BLS API returned ${response.status}`,
+        { provider: 'bls', status: response.status }
+      );
+    }
+
+    const payload = await response.json() as {
+      status?: string;
+      message?: string[];
+      Results?: { series?: Array<{ data?: Array<Record<string, string>> }> };
+    };
+
+    if (payload.status !== 'REQUEST_SUCCEEDED') {
+      const invalidSeries = (payload.message || []).some((msg) => msg.toLowerCase().includes('invalid'));
+      throw new GroundTruthError(
+        invalidSeries ? ErrorCodes.INVALID_CLASSIFICATION_CODE : ErrorCodes.PROVIDER_OUTAGE,
+        payload.message?.join('; ') || 'BLS request failed',
+        { provider: 'bls', occupationCode, message: payload.message }
+      );
+    }
+
+    const latest = payload.Results?.series?.[0]?.data?.[0];
+    if (!latest) {
+      throw new GroundTruthError(
+        ErrorCodes.EXTERNAL_NO_DATA,
+        `No wage data available from BLS for SOC ${occupationCode}`,
+        { provider: 'bls', occupationCode }
+      );
+    }
+
+    const medianWage = Number(latest.median_wage ?? latest.value);
+    const meanWage = Number(latest.mean_wage ?? latest.value);
+    const year = Number(latest.year);
+
+    if (!Number.isFinite(medianWage) || !Number.isFinite(meanWage) || !Number.isFinite(year)) {
+      throw new GroundTruthError(
+        ErrorCodes.PARSE_ERROR,
+        'Unable to parse BLS wage payload',
+        { provider: 'bls', occupationCode, latest }
+      );
+    }
+
+    return {
+      occupation_code: occupationCode,
+      occupation_title: latest.occupation_title || `SOC ${occupationCode}`,
+      metro_area: metroArea,
+      median_wage: medianWage,
+      mean_wage: meanWage,
+      percentile_10: Number(latest.percentile_10 || latest.p10) || undefined,
+      percentile_25: Number(latest.percentile_25 || latest.p25) || undefined,
+      percentile_75: Number(latest.percentile_75 || latest.p75) || undefined,
+      percentile_90: Number(latest.percentile_90 || latest.p90) || undefined,
+      employment_count: Number(latest.employment_count || latest.employment) || undefined,
+      year,
+      source: 'BLS Public Data API v2',
+    };
   }
 
   // ============================================================================
@@ -519,7 +724,9 @@ export class IndustryBenchmarkModule extends BaseModule {
 
   private createMetricFromBenchmark(
     benchmark: IndustryBenchmark,
-    cacheHit: boolean
+    cacheHit: boolean,
+    isFallbackData: boolean,
+    dataMode: 'static' | 'live_api' | 'cache'
   ): FinancialMetric {
     return this.createMetric(
       benchmark.metric_name,
@@ -535,6 +742,9 @@ export class IndustryBenchmarkModule extends BaseModule {
         percentile: benchmark.percentile,
         year: benchmark.year,
         source: benchmark.source,
+        is_fallback_data: isFallbackData,
+        data_mode: dataMode,
+        authoritative_external: !isFallbackData,
         cache_hit: cacheHit,
       },
       JSON.stringify(benchmark)
@@ -543,7 +753,9 @@ export class IndustryBenchmarkModule extends BaseModule {
 
   private createMetricFromWageData(
     wageData: WageData,
-    cacheHit: boolean
+    cacheHit: boolean,
+    isFallbackData: boolean,
+    dataMode: 'static' | 'live_api' | 'cache'
   ): FinancialMetric {
     return this.createMetric(
       'wage_data',
@@ -563,6 +775,10 @@ export class IndustryBenchmarkModule extends BaseModule {
         percentile_90: wageData.percentile_90,
         employment_count: wageData.employment_count,
         year: wageData.year,
+        source: wageData.source ?? 'Static Wage Benchmark',
+        is_fallback_data: isFallbackData,
+        data_mode: dataMode,
+        authoritative_external: !isFallbackData,
         cache_hit: cacheHit,
       },
       JSON.stringify(wageData)
@@ -595,5 +811,13 @@ export class IndustryBenchmarkModule extends BaseModule {
   clearCache(): void {
     this.benchmarkCache.clear();
     logger.info('Industry benchmark cache cleared');
+  }
+
+  private isFallbackBenchmarkSource(source: string): boolean {
+    return source !== 'US Census CBP API';
+  }
+
+  private isFallbackWageSource(source?: string): boolean {
+    return source !== 'BLS Public Data API v2';
   }
 }

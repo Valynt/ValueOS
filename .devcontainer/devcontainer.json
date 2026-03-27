@@ -3,15 +3,13 @@
   "name": "ValueOS",
   "build": {
     "context": "..",
-    "dockerfile": "Dockerfile",
+    "dockerfile": "Dockerfile.optimized",
     "args": {
       "NODE_VERSION": "20.19.5",
-      "NODE_SHA256": "315046739a513a70e03a4a55a8afda8cf979f30852e576075c340084e3f8ac0f",
+      "NODE_DOWNLOAD_SHA256": "315046739a513a70e03a4a55a8afda8cf979f30852e576075c340084e3f8ac0f",
       "PNPM_VERSION": "10.4.1",
       "KUBECTL_VERSION": "1.32.2",
-      "KUBECTL_SHA256": "4f6a959dcc5b702135f8354cc7109b542a2933c46b808b248a214c1f69f817ea",
-      "TERRAFORM_VERSION": "1.10.5",
-      "TERRAFORM_SHA256": "0566a24f5332098b15716ebc394be503f4094acba5ba529bf5eb0698ed5e2a90"
+      "TERRAFORM_VERSION": "1.10.5"
     }
   },
   "workspaceFolder": "/workspaces/ValueOS",
@@ -46,6 +44,16 @@
     }
   },
   "customizations": {
+    "windsurf": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer",
+        "redhat.vscode-yaml",
+        "cweijan.vscode-postgresql-client2"
+      ]
+    },
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",

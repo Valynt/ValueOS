@@ -6,7 +6,7 @@
 import crypto from "crypto";
 
 import { logger } from "../../lib/logger.js"
-import { supabase } from "../../lib/supabase.js"
+import { createPlatformAdminSupabaseClient } from "../../lib/supabase/privileged/index.js"
 import { BaseService } from "../BaseService.js"
 
 import { emailService } from "./EmailService.js"
@@ -38,6 +38,10 @@ export interface CreateTokenResult {
 }
 
 export class CustomerAccessService extends BaseService {
+  private readonly privilegedClient = createPlatformAdminSupabaseClient({
+    justification: "service-role:justified customer token lifecycle operations",
+  });
+
   constructor() {
     super("CustomerAccessService");
   }
@@ -55,7 +59,7 @@ export class CustomerAccessService extends BaseService {
         expiresInDays,
       });
 
-      const { data, error } = await supabase.rpc(
+      const { data, error } = await this.privilegedClient.rpc(
         "create_customer_access_token",
         {
           p_value_case_id: valueCaseId,
@@ -98,7 +102,7 @@ export class CustomerAccessService extends BaseService {
     try {
       logger.debug("Validating customer token");
 
-      const { data, error } = await supabase.rpc("validate_customer_token", {
+      const { data, error } = await this.privilegedClient.rpc("validate_customer_token", {
         p_token: token,
       });
 
@@ -157,7 +161,7 @@ export class CustomerAccessService extends BaseService {
     try {
       logger.info("Revoking customer token", { revokedBy, reason });
 
-      const { data, error } = await supabase.rpc("revoke_customer_token", {
+      const { data, error } = await this.privilegedClient.rpc("revoke_customer_token", {
         p_token: token,
         p_revoked_by: revokedBy,
         p_reason: reason || null,
@@ -190,7 +194,7 @@ export class CustomerAccessService extends BaseService {
     valueCaseId: string
   ): Promise<CustomerAccessToken[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.privilegedClient
         .from("customer_access_tokens")
         .select("*")
         .eq("value_case_id", valueCaseId)
@@ -215,7 +219,7 @@ export class CustomerAccessService extends BaseService {
     valueCaseId: string
   ): Promise<CustomerAccessToken[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.privilegedClient
         .from("customer_access_tokens")
         .select("*")
         .eq("value_case_id", valueCaseId)
@@ -260,7 +264,7 @@ export class CustomerAccessService extends BaseService {
    * Build portal URL from token
    */
   private buildPortalUrl(token: string): string {
-    const baseUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
     return `${baseUrl}/customer/portal#token=${encodeURIComponent(token)}`;
   }
 

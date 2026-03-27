@@ -38,10 +38,34 @@ const checks = [
     error: "Expected check-supabase-tenant-controls.mjs in .github/workflows/pr-fast.yml",
   },
   {
+    id: "pr-fast-has-security-debt-budget-gate",
+    file: ".github/workflows/pr-fast.yml",
+    test: (content) => content.includes("check-security-debt-budget.mjs"),
+    error: "Expected check-security-debt-budget.mjs in .github/workflows/pr-fast.yml",
+  },
+  {
+    id: "pr-fast-has-appsec-attestation-gate",
+    file: ".github/workflows/pr-fast.yml",
+    test: (content) => content.includes("check-appsec-controls-attestation.mjs"),
+    error: "Expected check-appsec-controls-attestation.mjs in .github/workflows/pr-fast.yml",
+  },
+  {
     id: "main-verify-has-tenant-controls-guard",
     file: ".github/workflows/main-verify.yml",
     test: (content) => content.includes("check-supabase-tenant-controls.mjs"),
     error: "Expected check-supabase-tenant-controls.mjs in .github/workflows/main-verify.yml",
+  },
+  {
+    id: "main-verify-has-security-debt-budget-gate",
+    file: ".github/workflows/main-verify.yml",
+    test: (content) => content.includes("check-security-debt-budget.mjs"),
+    error: "Expected check-security-debt-budget.mjs in .github/workflows/main-verify.yml",
+  },
+  {
+    id: "main-verify-has-appsec-attestation-gate",
+    file: ".github/workflows/main-verify.yml",
+    test: (content) => content.includes("check-appsec-controls-attestation.mjs"),
+    error: "Expected check-appsec-controls-attestation.mjs in .github/workflows/main-verify.yml",
   },
 ];
 

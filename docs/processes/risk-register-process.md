@@ -67,6 +67,23 @@ Every risk entry must include the following fields:
    - Security verifies mitigation evidence and determines residual risk.
    - Risk can be closed only when evidence is attached and reviewer sign-off is recorded.
 
+## Trust KPI Definitions and Targets
+
+The risk program publishes the following trust KPIs in each weekly governance packet and quarterly executive summary.
+
+| KPI | Definition | Formula | Target | Source |
+| --- | --- | --- | --- | --- |
+| Control freshness | Share of controls that are not stale against the snapshot date. A control is stale if it is open and `targetDate` is before the snapshot date. | `(total controls - stale controls) / total controls * 100` | >= 95% | `docs/security-compliance/control-status.json` + CI snapshot artifact `trust-kpi-snapshot.json` |
+| Open critical risk age | Age in days of the oldest open Critical risk from created date to snapshot date. | `max(snapshot_date - created_date)` for open Critical risks | <= 30 days (or approved exception) | `docs/security-compliance/risk-register.json` |
+| Evidence completeness | Share of controls with non-empty evidence references suitable for reviewer verification. | `controls with evidenceLocation / total controls * 100` | 100% for Critical/High controls, >= 98% overall | `docs/security-compliance/control-status.json` |
+| Disclosure SLA adherence | Percent of notifiable incidents that met initial customer disclosure SLA. | `incidents meeting SLA / total notifiable incidents * 100` | 100% within 72 hours | Incident communication log + quarterly incident summary |
+
+### KPI publication and evidence requirements
+
+- KPI snapshots are generated in CI using `node scripts/ci/extract-governance-risk-control-kpis.mjs` and attached as artifacts.
+- Governance reviewers must attach the latest `trust-kpi-snapshot.json`, `open-risks.json`, and `stale-controls.json` outputs to quarterly records.
+- Any KPI target breach requires either a dated remediation commitment or an approved risk acceptance record with expiry.
+
 ## Quarterly Integrated Review Process
 
 Quarterly review is mandatory and links risk posture to incident and compliance outputs.

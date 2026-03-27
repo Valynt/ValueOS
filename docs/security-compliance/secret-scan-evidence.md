@@ -19,6 +19,25 @@
 
 ---
 
+## 2026-03-27 Local Re-Scan (working tree)
+
+**Command run:**
+
+```bash
+/tmp/gitleaks detect --config=.gitleaks.toml --source . --redact \
+  --report-format json --report-path artifacts/secret-scan/gitleaks-workingtree.json --exit-code 1
+```
+
+**Result:** 3 findings in the current working tree.
+
+- `packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts` (`api_key: 'sk-live-abc123'`) — synthetic secret-like test fixture.
+- `packages/backend/src/services/crm/__tests__/SalesforceProvider.test.ts` (`tokens, ...`) — unit-test token fixture.
+- `ops/env/.env.base` (`CACHE_ENCRYPTION_KEY=`) — empty env template key placeholder.
+
+**Conclusion:** No additional real credentials were identified in working tree content; unresolved critical risk remains the previously documented historical Supabase key exposures pending dashboard rotation.
+
+---
+
 ## True Positives — Rotation Required
 
 ### TP-1: Supabase Project `wfhdrrpijqygytvoaafc` — Full Credential Set

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "lastReviewed": "2026-03-27",
+  "owners": [
+    "team-security@valueos",
+    "team-frontend@valueos"
+  ],
+  "ceilings": {
+    "typescriptErrors": {
+      "valyntApp": 4239
+    },
+    "eslintWarnings": {
+      "backend": 5723,
+      "valynt-app": 1124,
+      "shared": 19
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-03-27",
+  "owner": "security-compliance@valueos",
+  "risks": [
+    {
+      "riskId": "RISK-2026-0001",
+      "title": "Secrets rotation evidence missing for release packet",
+      "description": "Release sign-off can proceed without attached secret-rotation artifacts when reviewers do not verify workflow outputs.",
+      "category": "Compliance",
+      "severity": "High",
+      "likelihood": "Possible",
+      "impact": "Major",
+      "owner": "team-security@valueos",
+      "source": "Compliance Test",
+      "createdDate": "2026-03-12",
+      "targetDueDate": "2026-04-15",
+      "status": "In Progress",
+      "mitigationPlan": "Enforce launch-readiness checklist item requiring secret-rotation artifact link and validate packet completeness in release sign-off.",
+      "linkedEvidenceIds": [
+        "secret-rotation-evidence-production"
+      ],
+      "residualRisk": "Medium",
+      "lastReviewedDate": "2026-03-25"
+    }
+  ]
+}

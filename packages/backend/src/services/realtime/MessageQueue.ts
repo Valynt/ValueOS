@@ -16,6 +16,7 @@ import type { JsonObject } from '../types/json.js'
 
 import { llmFallbackWithTracing } from './LLMFallbackWithTracing.js'
 import { promptVersionControl } from './PromptVersionControl.js'
+import { runJobWithTenantContext } from '../../workers/tenantContextBootstrap.js';
 
 
 // Lazy Redis connection – create when first used to allow test harness to set REDIS_URL
@@ -184,65 +185,70 @@ export class LLMQueueService {
     });
 
     try {
-      let prompt: string;
-      let executionId: string | undefined;
+      return await runJobWithTenantContext(
+        { workerName: 'LLMQueueService', tenantId: data.tenant_id },
+        async () => {
+          let prompt: string;
+          let executionId: string | undefined;
 
-      // Get prompt from version control or use provided prompt
-      if (data.promptKey && data.promptVariables) {
-        const result = await promptVersionControl.executePrompt(
-          data.promptKey,
-          data.promptVariables,
-          data.userId
-        );
-        prompt = result.prompt;
-        executionId = result.executionId;
-      } else if (data.prompt) {
-        prompt = data.prompt;
-      } else {
-        throw new Error('Either promptKey+promptVariables or prompt must be provided');
-      }
+          // Get prompt from version control or use provided prompt
+          if (data.promptKey && data.promptVariables) {
+            const result = await promptVersionControl.executePrompt(
+              data.promptKey,
+              data.promptVariables,
+              data.userId
+            );
+            prompt = result.prompt;
+            executionId = result.executionId;
+          } else if (data.prompt) {
+            prompt = data.prompt;
+          } else {
+            throw new Error('Either promptKey+promptVariables or prompt must be provided');
+          }
 
-      // Process with LLM
-      const response = await llmFallbackWithTracing.processRequest({
-        prompt,
-        model: data.model || 'meta-llama/Llama-3-70b-chat-hf',
-        maxTokens: data.maxTokens,
-        temperature: data.temperature,
-        userId: data.userId,
-        sessionId: data.sessionId,
-      });
+          // Process with LLM
+          const response = await llmFallbackWithTracing.processRequest({
+            prompt,
+            model: data.model || 'meta-llama/Llama-3-70b-chat-hf',
+            maxTokens: data.maxTokens,
+            temperature: data.temperature,
+            userId: data.userId,
+            sessionId: data.sessionId,
+          });
 
-      // Record execution if using prompt version control
-      if (executionId) {
-        await promptVersionControl.recordExecution(executionId, {
-          response: response.content,
-          latency: response.latency,
-          cost: response.cost,
-          tokens: {
-            prompt: response.promptTokens,
-            completion: response.completionTokens,
-            total: response.totalTokens,
-          },
-          success: true,
-        });
-      }
+          // Record execution if using prompt version control
+          if (executionId) {
+            await promptVersionControl.recordExecution(executionId, {
+              response: response.content,
+              latency: response.latency,
+              cost: response.cost,
+              tokens: {
+                prompt: response.promptTokens,
+                completion: response.completionTokens,
+                total: response.totalTokens,
+              },
+              success: true,
+            });
+          }
 
-      // Store result in database
-      await this.storeResult(job.id!, data, response);
+          // Store result in database
+          await this.storeResult(job.id!, data, response);
 
-      const duration = Date.now() - startTime;
+          const duration = Date.now() - startTime;
 
-      logger.info('LLM job completed', {
-        jobId: job.id,
-        type: data.type,
-        userId: data.userId,
-        tenant_id: data.tenant_id,
-        duration,
-        cost: response.cost,
-        cached: response.cached,
-      });
+          logger.info('LLM job completed', {
+            jobId: job.id,
+            type: data.type,
+            userId: data.userId,
+            tenant_id: data.tenant_id,
+            duration,
+            cost: response.cost,
+            cached: response.cached,
+          });
 
-      return response;
+          return response;
+        },
+      );
     } catch (error) {
       const duration = Date.now() - startTime;
 

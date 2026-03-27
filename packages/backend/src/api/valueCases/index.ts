@@ -10,18 +10,19 @@ import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js';
 import { getDiscoveryAgent } from '../../lib/agent-fabric/agents/DiscoveryAgent.js';
-import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requireRole } from '../../middleware/auth.js';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js';
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js';
 
 import baselineRouter from './baseline.js';
 import { backHalfRouter } from './backHalf.js';
+import { handleError } from './errors.js';
+import { correlationId, requestLogger, validateUuidParam } from './middleware.js';
+import { requireOrganizationContext } from './requireOrganizationContext.js';
 import { registerCrudRoutes } from './crud.routes.js';
 import { registerEconomicRoutes } from './economic.routes.js';
-import { handleError } from './errors.js';
 import { registerIntegrityRoutes } from './integrity.routes.js';
-import { validateUuidParam, correlationId, requestLogger } from './middleware.js';
 import { registerValueTreeRoutes } from './valueTree.routes.js';
 
 const router = Router();
@@ -33,21 +34,24 @@ router.use(correlationId);
 router.use(requestLogger);
 router.use(requireAuth);
 router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
+router.use(requireOrganizationContext);
 
 registerCrudRoutes(router, { standardLimiter, strictLimiter });
 registerValueTreeRoutes(router, { standardLimiter });
 registerIntegrityRoutes(router, { standardLimiter });
 registerEconomicRoutes(router, { standardLimiter });
 
-const StartDiscoverySchema = z.object({
-  companyName: z.string().min(1).max(200),
-  industryContext: z.string().max(500).optional(),
-}).strict();
+const StartDiscoverySchema = z
+  .object({
+    companyName: z.string().min(1).max(200),
+    industryContext: z.string().max(500).optional(),
+  })
+  .strict();
 
 async function startDiscovery(req: Request, res: Response) {
   try {
     const { caseId } = req.params;
-    const tenantId = (req as AuthenticatedRequest).tenantId ?? '';
+    const organizationId = req.organizationId!;
     const body = StartDiscoverySchema.safeParse(req.body);
 
     if (!body.success) {
@@ -59,13 +63,18 @@ async function startDiscovery(req: Request, res: Response) {
 
     const discoveryAgent = getDiscoveryAgent();
     const result = await discoveryAgent.startDiscovery({
-      organizationId: tenantId,
+      organizationId,
       valueCaseId: caseId,
       companyName: body.data.companyName,
       industryContext: body.data.industryContext,
     });
 
-    logger.info('Discovery started', { runId: result.runId, caseId, tenantId });
+    logger.info('Discovery started', {
+      runId: result.runId,
+      caseId,
+      organizationId,
+    });
+
     return res.status(202).json({
       runId: result.runId,
       status: 'started',
@@ -76,6 +85,7 @@ async function startDiscovery(req: Request, res: Response) {
       error: err instanceof Error ? err.message : String(err),
       caseId: req.params.caseId,
     });
+
     return res.status(500).json({ error: 'Failed to start discovery' });
   }
 }
@@ -102,6 +112,7 @@ async function getDiscoveryStatus(req: Request, res: Response) {
       error: err instanceof Error ? err.message : String(err),
       runId: req.params.runId,
     });
+
     return res.status(500).json({ error: 'Failed to get discovery status' });
   }
 }
@@ -111,12 +122,14 @@ async function cancelDiscovery(req: Request, res: Response) {
     const { runId } = req.params;
     const discoveryAgent = getDiscoveryAgent();
     await discoveryAgent.cancelDiscovery(runId);
+
     return res.json({ message: 'Discovery run cancelled' });
   } catch (err) {
     logger.error('Discovery cancel failed', {
       error: err instanceof Error ? err.message : String(err),
       runId: req.params.runId,
     });
+
     return res.status(500).json({ error: 'Failed to cancel discovery' });
   }
 }
@@ -145,9 +158,9 @@ router.delete(
   cancelDiscovery,
 );
 
-router.use(handleError);
 router.use('/', backHalfRouter);
 router.use('/', baselineRouter);
+router.use(handleError);
 
 export default router;
 export { router as valueCasesRouter };
