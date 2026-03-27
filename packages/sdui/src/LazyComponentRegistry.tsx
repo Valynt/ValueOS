@@ -423,7 +423,19 @@ export class LazyComponentRegistry {
       // Load component lazily
       const lazyLoader = lazyComponents[componentName as keyof typeof lazyComponents];
       if (!lazyLoader) {
-        logger.warn(`Component not found in lazy registry: ${componentName}`);
+        logger.warn(`Component not found in lazy registry: ${componentName}`, {
+          componentKey: componentName,
+          schemaVersion: section.version,
+          reason: "schema_component_missing",
+        });
+        sduiTelemetry.recordEvent({
+          type: TelemetryEventType.COMPONENT_NOT_FOUND,
+          metadata: {
+            componentKey: componentName,
+            schemaVersion: section.version,
+            reason: "schema_component_missing",
+          },
+        });
         return undefined;
       }
       // Create and cache loading promise

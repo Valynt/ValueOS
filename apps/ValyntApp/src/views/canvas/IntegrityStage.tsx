@@ -1,5 +1,5 @@
-import { RotateCcw, Shield, XCircle } from "lucide-react";
-
+import { Loader2, RotateCcw, Shield, XCircle } from "lucide-react";
+import { useCallback, useRef } from "react";
 
 import { ClaimCard } from "./integrity/ClaimCard";
 import { IntegrityEmptyState } from "./integrity/IntegrityEmptyState";
@@ -19,12 +19,23 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
   const organizationId = currentTenant?.id;
   const { data, isLoading, runAgent, isRunning } = useIntegrityOutput(caseId);
 
+  // Debounced handler — prevents double-enqueue during network latency.
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRunAgent = useCallback(() => {
+    if (isRunning || !organizationId) return;
+    if (debounceTimer.current) return; // already scheduled
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+    }, 300);
+    runAgent(organizationId);
+  }, [isRunning, organizationId, runAgent]);
+
   if (isLoading) return <IntegrityLoading />;
 
   if (!data) {
     return (
       <IntegrityEmptyState
-        onRun={() => organizationId && runAgent(organizationId)}
+        onRun={handleRunAgent}
         isRunning={isRunning}
       />
     );
@@ -102,11 +113,15 @@ export function IntegrityStage({ caseId }: IntegrityStageProps) {
       {/* Re-run */}
       <div className="flex justify-end">
         <button
-          onClick={() => organizationId && runAgent(organizationId)}
+          onClick={handleRunAgent}
           disabled={isRunning}
           className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-xl text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RotateCcw className={cn("w-3 h-3", isRunning && "animate-spin")} />
+          {isRunning ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <RotateCcw className="w-3 h-3" />
+          )}
           {isRunning ? "Running…" : "Re-run Agent"}
         </button>
       </div>

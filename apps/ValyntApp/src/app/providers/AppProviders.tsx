@@ -3,6 +3,7 @@ import { ReactNode, useEffect } from "react";
 
 import { NotificationProvider } from "@/components/shell/NotificationCenter";
 
+import { ApiRequestProvider } from "../../contexts/ApiRequestContext";
 import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 import { TrpcProvider, trpcQueryClient } from "../../lib/trpc";
 import { ThemeProvider } from "./ThemeProvider";
@@ -29,11 +30,13 @@ export function AppProviders({ children }: AppProvidersProps) {
 
   return (
     <ThemeProvider>
-      <TrpcProvider>
-        <QueryClientProvider client={trpcQueryClient}>
-          <NotificationProvider>{children}</NotificationProvider>
-        </QueryClientProvider>
-      </TrpcProvider>
+      <ApiRequestProvider>
+        <TrpcProvider>
+          <QueryClientProvider client={trpcQueryClient}>
+            <NotificationProvider>{children}</NotificationProvider>
+          </QueryClientProvider>
+        </TrpcProvider>
+      </ApiRequestProvider>
     </ThemeProvider>
   );
 }
