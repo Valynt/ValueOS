@@ -170,6 +170,13 @@ jobs:
             f.write("\n")
           PY
 
+      - name: Extract governance trust KPI snapshots
+        if: always()
+        run: |
+          mkdir -p evidence/metadata/governance
+          node scripts/ci/extract-governance-risk-control-kpis.mjs \
+            --output-dir evidence/metadata/governance
+
       - name: Record evidence manifest
         if: always()
         run: |
