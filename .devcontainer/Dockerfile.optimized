@@ -113,6 +113,9 @@ RUN set -eux; \
     # Add user to docker group for Docker socket access
     groupadd -f docker; \
     usermod -aG docker ${USERNAME}; \
+    # Create Windsurf server directory with proper ownership
+    mkdir -p /home/${USERNAME}/.windsurf-server/bin; \
+    chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.windsurf-server; \
     rm -rf /tmp/* /var/tmp/*; \
     corepack enable
 
