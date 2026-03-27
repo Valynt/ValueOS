@@ -245,6 +245,8 @@ export interface IsolationRule {
 
 export type IsolationAction = "limit" | "throttle" | "prioritize" | "isolate";
 export type EnforcementAction = "block" | "queue" | "degrade" | "alert";
+type AllocationStatus = "normal" | "warning" | "critical";
+type AlertResolvedStatus = "active" | "resolved";
 
 // ============================================================================
 // TenantPerformanceManager Implementation
@@ -252,10 +254,17 @@ export type EnforcementAction = "block" | "queue" | "degrade" | "alert";
 
 export class TenantPerformanceManager extends EventEmitter {
   private tenants = new Map<string, Tenant>();
+  private tenantIdsByStatus = new Map<TenantStatus, Set<string>>();
   private tenantMetrics = new Map<string, TenantMetrics[]>();
   private resourceAllocations = new Map<string, ResourceAllocation>();
+  private allocationKeysByTenant = new Map<string, Set<string>>();
+  private allocationKeysByResource = new Map<ResourceType, Set<string>>();
+  private allocationKeysByStatus = new Map<AllocationStatus, Set<string>>();
   private fairSchedules = new Map<string, FairSchedule>();
   private activeAlerts = new Map<string, PerformanceAlert>();
+  private alertIdsByTenant = new Map<string, Set<string>>();
+  private alertIdsByResolvedStatus = new Map<AlertResolvedStatus, Set<string>>();
+  private alertIdsByTenantAndResolvedStatus = new Map<string, Set<string>>();
   private isolationPolicies = new Map<string, TenantIsolationPolicy>();
 
   private performanceMonitor = getAgentPerformanceMonitor();
@@ -275,6 +284,7 @@ export class TenantPerformanceManager extends EventEmitter {
       ...config,
     };
 
+    this.initializeIndexes();
     this.startMonitoringTasks();
   }
 
@@ -325,7 +335,7 @@ export class TenantPerformanceManager extends EventEmitter {
       lastActivity: now,
     };
 
-    this.tenants.set(tenantId, tenant);
+    this.setTenant(tenant);
 
     // Initialize resource allocations
     await this.initializeResourceAllocations(tenantId);
@@ -355,7 +365,9 @@ export class TenantPerformanceManager extends EventEmitter {
       throw new Error(`Tenant ${tenantId} not found`);
     }
 
+    const previousStatus = tenant.status;
     Object.assign(tenant, updates, { updatedAt: Date.now() });
+    this.updateTenantStatusIndex(tenantId, previousStatus, tenant.status);
 
     // Update resource allocations if quotas changed
     if (updates.quotas) {
@@ -417,6 +429,7 @@ export class TenantPerformanceManager extends EventEmitter {
       allocation.available = allocation.allocated - allocation.used;
       allocation.utilization = allocation.used / allocation.allocated;
       allocation.lastUpdated = Date.now();
+      this.setResourceAllocation(allocation);
 
       // Check for quota violations
       if (allocation.utilization > 0.9) {
@@ -454,19 +467,18 @@ export class TenantPerformanceManager extends EventEmitter {
    * Get tenant performance alerts
    */
   getTenantAlerts(tenantId?: string, includeResolved: boolean = false): PerformanceAlert[] {
-    const alerts = Array.from(this.activeAlerts.values());
+    const resolvedStatus: AlertResolvedStatus | "all" = includeResolved ? "all" : "active";
+    const alertIds = this.getAlertIdsByScope(tenantId, resolvedStatus);
+    const alerts: PerformanceAlert[] = [];
 
-    let filtered = alerts;
-
-    if (tenantId) {
-      filtered = filtered.filter((alert) => alert.tenantId === tenantId);
+    for (const alertId of alertIds) {
+      const alert = this.activeAlerts.get(alertId);
+      if (alert) {
+        alerts.push(alert);
+      }
     }
 
-    if (!includeResolved) {
-      filtered = filtered.filter((alert) => !alert.resolved);
-    }
-
-    return filtered.sort((a, b) => b.timestamp - a.timestamp);
+    return alerts.sort((a, b) => b.timestamp - a.timestamp);
   }
 
   /**
@@ -479,7 +491,7 @@ export class TenantPerformanceManager extends EventEmitter {
     utilization: Record<ResourceType, number>;
     topConsumers: Array<{ tenantId: string; resource: ResourceType; usage: number }>;
   } {
-    const allocations = Array.from(this.resourceAllocations.values());
+    const allocations = this.getResourceUtilization();
     const tenants = new Set(allocations.map((a) => a.tenantId));
 
     const totalAllocated = {} as Record<ResourceType, number>;
@@ -527,11 +539,10 @@ export class TenantPerformanceManager extends EventEmitter {
    * Enforce tenant isolation policies
    */
   async enforceIsolationPolicies(): Promise<void> {
-    for (const [tenantId, policy] of this.isolationPolicies.entries()) {
-      if (!policy.enabled) continue;
-
-      const tenant = this.tenants.get(tenantId);
-      if (!tenant || tenant.status !== "active") continue;
+    const activeTenants = this.tenantIdsByStatus.get("active") ?? new Set<string>();
+    for (const tenantId of activeTenants) {
+      const policy = this.isolationPolicies.get(tenantId);
+      if (!policy || !policy.enabled) continue;
 
       for (const rule of policy.rules) {
         await this.enforceIsolationRule(tenantId, rule);
@@ -546,8 +557,10 @@ export class TenantPerformanceManager extends EventEmitter {
     const results: SchedulingResult[] = [];
 
     // Get all active tenants sorted by priority
-    const activeTenants = Array.from(this.tenants.values())
-      .filter((t) => t.status === "active")
+    const activeTenantIds = this.tenantIdsByStatus.get("active") ?? new Set<string>();
+    const activeTenants = Array.from(activeTenantIds)
+      .map((tenantId) => this.tenants.get(tenantId))
+      .filter((tenant): tenant is Tenant => tenant !== undefined)
       .sort((a, b) => this.getPriorityWeight(b.priority) - this.getPriorityWeight(a.priority));
 
     for (const tenant of activeTenants) {
@@ -676,23 +689,25 @@ export class TenantPerformanceManager extends EventEmitter {
   }
 
   private async collectMetrics(): Promise<void> {
-    for (const tenant of this.tenants.values()) {
-      if (tenant.status !== "active") continue;
+    const activeTenantIds = this.tenantIdsByStatus.get("active") ?? new Set<string>();
+    for (const tenantId of activeTenantIds) {
+      const tenant = this.tenants.get(tenantId);
+      if (!tenant) continue;
 
       const metrics = await this.calculateTenantMetrics(tenant);
 
       // Store metrics
-      if (!this.tenantMetrics.has(tenant.id)) {
-        this.tenantMetrics.set(tenant.id, []);
+      if (!this.tenantMetrics.has(tenantId)) {
+        this.tenantMetrics.set(tenantId, []);
       }
 
-      const tenantMetricsList = this.tenantMetrics.get(tenant.id)!;
+      const tenantMetricsList = this.tenantMetrics.get(tenantId)!;
       tenantMetricsList.push(metrics);
 
       // Maintain metrics size
       const cutoff = Date.now() - this.config.metricsRetention;
       const filtered = tenantMetricsList.filter((m) => m.timestamp > cutoff);
-      this.tenantMetrics.set(tenant.id, filtered);
+      this.tenantMetrics.set(tenantId, filtered);
     }
 
     this.emit("metricsCollected");
@@ -795,7 +810,7 @@ export class TenantPerformanceManager extends EventEmitter {
         lastUpdated: Date.now(),
       };
 
-      this.resourceAllocations.set(`${tenantId}-${resourceType}`, allocation);
+      this.setResourceAllocation(allocation);
     }
   }
 
@@ -1031,7 +1046,7 @@ export class TenantPerformanceManager extends EventEmitter {
       resolved: false,
     };
 
-    this.activeAlerts.set(alertId, alert);
+    this.setAlert(alert);
     this.emit("performanceAlert", alert);
   }
 
@@ -1041,8 +1056,8 @@ export class TenantPerformanceManager extends EventEmitter {
     amount: number
   ): Promise<boolean> {
     // Check if other tenants have unused resources that can be reallocated
-    const allocations = Array.from(this.resourceAllocations.values()).filter(
-      (a) => a.resourceType === resourceType && a.tenantId !== tenantId
+    const allocations = this.getResourceUtilization(undefined, resourceType).filter(
+      (a) => a.tenantId !== tenantId
     );
 
     const totalAvailable = allocations.reduce((sum, a) => sum + a.available, 0);
@@ -1063,14 +1078,19 @@ export class TenantPerformanceManager extends EventEmitter {
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return;
 
-    for (const [_key, allocation] of this.resourceAllocations.entries()) {
-      if (allocation.tenantId === tenantId) {
-        const newAllocation = this.getQuotaForResource(tenant.quotas, allocation.resourceType);
-        allocation.allocated = newAllocation;
-        allocation.available = newAllocation - allocation.used;
-        allocation.utilization = allocation.used / newAllocation;
-        allocation.lastUpdated = Date.now();
-      }
+    const allocationKeys = this.allocationKeysByTenant.get(tenantId);
+    if (!allocationKeys) return;
+
+    for (const allocationKey of allocationKeys) {
+      const allocation = this.resourceAllocations.get(allocationKey);
+      if (!allocation) continue;
+
+      const newAllocation = this.getQuotaForResource(tenant.quotas, allocation.resourceType);
+      allocation.allocated = newAllocation;
+      allocation.available = newAllocation - allocation.used;
+      allocation.utilization = allocation.used / newAllocation;
+      allocation.lastUpdated = Date.now();
+      this.setResourceAllocation(allocation);
     }
   }
 
@@ -1139,11 +1159,199 @@ export class TenantPerformanceManager extends EventEmitter {
   }
 
   private async checkAllSLACompliance(): Promise<void> {
-    for (const tenant of this.tenants.values()) {
-      if (tenant.status === "active") {
-        await this.checkSLACompliance(tenant.id);
+    const activeTenantIds = this.tenantIdsByStatus.get("active") ?? new Set<string>();
+    for (const tenantId of activeTenantIds) {
+      await this.checkSLACompliance(tenantId);
+    }
+  }
+
+  private initializeIndexes(): void {
+    for (const status of ["active", "suspended", "terminated", "trial", "pending"] as const) {
+      this.tenantIdsByStatus.set(status, new Set<string>());
+    }
+
+    for (const status of ["normal", "warning", "critical"] as const) {
+      this.allocationKeysByStatus.set(status, new Set<string>());
+    }
+
+    for (const status of ["active", "resolved"] as const) {
+      this.alertIdsByResolvedStatus.set(status, new Set<string>());
+    }
+  }
+
+  private setTenant(tenant: Tenant): void {
+    const existing = this.tenants.get(tenant.id);
+    this.tenants.set(tenant.id, tenant);
+    this.updateTenantStatusIndex(tenant.id, existing?.status, tenant.status);
+  }
+
+  private updateTenantStatusIndex(
+    tenantId: string,
+    previousStatus: TenantStatus | undefined,
+    nextStatus: TenantStatus
+  ): void {
+    if (previousStatus) {
+      this.tenantIdsByStatus.get(previousStatus)?.delete(tenantId);
+    }
+
+    if (!this.tenantIdsByStatus.has(nextStatus)) {
+      this.tenantIdsByStatus.set(nextStatus, new Set<string>());
+    }
+
+    this.tenantIdsByStatus.get(nextStatus)?.add(tenantId);
+  }
+
+  private setResourceAllocation(allocation: ResourceAllocation): void {
+    const key = `${allocation.tenantId}-${allocation.resourceType}`;
+    const previous = this.resourceAllocations.get(key);
+    this.resourceAllocations.set(key, allocation);
+
+    if (!this.allocationKeysByTenant.has(allocation.tenantId)) {
+      this.allocationKeysByTenant.set(allocation.tenantId, new Set<string>());
+    }
+    this.allocationKeysByTenant.get(allocation.tenantId)?.add(key);
+
+    if (!this.allocationKeysByResource.has(allocation.resourceType)) {
+      this.allocationKeysByResource.set(allocation.resourceType, new Set<string>());
+    }
+    this.allocationKeysByResource.get(allocation.resourceType)?.add(key);
+
+    const nextStatus = this.getAllocationStatus(allocation.utilization);
+    if (previous) {
+      const previousStatus = this.getAllocationStatus(previous.utilization);
+      if (previousStatus !== nextStatus) {
+        this.allocationKeysByStatus.get(previousStatus)?.delete(key);
       }
     }
+    this.allocationKeysByStatus.get(nextStatus)?.add(key);
+  }
+
+  private getAllocationStatus(utilization: number): AllocationStatus {
+    if (utilization >= 0.9) {
+      return "critical";
+    }
+    if (utilization >= 0.75) {
+      return "warning";
+    }
+    return "normal";
+  }
+
+  private getResourceUtilization(
+    tenantId?: string,
+    resourceType?: ResourceType,
+    status?: AllocationStatus
+  ): ResourceAllocation[] {
+    let candidateKeys: Set<string> | undefined;
+
+    if (tenantId) {
+      candidateKeys = this.allocationKeysByTenant.get(tenantId);
+    }
+    if (resourceType) {
+      const resourceKeys = this.allocationKeysByResource.get(resourceType);
+      candidateKeys = this.intersectStringSets(candidateKeys, resourceKeys);
+    }
+    if (status) {
+      const statusKeys = this.allocationKeysByStatus.get(status);
+      candidateKeys = this.intersectStringSets(candidateKeys, statusKeys);
+    }
+
+    const keys = candidateKeys ?? new Set(this.resourceAllocations.keys());
+    const allocations: ResourceAllocation[] = [];
+    for (const key of keys) {
+      const allocation = this.resourceAllocations.get(key);
+      if (allocation) {
+        allocations.push(allocation);
+      }
+    }
+
+    return allocations;
+  }
+
+  private setAlert(alert: PerformanceAlert): void {
+    const previous = this.activeAlerts.get(alert.id);
+    this.activeAlerts.set(alert.id, alert);
+
+    if (!this.alertIdsByTenant.has(alert.tenantId)) {
+      this.alertIdsByTenant.set(alert.tenantId, new Set<string>());
+    }
+    this.alertIdsByTenant.get(alert.tenantId)?.add(alert.id);
+
+    if (previous) {
+      const previousResolvedStatus = this.getAlertResolvedStatus(previous.resolved);
+      this.alertIdsByResolvedStatus.get(previousResolvedStatus)?.delete(alert.id);
+      this.alertIdsByTenantAndResolvedStatus
+        .get(this.getTenantAlertStatusKey(previous.tenantId, previousResolvedStatus))
+        ?.delete(alert.id);
+    }
+
+    const resolvedStatus = this.getAlertResolvedStatus(alert.resolved);
+    this.alertIdsByResolvedStatus.get(resolvedStatus)?.add(alert.id);
+
+    const tenantResolvedKey = this.getTenantAlertStatusKey(alert.tenantId, resolvedStatus);
+    if (!this.alertIdsByTenantAndResolvedStatus.has(tenantResolvedKey)) {
+      this.alertIdsByTenantAndResolvedStatus.set(tenantResolvedKey, new Set<string>());
+    }
+    this.alertIdsByTenantAndResolvedStatus.get(tenantResolvedKey)?.add(alert.id);
+  }
+
+  private getAlertResolvedStatus(resolved: boolean): AlertResolvedStatus {
+    return resolved ? "resolved" : "active";
+  }
+
+  private getTenantAlertStatusKey(
+    tenantId: string,
+    resolvedStatus: AlertResolvedStatus
+  ): string {
+    return `${tenantId}|${resolvedStatus}`;
+  }
+
+  private getAlertIdsByScope(
+    tenantId?: string,
+    resolvedStatus: AlertResolvedStatus | "all" = "active"
+  ): Set<string> {
+    if (tenantId && resolvedStatus !== "all") {
+      const ids = this.alertIdsByTenantAndResolvedStatus.get(
+        this.getTenantAlertStatusKey(tenantId, resolvedStatus)
+      );
+      return ids ? new Set(ids) : new Set<string>();
+    }
+
+    if (tenantId) {
+      const ids = this.alertIdsByTenant.get(tenantId);
+      return ids ? new Set(ids) : new Set<string>();
+    }
+
+    if (resolvedStatus !== "all") {
+      const ids = this.alertIdsByResolvedStatus.get(resolvedStatus);
+      return ids ? new Set(ids) : new Set<string>();
+    }
+
+    return new Set(this.activeAlerts.keys());
+  }
+
+  private intersectStringSets(
+    left: Set<string> | undefined,
+    right: Set<string> | undefined
+  ): Set<string> | undefined {
+    if (!left && !right) {
+      return undefined;
+    }
+    if (!left) {
+      return right ? new Set(right) : undefined;
+    }
+    if (!right) {
+      return new Set(left);
+    }
+
+    const smaller = left.size <= right.size ? left : right;
+    const larger = smaller === left ? right : left;
+    const intersection = new Set<string>();
+    for (const key of smaller) {
+      if (larger.has(key)) {
+        intersection.add(key);
+      }
+    }
+    return intersection;
   }
 
   private cleanupOldMetrics(): void {
