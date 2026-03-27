@@ -1,19 +1,19 @@
 /**
- * ErrorBoundary — P1 observability tests
+ * ErrorBoundary — unit tests
  *
  * Covers:
- * - Catches React render errors thrown by child components
- * - Renders the error recovery UI (not the crashed child)
- * - Calls the onError callback with the error and errorInfo
- * - Renders a retry button that resets the error state
+ * - Renders children when no error is thrown
+ * - Renders error recovery UI on child throw
+ * - Calls onError callback with error and errorInfo
  * - Categorizes auth/network/generic errors correctly
- * - Does not render error UI when children render successfully
+ * - Renders a retry button that resets error state
+ * - Displays requestId with copy button
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import ErrorBoundary from "../ErrorBoundary";
 
@@ -21,21 +21,22 @@ import ErrorBoundary from "../ErrorBoundary";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** A component that throws on render when `shouldThrow` is true. */
 function ThrowingChild({ shouldThrow, message }: { shouldThrow: boolean; message?: string }) {
-  if (shouldThrow) {
-    throw new Error(message ?? "Test render error");
-  }
-  return <div data-testid="child-content">Child rendered successfully</div>;
+  if (shouldThrow) throw new Error(message ?? "Test render error");
+  return <div data-testid="child-content">OK</div>;
 }
 
-/** Suppress console.error noise from React's error boundary logging in tests. */
+// Suppress React's error boundary console.error noise in tests
+const originalConsoleError = console.error;
 beforeEach(() => {
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  console.error = vi.fn();
+});
+afterEach(() => {
+  console.error = originalConsoleError;
 });
 
 // ---------------------------------------------------------------------------
-// Tests
+// Error catching
 // ---------------------------------------------------------------------------
 
 describe("ErrorBoundary — error catching", () => {
@@ -45,7 +46,6 @@ describe("ErrorBoundary — error catching", () => {
         <ThrowingChild shouldThrow={false} />
       </ErrorBoundary>,
     );
-
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
   });
 
@@ -55,42 +55,37 @@ describe("ErrorBoundary — error catching", () => {
         <ThrowingChild shouldThrow message="Unexpected crash" />
       </ErrorBoundary>,
     );
-
-    // Child should not be visible
     expect(screen.queryByTestId("child-content")).not.toBeInTheDocument();
-    // Error UI should be rendered with role="alert"
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("calls onError callback with the thrown error and errorInfo", () => {
     const onError = vi.fn();
-
     render(
       <ErrorBoundary onError={onError}>
         <ThrowingChild shouldThrow message="Callback test error" />
       </ErrorBoundary>,
     );
-
-    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledTimes(1);
     const [error, errorInfo] = onError.mock.calls[0] as [Error, React.ErrorInfo];
     expect(error.message).toBe("Callback test error");
-    expect(errorInfo).toBeDefined();
     expect(typeof errorInfo.componentStack).toBe("string");
   });
 
   it("renders a custom fallback when provided", () => {
-    const fallback = <div data-testid="custom-fallback">Custom error UI</div>;
-
     render(
-      <ErrorBoundary fallback={fallback}>
+      <ErrorBoundary fallback={<div data-testid="custom-fallback">Custom error UI</div>}>
         <ThrowingChild shouldThrow />
       </ErrorBoundary>,
     );
-
     expect(screen.getByTestId("custom-fallback")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Error categorization
+// ---------------------------------------------------------------------------
 
 describe("ErrorBoundary — error categorization", () => {
   it("shows 'Something went wrong' for generic errors", () => {
@@ -99,7 +94,6 @@ describe("ErrorBoundary — error categorization", () => {
         <ThrowingChild shouldThrow message="Some unexpected error" />
       </ErrorBoundary>,
     );
-
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 
@@ -109,7 +103,6 @@ describe("ErrorBoundary — error categorization", () => {
         <ThrowingChild shouldThrow message="401 auth token expired" />
       </ErrorBoundary>,
     );
-
     expect(screen.getByText("Authentication Error")).toBeInTheDocument();
   });
 
@@ -119,10 +112,13 @@ describe("ErrorBoundary — error categorization", () => {
         <ThrowingChild shouldThrow message="fetch failed: network timeout" />
       </ErrorBoundary>,
     );
-
     expect(screen.getByText("Connection Problem")).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Retry behaviour
+// ---------------------------------------------------------------------------
 
 describe("ErrorBoundary — retry behaviour", () => {
   it("renders a Try Again button in the error UI", () => {
@@ -131,18 +127,15 @@ describe("ErrorBoundary — retry behaviour", () => {
         <ThrowingChild shouldThrow />
       </ErrorBoundary>,
     );
-
     expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("resets error state and re-renders children on retry when child no longer throws", async () => {
     const user = userEvent.setup();
 
-    // Use a controlled component to toggle the throw
     function ToggleChild() {
       const [shouldThrow, setShouldThrow] = React.useState(true);
       if (shouldThrow) {
-        // Stop throwing after the first render so retry succeeds
         setTimeout(() => setShouldThrow(false), 0);
         throw new Error("Initial error");
       }
@@ -155,13 +148,51 @@ describe("ErrorBoundary — retry behaviour", () => {
       </ErrorBoundary>,
     );
 
-    // Error UI is shown
     expect(screen.getByRole("alert")).toBeInTheDocument();
-
-    // Click retry
     await user.click(screen.getByRole("button", { name: /try again/i }));
-
-    // Child should now render successfully
     expect(screen.getByTestId("recovered-child")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Request ID display
+// ---------------------------------------------------------------------------
+
+describe("ErrorBoundary — requestId", () => {
+  it("renders requestId when provided and boundary is in error state", () => {
+    render(
+      <ErrorBoundary requestId="req_abc123">
+        <ThrowingChild shouldThrow />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText("req_abc123")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy/i })).toBeInTheDocument();
+  });
+
+  it("does not render requestId section when no error", () => {
+    render(
+      <ErrorBoundary requestId="req_abc123">
+        <ThrowingChild shouldThrow={false} />
+      </ErrorBoundary>,
+    );
+    expect(screen.queryByText("req_abc123")).not.toBeInTheDocument();
+  });
+
+  it("copy button writes requestId to clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
+    render(
+      <ErrorBoundary requestId="req_copy_test">
+        <ThrowingChild shouldThrow />
+      </ErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /copy/i }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("req_copy_test"));
   });
 });

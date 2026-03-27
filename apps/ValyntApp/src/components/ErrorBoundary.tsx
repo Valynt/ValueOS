@@ -10,7 +10,7 @@
  * - Accessibility: role="alert", focus management, keyboard-accessible actions
  */
 
-import { Component, ErrorInfo, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,8 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /** X-Request-ID from the UnifiedApiClient — displayed in error state so users can copy it for support. */
+  requestId?: string;
 }
 
 interface State {
@@ -57,6 +59,41 @@ const errorContent: Record<ErrorCategory, { title: string; description: string; 
     fixHint: "Try again or refresh the page. If this keeps happening, contact support.",
   },
 };
+
+/** Inline component — uses hooks, so it must live outside the class boundary. */
+function RequestIdCopy({ requestId }: { requestId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(requestId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="rounded-md bg-secondary/50 border border-border p-3 mb-4">
+      <p className="text-xs font-medium text-foreground mb-1">Request ID</p>
+      <div className="flex items-center gap-2">
+        <code className="text-xs text-muted-foreground font-mono break-all flex-1">
+          {requestId}
+        </code>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={cn(
+            "shrink-0 text-xs px-2 py-1 rounded border transition-colors",
+            copied
+              ? "border-green-400 text-green-700 bg-green-50"
+              : "border-border text-muted-foreground hover:bg-secondary",
+          )}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -145,6 +182,11 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-xs text-muted-foreground mb-3">
               Retry attempt {this.state.retryCount} of 3
             </p>
+          )}
+
+          {/* Request ID — copy for support tickets */}
+          {this.props.requestId && (
+            <RequestIdCopy requestId={this.props.requestId} />
           )}
 
           {/* Actions */}

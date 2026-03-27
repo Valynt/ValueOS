@@ -1,329 +1,346 @@
 /**
- * useAgentStream — P0 streaming resilience tests
+ * useAgentStream — unit tests
  *
- * Covers:
- * - Dropped connection triggers reconnect with exponential backoff
- * - Reconnect deduplicates messages by event ID
- * - Terminal state (error) is reached after MAX_RECONNECT_ATTEMPTS exhaustion
- * - isReconnecting transitions correctly during backoff
- * - Terminal SSE error (completed/error status) does not trigger reconnect
+ * Tests hook logic by mocking fetchEventSource directly.
+ * The library's reconnect/retry behavior is tested by the library itself;
+ * we verify that the hook correctly handles each event type.
  */
 
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, type Mock } from "vitest";
 
 import { useAgentStream } from "../useAgentStream";
 
-// Mirror the constant from the hook so the exhaustion test stays in sync.
-const MAX_RECONNECT_ATTEMPTS = 5;
-
 // ---------------------------------------------------------------------------
-// Manual EventSource mock
+// Mock fetchEventSource — capture the callbacks and call options so tests
+// can invoke them and inspect what was passed to the library.
 // ---------------------------------------------------------------------------
 
-interface MockEventSourceInstance {
+type FetchEventSourceCallbacks = {
+  onopen?: (res: Response) => Promise<void>;
+  onmessage?: (event: { id?: string; data: string; event?: string }) => void;
+  onerror?: (err: unknown) => void;
+};
+
+type CapturedCall = FetchEventSourceCallbacks & {
   url: string;
-  onmessage: ((event: MessageEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  close: ReturnType<typeof vi.fn>;
-  /** Test helper: emit a message event */
-  emit: (data: Record<string, unknown>, id?: string) => void;
-  /** Test helper: trigger an error (connection drop) */
-  drop: () => void;
-}
+  headers?: Record<string, string>;
+  fetch?: unknown;
+  signal?: AbortSignal;
+};
 
-let lastCreatedSource: MockEventSourceInstance | null = null;
-const allCreatedSources: MockEventSourceInstance[] = [];
+// Use a shared mutable object so the vi.mock factory (which is hoisted) can
+// reference it without hitting a temporal dead zone error.
+const capture = {
+  callbacks: {} as FetchEventSourceCallbacks,
+  calls: [] as CapturedCall[],
+};
 
-class MockEventSource implements MockEventSourceInstance {
-  url: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  close = vi.fn();
+vi.mock("@microsoft/fetch-event-source", () => ({
+  fetchEventSource: vi.fn(
+    async (
+      url: string,
+      opts: FetchEventSourceCallbacks & {
+        signal?: AbortSignal;
+        headers?: Record<string, string>;
+        fetch?: unknown;
+      },
+    ) => {
+      capture.callbacks = opts;
+      capture.calls.push({ url, ...opts });
+      // Simulate a successful open
+      await opts.onopen?.(new Response(null, { status: 200 }));
+    },
+  ),
+}));
 
-  constructor(url: string) {
-    this.url = url;
-    lastCreatedSource = this;
-    allCreatedSources.push(this);
-  }
-
-  emit(data: Record<string, unknown>, id?: string) {
-    const event = new MessageEvent("message", {
-      data: JSON.stringify(data),
-      lastEventId: id ?? "",
-    });
-    this.onmessage?.(event);
-  }
-
-  drop() {
-    this.onerror?.(new Event("error"));
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
-
-beforeEach(() => {
-  vi.useFakeTimers();
-  lastCreatedSource = null;
-  allCreatedSources.length = 0;
-  // Replace the global EventSource with our mock
-  vi.stubGlobal("EventSource", MockEventSource);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
-
-// Mock the API client so sendMessage's POST doesn't hit the network
-const { mockPost } = vi.hoisted(() => ({ mockPost: vi.fn() }));
+// Mock the API client — include fetchRaw so useAgentStream can bind it as
+// the fetch override for fetchEventSource (auth header injection).
 vi.mock("@/api/client/unified-api-client", () => ({
-  apiClient: { post: mockPost },
+  apiClient: {
+    post: vi.fn().mockResolvedValue({
+      success: true,
+      data: { data: { jobId: "test-job-123", status: "queued", mode: "kafka" } },
+    }),
+    fetchRaw: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+  },
 }));
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helper — emit an SSE event through the captured callbacks
 // ---------------------------------------------------------------------------
 
-function makeJobResponse(jobId = "job-abc") {
-  return {
-    success: true,
-    data: { data: { jobId, status: "queued", mode: "kafka" } },
-  };
+function emitEvent(data: Record<string, unknown>, id?: string) {
+  capture.callbacks.onmessage?.({ data: JSON.stringify(data), id });
 }
+
+beforeEach(() => {
+  capture.callbacks = {} as FetchEventSourceCallbacks;
+  capture.calls = [];
+});
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("useAgentStream — streaming resilience", () => {
-  it("opens an SSE connection after sendMessage returns a jobId", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-1"));
+describe("useAgentStream", () => {
+  describe("completed event", () => {
+    it("calls onMessage and stops streaming when completed event received", async () => {
+      const onMessage = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onMessage,
+        }),
+      );
 
-    const { result } = renderHook(() => useAgentStream());
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    expect(allCreatedSources).toHaveLength(1);
-    expect(allCreatedSources[0].url).toContain("/api/agents/jobs/job-1/stream");
-    expect(result.current.isStreaming).toBe(true);
-  });
-
-  it("transitions to completed and closes stream on completed event", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-2"));
-
-    const { result } = renderHook(() => useAgentStream());
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    act(() => {
-      lastCreatedSource!.emit({ status: "completed", result: "Agent done." }, "evt-1");
-    });
-
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.messages).toHaveLength(2); // user + assistant
-    expect(result.current.messages[1].content).toBe("Agent done.");
-    expect(result.current.error).toBeNull();
-  });
-
-  it("schedules reconnect on connection drop (not terminal)", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-3"));
-
-    const { result } = renderHook(() => useAgentStream());
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    // Drop the connection before any terminal event
-    act(() => {
-      lastCreatedSource!.drop();
-    });
-
-    expect(result.current.isReconnecting).toBe(true);
-    expect(result.current.reconnectAttempts).toBe(1);
-    // No error yet — still within retry budget
-    expect(result.current.error).toBeNull();
-
-    // Advance past the first backoff delay (1 s)
-    await act(async () => {
-      vi.advanceTimersByTime(1100);
-    });
-
-    // A second EventSource should have been created for the reconnect
-    expect(allCreatedSources).toHaveLength(2);
-    expect(result.current.isReconnecting).toBe(false);
-    expect(result.current.isStreaming).toBe(true);
-  });
-
-  it("includes lastEventId in reconnect URL after receiving events", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-4"));
-
-    const { result } = renderHook(() => useAgentStream());
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    // Receive a processing event with an ID
-    act(() => {
-      lastCreatedSource!.emit({ status: "processing" }, "cursor-42");
-    });
-
-    // Drop the connection
-    act(() => {
-      lastCreatedSource!.drop();
-    });
-
-    // Advance past backoff
-    await act(async () => {
-      vi.advanceTimersByTime(1100);
-    });
-
-    // Reconnect URL must include the last event ID
-    const reconnectSource = allCreatedSources[1];
-    expect(reconnectSource.url).toContain("lastEventId=cursor-42");
-  });
-
-  it("deduplicates messages on reconnect when server replays events", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-5"));
-
-    const { result } = renderHook(() => useAgentStream());
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    // Receive a processing event
-    act(() => {
-      lastCreatedSource!.emit({ status: "processing" }, "evt-1");
-    });
-
-    // Drop and reconnect
-    act(() => {
-      lastCreatedSource!.drop();
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(1100);
-    });
-
-    // Server replays the same event ID on reconnect — should be ignored
-    act(() => {
-      lastCreatedSource!.emit({ status: "processing" }, "evt-1");
-    });
-
-    // Then sends the completion with a new ID
-    act(() => {
-      lastCreatedSource!.emit({ status: "completed", result: "Final answer." }, "evt-2");
-    });
-
-    // Only 2 messages: user + assistant (no duplicate processing messages)
-    expect(result.current.messages).toHaveLength(2);
-    expect(result.current.messages[1].content).toBe("Final answer.");
-  });
-
-  it("surfaces error with jobId after exhausting all reconnect attempts", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-6"));
-
-    const onError = vi.fn();
-    const { result } = renderHook(() => useAgentStream({ onError }));
-
-    await act(async () => {
-      await result.current.sendMessage("hello");
-    });
-
-    // Each drop schedules a reconnect timer; each timer fires and creates a new
-    // EventSource. After MAX_RECONNECT_ATTEMPTS (5) drops, the next scheduleReconnect
-    // call sees attempt >= 5 and surfaces the error instead of scheduling another timer.
-    //
-    // Sequence: drop → schedule(attempt N) → timer fires → openStream → drop → ...
-    // The error fires on the (MAX+1)th drop, i.e. after 5 successful reconnects fail.
-    for (let i = 0; i < MAX_RECONNECT_ATTEMPTS; i++) {
-      act(() => {
-        lastCreatedSource!.drop();
-      });
-      const delay = Math.min(1000 * 2 ** i, 30_000);
       await act(async () => {
-        vi.advanceTimersByTime(delay + 100);
+        await result.current.sendMessage("analyze this");
       });
-    }
 
-    // The 6th drop (after the 5th reconnect) should trigger the error
-    act(() => {
-      lastCreatedSource!.drop();
+      act(() => {
+        emitEvent({ status: "completed", result: "Analysis complete." });
+      });
+
+      await waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
+
+      const msg = onMessage.mock.calls[0][0];
+      expect(msg.role).toBe("assistant");
+      expect(msg.content).toBe("Analysis complete.");
+      expect(result.current.isStreaming).toBe(false);
     });
-
-    // After exhausting retries, the hook should be in error state
-    expect(result.current.error).not.toBeNull();
-    expect(result.current.error!.message).toContain("job-6");
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.isReconnecting).toBe(false);
-    expect(onError).toHaveBeenCalledOnce();
   });
 
-  it("does not reconnect after a terminal error event from the server", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-7"));
+  describe("processing heartbeats", () => {
+    it("calls onProgress for processing events and does not append a message", async () => {
+      const onProgress = vi.fn();
+      const onMessage = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onProgress,
+          onMessage,
+        }),
+      );
 
-    const { result } = renderHook(() => useAgentStream());
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
 
-    await act(async () => {
-      await result.current.sendMessage("hello");
+      act(() => {
+        emitEvent({ status: "processing", agentId: "opportunity", subTask: "Analyzing SEC filings\u2026" });
+        emitEvent({ status: "processing", agentId: "opportunity", subTask: "Calculating ROI\u2026" });
+        emitEvent({ status: "processing", agentId: "opportunity", subTask: "Generating narrative\u2026" });
+        emitEvent({ status: "completed", result: "Done." });
+      });
+
+      await waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
+
+      expect(onProgress).toHaveBeenCalledTimes(3);
+      expect(onProgress.mock.calls[0][0]).toMatchObject({
+        status: "processing",
+        subTask: "Analyzing SEC filings\u2026",
+      });
+
+      const assistantMessages = result.current.messages.filter((m) => m.role === "assistant");
+      expect(assistantMessages).toHaveLength(1);
     });
 
-    // Server sends an error status — this is a terminal state
-    act(() => {
-      lastCreatedSource!.emit({ status: "error", error: "Worker crashed" }, "evt-err");
-    });
+    it("updates onProgress with subTask and agentId fields", async () => {
+      const onProgress = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onProgress,
+        }),
+      );
 
-    // The EventSource closing after a terminal event should not trigger reconnect
-    act(() => {
-      lastCreatedSource!.drop();
-    });
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
 
-    // No reconnect timer should fire
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-    });
+      act(() => {
+        emitEvent({ status: "processing", agentId: "financial-modeling", subTask: "Running DCF model\u2026" });
+      });
 
-    // Still only 1 EventSource created (no reconnect)
-    expect(allCreatedSources).toHaveLength(1);
-    expect(result.current.error!.message).toBe("Worker crashed");
-    expect(result.current.isReconnecting).toBe(false);
+      expect(onProgress).toHaveBeenCalledWith({
+        status: "processing",
+        agentId: "financial-modeling",
+        subTask: "Running DCF model\u2026",
+        queuedAt: undefined,
+      });
+    });
   });
 
-  it("isReconnecting is false after successful completion following a reconnect", async () => {
-    mockPost.mockResolvedValueOnce(makeJobResponse("job-8"));
+  describe("error event", () => {
+    it("calls onError and stops streaming on error event", async () => {
+      const onError = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onError,
+        }),
+      );
 
-    const { result } = renderHook(() => useAgentStream());
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
 
-    await act(async () => {
-      await result.current.sendMessage("hello");
+      act(() => {
+        emitEvent({ status: "error", error: "LLM rate limit exceeded" });
+      });
+
+      await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      expect(onError.mock.calls[0][0].message).toBe("LLM rate limit exceeded");
+      expect(result.current.isStreaming).toBe(false);
     });
 
-    // Drop and reconnect
-    act(() => {
-      lastCreatedSource!.drop();
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(1100);
-    });
+    it("uses fallback error message when error field is missing", async () => {
+      const onError = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onError,
+        }),
+      );
 
-    expect(result.current.isReconnecting).toBe(false);
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
 
-    // Complete on the reconnected stream
-    act(() => {
-      lastCreatedSource!.emit({ status: "completed", result: "Done." }, "evt-final");
+      act(() => {
+        emitEvent({ status: "error" });
+      });
+
+      await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      expect(onError.mock.calls[0][0].message).toBe("Agent execution failed");
     });
+  });
 
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.isReconnecting).toBe(false);
-    expect(result.current.error).toBeNull();
+  describe("direct-mode response", () => {
+    it("handles direct-mode result without opening SSE stream", async () => {
+      const { fetchEventSource } = await import("@microsoft/fetch-event-source");
+      const mockFetch = fetchEventSource as Mock;
+      mockFetch.mockClear();
+
+      const { apiClient } = await import("@/api/client/unified-api-client");
+      vi.mocked(apiClient.post).mockResolvedValueOnce({
+        success: true,
+        data: { data: { jobId: undefined, result: "Direct answer.", mode: "direct" } },
+      } as never);
+
+      const onMessage = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onMessage,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.sendMessage("quick question");
+      });
+
+      await waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
+      expect(onMessage.mock.calls[0][0].content).toBe("Direct answer.");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("closeStream", () => {
+    it("aborts the stream and sets isStreaming to false", async () => {
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+        }),
+      );
+
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
+
+      expect(result.current.isStreaming).toBe(true);
+
+      act(() => {
+        result.current.closeStream();
+      });
+
+      expect(result.current.isStreaming).toBe(false);
+    });
+  });
+
+  describe("malformed SSE frames", () => {
+    it("silently ignores non-JSON SSE data", async () => {
+      const onError = vi.fn();
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+          onError,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
+
+      act(() => {
+        capture.callbacks.onmessage?.({ data: "not-json-at-all" });
+      });
+
+      expect(onError).not.toHaveBeenCalled();
+      expect(result.current.isStreaming).toBe(true);
+    });
+  });
+
+  describe("auth headers", () => {
+    it("passes apiClient.fetchRaw as the fetch option so auth headers are applied", async () => {
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+        }),
+      );
+
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
+
+      expect(capture.calls).toHaveLength(1);
+      // fetchRaw is passed as the fetch override — auth headers are applied
+      // inside apiClient.fetchRaw on every connection and reconnect.
+      expect(typeof capture.calls[0].fetch).toBe("function");
+    });
+  });
+
+  describe("Last-Event-ID resumability", () => {
+    it("includes Last-Event-ID header on the second openStream call after receiving an event with an id", async () => {
+      const { result } = renderHook(() =>
+        useAgentStream({
+          context: { sessionId: "s1", agentId: "opportunity", messages: [], isStreaming: false },
+        }),
+      );
+
+      // First stream open
+      await act(async () => {
+        await result.current.sendMessage("analyze");
+      });
+
+      // Receive an event with an id — this should be tracked
+      act(() => {
+        capture.callbacks.onmessage?.({ data: JSON.stringify({ status: "processing" }), id: "evt-42" });
+      });
+
+      // Close and reopen the stream (simulates a reconnect)
+      act(() => {
+        result.current.closeStream();
+      });
+
+      await act(async () => {
+        result.current.openStream("test-job-123");
+      });
+
+      // Second call should include Last-Event-ID
+      expect(capture.calls).toHaveLength(2);
+      expect(capture.calls[1].headers?.["Last-Event-ID"]).toBe("evt-42");
+    });
   });
 });

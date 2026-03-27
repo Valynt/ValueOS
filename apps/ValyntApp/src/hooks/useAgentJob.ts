@@ -17,7 +17,14 @@ import { useTenant } from "@/contexts/TenantContext";
  */
 
 
-export type AgentJobStatus = "queued" | "processing" | "completed" | "failed" | "error" | "unavailable";
+export type AgentJobStatus =
+  | "queued"
+  | "processing"
+  | "retrying"
+  | "completed"
+  | "failed"
+  | "error"
+  | "unavailable";
 
 export interface AgentJobResult {
   jobId: string;
@@ -33,6 +40,9 @@ export interface AgentJobResult {
   queuedAt?: string;
   completedAt?: string;
   message?: string;
+  /** BullMQ retry metadata — present when status is "retrying" */
+  attemptsMade?: number;
+  nextRetryAt?: string;
 }
 
 // Phase 8: use UnifiedApiClient (ADR-0014)
@@ -50,15 +60,12 @@ async function fetchJobStatus(jobId: string): Promise<AgentJobResult> {
 }
 
 const TERMINAL_STATUSES: AgentJobStatus[] = ["completed", "failed", "error", "unavailable"];
+// "retrying" is intentionally excluded — polling must continue while the backend retries
 
 /**
  * @param jobId - Job ID to poll. Null = no active run.
  * @param directResult - Pre-resolved result from a direct-mode invoke. When
  *   provided, polling is skipped and this value is returned immediately.
- *
- * @requires TenantProvider — this hook calls `useTenant()` internally and must
- *   be rendered within a `TenantProvider` context. Rendering outside one will
- *   throw: "useTenant must be used within a TenantProvider".
  */
 export function useAgentJob(
   jobId: string | null,
@@ -68,17 +75,22 @@ export function useAgentJob(
   const tenantId = currentTenant?.id ?? null;
 
   return useQuery<AgentJobResult>({
-    // tenantId is included to prevent cross-tenant cache bleed when the user
-    // switches organizations mid-session. Without it, Tenant B could read
-    // Tenant A's in-flight job result from the React Query cache.
-    queryKey: ["agent-job", tenantId, jobId, directResult?.mode],
+    // tenantId scopes the cache key — prevents stale data from a previous
+    // tenant being served if jobId collides after a context switch.
+    queryKey: ["agent-job", tenantId, jobId],
     queryFn: () => {
       // Direct mode: result already available, no network call needed
       if (directResult) return Promise.resolve(directResult);
       return fetchJobStatus(jobId!);
     },
-    enabled: !!jobId && !!tenantId,
-    // No polling for direct results or terminal states
+    // directResult bypasses the network entirely — served as initialData so
+    // the result is available synchronously on the first render.
+    initialData: directResult ?? undefined,
+    // Disable when tenantId is unavailable to prevent cross-tenant cache bleed,
+    // or when directResult is already provided (no polling needed).
+    enabled: !!jobId && !!tenantId && !directResult,
+    // No polling for direct results or terminal states.
+    // "retrying" is intentionally excluded — polling must continue while the backend retries.
     refetchInterval: (query) => {
       if (directResult) return false;
       const status = query.state.data?.status;

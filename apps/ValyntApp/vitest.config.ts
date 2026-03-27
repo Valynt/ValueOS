@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/test/fetch-polyfill.ts", "./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["**/node_modules/**", "**/*.pure-unit.test.*", "src/__tests__/audit/**"],
     env: {
