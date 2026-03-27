@@ -5,6 +5,16 @@ import { spawnSync } from "node:child_process";
 
 const repoRoot = process.cwd();
 const configPath = path.join(repoRoot, "packages/backend/tsconfig.strict-exceptions.json");
+const args = process.argv.slice(2);
+
+function parseArgValue(flagName) {
+  const flagIndex = args.indexOf(flagName);
+  if (flagIndex === -1) return null;
+  return args[flagIndex + 1] ?? null;
+}
+
+const metricsOutArg = parseArgValue("--metrics-out");
+const metricsOutPath = metricsOutArg ? path.resolve(repoRoot, metricsOutArg) : null;
 
 if (!fs.existsSync(configPath)) {
   console.error(`Missing strict exception config: ${configPath}`);
@@ -84,6 +94,7 @@ function countExceptionFiles(glob) {
 
 let regressions = 0;
 let schemaErrors = 0;
+const budgetResults = [];
 
 const budgetPaths = new Set(budgets.map((budget) => budget.path));
 for (const scope of includeScopes) {
@@ -120,6 +131,34 @@ for (const budget of budgets) {
   if (current > baseline) {
     regressions += 1;
   }
+
+  budgetResults.push({
+    id: budget.id,
+    gate: budget.gate ?? null,
+    path: budget.path,
+    current,
+    baseline,
+    nextTarget,
+    delta,
+    sunsetDate: budget.sunsetDate ?? null,
+    isExceptionScope,
+    status: current <= baseline ? "pass" : "fail",
+  });
+}
+
+if (metricsOutPath) {
+  const metricsPayload = {
+    generatedAt: new Date().toISOString(),
+    sourceConfig: path.relative(repoRoot, configPath),
+    includeScopeCount: includeScopes.length,
+    schemaErrors,
+    regressions,
+    status: schemaErrors === 0 && regressions === 0 ? "pass" : "fail",
+    budgets: budgetResults,
+  };
+  fs.mkdirSync(path.dirname(metricsOutPath), { recursive: true });
+  fs.writeFileSync(metricsOutPath, `${JSON.stringify(metricsPayload, null, 2)}\n`, "utf8");
+  console.log(`Wrote strict exception metrics: ${path.relative(repoRoot, metricsOutPath)}`);
 }
 
 if (schemaErrors > 0 || regressions > 0) {
