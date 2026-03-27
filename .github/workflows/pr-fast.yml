@@ -364,6 +364,9 @@ jobs:
       - name: Infra readiness contract guard
         run: node scripts/ci/check-infra-readiness-contract.mjs
 
+      - name: Queue tenant bootstrap guard
+        run: node scripts/ci/check-queue-tenant-bootstrap.mjs
+
       - name: Architecture doc / runtime drift guard
         run: node scripts/ci/check-architecture-doc-drift.mjs
 

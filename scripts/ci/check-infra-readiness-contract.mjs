@@ -196,7 +196,7 @@ console.log('\n5. BullMQ workers restore tenant context');
     }
 
     const hasTenantId = /tenantId|tenant_id|organizationId|organization_id/.test(src);
-    const restoresTenantContext = /tenantContextStorage\.run|AsyncLocalStorage.*run|runWithTenantContext/.test(src);
+    const restoresTenantContext = /tenantContextStorage\.run|AsyncLocalStorage.*run|runWithTenantContext|runJobWithTenantContext/.test(src);
 
     if (!hasTenantId) {
       warn(`${rel}: no tenantId reference found — verify tenant isolation in worker`);

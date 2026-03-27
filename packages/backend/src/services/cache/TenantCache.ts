@@ -22,6 +22,12 @@ const cacheLatencyHistogram = createHistogram(
 export class TenantCache {
   constructor(private ttlSeconds = 300) {}
 
+  private assertTenantScopedKey(key: string): void {
+    if (!key.startsWith('tenant:')) {
+      throw new Error(`TenantCache key must include tenant scope prefix (tenant:<id>:...), got: ${key}`);
+    }
+  }
+
   buildUserProfileKey(tenantId: string, userId: string): string {
     return `tenant:${tenantId}:profile:${userId}`;
   }
@@ -31,6 +37,7 @@ export class TenantCache {
   }
 
   async get<T>(key: string): Promise<T | null> {
+    this.assertTenantScopedKey(key);
     const start = Date.now();
     try {
       const client = await getRedisClient();
@@ -52,6 +59,7 @@ export class TenantCache {
   }
 
   async set<T>(key: string, value: T): Promise<void> {
+    this.assertTenantScopedKey(key);
     try {
       const client = await getRedisClient();
       await client.setex(key, this.ttlSeconds, JSON.stringify(value));
@@ -61,6 +69,7 @@ export class TenantCache {
   }
 
   async invalidate(key: string): Promise<void> {
+    this.assertTenantScopedKey(key);
     try {
       const client = await getRedisClient();
       await client.del(key);
