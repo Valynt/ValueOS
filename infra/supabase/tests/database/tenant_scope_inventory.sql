@@ -2,11 +2,13 @@
 -- access_model:
 --   tenant_column => policies must scope by tenant_id/organization_id
 --   membership    => policies may scope via tenant membership joins/helpers
+--   service_only  => no tenant_id column; service_role-only access; policy regex matches 'service_role'
+--   own_row       => user identity table; policy scopes by auth.uid()
 
 CREATE TEMP TABLE tenant_scope_inventory (
   schema_name text NOT NULL,
   table_name text NOT NULL,
-  access_model text NOT NULL CHECK (access_model IN ('tenant_column', 'membership')),
+  access_model text NOT NULL CHECK (access_model IN ('tenant_column', 'membership', 'service_only', 'own_row')),
   required_policy_regex text NOT NULL,
   required_policy_description text NOT NULL,
   PRIMARY KEY (schema_name, table_name)
@@ -71,7 +73,7 @@ VALUES
   ('public', 'integrity_results', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'invoices', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'kpi_hypotheses', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
-  ('public', 'llm_calls', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'llm_calls', 'service_only', 'service_role', 'No tenant_id column; service_role-only access policy required.'),
   ('public', 'llm_job_results', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'llm_usage', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'message_bus', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
@@ -109,10 +111,25 @@ VALUES
   ('public', 'value_cases', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'value_ledger', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'value_maps', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
-  ('public', 'value_prediction_accuracy', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'value_prediction_accuracy', 'service_only', 'service_role', 'No tenant_id column; service_role-only access policy required.'),
   ('public', 'value_tree_links', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'value_tree_nodes', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'value_trees', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'workflow_executions', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'workflow_states', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
-  ('public', 'workflows', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.');
+  ('public', 'workflows', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  -- Tables added by 20260922000000_rls_gap_remediation
+  ('public', 'approval_requests_archive', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'approvals_archive', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'memberships', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'secret_audit_logs_2024', 'service_only', 'service_role', 'Audit partition child; service_role-only access policy required.'),
+  ('public', 'secret_audit_logs_2025', 'service_only', 'service_role', 'Audit partition child; service_role-only access policy required.'),
+  ('public', 'secret_audit_logs_2026', 'service_only', 'service_role', 'Audit partition child; service_role-only access policy required.'),
+  ('public', 'secret_audit_logs_default', 'service_only', 'service_role', 'Audit partition child; service_role-only access policy required.'),
+  ('public', 'login_attempts', 'service_only', 'service_role', 'No tenant_id column; security audit table; service_role-only access policy required.'),
+  ('public', 'integration_usage_log', 'service_only', 'service_role', 'No tenant_id column; internal telemetry; service_role-only access policy required.'),
+  ('public', 'retention_policies', 'service_only', 'service_role', 'No tenant_id column; system config; service_role-only access policy required.'),
+  ('public', 'memory_provenance', 'service_only', 'service_role', 'No tenant_id column; memory system internal; service_role-only access policy required.'),
+  ('public', 'memory_benchmark_slices', 'service_only', 'service_role', 'No tenant_id column; benchmark data; service_role-only access policy required.'),
+  ('public', 'memory_benchmark_run_locks', 'service_only', 'service_role', 'No tenant_id column; distributed lock table; service_role-only access policy required.'),
+  ('public', 'users', 'own_row', 'auth\\.uid\\(\\)', 'App-owned user mirror; policy must scope rows to the authenticated user''s own row.');

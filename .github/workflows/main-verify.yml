@@ -399,6 +399,7 @@ jobs:
           node scripts/ci/check-supabase-tenant-controls.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
           bash scripts/ci/check-permissive-rls.sh
+          bash scripts/ci/check-migration-rls-required.sh
 
   tenant-isolation-gate:
     name: tenant-isolation-gate

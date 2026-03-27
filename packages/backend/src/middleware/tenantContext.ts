@@ -43,12 +43,16 @@ export interface TCTPayload {
 
 export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
+/**
+ * Trusted resolution sources in priority order.
+ * "request" (route-param) is intentionally excluded — route parameters are
+ * user-controlled input and must not be trusted for tenant resolution.
+ */
 type TenantCandidateSource =
   | "tct"
   | "service-header"
   | "user-claim"
   | "user-lookup"
-  | "request"
   | "none";
 
 type TenantContextUser = {
@@ -105,7 +109,24 @@ const buildRequestContext = (
 };
 
 /**
- * Middleware to extract and verify Tenant Context Token (TCT)
+ * Middleware to extract and verify Tenant Context Token (TCT).
+ *
+ * Resolution chain (in priority order):
+ *   1. TCT JWT (x-tenant-context header) — cryptographically verified
+ *   2. Service header (x-tenant-id) — only when serviceIdentityVerified=true
+ *   3. User JWT claim (tenant_id / organization_id)
+ *   4. User lookup (DB) — only when authenticated user has no claim
+ *
+ * Sources are consulted in this order; a lower-priority source is only used
+ * when no higher-priority source has already resolved a tenant.
+ *
+ * Route parameters are NOT a resolution source. They are user-controlled
+ * input and must not be trusted for tenant identity.
+ *
+ * If a verified Tenant Context Token conflicts with an already-resolved
+ * tenant or the authenticated user identity, the request is rejected with
+ * 403. Other sources are treated as fallbacks rather than cross-validated
+ * against every possible combination.
  */
 export const tenantContextMiddleware = (enforce = true) => {
   const tctSecret = assertValidTctSecret();
@@ -117,6 +138,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     let resolvedTenantId: string | null = null;
     let tctPayload: TCTPayload | null = null;
 
+    // ── Source 1: TCT JWT ──────────────────────────────────────────────────
     if (authHeader) {
       const token = Array.isArray(authHeader)
         ? (authHeader[0] ?? "")
@@ -159,6 +181,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
+    // ── Source 2: Service header ───────────────────────────────────────────
     if (!resolvedTenantId) {
       const tenantHeader = req.header("x-tenant-id");
       if (tenantHeader) {
@@ -178,23 +201,20 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
+    // ── Source 3: User JWT claim ───────────────────────────────────────────
     const claimTenantId =
       (req as TenantRequest).user?.tenant_id ||
       (req as TenantRequest).user?.organization_id;
+
     if (!resolvedTenantId && claimTenantId) {
       resolvedTenantId = claimTenantId;
       tenantSource = "user-claim";
     }
 
-    if (!resolvedTenantId) {
-      const routeTenantId = (req.params as { tenantId?: string } | undefined)
-        ?.tenantId;
-      if (routeTenantId) {
-        resolvedTenantId = routeTenantId;
-        tenantSource = "request";
-      }
-    }
-
+    // ── Source 4: User lookup (DB) ─────────────────────────────────────────
+    // Note: route-param (tenantSource='request') is intentionally removed.
+    // Route parameters are user-controlled and must not be trusted for tenant
+    // identity resolution.
     if (!resolvedTenantId && userId) {
       const userTenantId = await getUserTenantId(userId);
       if (userTenantId) {
@@ -203,16 +223,22 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
+    // ── Conflict detection (all routes) ───────────────────────────────────
+    // If the authenticated user's JWT claim disagrees with the resolved tenant,
+    // deny the request regardless of path. This was previously only enforced
+    // on agent-scoped paths; it now applies universally.
     if (
-      isAgentScopedRequest(req) &&
       claimTenantId &&
       resolvedTenantId &&
       claimTenantId !== resolvedTenantId
     ) {
-      logger.warn("Agent request tenant diverges from authenticated claim", {
+      logger.warn("Tenant resolution conflict: claim vs resolved", {
         claimTenantId,
         resolvedTenantId,
+        tenantSource,
+        userId,
         path: req.path,
+        isAgentScoped: isAgentScopedRequest(req),
       });
       return res.status(403).json({
         error: "tenant_mismatch",
@@ -220,6 +246,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       });
     }
 
+    // ── No tenant resolved ─────────────────────────────────────────────────
     if (!resolvedTenantId) {
       if (enforce) {
         return res.status(403).json({
@@ -230,6 +257,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       return next();
     }
 
+    // ── Tenant existence check ─────────────────────────────────────────────
     const tenantExists = await verifyTenantExists(resolvedTenantId);
     if (!tenantExists) {
       logger.warn("Tenant context resolved to inactive or unknown tenant", {
@@ -243,6 +271,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       });
     }
 
+    // ── Membership check ──────────────────────────────────────────────────
     const membershipUserId = tctPayload?.sub ?? userId;
     if (membershipUserId) {
       const isMember = await verifyTenantMembership(
@@ -267,6 +296,16 @@ export const tenantContextMiddleware = (enforce = true) => {
       });
     }
 
+    // ── Structured audit log on every successful resolution ───────────────
+    logger.info("Tenant context resolved", {
+      tenantId: resolvedTenantId,
+      tenantSource,
+      userId: membershipUserId ?? null,
+      path: req.path,
+      conflictDetected: false,
+    });
+
+    // ── Attach context and continue ────────────────────────────────────────
     const attachContext = () => {
       (req as TenantRequest).tenantId = resolvedTenantId;
       (req as TenantRequest).organizationId =
@@ -281,8 +320,6 @@ export const tenantContextMiddleware = (enforce = true) => {
       tctPayload ??
       buildRequestContext(resolvedTenantId, req, membershipUserId);
 
-    // Merge tenantId into the shared AsyncLocalStorage context so the logger
-    // automatically includes it in every log entry for this request.
     const existingContext = getContext() ?? {};
     const sharedContext = { ...existingContext, tenantId: resolvedTenantId };
 
