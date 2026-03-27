@@ -58,7 +58,8 @@
     "check:docs:secrets": "node scripts/ci/check-docs-secrets.mjs",
     "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs",
     "check:a11y-completeness": "node scripts/ci/check-async-view-completeness.mjs",
-    "check:contrast": "node scripts/ci/check-design-token-contrast.mjs"
+    "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
+    "validate:devcontainer": "bash scripts/validate-devcontainer.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

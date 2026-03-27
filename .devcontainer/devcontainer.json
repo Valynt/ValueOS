@@ -1,4 +1,6 @@
 {
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  // Failsafe: Schema validates structure; trailing commas will fail fast
   "name": "ValueOS",
   "build": {
     "context": "..",
@@ -15,7 +17,10 @@
   },
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
-  "forwardPorts": [5173, 3001],
+  "forwardPorts": [
+    5173,
+    3001
+  ],
   "portsAttributes": {
     "5173": {
       "label": "ValyntApp (Vite)",
@@ -38,12 +43,9 @@
       ]
     }
   },
-  
   "containerEnv": {
     "NODE_OPTIONS": "--no-experimental-fetch"
   },
-  
   "postCreateCommand": "rm -rf ~/.windsurf-server 2>/dev/null; echo 'Windsurf server cache cleared'",
-  
   "postStartCommand": "curl -s https://codeium.com > /dev/null && echo 'Internet OK' || echo 'No internet'"
 }
