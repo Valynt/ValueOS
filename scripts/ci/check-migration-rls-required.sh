@@ -80,9 +80,9 @@ for mfile in "${CHECK_FILES[@]}"; do
       table="${BASH_REMATCH[2]}"
 
       # Skip transient migration intermediaries (renamed away in same migration).
-      # Anchor the match so that a table named "foo" is not skipped because of
-      # an unrelated "RENAME TO foobar" line.
-      if grep -qE "RENAME TO ${table}([[:space:]];|$)" "$mfile" 2>/dev/null; then
+      # Match a rename *from* this table name, e.g.:
+      #   ALTER TABLE [IF EXISTS] public.${table} RENAME TO ...
+      if grep -qE "ALTER[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+EXISTS)?[[:space:]]+public\.${table}[[:space:]]+RENAME[[:space:]]+TO" "$mfile" 2>/dev/null; then
         continue
       fi
 
