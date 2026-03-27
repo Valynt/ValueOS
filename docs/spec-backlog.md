@@ -21,12 +21,8 @@ Files confirmed present and unreachable:
 | File | Status |
 |---|---|
 | `apps/ValyntApp/src/app/routes/index.tsx` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/pages/auth/LoginPage.tsx` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/pages/auth/SignupPage.tsx` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/pages/auth/ResetPasswordPage.tsx` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/pages/auth/SetupPage.tsx` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/pages/auth/index.ts` | Confirm unreachable, delete |
-| `apps/ValyntApp/src/views/Auth/SignupPage.tsx` | Confirm unreachable, delete |
+| `apps/ValyntApp/src/views/Auth/ModernLoginPage.tsx:33-81` | Re-review auth surface for bypass controls (legacy `src/pages/auth/*` issues superseded) |
+| `apps/ValyntApp/src/views/Auth/ModernSignupPage.tsx:25-78` | Re-review auth surface for bypass controls (legacy `src/pages/auth/*` issues superseded) |
 | `apps/ValyntApp/src/lib/authPersistence.ts` | Confirm unreachable, delete |
 | `apps/ValyntApp/src/lib/sessionManager.ts` | Confirm unreachable, delete |
 | `apps/ValyntApp/src/__tests__/useAuth.localstorage.test.tsx` | Delete (tests non-existent hook) |
