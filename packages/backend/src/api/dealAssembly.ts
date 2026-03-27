@@ -16,7 +16,10 @@ import { z } from "zod";
 
 import { requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { createExecutionRuntime } from "../runtime/execution-runtime/index.js";
 import { DealAssemblyService } from "../services/deal/DealAssemblyService";
+import { getAuditTrailService } from "../services/security/AuditTrailService.js";
+import { RequestScopedValueCaseAccessService } from "../services/value/RequestScopedValueCaseAccessService.js";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -42,6 +45,8 @@ const GapFillRequestSchema = z.object({
   reason: z.string().optional(),
 });
 
+const DEAL_ASSEMBLY_WORKFLOW_ID = "deal-assembly-v1";
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -54,33 +59,150 @@ const GapFillRequestSchema = z.object({
 router.post(
   "/cases/:caseId/assemble",
   requireAuth,
-  tenantContextMiddleware,
+  tenantContextMiddleware(),
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
       const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
       const userId = req.userId as string;
+      const requestId = req.requestId ?? uuidv4();
 
       // Validate request body
       const body = AssembleRequestSchema.parse(req.body);
 
+      if (!req.supabase) {
+        res.status(500).json({
+          error: "tenant_client_unavailable",
+          message: "Request-scoped database client is required",
+        });
+        return;
+      }
+
+      const caseAccess = new RequestScopedValueCaseAccessService(req.supabase);
+      const caseRow = await caseAccess.assertCaseReadable({
+        caseId,
+        tenantId,
+        userId,
+        requestId,
+        route: req.path,
+      });
+
+      if (!caseRow) {
+        res.status(403).json({
+          error: "tenant_mismatch",
+          message: "Case access denied for tenant context",
+          case_id: caseId,
+        });
+        return;
+      }
+
       logger.info("Deal assembly requested", {
         caseId,
         tenantId,
+        organizationId,
+        requestId,
         opportunityId: body.opportunity_id,
         userId,
       });
 
-      // TODO(ticket: VOS-2315 owner: @revops-runtime date: 2026-03-26): Trigger DealAssemblyAgent workflow.
-      // For now, return accepted status with job ID
-      const jobId = `assembly-${Date.now()}-${caseId}`;
+      const runtime = createExecutionRuntime();
+      const executionEnvelope = {
+        intent: "execute_workflow" as const,
+        actor: {
+          id: userId ?? "api-user",
+        },
+        organizationId,
+        entryPoint: "api.dealAssembly.assemble",
+        reason: "Deal assembly workflow requested via API",
+        timestamps: {
+          requestedAt: new Date().toISOString(),
+        },
+      };
+
+      let workflowExecution;
+      try {
+        workflowExecution = await runtime.executeWorkflow(
+          executionEnvelope,
+          DEAL_ASSEMBLY_WORKFLOW_ID,
+          {
+            caseId,
+            opportunityId: body.opportunity_id,
+            crmConnectionId: body.crm_connection_id,
+            transcriptIds: body.transcript_ids ?? [],
+            noteIds: body.note_ids ?? [],
+            skipEnrichment: body.skip_enrichment ?? false,
+            tenantId,
+            organizationId,
+            requestId,
+          },
+          userId,
+        );
+      } catch (enqueueErr) {
+        logger.error(
+          "Failed to start deal assembly workflow",
+          enqueueErr instanceof Error ? enqueueErr : new Error(String(enqueueErr)),
+          {
+            caseId,
+            tenantId,
+            organizationId,
+            requestId,
+            workflowDefinitionId: DEAL_ASSEMBLY_WORKFLOW_ID,
+          },
+        );
+
+        res.status(502).json({
+          error: "workflow_enqueue_failed",
+          message: "Failed to start deal assembly workflow",
+          case_id: caseId,
+          request_id: requestId,
+        });
+        return;
+      }
+
+      const jobId = workflowExecution.executionId;
+      const correlationId = requestId;
+
+      try {
+        await getAuditTrailService().logImmediate({
+          eventType: "security_event",
+          actorId: userId ?? "unknown",
+          actorType: "user",
+          resourceId: caseId,
+          resourceType: "case",
+          action: "deal_assembly_requested",
+          outcome: "success",
+          details: {
+            requestId,
+            correlationId,
+            workflowJobId: jobId,
+            workflowDefinitionId: DEAL_ASSEMBLY_WORKFLOW_ID,
+            opportunityId: body.opportunity_id,
+          },
+          ipAddress: req.ip ?? "unknown",
+          userAgent: req.get("user-agent") ?? "unknown",
+          timestamp: Date.now(),
+          sessionId: req.sessionId ?? "unknown",
+          correlationId,
+          riskScore: 15,
+          complianceFlags: ["workflow-orchestration", "deal-assembly"],
+          tenantId: organizationId,
+        });
+      } catch (auditErr) {
+        logger.warn("Failed to write deal assembly audit event", {
+          caseId,
+          requestId,
+          jobId,
+          error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+        });
+      }
 
       res.status(202).json({
         message: "Deal assembly initiated",
         case_id: caseId,
         job_id: jobId,
-        status: "assembling",
+        request_id: requestId,
+        status: workflowExecution.status === "initiated" ? "running" : workflowExecution.status,
         estimated_completion: "2-3 minutes",
         steps: [
           "crm_ingestion",
@@ -90,6 +212,15 @@ router.post(
           "context_extraction",
           "deal_assembly",
         ],
+      });
+
+      logger.info("Deal assembly workflow started", {
+        caseId,
+        tenantId,
+        organizationId,
+        requestId,
+        jobId,
+        workflowDefinitionId: DEAL_ASSEMBLY_WORKFLOW_ID,
       });
     } catch (err) {
       next(err);
@@ -105,7 +236,7 @@ router.post(
 router.get(
   "/cases/:caseId/context",
   requireAuth,
-  tenantContextMiddleware,
+  tenantContextMiddleware(),
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
@@ -154,7 +285,7 @@ router.get(
 router.patch(
   "/cases/:caseId/context/gaps",
   requireAuth,
-  tenantContextMiddleware,
+  tenantContextMiddleware(),
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
@@ -200,7 +331,7 @@ router.patch(
 router.post(
   "/cases/:caseId/context/confirm",
   requireAuth,
-  tenantContextMiddleware,
+  tenantContextMiddleware(),
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
@@ -243,7 +374,7 @@ const HypothesisLoopRequestSchema = z.object({
 router.post(
   "/cases/:caseId/run-hypothesis-loop",
   requireAuth,
-  tenantContextMiddleware,
+  tenantContextMiddleware(),
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
