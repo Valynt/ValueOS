@@ -236,28 +236,39 @@ GRANT ALL ON public.secret_audit_logs_default TO service_role;
 --     their own row. Service_role manages provisioning.
 -- ============================================================================
 
--- Ensure RLS is enabled (the snapshot has ALTER TABLE IF EXISTS ... ENABLE ROW
--- LEVEL SECURITY but no policies were ever created for this table).
-ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'users'
+  ) THEN
+    -- Ensure RLS is enabled (the snapshot has ALTER TABLE IF EXISTS ... ENABLE ROW
+    -- LEVEL SECURITY but no policies were ever created for this table).
+    ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS users_own_row_select ON public.users;
-DROP POLICY IF EXISTS users_own_row_update ON public.users;
-DROP POLICY IF EXISTS users_service_role ON public.users;
+    DROP POLICY IF EXISTS users_own_row_select ON public.users;
+    DROP POLICY IF EXISTS users_own_row_update ON public.users;
+    DROP POLICY IF EXISTS users_service_role ON public.users;
 
-CREATE POLICY users_own_row_select ON public.users
-  FOR SELECT TO authenticated
-  USING (id = auth.uid()::text);
+    CREATE POLICY users_own_row_select ON public.users
+      FOR SELECT TO authenticated
+      USING (id = auth.uid()::text);
 
-CREATE POLICY users_own_row_update ON public.users
-  FOR UPDATE TO authenticated
-  USING (id = auth.uid()::text)
-  WITH CHECK (id = auth.uid()::text);
+    CREATE POLICY users_own_row_update ON public.users
+      FOR UPDATE TO authenticated
+      USING (id = auth.uid()::text)
+      WITH CHECK (id = auth.uid()::text);
 
-CREATE POLICY users_service_role ON public.users
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
+    CREATE POLICY users_service_role ON public.users
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-GRANT SELECT, UPDATE ON public.users TO authenticated;
-GRANT ALL ON public.users TO service_role;
-REVOKE ALL ON public.users FROM anon;
+    GRANT SELECT, UPDATE ON public.users TO authenticated;
+    GRANT ALL ON public.users TO service_role;
+    REVOKE ALL ON public.users FROM anon;
+  END IF;
+END
+$$;
 
 COMMIT;
