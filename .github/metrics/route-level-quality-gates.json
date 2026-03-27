@@ -1,0 +1,58 @@
+{
+  "journeys": [
+    {
+      "name": "Auth",
+      "routes": ["/", "/login", "/signup", "/reset-password", "/auth/login"],
+      "sourceScopes": [
+        "apps/ValyntApp/src/views/Auth",
+        "apps/ValyntApp/src/views/CreateOrganization.tsx",
+        "apps/ValyntApp/src/views/CompanyOnboarding.tsx"
+      ],
+      "a11y": {
+        "minPassRate": 100,
+        "maxSerious": 0,
+        "maxCritical": 0
+      },
+      "l10n": {
+        "requiredLocales": ["es"],
+        "minCompletenessPercent": 100
+      }
+    },
+    {
+      "name": "Dashboard",
+      "routes": ["/dashboard"],
+      "sourceScopes": [
+        "apps/ValyntApp/src/layouts/MainLayout.tsx",
+        "apps/ValyntApp/src/views/Dashboard.tsx"
+      ],
+      "a11y": {
+        "minPassRate": 100,
+        "maxSerious": 0,
+        "maxCritical": 0
+      },
+      "l10n": {
+        "requiredLocales": ["es"],
+        "minCompletenessPercent": 100
+      }
+    },
+    {
+      "name": "Admin",
+      "routes": ["/settings"],
+      "sourceScopes": [
+        "apps/ValyntApp/src/views/SettingsPage.tsx",
+        "apps/ValyntApp/src/views/Integrations.tsx",
+        "apps/ValyntApp/src/views/BillingPortal.tsx",
+        "apps/ValyntApp/src/views/CompanyKnowledge.tsx"
+      ],
+      "a11y": {
+        "minPassRate": 100,
+        "maxSerious": 0,
+        "maxCritical": 0
+      },
+      "l10n": {
+        "requiredLocales": ["es"],
+        "minCompletenessPercent": 100
+      }
+    }
+  ]
+}

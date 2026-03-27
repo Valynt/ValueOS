@@ -662,14 +662,14 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
-      - name: Promote top-journey accessibility + localization thresholds
+      - name: Promote route-level accessibility + localization thresholds
         if: always()
         run: |
-          node scripts/ci/check-top-journey-ux-gates.mjs \
-            --config .github/metrics/top-journey-quality-gates.json \
+          node scripts/ci/check-route-level-ux-gates.mjs \
+            --config .github/metrics/route-level-quality-gates.json \
             --playwright artifacts/accessibility/playwright-report.json \
             --i18n artifacts/i18n/coverage-dashboard.json \
-            --out artifacts/frontend-quality/top-journey-gates.json
+            --out artifacts/frontend-quality/route-level-gates.json
       - name: Run route load performance checks
         if: always()
         env:
