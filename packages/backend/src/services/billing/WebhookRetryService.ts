@@ -1,10 +1,17 @@
 /**
  * Webhook Retry Service
  * Handles retrying failed webhook events with exponential backoff
+ *
+ * Delivery failures are now enqueued to the BullMQ webhook-retry queue
+ * (WebhookRetryWorker) instead of relying on the CronJob-triggered
+ * processRetries() path. The CronJob is deprecated — see
+ * infra/k8s/cronjobs/deprecated/webhook-retry.yaml.
  */
 
+import { type SupabaseClient } from '@supabase/supabase-js';
+
 import { createLogger } from '../../lib/logger.js'
-import { supabase } from '../../lib/supabase.js';
+import { supabase as defaultSupabase } from '../../lib/supabase.js';
 import { billingWebhookRetryQueueSize } from '../../metrics/billingMetrics.js'
 
 import WebhookService from './WebhookService.js'
@@ -27,7 +34,84 @@ interface WebhookEvent {
   received_at: string;
 }
 
-class WebhookRetryService {
+export class WebhookRetryService {
+  private supabase: SupabaseClient;
+
+  constructor(supabaseClient?: SupabaseClient) {
+    this.supabase = supabaseClient ?? defaultSupabase;
+  }
+
+  // ---------------------------------------------------------------------------
+  // BullMQ integration — called by WebhookRetryWorker
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Deliver a webhook event. Called by the BullMQ worker on each attempt.
+   * Throws on failure so BullMQ can apply backoff and retry.
+   */
+  async deliverWebhookEvent(
+    eventId: string,
+    _tenantId: string,
+    _eventType: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    // Check whether the event was already processed before calling
+    // processEvent. Without this guard, a transient DB update failure would
+    // cause BullMQ to retry and processEvent would run again on an already-
+    // delivered event.
+    const { data: existing, error: fetchError } = await this.supabase
+      .from('webhook_events')
+      .select('processed')
+      .eq('id', eventId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch webhook event ${eventId} before delivery: ${fetchError.message}`);
+    }
+
+    if (existing?.processed) {
+      logger.info('Webhook event already processed — skipping delivery', { eventId });
+      return;
+    }
+
+    await WebhookService.processEvent(payload);
+
+    const { error } = await this.supabase
+      .from('webhook_events')
+      .update({
+        processed: true,
+        processed_at: new Date().toISOString(),
+        error_message: null,
+      })
+      .eq('id', eventId);
+
+    if (error) {
+      // Throw so BullMQ records the failure. Without this, the event stays
+      // processed=false and will be redelivered on the next attempt.
+      throw new Error(`Failed to mark webhook event ${eventId} as processed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Enqueue a failed webhook event for BullMQ retry.
+   * Called by WebhookService when initial delivery fails.
+   */
+  async enqueueRetry(
+    eventId: string,
+    tenantId: string,
+    eventType: string,
+    payload: Record<string, unknown>,
+    attemptNumber = 1,
+  ): Promise<void> {
+    // Lazy import to avoid circular dependency at module load time
+    const { enqueueWebhookRetry } = await import('../../workers/WebhookRetryWorker.js');
+    await enqueueWebhookRetry({ eventId, tenantId, eventType, payload, attemptNumber });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy CronJob path (kept for backward compatibility during migration)
+  // ---------------------------------------------------------------------------
+
   /**
    * Calculate next retry time with exponential backoff
    */
@@ -43,7 +127,7 @@ class WebhookRetryService {
    * Get failed events ready for retry
    */
   async getEventsForRetry(): Promise<WebhookEvent[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('webhook_events')
       .select('*')
       .eq('processed', false)
@@ -74,7 +158,7 @@ class WebhookRetryService {
       await WebhookService.processEvent(event.payload);
 
       // Mark as processed
-      await supabase
+      await this.supabase
         .from('webhook_events')
         .update({
           processed: true,
@@ -99,7 +183,7 @@ class WebhookRetryService {
       });
 
       // Update retry info
-      await supabase
+      await this.supabase
         .from('webhook_events')
         .update({
           retry_count: retryCount,
@@ -123,13 +207,22 @@ class WebhookRetryService {
   }
 
   /**
-   * Process all events ready for retry
+   * Process all events ready for retry.
+   *
+   * @deprecated Webhook retries are now driven by the BullMQ WebhookRetryWorker.
+   * This method is kept for backward compatibility during the CronJob migration
+   * and will be removed once the CronJob is fully decommissioned.
    */
   async processRetries(): Promise<{
     processed: number;
     succeeded: number;
     failed: number;
   }> {
+    logger.warn(
+      'processRetries() is deprecated — webhook retries are now handled by WebhookRetryWorker (BullMQ). ' +
+      'Decommission the CronJob and remove this call path.',
+    );
+
     const events = await this.getEventsForRetry();
 
     // Emit gauge so billing-alerts.yaml WebhookRetryBacklog rule can fire.
@@ -166,7 +259,7 @@ class WebhookRetryService {
    * Move event to dead letter queue
    */
   private async moveToDeadLetterQueue(event: WebhookEvent): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('webhook_dead_letter_queue')
       .insert({
         stripe_event_id: event.stripe_event_id,
@@ -192,7 +285,7 @@ class WebhookRetryService {
    * Get dead letter queue events
    */
   async getDeadLetterQueue(limit: number = 50): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('webhook_dead_letter_queue')
       .select('*')
       .order('moved_at', { ascending: false })
@@ -210,7 +303,7 @@ class WebhookRetryService {
    * Replay event from dead letter queue
    */
   async replayDeadLetterEvent(eventId: string): Promise<boolean> {
-    const { data: event, error } = await supabase
+    const { data: event, error } = await this.supabase
       .from('webhook_dead_letter_queue')
       .select('*')
       .eq('id', eventId)
@@ -230,7 +323,7 @@ class WebhookRetryService {
       await WebhookService.processEvent(event.payload);
 
       // Remove from dead letter queue
-      await supabase
+      await this.supabase
         .from('webhook_dead_letter_queue')
         .delete()
         .eq('id', eventId);

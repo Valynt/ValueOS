@@ -970,6 +970,7 @@ jobs:
 
           echo "log-level-production-gate: PASS"
 
+
   # ── Flake gate (REQ-C1) ──────────────────────────────────────────────────
   flake-gate:
     name: flake-gate
@@ -1154,6 +1155,7 @@ jobs:
           path: artifacts/ci-lanes/slo-rule-validation/**
           if-no-files-found: warn
           retention-days: 30
+
   pr-fast:
     name: pr-fast
     runs-on: ubuntu-latest

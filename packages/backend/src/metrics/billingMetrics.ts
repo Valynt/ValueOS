@@ -1,4 +1,4 @@
-import { Counter, Gauge } from 'prom-client';
+import { Counter, Gauge, type LabelValues } from 'prom-client';
 
 import { getMetricsRegistry } from '../middleware/metricsMiddleware.js';
 
@@ -68,6 +68,52 @@ export const billingPendingAggregatesAgeSeconds = new Gauge({
 export const billingWebhookUnresolvedTenantTotal = new Counter({
   name: 'billing_webhook_unresolved_tenant_total',
   help: 'payment_succeeded events where tenant could not be resolved from billing_customers',
+  registers: [registry],
+});
+
+/** Aggregation windows skipped because another worker held the advisory lock. */
+export const billingAggregationLockSkippedTotal = new Counter<'tenant_id' | 'metric'>({
+  name: 'billing_aggregation_lock_skipped_total',
+  help: 'Aggregation windows skipped due to advisory lock held by another worker',
+  labelNames: ['tenant_id', 'metric'],
+  registers: [registry],
+});
+
+/** Stripe calls prevented by pre-submission duplicate check. */
+export const billingDuplicateSubmissionPreventedTotal = new Counter<'tenant_id' | 'metric'>({
+  name: 'billing_duplicate_submission_prevented_total',
+  help: 'Stripe calls skipped because an existing submitted aggregate was found',
+  labelNames: ['tenant_id', 'metric'],
+  registers: [registry],
+});
+
+/** Inbound usage events rejected by per-tenant Redis rate limiter. */
+export const billingInboundRateLimitedTotal = new Counter<'tenant_id'>({
+  name: 'billing_inbound_rate_limited_total',
+  help: 'Inbound usage events rejected by per-tenant rate limiter',
+  labelNames: ['tenant_id'],
+  registers: [registry],
+});
+
+/** Redis unavailability events on the billing rate limiter (fail-open path). */
+export const billingRateLimitRedisUnavailableTotal = new Counter({
+  name: 'billing_rate_limit_redis_unavailable_total',
+  help: 'Rate limiter Redis unavailability events (fail-open path taken)',
+  registers: [registry],
+});
+
+/** Stripe calls throttled by the global outbound token bucket. */
+export const billingStripeRateLimitedTotal = new Counter({
+  name: 'billing_stripe_rate_limited_total',
+  help: 'Stripe API calls throttled by the global outbound token bucket',
+  registers: [registry],
+});
+
+/** Webhook retry jobs exhausted (all attempts consumed). */
+export const billingWebhookExhaustedTotal = new Counter<'event_type'>({
+  name: 'billing_webhook_exhausted_total',
+  help: 'Webhook retry jobs that exhausted all retry attempts',
+  labelNames: ['event_type'],
   registers: [registry],
 });
 

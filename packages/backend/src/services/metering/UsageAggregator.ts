@@ -10,6 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { BillingMetric } from '../../config/billing.js'
 import { createLogger } from '../../lib/logger.js'
 import {
+  billingAggregationLockSkippedTotal,
   billingPendingAggregatesAgeSeconds,
   billingUsageRecordsUnaggregated,
 } from '../../metrics/billingMetrics.js'
@@ -152,6 +153,48 @@ export class UsageAggregator {
   }
 
   /**
+   * Acquire a Postgres advisory lock scoped to (tenantId, metric, periodStart, periodEnd).
+   *
+   * Uses pg_try_advisory_xact_lock so the lock is automatically released when
+   * the transaction ends. Returns false if another worker already holds the lock
+   * for this aggregation window, in which case the caller should skip.
+   *
+   * The lock key is a 60-bit integer derived from the first 15 hex chars of a
+   * SHA-256 of the lock scope string. 60 bits fits within JS's safe-integer
+   * range (2^53 - 1) after the modulo below, and collision probability is
+   * negligible for the number of concurrent aggregation windows in production.
+   */
+  protected async tryAcquireAggregationLock(
+    tenantId: string,
+    metric: string,
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<boolean> {
+    const lockScope = `agg:${tenantId}:${metric}:${periodStart}:${periodEnd}`;
+    const hash = crypto.createHash('sha256').update(lockScope).digest('hex');
+    // pg_try_advisory_xact_lock takes a bigint; use the first 15 hex chars
+    // (60 bits) and clamp to Number.MAX_SAFE_INTEGER to stay within JS precision.
+    const lockKey = parseInt(hash.substring(0, 15), 16) % Number.MAX_SAFE_INTEGER;
+
+    const { data, error } = await this.supabase.rpc('try_advisory_xact_lock', {
+      p_lock_key: lockKey,
+    } as { p_lock_key: number });
+
+    if (error) {
+      // If the RPC is unavailable (e.g. migration not yet applied), fail open
+      // and log — do not block aggregation.
+      logger.warn('Advisory lock RPC unavailable, proceeding without lock', {
+        lockScope,
+        error: error.message,
+        workerId: this.workerId,
+      });
+      return true;
+    }
+
+    return Boolean(data);
+  }
+
+  /**
    * Create aggregate from group with source hash and evidence chain
    */
   private async createAggregate(events: UsageEvent[]): Promise<void> {
@@ -168,6 +211,29 @@ export class UsageAggregator {
     const periodEnd = events[events.length - 1].timestamp;
     const periodStartKey = new Date(periodStart).toISOString();
     const periodEndKey = new Date(periodEnd).toISOString();
+
+    // Acquire advisory lock to prevent concurrent workers from aggregating the
+    // same tenant+metric+period window simultaneously. Without this, two workers
+    // observing overlapping event sets would each compute a different
+    // idempotency key and both proceed to call Stripe.
+    const lockAcquired = await this.tryAcquireAggregationLock(
+      tenantId,
+      metric,
+      periodStartKey,
+      periodEndKey,
+    );
+
+    if (!lockAcquired) {
+      logger.info('Aggregation lock held by another worker — skipping window', {
+        tenantId,
+        metric,
+        periodStart: periodStartKey,
+        periodEnd: periodEndKey,
+        workerId: this.workerId,
+      });
+      billingAggregationLockSkippedTotal.inc({ tenant_id: tenantId, metric });
+      return;
+    }
 
     // Generate source hash for evidence chain
     const sourceHash = await this.generateSourceHash(events);
@@ -211,8 +277,10 @@ export class UsageAggregator {
       return;
     }
 
-    // Generate idempotency key
-    const idempotencyKey = `aggregate_${tenantId}_${metric}_${periodStartKey}_${periodEndKey}_${sourceHash.substring(0, 8)}`;
+    // Generate idempotency key.
+    // Include event count + 16-char hash prefix (64 bits) to make accidental
+    // collisions between different event sets astronomically unlikely.
+    const idempotencyKey = `aggregate_${tenantId}_${metric}_${periodStartKey}_${periodEndKey}_${eventCount}_${sourceHash.substring(0, 16)}`;
 
     // Create aggregate with enhanced metadata
     const { error } = await this.supabase
