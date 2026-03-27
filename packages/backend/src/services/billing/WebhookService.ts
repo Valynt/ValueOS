@@ -15,11 +15,15 @@ import {
   recordInvoiceEvent,
   recordStripeWebhook,
   recordWebhookUnresolvedTenant,
+  webhookProcessingFailuresTotal,
+  webhooksProcessedTotal,
+  webhooksReceivedTotal,
 } from "../../metrics/billingMetrics";
 import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
 import InvoiceService from "./InvoiceService.js";
 import StripeService from "./StripeService.js";
+import { storeWebhookPayload } from "./WebhookPayloadStore.js";
 
 const logger = createLogger({ component: "WebhookService" });
 
@@ -161,28 +165,38 @@ export class WebhookService {
   /**
    * Core event processing with a single atomic idempotency check.
    *
-   * Uses INSERT ... ON CONFLICT DO NOTHING (via upsert ignoreDuplicates) so
-   * that exactly one concurrent caller proceeds to the event handler. Returns
-   * true when the event was a duplicate (no handler invoked), false when the
-   * event was new and the handler ran.
+   * Uses a raw INSERT ... ON CONFLICT DO NOTHING via Supabase's upsert with
+   * ignoreDuplicates:true, but we then explicitly query for the existing row
+   * to distinguish "new insert" from "conflict on duplicate". This gives us:
+   *   - DB-level uniqueness enforcement (stripe_event_id UNIQUE constraint)
+   *   - Explicit duplicate detection with structured logging
+   *   - No silent drops: every duplicate is logged with its existing status
+   *
+   * Returns true when the event was a duplicate (no handler invoked), false
+   * when the event was new and the handler ran.
    */
   async processEvent(event: Stripe.Event): Promise<boolean> {
     if (!supabase) {
       throw new Error("Supabase billing not configured");
     }
 
-    // Single atomic insert. ignoreDuplicates: true maps to
-    // INSERT ... ON CONFLICT DO NOTHING — the DB constraint on
-    // stripe_event_id is the sole idempotency gate. If two concurrent
-    // requests race here, exactly one will receive a row back; the other
-    // will receive null and return early without calling any handler.
-    const { data: inserted } = await supabase
+    // Count every inbound event regardless of outcome
+    webhooksReceivedTotal.labels({ event_type: event.type }).inc();
+
+    // ── Step 1: Idempotency gate ───────────────────────────────────────────
+    // Attempt a lightweight insert (no payload columns yet) using the DB
+    // UNIQUE constraint on stripe_event_id as the authoritative gate.
+    // ignoreDuplicates:true maps to INSERT ... ON CONFLICT DO NOTHING.
+    // Payload storage is deferred to step 2 so duplicate deliveries (the
+    // common case for Stripe retries) never trigger a Storage upload.
+    const { data: inserted, error: insertError } = await supabase
       .from("webhook_events")
       .upsert(
         {
           stripe_event_id: event.id,
           event_type: event.type,
           payload: event,
+          status: "pending",
           processed: false,
           received_at: new Date().toISOString(),
         },
@@ -191,16 +205,76 @@ export class WebhookService {
           ignoreDuplicates: true,
         }
       )
-      .select("id, processed")
+      .select("id, processed, status")
       .single();
 
-    // null → conflict (duplicate) or already processed → skip handler
-    if (!inserted || inserted.processed) {
-      logger.info("Webhook event already processed or duplicate — skipping", {
+    if (insertError && (insertError as { code?: string }).code !== "PGRST116") {
+      // PGRST116 = "no rows returned" — expected on conflict (DO NOTHING).
+      // Any other error is unexpected and should propagate.
+      logger.error("Unexpected error inserting webhook event", insertError, {
         eventId: event.id,
         type: event.type,
       });
+      throw new Error(
+        `Failed to record webhook event: ${insertError.message}`
+      );
+    }
+
+    // null → conflict (DO NOTHING fired) — fetch the existing row to log its state
+    if (!inserted) {
+      const { data: existing } = await supabase
+        .from("webhook_events")
+        .select("id, processed, status")
+        .eq("stripe_event_id", event.id)
+        .single();
+
+      logger.info("Webhook duplicate detected — skipping handler", {
+        eventId: event.id,
+        type: event.type,
+        existingStatus: existing?.status ?? "unknown",
+        existingProcessed: existing?.processed ?? null,
+      });
+      recordStripeWebhook(event.type, "duplicate");
+      webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
       return true; // isDuplicate
+    }
+
+    // Row existed but was already processed (e.g. redelivery after success)
+    if (inserted.processed || inserted.status === "processed") {
+      logger.info("Webhook event already processed — skipping handler", {
+        eventId: event.id,
+        type: event.type,
+        status: inserted.status,
+      });
+      recordStripeWebhook(event.type, "duplicate");
+      webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
+      return true; // isDuplicate
+    }
+
+    // ── Step 2: Durable payload storage (new events only) ─────────────────
+    // Only reached when this delivery won the idempotency insert above.
+    // Payloads ≤256kb are stored inline; larger payloads go to Supabase Storage.
+    const payloadStorage = await storeWebhookPayload(event.id, event);
+
+    // Attach payload storage references to the row now that we know it's new.
+    if (payloadStorage.mode === "external" || payloadStorage.rawPayload !== null) {
+      const { error: payloadUpdateError } = await supabase
+        .from("webhook_events")
+        .update({
+          raw_payload: payloadStorage.rawPayload,
+          payload_ref: payloadStorage.payloadRef,
+        })
+        .eq("stripe_event_id", event.id);
+
+      if (payloadUpdateError) {
+        // Non-fatal: the handler can still run, but the payload reference is lost.
+        // A DLQ replay for this event would have no payload to re-enqueue.
+        logger.warn("Failed to attach payload reference to webhook event row", {
+          eventId: event.id,
+          payloadMode: payloadStorage.mode,
+          error: payloadUpdateError.message,
+        });
+      }
     }
 
     logger.info("Processing webhook event", {
@@ -247,6 +321,7 @@ export class WebhookService {
 
       await this.markEventProcessed(event.id);
       recordStripeWebhook(event.type, "processed");
+      webhooksProcessedTotal.labels({ event_type: event.type, status: "success" }).inc();
       return false; // not a duplicate
     } catch (error) {
       logger.error(
@@ -255,6 +330,8 @@ export class WebhookService {
         { eventId: event.id }
       );
       recordStripeWebhook(event.type, "failed");
+      webhooksProcessedTotal.labels({ event_type: event.type, status: "failed" }).inc();
+      webhookProcessingFailuresTotal.labels({ event_type: event.type }).inc();
       recordBillingJobFailure("stripe_webhook", (error as Error).message);
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
@@ -311,12 +388,13 @@ export class WebhookService {
       .update({
         processed: true,
         processed_at: new Date().toISOString(),
+        status: "processed",
       })
       .eq("stripe_event_id", eventId);
   }
 
   /**
-   * Mark event as failed
+   * Mark event as failed and increment retry counter.
    */
   private async markEventFailed(
     eventId: string,
@@ -342,6 +420,8 @@ export class WebhookService {
         .update({
           error_message: errorMessage,
           retry_count: newCount,
+          status: "failed",
+          failed_at: new Date().toISOString(),
         })
         .eq("stripe_event_id", eventId);
     } catch (err) {

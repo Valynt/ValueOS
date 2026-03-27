@@ -26,6 +26,11 @@
       "budget": 3602,
       "nextTarget": 3500
     },
+    "packages/backend/strict-zone": {
+      "budget": 178,
+      "nextTarget": 150,
+      "note": "Strict-mode errors in billing, middleware, and tenant modules. Budget must not increase. Reduce via packages/backend/tsconfig.strict-zone.json."
+    },
     "packages/mcp": {
       "budget": 468,
       "nextTarget": 450

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Fail if any migration file introduces a CREATE TABLE in the public schema
-# without a corresponding ENABLE ROW LEVEL SECURITY in the same file or any
-# later migration file.
+# Fail if any migration file introduces a CREATE TABLE (or CREATE TABLE ... PARTITION OF)
+# in the public schema without a corresponding ENABLE ROW LEVEL SECURITY in the same
+# file or any later migration file.
 #
 # This is a static analysis gate — it does not require a running database.
 # It prevents new tables from shipping without RLS as a permanent control.
@@ -9,6 +9,14 @@
 # Scope:
 #   PR mode:   only checks migration files changed vs the base branch.
 #   Main/local: checks all active migration files (non-rollback, non-archive).
+#
+# Partition child tables:
+#   PostgreSQL does not automatically enable RLS on partition children even when
+#   the parent has it. Each partition child must have ENABLE ROW LEVEL SECURITY
+#   called explicitly. This script enforces that for both static CREATE TABLE
+#   and CREATE TABLE ... PARTITION OF statements.
+#   Dynamic partitions created by create_next_monthly_partitions() are exempt
+#   from static analysis — they are covered by the function patch in 20260917.
 #
 # Exit codes:
 #   0 — all new tables have RLS enabled somewhere in the migration chain
@@ -75,22 +83,39 @@ for mfile in "${CHECK_FILES[@]}"; do
   [ -f "$mfile" ] || continue
 
   while IFS= read -r line; do
+    table=""
+
     # Match: CREATE TABLE [IF NOT EXISTS] public.<name>
     if [[ "$line" =~ CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+public\.([a-zA-Z_][a-zA-Z0-9_]*) ]]; then
       table="${BASH_REMATCH[2]}"
+    fi
 
-      # Skip transient migration intermediaries (renamed away in same migration).
-      # Match a rename *from* this table name, e.g.:
-      #   ALTER TABLE [IF EXISTS] public.${table} RENAME TO ...
-      if grep -qE "ALTER[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+EXISTS)?[[:space:]]+public\.${table}[[:space:]]+RENAME[[:space:]]+TO" "$mfile" 2>/dev/null; then
-        continue
-      fi
+    # Match: CREATE TABLE [IF NOT EXISTS] public.<name> PARTITION OF public.<parent>
+    # Partition children must also have ENABLE ROW LEVEL SECURITY — PostgreSQL does
+    # not inherit RLS enforcement from the parent automatically.
+    if [[ "$line" =~ CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+public\.([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]+PARTITION[[:space:]]+OF ]]; then
+      table="${BASH_REMATCH[2]}"
+    fi
 
-      if [ -z "${RLS_ENABLED_TABLES[$table]+_}" ]; then
-        echo "::error file=${mfile}::Table 'public.${table}' is created without ENABLE ROW LEVEL SECURITY in any migration. Add RLS before merging."
-        echo "FAIL ${mfile}: public.${table} missing ENABLE ROW LEVEL SECURITY"
-        EXIT_CODE=1
-      fi
+    [ -z "$table" ] && continue
+
+    # Skip transient migration intermediaries (renamed away in same migration).
+    # Match a rename *from* this table name, e.g.:
+    #   ALTER TABLE [IF EXISTS] public.${table} RENAME TO ...
+    if grep -qE "ALTER[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+EXISTS)?[[:space:]]+public\.${table}[[:space:]]+RENAME[[:space:]]+TO" "$mfile" 2>/dev/null; then
+      continue
+    fi
+
+    # Skip dynamic partition creation via format() / EXECUTE — these are covered
+    # by the create_next_monthly_partitions() function patch in 20260917.
+    if [[ "$line" =~ format\( ]] || [[ "$line" =~ EXECUTE ]]; then
+      continue
+    fi
+
+    if [ -z "${RLS_ENABLED_TABLES[$table]+_}" ]; then
+      echo "::error file=${mfile}::Table 'public.${table}' is created without ENABLE ROW LEVEL SECURITY in any migration. Add RLS before merging."
+      echo "FAIL ${mfile}: public.${table} missing ENABLE ROW LEVEL SECURITY"
+      EXIT_CODE=1
     fi
   done < "$mfile"
 done

@@ -86,6 +86,20 @@ await memorySystem.query(embedding, { limit: 10 });
 
 Validate with: `pnpm run test:rls`
 
+#### RLS coverage classifications
+
+All public-schema tables are classified in `docs/db/rls-coverage-audit.md`. The five valid classifications are:
+
+| Classification | Meaning | RLS requirement |
+|---|---|---|
+| `tenant_scoped` | Rows belong to a single tenant | `USING (tenant_id = auth.uid()...)` or equivalent |
+| `service_only` | Written/read exclusively by service-role workers | RLS enabled + no anon/user policies (service_role bypasses) |
+| `own_row` | Users may only access their own row | `USING (user_id = auth.uid())` |
+| `public_read` | Read-only reference data, no PII | SELECT policy open; INSERT/UPDATE/DELETE blocked |
+| `partition_child` | Inherits policy from parent partition table | Parent table carries the RLS policy |
+
+Every new `CREATE TABLE` migration must declare a classification comment and add the appropriate RLS policy. The CI gate (`scripts/ci/check-migration-rls-required.sh`) rejects migrations that create tables without an RLS policy or a `-- rls-exempt: <reason>` annotation.
+
 ### 2. LLM calls via secureInvoke only
 
 All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSchema, options)` from `BaseAgent`. Never call `llmGateway.complete()` directly from agent code. See `.windsurf/skills/agent-onboarding/SKILL.md` for the full agent scaffold pattern.

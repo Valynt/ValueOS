@@ -780,8 +780,10 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: SCA — pnpm audit (fail on high/critical)
-        run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+      - name: SCA — pnpm audit (fail on unwaived high/critical)
+        run: |
+          pnpm audit --audit-level=high --json > npm-audit-report.json || true
+          node scripts/ci/check-cve-waivers.mjs --audit-file=npm-audit-report.json
       - name: Dev routes static check — child_process must be behind dynamic import
         run: |
           set -euo pipefail

@@ -94,6 +94,18 @@ pnpm test
 
 `pnpm test` is the canonical repo-wide Vitest workspace run from the root `vitest.config.ts`. Use that root command for full maintained-suite coverage; package-local test commands are for intentionally scoped runs only.
 
+### TypeScript error ratchet
+
+Per-package error budgets are tracked in `.github/ts-error-ratchet-budgets.json`. The CI gate (`scripts/ci/ts-error-ratchet.mjs`) fails if any package exceeds its budget.
+
+**To update a baseline** (e.g. after fixing errors):
+1. Run `pnpm exec tsc --noEmit -p packages/<pkg>/tsconfig.json 2>&1 | grep "error TS" | wc -l` to get the new count.
+2. Lower the `budget` value in `.github/ts-error-ratchet-budgets.json` to the new count.
+3. Include the budget change in the same PR as the fixes — never update the budget without the corresponding fixes.
+4. Never increase a budget. If a PR would increase the error count, fix the errors instead.
+
+**Strict zones** (`tsconfig.strict-zones.json`) enforce `strict: true` on critical modules (billing, middleware, tenant). The `packages/backend/strict-zone` budget in the ratchet file tracks these separately. The same update process applies.
+
 ### ESLint warning ratchet
 
 The backend lint ceiling (`--max-warnings` in `packages/backend/package.json`) must only decrease over time. Reduce it by at least 200 per sprint. Never increase it without an ADR justification. Run `node scripts/ci/lint-ratchet-check.mjs` to see current headroom.

@@ -383,4 +383,46 @@ describe("CacheService", () => {
       expect(redisStore.has("tenant:tenant-B:ns:v0:k3")).toBe(true);
     });
   });
+
+  // ── Production Redis enforcement (spec 3.1) ───────────────────────────────
+
+  describe("production Redis enforcement", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+      delete process.env.REDIS_URL;
+    });
+
+    it("throws on construction when NODE_ENV=production and REDIS_URL is absent", () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.REDIS_URL;
+
+      expect(() => new CacheService("prod-ns")).toThrow(
+        /REDIS_URL must be set in production/
+      );
+    });
+
+    it("does not throw in development when REDIS_URL is absent", () => {
+      process.env.NODE_ENV = "development";
+      delete process.env.REDIS_URL;
+
+      expect(() => new CacheService("dev-ns")).not.toThrow();
+    });
+
+    it("does not throw in test when REDIS_URL is absent", () => {
+      process.env.NODE_ENV = "test";
+      delete process.env.REDIS_URL;
+
+      expect(() => new CacheService("test-ns")).not.toThrow();
+    });
+
+    it("does not throw in production when REDIS_URL is set", () => {
+      process.env.NODE_ENV = "production";
+      process.env.REDIS_URL = "redis://localhost:6379";
+
+      // Redis client creation is mocked — no actual connection attempted
+      expect(() => new CacheService("prod-redis-ns")).not.toThrow();
+    });
+  });
 });
