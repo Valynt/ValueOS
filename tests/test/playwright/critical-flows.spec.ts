@@ -40,9 +40,9 @@ test.describe('Critical flows', () => {
         break;
       }
     }
-    if (!triggerFound) test.skip('No new case trigger visible');
+    expect(triggerFound, 'Expected at least one New Case trigger in critical path').toBeTruthy();
 
-    await triggerFound.click();
+    await triggerFound!.click();
 
     const companyInput = page.getByLabel(/company name/i);
     await companyInput.fill('Playwright Test Co');
@@ -56,7 +56,7 @@ test.describe('Critical flows', () => {
     await waitForAppLoad(page);
 
     const uploadCard = page.getByText(/Upload Notes/i).first();
-    if (!(await uploadCard.isVisible().catch(() => false))) test.skip('Upload Notes starter not visible');
+    await expect(uploadCard, 'Upload Notes starter must be visible for critical flow').toBeVisible({ timeout: TIMEOUT.ui });
     await uploadCard.click();
 
     const fileInput = page.locator('input[type="file"]').first();
@@ -73,7 +73,7 @@ test.describe('Critical flows', () => {
     await waitForAppLoad(page);
 
     const importCard = page.getByText(/Import from CRM/i).first();
-    if (!(await importCard.isVisible().catch(() => false))) test.skip('Import from CRM starter not visible');
+    await expect(importCard, 'Import from CRM starter must be visible for critical flow').toBeVisible({ timeout: TIMEOUT.ui });
     await importCard.click();
 
     const urlInput = page.getByPlaceholder(/Salesforce or HubSpot URL/i);
@@ -90,11 +90,11 @@ test.describe('Critical flows', () => {
 
     // Try selecting the first case in sidebar
     const caseButton = page.locator('aside button, aside [role="button"]').first();
-    if (!(await caseButton.isVisible().catch(() => false))) test.skip('No case entries visible');
+    await expect(caseButton, 'Expected at least one case entry in sidebar').toBeVisible({ timeout: TIMEOUT.ui });
     await caseButton.click();
 
     const askAiButton = page.getByRole('button', { name: /ask ai/i }).first();
-    if (!(await askAiButton.isVisible().catch(() => false))) test.skip('Ask AI not visible');
+    await expect(askAiButton, 'Ask AI action should be visible for selected case').toBeVisible({ timeout: TIMEOUT.ui });
     await askAiButton.click();
 
     // SDUI render smoke: look for common SDUI component containers
@@ -107,7 +107,6 @@ test.describe('Critical flows', () => {
       }),
     ).catch(() => null);
 
-    if (!found) test.skip('No SDUI render indicators found');
-    expect(found).toBeTruthy();
+    expect(found, 'Expected SDUI render indicator after Ask AI action').toBeTruthy();
   });
 });
