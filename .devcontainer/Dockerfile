@@ -74,7 +74,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       # Python (used by production-readiness-orchestrator.py and pip tools)
       python3 \
       python3-pip \
-      python3-venv; \
+      python3-venv \
+      # Windsurf server runtime requirements
+      libstdc++6 \
+      libgcc-s1 \
+      libatomic1 \
+      procps \
+      net-tools \
+      dnsutils; \
     rm -rf /var/tmp/*
 
 # ── Layer 2: Node.js ──────────────────────────────────────────────────────────
@@ -141,3 +148,12 @@ ENV PNPM_HOME=/home/${USERNAME}/.local/share/pnpm
 ENV PATH=${PNPM_HOME}:/usr/local/bin:${PATH}
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=development
+
+# NOTE: Do NOT set NODE_OPTIONS=--no-experimental-fetch in this image or in
+# devcontainer.json containerEnv. The Windsurf remote server (windsurf-reh)
+# uses the Node built-in fetch API; disabling it prevents Cascade and all
+# Windsurf AI services from starting inside the container.
+
+# Health check for container readiness
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node --version && pnpm --version || exit 1
