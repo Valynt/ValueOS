@@ -213,6 +213,7 @@ export interface WageData {
   percentile_90?: number;
   employment_count?: number;
   year: number;
+  source?: string;
 }
 
 // ============================================================================
@@ -350,6 +351,11 @@ export const ErrorCodes = {
   UPSTREAM_FAILURE: 'UPSTREAM_FAILURE',
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
   INVALID_REQUEST: 'INVALID_REQUEST',
+  MISSING_API_KEY: 'MISSING_API_KEY',
+  PROVIDER_OUTAGE: 'PROVIDER_OUTAGE',
+  INVALID_CLASSIFICATION_CODE: 'INVALID_CLASSIFICATION_CODE',
+  EXTERNAL_NO_DATA: 'EXTERNAL_NO_DATA',
+  EVIDENCE_REQUIRED: 'EVIDENCE_REQUIRED',
   UNAUTHORIZED: 'UNAUTHORIZED',
   CACHE_ERROR: 'CACHE_ERROR',
   PARSE_ERROR: 'PARSE_ERROR',
