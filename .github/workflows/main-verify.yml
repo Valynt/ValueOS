@@ -217,6 +217,8 @@ jobs:
         run: pnpm --filter @valueos/backend run debt:summary
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+      - name: Docs canonical facts consistency
+        run: pnpm run check:docs:consistency
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
       - name: Eventing architecture matrix guard

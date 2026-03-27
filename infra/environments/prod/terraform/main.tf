@@ -92,7 +92,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "ValueCanvas"
+      Project     = "ValueOS"
       Environment = "production"
       ManagedBy   = "Terraform"
       Owner       = "DevOps"
@@ -137,7 +137,7 @@ locals {
   name_prefix = "valuecanvas-prod"
   
   common_tags = {
-    Project     = "ValueCanvas"
+    Project     = "ValueOS"
     Environment = "production"
     ManagedBy   = "Terraform"
   }
