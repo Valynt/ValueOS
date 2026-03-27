@@ -50,7 +50,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       ripgrep \
       jq \
       htop \
-      tree; \
+      tree \
+      # Windsurf server runtime requirements
+      libstdc++6 \
+      libgcc-s1 \
+      libatomic1 \
+      procps \
+      net-tools; \
     rm -rf /var/lib/apt/lists/*
 
 # Install Node.js from upstream (deterministic, reproducible)
@@ -120,3 +126,8 @@ WORKDIR /workspaces/ValueOS
 # Setup pnpm home and path
 ENV PNPM_HOME=/home/vscode/.local/share/pnpm
 ENV PATH=${PNPM_HOME}:/usr/local/bin:${PATH}
+
+# NOTE: Do NOT set NODE_OPTIONS=--no-experimental-fetch in this image or in
+# devcontainer.json containerEnv. The Windsurf remote server (windsurf-reh)
+# uses the Node built-in fetch API; disabling it prevents Cascade and all
+# Windsurf AI services from starting inside the container.

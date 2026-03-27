@@ -1,0 +1,34 @@
+name: Control Pruning Review
+
+on:
+  schedule:
+    - cron: "0 12 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  control-pruning-review:
+    name: monthly/control-pruning-review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+
+      - name: Generate monthly control pruning report
+        run: node scripts/ci/control-pruning-review.mjs
+
+      - name: Upload control pruning artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: monthly-control-pruning-review-${{ github.run_id }}
+          path: |
+            artifacts/governance/control-pruning-review.json
+            artifacts/governance/control-pruning-review.md
+          if-no-files-found: error
+          retention-days: 90

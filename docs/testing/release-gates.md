@@ -40,10 +40,13 @@ Tests are classified as **blocking** (merge-blocking, must pass) or **tracked** 
 ### Blocking E2E tests (`e2e-critical` lane in `pr-fast.yml`)
 
 These tests must pass on every PR. A failure blocks merge.
+The lane also enforces strict minimum executed-test-count + pass-rate assertions so a skipped suite cannot pass silently.
 
 | Test | Location | What it covers |
 |---|---|---|
 | Webhook → aggregation → Stripe billing flow | `packages/backend/src/services/billing/__tests__/integration/` | End-to-end billing pipeline correctness |
+| Workflow persistence fixtures (WF-1/WF-2) | `tests/e2e/workflows/` | Real backend + persistence path for core workflow lifecycle |
+| Real backend auth/agent/billing critical flow | `tests/e2e/real-backend-critical-flows.spec.ts` | End-to-end auth, agent invoke, billing webhook + persistence |
 | Tenant isolation end-to-end | `tests/security/api-tenant-isolation.test.ts` | Cross-tenant data access prevention |
 | RLS policy matrix | `tests/security/supabase-rls-policy-matrix.test.ts` | Row-level security enforcement |
 | Agent invocation tenant boundary | `tests/security/agent-invocation-tenant-boundary.test.ts` | Agent execution isolation |
@@ -68,3 +71,4 @@ Failures are tracked in `artifacts/ci-lanes/flake-report/flake-summary.json`.
 - To promote a tracked test to blocking: fix the flake root cause, verify < 2% over 10 consecutive runs, then update this document
 - Nightly governance jobs intentionally avoid PR-style `if:` filters so scheduled runs execute meaningful work instead of mostly skipped lanes.
 - Deploy workflow production promotion consumes the canonical manifest in `scripts/ci/release-gate-manifest.json` through the `release-readiness` aggregate (job id `release-gate-contract`) in `.github/workflows/deploy.yml`. That contract waits for `main-verify` plus local deploy gates (`dast-gate`, `release-manifest-gate`, and `emergency-skip-audit`) before `deploy-production` can start.
+- Deploy workflow also requires `reliability-indicators-gate`, which enforces release-time reliability thresholds for critical check pass-rate, flaky-test threshold, and rollback drill recency.

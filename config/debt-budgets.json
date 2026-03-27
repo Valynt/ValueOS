@@ -1,4 +1,10 @@
 {
+  "policy": {
+    "cadence": "sprint",
+    "sprintLengthDays": 14,
+    "capturedAt": "2026-03-27",
+    "enforceNextTargetAfterSprints": 1
+  },
   "entries": [
     {
       "id": "valyntapp-ts-errors",

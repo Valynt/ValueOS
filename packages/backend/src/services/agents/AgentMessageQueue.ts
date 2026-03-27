@@ -6,6 +6,7 @@ import {
 import { logger } from "../../lib/logger.js"
 import { registerShutdownHandler } from "../../lib/shutdown/gracefulShutdown.js"
 import { AgentContext, AgentType } from "../agent-types.js"
+import { runJobWithTenantContext } from '../../workers/tenantContextBootstrap.js';
 
 import { getAgentAPI } from "./AgentAPI.js"
 
@@ -260,6 +261,13 @@ export class AgentMessageQueue {
     const startTime = Date.now();
 
     try {
+      return await runJobWithTenantContext(
+        {
+          workerName: 'AgentMessageQueue',
+          tenantId: organizationId,
+          organizationId,
+        },
+        async () => {
       logger.info("Processing agent invocation", {
         jobId: job.id,
         agent,
@@ -301,6 +309,8 @@ export class AgentMessageQueue {
       });
 
       return result;
+        },
+      );
     } catch (error) {
       const executionTime = Date.now() - startTime;
 

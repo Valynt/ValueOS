@@ -1,0 +1,19 @@
+{
+  "releaseGate": {
+    "reliabilityIndicators": {
+      "minimumCriticalPassRatePercent": 100,
+      "maximumFlakyRatePercent": 2,
+      "rollbackDrillRecencyDays": 30,
+      "flakyCheckName": "flake-gate",
+      "criticalChecks": [
+        "main-verify",
+        "critical-workflows-gate",
+        "tenant-isolation-gate",
+        "security-gate",
+        "accessibility-audit",
+        "flake-gate",
+        "e2e-critical"
+      ]
+    }
+  }
+}

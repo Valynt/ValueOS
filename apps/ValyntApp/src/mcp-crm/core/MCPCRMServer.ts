@@ -19,7 +19,9 @@ import { CRMConfigManager } from "../config/CRMConfigManager";
 import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
 import {
+  CRMActivity,
   CRMConnection,
+  CRMContact,
   CRMModule,
   CRMProvider,
   DealSearchParams,
@@ -692,8 +694,14 @@ export class MCPCRMServer {
       return { success: false, error: `Deal not found: ${dealId}` };
     }
 
-    const contacts = includeContacts ? await module.getDealContacts(dealId) : [];
-    const activities = includeActivities ? await module.getDealActivities(dealId, 5) : [];
+    const contactsPromise: Promise<CRMContact[]> = includeContacts
+      ? module.getDealContacts(dealId)
+      : Promise.resolve([]);
+    const activitiesPromise: Promise<CRMActivity[]> = includeActivities
+      ? module.getDealActivities(dealId, 5)
+      : Promise.resolve([]);
+
+    const [contacts, activities] = await Promise.all([contactsPromise, activitiesPromise]);
 
     return {
       success: true,

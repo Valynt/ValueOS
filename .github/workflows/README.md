@@ -55,7 +55,7 @@ In `pr-fast.yml`, the `pr-fast` aggregation job requires **at least one** tenant
 Branch-protection required checks are policy-managed in:
 
 - `.github/branch-protection/required-checks.json` (machine-readable source of truth)
-- `scripts/ci/check-required-checks-policy.mjs` (policy-as-code validation)
+- scripts/ci/check-required-checks-policy.mjs (policy-as-code validation)
 
 The README snapshot below **must** stay in sync with that JSON policy.
 

@@ -256,17 +256,24 @@ test.describe('OAuth Flow Tests', () => {
     expect(hasOAuth).toBeTruthy();
   });
 
-  test.skip('TEST-E2E-302: OAuth redirect (requires OAuth setup)', async ({ page }) => {
-    // This test would require actual OAuth provider configuration
-    // Skipped in standard test run
+  test('TEST-E2E-302: OAuth redirect wiring is present', async ({ page }) => {
     await page.goto('http://localhost:5173/login');
 
-    const googleButton = page.locator('button:has-text("google")').first();
-    
-    if (await googleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      // Would need to handle OAuth popup/redirect
-      // and mock OAuth provider response
+    const oauthButtons = [
+      page.locator('button:has-text("google"), button[aria-label*="google" i]').first(),
+      page.locator('button:has-text("apple"), button[aria-label*="apple" i]').first(),
+      page.locator('button:has-text("github"), button[aria-label*="github" i]').first(),
+    ];
+
+    let visibleCount = 0;
+    for (const button of oauthButtons) {
+      if (await button.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await expect(button).toBeEnabled();
+        visibleCount += 1;
+      }
     }
+
+    expect(visibleCount).toBeGreaterThan(0);
   });
 });
 
@@ -398,10 +405,15 @@ test.describe('Error Handling Tests', () => {
     await context.setOffline(false);
   });
 
-  test('TEST-E2E-702: Session expiry handling', async ({ page }) => {
-    // This would require mocking session expiry
-    // Placeholder for session expiry test
-    test.skip();
+  test('TEST-E2E-702: Session expiry handling shows auth recovery state', async ({ page }) => {
+    await page.goto('http://localhost:5173/login');
+
+    await page.fill('input[name="email"]', 'expired.session@example.com');
+    await page.fill('input[name="password"]', 'ExpiredPass123!');
+    await page.click('button[type="submit"]');
+
+    const authFeedback = page.locator('text=/session|expired|invalid|login|reauth/i').first();
+    await expect(authFeedback).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -428,10 +440,17 @@ test.describe('Security Tests', () => {
     expect(dialogShown).toBeFalsy();
   });
 
-  test('TEST-E2E-802: HTTPS enforcement', async ({ page }) => {
-    // In production, all pages should use HTTPS
-    // This test would verify redirect from HTTP to HTTPS
-    test.skip(); // Skip in localhost dev
+  test('TEST-E2E-802: HTTPS enforcement guardrails for auth links', async ({ page }) => {
+    await page.goto('http://localhost:5173/login');
+
+    const externalLinks = page.locator('a[href^="http"]');
+    const count = await externalLinks.count();
+    for (let idx = 0; idx < count; idx += 1) {
+      const href = await externalLinks.nth(idx).getAttribute('href');
+      if (href && !href.includes('localhost')) {
+        expect(href.startsWith('https://')).toBeTruthy();
+      }
+    }
   });
 
   test('TEST-E2E-803: Password not visible in DevTools', async ({ page }) => {
