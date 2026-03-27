@@ -32,6 +32,7 @@ import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } from '../lib/supabase.js';
 import { getEnvVar } from '@shared/lib/env';
 import { getRedisClient } from '@shared/lib/redisClient';
+import { authFallbackActivationsTotal } from '../metrics/authMetrics.js';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
 
@@ -469,7 +470,7 @@ async function recordFallbackActivation(alertContext: Record<string, unknown>): 
       // window, then ZADD adds the new one, then ZCARD counts the survivors.
       // The key expires automatically after the window so it self-cleans.
       // ioredis API: zadd(key, score, member), zremrangebyscore, zcard, expireat.
-      const member = `${now}:${Math.random().toString(36).slice(2)}`;
+      const member = `${now}:${String(alertContext.incidentId ?? 'unknown')}:${String(alertContext.route ?? 'unknown')}`;
       const expireAtSeconds = Math.floor(now / 1000) + windowSeconds + 1;
 
       await redis.zremrangebyscore(FALLBACK_COUNTER_REDIS_KEY, '-inf', now - windowMs);
@@ -541,6 +542,7 @@ async function emitFallbackAuditEvent(context: {
   };
 
   logger.error('Emergency JWT fallback activated', undefined, details);
+  authFallbackActivationsTotal.inc();
   await recordFallbackActivation(details);
 
   try {

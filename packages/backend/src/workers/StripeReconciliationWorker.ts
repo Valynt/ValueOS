@@ -25,10 +25,12 @@ import Stripe from 'stripe';
 import { STRIPE_CONFIG } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
 import {
+  subscriptionCreationReconciliationResolved,
   webhookReconciliationDriftCount,
   webhookReconciliationFailuresTotal,
   webhookReconciliationRunsTotal,
 } from '../metrics/billingMetrics.js';
+import { TransactionalSubscriptionService } from '../services/billing/SubscriptionService.transaction.js';
 import { WebhookService } from '../services/billing/WebhookService.js';
 
 const logger = createLogger({ component: 'StripeReconciliationWorker' });
@@ -231,6 +233,52 @@ export async function reconcileStripeEvents(windowHours: number): Promise<number
   return backfilled;
 }
 
+// ── Job processor (exported for testing) ─────────────────────────────────────
+
+/**
+ * Core reconciliation logic executed on each BullMQ job run.
+ * Exported so it can be unit-tested without spinning up a BullMQ worker.
+ */
+export async function runReconciliationJob(job: Pick<Job<ReconciliationJobPayload>, 'id' | 'data'>): Promise<void> {
+  const { windowHours } = job.data;
+  logger.info('Stripe reconciliation job started', { jobId: job.id, windowHours });
+
+  webhookReconciliationRunsTotal.inc();
+
+  try {
+    // ── Phase 1: backfill missing webhook events ──────────────────────
+    const backfilled = await reconcileStripeEvents(windowHours);
+    webhookReconciliationDriftCount.labels({ tenant_id: 'global' }).set(backfilled);
+
+    // ── Phase 2: resolve orphaned subscription creation intents ───────
+    // Catches split-brain from createSubscription(): Stripe sub created
+    // but DB insert failed and rollback also failed.
+    // Pass the service-role Supabase client so the reconciler bypasses RLS
+    // and can see stale intents across all tenants.
+    const stripe = getStripe();
+    const transactionalService = new TransactionalSubscriptionService(stripe, getServiceSupabase());
+    const creationResolved = await transactionalService.reconcileSubscriptionCreations();
+    subscriptionCreationReconciliationResolved.set(creationResolved);
+
+    if (creationResolved > 0) {
+      logger.warn('Reconciliation: cancelled orphaned Stripe subscriptions', {
+        creationResolved,
+      });
+    }
+
+    logger.info('Stripe reconciliation job complete', {
+      jobId: job.id,
+      backfilled,
+      creationResolved,
+      windowHours,
+    });
+  } catch (err) {
+    webhookReconciliationFailuresTotal.inc();
+    logger.error('Stripe reconciliation job failed', err as Error, { jobId: job.id });
+    throw err; // BullMQ will retry per defaultJobOptions.attempts
+  }
+}
+
 // ── Worker ───────────────────────────────────────────────────────────────────
 
 let _worker: Worker<ReconciliationJobPayload> | null = null;
@@ -240,30 +288,7 @@ export function initStripeReconciliationWorker(): Worker<ReconciliationJobPayloa
 
   _worker = new Worker<ReconciliationJobPayload>(
     RECONCILIATION_QUEUE_NAME,
-    async (job: Job<ReconciliationJobPayload>) => {
-      const { windowHours } = job.data;
-      logger.info('Stripe reconciliation job started', { jobId: job.id, windowHours });
-
-      webhookReconciliationRunsTotal.inc();
-
-      try {
-        const backfilled = await reconcileStripeEvents(windowHours);
-
-        // Emit drift metric — 0 if clean, >0 if events were backfilled
-        // We use a synthetic tenant_id of 'global' for the aggregate metric
-        webhookReconciliationDriftCount.labels({ tenant_id: 'global' }).set(backfilled);
-
-        logger.info('Stripe reconciliation job complete', {
-          jobId: job.id,
-          backfilled,
-          windowHours,
-        });
-      } catch (err) {
-        webhookReconciliationFailuresTotal.inc();
-        logger.error('Stripe reconciliation job failed', err as Error, { jobId: job.id });
-        throw err; // BullMQ will retry per defaultJobOptions.attempts
-      }
-    },
+    (job) => runReconciliationJob(job),
     {
       connection: getRedis(),
       concurrency: 1, // reconciliation must not run concurrently

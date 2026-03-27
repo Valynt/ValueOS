@@ -326,9 +326,20 @@ jobs:
 
       - name: Direct LLM call guard
         run: node scripts/ci/check-direct-llm-calls.mjs
+      - name: Guard updateSubscriptionLegacy callsites
+        run: |
+          set -euo pipefail
+          hits="$(rg --line-number --glob '*.ts' 'updateSubscriptionLegacy\\(' packages/backend/src | rg -v 'packages/backend/src/services/billing/SubscriptionService.ts' || true)"
+          if [ -n "$hits" ]; then
+            echo "Forbidden updateSubscriptionLegacy callsite(s) found:"
+            echo "$hits"
+            exit 1
+          fi
 
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
+      - name: Auth fallback defaults guard
+        run: node scripts/ci/check-auth-fallback-defaults.mjs
 
       - name: PodSecurityPolicy removal guard
         run: node scripts/ci/check-psp-references.mjs
@@ -646,6 +657,13 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+      - name: Enforce top-tier journey a11y/l10n thresholds
+        if: always()
+        run: |
+          node scripts/ci/check-top-tier-journey-ux-gates.mjs \
+            --policy .github/metrics/top-tier-journey-thresholds.json \
+            --a11y-report artifacts/accessibility/playwright-report.json \
+            --output artifacts/frontend-quality/top-tier-journey-gate.json
       - name: Async view completeness check (REQ-A2)
         if: always()
         run: pnpm run check:a11y-completeness
@@ -658,6 +676,16 @@ jobs:
           node scripts/ci/collect-frontend-quality-dashboard.mjs \
             --dashboard-out artifacts/frontend-quality/dashboard.md \
             --json-out artifacts/frontend-quality/dashboard.json
+      - name: Build UX regression dashboard (vs previous release baseline)
+        if: always()
+        run: |
+          node scripts/ci/build-ux-regression-dashboard.mjs \
+            --baseline .github/metrics/ux-release-baselines.json \
+            --a11y artifacts/accessibility/a11y-metrics.json \
+            --i18n artifacts/i18n/coverage-dashboard.json \
+            --top-tier artifacts/frontend-quality/top-tier-journey-gate.json \
+            --json-out artifacts/frontend-quality/regression-dashboard.json \
+            --md-out artifacts/frontend-quality/regression-dashboard.md
       - name: Upload accessibility artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -1128,7 +1156,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
+        run: |
+          mkdir -p artifacts/bundle
+          npx turbo run build --filter=valynt-app 2>&1 | tee artifacts/bundle/vite-build.log
       - name: Run route load budget tests
         run: |
           mkdir -p artifacts/performance
@@ -1137,6 +1167,13 @@ jobs:
             --output=artifacts/performance
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/performance/perf-report.json
+      - name: Enforce route chunk budgets and vendor trend guardrails
+        run: |
+          node scripts/ci/check-ux-performance-budgets.mjs \
+            --budget .github/metrics/ux-performance-budgets.json \
+            --exceptions .github/metrics/ux-performance-exceptions.json \
+            --route-metrics artifacts/performance/route-load-metrics.json \
+            --output artifacts/performance/ux-performance-metrics.json
       - name: Emit lane summary
         if: always()
         run: |
@@ -1291,16 +1328,55 @@ jobs:
             status="${lane#*:}"
             lane_name="${lane%%:*}"
             # These gates must not be skipped — skipped means the check did not run.
-            # All other lanes may be skipped (e.g. accessibility on draft PRs).
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ]; then
+            # e2e-critical is included here: it contains security-multi-tenancy.spec.ts
+            # and real-backend-critical-flows.spec.ts. A skipped run is a missing gate.
+            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ] || [ "$lane_name" = "e2e-critical" ]; then
               if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
                 echo "Failing PR gate: $lane_name has unexpected status: $status"
                 exit 1
               fi
             else
-              if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              if [ "$lane_name" = "e2e-critical" ]; then
+                if [ "$status" != "success" ]; then
+                  echo "Failing PR gate due to lane status: $lane"
+                  exit 1
+                fi
+              elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
                 echo "Failing PR gate due to lane status: $lane"
                 exit 1
               fi
             fi
           done
+
+  integration-supabase:
+    name: integration-supabase
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Start Supabase
+        run: supabase start
+      - name: Run real integration matrix
+        env:
+          VALUEOS_TEST_REAL_INTEGRATION: "true"
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_CI }}
+        run: |
+          pnpm --filter @valueos/backend vitest run \
+            src/services/billing/__tests__/security/rls-policies.test.ts \
+            src/services/billing/__tests__/resiliency/advisory-lock-idempotency.test.ts \
+            src/services/billing/__tests__/integration/subscription-lifecycle.test.ts \
+            src/services/billing/__tests__/integration/quota-enforcement.test.ts \
+            src/services/billing/__tests__/integration/metering-pipeline.test.ts \
+            src/services/billing/__tests__/integration/webhook-events.test.ts

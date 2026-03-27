@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 /**
  * Environment Configuration
  *

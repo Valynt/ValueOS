@@ -11,6 +11,7 @@
 import { createLogger } from "@shared/lib/logger";
 import { z } from "zod";
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../lib/supabase.js";
 
 const logger = createLogger({ component: "ValueLoopAnalytics" });

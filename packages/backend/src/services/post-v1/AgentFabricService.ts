@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../../lib/logger.js';

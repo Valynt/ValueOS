@@ -42,9 +42,10 @@ export interface AlertRule {
 }
 
 /**
- * Default alert rules
+ * Default alert rules.
+ * Exported so AlertingWorker can schedule repeatable jobs for each rule.
  */
-const DEFAULT_ALERT_RULES: AlertRule[] = [
+export const DEFAULT_ALERT_RULES: AlertRule[] = [
   {
     id: 'high-error-rate',
     name: 'High Error Rate',
@@ -179,59 +180,40 @@ export class AlertingService {
   private metricsCollector = getMetricsCollector();
   private alertRules: AlertRule[] = DEFAULT_ALERT_RULES;
   private activeAlerts: Map<string, Alert> = new Map();
-  private checkIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
   }
 
   /**
-   * Start monitoring with all enabled alert rules
+   * Evaluate all enabled rules once.
+   * This method is executed by the BullMQ repeatable worker job
+   * `alerting:evaluate-rules` to avoid duplicate evaluation across pods.
    */
-  start(): void {
-    logger.info('Starting alerting service', {
-      ruleCount: this.alertRules.filter(r => r.enabled).length
-    });
-
+  async evaluateEnabledRules(): Promise<void> {
     for (const rule of this.alertRules) {
-      if (rule.enabled) {
-        this.startRuleMonitoring(rule);
+      if (!rule.enabled) {
+        continue;
       }
+      await this.checkRule(rule);
     }
   }
 
   /**
-   * Stop all monitoring
+   * Evaluate a single rule by ID.
+   *
+   * Called by AlertingWorker on each BullMQ job execution. Using the worker
+   * ensures only one pod evaluates each rule per cycle, preventing duplicate
+   * alert notifications in multi-replica deployments.
+   *
+   * Throws if the rule is not found so BullMQ can retry the job.
    */
-  stop(): void {
-    logger.info('Stopping alerting service');
-
-    for (const [ruleId, interval] of this.checkIntervals) {
-      clearInterval(interval);
-      this.checkIntervals.delete(ruleId);
+  async evaluateRuleById(ruleId: string): Promise<void> {
+    const rule = this.alertRules.find(r => r.id === ruleId);
+    if (!rule) {
+      throw new Error(`Alert rule not found: ${ruleId}`);
     }
-  }
-
-  /**
-   * Start monitoring for a specific rule
-   */
-  private startRuleMonitoring(rule: AlertRule): void {
-    // Initial check
-    this.checkRule(rule);
-
-    // Schedule periodic checks
-    const interval = setInterval(
-      () => this.checkRule(rule),
-      rule.checkIntervalMinutes * 60 * 1000
-    );
-
-    this.checkIntervals.set(rule.id, interval);
-
-    logger.debug('Started monitoring for rule', {
-      ruleId: rule.id,
-      ruleName: rule.name,
-      intervalMinutes: rule.checkIntervalMinutes
-    });
+    await this.checkRule(rule);
   }
 
   /**

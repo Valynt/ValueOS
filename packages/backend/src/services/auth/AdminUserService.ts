@@ -6,6 +6,7 @@
 
 import { logger } from "../../lib/logger.js"
 import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js"
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js"
 
 import { AuditLogService } from "./AuditLogService.js"

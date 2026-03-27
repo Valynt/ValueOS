@@ -172,6 +172,47 @@ export const webhookReconciliationDriftCount = new Gauge<'tenant_id'>({
   registers: [registry],
 });
 
+/** Stripe create-subscription rollback failures (possible Stripe/DB split-brain). */
+export const billingSubscriptionCreateRollbackFailuresTotal = new Counter({
+  name: 'billing_subscription_create_rollback_failures_total',
+  help: 'Stripe subscriptions that could not be rolled back after DB create failure',
+  registers: [registry],
+});
+
+/** Unix timestamp of the last successful partition maintenance run. */
+export const partitionMaintenanceLastSuccessTimestamp = new Gauge({
+  name: 'partition_maintenance_last_success_timestamp',
+  help: 'Unix timestamp of the most recent successful partition maintenance run',
+  registers: [registry],
+});
+
+/** Total partition maintenance failures observed from cron.job_run_details. */
+export const partitionMaintenanceFailuresTotal = new Counter({
+  name: 'partition_maintenance_failures_total',
+  help: 'Total failed partition maintenance executions',
+/**
+ * Incremented each time a subscription creation split-brain is detected:
+ * Stripe subscription exists but DB insert failed AND rollback also failed.
+ * Each increment represents a customer being billed with no service access
+ * until the reconciler resolves it.
+ */
+export const subscriptionCreationDriftTotal = new Counter<'tenant_id'>({
+  name: 'subscription_creation_drift_total',
+  help: 'Subscription creation split-brain events: Stripe sub created, DB write failed, rollback failed',
+  labelNames: ['tenant_id'],
+  registers: [registry],
+});
+
+/**
+ * Number of orphaned Stripe subscriptions cancelled by the creation reconciler
+ * on the current run. Should be 0 under normal operation.
+ */
+export const subscriptionCreationReconciliationResolved = new Gauge({
+  name: 'subscription_creation_reconciliation_resolved',
+  help: 'Orphaned Stripe subscriptions cancelled by the creation reconciler on the last run',
+  registers: [registry],
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed' | 'duplicate'): void {

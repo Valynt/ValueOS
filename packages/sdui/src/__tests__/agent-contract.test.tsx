@@ -309,8 +309,8 @@ describe("SDUI agent contract — XSS prevention in sanitizeProps", () => {
     const sanitized = sanitizeProps(safe, "NarrativeBlock");
 
     expect(sanitized.title).toBe("Revenue Growth Analysis");
-    // Safe tags should be preserved (DOMPurify allowlist)
-    expect(sanitized.content).toContain("Revenue");
+    // Safe tags should be preserved (DOMPurify allowlist) — content contains "ARR"
+    expect(sanitized.content).toContain("ARR");
   });
 });
 
@@ -365,7 +365,7 @@ describe("SDUI agent contract — LazyComponentRegistry telemetry", () => {
     const { LazyComponentRegistry } = await import("../LazyComponentRegistry");
     const { sduiTelemetry, TelemetryEventType } = await import("../../lib/telemetry/SDUITelemetry");
 
-    // Clear the component cache so MetricCard is not served from a prior cache
+    // Clear the component cache so no component is served from a prior cache
     // hit — resolveComponentAsync returns early on a cache hit without calling
     // loadComponent, which would prevent COMPONENT_ERROR from being emitted.
     LazyComponentRegistry.clearCache();
@@ -381,11 +381,11 @@ describe("SDUI agent contract — LazyComponentRegistry telemetry", () => {
       .fn()
       .mockRejectedValueOnce(new Error("Dynamic import failed: chunk not found"));
 
-    // Use a known registry name so the lookup reaches the loader stage
-    // (unknown names return early before calling loadComponent)
+    // Use DataTable — registered in lazyComponents but not in the critical preload
+    // list, so it is guaranteed not to be in cache when clearCache() is called.
     const result = await LazyComponentRegistry.resolveComponentAsync({
       type: "component",
-      component: "MetricCard", // registered in lazyComponents
+      component: "DataTable",
       version: 1,
       props: {},
     });
@@ -396,7 +396,7 @@ describe("SDUI agent contract — LazyComponentRegistry telemetry", () => {
       expect.objectContaining({
         type: TelemetryEventType.COMPONENT_ERROR,
         metadata: expect.objectContaining({
-          component: "MetricCard",
+          component: "DataTable",
           error: "Dynamic import failed: chunk not found",
         }),
       }),

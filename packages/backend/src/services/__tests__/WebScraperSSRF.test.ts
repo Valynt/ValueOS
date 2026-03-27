@@ -19,10 +19,10 @@ describe('WebScraperService SSRF TOCTOU', () => {
   });
 
   it('should be vulnerable to TOCTOU in current implementation', async () => {
-    const resolveSpy = vi.spyOn(dns, 'resolve');
-    
-    // First call (validation) returns safe IP
-    resolveSpy.mockImplementation((hostname, cb: any) => {
+    // Use vi.mocked() on the already-mocked dns.resolve (set up via vi.mock at
+    // the top of the file). vi.spyOn would create a new spy on top of the mock
+    // but promisify() captured the original mock reference at import time.
+    vi.mocked(dns.resolve).mockImplementation((hostname: string, cb: (err: NodeJS.ErrnoException | null, addresses: string[]) => void) => {
       cb(null, ['1.1.1.1']);
     });
 
@@ -31,6 +31,6 @@ describe('WebScraperService SSRF TOCTOU', () => {
     
     // The vulnerability is that fetch() is called with the URL, not the validated IP.
     // We can't easily test the fetch() call here without mocking global fetch,
-    // but we've confirmed isSafeUrl passes for a hostname.
+    // but we've confirmed isSafeUrl passes for a hostname that resolves to a safe IP.
   });
 });

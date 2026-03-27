@@ -158,6 +158,8 @@ export class CredentialValidator {
   }
 
   isMFARequired(roles: string[]): boolean {
-    return roles.includes("admin");
+    // MFA is required for admin roles and certificate-based agent roles
+    const mfaRoles = ["admin", "certified_agent"];
+    return roles.some((r) => mfaRoles.includes(r));
   }
 }

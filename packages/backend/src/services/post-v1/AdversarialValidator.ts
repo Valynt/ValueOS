@@ -33,6 +33,8 @@ export interface AdversarialValidationRequest {
   reasoning: string[];
   context: Record<string, unknown>;
   traceId: string;
+  /** Tenant that owns this validation run. Used for LLM cost attribution. */
+  tenantId?: string;
 }
 
 export interface ValidationResult {
@@ -187,7 +189,7 @@ export class AdversarialValidator {
     const prompt = this.buildStructuralChallenge(request.originalResponse);
 
     try {
-      const response = await this.llm.generate(prompt);
+      const response = await this.llm.generate(prompt, request.tenantId ?? "system");
       const analysis = this.parseStructuralResponse(response);
 
       // Check for hallucinated structures
@@ -242,7 +244,7 @@ export class AdversarialValidator {
     const prompt = this.buildReasoningChallenge(request.originalResponse, request.reasoning);
 
     try {
-      const response = await this.llm.generate(prompt);
+      const response = await this.llm.generate(prompt, request.tenantId ?? "system");
       const analysis = this.parseReasoningResponse(response);
 
       // Check confidence-reasoning mismatch
@@ -297,7 +299,7 @@ export class AdversarialValidator {
     const prompt = this.buildSourceChallenge(request.originalResponse);
 
     try {
-      const response = await this.llm.generate(prompt);
+      const response = await this.llm.generate(prompt, request.tenantId ?? "system");
       const analysis = this.parseSourceResponse(response);
 
       // Check for fabricated sources
@@ -352,7 +354,7 @@ export class AdversarialValidator {
     const prompt = this.buildConsistencyChallenge(request.originalResponse, request.context);
 
     try {
-      const response = await this.llm.generate(prompt);
+      const response = await this.llm.generate(prompt, request.tenantId ?? "system");
       const analysis = this.parseConsistencyResponse(response);
 
       // Check for context mismatch
@@ -407,7 +409,7 @@ export class AdversarialValidator {
     const prompt = this.buildMetricChallenge(request.originalResponse);
 
     try {
-      const response = await this.llm.generate(prompt);
+      const response = await this.llm.generate(prompt, request.tenantId ?? "system");
       const analysis = this.parseMetricResponse(response);
 
       // Check for suspicious metrics

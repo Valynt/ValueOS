@@ -25,6 +25,7 @@ import Stripe from "stripe";
 
 import { PlanTier } from "../../config/billing.js";
 import { createLogger } from "../../lib/logger.js";
+import { subscriptionCreationDriftTotal } from "../../metrics/billingMetrics.js";
 
 import StripeService from "./StripeService.js";
 
@@ -59,6 +60,28 @@ export interface PendingSubscriptionChange {
   updated_at: string;
 }
 
+export type CreationStatus =
+  | "pending"               // intent written, Stripe not yet called
+  | "stripe_created"        // Stripe subscription created, DB not yet written
+  | "completed"             // both Stripe and DB written successfully
+  | "failed"                // creation failed; Stripe subscription cancelled (or never created)
+  | "needs_reconciliation"; // DB insert failed AND Stripe rollback failed; orphaned Stripe sub
+
+export interface PendingSubscriptionCreation {
+  id: string;
+  tenant_id: string;
+  plan_tier: PlanTier;
+  idempotency_key: string;
+  status: CreationStatus;
+  stripe_subscription_id: string | null;
+  stripe_created_at: string | null;
+  subscription_id: string | null;
+  db_created_at: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SubscriptionRow {
   id: string;
   tenant_id: string;
@@ -85,11 +108,15 @@ class TransactionalSubscriptionService {
   // in tests without triggering getValidatedSupabaseRuntimeConfig() at load time.
   // Stored per-instance so credential rotation or vi.resetModules() in tests
   // produces a fresh client on the next call rather than reusing a stale one.
+  //
+  // An explicit client can be injected via the constructor (e.g. a service-role
+  // client from the reconciliation worker that needs to bypass RLS).
   private _supabase: SupabaseClient | null = null;
 
-  constructor(stripe: Stripe) {
+  constructor(stripe: Stripe, supabase?: SupabaseClient) {
     this.stripe = stripe;
     this.stripeService = StripeService.getInstance();
+    if (supabase) this._supabase = supabase;
   }
 
   private async getSupabase(): Promise<SupabaseClient> {
@@ -545,6 +572,193 @@ class TransactionalSubscriptionService {
           .eq("metric", metric),
       ),
     );
+  }
+
+  // ── Subscription creation reconciliation ─────────────────────────────────
+
+  /**
+   * Scan for stale `pending_subscription_creations` records and resolve them.
+   *
+   * Called by the background reconciliation worker on each scheduled run.
+   * Returns the number of records resolved (cancelled or completed).
+   *
+   * Resolution strategy per status:
+   * - `pending`: Stripe was never called (process died before step 2).
+   *   Mark failed — no Stripe action needed.
+   * - `stripe_created` / `needs_reconciliation`: A live Stripe subscription
+   *   exists with no corresponding DB row. Cancel it in Stripe and mark the
+   *   intent failed so the customer is not billed without service access.
+   *   If the DB row was actually written (race between worker and original
+   *   request), mark completed instead.
+   */
+  async reconcileSubscriptionCreations(
+    staleCutoffMs = 5 * 60 * 1000,
+    batchSize = 50,
+  ): Promise<number> {
+    const sb = await this.getSupabase();
+    const cutoff = new Date(Date.now() - staleCutoffMs).toISOString();
+
+    let resolved = 0;
+
+    // Always fetch from the start of the result set (no offset). Each batch
+    // updates processed rows out of the stale status set, so the next query
+    // naturally returns the next unprocessed rows without skipping any.
+    // Using a numeric offset on a mutating result set would skip rows that
+    // shift into vacated positions after each batch is processed.
+    while (true) {
+      const { data: batch, error } = await sb
+        .from("pending_subscription_creations")
+        .select("*")
+        .in("status", ["pending", "stripe_created", "needs_reconciliation"])
+        .lt("updated_at", cutoff)
+        .order("created_at", { ascending: true })
+        .limit(batchSize);
+
+      if (error) {
+        logger.error("Failed to fetch stale subscription creations for reconciliation", {
+          error: error.message,
+        });
+        break;
+      }
+
+      if (!batch || batch.length === 0) break;
+
+      logger.info("Reconciling stale subscription creations batch", {
+        count: batch.length,
+      });
+
+      const results = await Promise.allSettled(
+        (batch as PendingSubscriptionCreation[]).map((intent) =>
+          this.reconcileCreationIntent(intent),
+        ),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") resolved++;
+      }
+
+      // If the batch was smaller than batchSize, we've reached the end.
+      if (batch.length < batchSize) break;
+    }
+
+    return resolved;
+  }
+
+  private async reconcileCreationIntent(intent: PendingSubscriptionCreation): Promise<void> {
+    const sb = await this.getSupabase();
+
+    logger.info("Reconciling subscription creation intent", {
+      intentId: intent.id,
+      tenantId: intent.tenant_id,
+      status: intent.status,
+      stripeSubscriptionId: intent.stripe_subscription_id,
+    });
+
+    try {
+      if (intent.status === "pending") {
+        // Stripe was never called — nothing to cancel.
+        await sb
+          .from("pending_subscription_creations")
+          .update({
+            status: "failed",
+            error_message: "Marked failed by reconciler: process died before Stripe was called",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", intent.id);
+        logger.info("Reconciler marked creation intent failed (no Stripe call made)", {
+          intentId: intent.id,
+          tenantId: intent.tenant_id,
+        });
+        return;
+      }
+
+      // status is stripe_created or needs_reconciliation — a Stripe subscription exists.
+      const stripeSubId = intent.stripe_subscription_id;
+      if (!stripeSubId) {
+        // Shouldn't happen, but guard defensively.
+        logger.warn("Reconciler: stripe_subscription_id missing on non-pending intent", {
+          intentId: intent.id,
+        });
+        return;
+      }
+
+      // Check whether the DB row was actually written (e.g. the original
+      // request succeeded after the intent was flagged stale).
+      const { data: existingRow } = await sb
+        .from("subscriptions")
+        .select("id")
+        .eq("stripe_subscription_id", stripeSubId)
+        .maybeSingle();
+
+      if (existingRow) {
+        // DB row exists — the creation completed; just close the intent.
+        await sb
+          .from("pending_subscription_creations")
+          .update({
+            status: "completed",
+            subscription_id: existingRow.id,
+            db_created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", intent.id);
+        logger.info("Reconciler: creation intent already completed (DB row found)", {
+          intentId: intent.id,
+          tenantId: intent.tenant_id,
+          stripeSubscriptionId: stripeSubId,
+        });
+        return;
+      }
+
+      // No DB row — cancel the orphaned Stripe subscription.
+      // Mark the intent as cancelling BEFORE calling Stripe so that if the
+      // subsequent DB update fails, the intent is already in a terminal-ish
+      // state. On the next reconciler run the status check will see
+      // `cancelling` and skip the Stripe call rather than attempting to cancel
+      // an already-cancelled subscription (which Stripe rejects with an error).
+      subscriptionCreationDriftTotal.inc({ tenant_id: intent.tenant_id });
+
+      await sb
+        .from("pending_subscription_creations")
+        .update({
+          status: "failed",
+          error_message:
+            "Reconciler cancelling orphaned Stripe subscription: DB row was never written",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intent.id);
+
+      // Cancel in Stripe after the intent is marked. If this call fails, the
+      // intent is already terminal so the next run will not retry the cancel.
+      // The Stripe subscription may remain active briefly until manual cleanup,
+      // but the drift metric and log provide the signal for intervention.
+      try {
+        await this.stripe.subscriptions.cancel(stripeSubId);
+      } catch (cancelErr) {
+        logger.error("Reconciler failed to cancel orphaned Stripe subscription", {
+          intentId: intent.id,
+          tenantId: intent.tenant_id,
+          stripeSubscriptionId: stripeSubId,
+          error: cancelErr instanceof Error ? cancelErr.message : String(cancelErr),
+        });
+        // Do not re-throw: the intent is already marked failed. The drift
+        // metric is already incremented. Manual cleanup of the Stripe
+        // subscription is required.
+        return;
+      }
+
+      logger.warn("Reconciler cancelled orphaned Stripe subscription", {
+        intentId: intent.id,
+        tenantId: intent.tenant_id,
+        stripeSubscriptionId: stripeSubId,
+      });
+    } catch (err) {
+      logger.error("Reconciler failed to resolve creation intent", {
+        intentId: intent.id,
+        tenantId: intent.tenant_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   }
 }
 

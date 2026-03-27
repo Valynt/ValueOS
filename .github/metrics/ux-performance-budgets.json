@@ -7,5 +7,16 @@
     "/": 2500,
     "/auth/login": 2500,
     "/dashboard": 3000
+  },
+  "routeChunks": {
+    "ModernLoginPage": { "maxKb": 15 },
+    "Dashboard": { "maxKb": 15 },
+    "SettingsPage": { "maxKb": 20 },
+    "ValueCaseCanvas": { "maxKb": 90 }
+  },
+  "vendorTrend": {
+    "enabled": true,
+    "baselineKb": 821.94,
+    "maxGrowthPercent": 5
   }
 }

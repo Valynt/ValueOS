@@ -133,10 +133,15 @@ describe("ErrorBoundary — retry behaviour", () => {
   it("resets error state and re-renders children on retry when child no longer throws", async () => {
     const user = userEvent.setup();
 
+    // shouldThrow starts true. The ErrorBoundary catches the error and shows
+    // the fallback. We then set shouldThrow = false before clicking retry so
+    // the re-render succeeds. This is robust to React strict mode's
+    // double-invocation because we only flip the flag after the boundary has
+    // already caught the error and rendered the fallback UI.
+    let shouldThrow = true;
+
     function ToggleChild() {
-      const [shouldThrow, setShouldThrow] = React.useState(true);
       if (shouldThrow) {
-        setTimeout(() => setShouldThrow(false), 0);
         throw new Error("Initial error");
       }
       return <div data-testid="recovered-child">Recovered</div>;
@@ -148,7 +153,11 @@ describe("ErrorBoundary — retry behaviour", () => {
       </ErrorBoundary>,
     );
 
+    // Error boundary should have caught the error and shown the fallback
     expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // Allow the next render to succeed before clicking retry
+    shouldThrow = false;
     await user.click(screen.getByRole("button", { name: /try again/i }));
     expect(screen.getByTestId("recovered-child")).toBeInTheDocument();
   });

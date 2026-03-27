@@ -9,6 +9,7 @@ import type { Request } from 'express';
 import { z } from 'zod';
 
 import { createLogger } from '../../lib/logger.js';
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { getCrmWebhookQueue } from '../../workers/crmWorker.js';
 

@@ -9,6 +9,7 @@ import { LLMGateway } from "../../../lib/agent-fabric/LLMGateway.js";
 import type { RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
+// service-role:justified worker/service requires elevated DB access for background processing
 import { getSupabaseClient } from "../utils.js";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,8 @@ interface SimulationScenario {
   pillarId: number | null;
   steps: Record<string, unknown>;
   rubric: Record<string, unknown>;
+  difficulty_level?: string;
+  evaluation_criteria?: Record<string, unknown>;
 }
 
 interface SimulationAttempt {

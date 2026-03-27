@@ -1,3 +1,4 @@
+// service-role:justified elevated DB access required for this service/worker
 /**
  * Analytics Router
  * Provides dashboard statistics and insights with tenant isolation

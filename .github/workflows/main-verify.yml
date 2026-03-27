@@ -575,12 +575,29 @@ jobs:
       - name: Verify pseudo-localization readiness
         if: always()
         run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+      - name: Enforce top-tier journey a11y/l10n thresholds
+        if: always()
+        run: |
+          node scripts/ci/check-top-tier-journey-ux-gates.mjs \
+            --policy .github/metrics/top-tier-journey-thresholds.json \
+            --a11y-report artifacts/accessibility/playwright-report.json \
+            --output artifacts/frontend-quality/top-tier-journey-gate.json
       - name: Build frontend quality dashboard artifacts
         if: always()
         run: |
           node scripts/ci/collect-frontend-quality-dashboard.mjs \
             --dashboard-out artifacts/frontend-quality/dashboard.md \
             --json-out artifacts/frontend-quality/dashboard.json
+      - name: Build UX regression dashboard (vs previous release baseline)
+        if: always()
+        run: |
+          node scripts/ci/build-ux-regression-dashboard.mjs \
+            --baseline .github/metrics/ux-release-baselines.json \
+            --a11y artifacts/accessibility/a11y-metrics.json \
+            --i18n artifacts/i18n/coverage-dashboard.json \
+            --top-tier artifacts/frontend-quality/top-tier-journey-gate.json \
+            --json-out artifacts/frontend-quality/regression-dashboard.json \
+            --md-out artifacts/frontend-quality/regression-dashboard.md
       - name: Upload accessibility artifacts
         if: always()
         uses: actions/upload-artifact@v7

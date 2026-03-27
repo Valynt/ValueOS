@@ -326,11 +326,15 @@ export function createServiceRoleSupabaseClient(): ServiceRoleSupabaseClient {
   }
 
   if (!supabaseUrl) {
-    throw new Error("Supabase URL is required for server-side operations");
+    throw new Error(
+      "Missing required Supabase runtime configuration: SUPABASE_URL or VITE_SUPABASE_URL"
+    );
   }
 
   if (!supabaseServiceRoleKey) {
-    throw new Error("Supabase service role key is required for elevated server-side operations");
+    throw new Error(
+      "Missing required Supabase runtime configuration: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY"
+    );
   }
 
   if (!serviceRoleSupabaseClient) {

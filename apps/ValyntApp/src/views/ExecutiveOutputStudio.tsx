@@ -164,14 +164,16 @@ export function ExecutiveOutputStudio() {
                 {pdfExport.isPending ? "Exporting..." : "Export PDF"}
               </Button>
             )}
-            <Button
-              onClick={() => generateArtifacts.mutate()}
-              disabled={generateArtifacts.isPending}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {generateArtifacts.isPending ? "Generating..." : "Generate Artifacts"}
-            </Button>
+            {!hasArtifacts && (
+              <Button
+                onClick={() => generateArtifacts.mutate()}
+                disabled={generateArtifacts.isPending}
+                className="flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                {generateArtifacts.isPending ? "Generating..." : "Generate Artifacts"}
+              </Button>
+            )}
           </div>
         </div>
       </div>

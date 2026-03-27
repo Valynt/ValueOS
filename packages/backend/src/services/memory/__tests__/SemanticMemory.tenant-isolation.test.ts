@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpcMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@shared/lib/supabase.js", () => ({
+  createServiceRoleSupabaseClient: () => ({
+    rpc: rpcMock,
+  }),
+  // Legacy alias kept for any transitive imports
   createServerSupabaseClient: () => ({
     rpc: rpcMock,
   }),

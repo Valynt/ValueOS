@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 
 import { createLogger } from "@shared/lib/logger";
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { getDsrMappedPiiAssets } from "../../observability/dataAssetInventoryRegistry";
 

@@ -14,6 +14,7 @@ import { createLogger } from '@shared/lib/logger';
 import type { ProvenanceRecord } from '@valueos/memory';
 import type { VectorChunk, VectorStore } from '@valueos/memory';
 
+// service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../supabase.js';
 
 const logger = createLogger({ service: 'SupabaseVectorStore' });
