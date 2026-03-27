@@ -51,6 +51,7 @@ import {
   ScenarioRequestSchema,
   UpdateValueCaseSchema,
 } from './types';
+import { requireOrganizationContext } from './requireOrganizationContext';
 
 
 // ============================================================================
@@ -256,7 +257,7 @@ async function createCase(req: Request, res: Response, next: NextFunction): Prom
   try {
     const repository = ValueCasesRepository.fromRequest(req);
     const valueCase = await repository.create(
-      authReq.tenantId!,
+      req.organizationId!,
       authReq.user!.id,
       req.body
     );
@@ -279,7 +280,7 @@ async function listCases(req: Request, res: Response, next: NextFunction): Promi
 
   try {
     const repository = ValueCasesRepository.fromRequest(req);
-    const result = await repository.list(authReq.tenantId!, ListValueCasesQuerySchema.parse(req.query));
+    const result = await repository.list(req.organizationId!, ListValueCasesQuerySchema.parse(req.query));
 
     res.status(200).json({
       ...result,
@@ -300,7 +301,7 @@ async function getCase(req: Request, res: Response, next: NextFunction): Promise
 
   try {
     const repository = ValueCasesRepository.fromRequest(req);
-    const valueCase = await repository.getById(authReq.tenantId!, caseId);
+    const valueCase = await repository.getById(req.organizationId!, caseId);
 
     res.status(200).json({
       data: valueCase,
@@ -327,7 +328,7 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
     // Integrity gate: enforce before any in_review transition.
     const requestedStatus = (req.body as Record<string, unknown>)?.status;
     if (requestedStatus === 'in_review') {
-      const organizationId = authReq.tenantId ?? authReq.organizationId;
+      const organizationId = req.organizationId;
       if (!req.supabase) {
         // Gate cannot run without a DB client — log so the bypass is observable.
         logger.warn('Integrity gate skipped: req.supabase not available', { caseId });
@@ -365,7 +366,7 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
     }
 
     const repository = ValueCasesRepository.fromRequest(req);
-    const valueCase = await repository.update(authReq.tenantId!, caseId, req.body);
+    const valueCase = await repository.update(req.organizationId!, caseId, req.body);
 
     res.status(200).json({
       data: valueCase,
@@ -386,7 +387,7 @@ async function deleteCase(req: Request, res: Response, next: NextFunction): Prom
 
   try {
     const repository = ValueCasesRepository.fromRequest(req);
-    await repository.delete(authReq.tenantId!, caseId);
+    await repository.delete(req.organizationId!, caseId);
 
     res.status(204).send();
   } catch (err) {
@@ -405,6 +406,7 @@ router.use(requestLogger);
 // All routes require authentication
 router.use(requireAuth);
 router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
+router.use(requireOrganizationContext);
 
 // POST /cases - Create
 router.post(
@@ -463,14 +465,8 @@ router.get(
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const output = await hypothesisOutputService.getLatestForCase(caseId, organizationId);
@@ -496,14 +492,8 @@ router.get(
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const repo = new ValueTreeRepository();
@@ -522,14 +512,8 @@ router.patch(
   requireRole(['admin', 'member']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const body = req.body as unknown;
@@ -579,14 +563,8 @@ router.get(
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const repo = new FinancialModelSnapshotRepository();
@@ -614,14 +592,8 @@ router.get(
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const output = await integrityOutputRepository.getForCase(caseId, organizationId);
@@ -645,14 +617,8 @@ router.get(
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
     const { caseId } = req.params;
-    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-    if (!organizationId) {
-      res.status(401).json({ error: 'Missing tenant context' });
-      return;
-    }
+    const organizationId = req.organizationId!;
 
     try {
       const readiness = await readinessScorer.calculateReadiness(caseId, organizationId);
@@ -674,12 +640,7 @@ router.get(
 async function calculateCase(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
-  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-  if (!organizationId) {
-    res.status(401).json({ error: 'Missing tenant context' });
-    return;
-  }
+  const organizationId = req.organizationId!;
 
   try {
     const body = CalculateRequestSchema.parse(req.body);
@@ -740,12 +701,7 @@ async function calculateCase(req: Request, res: Response, next: NextFunction): P
 async function generateScenarios(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
-  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-  if (!organizationId) {
-    res.status(401).json({ error: 'Missing tenant context' });
-    return;
-  }
+  const organizationId = req.organizationId!;
 
   try {
     const body = ScenarioRequestSchema.parse(req.body);
@@ -922,12 +878,7 @@ const UpdateAssumptionSchema = z.object({
 async function updateAssumption(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId, assumptionId } = req.params;
-  const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
-
-  if (!organizationId) {
-    res.status(401).json({ error: 'Missing tenant context' });
-    return;
-  }
+  const organizationId = req.organizationId!;
 
   try {
     const body = UpdateAssumptionSchema.parse(req.body);
@@ -1107,7 +1058,7 @@ const StartDiscoverySchema = z.object({
 async function startDiscovery(req: Request, res: Response) {
   try {
     const { caseId } = req.params;
-    const tenantId = (req as AuthenticatedRequest).tenantId ?? '';
+    const organizationId = req.organizationId!;
     const body = StartDiscoverySchema.safeParse(req.body);
 
     if (!body.success) {
@@ -1119,13 +1070,13 @@ async function startDiscovery(req: Request, res: Response) {
 
     const discoveryAgent = getDiscoveryAgent();
     const result = await discoveryAgent.startDiscovery({
-      organizationId: tenantId,
+      organizationId,
       valueCaseId: caseId,
       companyName: body.data.companyName,
       industryContext: body.data.industryContext,
     });
 
-    logger.info('Discovery started', { runId: result.runId, caseId, tenantId });
+    logger.info('Discovery started', { runId: result.runId, caseId, organizationId });
     return res.status(202).json({
       runId: result.runId,
       status: 'started',

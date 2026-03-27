@@ -110,6 +110,14 @@ interface FallbackAlertRecord {
   payload: Record<string, unknown>;
 }
 
+interface AuditAnomalyBuckets {
+  deniedShares: AgentAuditLog[];
+  invalidSignatures: AgentAuditLog[];
+  replayAttacks: AgentAuditLog[];
+  highSensitivityAccess: AgentAuditLog[];
+  communicationPairs: Map<string, number>;
+}
+
 // ============================================================================
 // Security Monitor Implementation
 // ============================================================================
@@ -260,25 +268,65 @@ export class SecurityMonitor {
         organizationId,
       });
 
+      const buckets = this.buildAuditAnomalyBuckets(recentLogs);
+
       // Analyze for patterns
-      await this.analyzeDeniedContextShares(recentLogs);
-      await this.analyzeInvalidSignatures(recentLogs);
-      await this.analyzeReplayAttacks(recentLogs);
-      await this.analyzeHighSensitivityAccess(recentLogs);
-      await this.analyzeCommunicationPatterns(recentLogs);
+      await this.analyzeDeniedContextShares(buckets.deniedShares);
+      await this.analyzeInvalidSignatures(buckets.invalidSignatures);
+      await this.analyzeReplayAttacks(buckets.replayAttacks);
+      await this.analyzeHighSensitivityAccess(buckets.highSensitivityAccess);
+      await this.analyzeCommunicationPatterns(buckets.communicationPairs);
     } catch (error) {
       logger.error("Error analyzing audit logs", error instanceof Error ? error : undefined);
     }
   }
 
+  private buildAuditAnomalyBuckets(recentLogs: AgentAuditLog[]): AuditAnomalyBuckets {
+    const buckets: AuditAnomalyBuckets = {
+      deniedShares: [],
+      invalidSignatures: [],
+      replayAttacks: [],
+      highSensitivityAccess: [],
+      communicationPairs: new Map<string, number>(),
+    };
+
+    recentLogs.forEach((log) => {
+      if (log.input_query === "context_share_denied" && !log.success) {
+        buckets.deniedShares.push(log);
+      }
+
+      const errorMessage = log.error_message?.toLowerCase();
+
+      if (errorMessage?.includes("signature") || errorMessage?.includes("invalid message signature")) {
+        buckets.invalidSignatures.push(log);
+      }
+
+      if (errorMessage?.includes("replay") || errorMessage?.includes("replay attack detected")) {
+        buckets.replayAttacks.push(log);
+      }
+
+      if (
+        errorMessage?.includes("trust level") ||
+        errorMessage?.includes("sensitive data") ||
+        log.context?.metadata?.dataSensitivity === "high"
+      ) {
+        buckets.highSensitivityAccess.push(log);
+      }
+
+      const toAgent = log.context?.metadata?.toAgent;
+      if (toAgent) {
+        const pair = `${log.agent_name}-${toAgent}`;
+        buckets.communicationPairs.set(pair, (buckets.communicationPairs.get(pair) || 0) + 1);
+      }
+    });
+
+    return buckets;
+  }
+
   /**
    * Analyze denied context shares
    */
-  private async analyzeDeniedContextShares(logs: AgentAuditLog[]): Promise<void> {
-    const deniedShares = logs.filter(
-      (log) => log.input_query === "context_share_denied" && !log.success
-    );
-
+  private async analyzeDeniedContextShares(deniedShares: AgentAuditLog[]): Promise<void> {
     if (deniedShares.length >= this.config.alertThresholds.deniedContextShares) {
       this.recordEvent(
         "context_share_denied",
@@ -298,13 +346,7 @@ export class SecurityMonitor {
   /**
    * Analyze invalid signatures
    */
-  private async analyzeInvalidSignatures(logs: AgentAuditLog[]): Promise<void> {
-    const signatureErrors = logs.filter(
-      (log) =>
-        log.error_message?.includes("signature") ||
-        log.error_message?.includes("Invalid message signature")
-    );
-
+  private async analyzeInvalidSignatures(signatureErrors: AgentAuditLog[]): Promise<void> {
     if (signatureErrors.length >= this.config.alertThresholds.invalidSignatures) {
       this.recordEvent(
         "message_signature_invalid",
@@ -323,13 +365,7 @@ export class SecurityMonitor {
   /**
    * Analyze replay attacks
    */
-  private async analyzeReplayAttacks(logs: AgentAuditLog[]): Promise<void> {
-    const replayAttacks = logs.filter(
-      (log) =>
-        log.error_message?.includes("replay") ||
-        log.error_message?.includes("Replay attack detected")
-    );
-
+  private async analyzeReplayAttacks(replayAttacks: AgentAuditLog[]): Promise<void> {
     if (replayAttacks.length >= this.config.alertThresholds.replayAttacks) {
       this.recordEvent(
         "replay_attack_detected",
@@ -348,14 +384,7 @@ export class SecurityMonitor {
   /**
    * Analyze high sensitivity data access
    */
-  private async analyzeHighSensitivityAccess(logs: AgentAuditLog[]): Promise<void> {
-    const highSensitivityAccess = logs.filter(
-      (log) =>
-        log.error_message?.includes("trust level") ||
-        log.error_message?.includes("sensitive data") ||
-        log.context?.metadata?.dataSensitivity === "high"
-    );
-
+  private async analyzeHighSensitivityAccess(highSensitivityAccess: AgentAuditLog[]): Promise<void> {
     if (highSensitivityAccess.length > 0) {
       this.recordEvent(
         "high_sensitivity_data_access",
@@ -374,17 +403,7 @@ export class SecurityMonitor {
   /**
    * Analyze communication patterns for anomalies
    */
-  private async analyzeCommunicationPatterns(logs: AgentAuditLog[]): Promise<void> {
-    // Group by agent pairs
-    const agentPairs = new Map<string, number>();
-
-    logs.forEach((log) => {
-      if (log.context?.metadata?.toAgent) {
-        const pair = `${log.agent_name}-${log.context.metadata.toAgent}`;
-        agentPairs.set(pair, (agentPairs.get(pair) || 0) + 1);
-      }
-    });
-
+  private async analyzeCommunicationPatterns(agentPairs: Map<string, number>): Promise<void> {
     // Look for unusual patterns
     for (const [pair, count] of agentPairs.entries()) {
       if (count > 20) {

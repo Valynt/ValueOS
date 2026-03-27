@@ -1,6 +1,7 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
 
 import { createLogger } from '../../lib/logger.js';
+import { runJobWithTenantContext } from '../../workers/tenantContextBootstrap.js';
 
 import { MeteringQueue, type UsageQueueEvent } from './MeteringQueue.js';
 
@@ -28,7 +29,10 @@ export class UsageQueueConsumerWorker {
 
       try {
         const event = this.queue.decode(message);
-        await this.persistEvent(event);
+        await runJobWithTenantContext(
+          { workerName: 'UsageQueueConsumerWorker', tenantId: event.tenant_id },
+          async () => this.persistEvent(event),
+        );
         message.ack();
       } catch (error) {
         const normalizedError = error instanceof Error ? error : new Error(String(error));

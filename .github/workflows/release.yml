@@ -362,12 +362,22 @@ jobs:
         run: |
           node scripts/ci/generate-release-manifest.mjs
 
+      - name: Generate release-control summary artifact
+        env:
+          RELEASE_MANIFEST_PATH: release-artifacts/release-manifest.json
+          RELEASE_CONTROL_SUMMARY_JSON: release-artifacts/release-control-summary.json
+          RELEASE_CONTROL_SUMMARY_MD: release-artifacts/release-control-summary.md
+        run: |
+          node scripts/ci/write-release-control-summary.mjs
+
       - name: Upload release manifest bundle
         uses: actions/upload-artifact@v7
         with:
           name: release-manifest-${{ github.sha }}
           path: |
             release-artifacts/release-manifest.json
+            release-artifacts/release-control-summary.json
+            release-artifacts/release-control-summary.md
             release-artifacts/sbom.cyclonedx.json
             release-artifacts/sbom.cyclonedx.json.sig
             release-artifacts/sbom.cyclonedx.json.pem

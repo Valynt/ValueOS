@@ -9,7 +9,14 @@ const configPath = path.join(repoRoot, 'config', 'debt-budgets.json');
 const pattern = '(:\\s*any\\b|as\\s+any\\b|<\\s*any\\s*>)';
 
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+const policy = config.policy ?? {};
 const entries = Array.isArray(config.entries) ? config.entries : [];
+const sprintLengthDays = Number(policy.sprintLengthDays ?? 14);
+const enforceNextTargetAfterSprints = Number(policy.enforceNextTargetAfterSprints ?? 1);
+const capturedAt = typeof policy.capturedAt === 'string' ? new Date(`${policy.capturedAt}T00:00:00Z`) : null;
+const sprintsElapsed = capturedAt instanceof Date && !Number.isNaN(capturedAt.getTime())
+  ? Math.floor((Date.now() - capturedAt.getTime()) / (sprintLengthDays * 24 * 60 * 60 * 1000))
+  : 0;
 
 function run(command, cwd = repoRoot) {
   try {
@@ -82,8 +89,10 @@ function measure(entry) {
 
 const bucketTotals = new Map();
 let regressions = 0;
+let sprintTargetMisses = 0;
 
 console.log('Debt ratchet status');
+console.log(`Sprint cadence: ${policy.cadence ?? 'n/a'} (sprints elapsed since baseline: ${sprintsElapsed})`);
 for (const entry of entries) {
   const current = measure(entry);
   const baseline = Number(entry.baseline ?? 0);
@@ -93,6 +102,10 @@ for (const entry of entries) {
   console.log(`${status} [${entry.bucket}] ${entry.label}: current=${current}, baseline=${baseline}, delta=${delta >= 0 ? '+' : ''}${delta}, nextTarget=${nextTarget}`);
   if (current > baseline) {
     regressions += 1;
+  }
+  if (sprintsElapsed >= enforceNextTargetAfterSprints && current > nextTarget) {
+    sprintTargetMisses += 1;
+    console.error(`❌ [sprint-target] ${entry.label}: current=${current} is above nextTarget=${nextTarget}`);
   }
   const bucket = bucketTotals.get(entry.bucket) ?? { current: 0, baseline: 0 };
   bucket.current += current;
@@ -112,5 +125,10 @@ for (const [bucket, totals] of bucketTotals.entries()) {
 
 if (regressions > 0) {
   console.error(`Debt ratchet regression detected in ${regressions} entry/bucket check(s).`);
+  process.exit(1);
+}
+
+if (sprintTargetMisses > 0) {
+  console.error(`Debt sprint ratchet missed nextTarget on ${sprintTargetMisses} entr${sprintTargetMisses === 1 ? 'y' : 'ies'}.`);
   process.exit(1);
 }

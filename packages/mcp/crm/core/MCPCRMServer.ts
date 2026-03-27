@@ -1002,37 +1002,34 @@ export class MCPCRMServer {
       };
     }
 
-    // Get contacts if requested
-    let contacts: CRMContact[] = [];
-    if (includeContacts) {
-      try {
-        contacts = await module.getDealContacts(dealId);
-      } catch (error) {
-        logger.warn("Failed to fetch deal contacts", {
-          dealId,
-          provider: module.provider,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-        // Don't fail the entire request, just log and continue with empty contacts
-        contacts = [];
-      }
-    }
+    const contactsPromise: Promise<CRMContact[]> = includeContacts
+      ? module.getDealContacts(dealId).catch((error) => {
+          logger.warn("Failed to fetch deal contacts", {
+            dealId,
+            provider: module.provider,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          // Don't fail the entire request, just log and continue with empty contacts
+          return [];
+        })
+      : Promise.resolve([]);
 
-    // Get activities if requested
-    let activities: CRMActivity[] = [];
-    if (includeActivities) {
-      try {
-        activities = await module.getDealActivities(dealId, 5);
-      } catch (error) {
-        logger.warn("Failed to fetch deal activities", {
-          dealId,
-          provider: module.provider,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-        // Don't fail the entire request, just log and continue with empty activities
-        activities = [];
-      }
-    }
+    const activitiesPromise: Promise<CRMActivity[]> = includeActivities
+      ? module.getDealActivities(dealId, 5).catch((error) => {
+          logger.warn("Failed to fetch deal activities", {
+            dealId,
+            provider: module.provider,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          // Don't fail the entire request, just log and continue with empty activities
+          return [];
+        })
+      : Promise.resolve([]);
+
+    const [contacts, activities] = await Promise.all([
+      contactsPromise,
+      activitiesPromise,
+    ]);
 
     return {
       success: true,

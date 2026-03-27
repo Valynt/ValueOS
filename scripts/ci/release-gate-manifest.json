@@ -9,7 +9,9 @@
       "jobName": "main-verify",
       "coverage": [
         "post-merge main verification aggregate"
-      ]
+      ],
+      "owner": "team-quality",
+      "remediation": "Re-run main-verify and inspect failing lane summaries under artifacts/ci-lanes/."
     },
     {
       "id": "release-readiness-aggregate",
@@ -19,7 +21,9 @@
       "jobName": "release-readiness",
       "coverage": [
         "deploy release-readiness aggregation"
-      ]
+      ],
+      "owner": "team-platform",
+      "remediation": "Re-run deploy release-readiness and fix failing local gate in deploy.yml release-gate-contract needs."
     },
     {
       "id": "dast",
@@ -29,6 +33,21 @@
       "jobName": "DAST Gate",
       "coverage": [
         "DAST"
+      ],
+      "owner": "team-security",
+      "remediation": "Review deploy DAST artifacts and suppress only validated false positives in .zap/false-positives.json."
+    },
+    {
+      "id": "reliability-indicators-gate",
+      "description": "Release reliability indicators gate enforcing critical check pass-rate, flake threshold, and rollback drill recency before production promotion.",
+      "workflow": ".github/workflows/deploy.yml",
+      "jobId": "reliability-indicators-gate",
+      "jobName": "reliability-indicators-gate",
+      "script": "scripts/ci/check-release-reliability-indicators.mjs",
+      "coverage": [
+        "critical check pass rate",
+        "flaky-test threshold",
+        "rollback drill recency"
       ]
     },
     {
@@ -43,7 +62,9 @@
         "agent inventory (11 agents)",
         "runtime service directories",
         "Docker image Dockerfiles"
-      ]
+      ],
+      "owner": "team-quality",
+      "remediation": "Update docs/AGENTS.md or runtime implementation, then rerun scripts/ci/check-architecture-doc-drift.mjs."
     },
     {
       "id": "dev-routes-exclusion-gate",
@@ -54,7 +75,9 @@
       "coverage": [
         "child_process import absent from production bundle",
         "dev route registration absent from production bundle"
-      ]
+      ],
+      "owner": "team-backend",
+      "remediation": "Remove dev-only route imports from production bundle and rerun scripts/ci/check-backend-dev-routes-excluded.mjs."
     },
     {
       "id": "log-level-production-gate",
@@ -64,7 +87,9 @@
       "coverage": [
         "K8s base manifests set LOG_LEVEL to info or debug",
         "shared logger audit trail visibility in production"
-      ]
+      ],
+      "owner": "team-platform",
+      "remediation": "Set production LOG_LEVEL to info/debug in manifests and rerun CI gate."
     },
     {
       "id": "mfa-production-config-gate",
@@ -74,7 +99,9 @@
       "coverage": [
         "production env files do not disable MFA",
         "K8s/Helm manifests do not disable MFA"
-      ]
+      ],
+      "owner": "team-security",
+      "remediation": "Remove MFA_ENABLED=false from production-path config and rerun CI gate."
     },
     {
       "id": "compliance-evidence-completeness",
@@ -90,7 +117,9 @@
         "secret scan evidence present",
         "audit log evidence present",
         "architecture drift gate evidence present"
-      ]
+      ],
+      "owner": "team-security",
+      "remediation": "Populate required docs/security-compliance evidence files and rerun main-verify staging deploy gates."
     }
   ],
   "externalRequiredChecks": [
@@ -106,7 +135,8 @@
     "localNeeds": [
       "release-manifest-gate",
       "dast-gate",
-      "emergency-skip-audit"
+      "emergency-skip-audit",
+      "reliability-indicators-gate"
     ],
     "productionNeedsMustInclude": [
       "release-gate-contract",
@@ -115,6 +145,7 @@
       "preprod-slo-guard",
       "preprod-launch-gate",
       "release-manifest-gate",
+      "reliability-indicators-gate",
       "secret-rotation-gate",
       "verify-supply-chain",
       "emergency-skip-audit"

@@ -3,8 +3,8 @@
  * check-infra-readiness-contract.mjs
  *
  * Enforces the infra readiness contract identified in the production sign-off
- * review (docs/production-sign-off-review.md). Each check is a static assertion
- * that a specific production gap has not regressed.
+ * review (docs/production-sign-off-review.md). It combines static source
+ * assertions with optional live Kubernetes validations during deploy-time gates.
  *
  * Checks:
  *   1. NATS deployment manifest exists and is referenced in kustomization
@@ -13,16 +13,27 @@
  *      on a condition that is always false when Supabase secrets are absent
  *   4. UsageEmitter failedEventsBuffer has a documented drain path
  *   5. BullMQ workers restore tenant context from job payload before processing
+ *   6. Optional live kubectl checks for messaging, collectors, and monitoring targets
  *
  * Exit 1 if any check fails.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { execSync } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const failures = [];
 const warnings = [];
+const liveChecks = [];
+const artifactRoot = process.env.INFRA_CONFORMANCE_ARTIFACT_DIR || 'artifacts/infra-conformance';
+const runId = process.env.GITHUB_RUN_ID || 'local';
+const artifactDir = join(ROOT, artifactRoot);
+const reportJsonPath = join(artifactDir, `infra-readiness-report-${runId}.json`);
+const reportMdPath = join(artifactDir, `infra-readiness-report-${runId}.md`);
+const enableLiveChecks = process.env.INFRA_READINESS_LIVE_CHECKS === 'true';
+const kubeNamespace = process.env.INFRA_READINESS_NAMESPACE || 'valueos';
+const observabilityNamespace = process.env.INFRA_READINESS_OBSERVABILITY_NAMESPACE || 'observability';
 
 function read(rel) {
   const p = join(ROOT, rel);
@@ -33,6 +44,29 @@ function read(rel) {
 function fail(msg) { failures.push(msg); }
 function warn(msg) { warnings.push(msg); }
 function pass(msg) { console.log('  ✓ ' + msg); }
+function passLive(msg) {
+  liveChecks.push({ status: 'pass', message: msg });
+  pass(msg);
+}
+function failLive(msg) {
+  liveChecks.push({ status: 'fail', message: msg });
+  fail(msg);
+}
+function warnLive(msg) {
+  liveChecks.push({ status: 'warn', message: msg });
+  warn(msg);
+}
+function runKubectl(args) {
+  const cmd = `kubectl ${args}`;
+  try {
+    return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch (error) {
+    const stderr = error?.stderr?.toString?.().trim();
+    const stdout = error?.stdout?.toString?.().trim();
+    const detail = stderr || stdout || error?.message || 'unknown kubectl error';
+    throw new Error(`${cmd} failed: ${detail}`);
+  }
+}
 
 console.log('\nInfra Readiness Contract Gate\n');
 
@@ -162,7 +196,7 @@ console.log('\n5. BullMQ workers restore tenant context');
     }
 
     const hasTenantId = /tenantId|tenant_id|organizationId|organization_id/.test(src);
-    const restoresTenantContext = /tenantContextStorage\.run|AsyncLocalStorage.*run|runWithTenantContext/.test(src);
+    const restoresTenantContext = /tenantContextStorage\.run|AsyncLocalStorage.*run|runWithTenantContext|runJobWithTenantContext/.test(src);
 
     if (!hasTenantId) {
       warn(`${rel}: no tenantId reference found — verify tenant isolation in worker`);
@@ -174,8 +208,89 @@ console.log('\n5. BullMQ workers restore tenant context');
   }
 }
 
+// ── Check 6: Live Kubernetes state checks (deploy-time gate) ────────────────
+console.log('\n6. Live Kubernetes state checks (messaging, collectors, monitoring)');
+{
+  if (!enableLiveChecks) {
+    warnLive('Live checks disabled. Set INFRA_READINESS_LIVE_CHECKS=true to validate cluster state.');
+  } else if (!process.env.KUBECONFIG && !existsSync(resolve(process.env.HOME || '~', '.kube/config'))) {
+    warnLive('Live checks requested but kubeconfig not found. Skipping live kubectl validations.');
+  } else {
+    try {
+      const natsReady = runKubectl(`-n ${kubeNamespace} get statefulset metering-nats -o jsonpath='{.status.readyReplicas}'`).replace(/'/g, '');
+      if (Number.parseInt(natsReady || '0', 10) >= 1) {
+        passLive(`NATS JetStream readyReplicas=${natsReady || 0} in namespace ${kubeNamespace}`);
+      } else {
+        failLive(`NATS JetStream has no ready replicas in namespace ${kubeNamespace}`);
+      }
+    } catch (error) {
+      failLive(`Failed to verify NATS JetStream health: ${error.message}`);
+    }
+
+    try {
+      const collectorAvailable = runKubectl(`-n ${observabilityNamespace} get deployment otel-collector -o jsonpath='{.status.availableReplicas}'`).replace(/'/g, '');
+      if (Number.parseInt(collectorAvailable || '0', 10) >= 1) {
+        passLive(`OTel collector availableReplicas=${collectorAvailable || 0} in namespace ${observabilityNamespace}`);
+      } else {
+        failLive(`OTel collector has no available replicas in namespace ${observabilityNamespace}`);
+      }
+    } catch (error) {
+      failLive(`Failed to verify OTel collector health: ${error.message}`);
+    }
+
+    try {
+      const serviceMonitor = runKubectl(`-n ${kubeNamespace} get servicemonitor billing-aggregator-worker -o name`);
+      if (serviceMonitor.includes('servicemonitor')) {
+        passLive(`Monitoring target present: ${serviceMonitor}`);
+      } else {
+        failLive('billing-aggregator-worker ServiceMonitor not found');
+      }
+    } catch (error) {
+      failLive(`Failed to verify billing ServiceMonitor presence: ${error.message}`);
+    }
+  }
+}
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log('');
+
+mkdirSync(artifactDir, { recursive: true });
+const report = {
+  generated_at_utc: new Date().toISOString(),
+  run_id: runId,
+  live_checks_enabled: enableLiveChecks,
+  namespaces: {
+    app: kubeNamespace,
+    observability: observabilityNamespace,
+  },
+  failures,
+  warnings,
+  live_checks: liveChecks,
+  status: failures.length > 0 ? 'failed' : 'passed',
+};
+writeFileSync(reportJsonPath, JSON.stringify(report, null, 2), 'utf8');
+writeFileSync(
+  reportMdPath,
+  [
+    '# Infra Readiness Contract Report',
+    '',
+    `- generated_at_utc: ${report.generated_at_utc}`,
+    `- run_id: ${report.run_id}`,
+    `- live_checks_enabled: ${report.live_checks_enabled}`,
+    `- status: ${report.status}`,
+    `- app_namespace: ${kubeNamespace}`,
+    `- observability_namespace: ${observabilityNamespace}`,
+    `- failures: ${failures.length}`,
+    `- warnings: ${warnings.length}`,
+    '',
+    '## Live Checks',
+    ...(liveChecks.length === 0
+      ? ['- (none)']
+      : liveChecks.map((item) => `- [${item.status}] ${item.message}`)),
+  ].join('\n') + '\n',
+  'utf8',
+);
+console.log(`Wrote infra readiness artifacts:\n  - ${reportJsonPath}\n  - ${reportMdPath}\n`);
 
 if (warnings.length > 0) {
   console.warn('Warnings:');

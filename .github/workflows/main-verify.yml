@@ -183,24 +183,11 @@ jobs:
         run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
       - name: Kubernetes security policy render validation
         run: node scripts/ci/validate-k8s-security-policies.mjs
-      - name: Canonical governance gate
-        run: pnpm run typecheck:signal --verify
-      - name: Canonical CI workflow self-check
-        run: pnpm run ci:governance:self-check
-      - name: Check runtime sentinels
-        run: pnpm check:runtime-sentinels
-      - name: Gateway CORS wildcard guard
-        run: pnpm check:kong-cors-origins
-      - name: Typecheck
-        run: npx turbo run typecheck
-      - name: Backend request cast guardrails
-        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
-      - name: Generated src artifacts guard
-        run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
-      - name: Kubernetes manifest maturity transition evidence gate
-        run: node scripts/ci/check-k8s-manifest-maturity.mjs --mode=transition-check --ledger-path=infra/k8s/manifest-maturity-ledger.json --base-sha="${{ github.event.before }}" --head-sha="${{ github.sha }}"
-      - name: Vitest workspace topology guard
-        run: node scripts/ci/check-vitest-workspace-packages.mjs
+      - name: Shared governance assertions
+        env:
+          CI_BASE_SHA: ${{ github.event.before }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci/run-shared-governance-assertions.mjs
       - name: Unit suite + schema guard
         run: |
           npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.lines=75 --coverage.thresholds.functions=70 --coverage.thresholds.branches=70 --coverage.thresholds.statements=75
@@ -265,6 +252,8 @@ jobs:
         run: pnpm check:frontend-bundle-service-role
       - name: Guard backend service-role boundaries
         run: pnpm check:backend-service-role-boundaries
+      - name: Guard deprecated Supabase imports
+        run: node scripts/ci/check-deprecated-supabase-imports.mjs
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
       - name: Required-check policy contract guard
@@ -280,6 +269,9 @@ jobs:
 
       - name: Infra readiness contract guard
         run: node scripts/ci/check-infra-readiness-contract.mjs
+
+      - name: Queue tenant bootstrap guard
+        run: node scripts/ci/check-queue-tenant-bootstrap.mjs
 
       - name: Architecture doc / runtime drift guard
         run: node scripts/ci/check-architecture-doc-drift.mjs
@@ -300,6 +292,15 @@ jobs:
 
       - name: Critical control status gate (SOC2/HIPAA)
         run: node scripts/ci/check-control-status-critical.mjs
+
+      - name: Upload control status gate artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: control-status-gate-${{ github.run_id }}
+          path: artifacts/compliance/control-status-gate/**
+          if-no-files-found: warn
+          retention-days: 90
 
   vitest-package-matrix-config:
     name: vitest/package-matrix
@@ -443,6 +444,14 @@ jobs:
             --reporter=json \
             --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
             --outputFile.json=reports/compliance/rls/vitest-rls.json
+      - name: Assert tenant-isolation executed test count and pass rate
+        run: |
+          node scripts/ci/assert-test-minimums.mjs \
+            --format vitest \
+            --label "tenant-isolation-gate" \
+            --report reports/compliance/rls/vitest-rls.json \
+            --min-executed 10 \
+            --min-pass-rate 100
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -473,6 +482,24 @@ jobs:
         run: |
           node scripts/ci/verify-critical-claims.mjs
           pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts
+      - name: Critical backend workflow + billing integration lanes
+        run: |
+          mkdir -p artifacts/critical-workflows
+          npx vitest run \
+            tests/security/tenant-isolation-e2e.test.ts \
+            packages/backend/src/services/billing/__tests__/integration/webhook-events.test.ts \
+            packages/backend/src/services/billing/__tests__/integration/metering-pipeline.test.ts \
+            --reporter=verbose \
+            --reporter=json \
+            --outputFile.json=artifacts/critical-workflows/vitest-critical-workflows.json
+      - name: Assert critical-workflows executed test count and pass rate
+        run: |
+          node scripts/ci/assert-test-minimums.mjs \
+            --format vitest \
+            --label "critical-workflows-gate" \
+            --report artifacts/critical-workflows/vitest-critical-workflows.json \
+            --min-executed 10 \
+            --min-pass-rate 100
 
   accessibility-audit:
     name: accessibility-audit

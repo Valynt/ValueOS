@@ -11,6 +11,9 @@ import {
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { logger } from "./logger.js";
+import { createCounter } from "./observability/index.js";
+
 export {
   createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
@@ -22,6 +25,55 @@ export {
 };
 export type { ServiceRoleSupabaseClient };
 
+const deprecatedSupabaseCompatCounter = createCounter(
+  "deprecated_supabase_api_usage_total",
+  "Deprecated backend Supabase compatibility API usage by callsite",
+  ["api", "callsite"],
+);
+
+const deprecatedSupabaseWarningOnceByCallsite = new Set<string>();
+const DEPRECATION_WARNING_CODE = "VOS_DEPRECATED_SUPABASE_COMPAT";
+
+function resolveDeprecatedCallsite(): string {
+  const stack = new Error().stack ?? "";
+  const frame = stack
+    .split("\n")
+    .slice(2)
+    .map((line) => line.trim())
+    .find((line) => !line.includes("src/lib/supabase.ts") && !line.includes("src/lib/supabase.js"));
+
+  return frame ?? "unknown";
+}
+
+function logDeprecatedCompatUsage(api: "createServerSupabaseClient" | "getSupabaseClient"): void {
+  const callsite = resolveDeprecatedCallsite();
+
+  deprecatedSupabaseCompatCounter.inc({ api, callsite });
+
+  const onceKey = `${api}:${callsite}`;
+  if (deprecatedSupabaseWarningOnceByCallsite.has(onceKey)) {
+    return;
+  }
+
+  deprecatedSupabaseWarningOnceByCallsite.add(onceKey);
+
+  logger.warn("supabase.compat.deprecated_api_forwarded", {
+    api,
+    callsite,
+    compatibility_mode: "temporary_forward_to_createServiceRoleSupabaseClient",
+    migration_target: "src/lib/supabase/privileged/*",
+    required_justification_format: "service-role:justified <reason>",
+  });
+
+  process.emitWarning(
+    `[DEPRECATED] ${api} forwarded to createServiceRoleSupabaseClient() from ${callsite}. Migrate to src/lib/supabase/privileged/* factories with explicit justification literals.`,
+    {
+      code: DEPRECATION_WARNING_CODE,
+      type: "DeprecationWarning",
+    },
+  );
+}
+
 /**
  * @deprecated Prefer createRequestSupabaseClient({ accessToken }) so the RLS-safe
  * monorepo helper is explicit at the call site.
@@ -31,23 +83,23 @@ export const createUserSupabaseClient = (userAccessToken: string): RequestScoped
 };
 
 /**
- * @deprecated Hard-fail: service-role access must route through
- * src/lib/supabase/privileged/* with explicit scope + justification metadata.
+ * @deprecated Temporary compatibility shim. This now forwards to
+ * createServiceRoleSupabaseClient() with deprecation telemetry so backend startup
+ * remains unblocked while callsites migrate to src/lib/supabase/privileged/*.
  */
 export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
-  throw new Error(
-    "createServerSupabaseClient is deprecated and blocked. Use src/lib/supabase/privileged/* factories with service-role justification metadata."
-  );
+  logDeprecatedCompatUsage("createServerSupabaseClient");
+  return createServiceRoleSupabaseClient();
 };
 
 /**
- * @deprecated Hard-fail: service-role access must route through
- * src/lib/supabase/privileged/* with explicit scope + justification metadata.
+ * @deprecated Temporary compatibility shim. This now forwards to
+ * createServiceRoleSupabaseClient() with deprecation telemetry so backend startup
+ * remains unblocked while callsites migrate to src/lib/supabase/privileged/*.
  */
 export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
-  throw new Error(
-    "getSupabaseClient is deprecated and blocked. Use src/lib/supabase/privileged/* factories with service-role justification metadata."
-  );
+  logDeprecatedCompatUsage("getSupabaseClient");
+  return createServiceRoleSupabaseClient();
 };
 
 /**

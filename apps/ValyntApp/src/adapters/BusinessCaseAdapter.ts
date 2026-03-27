@@ -234,9 +234,24 @@ export function generateTrustBadge(
   metricName: string,
   businessCase: BusinessCaseResult
 ) {
-  const relevantSteps = businessCase.auditTrail.filter(step =>
-    JSON.stringify(step.outputs).toLowerCase().includes(metricName.toLowerCase())
-  );
+  const normalizedMetric = normalizeMetricKey(metricName);
+
+  const relevantSteps = businessCase.auditTrail.filter(step => {
+    const outputIndex = getAuditStepOutputIndex(step.outputs);
+
+    // Fast path: direct key hit
+    if (outputIndex.direct.has(metricName)) {
+      return true;
+    }
+
+    // Fast path: normalized key hit (e.g. "Net Present Value" vs "net_present_value")
+    if (normalizedMetric && outputIndex.normalized.has(normalizedMetric)) {
+      return true;
+    }
+
+    // Fallback: fuzzy match against precomputed searchable terms
+    return outputIndex.fuzzyTerms.some(term => term.includes(normalizedMetric));
+  });
 
   if (relevantSteps.length === 0) {
     return null;
@@ -248,14 +263,98 @@ export function generateTrustBadge(
 
   return {
     metric: metricName,
-    value: latestStep.outputs[metricName]?.value ?? 'Derived',
+    value: resolveStepMetricValue(latestStep.outputs, metricName) ?? 'Derived',
     confidence: latestStep.confidence,
-    formula: latestStep.inputs.formula ?? 'N/A',
+    formula: getStepFormula(latestStep.inputs) ?? 'N/A',
     hash: latestStep.hash,
     timestamp: latestStep.timestamp,
     sources: latestStep.sources,
     reasoning: latestStep.reasoning
   };
+}
+
+type AuditStepOutputIndex = {
+  direct: Map<string, unknown>;
+  normalized: Map<string, unknown>;
+  fuzzyTerms: string[];
+};
+
+const auditStepOutputIndexCache = new WeakMap<object, AuditStepOutputIndex>();
+
+function getAuditStepOutputIndex(outputs: unknown): AuditStepOutputIndex {
+  if (!isRecord(outputs)) {
+    return { direct: new Map(), normalized: new Map(), fuzzyTerms: [] };
+  }
+
+  const cached = auditStepOutputIndexCache.get(outputs);
+  if (cached) {
+    return cached;
+  }
+
+  const direct = new Map<string, unknown>();
+  const normalized = new Map<string, unknown>();
+  const fuzzyTermSet = new Set<string>();
+
+  for (const [key, outputValue] of Object.entries(outputs)) {
+    direct.set(key, outputValue);
+
+    const normalizedKey = normalizeMetricKey(key);
+    if (normalizedKey) {
+      normalized.set(normalizedKey, outputValue);
+      fuzzyTermSet.add(normalizedKey);
+    }
+
+    if (isRecord(outputValue)) {
+      const name = readRecordString(outputValue, 'name');
+      const label = readRecordString(outputValue, 'label');
+      const metric = readRecordString(outputValue, 'metric');
+      for (const value of [name, label, metric]) {
+        const normalizedValue = normalizeMetricKey(value);
+        if (normalizedValue) {
+          fuzzyTermSet.add(normalizedValue);
+        }
+      }
+    }
+  }
+
+  const computed = { direct, normalized, fuzzyTerms: Array.from(fuzzyTermSet) };
+  auditStepOutputIndexCache.set(outputs, computed);
+  return computed;
+}
+
+function resolveStepMetricValue(outputs: unknown, metricName: string): unknown {
+  const outputIndex = getAuditStepOutputIndex(outputs);
+  const metricOutput =
+    outputIndex.direct.get(metricName) ??
+    outputIndex.normalized.get(normalizeMetricKey(metricName));
+
+  if (isRecord(metricOutput) && 'value' in metricOutput) {
+    return metricOutput.value;
+  }
+
+  return undefined;
+}
+
+function getStepFormula(inputs: unknown): string | undefined {
+  if (!isRecord(inputs)) {
+    return undefined;
+  }
+
+  const formula = inputs.formula;
+  return typeof formula === 'string' ? formula : undefined;
+}
+
+function normalizeMetricKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readRecordString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === 'string' ? value : '';
 }
 
 /**
