@@ -9,6 +9,11 @@
         "notes": "Canonical pull-request merge gate for branch protection."
       },
       {
+        "check": "integration-supabase",
+        "required": true,
+        "notes": "Real Supabase integration/RLS matrix must execute on every merge."
+      },
+      {
         "check": "staging-deploy-release-gates",
         "required": true,
         "notes": "Post-merge release readiness aggregation gate."
@@ -30,6 +35,11 @@
         "check": "pr-fast",
         "required": true,
         "notes": "Canonical pull-request merge gate for release branches."
+      },
+      {
+        "check": "integration-supabase",
+        "required": true,
+        "notes": "Real Supabase integration/RLS matrix must execute on every merge."
       },
       {
         "check": "staging-deploy-release-gates",

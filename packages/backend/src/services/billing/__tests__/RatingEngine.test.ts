@@ -326,4 +326,24 @@ describe("RatingEngine", () => {
       expect(result.totalAmount).toBe(5);
     });
   });
+
+  it("generates collision-free deterministic IDs for 100k synthetic entries", () => {
+    const ids = new Set<string>();
+    const baseContext = makeContext([]);
+    for (let i = 0; i < 100_000; i++) {
+      const aggregate: UsageAggregate = {
+        tenant_id: "t-1",
+        meter_key: "ai_tokens",
+        period_start: "2026-02-01T00:00:00Z",
+        period_end: "2026-03-01T00:00:00Z",
+        total_quantity: i,
+        source_event_count: 1,
+        source_hash: `hash-${i}`,
+      };
+      const id = (engine as unknown as { generateDeterministicId: (ctx: RatingContext, agg: UsageAggregate) => string })
+        .generateDeterministicId(baseContext, aggregate);
+      ids.add(id);
+    }
+    expect(ids.size).toBe(100_000);
+  });
 });

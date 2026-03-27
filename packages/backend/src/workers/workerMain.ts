@@ -45,6 +45,12 @@ import {
   scheduleWatchdogJob,
   WATCHDOG_QUEUE_NAME,
 } from './WorkflowWatchdogWorker.js';
+import {
+  ALERTING_QUEUE_NAME,
+  getAlertingQueue,
+  initAlertingRulesWorker,
+  scheduleAlertingEvaluationJob,
+} from './AlertingRulesWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -117,6 +123,20 @@ try {
   });
 }
 
+try {
+  initAlertingRulesWorker();
+  scheduleAlertingEvaluationJob().catch((err) => {
+    logger.warn('Failed to schedule alerting rules job', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Alerting rules worker initialized');
+} catch (err) {
+  logger.warn('Alerting rules worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 const queueSamplerIntervalMs = 30_000;
 const queueHealthSamplers = [
   { queue: getResearchQueue, queueName: RESEARCH_QUEUE_NAME, workerClass: 'research-worker' },
@@ -142,6 +162,11 @@ const queueHealthSamplers = [
     queue: getCertificateGenerationQueue,
     queueName: 'certificate-generation',
     workerClass: 'certificate-generation-worker',
+  },
+  {
+    queue: getAlertingQueue,
+    queueName: ALERTING_QUEUE_NAME,
+    workerClass: 'alerting-rules-worker',
   },
 ] as const;
 

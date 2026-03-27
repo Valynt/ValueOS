@@ -54,6 +54,18 @@ groups:
 
   - name: billing-pipeline-alerts
     rules:
+      - alert: BillingSubscriptionCreateRollbackFailure
+        expr: increase(billing_subscription_create_rollback_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Subscription create rollback failure detected"
+          description: >
+            Stripe subscription creation succeeded but rollback failed after local DB write failed.
+            This can leave orphaned Stripe subscriptions requiring reconciliation.
+
       # Fires when usage records are not being aggregated in a timely manner.
       # Stale aggregates mean billing invoices may under-report usage.
       - alert: BillingAggregationLag
