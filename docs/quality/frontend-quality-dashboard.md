@@ -11,6 +11,8 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 - `artifacts/i18n/extracted-keys.json` (source locale extraction catalog).
 - `artifacts/i18n/coverage-dashboard.json` (locale key completeness and coverage).
 - `artifacts/i18n/pseudo-localization-report.json` (pseudo-localization expansion/token integrity checks).
+- `artifacts/frontend-quality/top-journey-gates.json` (blocking top-tier journey a11y + l10n gate results).
+- `artifacts/frontend-quality/regression-dashboard.md` + `regression-dashboard.json` (previous-release baseline deltas for a11y, l10n, and route performance).
 - `artifacts/frontend-quality/dashboard.md` + `dashboard.json` (aggregated scorecard).
 
 ## Quality gates

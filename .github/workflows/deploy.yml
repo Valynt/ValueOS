@@ -326,6 +326,12 @@ jobs:
         run: |
           node scripts/ci/verify-release-gate-status.mjs
 
+      - name: Require UX scorecard release-log update before production promotion
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          node scripts/ci/check-ux-scorecard-release-log.mjs
+
   # Always emit a deployment audit artifact for non-scheduled runs.
   emergency-skip-audit:
     name: Emergency Skip Audit

@@ -1,0 +1,12 @@
+{
+  "exceptions": [
+    {
+      "id": "UX-BUDGET-2026-03-VENDOR-REDUCTION",
+      "scope": "sharedVendor",
+      "status": "active",
+      "expiresOn": "2026-06-30",
+      "owner": "@team/frontend",
+      "mitigation": "Vendor chunk reduction program with monthly bundle decomposition updates."
+    }
+  ]
+}

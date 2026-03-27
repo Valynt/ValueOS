@@ -1,0 +1,20 @@
+{
+  "release": "2026-03-19",
+  "accessibility": {
+    "passRate": 100,
+    "keyboardCoverage": 100,
+    "failedTests": 0
+  },
+  "localization": {
+    "esCompleteness": 100,
+    "localesBelowThreshold": 0
+  },
+  "performance": {
+    "vendorRawKb": 821.94,
+    "routeLoadMs": {
+      "/": 2500,
+      "/auth/login": 2500,
+      "/dashboard": 3000
+    }
+  }
+}
