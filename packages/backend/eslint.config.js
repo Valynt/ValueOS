@@ -24,9 +24,16 @@ export default tseslint.config(
         "@typescript-eslint/parser": [".ts"],
       },
       "import/resolver": {
+        node: {
+          extensions: [".js", ".jsx", ".ts", ".tsx"],
+        },
         typescript: {
           alwaysTryTypes: true,
-          project: ["./tsconfig.json", "./tsconfig.strict-exceptions.json"],
+          tsconfigRootDir: __dirname,
+          project: [
+            path.resolve(__dirname, "tsconfig.json"),
+            path.resolve(__dirname, "tsconfig.strict-exceptions.json"),
+          ],
         },
       },
     },
