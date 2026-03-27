@@ -314,6 +314,59 @@ function validateSecureTransport(
 }
 
 /**
+ * Require REDIS_URL in staging/production and reject localhost Redis URLs.
+ *
+ * validateSecureTransport already enforces TLS when REDIS_URL is present, but
+ * does not require it to be set. This function closes that gap: in secure
+ * environments REDIS_URL must be explicitly configured — the localhost fallback
+ * used by ioredisClient is not acceptable.
+ */
+function validateRedisRequired(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) return;
+
+  if (!env.REDIS_URL) {
+    errors.push(
+      `In ${nodeEnv}, REDIS_URL is required. The localhost fallback is not permitted in secure environments.`
+    );
+    return;
+  }
+
+  const redisUrl = parseUrl(env.REDIS_URL);
+  const loopbackHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+  if (redisUrl && loopbackHosts.has(redisUrl.hostname)) {
+    errors.push(
+      `In ${nodeEnv}, REDIS_URL must not point to a loopback address. Configure a managed Redis instance.`
+    );
+  }
+}
+
+/**
+ * Require KAFKA_BROKERS when KAFKA_ENABLED=true in staging/production.
+ *
+ * Kafka is opt-in (KAFKA_ENABLED defaults to false). When it is explicitly
+ * enabled in a secure environment, the broker list must be provided — the
+ * service cannot fall back to a default or skip Kafka silently.
+ */
+function validateKafkaConfig(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) return;
+  if (env.KAFKA_ENABLED !== "true") return;
+
+  if (!env.KAFKA_BROKERS) {
+    errors.push(
+      `In ${nodeEnv}, KAFKA_BROKERS is required when KAFKA_ENABLED=true.`
+    );
+  }
+}
+
+/**
  * Enforce cache encryption in staging/production.
  */
 function validateCacheEncryption(
@@ -335,6 +388,40 @@ function validateCacheEncryption(
 /**
  * Enforce MFA in production.
  */
+const VALID_LOG_LEVELS = new Set(["debug", "info", "warn", "error"]);
+
+/**
+ * Validate LOG_LEVEL at startup.
+ *
+ * Rules:
+ * - Must be one of: debug | info | warn | error (case-insensitive).
+ * - "debug" is rejected in staging/production (too verbose).
+ * - Unset defaults to "info" at runtime; no error is raised for an unset value.
+ */
+function validateLogLevel(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const raw = env.LOG_LEVEL;
+  if (!raw) return; // unset → runtime default of "info", no error
+
+  const level = raw.toLowerCase();
+
+  if (!VALID_LOG_LEVELS.has(level)) {
+    errors.push(
+      `Invalid LOG_LEVEL="${raw}". Allowed values: debug | info | warn | error.`
+    );
+    return;
+  }
+
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (SECURE_NODE_ENVS.has(nodeEnv) && level === "debug") {
+    errors.push(
+      `LOG_LEVEL=debug is not permitted in ${nodeEnv}. Use info, warn, or error.`
+    );
+  }
+}
+
 function validateMFA(
   env: Record<string, string | undefined>,
   warnings: string[]
@@ -417,6 +504,9 @@ export function validateEnvironment(
     // Run composable security rules (merged from validateEnv.ts)
     validateDeprecatedAliases(env, errors);
     validateSecureTransport(env, errors);
+    validateRedisRequired(env, errors);
+    validateKafkaConfig(env, errors);
+    validateLogLevel(env, errors);
     validateCacheEncryption(env, errors);
     validateEncryptionKey(env, errors);
     errors.push(...validateAuditLogEncryptionConfig(env));

@@ -5,6 +5,29 @@ import { sanitizeStructuredLog } from "./secureSerialization.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
+const LOG_LEVEL_RANK: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+/**
+ * Returns the numeric rank of the configured LOG_LEVEL.
+ * Defaults to "info" when LOG_LEVEL is unset.
+ * Invalid values are treated as "info" at runtime (startup validation rejects
+ * them before the process reaches steady state).
+ */
+function resolvedLevelRank(): number {
+  const raw = (process.env.LOG_LEVEL ?? "info").toLowerCase() as LogLevel;
+  return LOG_LEVEL_RANK[raw] ?? LOG_LEVEL_RANK.info;
+}
+
+function shouldEmit(level: LogLevel): boolean {
+  if (level === "error") return true; // error always emits
+  return LOG_LEVEL_RANK[level] >= resolvedLevelRank();
+}
+
 type LogOutcome = "success" | "failure" | "unknown";
 
 interface LoggerMeta {
@@ -71,6 +94,7 @@ function createEntry(level: LogLevel, event: string, meta?: LoggerMeta): Record<
 }
 
 function output(level: LogLevel, event: string, meta?: LoggerMeta): void {
+  if (!shouldEmit(level)) return;
   const json = JSON.stringify(createEntry(level, event, meta));
   if (level === "error") {
     console.error(json);
@@ -85,9 +109,7 @@ function output(level: LogLevel, event: string, meta?: LoggerMeta): void {
 
 export const logger = {
   debug(event: string, meta?: LoggerMeta): void {
-    if (process.env.LOG_LEVEL === "debug") {
-      output("debug", event, meta);
-    }
+    output("debug", event, meta);
   },
 
   info(event: string, meta?: LoggerMeta): void {

@@ -20,7 +20,10 @@
 
 import { createClient } from "redis";
 
+import { createLogger } from "../lib/logger.js";
 import { tenantContextStorage } from "../middleware/tenantContext.js";
+
+const logger = createLogger({ component: "CacheService" });
 
 export interface SetOptions {
   namespace?: string;
@@ -82,11 +85,21 @@ export class CacheService {
     this.defaultTtl = defaultTtl;
     if (process.env.REDIS_URL) {
       this.redisClient = createClient({ url: process.env.REDIS_URL });
-      this.redisClient.on("error", () => {
-        /* swallow redis errors in tests */
+      this.redisClient.on("error", (err: Error) => {
+        logger.warn("redis-client-error", { error: err.message, namespace });
       });
-      void this.redisClient.connect().catch(() => {
-        /* ignore connection errors */
+      this.redisClient.on("ready", () => {
+        logger.info("redis-client-ready", { namespace });
+      });
+      void this.redisClient.connect().catch((err: Error) => {
+        logger.warn("redis-connect-failed", { error: err.message, namespace });
+      });
+    } else {
+      logger.warn("cache-service-fallback-mode", {
+        message:
+          "REDIS_URL is not set. CacheService is running in in-memory fallback mode. " +
+          "This is not suitable for multi-pod production deployments.",
+        namespace,
       });
     }
   }
@@ -271,6 +284,17 @@ export class CacheService {
       if (regex.test(k)) {
         this.store.delete(k);
       }
+    }
+  }
+
+  /**
+   * Closes the Redis connection. Call during application shutdown to avoid
+   * leaking the underlying TCP connection.
+   */
+  async disconnect(): Promise<void> {
+    if (this.redisClient) {
+      await this.redisClient.quit();
+      this.redisClient = null;
     }
   }
 }
