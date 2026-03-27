@@ -33,7 +33,7 @@ describe("ComponentLoadingFallback telemetry", () => {
     // Dynamically import the registry to get the internal fallback behaviour.
     // We render the Suspense fallback by importing and calling resolveComponentLazy
     // with a component that will never resolve (unknown name).
-    const { resolveComponentLazy } = await import("../LazyComponentRegistry");
+    await import("../LazyComponentRegistry");
 
     // resolveComponentLazy returns undefined for unknown components — the
     // fallback is rendered by the Suspense wrapper. We test the fallback
