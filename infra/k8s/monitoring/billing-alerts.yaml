@@ -157,6 +157,50 @@ spec:
             summary: "Webhook processing error rate above 5%"
             description: "Error rate is {{ $value | humanizePercentage }}"
 
+        # ── DLQ / BullMQ exhaustion alerts ──────────────────────────────────
+
+        - alert: WebhookRetryExhausted
+          expr: |
+            increase(billing_webhook_exhausted_total[15m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: billing
+          annotations:
+            summary: "Webhook retry exhausted — event moved to DLQ"
+            description: |
+              {{ $value }} Stripe webhook event(s) exhausted all BullMQ retry
+              attempts. These events require manual replay. Billing state may
+              be inconsistent.
+            runbook_url: "https://docs.valueos.com/runbooks/billing-webhook-dlq"
+
+        - alert: WebhookBullMQFailedJobsHigh
+          expr: |
+            increase(queue_job_total{queue="webhook-retry",status="failed"}[30m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: billing
+          annotations:
+            summary: "BullMQ webhook-retry queue has elevated failures"
+            description: "More than 5 webhook-retry jobs failed in the last 30 minutes."
+
+        - alert: WebhookRetryWorkerStalled
+          expr: |
+            queue_consumer_lag{queue="webhook-retry"} > 10
+            and
+            queue_job_total{queue="webhook-retry",status="active"} == 0
+          for: 10m
+          labels:
+            severity: critical
+            component: billing
+          annotations:
+            summary: "Webhook retry worker appears stalled"
+            description: |
+              The webhook-retry queue has {{ $value }} waiting/delayed jobs but
+              no active processing for 10 minutes. The WebhookRetryWorker may
+              be down or unable to connect to Redis.
+
     # ================================================================
     # Invoice and Revenue Health
     # ================================================================

@@ -94,3 +94,57 @@ groups:
           description: >
             More than 10 billing job failures in the last 15 minutes.
             Job: {{ $labels.job }}, reason: {{ $labels.reason }}.
+
+  - name: billing-webhook-dlq-alerts
+    rules:
+      # Fires when any webhook retry job exhausts all BullMQ attempts.
+      # Each increment means a Stripe event was permanently dropped — manual
+      # replay from the DLQ is required to reconcile billing state.
+      - alert: BillingWebhookRetryExhausted
+        expr: increase(billing_webhook_exhausted_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Webhook retry exhausted — event moved to DLQ"
+          description: >
+            {{ $value }} Stripe webhook event(s) exhausted all BullMQ retry
+            attempts in the last 15 minutes. These events are now in the DLQ
+            and require manual replay. Billing state may be inconsistent.
+          runbook_url: "https://docs.valueos.com/runbooks/billing-webhook-dlq"
+
+      # Fires when the BullMQ webhook-retry queue accumulates failed jobs.
+      # Failed jobs in BullMQ are retained for 30 days (removeOnFail config)
+      # and represent events that need investigation or replay.
+      - alert: BillingWebhookBullMQFailedJobsHigh
+        expr: >
+          increase(queue_job_total{queue="webhook-retry", status="failed"}[30m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: billing
+        annotations:
+          summary: "BullMQ webhook-retry queue has elevated failures"
+          description: >
+            More than 5 webhook-retry jobs failed in the last 30 minutes.
+            Check WebhookRetryWorker logs for delivery errors.
+
+      # Fires when the webhook-retry queue is stalled: jobs are waiting but
+      # none are active, indicating the worker may be down or Redis is
+      # unavailable.
+      - alert: BillingWebhookRetryWorkerStalled
+        expr: >
+          queue_consumer_lag{queue="webhook-retry"} > 10
+          and
+          queue_job_total{queue="webhook-retry", status="active"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Webhook retry worker appears stalled"
+          description: >
+            The webhook-retry queue has {{ $value }} waiting/delayed jobs but
+            no active processing for 10 minutes. The WebhookRetryWorker may
+            be down or unable to connect to Redis.
