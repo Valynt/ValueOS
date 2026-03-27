@@ -45,14 +45,35 @@ function countExceptionFiles(glob) {
     "!**/__tests__/**",
     ".",
   ];
-  const result = spawnSync("rg", args, { encoding: "utf8" });
+  const cmd = "rg";
+  const result = spawnSync(cmd, args, { encoding: "utf8" });
+
+  if (result.error) {
+    throw new Error(
+      `ripgrep invocation failed for ${repoGlob}: ${result.error.message} (command: ${cmd} ${args.join(
+        " ",
+      )})`,
+    );
+  }
 
   if (result.status === 1) {
     return 0;
   }
 
+  if (result.status === null) {
+    throw new Error(
+      `ripgrep exited abnormally for ${repoGlob}: status=null, signal=${result.signal ?? "unknown"} (command: ${cmd} ${args.join(
+        " ",
+      )})${result.stderr ? `; stderr: ${result.stderr}` : ""}`,
+    );
+  }
+
   if (result.status !== 0) {
-    throw new Error(`ripgrep failed for ${repoGlob}: ${result.stderr || "unknown error"}`);
+    throw new Error(
+      `ripgrep failed for ${repoGlob}: exit code ${result.status} (command: ${cmd} ${args.join(
+        " ",
+      )})${result.stderr ? `; stderr: ${result.stderr}` : ""}`,
+    );
   }
 
   return result.stdout
