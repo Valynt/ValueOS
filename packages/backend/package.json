@@ -27,6 +27,7 @@
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
+    "@infisical/sdk": "^5.0.0",
     "@aws-sdk/client-iam": "^3.1012.0",
     "@aws-sdk/client-secrets-manager": "^3.989.0",
     "@aws-sdk/client-sts": "^3.1012.0",
