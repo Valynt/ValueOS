@@ -7,7 +7,11 @@ import { VaultSecretProvider } from '../VaultSecretProvider.js'
 
 let sendMock: ReturnType<typeof vi.fn>;
 let mockVaultClient: any;
-let mockFetch: ReturnType<typeof vi.fn>;
+
+// SDK mock state — mutated per test in the infisical setup() closure
+let infisicalGetSecretMock: ReturnType<typeof vi.fn>;
+let infisicalListSecretsMock: ReturnType<typeof vi.fn>;
+let infisicalApiCallSpy: ReturnType<typeof vi.fn>;
 
 // Mock fs for kubernetes auth check - placed early
 vi.mock('fs', () => ({
@@ -61,6 +65,32 @@ vi.mock('@aws-sdk/client-secrets-manager', () => {
 vi.mock('node-vault', () => ({
   default: vi.fn(() => mockVaultClient),
 }), { virtual: true });
+
+vi.mock('@infisical/sdk', () => ({
+  InfisicalSDK: vi.fn().mockImplementation(() => ({
+    auth: () => ({
+      universalAuth: {
+        login: vi.fn().mockResolvedValue({}),
+        renew: vi.fn().mockResolvedValue({}),
+      },
+      getAccessToken: vi.fn().mockReturnValue('mock-token'),
+      accessToken: vi.fn(),
+    }),
+    secrets: () => ({
+      getSecret: (...args: unknown[]) => {
+        infisicalApiCallSpy();
+        return infisicalGetSecretMock(...args);
+      },
+      listSecrets: (...args: unknown[]) => {
+        infisicalApiCallSpy();
+        return infisicalListSecretsMock(...args);
+      },
+      createSecret: vi.fn().mockResolvedValue({}),
+      updateSecret: vi.fn().mockResolvedValue({}),
+      deleteSecret: vi.fn().mockResolvedValue({}),
+    }),
+  })),
+}));
 
 vi.mock('../../../lib/logger', () => ({
   logger: {
@@ -133,41 +163,26 @@ describe.each([
   {
     name: 'infisical',
     setup: async () => {
-      const apiCallSpy = vi.fn();
-      mockFetch = vi.fn(async (url: string, opts?: any) => {
-        const urlStr = typeof url === 'string' ? url : String(url);
+      infisicalApiCallSpy = vi.fn();
 
-        // Auth endpoint
-        if (urlStr.includes('/auth/universal-auth/login')) {
-          return {
-            ok: true,
-            json: async () => ({ accessToken: 'mock-token', expiresIn: 7200, tokenType: 'Bearer' }),
-          };
-        }
+      const mockSecret = {
+        id: 's1',
+        secretKey: 'api-key',
+        secretValue: 'infisical-secret',
+        version: 1,
+        type: 'shared',
+        environment: 'dev',
+        secretPath: '/tenants/t-1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        workspaceId: 'mock-project-id',
+        secretValueHidden: false,
+        isRotatedSecret: false,
+        tags: [],
+      };
 
-        // Track non-auth API calls
-        apiCallSpy();
-
-        // List secrets
-        if (urlStr.includes('/api/v3/secrets/raw') && !urlStr.includes('/api/v3/secrets/raw/')) {
-          return {
-            ok: true,
-            json: async () => ({ secrets: [{ id: 's1', secretKey: 'api-key', secretValue: 'infisical-secret', version: 1, type: 'shared', environment: 'dev', secretPath: '/tenants/t-1' }] }),
-          };
-        }
-
-        // Get single secret
-        if (urlStr.includes('/api/v3/secrets/raw/')) {
-          return {
-            ok: true,
-            json: async () => ({ secret: { id: 's1', secretKey: 'api-key', secretValue: 'infisical-secret', version: 1, type: 'shared', environment: 'dev', secretPath: '/tenants/t-1' } }),
-          };
-        }
-
-        return { ok: true, json: async () => ({}) };
-      });
-
-      vi.stubGlobal('fetch', mockFetch);
+      infisicalGetSecretMock = vi.fn().mockResolvedValue(mockSecret);
+      infisicalListSecretsMock = vi.fn().mockResolvedValue({ secrets: [mockSecret] });
 
       const provider = new InfisicalSecretProvider({
         siteUrl: 'https://app.infisical.com',
@@ -178,7 +193,7 @@ describe.each([
         cacheTTL: 1_000,
       });
 
-      return { provider, getSpy: apiCallSpy };
+      return { provider, getSpy: infisicalApiCallSpy };
     },
   },
 ])('ISecretProvider compliance for $name', ({ setup }) => {
