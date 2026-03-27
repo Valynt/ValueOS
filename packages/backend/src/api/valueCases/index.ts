@@ -5,7 +5,8 @@
  * middleware, auth, and rate-limit behavior.
  */
 
-import { Request, Response, Router } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js';
@@ -36,10 +37,27 @@ router.use(requireAuth);
 router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 router.use(requireOrganizationContext);
 
-registerCrudRoutes(router, { standardLimiter, strictLimiter });
-registerValueTreeRoutes(router, { standardLimiter });
-registerIntegrityRoutes(router, { standardLimiter });
-registerEconomicRoutes(router, { standardLimiter });
+const discoveryRunIdSchema = z.string().min(1).max(128).regex(
+  /^discovery_[0-9]{13}_[a-z0-9]{7}$/i,
+  'Invalid runId format',
+);
+
+function validateDiscoveryRunIdParam(paramName: 'runId') {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const parsed = discoveryRunIdSchema.safeParse(req.params[paramName]);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `Invalid ${paramName}: must be a discovery run identifier`,
+        details: parsed.error.flatten(),
+      });
+      return;
+    }
+
+    next();
+  };
+}
 
 const StartDiscoverySchema = z
   .object({
@@ -146,7 +164,7 @@ router.get(
   '/discovery/:runId',
   standardLimiter,
   requireRole(['admin', 'member']),
-  validateUuidParam('runId'),
+  validateDiscoveryRunIdParam('runId'),
   getDiscoveryStatus,
 );
 
@@ -154,9 +172,14 @@ router.delete(
   '/discovery/:runId',
   standardLimiter,
   requireRole(['admin', 'member']),
-  validateUuidParam('runId'),
+  validateDiscoveryRunIdParam('runId'),
   cancelDiscovery,
 );
+
+registerValueTreeRoutes(router, { standardLimiter });
+registerIntegrityRoutes(router, { standardLimiter });
+registerEconomicRoutes(router, { standardLimiter });
+registerCrudRoutes(router, { standardLimiter, strictLimiter });
 
 router.use('/', backHalfRouter);
 router.use('/', baselineRouter);
