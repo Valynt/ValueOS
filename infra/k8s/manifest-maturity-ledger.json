@@ -1,65 +1,85 @@
 {
-  "schema_version": "1.0",
-  "last_updated": "2026-03-26",
+  "schema_version": "1.1",
+  "last_updated": "2026-03-27",
   "manifests": [
     {
       "class": "deployments",
       "critical": true,
       "status": "Aspirational",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
       "status_owner": "Platform Engineering",
       "date_validated": "",
       "evidence": {
-        "staging_deployment_result": "",
-        "load_test_summary": "",
-        "rollback_rehearsal": ""
+        "rollout_artifact": "",
+        "load_test_artifact": "",
+        "rollback_artifact": ""
       }
     },
     {
       "class": "hpa",
       "critical": true,
       "status": "Aspirational",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
       "status_owner": "SRE",
       "date_validated": "",
       "evidence": {
-        "staging_deployment_result": "",
-        "load_test_summary": "",
-        "rollback_rehearsal": ""
+        "rollout_artifact": "",
+        "load_test_artifact": "",
+        "rollback_artifact": ""
       }
     },
     {
       "class": "network-policies",
       "critical": true,
       "status": "Aspirational",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
       "status_owner": "Security Engineering",
       "date_validated": "",
       "evidence": {
-        "staging_deployment_result": "",
-        "load_test_summary": "",
-        "rollback_rehearsal": ""
+        "rollout_artifact": "",
+        "load_test_artifact": "",
+        "rollback_artifact": ""
       }
     },
     {
       "class": "external-secrets",
       "critical": true,
       "status": "Aspirational",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
       "status_owner": "Platform Security",
       "date_validated": "",
       "evidence": {
-        "staging_deployment_result": "",
-        "load_test_summary": "",
-        "rollback_rehearsal": ""
+        "rollout_artifact": "",
+        "load_test_artifact": "",
+        "rollback_artifact": ""
       }
     },
     {
       "class": "observability",
       "critical": true,
       "status": "Aspirational",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
       "status_owner": "Observability Engineering",
       "date_validated": "",
       "evidence": {
-        "staging_deployment_result": "",
-        "load_test_summary": "",
-        "rollback_rehearsal": ""
+        "rollout_artifact": "",
+        "load_test_artifact": "",
+        "rollback_artifact": ""
       }
     }
   ]
