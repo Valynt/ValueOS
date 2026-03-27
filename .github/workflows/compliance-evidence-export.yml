@@ -146,7 +146,7 @@ jobs:
           mkdir -p reports/compliance/dsr reports/compliance/rls reports/compliance/metadata
           cp evidence/privacy/dsr-workflow.json reports/compliance/dsr/vitest-dsr.json || true
           cp evidence/rls/rls-validation.json reports/compliance/rls/vitest-rls.json || true
-          cp evidence/metadata/run-metadata.json reports/compliance/metadata/workflow-run.json
+          cp evidence/metadata/run-metadata.json reports/compliance/metadata/workflow-run.json || true
 
       - name: Generate FedRAMP evidence manifest
         if: always()
