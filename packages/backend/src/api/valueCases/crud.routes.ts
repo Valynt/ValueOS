@@ -80,18 +80,31 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
     if (requestedStatus === 'in_review') {
       const organizationId = authReq.tenantId ?? authReq.organizationId;
       if (!req.supabase) {
-        logger.warn('Integrity gate skipped: req.supabase not available', { caseId });
+        res.status(503).json({
+          error: 'INTEGRITY_GATE_UNAVAILABLE',
+          message: 'Integrity gate unavailable. Please retry the transition to in_review.',
+          requestId: authReq.correlationId,
+        });
+        return;
       } else if (organizationId) {
+        const sessionAccessToken = req.session?.access_token;
+        if (typeof sessionAccessToken !== 'string' || sessionAccessToken.length === 0) {
+          res.status(401).json({
+            error: 'UNAUTHORIZED',
+            message: 'Missing authenticated session token for integrity gate validation.',
+            requestId: authReq.correlationId,
+          });
+          return;
+        }
+
         try {
           const { valueIntegrityService } = await import(
             '../../services/integrity/ValueIntegrityService.js'
           );
-          const accessToken =
-            (req.headers.authorization?.replace('Bearer ', '') ?? '');
           const blockResult = await valueIntegrityService.checkHardBlocks(
             caseId,
             organizationId,
-            accessToken,
+            sessionAccessToken,
           );
           if (blockResult.blocked) {
             res.status(422).json({
@@ -104,10 +117,16 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
             return;
           }
         } catch (integrityErr) {
-          logger.warn('Integrity gate check failed — proceeding without gate', {
+          logger.error('Integrity gate check failed — blocking in_review transition', {
             caseId,
             error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
           });
+          res.status(503).json({
+            error: 'INTEGRITY_GATE_UNAVAILABLE',
+            message: 'Integrity gate validation failed. Please retry.',
+            requestId: authReq.correlationId,
+          });
+          return;
         }
       }
     }
