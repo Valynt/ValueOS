@@ -147,6 +147,7 @@ import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
+import { registerSupabaseInstrumentation } from "./lib/supabaseInstrumentation.js";
 import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
@@ -170,6 +171,11 @@ const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536")
 
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
+
+// Register Supabase query instrumentation (metrics + slow-query logs).
+// Must run before any Supabase client is used.
+registerSupabaseInstrumentation();
+logger.info('[Instrumentation] Supabase query instrumentation registered');
 
 
 
@@ -694,6 +700,74 @@ app.use(notFoundHandler);
 // Global error handler (must be last)
 app.use(globalErrorHandler);
 
+/**
+ * Validate that required infrastructure dependencies are reachable before
+ * the server begins accepting traffic. Only runs in production.
+ *
+ * Redis: required for rate limiting, caching, and BullMQ queues.
+ * NATS:  required if NATS_URL is set (messaging bus for domain events).
+ *
+ * Throws on failure so the process exits with a non-zero code and the
+ * container orchestrator can restart or alert.
+ */
+async function validateInfrastructureConnectivity(): Promise<void> {
+  logger.info("[Startup] Validating infrastructure connectivity");
+
+  // ── Redis ──────────────────────────────────────────────────────────────────
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    throw new Error(
+      "Production startup failed: REDIS_URL is not set. " +
+      "Redis is required for rate limiting, caching, and job queues."
+    );
+  }
+
+  try {
+    const { getRedisClient } = await import("./lib/redisClient.js");
+    const redis = getRedisClient();
+    const pong = await Promise.race([
+      redis.ping(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Redis ping timeout after 5s")), 5000)
+      ),
+    ]);
+    if (pong !== "PONG") {
+      throw new Error(`Unexpected Redis ping response: ${String(pong)}`);
+    }
+    logger.info("[Startup] Redis connectivity verified");
+  } catch (err) {
+    throw new Error(
+      `Production startup failed: Redis is unreachable. ${(err as Error).message}`
+    );
+  }
+
+  // ── NATS ───────────────────────────────────────────────────────────────────
+  // NATS is optional — only validated if NATS_URL is explicitly set.
+  const natsUrl = process.env.NATS_URL;
+  if (natsUrl) {
+    try {
+      // Dynamic import to avoid loading the NATS client when not configured.
+      const nats = await import("nats");
+      const nc = await Promise.race([
+        nats.connect({ servers: natsUrl, timeout: 5000 }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("NATS connection timeout after 5s")), 5000)
+        ),
+      ]);
+      await nc.close();
+      logger.info("[Startup] NATS connectivity verified", { natsUrl });
+    } catch (err) {
+      throw new Error(
+        `Production startup failed: NATS is unreachable at ${natsUrl}. ${(err as Error).message}`
+      );
+    }
+  } else {
+    logger.info("[Startup] NATS_URL not set — skipping NATS connectivity check");
+  }
+
+  logger.info("[Startup] Infrastructure connectivity validated");
+}
+
 function validateAuditLogStartupConfig(): void {
   const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(process.env);
 
@@ -755,6 +829,13 @@ async function startServer(): Promise<void> {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
     );
+  }
+
+  // 2.5. Validate required infrastructure connectivity (production only).
+  // Fail fast before accepting traffic so that misconfigured pods are
+  // immediately visible rather than silently degrading.
+  if (settings.NODE_ENV === "production") {
+    await validateInfrastructureConnectivity();
   }
 
   // 3. Initialize infrastructure

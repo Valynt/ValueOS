@@ -6,6 +6,112 @@ const MAX_RETRY_ATTEMPTS = 3;
 const BASE_DELAY_MS = 500;
 const isServer = !(typeof globalThis !== "undefined" && "window" in globalThis);
 
+// ---------------------------------------------------------------------------
+// Query instrumentation hook
+//
+// The shared package has no dependency on prom-client or the backend logger.
+// Callers (e.g. the backend server startup) register a hook via
+// setQueryInstrumentationHook() to receive per-query telemetry events.
+// ---------------------------------------------------------------------------
+
+export interface QueryInstrumentationEvent {
+  /** Logical table or RPC name extracted from the Supabase REST URL path. */
+  table: string;
+  /** HTTP method mapped to a Supabase operation type. */
+  operation: "select" | "insert" | "update" | "delete" | "upsert" | "rpc" | "unknown";
+  /** Wall-clock duration of the fetch call in milliseconds. */
+  duration_ms: number;
+  /** Whether the response was a success (2xx) or error. */
+  status: "ok" | "error";
+  /** HTTP status code from the response, if available. */
+  http_status?: number;
+}
+
+export type QueryInstrumentationHook = (event: QueryInstrumentationEvent) => void;
+
+let _instrumentationHook: QueryInstrumentationHook | null = null;
+
+/**
+ * Register a hook that is called after every Supabase fetch completes.
+ * Intended to be called once at server startup by the backend metrics layer.
+ * Passing null removes the hook.
+ */
+export function setQueryInstrumentationHook(hook: QueryInstrumentationHook | null): void {
+  _instrumentationHook = hook;
+}
+
+/**
+ * Extract the value of the `Prefer` header from a fetch RequestInit.
+ * Supabase sends `Prefer: resolution=merge-duplicates` for upserts as an HTTP
+ * header, not a query parameter.
+ */
+function getPreferHeader(init: RequestInit | undefined): string {
+  if (!init?.headers) return "";
+  const h = init.headers;
+  if (typeof (h as Headers).get === "function") {
+    return (h as Headers).get("Prefer") ?? (h as Headers).get("prefer") ?? "";
+  }
+  if (Array.isArray(h)) {
+    const entry = (h as string[][]).find(
+      ([k]) => k.toLowerCase() === "prefer",
+    );
+    return entry?.[1] ?? "";
+  }
+  const record = h as Record<string, string>;
+  return record["Prefer"] ?? record["prefer"] ?? "";
+}
+
+/**
+ * Parse a Supabase REST URL to extract the logical table/resource name and
+ * map the HTTP method to a Supabase operation type.
+ *
+ * Supabase REST paths follow the pattern:
+ *   /rest/v1/<table>?...          — table operations
+ *   /rest/v1/rpc/<function>?...   — RPC calls
+ */
+function parseSupabaseRequest(
+  input: string | URL | Request,
+  method: string | undefined,
+  init: RequestInit | undefined,
+): Pick<QueryInstrumentationEvent, "table" | "operation"> {
+  try {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    // segments: ["rest", "v1", "<table>"] or ["rest", "v1", "rpc", "<fn>"]
+    const restIdx = segments.indexOf("v1");
+    if (restIdx === -1) return { table: "unknown", operation: "unknown" };
+
+    const afterV1 = segments.slice(restIdx + 1);
+    const isRpc = afterV1[0] === "rpc";
+    const table = isRpc ? (afterV1[1] ?? "unknown") : (afterV1[0] ?? "unknown");
+
+    if (isRpc) return { table, operation: "rpc" };
+
+    // Read Prefer from the request header (not query params — Supabase sends it as a header).
+    const prefer = getPreferHeader(init);
+    const httpMethod = (method ?? "GET").toUpperCase();
+
+    let operation: QueryInstrumentationEvent["operation"];
+    if (httpMethod === "GET" || httpMethod === "HEAD") {
+      operation = "select";
+    } else if (httpMethod === "POST") {
+      // Supabase uses POST for insert; upsert is POST with Prefer: resolution=merge-duplicates
+      operation = prefer.includes("resolution=merge-duplicates") ? "upsert" : "insert";
+    } else if (httpMethod === "PATCH") {
+      operation = "update";
+    } else if (httpMethod === "DELETE") {
+      operation = "delete";
+    } else {
+      operation = "unknown";
+    }
+
+    return { table, operation };
+  } catch {
+    return { table: "unknown", operation: "unknown" };
+  }
+}
+
 export type BrowserSafeAnonSupabaseClient = SupabaseClient;
 export type RequestScopedRlsSupabaseClient = SupabaseClient;
 export type ServiceRoleSupabaseClient = SupabaseClient;
@@ -25,7 +131,8 @@ export interface RequestScopedSupabaseClientOptions {
 
 function isRetryableError(error: unknown): boolean {
   if (error instanceof TypeError) return true;
-  if (error instanceof Response && error.status >= 500) return true;
+  // Response may not be defined in Node.js environments without a fetch polyfill.
+  if (typeof Response !== "undefined" && error instanceof Response && error.status >= 500) return true;
   return false;
 }
 
@@ -33,6 +140,13 @@ const fetchWithRetry = async (
   input: string | URL | Request,
   init?: RequestInit
 ): Promise<Response> => {
+  const start = Date.now();
+  // Request is not a global in Node 20 — guard before instanceof to avoid ReferenceError.
+  const method =
+    init?.method ??
+    (typeof Request !== "undefined" && input instanceof Request ? input.method : undefined);
+  const { table, operation } = parseSupabaseRequest(input, method, init);
+
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -42,10 +156,34 @@ const fetchWithRetry = async (
         await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
         continue;
       }
+
+      // Emit instrumentation on final response (success or non-retryable error)
+      if (_instrumentationHook) {
+        const duration_ms = Date.now() - start;
+        const isError = response.status >= 400;
+        _instrumentationHook({
+          table,
+          operation,
+          duration_ms,
+          status: isError ? "error" : "ok",
+          http_status: response.status,
+        });
+      }
+
       return response;
     } catch (error) {
       lastError = error;
-      if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1) throw error;
+      if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1) {
+        if (_instrumentationHook) {
+          _instrumentationHook({
+            table,
+            operation,
+            duration_ms: Date.now() - start,
+            status: "error",
+          });
+        }
+        throw error;
+      }
       await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
     }
   }

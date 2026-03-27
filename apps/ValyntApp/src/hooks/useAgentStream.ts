@@ -3,12 +3,17 @@
  *
  * Flow:
  *  1. `sendMessage` → POST /api/agents/:agentId/invoke  → returns { jobId }
- *  2. Opens SSE on GET /api/agents/jobs/:jobId/stream
+ *  2. Opens SSE on GET /api/agents/jobs/:jobId/stream via fetchEventSource
+ *     - Auth headers sent on every connection and reconnect
+ *     - Last-Event-ID cursor sent on reconnect for resumability
+ *     - Transient network errors trigger automatic retry (library default)
  *  3. Streams status updates until `completed` or `error`
+ *  4. `processing` heartbeats forwarded to optional `onProgress` callback
  *
- * Used by AgentChat.tsx.
+ * Used by AgentChat.tsx and useAgentOrchestrator.ts.
  */
 
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useCallback, useRef, useState } from "react";
 
 import { apiClient } from "@/api/client/unified-api-client";
@@ -31,6 +36,13 @@ export interface AgentChatContext {
   drivers?: string[];
 }
 
+export interface AgentProgressEvent {
+  status: "processing";
+  agentId?: string;
+  subTask?: string;
+  queuedAt?: string;
+}
+
 interface AgentInvokeResult {
   jobId: string;
   status: string;
@@ -41,6 +53,7 @@ interface AgentInvokeResult {
 interface UseAgentStreamOptions {
   context?: AgentChatContext;
   onMessage?: (message: ChatMessage) => void;
+  onProgress?: (event: AgentProgressEvent) => void;
   onError?: (error: Error) => void;
   onToolExecuted?: (toolCall: unknown, result: unknown) => void;
 }
@@ -52,65 +65,118 @@ function makeId(): string {
 export function useAgentStream(options?: UseAgentStreamOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [error, setError] = useState<Error | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // AbortController ref — passed to fetchEventSource so closeStream() terminates the fetch
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Last-Event-ID cursor — sent on reconnect so the backend can resume the stream
+  const lastEventIdRef = useRef<string | null>(null);
 
   const closeStream = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setIsStreaming(false);
+    setIsReconnecting(false);
   }, []);
 
   const openStream = useCallback(
     (jobId: string) => {
       closeStream();
 
-      const url = `/api/agents/jobs/${jobId}/stream`;
-      const es = new EventSource(url);
-      eventSourceRef.current = es;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       setIsStreaming(true);
 
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as Record<string, unknown>;
+      const url = `/api/agents/jobs/${jobId}/stream`;
 
-          if (data.status === "completed") {
-            const content =
-              typeof data.result === "string"
-                ? data.result
-                : JSON.stringify(data.result ?? "Agent completed.");
-            const msg: ChatMessage = {
-              id: makeId(),
-              role: "assistant",
-              content,
-              timestamp: new Date().toISOString(),
-              metadata: data,
-            };
-            setMessages((prev) => [...prev, msg]);
-            options?.onMessage?.(msg);
-            closeStream();
-          } else if (data.status === "error") {
-            const err = new Error(
-              typeof data.error === "string" ? data.error : "Agent execution failed",
-            );
-            setError(err);
-            options?.onError?.(err);
-            closeStream();
+      // fetchEventSource handles reconnect + exponential backoff automatically.
+      // We pass the signal so closeStream() / cancel() can abort it.
+      // apiClient.fetchRaw is used as the underlying fetch so auth headers
+      // (Authorization, x-tenant-id) are applied on every connection and
+      // reconnect without duplicating header logic here.
+      void fetchEventSource(url, {
+        signal: controller.signal,
+        fetch: apiClient.fetchRaw.bind(apiClient),
+
+        // Last-Event-ID is sent as a header so the backend can resume the
+        // stream from the last acknowledged event on reconnect.
+        headers: {
+          ...(lastEventIdRef.current
+            ? { "Last-Event-ID": lastEventIdRef.current }
+            : {}),
+        },
+
+        async onopen(response) {
+          if (response.ok) return;
+          // Non-2xx on open — throw to trigger the library's retry logic
+          throw new Error(`SSE open failed: ${response.status}`);
+        },
+
+        onmessage(event) {
+          // Track Last-Event-ID for resumability on reconnect
+          if (event.id) {
+            lastEventIdRef.current = event.id;
           }
-          // "processing" events are progress heartbeats — no UI update needed
-        } catch {
-          // ignore malformed SSE frames
-        }
-      };
 
-      es.onerror = () => {
-        const err = new Error("SSE connection lost");
-        setError(err);
-        options?.onError?.(err);
-        closeStream();
-      };
+          // Reset reconnect indicators on successful message receipt
+          setIsReconnecting(false);
+          setReconnectAttempts(0);
+
+          try {
+            const data = JSON.parse(event.data) as Record<string, unknown>;
+
+            if (data.status === "completed") {
+              const content =
+                typeof data.result === "string"
+                  ? data.result
+                  : JSON.stringify(data.result ?? "Agent completed.");
+              const msg: ChatMessage = {
+                id: makeId(),
+                role: "assistant",
+                content,
+                timestamp: new Date().toISOString(),
+                metadata: data,
+              };
+              setMessages((prev) => [...prev, msg]);
+              options?.onMessage?.(msg);
+              closeStream();
+            } else if (data.status === "error") {
+              const err = new Error(
+                typeof data.error === "string" ? data.error : "Agent execution failed",
+              );
+              setError(err);
+              options?.onError?.(err);
+              closeStream();
+            } else if (data.status === "processing") {
+              // Forward heartbeat to caller — do not append a message
+              options?.onProgress?.({
+                status: "processing",
+                agentId: typeof data.agentId === "string" ? data.agentId : undefined,
+                subTask: typeof data.subTask === "string" ? data.subTask : undefined,
+                queuedAt: typeof data.queuedAt === "string" ? data.queuedAt : undefined,
+              });
+            }
+          } catch {
+            // Ignore malformed SSE frames
+          }
+        },
+
+        onerror(err) {
+          // fetchEventSource calls onerror on transient failures and retries
+          // automatically unless we rethrow. Only rethrow on abort (user cancel).
+          if (controller.signal.aborted) {
+            throw err; // Stop retrying — user cancelled
+          }
+          // Surface the transient error and mark as reconnecting so the UI
+          // can show a "reconnecting…" indicator.
+          setIsReconnecting(true);
+          setReconnectAttempts((n) => n + 1);
+          options?.onError?.(err instanceof Error ? err : new Error("SSE connection lost — retrying"));
+          // Return undefined to let the library retry with backoff
+        },
+      });
     },
     [closeStream, options],
   );
@@ -128,6 +194,11 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
       };
       setMessages((prev) => [...prev, userMsg]);
       setError(null);
+
+      // Reset reconnect state for the new job
+      lastEventIdRef.current = null;
+      setReconnectAttempts(0);
+      setIsReconnecting(false);
 
       try {
         const res = await apiClient.post<{ data: AgentInvokeResult }>(
@@ -215,11 +286,16 @@ export function useAgentStream(options?: UseAgentStreamOptions) {
     setMessages([]);
     setError(null);
     closeStream();
+    lastEventIdRef.current = null;
+    setReconnectAttempts(0);
+    setIsReconnecting(false);
   }, [closeStream]);
 
   return {
     messages,
     isStreaming,
+    isReconnecting,
+    reconnectAttempts,
     sendMessage,
     applySuggestion,
     executeTool,

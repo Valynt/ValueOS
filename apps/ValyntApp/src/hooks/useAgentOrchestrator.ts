@@ -1,13 +1,19 @@
 /**
  * Orchestration Layer: useAgentOrchestrator
- * 
- * Manages the Agent Lifecycle:
- * - Handles WebSocket streams
- * - Parses ThoughtEvents
- * - Manages state transitions: IDLE → PLANNING → EXECUTING → IDLE
+ *
+ * Manages the agent lifecycle by consuming real backend events:
+ *   IDLE → PLANNING → EXECUTING → IDLE (or ERROR)
+ *
+ * State transitions are driven exclusively by SSE payloads from
+ * /api/agents/jobs/:jobId/stream — no mock timers or hardcoded steps.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { apiClient } from "@/api/client/unified-api-client";
+
+import type { AgentProgressEvent, ChatMessage } from "./useAgentStream";
+import { useAgentStream } from "./useAgentStream";
 
 export type AgentState = "IDLE" | "PLANNING" | "EXECUTING" | "ERROR";
 
@@ -27,6 +33,7 @@ export interface AgentContext {
 }
 
 interface UseAgentOrchestratorOptions {
+  agentId?: string;
   onThought?: (event: ThoughtEvent) => void;
   onStateChange?: (state: AgentState) => void;
   onError?: (error: Error) => void;
@@ -52,41 +59,94 @@ const initialContext: AgentContext = {
 export function useAgentOrchestrator(
   options: UseAgentOrchestratorOptions = {}
 ): UseAgentOrchestratorReturn {
-  const { onThought, onStateChange, onError } = options;
+  const { agentId = "opportunity", onThought, onStateChange, onError } = options;
 
   const [state, setState] = useState<AgentState>("IDLE");
   const [context, setContext] = useState<AgentContext>(initialContext);
   const [thoughts, setThoughts] = useState<ThoughtEvent[]>([]);
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Tracks the in-flight POST so cancel() can abort it
+  const invokeAbortRef = useRef<AbortController | null>(null);
 
   const isProcessing = state === "PLANNING" || state === "EXECUTING";
 
-  // Notify on state change
+  // Notify caller on state change
   useEffect(() => {
     onStateChange?.(state);
   }, [state, onStateChange]);
 
-  const updateState = useCallback((newState: AgentState) => {
-    setState(newState);
-  }, []);
+  const addThought = useCallback(
+    (event: ThoughtEvent) => {
+      setThoughts((prev) => [...prev, event]);
+      onThought?.(event);
+    },
+    [onThought],
+  );
 
-  const addThought = useCallback((event: ThoughtEvent) => {
-    setThoughts((prev) => [...prev, event]);
-    onThought?.(event);
-  }, [onThought]);
+  // Stable refs for callbacks — avoids recreating the options object on every
+  // render, which would cause useAgentStream's useCallback deps to fire and
+  // trigger an infinite re-render loop.
+  const addThoughtRef = useRef(addThought);
+  addThoughtRef.current = addThought;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
-  const submitQuery = useCallback(async (query: string) => {
-    if (isProcessing) return;
+  const streamOptions = useMemo(
+    () => ({
+      context: { sessionId: "", agentId, messages: [] as ChatMessage[], isStreaming: false },
 
-    // Cancel any existing request
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
+      onProgress(event: AgentProgressEvent) {
+        // processing heartbeat → EXECUTING state + update current step
+        setState("EXECUTING");
+        setContext((prev) => ({
+          ...prev,
+          currentStep: event.subTask ?? event.agentId ?? "Processing\u2026",
+          activeWorkers: event.agentId ? [event.agentId] : prev.activeWorkers,
+        }));
+        addThoughtRef.current({
+          id: crypto.randomUUID(),
+          type: "action",
+          content: event.subTask ?? event.agentId ?? "Processing\u2026",
+          timestamp: new Date().toISOString(),
+        });
+      },
 
-    try {
-      updateState("PLANNING");
+      onMessage(message: ChatMessage) {
+        // completed event — result arrives as an assistant message
+        addThoughtRef.current({
+          id: crypto.randomUUID(),
+          type: "result",
+          content: message.content,
+          timestamp: message.timestamp,
+          metadata: message.metadata,
+        });
+        setState("IDLE");
+        setContext(initialContext);
+      },
 
-      // Simulate planning phase
+      onError(error: Error) {
+        setState("ERROR");
+        setContext(initialContext);
+        onErrorRef.current?.(error);
+      },
+    }),
+    // agentId is the only value that should recreate the stream options
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agentId],
+  );
+
+  // SSE stream — wired to drive state transitions
+  const { openStream, closeStream } = useAgentStream(streamOptions);
+
+  const submitQuery = useCallback(
+    async (query: string) => {
+      if (isProcessing) return;
+
+      // Cancel any previous in-flight request
+      invokeAbortRef.current?.abort();
+      invokeAbortRef.current = new AbortController();
+
+      setState("PLANNING");
       addThought({
         id: crypto.randomUUID(),
         type: "thought",
@@ -94,80 +154,56 @@ export function useAgentOrchestrator(
         timestamp: new Date().toISOString(),
       });
 
-      // Simulate plan creation
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      setContext((prev) => ({
-        ...prev,
-        currentStep: "PLANNING",
-        planSteps: [
-          "Gather context from value case",
-          "Analyze relevant data sources",
-          "Generate insights",
-          "Format response",
-        ],
-      }));
+      try {
+        const res = await apiClient.post<{ data: { jobId?: string; result?: unknown; mode?: string } }>(
+          `/api/agents/${agentId}/invoke`,
+          { query, sessionId: "", context: {} },
+        );
 
-      addThought({
-        id: crypto.randomUUID(),
-        type: "thought",
-        content: "Created execution plan with 4 steps",
-        timestamp: new Date().toISOString(),
-      });
-
-      updateState("EXECUTING");
-
-      // Simulate execution
-      const steps = ["Gathering context...", "Analyzing data...", "Generating insights...", "Formatting response..."];
-      
-      for (let i = 0; i < steps.length; i++) {
-        if (abortControllerRef.current?.signal.aborted) {
-          throw new Error("Cancelled");
+        if (!res.success) {
+          throw new Error(res.error?.message ?? "Agent invocation failed");
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        
-        setContext((prev) => ({
-          ...prev,
-          currentStep: steps[i] ?? "",
-          completedSteps: [...prev.completedSteps, prev.planSteps[i] ?? ""],
-        }));
+        const payload = res.data?.data;
 
-        addThought({
-          id: crypto.randomUUID(),
-          type: "action",
-          content: steps[i] ?? "",
-          timestamp: new Date().toISOString(),
-        });
+        if (!payload?.jobId) {
+          // Direct-mode — result already available, no stream needed
+          addThought({
+            id: crypto.randomUUID(),
+            type: "result",
+            content:
+              typeof payload?.result === "string"
+                ? payload.result
+                : JSON.stringify(payload?.result ?? "Done."),
+            timestamp: new Date().toISOString(),
+          });
+          setState("IDLE");
+          setContext(initialContext);
+          return;
+        }
+
+        // Async mode — open SSE stream; state transitions driven by events
+        openStream(payload.jobId);
+      } catch (error) {
+        if (invokeAbortRef.current?.signal.aborted) {
+          // User cancelled — already handled by cancel()
+          return;
+        }
+        setState("ERROR");
+        setContext(initialContext);
+        onError?.(error instanceof Error ? error : new Error(String(error)));
       }
-
-      // Final result
-      addThought({
-        id: crypto.randomUUID(),
-        type: "result",
-        content: `Completed analysis for: "${query}"`,
-        timestamp: new Date().toISOString(),
-      });
-
-      updateState("IDLE");
-      setContext(initialContext);
-
-    } catch (error) {
-      if (error instanceof Error && error.message === "Cancelled") {
-        updateState("IDLE");
-        return;
-      }
-      
-      updateState("ERROR");
-      onError?.(error instanceof Error ? error : new Error(String(error)));
-    }
-  }, [isProcessing, updateState, addThought, onError]);
+    },
+    [isProcessing, agentId, addThought, openStream, onError],
+  );
 
   const cancel = useCallback(() => {
-    abortControllerRef.current?.abort();
-    updateState("IDLE");
+    invokeAbortRef.current?.abort();
+    invokeAbortRef.current = null;
+    closeStream();
+    setState("IDLE");
     setContext(initialContext);
-  }, [updateState]);
+  }, [closeStream]);
 
   const reset = useCallback(() => {
     cancel();

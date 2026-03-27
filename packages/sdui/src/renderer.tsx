@@ -15,6 +15,7 @@ import {
   resolveComponentLazy,
 } from "./LazyComponentRegistry";
 import { createLogger } from "./lib/logger";
+import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { useSchemaStore } from "./SchemaStore";
@@ -324,6 +325,24 @@ const renderSection = (
       component: componentSection.component,
       version: componentSection.version,
     });
+    const _route = typeof window !== "undefined" ? window.location.pathname : undefined;
+    sduiTelemetry.recordEvent({
+      type: TelemetryEventType.COMPONENT_NOT_FOUND,
+      metadata: {
+        componentKey: componentSection.component,
+        schemaVersion: componentSection.version,
+        reason: "schema_component_missing",
+        route: _route,
+      },
+    });
+    logger.warn("SDUI component not found in registry", {
+      componentKey: componentSection.component,
+      schemaVersion: componentSection.version,
+      reason: "schema_component_missing",
+      route: _route,
+    });
+    // Analytics forwarding is handled by AppSDUITelemetry.recordEvent (bootstrapped
+    // in main.tsx). Do not call window.analytics directly here — it would double-fire.
     return (
       <div key={`${componentSection.component}-${index}`}>
         <RegistryPlaceholderComponent componentName={componentSection.component} />

@@ -9,8 +9,12 @@ export interface StoredScenario {
   description?: string;
   assumptions: Array<{ key: string; value: number; unit?: string }>;
   roiPercent: number;
+  npv: number | null;
   paybackMonths: number;
   annualSavings: number;
+  costInputUsd: number | null;
+  timelineYears: number | null;
+  investmentSource: "explicit" | "assumptions_register" | "default" | null;
   updatedAt: string;
 }
 
@@ -20,26 +24,21 @@ interface ScenarioRow {
   case_id: string;
   scenario_type: "conservative" | "base" | "upside";
   assumptions_snapshot_json: {
-    name?: string;
-    description?: string;
+    // Metadata is stored under __meta to avoid collisions with user-supplied
+    // assumption keys (see ScenarioBuilder.buildAssumptionSnapshot).
+    __meta?: { name?: string | null; description?: string | null };
     assumptions?: Array<{ key: string; value: number; unit?: string }>;
     annualSavings?: number;
   };
   roi: string | number | null;
+  npv: string | number | null;
   payback_months: string | number | null;
+  cost_input_usd: string | number | null;
+  timeline_years: string | number | null;
+  investment_source: "explicit" | "assumptions_register" | "default" | null;
   created_at: string;
 }
 
-export interface ScenarioInsert {
-  tenantId: string;
-  modelId: string;
-  name: string;
-  description?: string;
-  assumptions: Array<{ key: string; value: number; unit?: string }>;
-  annualSavings: number;
-  roiPercent: number;
-  paybackMonths: number;
-}
 
 function toNumber(value: string | number | null): number {
   if (typeof value === "number") {
@@ -54,14 +53,19 @@ function toNumber(value: string | number | null): number {
 
 function mapScenarioRow(row: ScenarioRow): StoredScenario {
   const snapshot = row.assumptions_snapshot_json ?? {};
+  const meta = snapshot.__meta;
   return {
     id: row.id,
-    name: snapshot.name ?? "Unnamed Scenario",
-    description: snapshot.description,
+    name: meta?.name ?? "Unnamed Scenario",
+    description: meta?.description ?? undefined,
     assumptions: snapshot.assumptions ?? [],
     annualSavings: snapshot.annualSavings ?? 0,
     roiPercent: toNumber(row.roi),
+    npv: row.npv !== null && row.npv !== undefined ? toNumber(row.npv) : null,
     paybackMonths: toNumber(row.payback_months),
+    costInputUsd: row.cost_input_usd !== null && row.cost_input_usd !== undefined ? toNumber(row.cost_input_usd) : null,
+    timelineYears: row.timeline_years !== null && row.timeline_years !== undefined ? toNumber(row.timeline_years) : null,
+    investmentSource: row.investment_source ?? null,
     updatedAt: row.created_at,
   };
 }
@@ -85,7 +89,7 @@ export class ValueModelScenariosRepository {
   async listByModel(tenantId: string, modelId: string): Promise<StoredScenario[]> {
     const { data, error } = await this.supabase
       .from("scenarios")
-      .select("id, organization_id, case_id, scenario_type, assumptions_snapshot_json, roi, payback_months, created_at")
+      .select("id, organization_id, case_id, scenario_type, assumptions_snapshot_json, roi, npv, payback_months, cost_input_usd, timeline_years, investment_source, created_at")
       .eq("organization_id", tenantId)
       .eq("case_id", modelId)
       .order("created_at", { ascending: false });
@@ -97,41 +101,20 @@ export class ValueModelScenariosRepository {
     return (data ?? []).map((row) => mapScenarioRow(row as ScenarioRow));
   }
 
-  async createScenario(insert: ScenarioInsert): Promise<StoredScenario> {
-    const { data: inserted, error: insertError } = await this.supabase
-      .from("scenarios")
-      .insert({
-        organization_id: insert.tenantId,
-        case_id: insert.modelId,
-        scenario_type: "base",
-        assumptions_snapshot_json: {
-          name: insert.name,
-          description: insert.description,
-          assumptions: insert.assumptions,
-          annualSavings: insert.annualSavings,
-        },
-        roi: insert.roiPercent,
-        payback_months: insert.paybackMonths,
-      })
-      .select("id")
-      .single();
-
-    if (insertError) {
-      throw new Error(`Failed to create scenario: ${insertError.message}`);
-    }
-
+  async loadById(tenantId: string, modelId: string, scenarioId: string): Promise<StoredScenario> {
     const { data, error } = await this.supabase
       .from("scenarios")
-      .select("id, organization_id, case_id, scenario_type, assumptions_snapshot_json, roi, payback_months, created_at")
-      .eq("organization_id", insert.tenantId)
-      .eq("case_id", insert.modelId)
-      .eq("id", inserted.id)
+      .select("id, organization_id, case_id, scenario_type, assumptions_snapshot_json, roi, npv, payback_months, cost_input_usd, timeline_years, investment_source, created_at")
+      .eq("organization_id", tenantId)
+      .eq("case_id", modelId)
+      .eq("id", scenarioId)
       .single();
 
     if (error || !data) {
-      throw new Error(`Failed to load created scenario: ${error?.message ?? "not found"}`);
+      throw new Error(`Failed to load scenario ${scenarioId}: ${error?.message ?? "not found"}`);
     }
 
     return mapScenarioRow(data as ScenarioRow);
   }
+
 }

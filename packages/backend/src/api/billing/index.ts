@@ -12,6 +12,7 @@ import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddl
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
+import dlqRouter from './dlq.js'
 import executionControlRouter from './execution-control.js'
 import invoicesRouter from './invoices.js'
 import overridesRouter from './overrides.js'
@@ -32,6 +33,9 @@ router.use(serviceIdentityMiddleware);
 
 // Public webhook endpoints (Stripe verification handles its own validation)
 router.use('/webhooks', webhooksRouter);
+
+// Internal DLQ observability + replay (service identity required — enforced inside dlqRouter)
+router.use('/dlq', dlqRouter);
 
 // RBAC-protected billing routes
 router.use(

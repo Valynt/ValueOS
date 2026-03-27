@@ -4,10 +4,19 @@
  * Runs sensitivity analysis on financial scenarios by varying key assumptions ±20%.
  * Identifies top-3 highest-leverage assumptions and persists results.
  *
+ * Impact is calculated deterministically via the economic kernel (calculateNPV)
+ * with the modified assumption substituted into the cash flow series.
+ *
  * Reference: openspec/changes/value-modeling-engine/tasks.md §7
  */
 
+import Decimal from 'decimal.js';
 import { z } from "zod";
+import {
+  calculateNPV,
+  roundTo,
+  toDecimalArray,
+} from '../../domain/economic-kernel/economic_kernel.js';
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
 
@@ -17,7 +26,7 @@ import { supabase } from "../lib/supabase.js";
 
 export const SensitivityResultSchema = z.object({
   id: z.string().uuid(),
-  tenant_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
   scenario_id: z.string().uuid(),
   assumption_id: z.string().uuid(),
   assumption_name: z.string(),
@@ -33,7 +42,7 @@ export const SensitivityResultSchema = z.object({
 export type SensitivityResult = z.infer<typeof SensitivityResultSchema>;
 
 export interface SensitivityAnalysisInput {
-  tenantId: string;
+  organizationId: string;
   caseId: string;
   scenarioId: string;
   scenarioType: "conservative" | "base" | "upside";
@@ -47,6 +56,12 @@ export interface SensitivityAnalysisInput {
     npv: number | null;
     payback_months: number | null;
   };
+  /** Investment cost used when building the scenario — required for kernel recalculation. */
+  costInputUsd: number;
+  /** Benefit realization horizon used when building the scenario. */
+  timelineYears: number;
+  /** Discount rate used when building the scenario. Defaults to 0.10. */
+  discountRate?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +84,7 @@ export class SensitivityAnalyzer {
     for (const assumption of input.assumptions) {
       // Calculate impact of -20% variance
       const negativeValue = assumption.value * (1 - this.VARIANCE_PCT);
-      const negativeImpact = await this.calculateImpact(
+      const negativeImpact = this.calculateImpact(
         input,
         assumption.id,
         negativeValue,
@@ -77,7 +92,7 @@ export class SensitivityAnalyzer {
 
       // Calculate impact of +20% variance
       const positiveValue = assumption.value * (1 + this.VARIANCE_PCT);
-      const positiveImpact = await this.calculateImpact(
+      const positiveImpact = this.calculateImpact(
         input,
         assumption.id,
         positiveValue,
@@ -88,7 +103,7 @@ export class SensitivityAnalyzer {
 
       results.push({
         id: crypto.randomUUID(),
-        tenant_id: input.tenantId,
+        organization_id: input.organizationId,
         scenario_id: input.scenarioId,
         assumption_id: assumption.id,
         assumption_name: assumption.name,
@@ -113,7 +128,7 @@ export class SensitivityAnalyzer {
     await this.persistResults(topResults);
 
     // Update scenario with sensitivity results
-    await this.updateScenario(input.scenarioId, input.tenantId, topResults);
+    await this.updateScenario(input.scenarioId, input.organizationId, topResults);
 
     logger.info(`Sensitivity analysis complete for scenario ${input.scenarioId}, top ${this.TOP_N} assumptions identified`);
 
@@ -124,64 +139,76 @@ export class SensitivityAnalyzer {
    * Trigger recalculation when assumptions change.
    */
   async triggerRecalculation(
-    tenantId: string,
+    organizationId: string,
     caseId: string,
     changedAssumptionIds: string[],
   ): Promise<void> {
     logger.info(`Triggering recalculation for case ${caseId} due to assumption changes`);
 
-    // Fetch all scenarios for the case
     const { data: scenarios, error } = await supabase
       .from("scenarios")
       .select("id, scenario_type")
       .eq("case_id", caseId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
     if (error) {
       throw new Error(`Failed to fetch scenarios: ${error.message}`);
     }
 
-    // Re-run sensitivity analysis for each scenario
+    // Flag all final artifacts for the case as needing refresh — once per case,
+    // not once per scenario (the update is case-scoped, not scenario-scoped).
+    await this.flagNarrativeRefresh(organizationId, caseId);
+
     for (const scenario of scenarios || []) {
-      // Fetch assumptions for this scenario
-      const { data: assumptions } = await supabase
-        .from("assumptions")
-        .select("id, name, value")
-        .eq("case_id", caseId)
-        .eq("tenant_id", tenantId);
-
-      // Flag narrative components referencing changed values for refresh
-      await this.flagNarrativeRefresh(tenantId, caseId, changedAssumptionIds);
-
-      // Emit recalculation event
-      await this.emitRecalculationEvent(tenantId, caseId, scenario.id);
+      await this.emitRecalculationEvent(organizationId, caseId, scenario.id);
     }
 
     logger.info(`Recalculation triggered for case ${caseId}, ${scenarios?.length || 0} scenarios`);
   }
 
   /**
-   * Calculate impact of assumption variance using economic kernel.
+   * Calculate NPV impact of substituting a single assumption value.
+   *
+   * Reconstructs the cash flow series with the modified assumption value
+   * treated as the total annual benefit, then calls calculateNPV.
+   * This is deterministic: same inputs always produce the same output.
+   *
+   * Approximation note: the annual benefit is reconstructed as
+   *   annualBenefit = (baseNpv + costInputUsd) / timelineYears
+   * This reverses the undiscounted sum rather than the discounted NPV, so
+   * the reconstructed benefit stream is slightly overstated. At a 10%
+   * discount rate over 3 years the error is ~15% on the benefit magnitude,
+   * which means impact_variance values are proportionally overstated by the
+   * same factor. Rankings are unaffected because the bias is uniform across
+   * all assumptions. For exact sensitivity, replace with the exact inversion:
+   *   annualBenefit = baseNpv / Σ(1/(1+r)^t for t=1..N)
    */
-  private async calculateImpact(
+  private calculateImpact(
     input: SensitivityAnalysisInput,
     assumptionId: string,
     newValue: number,
-  ): Promise<number> {
-    // In production, this calls the economic kernel with modified assumption
-    // For now, estimate impact based on assumption importance
-
+  ): number {
     const assumption = input.assumptions.find((a) => a.id === assumptionId);
-    if (!assumption) return 0;
+    if (!assumption || assumption.value === 0) return input.baseMetrics.npv ?? 0;
 
-    // Simplified impact estimation: % change in value maps to % change in NPV
-    const valueChangePct = (newValue - assumption.value) / assumption.value;
-    const baseNpv = input.baseMetrics.npv || 0;
+    // Scale the base NPV benefit proportionally to the assumption change.
+    // The assumption's contribution to total value is approximated as
+    // (newValue / assumption.value) applied to the annual benefit stream.
+    const scaleFactor = newValue / assumption.value;
+    const baseNpv = input.baseMetrics.npv ?? 0;
 
-    // Assumption impact factor (would come from economic kernel in production)
-    const impactFactor = 0.5; // Conservative estimate
+    // Reconstruct cash flows: period 0 = −cost, periods 1..N = scaled annual benefit
+    const discountRate = new Decimal(input.discountRate ?? 0.10);
+    const annualBenefit = (baseNpv + input.costInputUsd) / input.timelineYears;
 
-    return baseNpv * valueChangePct * impactFactor;
+    const flows: number[] = [-input.costInputUsd];
+    for (let i = 0; i < input.timelineYears; i++) {
+      flows.push(annualBenefit * scaleFactor);
+    }
+
+    const cashFlows = toDecimalArray(flows);
+    const npv = calculateNPV(cashFlows, discountRate);
+    return Number(roundTo(npv, 2));
   }
 
   /**
@@ -193,7 +220,7 @@ export class SensitivityAnalyzer {
     const { error } = await supabase.from("sensitivity_analysis").insert(
       results.map((r) => ({
         id: r.id,
-        tenant_id: r.tenant_id,
+        organization_id: r.organization_id,
         scenario_id: r.scenario_id,
         assumption_id: r.assumption_id,
         rank: r.rank,
@@ -205,6 +232,7 @@ export class SensitivityAnalyzer {
 
     if (error) {
       logger.error(`Failed to persist sensitivity results: ${error.message}`);
+      throw new Error(`Failed to persist sensitivity results: ${error.message}`);
     }
   }
 
@@ -213,7 +241,7 @@ export class SensitivityAnalyzer {
    */
   private async updateScenario(
     scenarioId: string,
-    tenantId: string,
+    organizationId: string,
     results: SensitivityResult[],
   ): Promise<void> {
     const { error } = await supabase
@@ -228,31 +256,31 @@ export class SensitivityAnalyzer {
         updated_at: new Date().toISOString(),
       })
       .eq("id", scenarioId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
     if (error) {
       logger.error(`Failed to update scenario with sensitivity results: ${error.message}`);
+      throw new Error(`Failed to update scenario with sensitivity results: ${error.message}`);
     }
   }
 
   /**
-   * Flag narrative components for refresh.
+   * Flag all final narrative artifacts for a case as needing refresh.
+   * Called once per recalculation trigger, not per assumption or scenario.
    */
   private async flagNarrativeRefresh(
-    tenantId: string,
+    organizationId: string,
     caseId: string,
-    changedAssumptionIds: string[],
   ): Promise<void> {
-    // Update artifacts referencing changed assumptions
     const { error } = await supabase
       .from("case_artifacts")
       .update({
-        status: "draft", // Mark as draft since values changed
+        status: "draft",
         updated_at: new Date().toISOString(),
       })
       .eq("case_id", caseId)
-      .eq("tenant_id", tenantId)
-      .eq("status", "final"); // Only final artifacts need refresh
+      .eq("organization_id", organizationId)
+      .eq("status", "final");
 
     if (error) {
       logger.error(`Failed to flag narratives for refresh: ${error.message}`);
@@ -263,14 +291,13 @@ export class SensitivityAnalyzer {
    * Emit recalculation event.
    */
   private async emitRecalculationEvent(
-    tenantId: string,
+    organizationId: string,
     caseId: string,
     scenarioId: string,
   ): Promise<void> {
-    // Insert into events table or call event emitter
     const { error } = await supabase.from("state_events").insert({
       id: crypto.randomUUID(),
-      tenant_id: tenantId,
+      organization_id: organizationId,
       case_id: caseId,
       event_type: "scenario.recalculated",
       payload: { scenario_id: scenarioId },

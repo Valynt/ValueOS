@@ -1,6 +1,6 @@
 # Infrastructure Dependencies
 
-Covers Redis, Kafka, and logging configuration across environments.
+Covers Redis, NATS, Kafka, and logging configuration across environments.
 
 ---
 
@@ -36,13 +36,18 @@ For managed Redis (AWS ElastiCache, Upstash, etc.), use the provider's health da
 redis-cli -u "$REDIS_URL" --tls info server | grep redis_version
 ```
 
+### Fail-fast enforcement
+
+In `NODE_ENV=production`, `CacheService` throws at construction time if `REDIS_URL` is absent. The server startup sequence (`validateInfrastructureConnectivity()` in `server.ts`) also pings Redis before accepting traffic. The service will not start without a reachable Redis instance in production.
+
 ### Failure modes
 
 | Symptom | Likely cause | Impact |
 |---------|-------------|--------|
-| `CacheService` logs `[CacheService] Redis unavailable, using in-memory fallback` | `REDIS_URL` unset or unreachable | Cache is process-local; no cross-instance sharing |
+| `CacheService` logs `[CacheService] Redis unavailable, using in-memory fallback` | `REDIS_URL` unset or unreachable (non-production) | Cache is process-local; no cross-instance sharing |
 | `UsageMeteringService` logs `Redis unavailable for rate limiting` | Same | Rate limiting fails open; usage is not metered |
-| Startup error: `REDIS_URL is required` | Missing env var in staging/production | Service refuses to start |
+| Startup error: `REDIS_URL is required in production` | Missing env var in production | Service refuses to start |
+| Startup error: `Redis connectivity check failed` | Redis unreachable at startup | Service refuses to start |
 | Startup error: `REDIS_URL must not point to localhost` | Localhost URL in staging/production | Service refuses to start |
 
 ### Recovery
@@ -65,6 +70,64 @@ Set in your `.env.local`:
 
 ```
 REDIS_URL=redis://localhost:6379
+```
+
+---
+
+## NATS JetStream
+
+### Required vs optional by environment
+
+| Environment | Required | Notes |
+|-------------|----------|-------|
+| development | No | Backend skips NATS connectivity check when `NATS_URL` is unset |
+| test | No | Same |
+| staging | **Yes** | `NATS_URL` must be set; startup validation pings NATS before accepting traffic |
+| production | **Yes** | Same as staging |
+
+NATS is used for metering event streaming via `MeteringQueue`. Without it, usage events cannot be published and metering is silently degraded.
+
+### Environment variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NATS_URL` | NATS server URL | `nats://nats.internal:4222` |
+
+### Health check
+
+```bash
+# Using the NATS CLI
+nats server ping --server "$NATS_URL"
+
+# Or via the monitoring endpoint (if enabled)
+curl http://nats.internal:8222/healthz
+```
+
+### Fail-fast enforcement
+
+`validateInfrastructureConnectivity()` in `server.ts` attempts a NATS connection before the HTTP server begins accepting requests. If NATS is unreachable in production, the process exits with a non-zero code rather than starting in a degraded state.
+
+### Failure modes
+
+| Symptom | Likely cause | Impact |
+|---------|-------------|--------|
+| Startup error: `NATS connectivity check failed` | `NATS_URL` unreachable at startup | Service refuses to start in production |
+| `MeteringQueue` publish errors | NATS connection dropped after startup | Usage events lost; metering gaps |
+| No usage events in Stripe | NATS down for extended period | Billing undercharges until reconciliation runs |
+
+### Recovery
+
+1. Verify `NATS_URL` is set and the NATS pod/service is healthy (`kubectl get pods -l app=nats`).
+2. Check JetStream stream status: `nats stream ls --server "$NATS_URL"`.
+3. If NATS was down briefly, usage events may have been buffered in `UsageEmitter`'s in-memory buffer. Restart the backend to flush the buffer once NATS is restored.
+4. For extended outages, run the `StripeReconciliationWorker` manually to backfill any missed events.
+
+### Local development
+
+NATS JetStream is defined in `infra/k8s/base/nats-jetstream.yaml`. For local development, it runs as a Docker service. Set in your `.env.local`:
+
+```
+NATS_URL=nats://localhost:4222
 ```
 
 ---

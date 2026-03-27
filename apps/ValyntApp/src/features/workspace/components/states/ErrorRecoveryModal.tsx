@@ -13,7 +13,7 @@ import {
   Copy,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AgentPhase } from "../../agent/types";
 
@@ -28,6 +28,8 @@ interface ErrorRecoveryModalProps {
   previousPhase: AgentPhase | null;
   onRetry: () => void;
   onDismiss: () => void;
+  /** API request ID for support correlation. Shown in the error details panel. */
+  requestId?: string;
 }
 
 const PHASE_LABELS: Record<AgentPhase, string> = {
@@ -49,15 +51,46 @@ export function ErrorRecoveryModal({
   previousPhase,
   onRetry,
   onDismiss,
+  requestId,
 }: ErrorRecoveryModalProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending reset timer on unmount to avoid state updates on an
+  // unmounted component (e.g. modal dismissed while "Copied" is showing).
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current !== null) {
+        clearTimeout(copiedTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopyError = () => {
-    const text = `Error: ${code}\n${message}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const lines = [`Error: ${code}`, message];
+    if (requestId) lines.push(`Request ID: ${requestId}`);
+    const text = lines.join("\n");
+
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      window.prompt("Copy this error details:", text);
+      return;
+    }
+
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = setTimeout(() => {
+          copiedTimerRef.current = null;
+          setCopied(false);
+        }, 2000);
+      },
+      () => {
+        // Clipboard permission denied — surface via prompt so user can copy manually.
+        window.prompt("Copy this error details:", text);
+      },
+    );
   };
 
   return (
@@ -138,10 +171,21 @@ export function ErrorRecoveryModal({
               <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-all">
                 {`Code: ${code}\n${message}`}
               </pre>
+              {requestId && (
+                <div className="mt-2 pt-2 border-t border-slate-700">
+                  <p className="text-[10px] text-slate-500 mb-1">Request ID</p>
+                  <code className="text-xs text-slate-300 font-mono select-all break-all">
+                    {requestId}
+                  </code>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Include this ID when contacting support.
+                  </p>
+                </div>
+              )}
               <button
                 onClick={handleCopyError}
                 className="absolute top-2 right-2 p-1 text-slate-500 hover:text-slate-300 rounded"
-                aria-label="Copy error"
+                aria-label="Copy error details"
               >
                 <Copy size={12} />
               </button>

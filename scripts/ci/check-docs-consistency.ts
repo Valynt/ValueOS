@@ -1,171 +1,159 @@
 #!/usr/bin/env tsx
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { DOCS_BRANDING, renderDocsLandingPage } from '../../packages/backend/src/api/docsContent.ts';
-
-const repoRoot = process.cwd();
-
-type RuntimeStatus = 'active' | 'experimental' | 'archived';
-
-interface RuntimeInventoryEntry {
-  path: string;
-  workspace: string;
-  status: RuntimeStatus;
-  owner: string;
-  deployPath: string;
-}
-
-interface RuntimeInventory {
+type CanonicalFacts = {
   schemaVersion: number;
   lastReviewed: string;
-  apps: RuntimeInventoryEntry[];
-  productionPackages: RuntimeInventoryEntry[];
-}
-
-const targetContents = {
-  readme: readFileSync(path.join(repoRoot, 'README.md'), 'utf8'),
-  openapi: readFileSync(path.join(repoRoot, 'packages/backend/openapi.yaml'), 'utf8'),
-  architecture: readFileSync(path.join(repoRoot, 'docs/architecture/README.md'), 'utf8'),
-  runtimeInventory: readFileSync(path.join(repoRoot, 'docs/architecture/runtime-inventory.json'), 'utf8'),
-  backendDocsRouteOutput: renderDocsLandingPage(),
+  productName: string;
+  agentFabric: {
+    count: number;
+    path: string;
+  };
+  runtimeServices: {
+    count: number;
+    names: string[];
+    path: string;
+  };
+  packageManager: {
+    name: string;
+    version: string;
+  };
 };
 
-const requiredByTarget: Record<keyof typeof targetContents, string[]> = {
-  readme: [
-    DOCS_BRANDING.productName,
-    DOCS_BRANDING.marketingSiteUrl,
-    DOCS_BRANDING.appUrl,
-    DOCS_BRANDING.apiBaseUrl,
-    DOCS_BRANDING.docsUrl,
-    DOCS_BRANDING.statusUrl,
-    DOCS_BRANDING.supportEmail,
-    DOCS_BRANDING.docsEmail,
-  ],
-  openapi: [
-    DOCS_BRANDING.apiTitle,
-    DOCS_BRANDING.apiBaseUrl,
-    DOCS_BRANDING.docsUrl,
-    DOCS_BRANDING.supportEmail,
-  ],
-  architecture: [
-    DOCS_BRANDING.productName,
-    DOCS_BRANDING.marketingSiteUrl,
-    DOCS_BRANDING.appUrl,
-    DOCS_BRANDING.apiBaseUrl,
-    DOCS_BRANDING.docsUrl,
-    DOCS_BRANDING.statusUrl,
-    DOCS_BRANDING.supportEmail,
-    DOCS_BRANDING.docsEmail,
-  ],
-  runtimeInventory: [
-    DOCS_BRANDING.appUrl,
-    DOCS_BRANDING.apiBaseUrl,
-  ],
-  backendDocsRouteOutput: [
-    DOCS_BRANDING.productName,
-    DOCS_BRANDING.apiTitle,
-    DOCS_BRANDING.marketingSiteUrl,
-    DOCS_BRANDING.appUrl,
-    DOCS_BRANDING.apiBaseUrl,
-    DOCS_BRANDING.docsUrl,
-    DOCS_BRANDING.statusUrl,
-    DOCS_BRANDING.supportEmail,
-    DOCS_BRANDING.docsEmail,
-  ],
+const repoRoot = process.cwd();
+const readUtf8 = (relativePath: string) => readFileSync(path.join(repoRoot, relativePath), 'utf8');
+
+const canonicalFacts = JSON.parse(readUtf8('docs/architecture/canonical-facts.json')) as CanonicalFacts;
+const packageJson = JSON.parse(readUtf8('package.json')) as {
+  packageManager?: string;
 };
 
 const violations: string[] = [];
 
-for (const [targetName, content] of Object.entries(targetContents) as Array<[keyof typeof targetContents, string]>) {
-  for (const requiredValue of requiredByTarget[targetName]) {
-    if (!content.includes(requiredValue)) {
-      violations.push(`${targetName} is missing canonical value: ${requiredValue}`);
-    }
-  }
+const requiredTargets = {
+  readme: readUtf8('README.md'),
+  docsAgents: readUtf8('docs/AGENTS.md'),
+};
 
-  if (/ValueCanvas/.test(content)) {
-    violations.push(`${targetName} still contains legacy product name: ValueCanvas`);
-  }
+const packageReadmes = readdirSync(path.join(repoRoot, 'packages'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join('packages', entry.name, 'README.md'))
+  .filter((readmePath) => existsSync(path.join(repoRoot, readmePath)));
 
-  if (/valueos\.io/.test(content)) {
-    violations.push(`${targetName} still contains a valueos.io domain in canonical docs surfaces`);
-  }
-}
+const appReadmes = readdirSync(path.join(repoRoot, 'apps'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join('apps', entry.name, 'README.md'))
+  .filter((readmePath) => existsSync(path.join(repoRoot, readmePath)));
 
-const runtimeInventory = JSON.parse(targetContents.runtimeInventory) as RuntimeInventory;
-const validStatuses: RuntimeStatus[] = ['active', 'experimental', 'archived'];
+const hasLegacyProductName = (content: string) => /ValueCanvas/i.test(content);
 
-const ensureEntryFields = (entry: RuntimeInventoryEntry, collectionName: 'apps' | 'productionPackages') => {
-  const metadataFields: Array<keyof Pick<RuntimeInventoryEntry, 'status' | 'owner' | 'deployPath'>> = ['status', 'owner', 'deployPath'];
-  for (const field of metadataFields) {
-    if (typeof entry[field] !== 'string' || entry[field].trim().length === 0) {
-      violations.push(`runtime-inventory ${collectionName} entry ${entry.path} is missing required field: ${field}`);
-    }
-  }
-
-  if (!validStatuses.includes(entry.status)) {
-    violations.push(`runtime-inventory ${collectionName} entry ${entry.path} has invalid status: ${entry.status}`);
+const assertContains = (label: string, content: string, needle: string) => {
+  if (!content.includes(needle)) {
+    violations.push(`${label} is missing canonical value: ${needle}`);
   }
 };
 
-for (const appEntry of runtimeInventory.apps) {
-  ensureEntryFields(appEntry, 'apps');
-}
+for (const [label, content] of Object.entries(requiredTargets)) {
+  assertContains(label, content, canonicalFacts.productName);
 
-for (const packageEntry of runtimeInventory.productionPackages) {
-  ensureEntryFields(packageEntry, 'productionPackages');
-}
+  for (const runtimeName of canonicalFacts.runtimeServices.names) {
+    assertContains(label, content, runtimeName);
+  }
 
-const appDirs = readdirSync(path.join(repoRoot, 'apps'), { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .sort();
-
-const documentedAppDirs = runtimeInventory.apps
-  .map((entry) => entry.path.replace(/^apps\//, ''))
-  .sort();
-
-if (JSON.stringify(appDirs) !== JSON.stringify(documentedAppDirs)) {
-  violations.push(`apps/ inventory drift detected. Expected ${documentedAppDirs.join(', ')}, found ${appDirs.join(', ')}`);
-}
-
-for (const appDir of appDirs) {
-  if (!targetContents.readme.includes(`apps/${appDir}`) && !targetContents.readme.includes(`${appDir}/`)) {
-    violations.push(`README.md is missing apps inventory entry for ${appDir}`);
+  if (hasLegacyProductName(content)) {
+    violations.push(`${label} still contains legacy product name: ValueCanvas`);
   }
 }
 
-if (!targetContents.readme.includes('runtime-inventory.json') || !targetContents.architecture.includes('runtime-inventory.json')) {
-  violations.push('README.md and docs/architecture/README.md must both reference docs/architecture/runtime-inventory.json.');
+if (!requiredTargets.readme.includes(`${canonicalFacts.agentFabric.count} agents`)) {
+  violations.push(`README.md must declare the canonical agent count (${canonicalFacts.agentFabric.count} agents).`);
 }
 
-const productionPackageDirs = readdirSync(path.join(repoRoot, 'packages'), { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .filter((dirName) => {
-    try {
-      const packageJson = JSON.parse(readFileSync(path.join(repoRoot, 'packages', dirName, 'package.json'), 'utf8')) as { private?: boolean };
-      return packageJson.private !== true;
-    } catch {
-      return false;
-    }
-  })
-  .sort();
+if (!requiredTargets.docsAgents.includes(`${canonicalFacts.agentFabric.count}-agent fabric`)) {
+  violations.push(`docs/AGENTS.md must declare the canonical agent count (${canonicalFacts.agentFabric.count}-agent fabric).`);
+}
 
-const documentedProductionPackageDirs = runtimeInventory.productionPackages
-  .map((entry) => entry.path.replace(/^packages\//, ''))
-  .sort();
-
-if (JSON.stringify(productionPackageDirs) !== JSON.stringify(documentedProductionPackageDirs)) {
+const docsAgentsPackageManagerPattern = new RegExp(`${canonicalFacts.packageManager.name}\\s+${canonicalFacts.packageManager.version}`);
+if (!docsAgentsPackageManagerPattern.test(requiredTargets.docsAgents)) {
   violations.push(
-    `production packages inventory drift detected. Expected ${documentedProductionPackageDirs.join(', ')}, found ${productionPackageDirs.join(', ')}`
+    `docs/AGENTS.md must declare canonical package manager version ${canonicalFacts.packageManager.name} ${canonicalFacts.packageManager.version}.`
   );
 }
 
-if (/VOSAcademy/.test(targetContents.readme)) {
-  violations.push('README.md still references VOSAcademy even though it is not present in apps/.');
+if (!requiredTargets.readme.includes(`\`${canonicalFacts.packageManager.name}@${canonicalFacts.packageManager.version}\``)) {
+  violations.push(
+    `README.md must declare canonical package manager version ${canonicalFacts.packageManager.name}@${canonicalFacts.packageManager.version}.`
+  );
+}
+
+const packageManagerFromRoot = packageJson.packageManager?.match(/^([^@]+)@([^+]+)/);
+if (!packageManagerFromRoot) {
+  violations.push('package.json packageManager field is missing or invalid.');
+} else {
+  const [, managerName, managerVersion] = packageManagerFromRoot;
+  if (managerName !== canonicalFacts.packageManager.name || managerVersion !== canonicalFacts.packageManager.version) {
+    violations.push(
+      `docs/architecture/canonical-facts.json packageManager (${canonicalFacts.packageManager.name}@${canonicalFacts.packageManager.version}) does not match package.json (${managerName}@${managerVersion}).`
+    );
+  }
+}
+
+const mentionedPnpmVersions = (content: string) => Array.from(content.matchAll(/pnpm@(?<version>\d+\.\d+\.\d+)/g)).map((m) => m.groups?.version ?? '');
+
+for (const readmePath of [...appReadmes, ...packageReadmes]) {
+  const content = readUtf8(readmePath);
+  if (hasLegacyProductName(content)) {
+    violations.push(`${readmePath} still contains legacy product name: ValueCanvas`);
+  }
+
+  for (const pnpmVersion of mentionedPnpmVersions(content)) {
+    if (pnpmVersion !== canonicalFacts.packageManager.version) {
+      violations.push(
+        `${readmePath} pins ${canonicalFacts.packageManager.name}@${pnpmVersion}; expected ${canonicalFacts.packageManager.name}@${canonicalFacts.packageManager.version}.`
+      );
+    }
+  }
+}
+
+const runtimeServiceDirMap: Record<string, string> = {
+  DecisionRouter: 'decision-router',
+  ExecutionRuntime: 'execution-runtime',
+  PolicyEngine: 'policy-engine',
+  ContextStore: 'context-store',
+  ArtifactComposer: 'artifact-composer',
+  RecommendationEngine: 'recommendation-engine',
+};
+
+if (canonicalFacts.runtimeServices.names.length !== canonicalFacts.runtimeServices.count) {
+  violations.push(
+    `docs/architecture/canonical-facts.json runtimeServices.count (${canonicalFacts.runtimeServices.count}) must match runtimeServices.names length (${canonicalFacts.runtimeServices.names.length}).`
+  );
+}
+
+for (const runtimeName of canonicalFacts.runtimeServices.names) {
+  const runtimeDir = runtimeServiceDirMap[runtimeName];
+  if (!runtimeDir) {
+    violations.push(`No runtime directory mapping configured for canonical runtime service ${runtimeName}.`);
+    continue;
+  }
+
+  const runtimePath = path.join(repoRoot, canonicalFacts.runtimeServices.path, runtimeDir);
+  if (!existsSync(runtimePath)) {
+    violations.push(`Canonical runtime service ${runtimeName} is missing expected path: ${path.relative(repoRoot, runtimePath)}`);
+  }
+}
+
+const agentFiles = readdirSync(path.join(repoRoot, canonicalFacts.agentFabric.path), { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith('Agent.ts') && entry.name !== 'BaseAgent.ts')
+  .map((entry) => entry.name)
+  .sort();
+
+if (agentFiles.length !== canonicalFacts.agentFabric.count) {
+  violations.push(
+    `Canonical agent count mismatch: docs/architecture/canonical-facts.json declares ${canonicalFacts.agentFabric.count}, but found ${agentFiles.length} agent files.`
+  );
 }
 
 if (violations.length > 0) {
@@ -177,5 +165,5 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `✅ Docs consistency check passed for README, OpenAPI, backend docs route output, architecture docs, and runtime inventory. Verified apps inventory: ${appDirs.join(', ')}. Verified production package inventory: ${productionPackageDirs.join(', ')}.`
+  `✅ Docs consistency check passed. Canonical facts validated for README.md, docs/AGENTS.md, ${appReadmes.length} app README(s), and ${packageReadmes.length} package README(s).`
 );

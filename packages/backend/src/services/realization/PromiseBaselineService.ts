@@ -17,7 +17,7 @@ import { supabase } from "../lib/supabase.js";
 
 export const PromiseBaselineSchema = z.object({
   id: z.string().uuid(),
-  tenant_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
   case_id: z.string().uuid(),
   scenario_id: z.string().uuid(),
   scenario_type: z.enum(["conservative", "base", "upside"]),
@@ -47,7 +47,7 @@ export type PromiseBaseline = z.infer<typeof PromiseBaselineSchema>;
 export type KpiTarget = z.infer<typeof KpiTargetSchema>;
 
 export interface CreateBaselineInput {
-  tenantId: string;
+  organizationId: string;
   caseId: string;
   scenarioId: string;
   userId: string;
@@ -80,7 +80,7 @@ export class PromiseBaselineService {
       .from("scenarios")
       .select("*")
       .eq("id", input.scenarioId)
-      .eq("tenant_id", input.tenantId)
+      .eq("organization_id", input.organizationId)
       .single();
 
     if (scenarioError || !scenario) {
@@ -93,7 +93,7 @@ export class PromiseBaselineService {
 
     const { error: baselineError } = await supabase.from("promise_baselines").insert({
       id: baselineId,
-      tenant_id: input.tenantId,
+      organization_id: input.organizationId,
       case_id: input.caseId,
       scenario_id: input.scenarioId,
       scenario_type: input.approvedScenarioType,
@@ -108,11 +108,15 @@ export class PromiseBaselineService {
     }
 
     // Fetch assumptions to create KPI targets
-    const { data: assumptions } = await supabase
+    const { data: assumptions, error: assumptionsError } = await supabase
       .from("assumptions")
       .select("id, name, value, unit, source_type, confidence_score")
       .eq("case_id", input.caseId)
-      .eq("tenant_id", input.tenantId);
+      .eq("organization_id", input.organizationId);
+
+    if (assumptionsError) {
+      throw new Error(`Failed to fetch assumptions for baseline: ${assumptionsError.message}`);
+    }
 
     // Create KPI targets from assumptions
     const kpiTargets: KpiTarget[] = [];
@@ -139,13 +143,13 @@ export class PromiseBaselineService {
     }
 
     // Persist KPI targets
-    await this.persistKpiTargets(kpiTargets, input.tenantId);
+    await this.persistKpiTargets(kpiTargets, input.organizationId);
 
     // Schedule checkpoints
-    const checkpoints = await this.scheduleCheckpoints(baselineId, kpiTargets, input.tenantId);
+    const checkpoints = await this.scheduleCheckpoints(baselineId, kpiTargets, input.organizationId);
 
     // Generate handoff notes
-    await this.generateHandoffNotes(baselineId, input.tenantId, input.caseId);
+    await this.generateHandoffNotes(baselineId, input.organizationId, input.caseId);
 
     logger.info(`Baseline ${baselineId} created with ${kpiTargets.length} KPI targets and ${checkpoints.length} checkpoints`);
 
@@ -155,7 +159,7 @@ export class PromiseBaselineService {
   /**
    * Get baseline with all related data.
    */
-  async getBaseline(baselineId: string, tenantId: string): Promise<{
+  async getBaseline(baselineId: string, organizationId: string): Promise<{
     baseline: PromiseBaseline;
     kpiTargets: KpiTarget[];
     checkpoints: Array<{
@@ -176,7 +180,7 @@ export class PromiseBaselineService {
       .from("promise_baselines")
       .select("*")
       .eq("id", baselineId)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .single();
 
     if (baselineError || !baseline) {
@@ -188,14 +192,14 @@ export class PromiseBaselineService {
       .from("promise_kpi_targets")
       .select("*")
       .eq("baseline_id", baselineId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
     // Fetch checkpoints
     const { data: checkpoints } = await supabase
       .from("promise_checkpoints")
       .select("*")
       .eq("baseline_id", baselineId)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .order("measurement_date");
 
     // Fetch handoff notes
@@ -203,7 +207,7 @@ export class PromiseBaselineService {
       .from("promise_handoff_notes")
       .select("*")
       .eq("baseline_id", baselineId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
     return {
       baseline: PromiseBaselineSchema.parse(baseline),
@@ -228,7 +232,7 @@ export class PromiseBaselineService {
    */
   async amendBaseline(
     baselineId: string,
-    tenantId: string,
+    organizationId: string,
     userId: string,
     amendments: {
       kpiAdjustments?: Array<{ kpiTargetId: string; newTarget: number; reason: string }>;
@@ -241,7 +245,7 @@ export class PromiseBaselineService {
       .from("promise_baselines")
       .select("*")
       .eq("id", baselineId)
-      .eq("tenant_id", tenantId)
+      .eq("organization_id", organizationId)
       .single();
 
     if (!original) {
@@ -252,9 +256,9 @@ export class PromiseBaselineService {
     const newBaselineId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await supabase.from("promise_baselines").insert({
+    const { error: newBaselineError } = await supabase.from("promise_baselines").insert({
       id: newBaselineId,
-      tenant_id: tenantId,
+      organization_id: organizationId,
       case_id: original.case_id,
       scenario_id: original.scenario_id,
       scenario_type: original.scenario_type,
@@ -265,8 +269,12 @@ export class PromiseBaselineService {
       created_at: now,
     });
 
+    if (newBaselineError) {
+      throw new Error(`Failed to create amended baseline: ${newBaselineError.message}`);
+    }
+
     // Archive original
-    await supabase
+    const { error: archiveError } = await supabase
       .from("promise_baselines")
       .update({
         status: "amended",
@@ -274,32 +282,83 @@ export class PromiseBaselineService {
         superseded_by_id: newBaselineId,
       })
       .eq("id", baselineId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
-    // Copy and adjust KPI targets
-    const { data: originalKpis } = await supabase
+    if (archiveError) {
+      throw new Error(`Failed to archive original baseline: ${archiveError.message}`);
+    }
+
+    // Copy and adjust KPI targets — bulk insert instead of per-row loop
+    const { data: originalKpis, error: kpisError } = await supabase
       .from("promise_kpi_targets")
       .select("*")
       .eq("baseline_id", baselineId)
-      .eq("tenant_id", tenantId);
+      .eq("organization_id", organizationId);
 
-    for (const kpi of originalKpis || []) {
-      const adjustment = amendments.kpiAdjustments?.find(
-        (a) => a.kpiTargetId === kpi.id,
-      );
+    if (kpisError) {
+      throw new Error(`Failed to fetch KPI targets for amendment: ${kpisError.message}`);
+    }
 
-      await supabase.from("promise_kpi_targets").insert({
-        id: crypto.randomUUID(),
-        tenant_id: tenantId,
-        baseline_id: newBaselineId,
-        metric_name: kpi.metric_name,
-        baseline_value: kpi.baseline_value,
-        target_value: adjustment?.newTarget || kpi.target_value,
-        unit: kpi.unit,
-        timeline_months: kpi.timeline_months,
-        source_classification: kpi.source_classification,
-        confidence_score: kpi.confidence_score,
+    if (originalKpis && originalKpis.length > 0) {
+      const kpiRows = originalKpis.map((kpi) => {
+        const adjustment = amendments.kpiAdjustments?.find(
+          (a) => a.kpiTargetId === kpi.id,
+        );
+        return {
+          id: crypto.randomUUID(),
+          organization_id: organizationId,
+          baseline_id: newBaselineId,
+          metric_name: kpi.metric_name,
+          baseline_value: kpi.baseline_value,
+          target_value: adjustment?.newTarget ?? kpi.target_value,
+          unit: kpi.unit,
+          timeline_months: kpi.timeline_months,
+          source_classification: kpi.source_classification,
+          confidence_score: kpi.confidence_score,
+        };
       });
+
+      const { error: kpiInsertError } = await supabase
+        .from("promise_kpi_targets")
+        .insert(kpiRows);
+
+      if (kpiInsertError) {
+        // Compensating rollback: the original baseline was already marked
+        // "amended" and the new baseline record was already written. Revert
+        // both so the system is not left with a superseded-but-unreplaced
+        // baseline. Best-effort — log if compensation itself fails.
+        logger.error(`KPI insert failed for amendment of ${baselineId}, attempting rollback`, {
+          error: kpiInsertError.message,
+          newBaselineId,
+        });
+        const [revertResult, deleteResult] = await Promise.allSettled([
+          supabase
+            .from("promise_baselines")
+            .update({ status: "active", superseded_at: null, superseded_by_id: null })
+            .eq("id", baselineId)
+            .eq("organization_id", organizationId),
+          supabase
+            .from("promise_baselines")
+            .delete()
+            .eq("id", newBaselineId)
+            .eq("organization_id", organizationId),
+        ]);
+        if (revertResult.status === "rejected") {
+          logger.error("Rollback revert of original baseline failed — manual intervention required", {
+            reason: revertResult.reason,
+            baselineId,
+            organizationId,
+          });
+        }
+        if (deleteResult.status === "rejected") {
+          logger.error("Rollback delete of orphaned baseline failed — manual intervention required", {
+            reason: deleteResult.reason,
+            newBaselineId,
+            organizationId,
+          });
+        }
+        throw new Error(`Failed to insert amended KPI targets: ${kpiInsertError.message}`);
+      }
     }
 
     return newBaselineId;
@@ -307,35 +366,51 @@ export class PromiseBaselineService {
 
   /**
    * Calculate target value based on EVF decomposition.
+   *
+   * EVF values are absolute USD amounts, not percentages. The target is
+   * computed by scaling the baseline by the scenario multiplier, which
+   * represents the expected improvement factor for that scenario type.
+   * Conservative = 70% of base improvement, upside = 130%.
    */
   private calculateTargetValue(
     baselineValue: number,
     evfDecomposition: { revenue_uplift: number; cost_reduction: number; risk_mitigation: number; efficiency_gain: number },
     scenarioType: string,
   ): number {
-    // Apply scenario multiplier
-    const multiplier = scenarioType === "conservative" ? 0.7 :
-                       scenarioType === "upside" ? 1.3 : 1.0;
+    const scenarioMultiplier = scenarioType === "conservative" ? 0.7 :
+                               scenarioType === "upside" ? 1.3 : 1.0;
 
-    // Calculate improvement based on EVF factors
-    const totalImprovement = evfDecomposition.revenue_uplift +
-                               evfDecomposition.cost_reduction +
-                               evfDecomposition.risk_mitigation +
-                               evfDecomposition.efficiency_gain;
+    // Total EVF improvement in USD. If no EVF data is available, fall back
+    // to the scenario multiplier applied directly to the baseline.
+    const totalEvfUsd = evfDecomposition.revenue_uplift +
+                        evfDecomposition.cost_reduction +
+                        evfDecomposition.risk_mitigation +
+                        evfDecomposition.efficiency_gain;
 
-    return baselineValue * (1 + (totalImprovement / 100) * multiplier);
+    if (totalEvfUsd <= 0 || baselineValue <= 0) {
+      return baselineValue * scenarioMultiplier;
+    }
+
+    // Express the EVF improvement as a ratio relative to the baseline value,
+    // then apply the scenario multiplier to that ratio.
+    const improvementRatio = (totalEvfUsd / baselineValue) * scenarioMultiplier;
+
+    // Cap at a 10× improvement to guard against extreme outliers.
+    const cappedRatio = Math.min(improvementRatio, 10);
+
+    return baselineValue * (1 + cappedRatio);
   }
 
   /**
    * Persist KPI targets.
    */
-  private async persistKpiTargets(targets: KpiTarget[], tenantId: string): Promise<void> {
+  private async persistKpiTargets(targets: KpiTarget[], organizationId: string): Promise<void> {
     if (targets.length === 0) return;
 
     const { error } = await supabase.from("promise_kpi_targets").insert(
       targets.map((t) => ({
         id: t.id,
-        tenant_id: tenantId,
+        organization_id: organizationId,
         baseline_id: t.baseline_id,
         metric_name: t.metric_name,
         baseline_value: t.baseline_value,
@@ -349,6 +424,7 @@ export class PromiseBaselineService {
 
     if (error) {
       logger.error(`Failed to persist KPI targets: ${error.message}`);
+      throw new Error(`Failed to persist KPI targets: ${error.message}`);
     }
   }
 
@@ -358,10 +434,13 @@ export class PromiseBaselineService {
   private async scheduleCheckpoints(
     baselineId: string,
     kpiTargets: KpiTarget[],
-    tenantId: string,
+    organizationId: string,
   ): Promise<Array<{ id: string; kpiTargetId: string; measurementDate: string }>> {
     const checkpoints: Array<{ id: string; kpiTargetId: string; measurementDate: string }> = [];
     const now = new Date();
+
+    // Collect all checkpoint rows across all targets and quarters, then bulk insert.
+    const checkpointRows: Array<Record<string, unknown>> = [];
 
     for (const target of kpiTargets) {
       // Create quarterly checkpoints
@@ -377,9 +456,9 @@ export class PromiseBaselineService {
 
         const checkpointId = crypto.randomUUID();
 
-        await supabase.from("promise_checkpoints").insert({
+        checkpointRows.push({
           id: checkpointId,
-          tenant_id: tenantId,
+          organization_id: organizationId,
           baseline_id: baselineId,
           kpi_target_id: target.id,
           measurement_date: checkpointDate.toISOString().split("T")[0],
@@ -397,6 +476,16 @@ export class PromiseBaselineService {
       }
     }
 
+    if (checkpointRows.length > 0) {
+      const { error: checkpointInsertError } = await supabase
+        .from("promise_checkpoints")
+        .insert(checkpointRows);
+
+      if (checkpointInsertError) {
+        throw new Error(`Failed to insert checkpoints: ${checkpointInsertError.message}`);
+      }
+    }
+
     return checkpoints;
   }
 
@@ -405,7 +494,7 @@ export class PromiseBaselineService {
    */
   private async generateHandoffNotes(
     baselineId: string,
-    tenantId: string,
+    organizationId: string,
     caseId: string,
   ): Promise<void> {
     const now = new Date().toISOString();
@@ -413,14 +502,14 @@ export class PromiseBaselineService {
     // Fetch case context
     const { data: caseData } = await supabase
       .from("value_cases")
-      .select("title, account_id")
+      .select("name, account_id")
       .eq("id", caseId)
       .single();
 
     const notes = [
       {
         section: "deal_context",
-        content: `Value case: ${caseData?.title || "Untitled"}. Baseline created from approved scenario.`,
+        content: `Value case: ${caseData?.name || "Untitled"}. Baseline created from approved scenario.`,
       },
       {
         section: "buyer_priorities",
@@ -437,15 +526,20 @@ export class PromiseBaselineService {
     ];
 
     for (const note of notes) {
-      await supabase.from("promise_handoff_notes").insert({
+      const { error: noteError } = await supabase.from("promise_handoff_notes").insert({
         id: crypto.randomUUID(),
-        tenant_id: tenantId,
+        organization_id: organizationId,
         baseline_id: baselineId,
         section: note.section,
         content_text: note.content,
         generated_by_agent: true,
         created_at: now,
       });
+
+      if (noteError) {
+        // Handoff notes are supplementary — log but don't fail baseline creation.
+        logger.error(`Failed to persist handoff note (section: ${note.section}): ${noteError.message}`);
+      }
     }
   }
 }

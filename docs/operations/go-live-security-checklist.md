@@ -8,23 +8,23 @@
 
 ## Critical Findings (MUST FIX before go-live)
 
-### 1. Hardcoded dev bypass credentials in SignupPage (CRITICAL)
+### 1. Hardcoded dev bypass credentials in SignupPage (CRITICAL — SUPERSEDED 2026-03-27)
 
 | Detail | Value |
 |---|---|
-| **File** | `apps/ValyntApp/src/pages/auth/SignupPage.tsx:62-64` |
-| **Risk** | Hardcoded `email: "dev@valynt.com"`, `password: "<REDACTED>"`, `fullName: "Dev User"` shipped in source |
-| **Impact** | If the bypass button renders in production, anyone can create a session with known credentials |
-| **Mitigation** | Remove the hardcoded values. Gate the entire `handleBypass` function and its UI button behind `import.meta.env.DEV` or strip via Vite define. The `LoginPage.tsx` version correctly reads from `VITE_DEV_EMAIL` / `VITE_DEV_PASSWORD` env vars — align `SignupPage` to the same pattern, or better, remove bypass entirely from production builds. |
+| **File** | `apps/ValyntApp/src/views/Auth/ModernSignupPage.tsx:12-78` |
+| **Risk** | Original finding referenced removed legacy file. Re-review of `ModernSignupPage` found no `handleBypass` helper, no hardcoded dev credentials, and no bypass UI control. |
+| **Impact** | Legacy risk is no longer present in the modern auth surface. |
+| **Mitigation** | Closed as superseded by auth-page migration. Keep monitoring modern auth pages for new bypass affordances in PR review. |
 
-### 2. Auth bypass buttons ship in production bundle (CRITICAL)
+### 2. Auth bypass buttons ship in production bundle (CRITICAL — SUPERSEDED 2026-03-27)
 
 | Detail | Value |
 |---|---|
-| **Files** | `apps/ValyntApp/src/pages/auth/LoginPage.tsx:211-213`, `apps/ValyntApp/src/pages/auth/SignupPage.tsx:212-214` |
-| **Risk** | Both login and signup pages render a yellow "bypass" button unconditionally — no `import.meta.env.DEV` guard wraps the JSX |
-| **Impact** | End-users see a dev-only authentication bypass in production UI |
-| **Mitigation** | Wrap both the `handleBypass` function and the `<button onClick={handleBypass}>` JSX in `{import.meta.env.DEV && (...)}` so Vite tree-shakes them from production builds. Add a CI lint rule to prevent `handleBypass` from appearing in production bundles. |
+| **Files** | `apps/ValyntApp/src/views/Auth/ModernLoginPage.tsx:33-81`, `apps/ValyntApp/src/views/Auth/ModernSignupPage.tsx:25-78` |
+| **Risk** | Original finding referenced removed legacy pages. Re-review found no bypass handler and no bypass button in either modern auth page. |
+| **Impact** | Legacy risk is no longer present in the modern auth surface. |
+| **Mitigation** | Closed as superseded by auth-page migration. Continue to block reintroduction through static review and bundle checks. |
 
 ### 3. MFA hardcoded to `false` (HIGH)
 
@@ -45,6 +45,18 @@
 | **Mitigation** | Remove the `*` fallback; make `CORS_ORIGINS` a required env var (use `?:` syntax like Supabase keys). Audit all CORS configurations across services. |
 
 ---
+
+
+### Delta findings from auth-surface re-review (2026-03-27)
+
+### D1. Login flow logs raw email address in client logger (MEDIUM)
+
+| Detail | Value |
+|---|---|
+| **File** | `apps/ValyntApp/src/views/Auth/ModernLoginPage.tsx:38-42` |
+| **Risk** | `logger.info` logs raw user email during sign-in attempts, which can propagate PII into client telemetry pipelines. |
+| **Impact** | Email addresses may be exposed in browser logs, remote log sinks, or support exports beyond need-to-know scope. |
+| **Mitigation** | Remove raw email logging (or replace with irreversible hash/length-only metadata) and keep auth diagnostics non-PII. |
 
 ## High Findings
 
@@ -152,7 +164,7 @@
 
 ### Must-Have (Block release)
 
-- [x] **Remove or gate auth bypass** in `SignupPage.tsx` and `LoginPage.tsx` — hardcoded credentials removed, bypass gated behind `import.meta.env.DEV` (fixed 2026-02-28)
+- [x] **Legacy bypass findings superseded** — original `src/pages/auth/*` findings were closed after migration; re-review of `ModernLoginPage.tsx` and `ModernSignupPage.tsx` found no bypass controls (verified 2026-03-27).
 - [x] **Enable MFA** — `mfaEnabled` now reads `process.env.MFA_ENABLED === 'true'`; set `MFA_ENABLED=true` in production env (fixed 2026-02-28)
 - [x] **Fix CORS default** — removed `*` fallback from `environment.ts:68` and `WebSocketServer.ts:72`; empty default triggers runtime guard (fixed 2026-02-28)
 - [x] **CORS origin validation gate** — confirm `CORS_ORIGINS` is set to an explicit allowlist (no `*`) before launch. Documented in `.env.example`. `parseCorsAllowlist` rejects wildcards at startup when `credentials: true`.

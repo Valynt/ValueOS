@@ -18,7 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
@@ -292,7 +292,7 @@ interface HypothesisStageProps {
 
 export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
   const { caseId } = useParams<{ caseId: string }>();
-  const { companyContext } = useCompanyValueContext();
+  const { companyContext, isReady } = useCompanyValueContext();
 
   const { data: hypothesisOutput, isLoading, isError } = useHypothesisOutput(caseId);
   const runAgent = useRunHypothesisAgent(caseId);
@@ -301,12 +301,20 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
 
   const confidenceToPercent = (c: number) => Math.round(c * 100);
 
+  // Debounce guard — prevents duplicate BullMQ job enqueues from rapid clicks
+  // during the brief window before runAgent.isPending becomes true.
+  const isSubmittingRef = useRef(false);
+
   const handleRunStage = () => {
+    if (isSubmittingRef.current || runAgent.isPending) return;
+    isSubmittingRef.current = true;
+
     const companyName = companyContext?.context.company_name;
     runAgent.mutate(
       { companyName, query: companyName ? `Analyze value opportunities for ${companyName}` : undefined },
       {
         onSuccess: (data) => {
+          isSubmittingRef.current = false;
           if (!data.jobId) return;
           // For direct-mode runs, pass the pre-resolved result so AgentThread
           // skips polling and shows the result immediately.
@@ -325,6 +333,9 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             onRunStarted?.(data.jobId);
           }
         },
+        onError: () => {
+          isSubmittingRef.current = false;
+        },
       },
     );
   };
@@ -342,7 +353,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
         </div>
         <button
           onClick={handleRunStage}
-          disabled={runAgent.isPending || isLoading}
+          disabled={runAgent.isPending || isLoading || isSubmittingRef.current}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {runAgent.isPending ? (

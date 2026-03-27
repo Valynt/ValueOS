@@ -8,6 +8,7 @@
 import { getClientConfig } from "@valueos/shared/config/client-config";
 import { DEFAULT_TOAST_DURATION_MS } from "@/components/ui/toast-config";
 
+import { notifyApiRequest } from "../../contexts/ApiRequestContext";
 import { toast } from "../../components/ui/use-toast";
 import { sanitizeInput } from "../../security/InputSanitizer";
 
@@ -197,6 +198,10 @@ export class UnifiedApiClient {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
+    // Tracks whether the request reached the network layer. Only errors that
+    // occur after this point produce a server-traceable request ID.
+    let requestReachedNetwork = false;
+
     try {
       // Apply request interceptors
       let config = requestConfig;
@@ -208,6 +213,7 @@ export class UnifiedApiClient {
       const finalConfig = this.buildRequestConfig(config, requestId);
 
       // Make HTTP request with retry logic
+      requestReachedNetwork = true;
       const response = await this.makeRequestWithRetry(finalConfig);
 
       // Parse response
@@ -227,6 +233,7 @@ export class UnifiedApiClient {
         version: "1.0.0",
       };
 
+      notifyApiRequest(requestId, false);
       return finalResponse;
     } catch (error) {
       const apiError = this.createApiError(error, requestId);
@@ -235,6 +242,13 @@ export class UnifiedApiClient {
       let finalError = apiError;
       for (const interceptor of this.interceptors.error) {
         finalError = interceptor(finalError);
+      }
+
+      // Only surface the request ID as a failed correlation ID when the request
+      // actually reached the network — pre-fetch errors (bad config, interceptor
+      // throws) produce a UUID that never appears in server logs.
+      if (requestReachedNetwork) {
+        notifyApiRequest(requestId, true);
       }
 
       return {

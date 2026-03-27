@@ -1,0 +1,22 @@
+name: Validate Dev Container
+
+on:
+  push:
+    paths:
+      - '.devcontainer/**'
+  pull_request:
+    paths:
+      - '.devcontainer/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: bash scripts/validate-devcontainer.sh
+      - uses: devcontainers/ci@v0.3
+        with:
+          runCmd: echo "Dev container builds successfully"

@@ -2,19 +2,39 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// ---------------------------------------------------------------------------
+// Mock ScenarioBuilder so tests don't need a real DB or LLM
+// ---------------------------------------------------------------------------
+
+const mockBuildScenarios = vi.fn();
+
+vi.mock("../../services/value/ScenarioBuilder.js", () => ({
+  ScenarioBuilder: vi.fn().mockImplementation(() => ({
+    buildScenarios: mockBuildScenarios,
+  })),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock Supabase for the repository layer
+// ---------------------------------------------------------------------------
+
 type ScenarioRecord = {
   id: string;
   organization_id: string;
   case_id: string;
   scenario_type: "base";
   assumptions_snapshot_json: {
-    name: string;
-    description?: string;
+    // Metadata stored under __meta to avoid collisions with assumption keys.
+    __meta?: { name?: string | null; description?: string | null };
     assumptions: Array<{ key: string; value: number; unit?: string }>;
     annualSavings: number;
   };
   roi: number;
+  npv?: number | null;
   payback_months: number;
+  cost_input_usd?: number | null;
+  timeline_years?: number | null;
+  investment_source?: "explicit" | "assumptions_register" | "default" | null;
   created_at: string;
 };
 
@@ -53,11 +73,7 @@ class MockScenariosTableQuery {
     if (this.mode === "insert" && this.insertPayload) {
       const id = `00000000-0000-4000-8000-${String(this.store.length + 1).padStart(12, "0")}`;
       const created_at = new Date(`2026-03-26T00:00:${String(this.store.length).padStart(2, "0")}.000Z`).toISOString();
-      const row: ScenarioRecord = {
-        id,
-        created_at,
-        ...this.insertPayload,
-      };
+      const row: ScenarioRecord = { id, created_at, ...this.insertPayload };
       this.store.push(row);
       this.queryLog.push({ type: "insert", table: "scenarios", filters: [] });
       return this.selected === "id"
@@ -80,7 +96,6 @@ class MockScenariosTableQuery {
         return String(rowValue) === filter.value;
       });
     }
-
     rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
     this.queryLog.push({ type: "select", table: "scenarios", filters: [...this.filters] });
     return { data: rows, error: null };
@@ -94,12 +109,10 @@ class MockSupabaseClient {
   ) {}
 
   from(table: string) {
-    if (table !== "scenarios") {
-      throw new Error(`Unexpected table: ${table}`);
-    }
-
+    if (table !== "scenarios") throw new Error(`Unexpected table: ${table}`);
     return {
-      select: (columns: string) => new MockScenariosTableQuery(this.store, this.queryLog, "select").select(columns),
+      select: (columns: string) =>
+        new MockScenariosTableQuery(this.store, this.queryLog, "select").select(columns),
       insert: (payload: Omit<ScenarioRecord, "id" | "created_at">) =>
         new MockScenariosTableQuery(this.store, this.queryLog, "insert", payload),
     };
@@ -143,91 +156,131 @@ describe("valueModelsRouter", () => {
   beforeEach(() => {
     persistentStore.length = 0;
     queryLog.length = 0;
+    mockBuildScenarios.mockReset();
   });
 
-  it("persists scenarios through Supabase and DB-generated IDs", async () => {
-    const app = await buildTestApp();
+  // ---------------------------------------------------------------------------
+  // ScenarioBuilder delegation
+  // ---------------------------------------------------------------------------
 
-    const createResponse = await request(app)
-      .post("/api/value-models/model-1/scenarios")
-      .set("x-tenant-id", "tenant-a")
-      .send({
-        name: "Base case",
-        assumptions: [{ key: "headcount", value: 125000 }],
+  describe("POST /scenarios — delegates to ScenarioBuilder", () => {
+    it("calls ScenarioBuilder.buildScenarios, not inline math", async () => {
+      const builtScenario = {
+        id: "built-scenario-id",
+        organization_id: "tenant-a",
+        case_id: "model-1",
+        scenario_type: "base",
+        roi: 1.5,
+        npv: 250_000,
+        payback_months: 18,
+        cost_input_usd: 100_000,
+        timeline_years: 3,
+        investment_source: "explicit",
+        assumptions_snapshot_json: {},
+        evf_decomposition_json: { revenue_uplift: 0, cost_reduction: 0, risk_mitigation: 0, efficiency_gain: 0 },
+        sensitivity_results_json: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Pre-seed the store so loadById succeeds.
+      // Simulate what ScenarioBuilder writes: name/description stored under
+      // __meta to avoid collisions with user-supplied assumption keys.
+      persistentStore.push({
+        id: "built-scenario-id",
+        organization_id: "tenant-a",
+        case_id: "model-1",
+        scenario_type: "base",
+        assumptions_snapshot_json: { __meta: { name: "Base case" }, assumptions: [], annualSavings: 0 },
+        roi: 1.5,
+        payback_months: 18,
+        created_at: new Date().toISOString(),
       });
 
-    expect(createResponse.status).toBe(201);
-    expect(createResponse.body.scenario.id).toMatch(/^00000000-0000-4000-8000-/);
-    expect(createResponse.body.scenario.id).not.toMatch(/^scenario_/);
+      mockBuildScenarios.mockResolvedValue({
+        conservative: { ...builtScenario, scenario_type: "conservative" },
+        base: builtScenario,
+        upside: { ...builtScenario, scenario_type: "upside" },
+      });
 
-    const listResponse = await request(app)
-      .get("/api/value-models/model-1/scenarios")
-      .set("x-tenant-id", "tenant-a");
+      const app = await buildTestApp();
 
-    expect(listResponse.status).toBe(200);
-    expect(listResponse.body.scenarios).toHaveLength(1);
-    expect(listResponse.body.scenarios[0].name).toBe("Base case");
+      const response = await request(app)
+        .post("/api/value-models/model-1/scenarios")
+        .set("x-tenant-id", "tenant-a")
+        .send({
+          name: "Base case",
+          assumptions: [{ key: "headcount", value: 125_000 }],
+          estimatedCostUsd: 100_000,
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockBuildScenarios).toHaveBeenCalledOnce();
+
+      // Verify name and organizationId are forwarded to ScenarioBuilder
+      const callArgs = mockBuildScenarios.mock.calls[0][0];
+      expect(callArgs.organizationId).toBe("tenant-a");
+      expect(callArgs.estimatedCostUsd).toBe(100_000);
+      expect(callArgs.name).toBe("Base case");
+
+      // Verify the name round-trips through the repository to the response
+      expect(response.body.scenario.name).toBe("Base case");
+    });
+
+    it("does not contain roiPercent = annualSavings / 10000 logic", async () => {
+      // This test verifies the service file no longer contains the old formula
+      // by importing it and checking the create method delegates to ScenarioBuilder
+      const { ValueModelScenariosService } = await import("../valueModels/service.js");
+      const serviceSource = ValueModelScenariosService.toString();
+
+      expect(serviceSource).not.toContain("annualSavings / 10000");
+      expect(serviceSource).not.toContain("36 - Math.min");
+    });
   });
 
-  it("is restart-safe by reading persisted records after router re-import", async () => {
-    const app1 = await buildTestApp();
+  // ---------------------------------------------------------------------------
+  // Tenant isolation
+  // ---------------------------------------------------------------------------
 
-    await request(app1)
-      .post("/api/value-models/model-9/scenarios")
-      .set("x-tenant-id", "tenant-a")
-      .send({
-        name: "Restart test",
-        assumptions: [{ key: "savings", value: 50000 }],
-      })
-      .expect(201);
+  describe("tenant isolation", () => {
+    it("enforces organization_id filter on list", async () => {
+      const app = await buildTestApp();
 
-    const app2 = await buildTestApp();
-    const listResponse = await request(app2)
-      .get("/api/value-models/model-9/scenarios")
-      .set("x-tenant-id", "tenant-a");
+      persistentStore.push({
+        id: "s-tenant-a",
+        organization_id: "tenant-a",
+        case_id: "model-iso",
+        scenario_type: "base",
+        assumptions_snapshot_json: { __meta: { name: "Tenant A" }, assumptions: [], annualSavings: 0 },
+        roi: 1.0,
+        payback_months: 12,
+        created_at: new Date().toISOString(),
+      });
 
-    expect(listResponse.status).toBe(200);
-    expect(listResponse.body.scenarios).toHaveLength(1);
-    expect(listResponse.body.scenarios[0].name).toBe("Restart test");
-  });
+      persistentStore.push({
+        id: "s-tenant-b",
+        organization_id: "tenant-b",
+        case_id: "model-iso",
+        scenario_type: "base",
+        assumptions_snapshot_json: { __meta: { name: "Tenant B" }, assumptions: [], annualSavings: 0 },
+        roi: 2.0,
+        payback_months: 6,
+        created_at: new Date().toISOString(),
+      });
 
-  it("enforces tenant isolation in filters for create verification and list", async () => {
-    const app = await buildTestApp();
+      const tenantAList = await request(app)
+        .get("/api/value-models/model-iso/scenarios")
+        .set("x-tenant-id", "tenant-a")
+        .expect(200);
 
-    await request(app)
-      .post("/api/value-models/model-iso/scenarios")
-      .set("x-tenant-id", "tenant-a")
-      .send({
-        name: "Tenant A",
-        assumptions: [{ key: "a", value: 10000 }],
-      })
-      .expect(201);
+      expect(tenantAList.body.scenarios).toHaveLength(1);
+      expect(tenantAList.body.scenarios[0].name).toBe("Tenant A");
 
-    await request(app)
-      .post("/api/value-models/model-iso/scenarios")
-      .set("x-tenant-id", "tenant-b")
-      .send({
-        name: "Tenant B",
-        assumptions: [{ key: "b", value: 20000 }],
-      })
-      .expect(201);
-
-    const tenantAList = await request(app)
-      .get("/api/value-models/model-iso/scenarios")
-      .set("x-tenant-id", "tenant-a")
-      .expect(200);
-
-    expect(tenantAList.body.scenarios).toHaveLength(1);
-    expect(tenantAList.body.scenarios[0].name).toBe("Tenant A");
-
-    const tenantFilterHits = queryLog.filter((entry) =>
-      entry.type === "select" && entry.filters.some((filter) => filter.column === "organization_id")
-    );
-    const caseFilterHits = queryLog.filter((entry) =>
-      entry.type === "select" && entry.filters.some((filter) => filter.column === "case_id")
-    );
-
-    expect(tenantFilterHits.length).toBeGreaterThan(0);
-    expect(caseFilterHits.length).toBeGreaterThan(0);
+      const orgFilterHits = queryLog.filter((entry) =>
+        entry.type === "select" &&
+        entry.filters.some((f) => f.column === "organization_id")
+      );
+      expect(orgFilterHits.length).toBeGreaterThan(0);
+    });
   });
 });

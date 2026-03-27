@@ -3,6 +3,8 @@
  * Manages Stripe customer creation and mapping to tenants
  */
 
+import crypto from 'node:crypto';
+
 import { SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
@@ -64,15 +66,25 @@ class CustomerService {
         return existing;
       }
 
-      // Create in Stripe
-      const stripeCustomer = await this.stripe.customers.create({
-        email,
-        name: organizationName,
-        metadata: {
-          tenant_id: tenantId,
-          ...metadata,
+      // Create in Stripe — idempotency key is stable per tenant so retries
+      // after a network failure don't create duplicate Stripe customers.
+      const stripeCustomer = await this.stripe.customers.create(
+        {
+          email,
+          name: organizationName,
+          metadata: {
+            tenant_id: tenantId,
+            ...metadata,
+          },
         },
-      });
+        {
+          idempotencyKey: this.stripeService.generateIdempotencyKey(
+            tenantId,
+            "customer_create",
+            tenantId,
+          ),
+        },
+      );
 
       // Store in database
       const { data, error } = await supabase
@@ -228,11 +240,21 @@ class CustomerService {
       throw new Error('Customer not found. Create customer first.');
     }
 
-    const setupIntent = await this.stripe.setupIntents.create({
-      customer: customer.stripe_customer_id,
-      payment_method_types: ['card'],
-      metadata: { tenant_id: tenantId },
-    });
+    // Each SetupIntent is a distinct user action — use a per-call UUID so
+    // retries of the same frontend session reuse the same intent.
+    const setupIntentKey = this.stripeService.generateIdempotencyKey(
+      tenantId,
+      "setup_intent_create",
+      crypto.randomUUID(),
+    );
+    const setupIntent = await this.stripe.setupIntents.create(
+      {
+        customer: customer.stripe_customer_id,
+        payment_method_types: ['card'],
+        metadata: { tenant_id: tenantId },
+      },
+      { idempotencyKey: setupIntentKey },
+    );
 
     logger.info('SetupIntent created', { tenantId, setupIntentId: setupIntent.id });
 

@@ -310,4 +310,145 @@ describe('tenantContextMiddleware', () => {
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
+
+  // ── Security: attack path coverage (spec 2.3 / 2.4 / 2.5) ───────────────
+
+  it('rejects TCT JWT signed with wrong secret → 401', async () => {
+    // Sign a token with a different secret than TCT_SECRET
+    const jwt = await import('jsonwebtoken');
+    const wrongSecretToken = jwt.default.sign(
+      { iss: 'jwt', sub: 'user-atk', tid: 'tenant-atk', roles: [], tier: 'free', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'wrong-secret',
+      { algorithm: 'HS256' }
+    );
+
+    const req = buildReq({
+      headers: { 'x-tenant-context': wrongSecretToken },
+      header: vi.fn((name: string) => name === 'x-tenant-id' ? undefined : undefined),
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid Tenant Context Token' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects TCT JWT where sub does not match authenticated user → 403', async () => {
+    const jwt = await import('jsonwebtoken');
+    // Token claims sub=attacker-user but request has user.id=real-user
+    const token = jwt.default.sign(
+      { iss: 'jwt', sub: 'attacker-user', tid: 'tenant-xyz', roles: [], tier: 'free', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'test-tct-secret',
+      { algorithm: 'HS256' }
+    );
+
+    const req = buildReq({
+      headers: { 'x-tenant-context': token },
+      header: vi.fn((name: string) => name === 'x-tenant-id' ? undefined : undefined),
+      user: { id: 'real-user', tenant_id: 'tenant-xyz' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Tenant context mismatch' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects spoofed x-tenant-id header without serviceIdentityVerified → 403', async () => {
+    const req = buildReq({
+      headers: {},
+      header: vi.fn((name: string) => name === 'x-tenant-id' ? 'spoofed-tenant' : undefined),
+      // serviceIdentityVerified is NOT set (undefined)
+      user: { id: 'user-spoof', tenant_id: 'real-tenant' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects request with no auth and no tenant headers when enforce=true → 403', async () => {
+    // Middleware bypass attempt: no auth, no headers, enforce=true
+    const req = buildReq({
+      headers: {},
+      header: vi.fn(() => undefined),
+      // no user, no tenant headers
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'tenant_required' })
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects when resolved tenant exists but user is not a member → 404', async () => {
+    // Tenant exists but membership check fails — spoof attempt with valid tenant UUID
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(false);
+
+    const req = buildReq({
+      user: { id: 'user-nonmember', tenant_id: 'tenant-valid-but-not-mine' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects when resolved tenant does not exist (valid UUID format, not in DB) → 404', async () => {
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(false);
+
+    const req = buildReq({
+      user: { id: 'user-ghost', tenant_id: '00000000-0000-0000-0000-000000000001' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'Not Found' })
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('source 4 (user-lookup) resolves tenant and sets tenantSource=user-lookup', async () => {
+    // Verify source 4 fires correctly when JWT has no tenant claim.
+    // The warning log is emitted by the middleware but the mock silences it —
+    // we verify the observable contract (tenantSource + resolution) instead.
+    tenantVerificationMocks.getUserTenantId.mockResolvedValue('tenant-from-db');
+
+    // User has no tenant_id or organization_id in JWT
+    const req = buildReq({
+      user: { id: 'user-no-claim' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(req.tenantSource).toBe('user-lookup');
+    expect(req.tenantId).toBe('tenant-from-db');
+    // getUserTenantId must have been called with the user's ID
+    expect(tenantVerificationMocks.getUserTenantId).toHaveBeenCalledWith('user-no-claim');
+  });
 });

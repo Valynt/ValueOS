@@ -364,15 +364,31 @@ type RegistryComponent = RegistryEntry["component"];
 const componentCache = new Map<string, RegistryComponent>();
 const loadingPromises = new Map<string, Promise<RegistryComponent>>();
 
-// Loading fallback component
-const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => (
-  <div className="animate-pulse bg-gray-100 rounded-lg p-4 border border-gray-200">
-    <div className="flex items-center space-x-3">
-      <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
-      <div className="text-sm text-gray-600">Loading {componentName}...</div>
+// Loading fallback component — rendered when a component name is not found in
+// the registry (schema mismatch). Emits a telemetry event on mount so
+// engineering is alerted when this happens in production.
+const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => {
+  React.useEffect(() => {
+    sduiTelemetry.recordEvent({
+      type: TelemetryEventType.COMPONENT_ERROR,
+      component_id: componentName,
+      metadata: {
+        reason: "schema_mismatch",
+        component: componentName,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }, [componentName]);
+
+  return (
+    <div className="animate-pulse bg-gray-100 rounded-lg p-4 border border-gray-200">
+      <div className="flex items-center space-x-3">
+        <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
+        <div className="text-sm text-gray-600">Loading {componentName}...</div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /**
  * Lazy component registry with on-demand loading and robust async resolution
@@ -423,7 +439,19 @@ export class LazyComponentRegistry {
       // Load component lazily
       const lazyLoader = lazyComponents[componentName as keyof typeof lazyComponents];
       if (!lazyLoader) {
-        logger.warn(`Component not found in lazy registry: ${componentName}`);
+        logger.warn(`Component not found in lazy registry: ${componentName}`, {
+          componentKey: componentName,
+          schemaVersion: section.version,
+          reason: "schema_component_missing",
+        });
+        sduiTelemetry.recordEvent({
+          type: TelemetryEventType.COMPONENT_NOT_FOUND,
+          metadata: {
+            componentKey: componentName,
+            schemaVersion: section.version,
+            reason: "schema_component_missing",
+          },
+        });
         return undefined;
       }
       // Create and cache loading promise

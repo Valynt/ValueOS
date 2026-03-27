@@ -11,7 +11,7 @@ If you only need the frontend:
 
 ```bash
 corepack enable
-corepack prepare pnpm@9.15.0 --activate
+corepack prepare pnpm@10.4.1 --activate
 pnpm install
 pnpm run dx:env -- --mode local --force
 pnpm --filter valynt-app dev

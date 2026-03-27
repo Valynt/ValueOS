@@ -3631,22 +3631,27 @@ COMMENT ON TABLE public.approver_roles IS 'Phase 2: Defines who can approve what
 
 --
 -- Name: assumptions; Type: TABLE; Schema: public; Owner: -
+-- Updated by: 20260923000000_value_modeling_schema_consolidation
 --
 
 CREATE TABLE IF NOT EXISTS public.assumptions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    value_case_id uuid,
-    related_table text NOT NULL,
-    related_id uuid NOT NULL,
-    assumption_type text NOT NULL,
-    assumption_text text NOT NULL,
-    source text,
-    confidence_level text,
-    validation_status text DEFAULT 'pending'::text,
-    evidence jsonb DEFAULT '[]'::jsonb,
-    created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT assumptions_confidence_level_check CHECK ((confidence_level = ANY (ARRAY['high'::text, 'medium'::text, 'low'::text]))),
-    CONSTRAINT assumptions_validation_status_check CHECK ((validation_status = ANY (ARRAY['pending'::text, 'validated'::text, 'rejected'::text, 'needs_review'::text])))
+    id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id         uuid        NOT NULL,
+    case_id                 uuid        NOT NULL REFERENCES public.value_cases(id) ON DELETE CASCADE,
+    name                    text        NOT NULL,
+    value                   numeric     NOT NULL,
+    unit                    text,
+    source_type             text        NOT NULL,
+    confidence_score        numeric     NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    benchmark_reference_id  uuid,
+    original_value          numeric,
+    overridden_by_user_id   uuid        REFERENCES public.users(id),
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    updated_at              timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT assumptions_source_type_check CHECK (source_type IN (
+        'customer-confirmed', 'crm-derived', 'call-derived', 'note-derived',
+        'benchmark-derived', 'externally-researched', 'inferred', 'manually-overridden'
+    ))
 );
 
 
@@ -5416,6 +5421,157 @@ CREATE TABLE IF NOT EXISTS public.value_cases (
     updated_at timestamp with time zone DEFAULT now(),
     metadata jsonb DEFAULT '{}'::jsonb,
     CONSTRAINT value_cases_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'review'::text, 'published'::text])))
+);
+
+
+--
+-- Name: value_hypotheses; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.value_hypotheses (
+    id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id         uuid        NOT NULL,
+    case_id                 uuid        NOT NULL REFERENCES public.value_cases(id) ON DELETE CASCADE,
+    value_driver            text        NOT NULL CHECK (char_length(value_driver) BETWEEN 1 AND 255),
+    description             text        NOT NULL DEFAULT '',
+    estimated_impact_min    numeric     NOT NULL,
+    estimated_impact_max    numeric     NOT NULL,
+    impact_unit             text        NOT NULL,
+    evidence_tier           smallint    NOT NULL CHECK (evidence_tier BETWEEN 1 AND 3),
+    confidence_score        numeric     NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    benchmark_reference_id  uuid,
+    status                  text        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'modified')),
+    source_context_ids      uuid[]      NOT NULL DEFAULT '{}',
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    updated_at              timestamptz NOT NULL DEFAULT now()
+);
+
+
+--
+-- Name: scenarios; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.scenarios (
+    id                          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id             uuid        NOT NULL,
+    case_id                     uuid        NOT NULL REFERENCES public.value_cases(id) ON DELETE CASCADE,
+    scenario_type               text        NOT NULL CHECK (scenario_type IN ('conservative', 'base', 'upside')),
+    assumptions_snapshot_json   jsonb       NOT NULL DEFAULT '{}',
+    roi                         numeric,
+    npv                         numeric,
+    payback_months              numeric,
+    evf_decomposition_json      jsonb       NOT NULL DEFAULT '{}',
+    sensitivity_results_json    jsonb       NOT NULL DEFAULT '[]',
+    cost_input_usd              numeric,
+    timeline_years              numeric,
+    investment_source           text        CHECK (investment_source IN ('explicit', 'assumptions_register', 'default')),
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    updated_at                  timestamptz NOT NULL DEFAULT now()
+);
+
+
+--
+-- Name: sensitivity_analysis; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.sensitivity_analysis (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id uuid        NOT NULL,
+    scenario_id     uuid        NOT NULL REFERENCES public.scenarios(id) ON DELETE CASCADE,
+    assumption_id   uuid        NOT NULL,
+    rank            smallint    NOT NULL CHECK (rank > 0 AND rank <= 10),
+    impact_variance numeric     NOT NULL,
+    direction       text        NOT NULL CHECK (direction IN ('positive', 'negative')),
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+
+--
+-- Name: promise_baselines; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.promise_baselines (
+    id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     uuid        NOT NULL,
+    case_id             uuid        NOT NULL REFERENCES public.value_cases(id) ON DELETE CASCADE,
+    scenario_id         uuid        REFERENCES public.scenarios(id),
+    scenario_type       text        NOT NULL CHECK (scenario_type IN ('conservative', 'base', 'upside')),
+    status              text        NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'amended', 'archived')),
+    created_by_user_id  uuid        NOT NULL REFERENCES public.users(id),
+    approved_at         timestamptz,
+    handoff_notes       text,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    superseded_at       timestamptz,
+    superseded_by_id    uuid        REFERENCES public.promise_baselines(id)
+);
+
+
+--
+-- Name: promise_kpi_targets; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.promise_kpi_targets (
+    id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id         uuid        NOT NULL,
+    baseline_id             uuid        NOT NULL REFERENCES public.promise_baselines(id) ON DELETE CASCADE,
+    metric_name             text        NOT NULL,
+    baseline_value          numeric     NOT NULL,
+    target_value            numeric     NOT NULL,
+    unit                    text        NOT NULL,
+    timeline_months         smallint    NOT NULL,
+    source_classification   text        NOT NULL CHECK (source_classification IN (
+                                            'customer-confirmed', 'crm-derived', 'call-derived', 'note-derived',
+                                            'benchmark-derived', 'externally-researched', 'inferred', 'manually-overridden'
+                                        )),
+    confidence_score        numeric     CHECK (confidence_score >= 0 AND confidence_score <= 1),
+    benchmark_reference_id  uuid,
+    value_driver_id         uuid,
+    created_at              timestamptz NOT NULL DEFAULT now()
+);
+
+
+--
+-- Name: promise_checkpoints; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.promise_checkpoints (
+    id                      uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id         uuid        NOT NULL,
+    baseline_id             uuid        NOT NULL REFERENCES public.promise_baselines(id) ON DELETE CASCADE,
+    kpi_target_id           uuid        NOT NULL REFERENCES public.promise_kpi_targets(id) ON DELETE CASCADE,
+    measurement_date        date        NOT NULL,
+    expected_value_min      numeric,
+    expected_value_max      numeric,
+    actual_value            numeric,
+    data_source_for_actuals text,
+    status                  text        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'measured', 'missed', 'exceeded')),
+    measured_at             timestamptz,
+    measured_by_user_id     uuid        REFERENCES public.users(id),
+    notes                   text,
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    updated_at              timestamptz NOT NULL DEFAULT now()
+);
+
+
+--
+-- Name: promise_handoff_notes; Type: TABLE; Schema: public; Owner: -
+-- Created by: 20260923000000_value_modeling_schema_consolidation
+--
+
+CREATE TABLE IF NOT EXISTS public.promise_handoff_notes (
+    id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     uuid        NOT NULL,
+    baseline_id         uuid        NOT NULL REFERENCES public.promise_baselines(id) ON DELETE CASCADE,
+    section             text        NOT NULL CHECK (section IN ('deal_context', 'buyer_priorities', 'implementation_assumptions', 'key_risks')),
+    content_text        text        NOT NULL,
+    generated_by_agent  boolean     DEFAULT true,
+    created_at          timestamptz NOT NULL DEFAULT now()
 );
 
 
