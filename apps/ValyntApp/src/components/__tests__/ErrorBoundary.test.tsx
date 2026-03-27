@@ -133,24 +133,29 @@ describe("ErrorBoundary — retry behaviour", () => {
   it("resets error state and re-renders children on retry when child no longer throws", async () => {
     const user = userEvent.setup();
 
+    let shouldThrow = true;
+
     function ToggleChild() {
-      const [shouldThrow, setShouldThrow] = React.useState(true);
       if (shouldThrow) {
-        setTimeout(() => setShouldThrow(false), 0);
         throw new Error("Initial error");
       }
       return <div data-testid="recovered-child">Recovered</div>;
     }
 
-    render(
+    const { rerender } = render(
       <ErrorBoundary>
         <ToggleChild />
       </ErrorBoundary>,
     );
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // Stop throwing before retry
+    shouldThrow = false;
     await user.click(screen.getByRole("button", { name: /try again/i }));
-    expect(screen.getByTestId("recovered-child")).toBeInTheDocument();
+
+    // Wait for the child component to re-render after error boundary resets
+    await waitFor(() => expect(screen.getByTestId("recovered-child")).toBeInTheDocument());
   });
 });
 

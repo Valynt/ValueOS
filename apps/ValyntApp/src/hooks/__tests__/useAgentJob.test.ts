@@ -187,6 +187,11 @@ describe("useAgentJob — multi-tenant cache isolation", () => {
     // First fetch: processing
     await waitFor(() => expect(result.current.data?.status).toBe("processing"));
 
+    // Wait for polling interval (2000ms) plus buffer
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 2100));
+    });
+
     // Second fetch: completed — polling should stop
     await waitFor(() => expect(result.current.data?.status).toBe("completed"));
 
@@ -194,7 +199,7 @@ describe("useAgentJob — multi-tenant cache isolation", () => {
     const callCountAfterTerminal = mockGet.mock.calls.length;
     // Give React Query one tick to potentially schedule another refetch
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
     });
     expect(mockGet.mock.calls.length).toBe(callCountAfterTerminal);
   });

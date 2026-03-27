@@ -15,6 +15,7 @@ vi.mock('../../lib/supabase.js', () => ({
   createRequestSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
+  getRequestSupabaseClient: vi.fn(),
 }));
 
 // Prevent real Redis connection attempts in isTokenRevoked
@@ -33,7 +34,7 @@ vi.mock('../../services/AuditLogService.js', () => ({
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
 const { authService } = await import('../../services/auth/AuthService.js');
-const { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } =
+const { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient, getRequestSupabaseClient } =
   await import('../../lib/supabase.js');
 
 function mockRes() {
@@ -144,26 +145,18 @@ describe('auth middleware', () => {
 
 describe('permission middleware', () => {
   it('returns 403 when permission checks fail', async () => {
-    const supabase = {
-      from: vi.fn((table: string) => {
-        const result = { data: [], error: null };
-        const eqTotal = table === 'user_roles' ? 2 : 3;
-        let eqCount = 0;
-        const chain: any = {
-          select: vi.fn(() => chain),
-          eq: vi.fn(() => {
-            eqCount += 1;
-            if (eqCount >= eqTotal) {
-              return Promise.resolve(result);
-            }
-            return chain;
-          }),
-        };
-        return chain;
-      }),
+    // Mock supabase client that returns empty results (no permissions granted)
+    const mockChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { status: 'active' }, error: null }),
     };
 
-    (createRequestRlsSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(
+    const supabase = {
+      from: vi.fn().mockReturnValue(mockChain),
+    };
+
+    (getRequestSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(
       supabase
     );
 

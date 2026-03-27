@@ -20,7 +20,11 @@ type FetchEventSourceCallbacks = {
   onerror?: (err: unknown) => void;
 };
 
-const capture = { callbacks: {} as FetchEventSourceCallbacks };
+const capture = { callbacks: {} as FetchEventSourceCallbacks, streamCallbacks: {} as {
+  onProgress?: (event: { agentId?: string; subTask?: string }) => void;
+  onMessage?: (message: { content: string; timestamp: string }) => void;
+  onError?: (error: Error) => void;
+} };
 
 vi.mock("@microsoft/fetch-event-source", () => ({
   fetchEventSource: vi.fn(
@@ -44,12 +48,40 @@ vi.mock("@/api/client/unified-api-client", () => ({
   },
 }));
 
+vi.mock("@/hooks/useAgentStream", () => ({
+  useAgentStream: vi.fn((options) => {
+    capture.streamCallbacks = {
+      onProgress: options.onProgress,
+      onMessage: options.onMessage,
+      onError: options.onError,
+    };
+    return {
+      openStream: vi.fn(),
+      closeStream: vi.fn(),
+    };
+  }),
+}));
+
 function emitEvent(data: Record<string, unknown>) {
-  capture.callbacks.onmessage?.({ data: JSON.stringify(data) });
+  const status = data.status as string;
+  if (status === "processing" && capture.streamCallbacks.onProgress) {
+    capture.streamCallbacks.onProgress({
+      agentId: data.agentId as string,
+      subTask: data.subTask as string,
+    });
+  } else if (status === "completed" && capture.streamCallbacks.onMessage) {
+    capture.streamCallbacks.onMessage({
+      content: (data.result as string) || "Done.",
+      timestamp: new Date().toISOString(),
+    });
+  } else if (status === "error" && capture.streamCallbacks.onError) {
+    capture.streamCallbacks.onError(new Error((data.error as string) || "Agent crashed"));
+  }
 }
 
 beforeEach(() => {
   capture.callbacks = {};
+  capture.streamCallbacks = {};
 });
 
 // ---------------------------------------------------------------------------

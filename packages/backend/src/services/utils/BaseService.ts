@@ -9,36 +9,40 @@
 
 import { createLogger } from "@shared/lib/logger";
 
-import { supabase } from "../lib/supabase.js"
+import { createServiceRoleSupabaseClient } from "../lib/supabase.js"
 
 import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
 
-// Null-safe supabase proxy that throws clear errors when client is unavailable
-const createSupabaseProxy = () => {
-  if (supabase) return supabase;
-  
-  // Return a proxy that throws on any property access
-  const handler: ProxyHandler<object> = {
-    get(_target, prop) {
-      if (prop === 'auth') {
-        return new Proxy({}, {
-          get(_t, authProp) {
-            return () => Promise.reject(
-              new ServiceError(
-                `Supabase not configured. Cannot call auth.${String(authProp)}()`,
-                ErrorCode.SERVICE_UNAVAILABLE
-              )
-            );
-          }
-        });
+// Lazy-initialized service role Supabase client for backend service operations
+const getServiceSupabaseClient = () => {
+  try {
+    return createServiceRoleSupabaseClient({
+      justification: "service-role:justified BaseService operations for backend data access"
+    });
+  } catch (error) {
+    // Return a proxy that throws clear errors when client is unavailable
+    const handler: ProxyHandler<object> = {
+      get(_target, prop) {
+        if (prop === 'auth') {
+          return new Proxy({}, {
+            get(_t, authProp) {
+              return () => Promise.reject(
+                new ServiceError(
+                  `Supabase not configured. Cannot call auth.${String(authProp)}()`,
+                  ErrorCode.SERVICE_UNAVAILABLE
+                )
+              );
+            }
+          });
+        }
+        throw new ServiceError(
+          `Supabase client not configured. Feature unavailable.`,
+          ErrorCode.SERVICE_UNAVAILABLE
+        );
       }
-      throw new ServiceError(
-        `Supabase client not configured. Feature unavailable.`,
-        ErrorCode.SERVICE_UNAVAILABLE
-      );
-    }
-  };
-  return new Proxy({}, handler) as typeof supabase;
+    };
+    return new Proxy({}, handler) as ReturnType<typeof createServiceRoleSupabaseClient>;
+  }
 };
 
 export interface RetryConfig {

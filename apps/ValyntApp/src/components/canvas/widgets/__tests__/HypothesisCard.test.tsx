@@ -8,6 +8,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { HypothesisCard } from "../HypothesisCard";
 
+// Mock useToast hook
+vi.mock("@/components/common/Toast", () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
 describe("HypothesisCard", () => {
   const mockHypothesis = {
     id: "hyp-1",
