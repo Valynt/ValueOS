@@ -44,7 +44,16 @@ vi.mock("../../middleware/tenantContext.js", () => ({
     },
 }));
 
+// Default RPC resolve result — node found in vg_capabilities
+const mockRpcResolve = vi.fn().mockReturnValue({
+  maybeSingle: vi.fn().mockResolvedValue({
+    data: { id: "cap-1", node_type: "capability", source_table: "vg_capabilities" },
+    error: null,
+  }),
+});
+
 const mockSupabaseChain = {
+  rpc: vi.fn().mockReturnValue({ maybeSingle: mockRpcResolve().maybeSingle }),
   from: vi.fn().mockReturnValue({
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnThis(),
@@ -54,9 +63,6 @@ const mockSupabaseChain = {
     }),
     delete: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({ data: { id: "cap-1" }, error: null }),
-      }),
     }),
   }),
 };
@@ -170,6 +176,12 @@ describe("Value Graph API", () => {
       },
     );
     // Restore default Supabase chain (cleared by vi.clearAllMocks)
+    mockSupabaseChain.rpc.mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: "cap-1", node_type: "capability", source_table: "vg_capabilities" },
+        error: null,
+      }),
+    });
     mockSupabaseChain.from.mockReturnValue({
       update: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnThis(),
@@ -179,9 +191,6 @@ describe("Value Graph API", () => {
       }),
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "cap-1" }, error: null }),
-        }),
       }),
     });
   });
@@ -318,19 +327,9 @@ describe("Value Graph API", () => {
     });
 
     it("returns 404 when node does not exist in any table", async () => {
-      mockSupabaseChain.from.mockReturnValue({
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnThis(),
-          select: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }),
+      // RPC returns null — node not found in any of the three tables
+      mockSupabaseChain.rpc.mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       });
 
       const res = await request(app)
@@ -339,6 +338,40 @@ describe("Value Graph API", () => {
 
       expect(res.status).toBe(404);
       expect(res.body.error).toContain("not found");
+    });
+
+    it("makes exactly 2 DB calls: one RPC resolve + one targeted update", async () => {
+      await request(app)
+        .patch(`/api/v1/graph/${OPP_ID}/nodes/cap-1`)
+        .send({ name: "Updated Capability" });
+
+      // rpc() called once for resolve
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledOnce();
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledWith("resolve_value_graph_node", {
+        p_node_id: "cap-1",
+        p_opportunity_id: OPP_ID,
+        p_organization_id: "tenant-abc",
+      });
+      // from() called once for the targeted update
+      expect(mockSupabaseChain.from).toHaveBeenCalledOnce();
+      expect(mockSupabaseChain.from).toHaveBeenCalledWith("vg_capabilities");
+    });
+
+    it("returns 500 when RPC returns an unexpected source_table value", async () => {
+      mockSupabaseChain.rpc.mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: "cap-1", node_type: "unknown_type", source_table: "vg_unknown_table" },
+          error: null,
+        }),
+      });
+
+      const res = await request(app)
+        .patch(`/api/v1/graph/${OPP_ID}/nodes/cap-1`)
+        .send({ name: "Updated" });
+
+      expect(res.status).toBe(500);
+      // from() must NOT be called — the invalid table must be rejected before dispatch
+      expect(mockSupabaseChain.from).not.toHaveBeenCalled();
     });
 
     it("returns 400 for empty body", async () => {
@@ -373,6 +406,47 @@ describe("Value Graph API", () => {
           resourceId: "cap-1",
         }),
       );
+    });
+
+    it("makes exactly 2 DB calls: one RPC resolve + one targeted delete", async () => {
+      await request(app).delete(`/api/v1/graph/${OPP_ID}/nodes/cap-1`);
+
+      // rpc() called once for resolve
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledOnce();
+      expect(mockSupabaseChain.rpc).toHaveBeenCalledWith("resolve_value_graph_node", {
+        p_node_id: "cap-1",
+        p_opportunity_id: OPP_ID,
+        p_organization_id: "tenant-abc",
+      });
+      // from() called once for the targeted delete
+      expect(mockSupabaseChain.from).toHaveBeenCalledOnce();
+      expect(mockSupabaseChain.from).toHaveBeenCalledWith("vg_capabilities");
+    });
+
+    it("returns 404 when node does not exist in any table", async () => {
+      mockSupabaseChain.rpc.mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      });
+
+      const res = await request(app).delete(`/api/v1/graph/${OPP_ID}/nodes/nonexistent`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toContain("not found");
+    });
+
+    it("returns 500 when RPC returns an unexpected source_table value", async () => {
+      mockSupabaseChain.rpc.mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: "cap-1", node_type: "unknown_type", source_table: "vg_unknown_table" },
+          error: null,
+        }),
+      });
+
+      const res = await request(app).delete(`/api/v1/graph/${OPP_ID}/nodes/cap-1`);
+
+      expect(res.status).toBe(500);
+      // from() must NOT be called — the invalid table must be rejected before dispatch
+      expect(mockSupabaseChain.from).not.toHaveBeenCalled();
     });
   });
 

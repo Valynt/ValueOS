@@ -293,6 +293,15 @@ class UsageMeteringService {
 
     logger.info(`Found ${aggregates.length} pending aggregates`);
 
+    // Sequential submission is intentional and correct — not an N+1 bug.
+    //
+    // Stripe's usage record API (POST /v1/subscription_items/:id/usage_records)
+    // is per-subscription-item and has no batch endpoint. Each aggregate maps to
+    // a distinct subscription item, so they cannot be combined into a single call.
+    //
+    // The semaphore (acquireStripeSubmissionSlot / releaseStripeSubmissionSlot)
+    // enforces a cross-pod concurrency cap to prevent Stripe rate-limit errors.
+    // Parallelising within a single worker would bypass that cap and risk 429s.
     let submitted = 0;
     for (const aggregate of aggregates) {
       const slotAcquired = await acquireStripeSubmissionSlot();
