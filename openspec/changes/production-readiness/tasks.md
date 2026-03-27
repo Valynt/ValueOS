@@ -14,8 +14,12 @@
 
 ### 2. MFA Enforcement
 
-- [ ] 2.1 Add startup assertion: `MFA_ENABLED !== "true"` in production → fail fast
+- [x] 2.1 Make MFA env-driven (`MFA_ENABLED`) and wire production fail-fast behavior in backend startup
 - [ ] 2.2 Document in `.env.example` and go-live checklist
+- [ ] 2.3 Prove MFA is enforced in production via CI/runtime evidence (do not re-implement config logic):
+  - capture CI config-check output showing production config resolves with `MFA_ENABLED=true`
+  - capture `/health` (or equivalent health endpoint) evidence showing MFA enforcement status in production mode
+  - attach a sign-off artifact linking both evidence items for release approval
 
 ### 3. Security Documentation
 
