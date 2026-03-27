@@ -1350,4 +1350,6 @@ jobs:
             src/services/billing/__tests__/security/rls-policies.test.ts \
             src/services/billing/__tests__/resiliency/advisory-lock-idempotency.test.ts \
             src/services/billing/__tests__/integration/subscription-lifecycle.test.ts \
-            src/services/billing/__tests__/integration/quota-enforcement.test.ts
+            src/services/billing/__tests__/integration/quota-enforcement.test.ts \
+            src/services/billing/__tests__/integration/metering-pipeline.test.ts \
+            src/services/billing/__tests__/integration/webhook-events.test.ts

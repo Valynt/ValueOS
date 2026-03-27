@@ -40,6 +40,23 @@ ValueOS completed a production readiness audit that identified critical controls
    - OpenTelemetry bootstrap and auto-instrumentation.
    - CRM token encryption with AES-256-GCM envelope model.
    - SSRF/HMAC timing-safe verification in CRM provider integrations.
+6. **Validated control crosswalk captured in this ADR (no separate ADR required)**:
+   - AUTH-02 tenant resolution chain rationale (TCT JWT → service header → user claim → DB lookup + conflict rejection).
+   - AUTH-03 transaction-scoped RLS via `SET LOCAL app.tenant_id`.
+   - BILLING-04 webhook idempotency through DB `UNIQUE` constraints.
+   - BILLING-05 plan-change intent log / saga path.
+   - BILLING-08 Redis-backed rate limiting with fail-open.
+   - BILLING-09 Prometheus billing metrics inventory.
+   - RESIL-03 per-agent Redis kill switches.
+   - RESIL-04 E2B sandboxing with code blocklist.
+   - WORKERS-03 BullMQ webhook retry and deterministic job IDs.
+   - WORKERS-04 workers deployed as separate Kubernetes Deployment.
+   - OBS-01 OpenTelemetry auto-instrumentation config.
+   - CRYPTO-01 AES-256-GCM envelope encryption + key versioning.
+   - CRYPTO-02 SSRF controls + timing-safe HMAC verification.
+   - CICD-05 emergency skip requires incident evidence.
+   - CICD-06 PR gate inventory with 30+ checks.
+   - CICD-07 staging performance gates + Cosign verification.
 
 ## Consequences
 
