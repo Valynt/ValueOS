@@ -19,6 +19,12 @@ const scenarioUpsertSchema = z.object({
       unit: z.string().optional(),
     })
   ).min(1),
+  /** Investment cost in USD. Required unless an 'implementation_cost' assumption is present. */
+  estimatedCostUsd: z.number().positive().optional(),
+  /** Benefit realization horizon in years (integer 1–30). Defaults to 3. */
+  timelineYears: z.number().int().min(1).max(30).optional(),
+  /** Discount rate as decimal (e.g. 0.10). Defaults to 0.10. */
+  discountRate: z.number().min(0).max(1).optional(),
 });
 
 function getTenantId(req: Request): string {
@@ -35,7 +41,7 @@ router.get("/:modelId/scenarios", requirePermission("content.read"), async (req:
   try {
     const tenantId = getTenantId(req);
     const service = new ValueModelScenariosService(ValueModelScenariosRepository.fromRequest(req));
-    const scenarios = await service.list({ tenantId, modelId: req.params.modelId });
+    const scenarios = await service.list({ organizationId: tenantId, modelId: req.params.modelId });
     return res.json({ scenarios });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to fetch scenarios" });
@@ -52,7 +58,7 @@ router.post("/:modelId/scenarios", requirePermission("content.write"), async (re
 
     const service = new ValueModelScenariosService(ValueModelScenariosRepository.fromRequest(req));
     const scenario = await service.create({
-      tenantId,
+      organizationId: tenantId,
       modelId: req.params.modelId,
       ...parsed.data,
     });
