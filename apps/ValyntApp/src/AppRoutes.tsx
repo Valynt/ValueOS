@@ -12,6 +12,7 @@ import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { NotificationProvider } from "./components/shell/NotificationCenter";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -157,117 +158,119 @@ export function AppRoutes() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <TenantProvider>
-            <CompanyContextProvider>
-              <DrawerProvider>
-                <I18nProvider>
-                  <ToastProvider>
-                    <SDUIStateProvider _supabase={supabase}>
-                      <SDUIHumanCheckpointProvider>
-                        <CommandPaletteProvider>
-                          <Suspense fallback={<LoadingSpinner />}>
-                            <Routes>
-                              {/* Public Auth Routes */}
-                              {publicRoutePaths.map((path) => (
-                                <Route
-                                  key={path}
-                                  path={path}
-                                  element={resolvePublicElement(path)}
-                                />
-                              ))}
-
-                              {import.meta.env.DEV && (
-                                <>
-                                  <Route path="/__playwright__/main-layout" element={<MainLayout />}>
-                                    <Route index element={<MainLayoutSkipLinkHarness />} />
-                                  </Route>
+          <NotificationProvider>
+            <TenantProvider>
+              <CompanyContextProvider>
+                <DrawerProvider>
+                  <I18nProvider>
+                    <ToastProvider>
+                      <SDUIStateProvider _supabase={supabase}>
+                        <SDUIHumanCheckpointProvider>
+                          <CommandPaletteProvider>
+                            <Suspense fallback={<LoadingSpinner />}>
+                              <Routes>
+                                {/* Public Auth Routes */}
+                                {publicRoutePaths.map((path) => (
                                   <Route
-                                    path="/__playwright__/branding-preview"
-                                    element={<TenantBrandingHarness />}
+                                    key={path}
+                                    path={path}
+                                    element={resolvePublicElement(path)}
                                   />
-                                </>
-                              )}
+                                ))}
 
-                              {/* Root redirect */}
-                              <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
-                              <Route path="/home" element={<TenantAwareRedirect leafPath="dashboard" />} />
-
-                              {/* Protected routes */}
-                              <Route element={<ProtectedRoute />}>
-                                {/* Org creation — shown when user has no tenants */}
-                                <Route path="/create-org" element={<CreateOrganization />} />
-
-                                {/* Tenant gate: redirects to /create-org if no tenants */}
-                                <Route element={<TenantGate />}>
-                                  {/* Onboarding — own layout, no gate */}
-                                  <Route path="/onboarding" element={<CompanyOnboarding />} />
-
-                                  {/* Main app — gated by onboarding completion */}
-                                  <Route path="/org/:tenantSlug" element={<OnboardingGate />}>
-                                    <Route element={<MainLayout />}>
-                                      <Route path="dashboard" element={<Dashboard />} />
-                                      <Route path="opportunities" element={<Opportunities />} />
-                                      <Route path="opportunities/:id" element={<OpportunityDetail />} />
-                                      <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
-                                      <Route path="models" element={<Models />} />
-                                      <Route path="models/:id" element={<ModelDetail />} />
-                                      <Route path="agents" element={<Agents />} />
-                                      <Route path="agents/:id" element={<AgentDetail />} />
-                                      <Route path="admin/agents" element={<AgentAdminPage />} />
-                                      <Route path="integrations" element={<Integrations />} />
-                                      <Route path="settings" element={<SettingsPage />} />
-                                      <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
-                                      <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
-                                      <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
-                                      <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
-                                      <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
-                                      <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
-                                      <Route path="billing" element={<BillingPortal />} />
-                                      <Route path="company" element={<CompanyKnowledge />} />
-                                      <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
-                                      <Route path="academy/*" element={<AcademyV2Routes />} />
+                                {import.meta.env.DEV && (
+                                  <>
+                                    <Route path="/__playwright__/main-layout" element={<MainLayout />}>
+                                      <Route index element={<MainLayoutSkipLinkHarness />} />
                                     </Route>
+                                    <Route
+                                      path="/__playwright__/branding-preview"
+                                      element={<TenantBrandingHarness />}
+                                    />
+                                  </>
+                                )}
+
+                                {/* Root redirect */}
+                                <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                                <Route path="/home" element={<TenantAwareRedirect leafPath="dashboard" />} />
+
+                                {/* Protected routes */}
+                                <Route element={<ProtectedRoute />}>
+                                  {/* Org creation — shown when user has no tenants */}
+                                  <Route path="/create-org" element={<CreateOrganization />} />
+
+                                  {/* Tenant gate: redirects to /create-org if no tenants */}
+                                  <Route element={<TenantGate />}>
+                                    {/* Onboarding — own layout, no gate */}
+                                    <Route path="/onboarding" element={<CompanyOnboarding />} />
+
+                                    {/* Main app — gated by onboarding completion */}
+                                    <Route path="/org/:tenantSlug" element={<OnboardingGate />}>
+                                      <Route element={<MainLayout />}>
+                                        <Route path="dashboard" element={<Dashboard />} />
+                                        <Route path="opportunities" element={<Opportunities />} />
+                                        <Route path="opportunities/:id" element={<OpportunityDetail />} />
+                                        <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                        <Route path="models" element={<Models />} />
+                                        <Route path="models/:id" element={<ModelDetail />} />
+                                        <Route path="agents" element={<Agents />} />
+                                        <Route path="agents/:id" element={<AgentDetail />} />
+                                        <Route path="admin/agents" element={<AgentAdminPage />} />
+                                        <Route path="integrations" element={<Integrations />} />
+                                        <Route path="settings" element={<SettingsPage />} />
+                                        <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
+                                        <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
+                                        <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
+                                        <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
+                                        <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
+                                        <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
+                                        <Route path="billing" element={<BillingPortal />} />
+                                        <Route path="company" element={<CompanyKnowledge />} />
+                                        <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
+                                        <Route path="academy/*" element={<AcademyV2Routes />} />
+                                      </Route>
+                                    </Route>
+
+                                    {/* Legacy non-tenant routes bridge to canonical tenant URL */}
+                                    <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/models" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/agents" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/agents/:id" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/settings" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId/assembly" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId/model" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId/integrity" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId/outputs" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/workspace/:caseId/realization" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/billing" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/company" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/living-value-graph/*" element={<LegacyTenantRouteBridge />} />
                                   </Route>
-
-                                  {/* Legacy non-tenant routes bridge to canonical tenant URL */}
-                                  <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/models" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/agents" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/agents/:id" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/settings" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId/assembly" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId/model" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId/integrity" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId/outputs" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/workspace/:caseId/realization" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/billing" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/company" element={<LegacyTenantRouteBridge />} />
-                                  <Route path="/living-value-graph/*" element={<LegacyTenantRouteBridge />} />
                                 </Route>
-                              </Route>
 
-                              {/* Catch-all */}
-                              <Route path="*" element={<TenantAwareRedirect leafPath="dashboard" />} />
-                            </Routes>
-                          </Suspense>
-                        </CommandPaletteProvider>
-                      </SDUIHumanCheckpointProvider>
-                    </SDUIStateProvider>
-                    <Suspense fallback={null}>
-                      <BetaFeedbackWidget />
-                      <EnvironmentBanner />
-                    </Suspense>
-                  </ToastProvider>
-                </I18nProvider>
-              </DrawerProvider>
-            </CompanyContextProvider>
-          </TenantProvider>
+                                {/* Catch-all */}
+                                <Route path="*" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                              </Routes>
+                            </Suspense>
+                          </CommandPaletteProvider>
+                        </SDUIHumanCheckpointProvider>
+                      </SDUIStateProvider>
+                      <Suspense fallback={null}>
+                        <BetaFeedbackWidget />
+                        <EnvironmentBanner />
+                      </Suspense>
+                    </ToastProvider>
+                  </I18nProvider>
+                </DrawerProvider>
+              </CompanyContextProvider>
+            </TenantProvider>
+          </NotificationProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>

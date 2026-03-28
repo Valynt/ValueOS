@@ -20,7 +20,7 @@ import { getEnvVar } from "@shared/lib/env";
 
 import { assertModelAllowed } from '../config/models.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js'
-import { llmCacheHitsTotal, llmProviderActive, llmProviderFallbackActivationsTotal } from '../metrics/llmMetrics.js';
+import { llmCacheHitsTotal, llmProviderActive, llmProviderFallbackActivationsTotal } from '../../metrics/llmMetrics.js';
 import { logger } from "../utils/logger.js"
 
 import { costGovernance } from "./CostGovernanceService.js"

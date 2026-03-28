@@ -190,6 +190,9 @@ export const partitionMaintenanceLastSuccessTimestamp = new Gauge({
 export const partitionMaintenanceFailuresTotal = new Counter({
   name: 'partition_maintenance_failures_total',
   help: 'Total failed partition maintenance executions',
+  registers: [registry],
+});
+
 /**
  * Incremented each time a subscription creation split-brain is detected:
  * Stripe subscription exists but DB insert failed AND rollback also failed.
