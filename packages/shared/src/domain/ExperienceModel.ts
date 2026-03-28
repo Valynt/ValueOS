@@ -117,6 +117,42 @@ export const UIStateMappingSchema = z.object({
 });
 export type UIStateMapping = z.infer<typeof UIStateMappingSchema>;
 
+/**
+ * Approval / lock axis orthogonal to lifecycle stage.
+ */
+export const ValueCaseStatusSchema = z.enum([
+  "IN_PROGRESS",
+  "BOARD_READY_LOCKED",
+  "UNLOCKED_FOR_REVISION",
+]);
+export type ValueCaseStatus = z.infer<typeof ValueCaseStatusSchema>;
+
+/**
+ * Workspace regions used to place collaborative surfaces.
+ */
+export const WorkspaceRegionSchema = z.enum([
+  "header",
+  "left_rail",
+  "center_canvas",
+  "right_panel",
+  "footer",
+]);
+export type WorkspaceRegion = z.infer<typeof WorkspaceRegionSchema>;
+
+/**
+ * Primary UX mode for a lifecycle phase.
+ */
+export const ExperienceModeSchema = z.enum([
+  "discovery_shell",
+  "value_tree_canvas",
+  "integrity_layer",
+  "executive_output_studio",
+  "cfo_collaboration_mode",
+  "board_ready_lock",
+  "realization_workspace",
+]);
+export type ExperienceMode = z.infer<typeof ExperienceModeSchema>;
+
 // ============================================================================
 // 2. Agent Output → User Artifact
 // ============================================================================
@@ -137,6 +173,15 @@ export const ArtifactSlotSchema = z.object({
 
   /** SDUI component name from the registry. */
   component: z.string().min(1).max(100),
+
+  /** Where this artifact belongs in the collaborative workspace layout. */
+  region: WorkspaceRegionSchema.default("center_canvas"),
+
+  /** Optional panel title for the workspace region. */
+  panel_title: z.string().min(1).max(100).optional(),
+
+  /** Empty-state label shown before the artifact is available. */
+  empty_state_label: z.string().min(1).max(200).optional(),
 
   /** Domain object type that feeds this component's props. */
   data_source: z.enum([
@@ -258,11 +303,20 @@ export const JourneyPhaseSchema = z.object({
   /** User-facing phase description. */
   description: z.string().min(1).max(500),
 
+  /** Primary UX mode for the phase. */
+  experience_mode: ExperienceModeSchema,
+
+  /** Primary workspace title shown in the shell header. */
+  workspace_title: z.string().min(1).max(120),
+
   /**
    * What the VE is trying to accomplish in this phase.
    * Displayed as guidance text in the UI.
    */
   user_goal: z.string().min(1).max(500),
+
+  /** Whether this phase allows a board-ready lock transition. */
+  supports_board_ready_lock: z.boolean().default(false),
 
   /** SDUI component sections rendered in the artifact panel during this phase. */
   artifact_slots: z.array(ArtifactSlotSchema),

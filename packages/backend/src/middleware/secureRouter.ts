@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import type { Router } from 'express';
+import { Router as ExpressRouter } from 'express';
 
 import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
 import { requestAuditMiddleware } from './requestAuditMiddleware.js'
@@ -16,8 +17,8 @@ import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
  */
 export function createSecureRouter(
   tier: RateLimitTierValue = RateLimitTier.STANDARD
-): ReturnType<typeof Router> {
-  const router = Router();
+): Router {
+  const router = ExpressRouter();
   router.use(requestAuditMiddleware());
   router.use(cspNonceMiddleware);
   router.use(securityHeadersMiddleware);

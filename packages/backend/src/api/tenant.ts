@@ -88,15 +88,19 @@ export async function fetchUserTenants(userId: string): Promise<TenantApiRespons
       return { data: [], error: null };
     }
 
-    const tenants: TenantInfo[] = data.map((row: Record<string, unknown>) => ({
-      id: row.tenant_id,
-      name: row.tenants?.name || "Unknown Tenant",
-      slug: row.tenants?.slug || row.tenant_id,
-      color: row.tenants?.settings?.brandColor || "#18C3A5",
-      role: row.role || "member",
-      status: row.status,
-      createdAt: row.tenants?.created_at || new Date().toISOString(),
-    }));
+    const tenants: TenantInfo[] = data.map((row: Record<string, unknown>) => {
+      const tenantsData = row.tenants as Record<string, unknown> | undefined;
+      const settingsData = tenantsData?.settings as Record<string, unknown> | undefined;
+      return {
+        id: String(row.tenant_id),
+        name: String(tenantsData?.name || "Unknown Tenant"),
+        slug: String(tenantsData?.slug || row.tenant_id),
+        color: String(settingsData?.brandColor || "#18C3A5"),
+        role: String(row.role || "member"),
+        status: (row.status as TenantInfo["status"]) || "active",
+        createdAt: String(tenantsData?.created_at || new Date().toISOString()),
+      };
+    });
 
     logger.debug("Fetched user tenants", { userId, count: tenants.length });
     return { data: tenants, error: null };

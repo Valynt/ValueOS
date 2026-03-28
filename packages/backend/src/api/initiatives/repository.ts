@@ -207,6 +207,8 @@ export class InitiativesRepository {
       } catch (error) {
         rethrowKnownErrors(error, "Failed to create initiative");
       }
+      // Should never reach here - rethrowKnownErrors always throws
+      throw new Error("Unexpected flow: rethrowKnownErrors did not throw");
     });
   }
 
@@ -232,6 +234,8 @@ export class InitiativesRepository {
     } catch (error) {
       rethrowKnownErrors(error, "Failed to fetch initiative");
     }
+    // Should never reach here - rethrowKnownErrors always throws
+    throw new Error("Unexpected flow: rethrowKnownErrors did not throw");
   }
 
   async list(
@@ -300,6 +304,8 @@ export class InitiativesRepository {
     } catch (error) {
       rethrowKnownErrors(error, "Failed to list initiatives");
     }
+    // Should never reach here - rethrowKnownErrors always throws
+    throw new Error("Unexpected flow: rethrowKnownErrors did not throw");
   }
 
   async update(
@@ -352,6 +358,8 @@ export class InitiativesRepository {
       } catch (error) {
         rethrowKnownErrors(error, "Failed to update initiative");
       }
+      // Should never reach here - rethrowKnownErrors always throws
+      throw new Error("Unexpected flow: rethrowKnownErrors did not throw");
     });
   }
 

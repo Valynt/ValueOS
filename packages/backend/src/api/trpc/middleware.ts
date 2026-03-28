@@ -37,20 +37,20 @@ export function createAppTrpcContext({
           userMetadata: req.user.user_metadata
             ? {
                 fullName:
-                  typeof req.user.user_metadata.full_name === "string"
-                    ? req.user.user_metadata.full_name
+                  typeof (req.user.user_metadata as Record<string, unknown>).full_name === "string"
+                    ? (req.user.user_metadata as Record<string, unknown>).full_name as string
                     : undefined,
                 name:
-                  typeof req.user.user_metadata.name === "string"
-                    ? req.user.user_metadata.name
+                  typeof (req.user.user_metadata as Record<string, unknown>).name === "string"
+                    ? (req.user.user_metadata as Record<string, unknown>).name as string
                     : undefined,
                 avatarUrl:
-                  typeof req.user.user_metadata.avatar_url === "string"
-                    ? req.user.user_metadata.avatar_url
+                  typeof (req.user.user_metadata as Record<string, unknown>).avatar_url === "string"
+                    ? (req.user.user_metadata as Record<string, unknown>).avatar_url as string
                     : undefined,
                 role:
-                  typeof req.user.user_metadata.role === "string"
-                    ? req.user.user_metadata.role
+                  typeof (req.user.user_metadata as Record<string, unknown>).role === "string"
+                    ? (req.user.user_metadata as Record<string, unknown>).role as string
                     : undefined,
               }
             : undefined,

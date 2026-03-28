@@ -25,3 +25,14 @@ export {
   type ExitConditionResult,
   JourneyOrchestrator,
 } from "./JourneyOrchestrator.js";
+
+// Transformers
+export { HypothesisAgentTransformer } from "./transformers/HypothesisAgentTransformer.js";
+
+// Exit Condition Evaluation
+export {
+  ExitConditionEvaluator,
+  SupabaseExitConditionRepository,
+  type ExitConditionRepositoryContext,
+  type ExitConditionEvaluation,
+} from "./ExitConditionEvaluator.js";

@@ -1,4 +1,4 @@
-import { Request, Response, Router } from "express";
+import { type Request, type Response, type Router, Router as ExpressRouter } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ import {
   type ProjectRecord,
   projectRepository,
   projectStatuses,
+  type ProjectStatus,
 } from "../repositories/ProjectRepository";
 import {
   getTenantIdFromRequest,
@@ -21,7 +22,7 @@ import {
 } from "../services/cache/ReadThroughCacheService";
 import { auditLogService } from "../services/security/index";
 
-const router = Router();
+const router: Router = ExpressRouter();
 
 const projectCreateSchema = z.object({
   name: z.string().min(2).max(120),
@@ -145,7 +146,7 @@ router.post(
     requireBearerToken(req);
     requireWriteRole(req, ["admin", "editor"]);
 
-    const payload = projectCreateSchema.parse(req.body);
+    const payload = projectCreateSchema.parse(req.body) as { name: string; description?: string | undefined; status: string; promptVariables?: Record<string, unknown> | undefined; tags?: string[] | undefined; };
     const normalizedName = payload.name.toLowerCase();
 
     const tenantId = getTenantId(req);
@@ -163,7 +164,7 @@ router.post(
       organizationId: tenantId,
       name: payload.name,
       description: payload.description,
-      promptVariables: payload.promptVariables,
+      status: payload.status as ProjectStatus,
       tags: payload.tags ?? [],
       ownerId: deriveOwnerId(req),
     });
@@ -259,7 +260,7 @@ router.patch(
       throw new NotFoundError("Project", req.params.projectId);
     }
 
-    const payload = projectUpdateSchema.parse(req.body);
+    const payload = projectUpdateSchema.parse(req.body) as { name?: string | undefined; description?: string | undefined; status?: string | undefined; promptVariables?: Record<string, unknown> | undefined; tags?: string[] | undefined; };
     if (
       payload.name &&
       payload.name.toLowerCase() !== existing.name.toLowerCase()
@@ -277,9 +278,10 @@ router.patch(
       tenantId,
       req.params.projectId,
       {
-        ...payload,
-        tags: payload.tags ?? existing.tags,
-        description: payload.description ?? existing.description ?? undefined,
+        name: payload.name,
+        description: payload.description,
+        status: payload.status as ProjectStatus | undefined,
+        tags: payload.tags,
       }
     );
 

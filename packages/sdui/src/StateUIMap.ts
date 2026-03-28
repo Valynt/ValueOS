@@ -37,95 +37,169 @@ export const DEFAULT_TRUST_THRESHOLDS: TrustThresholds = {
 // Artifact Slot Presets
 // ============================================================================
 
-const SLOT_VALUE_TREE: ArtifactSlot = {
+function createArtifactSlot(
+  slot: Omit<ArtifactSlot, "region"> & Partial<Pick<ArtifactSlot, "region" | "panel_title" | "empty_state_label">>
+): ArtifactSlot {
+  return {
+    region: "center_canvas",
+    ...slot,
+  };
+}
+
+const PHASE_METADATA: Record<JourneyPhase["lifecycle_stage"], Pick<JourneyPhase, "experience_mode" | "workspace_title" | "supports_board_ready_lock">> = {
+  discovery: {
+    experience_mode: "discovery_shell",
+    workspace_title: "Discovery Shell",
+    supports_board_ready_lock: false,
+  },
+  drafting: {
+    experience_mode: "value_tree_canvas",
+    workspace_title: "Value Tree Canvas",
+    supports_board_ready_lock: false,
+  },
+  validating: {
+    experience_mode: "integrity_layer",
+    workspace_title: "Integrity Layer",
+    supports_board_ready_lock: false,
+  },
+  composing: {
+    experience_mode: "executive_output_studio",
+    workspace_title: "Executive Output Studio",
+    supports_board_ready_lock: false,
+  },
+  refining: {
+    experience_mode: "cfo_collaboration_mode",
+    workspace_title: "CFO Collaboration Mode",
+    supports_board_ready_lock: true,
+  },
+  realized: {
+    experience_mode: "realization_workspace",
+    workspace_title: "Value Realization Workspace",
+    supports_board_ready_lock: false,
+  },
+  expansion: {
+    experience_mode: "realization_workspace",
+    workspace_title: "Expansion Workspace",
+    supports_board_ready_lock: false,
+  },
+};
+
+function createJourneyPhase(
+  phase: Omit<JourneyPhase, "experience_mode" | "workspace_title" | "supports_board_ready_lock">
+): JourneyPhase {
+  return {
+    ...phase,
+    ...PHASE_METADATA[phase.lifecycle_stage],
+  };
+}
+
+const SLOT_VALUE_TREE = createArtifactSlot({
   id: "value_tree",
   label: "Value Tree",
   component: "ValueTreeCard",
+  region: "center_canvas",
+  panel_title: "Value Workspace",
   data_source: "value_hypothesis",
   refresh_on: ["HYPOTHESIS_CONFIRMED", "MODEL_COMPLETE", "VE_APPROVED"],
   sort_order: 0,
   badge_type: "count",
-};
+});
 
-const SLOT_EVIDENCE_TABLE: ArtifactSlot = {
+const SLOT_EVIDENCE_TABLE = createArtifactSlot({
   id: "evidence_table",
   label: "Evidence",
   component: "DataTable",
+  region: "left_rail",
+  panel_title: "Evidence",
   data_source: "evidence",
   refresh_on: ["INTEGRITY_PASSED", "HYPOTHESIS_CONFIRMED"],
   sort_order: 1,
   badge_type: "count",
-};
+});
 
-const SLOT_CONFIDENCE_DASHBOARD: ArtifactSlot = {
+const SLOT_CONFIDENCE_DASHBOARD = createArtifactSlot({
   id: "confidence_dashboard",
   label: "Confidence",
   component: "ReadinessGauge",
+  region: "right_panel",
+  panel_title: "Trust",
   data_source: "integrity_score",
   refresh_on: ["INTEGRITY_PASSED", "INTEGRITY_VETOED", "REDTEAM_OBJECTION"],
   sort_order: 2,
   badge_type: "alerts",
-};
+});
 
-const SLOT_NARRATIVE_DRAFT: ArtifactSlot = {
+const SLOT_NARRATIVE_DRAFT = createArtifactSlot({
   id: "narrative_draft",
   label: "Narrative",
   component: "NarrativeBlock",
+  region: "center_canvas",
+  panel_title: "Executive Narrative",
   data_source: "narrative",
   refresh_on: ["FEEDBACK_RECEIVED", "VE_APPROVED"],
   sort_order: 3,
   badge_type: "none",
-};
+});
 
-const SLOT_ASSUMPTION_REGISTER: ArtifactSlot = {
+const SLOT_ASSUMPTION_REGISTER = createArtifactSlot({
   id: "assumption_register",
   label: "Assumptions",
   component: "AssumptionRegister",
+  region: "center_canvas",
+  panel_title: "Model Assumptions",
   data_source: "assumption",
   refresh_on: ["HYPOTHESIS_CONFIRMED", "MODEL_COMPLETE", "USER_FEEDBACK"],
   sort_order: 4,
   badge_type: "alerts",
-};
+});
 
-const SLOT_SCENARIO_COMPARISON: ArtifactSlot = {
+const SLOT_SCENARIO_COMPARISON = createArtifactSlot({
   id: "scenario_comparison",
   label: "Scenarios",
   component: "ScenarioComparison",
+  region: "left_rail",
+  panel_title: "Scenarios",
   data_source: "scenario",
   refresh_on: ["MODEL_COMPLETE"],
   sort_order: 5,
   badge_type: "none",
-};
+});
 
-const SLOT_SENSITIVITY_TORNADO: ArtifactSlot = {
+const SLOT_SENSITIVITY_TORNADO = createArtifactSlot({
   id: "sensitivity_tornado",
   label: "Sensitivity",
   component: "SensitivityTornado",
+  region: "right_panel",
+  panel_title: "What-If Analysis",
   data_source: "scenario",
   refresh_on: ["MODEL_COMPLETE"],
   sort_order: 6,
   badge_type: "none",
-};
+});
 
-const SLOT_REALIZATION_DASHBOARD: ArtifactSlot = {
+const SLOT_REALIZATION_DASHBOARD = createArtifactSlot({
   id: "realization_dashboard",
   label: "Realization",
   component: "RealizationDashboard",
+  region: "center_canvas",
+  panel_title: "Value Delivery",
   data_source: "realization_plan",
   refresh_on: ["VE_APPROVED"],
   sort_order: 7,
   badge_type: "confidence",
-};
+});
 
-const SLOT_INTEGRITY_SCORE: ArtifactSlot = {
+const SLOT_INTEGRITY_SCORE = createArtifactSlot({
   id: "integrity_score",
   label: "Integrity",
   component: "IntegrityScoreCard",
+  region: "right_panel",
+  panel_title: "Integrity",
   data_source: "integrity_score",
   refresh_on: ["INTEGRITY_PASSED", "INTEGRITY_VETOED"],
   sort_order: 8,
   badge_type: "alerts",
-};
+});
 
 // ============================================================================
 // Journey Phases
@@ -133,10 +207,10 @@ const SLOT_INTEGRITY_SCORE: ArtifactSlot = {
 
 export const JOURNEY_PHASES: JourneyPhase[] = [
   // ── Phase 1: Discovery & Baseline ──────────────────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "discovery",
     saga_state: "INITIATED",
-    label: "Understand the Customer",
+    label: "Discovery Shell",
     description:
       "Establish the Cost of Inaction (COI) by capturing baseline metrics " +
       "and anchoring the model in validated current-state data.",
@@ -185,13 +259,13 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
       },
     ],
     sort_order: 0,
-  },
+  }),
 
   // ── Phase 2: Logic Mapping (Impact Cascade) ────────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "drafting",
     saga_state: "DRAFTING",
-    label: "Identify Value Opportunities",
+    label: "Value Tree Canvas",
     description:
       "Map technical features to financial line items using the four-level " +
       "Impact Cascade: Feature → Capability → KPI → Financial Value.",
@@ -261,13 +335,13 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
       },
     ],
     sort_order: 1,
-  },
+  }),
 
   // ── Phase 3: Quantification & Calculation (TCO) ────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "validating",
     saga_state: "VALIDATING",
-    label: "Validate Assumptions",
+    label: "Integrity Layer",
     description:
       "Perform rigorous TCO analysis. Account for hidden costs (training, " +
       "API fees, change management). Resolve all cost unknowns.",
@@ -344,13 +418,13 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
       },
     ],
     sort_order: 2,
-  },
+  }),
 
   // ── Phase 4: Composition (Build Business Case) ─────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "composing",
     saga_state: "COMPOSING",
-    label: "Build Business Case",
+    label: "Executive Output Studio",
     description:
       "Compose the customer-facing business case artifact from validated " +
       "hypotheses, financial models, and evidence.",
@@ -409,13 +483,13 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
       },
     ],
     sort_order: 3,
-  },
+  }),
 
   // ── Phase 5: Refinement ────────────────────────────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "refining",
     saga_state: "REFINING",
-    label: "Review & Refine",
+    label: "CFO Collaboration Mode",
     description:
       "Final human review. The VE locks the business case for presentation " +
       "after resolving any remaining feedback.",
@@ -471,13 +545,13 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
       },
     ],
     sort_order: 4,
-  },
+  }),
 
   // ── Phase 6: Value Realization (Post-Sale) ─────────────────────────────
-  {
+  createJourneyPhase({
     lifecycle_stage: "realized",
     saga_state: "FINALIZED",
-    label: "Track Value Delivery",
+    label: "Value Realization Workspace",
     description:
       "Continuously measure actual performance against the projected " +
       "business case. Close the loop between sales promises and customer success.",
@@ -520,7 +594,7 @@ export const JOURNEY_PHASES: JourneyPhase[] = [
     ],
     exit_conditions: [],
     sort_order: 5,
-  },
+  }),
 ];
 
 // ============================================================================

@@ -93,8 +93,8 @@ router.post(
 
       const result = await adminUserService.inviteUserToTenant(
         {
-          id: actor.id || "",
-          email: actor.email || "",
+          id: actor?.id || "",
+          email: actor?.email || "",
           name: actorName,
         },
         {
@@ -148,8 +148,8 @@ router.patch(
 
       await adminUserService.updateUserRole(
         {
-          id: actor.id || "",
-          email: actor.email || "",
+          id: actor?.id || "",
+          email: actor?.email || "",
           name: actorName,
         },
         {
@@ -192,8 +192,8 @@ router.delete(
 
       await adminUserService.removeUserFromTenant(
         {
-          id: actor.id || "",
-          email: actor.email || "",
+          id: actor?.id || "",
+          email: actor?.email || "",
           name: actorName,
         },
         {
@@ -236,8 +236,8 @@ router.delete(
       // Cancelling an invite is effectively removing the user from the tenant
       await adminUserService.removeUserFromTenant(
         {
-          id: actor.id || "",
-          email: actor.email || "",
+          id: actor?.id || "",
+          email: actor?.email || "",
           name: actorName,
         },
         {

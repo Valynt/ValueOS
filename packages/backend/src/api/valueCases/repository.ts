@@ -16,8 +16,11 @@ import {
   CreateValueCaseRequest,
   ListValueCasesQuery,
   PaginatedResponse,
+  Stakeholder,
   UpdateValueCaseRequest,
   ValueCase,
+  ValueDriverRef,
+  ValueMetric,
 } from './types';
 
 // ============================================================================
@@ -28,7 +31,7 @@ export class RepositoryError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly cause?: Error
+    public override readonly cause?: Error
   ) {
     super(message);
     this.name = 'RepositoryError';
@@ -330,8 +333,10 @@ export class ValueCasesRepository {
       }
 
       if (search) {
+        // Escape special characters that could alter ilike behavior
+        const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
         queryBuilder = queryBuilder.or(
-          `name.ilike.%${search}%,company_name.ilike.%${search}%`
+          `name.ilike.%${sanitizedSearch}%,company_name.ilike.%${sanitizedSearch}%`
         );
       }
 
@@ -395,9 +400,9 @@ export class ValueCasesRepository {
       domainPackId: (row.domain_pack_id as string) ?? null,
       domainPackVersion: (row.domain_pack_version as string) ?? null,
       domainPackSnapshot: (row.domain_pack_snapshot as Record<string, unknown>) ?? null,
-      stakeholders: (row.stakeholders as unknown[]) || [],
-      metrics: (row.metrics as unknown[]) || [],
-      valueDrivers: (row.value_drivers as unknown[]) || [],
+      stakeholders: (row.stakeholders as Stakeholder[]) || [],
+      metrics: (row.metrics as ValueMetric[]) || [],
+      valueDrivers: (row.value_drivers as ValueDriverRef[]) || [],
       totalValue: row.total_value as number | undefined,
       npv: row.npv as number | undefined,
       paybackMonths: row.payback_months as number | undefined,

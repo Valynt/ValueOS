@@ -1,4 +1,5 @@
-import { NextFunction, Request, Response, Router } from "express";
+import type { Router } from "express";
+import { NextFunction, Request, Response, Router as ExpressRouter } from "express";
 import type { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { z, ZodError } from "zod";
@@ -14,15 +15,18 @@ import {
 import { logger } from "../../lib/logger.js"
 import { createRateLimiter, RateLimitTier } from "../../middleware/rateLimiter.js"
 
-import { InitiativesService } from "./service.js"
+import { InitiativesService } from "./service.js";
 import {
   ApiErrorResponse,
   CreateInitiativeSchema,
   ListInitiativesQuerySchema,
   UpdateInitiativeSchema,
+  type ListInitiativesQuery,
+  type CreateInitiativeInput,
+  type UpdateInitiativeInput,
 } from "./types";
 
-const router = Router();
+const router: Router = ExpressRouter();
 
 const standardLimiter = createRateLimiter(RateLimitTier.STANDARD);
 const strictLimiter = createRateLimiter(RateLimitTier.STRICT);
@@ -37,6 +41,8 @@ type AuthedRequest = Request & {
   user?: { id?: string };
   db?: TenantDbContext;
   correlationId?: string;
+  query: ListInitiativesQuery;
+  body: CreateInitiativeInput | UpdateInitiativeInput;
 };
 
 const correlationId = (req: Request, _res: Response, next: NextFunction) => {

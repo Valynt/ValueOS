@@ -80,3 +80,6 @@ export type { HumanCheckpointAuth, HumanCheckpointBroker, HumanCheckpointDepende
 // Atomic action system
 export { AtomicActionExecutor } from "./AtomicActionExecutor";
 export * from "./AtomicUIActions";
+
+// Experience Model — State to UI mappings (Sprint 55)
+export * from "./StateUIMap";

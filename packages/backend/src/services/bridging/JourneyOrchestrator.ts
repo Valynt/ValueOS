@@ -19,16 +19,18 @@
 import type {
   DecisionContext,
   ExperienceModel,
-  InterruptInstance,
+  ArtifactSlot,
   JourneyPhase,
-  PhaseExitCondition,
-  TrustThresholds,
   UIStateMapping,
+  PhaseExitCondition,
+  InterruptInstance,
+  TrustThresholds,
+  ValueCaseStatus,
 } from "@valueos/shared";
+import { logger } from "@shared/lib/logger";
 
-import { logger } from "../../lib/logger.js";
-
-import type {
+import { ExitConditionEvaluator, SupabaseExitConditionRepository } from "./ExitConditionEvaluator.js";
+import {
   ArtifactTransformerRegistry,
   TransformedArtifact,
 } from "./ArtifactTransformer.js";
@@ -61,6 +63,9 @@ export interface JourneyOrchestratorInput {
 
   /** Session ID for the current workflow. */
   session_id: string;
+
+  /** Approval / lock state orthogonal to lifecycle stage. */
+  value_case_status?: ValueCaseStatus;
 }
 
 /**
@@ -94,6 +99,18 @@ export interface JourneyOrchestratorOutput {
   /** Active trust thresholds for this phase. */
   trust_thresholds: TrustThresholds;
 
+  /** Approval / lock state for the active value case. */
+  value_case_status: ValueCaseStatus;
+
+  /** Whether the workspace is editable or locked. */
+  interaction_mode: "editable" | "locked";
+
+  /** Header metadata for the single collaborative workspace. */
+  workspace_header: WorkspaceHeader;
+
+  /** Artifacts grouped by workspace region for left rail / canvas / right panel layouts. */
+  workspace_regions: WorkspaceRegions;
+
   /** Unresolved interrupts to display. */
   active_interrupts: InterruptInstance[];
 
@@ -112,15 +129,37 @@ interface SDUISection {
   props: Record<string, unknown>;
 }
 
+interface WorkspaceHeader {
+  title: string;
+  phase_label: string;
+  user_goal: string;
+  confidence_score: number;
+  value_case_status: ValueCaseStatus;
+  interaction_mode: "editable" | "locked";
+}
+
+interface WorkspaceRegions {
+  header: TransformedArtifact[];
+  left_rail: TransformedArtifact[];
+  center_canvas: TransformedArtifact[];
+  right_panel: TransformedArtifact[];
+  footer: TransformedArtifact[];
+}
+
 // ============================================================================
 // JourneyOrchestrator
 // ============================================================================
 
 export class JourneyOrchestrator {
+  private readonly exitConditionEvaluator: ExitConditionEvaluator;
+
   constructor(
     private readonly experienceModel: ExperienceModel,
     private readonly transformerRegistry: ArtifactTransformerRegistry
-  ) {}
+  ) {
+    const repository = new SupabaseExitConditionRepository();
+    this.exitConditionEvaluator = new ExitConditionEvaluator(repository);
+  }
 
   /**
    * Produce a full orchestrator output for the current engagement state.
@@ -149,7 +188,7 @@ export class JourneyOrchestrator {
     const artifacts = await this.transformArtifacts(phase, input);
 
     // 4. Evaluate exit conditions
-    const exitConditions = this.evaluateExitConditions(
+    const exitConditions = await this.evaluateExitConditions(
       phase,
       input,
       artifacts
@@ -159,12 +198,29 @@ export class JourneyOrchestrator {
     // 5. Resolve trust thresholds
     const trustThresholds = this.experienceModel.trust_thresholds;
 
+    const valueCaseStatus = this.resolveValueCaseStatus(input, phase);
+    const interactionMode =
+      valueCaseStatus === "BOARD_READY_LOCKED" || phase.lifecycle_stage === "realized"
+        ? "locked"
+        : "editable";
+    const workspaceRegions = this.groupArtifactsByRegion(artifacts);
+    const workspaceHeader: WorkspaceHeader = {
+      title: phase.workspace_title,
+      phase_label: phase.label,
+      user_goal: phase.user_goal,
+      confidence_score: input.confidence_score,
+      value_case_status: valueCaseStatus,
+      interaction_mode: interactionMode,
+    };
+
     // 6. Assemble SDUI page sections
     const pageSections = this.assemblePageSections(
       phase,
       uiState,
       artifacts,
-      input
+      input,
+      valueCaseStatus,
+      interactionMode
     );
 
     return {
@@ -174,6 +230,10 @@ export class JourneyOrchestrator {
       exit_conditions: exitConditions,
       can_lock: canLock,
       trust_thresholds: trustThresholds,
+      value_case_status: valueCaseStatus,
+      interaction_mode: interactionMode,
+      workspace_header: workspaceHeader,
+      workspace_regions: workspaceRegions,
       active_interrupts: input.active_interrupts,
       page_sections: pageSections,
     };
@@ -225,8 +285,15 @@ export class JourneyOrchestrator {
         if (!transformer) continue;
 
         try {
+          // Extract agent outputs from decision context based on agent type
+          const agentOutput = this.extractAgentOutputForSlot(
+            input.decision_context,
+            slot,
+            agentName
+          );
+
           transformed = await transformer.transform({
-            agent_output: {},
+            agent_output: agentOutput,
             organization_id:
               input.decision_context.organization_id,
             opportunity_id:
@@ -255,15 +322,84 @@ export class JourneyOrchestrator {
     return results;
   }
 
+  // ── Agent Output Extraction ───────────────────────────────────────────
+
+  private extractAgentOutputForSlot(
+    decisionContext: JourneyOrchestratorInput["decision_context"],
+    _slot: ArtifactSlot,
+    agentName: string
+  ): Record<string, unknown> {
+    const context = decisionContext as unknown as {
+      hypothesis_output?: Record<string, unknown>;
+      value_output?: Record<string, unknown>;
+      integrity_output?: Record<string, unknown>;
+      agent_outputs?: Record<string, Record<string, unknown>>;
+    };
+
+    // In the current architecture, agent outputs are stored in the decision context
+    // This method extracts the appropriate output based on agent type and slot
+    switch (agentName) {
+      case "HypothesisAgent":
+        // For HypothesisAgent, look for hypothesis-related outputs
+        return context.hypothesis_output ?? {};
+
+      case "ValueAgent":
+        // For ValueAgent, look for value-related outputs
+        return context.value_output ?? {};
+
+      case "IntegrityAgent":
+        // For IntegrityAgent, look for integrity-related outputs
+        return context.integrity_output ?? {};
+
+      default:
+        // Fallback: try to find any output that matches the slot
+        const genericOutput = context.agent_outputs?.[agentName] ?? {};
+        return genericOutput;
+    }
+  }
+
+  private resolveValueCaseStatus(
+    input: JourneyOrchestratorInput,
+    phase: JourneyPhase
+  ): ValueCaseStatus {
+    if (input.value_case_status) {
+      return input.value_case_status;
+    }
+
+    if (phase.lifecycle_stage === "realized") {
+      return "BOARD_READY_LOCKED";
+    }
+
+    return "IN_PROGRESS";
+  }
+
+  private groupArtifactsByRegion(
+    artifacts: TransformedArtifact[]
+  ): WorkspaceRegions {
+    return artifacts.reduce<WorkspaceRegions>(
+      (acc, artifact) => {
+        acc[artifact.region].push(artifact);
+        return acc;
+      },
+      {
+        header: [],
+        left_rail: [],
+        center_canvas: [],
+        right_panel: [],
+        footer: [],
+      }
+    );
+  }
+
   // ── Exit Condition Evaluation ────────────────────────────────────────
 
-  private evaluateExitConditions(
+  private async evaluateExitConditions(
     phase: JourneyPhase,
     input: JourneyOrchestratorInput,
     _artifacts: TransformedArtifact[]
-  ): ExitConditionResult[] {
-    return phase.exit_conditions.map(
-      (condition: PhaseExitCondition): ExitConditionResult => {
+  ): Promise<ExitConditionResult[]> {
+    const results = await Promise.all(
+      phase.exit_conditions.map(async (condition: PhaseExitCondition): Promise<ExitConditionResult> => {
         switch (condition.type) {
           case "min_confidence":
             return {
@@ -304,20 +440,16 @@ export class JourneyOrchestrator {
           }
 
           case "min_items":
-            // Requires domain-specific query; delegate to caller in v2.
-            return {
-              condition,
-              passed: true,
-              reason: undefined,
-            };
+          return await this.exitConditionEvaluator.evaluate(condition, {
+            organization_id: input.decision_context.organization_id,
+            opportunity_id: input.decision_context.opportunity?.id ?? "",
+          });
 
-          case "all_fields_populated":
-            // Requires domain-specific query; delegate to caller in v2.
-            return {
-              condition,
-              passed: true,
-              reason: undefined,
-            };
+        case "all_fields_populated":
+          return await this.exitConditionEvaluator.evaluate(condition, {
+            organization_id: input.decision_context.organization_id,
+            opportunity_id: input.decision_context.opportunity?.id ?? "",
+          });
 
           case "custom":
             // Custom conditions evaluated by external hooks.
@@ -334,8 +466,9 @@ export class JourneyOrchestrator {
               reason: `Unknown condition type: ${condition.type}`,
             };
         }
-      }
+      })
     );
+    return results;
   }
 
   // ── Page Section Assembly ────────────────────────────────────────────
@@ -344,7 +477,9 @@ export class JourneyOrchestrator {
     phase: JourneyPhase,
     uiState: UIStateMapping | null,
     artifacts: TransformedArtifact[],
-    input: JourneyOrchestratorInput
+    input: JourneyOrchestratorInput,
+    valueCaseStatus: ValueCaseStatus,
+    interactionMode: "editable" | "locked"
   ): SDUISection[] {
     const sections: SDUISection[] = [];
 
@@ -365,11 +500,29 @@ export class JourneyOrchestrator {
         activeAgent: uiState?.active_agent_label ?? null,
         confidenceScore: input.confidence_score,
         showConfidence: uiState?.show_confidence ?? true,
+        workspaceTitle: phase.workspace_title,
+        experienceMode: phase.experience_mode,
+        valueCaseStatus,
+        interactionMode,
       },
     });
 
+    if (interactionMode === "locked") {
+      sections.push({
+        type: "component",
+        component: "InfoBanner",
+        version: 1,
+        props: {
+          title: "Board-ready lock",
+          message: "This value case is locked for export and audit. Unlock for revision to continue editing.",
+          variant: "info",
+          dismissible: false,
+        },
+      });
+    }
+
     // 2. Human checkpoint (if user action is required)
-    if (uiState?.user_actionable && uiState.cta) {
+    if (interactionMode === "editable" && uiState?.user_actionable && uiState.cta) {
       sections.push({
         type: "component",
         component: "HumanCheckpoint",

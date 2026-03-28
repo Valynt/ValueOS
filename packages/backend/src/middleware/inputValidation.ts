@@ -15,16 +15,16 @@ const logger = createLogger({ component: 'InputValidation' });
 
 const PATTERNS = {
   // XSS patterns
-  xss: /<script[^>]*>[\s\S]*?<\/script>|javascript:|vbscript:|on\w+\s*=|style\s*=.*expression\s*\(|style\s*=.*javascript\s*:/gi,
+  xss: /<script[^>]*>[\s\S]*?<\/script>|javascript:|vbscript:|on\w+\s*=|style\s*=.*expression\s*\(|style\s*=.*javascript\s*:/i,
 
   // Path traversal
-  pathTraversal: /\.\.[/\\]/g,
+  pathTraversal: /\.\.[/\\]/,
 
   // Command injection
-  commandInjection: /[;&|`$()]/g,
+  commandInjection: /[;&|`$()]/,
 
   // Prompt injection patterns for LLM
-  promptInjection: /<system>|<\/system>|\b(ignore|forget|override)\s+(previous|all|these)\s+(instructions?|prompts?|rules?)\b/gi,
+  promptInjection: /<system>|<\/system>|\b(ignore|forget|override)\s+(previous|all|these)\s+(instructions?|prompts?|rules?)\b/i,
 
   // Email validation
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
@@ -240,7 +240,7 @@ function validateValue(value: unknown, rule: ValidationRule, fieldName: string):
   }
 
   // Enum validation
-  if (rule.enum && !rule.enum.includes(value)) {
+  if (rule.enum && !rule.enum.includes(value as string)) {
     errors.push(`${fieldName} must be one of: ${rule.enum.join(', ')}`);
   }
 
@@ -266,7 +266,7 @@ export function validateData(
 ): ValidationResult {
   const errors: string[] = [];
   const sanitizedData: Record<string, unknown> = {};
-  const payload = typeof data === 'object' && data !== null ? data : {};
+  const payload = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
   const allowUnknown = options.allowUnknown ?? false;
 
   if (!allowUnknown) {
@@ -376,16 +376,16 @@ export const ValidationSchemas = {
 
   signup: {
     email: { type: 'email' as const, required: true },
+    fullName: { type: 'string' as const, required: true, minLength: 2, maxLength: 100 },
     password: {
       type: 'string' as const,
       required: true,
       minLength: 12,
-      customValidator: (value: string) => {
-        const result = validatePassword(value);
+      customValidator: (value: unknown) => {
+        const result = validatePassword(String(value));
         return result.valid || result.errors.join('. ');
       },
     },
-    fullName: { type: 'string' as const, required: true, minLength: 2, maxLength: 100 }
   },
 
   updatePassword: {
@@ -393,8 +393,8 @@ export const ValidationSchemas = {
       type: 'string' as const,
       required: true,
       minLength: 12,
-      customValidator: (value: string) => {
-        const result = validatePassword(value);
+      customValidator: (value: unknown) => {
+        const result = validatePassword(String(value));
         return result.valid || result.errors.join('. ');
       },
     }

@@ -26,8 +26,8 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
-import type { NextFunction, Request, Response } from "express";
-import { Router } from "express";
+import type { NextFunction, Request, Response, Router } from "express";
+import { Router as ExpressRouter } from "express";
 import { z } from "zod";
 
 import { logger as rootLogger } from "../lib/logger.js";
@@ -103,7 +103,7 @@ function getTenantId(req: Request): string {
 // Sprint 49 router — full CRUD API, mounted at /api/v1/graph
 // ===========================================================================
 
-export const valueGraphRouter = Router();
+export const valueGraphRouter: Router = ExpressRouter();
 
 // Shared middleware chain — applied to all routes via router.use
 valueGraphRouter.use(
@@ -359,18 +359,20 @@ valueGraphRouter.patch(
         return;
       }
 
-      if (!isValidNodeTable(resolved.source_table)) {
+      const resolvedTyped = resolved as { source_table: string };
+
+      if (!isValidNodeTable(resolvedTyped.source_table)) {
         logger.error("PATCH /nodes/:nodeId: unexpected source_table from resolver", {
           opportunityId,
           nodeId,
-          source_table: resolved.source_table,
+          source_table: resolvedTyped.source_table,
         });
         res.status(500).json({ error: "Failed to update node." });
         return;
       }
 
       const { data: updated, error: updateError } = await supabase
-        .from(resolved.source_table)
+        .from(resolvedTyped.source_table)
         .update({ ...parsed.data, updated_at: new Date().toISOString() })
         .eq("id", nodeId)
         .eq("opportunity_id", opportunityId)
@@ -444,18 +446,20 @@ valueGraphRouter.delete(
         return;
       }
 
-      if (!isValidNodeTable(resolved.source_table)) {
+      const resolvedTyped = resolved as { source_table: string };
+
+      if (!isValidNodeTable(resolvedTyped.source_table)) {
         logger.error("DELETE /nodes/:nodeId: unexpected source_table from resolver", {
           opportunityId,
           nodeId,
-          source_table: resolved.source_table,
+          source_table: resolvedTyped.source_table,
         });
         res.status(500).json({ error: "Failed to delete node." });
         return;
       }
 
       const { error: deleteError } = await supabase
-        .from(resolved.source_table)
+        .from(resolvedTyped.source_table)
         .delete()
         .eq("id", nodeId)
         .eq("opportunity_id", opportunityId)
@@ -478,7 +482,7 @@ valueGraphRouter.delete(
           resourceId: nodeId,
           details: {
             opportunity_id: opportunityId,
-            table: resolved.source_table,
+            table: resolvedTyped.source_table,
           },
           status: "success",
         });
@@ -505,7 +509,7 @@ valueGraphRouter.delete(
 // Sprint 50 router — read-only graph + paths, mounted at /api/v1/opportunities
 // ===========================================================================
 
-export const opportunityValueGraphRouter = Router();
+export const opportunityValueGraphRouter: Router = ExpressRouter();
 
 /**
  * GET /api/v1/opportunities/:opportunityId/value-graph
@@ -517,6 +521,7 @@ opportunityValueGraphRouter.get(
   "/:opportunityId/value-graph",
   requireAuth,
   tenantContextMiddleware(),
+  validateOpportunityAccess,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { opportunityId } = req.params;
     const organizationId = req.tenantId;

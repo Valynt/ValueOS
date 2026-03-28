@@ -5,7 +5,7 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
-import { Request, Response } from "express";
+import type { Request, Response, Router } from "express";
 
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
@@ -25,15 +25,16 @@ import { handleServiceError } from "../services/errors";
 import { auditLogService } from "../services/security/AuditLogService";
 
 const logger = createLogger({ component: "IntegrationsAPI" });
-const router = createSecureRouter("strict");
+const router: Router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware());
 
 function getActor(req: Request) {
   const user = (req as AuthenticatedRequest).user;
+  const userMetadata = user?.user_metadata as Record<string, unknown> | undefined;
   const userName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
+    (typeof userMetadata?.full_name === 'string' ? userMetadata.full_name : undefined) ||
+    (typeof userMetadata?.name === 'string' ? userMetadata.name : undefined) ||
     user?.email ||
     "Unknown";
 

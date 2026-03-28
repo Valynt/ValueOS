@@ -41,7 +41,7 @@ function checkLLMHealth(): ComponentHealth & {
   provider_available: boolean;
 } {
   const llmValidation = validateLLMConfig();
-  const { provider, gatingEnabled, providerAvailable } = llmValidation;
+  const { provider, providerAvailable } = llmValidation;
 
   let status: HealthStatus = 'healthy';
   let message: string | undefined;
@@ -57,10 +57,10 @@ function checkLLMHealth(): ComponentHealth & {
   return {
     status,
     message,
-    available: providerAvailable,
-    provider,
-    gating_enabled: gatingEnabled,
-    provider_available: providerAvailable,
+    available: providerAvailable ?? false,
+    provider: provider ?? 'together',
+    gating_enabled: false,
+    provider_available: providerAvailable ?? false,
   };
 }
 

@@ -55,8 +55,8 @@ type AuthActor = {
 
 function resolveActor(user?: AuthActor) {
   return {
-    id: user?.id,
-    email: user?.email,
+    id: user?.id ?? "",
+    email: user?.email ?? "",
     name:
       user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Unknown User",
   };
@@ -354,52 +354,52 @@ router.post(
     try {
       const { newPassword } = req.body;
 
-    if (!newPassword) {
-      return res.status(400).json({
-        error: "New password is required",
+      if (!newPassword) {
+        return res.status(400).json({
+          error: "New password is required",
+        });
+      }
+
+      await authService.updatePassword(newPassword);
+
+      logger.info("Password updated successfully", {
+        userId: String(sanitizeForLogging(req.user?.id)),
       });
-    }
 
-    await authService.updatePassword(newPassword);
+      const actor = resolveActor(req.user);
+      if (actor.id) {
+        await auditLogService.logAudit({
+          userId: actor.id,
+          userName: actor.name,
+          userEmail: actor.email,
+          action: "auth.password_updated",
+          resourceType: "auth",
+          resourceId: actor.id,
+          details: {
+            ipAddress: req.ip,
+          },
+          status: "success",
+        });
+      }
 
-    logger.info("Password updated successfully", {
-      userId: String(sanitizeForLogging(req.user?.id)),
-    });
-
-    const actor = resolveActor(req.user);
-    if (actor.id) {
-      await auditLogService.logAudit({
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
-        action: "auth.password_updated",
-        resourceType: "auth",
-        resourceId: actor.id,
-        details: {
-          ipAddress: req.ip,
-        },
-        status: "success",
+      return res.json({
+        message: "Password updated successfully",
       });
-    }
+    } catch (error) {
+      logger.error("Password update failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
 
-    return res.json({
-      message: "Password updated successfully",
-    });
-  } catch (error) {
-    logger.error("Password update failed", error instanceof Error ? error : undefined, {
-      errorMsg: String(error),
-    });
+      if (error instanceof ValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+      if (error instanceof AuthenticationError) {
+        return res.status(401).json({ error: error.message });
+      }
 
-    if (error instanceof ValidationError) {
-      return res.status(400).json({ error: error.message });
+      return res.status(500).json({ error: "Internal server error" });
     }
-    if (error instanceof AuthenticationError) {
-      return res.status(401).json({ error: error.message });
-    }
-
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
+  });
 
 router.post("/logout", requireAuth, async (req: Request, res: Response) => {
   try {

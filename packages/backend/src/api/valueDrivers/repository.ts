@@ -29,6 +29,8 @@ import {
   DriverType,
   ListValueDriversQuery,
   PaginatedResponse,
+  PersonaTag,
+  SalesMotionTag,
   UpdateValueDriverRequest,
   ValueDriver,
 } from "./types";
@@ -102,7 +104,7 @@ export class ValueDriversRepository {
         sales_motion_tags: sanitized.salesMotionTags,
         formula: sanitized.formula,
         narrative_pitch: sanitized.narrativePitch,
-        status: mapDriverStatusToDb(sanitized.status),
+        status: mapDriverStatusToDb(sanitized.status ?? 'draft'),
         version: 1,
         usage_count: 0,
         created_by: userId,
@@ -432,20 +434,24 @@ export class ValueDriversRepository {
       }
 
       if (search) {
+        // Escape special characters that could alter ilike behavior
+        const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
         queryBuilder = queryBuilder.or(
-          `name.ilike.%${search}%,description.ilike.%${search}%,narrative_pitch.ilike.%${search}%`
+          `name.ilike.%${sanitizedSearch}%,description.ilike.%${sanitizedSearch}%,narrative_pitch.ilike.%${sanitizedSearch}%`
         );
       }
 
       // Apply sorting
-      const sortColumn = this.mapSortColumn(sortBy);
+      const sortColumn = this.mapSortColumn(sortBy ?? 'updated_at');
       queryBuilder = queryBuilder.order(sortColumn, {
-        ascending: sortOrder === "asc",
+        ascending: (sortOrder ?? 'desc') === 'asc',
       });
 
       // Apply pagination
-      const offset = (page - 1) * limit;
-      queryBuilder = queryBuilder.range(offset, offset + limit - 1);
+      const pageNum = page ?? 1;
+      const limitNum = limit ?? 20;
+      const offset = (pageNum - 1) * limitNum;
+      queryBuilder = queryBuilder.range(offset, offset + limitNum - 1);
 
       const { data, error, count } = await queryBuilder;
 
@@ -470,16 +476,16 @@ export class ValueDriversRepository {
       }
 
       const total = count || 0;
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = Math.ceil(total / limitNum);
 
       return {
         data: (data || []).map(this.mapToEntity),
         pagination: {
-          page,
-          limit,
+          page: pageNum,
+          limit: limitNum,
           total,
           totalPages,
-          hasMore: page < totalPages,
+          hasMore: pageNum < totalPages,
         },
       };
     } catch (err) {
@@ -545,8 +551,8 @@ export class ValueDriversRepository {
       name: row.name as string,
       description: row.description as string | undefined,
       type: row.type as DriverType,
-      personaTags: row.persona_tags as string[],
-      salesMotionTags: row.sales_motion_tags as string[],
+      personaTags: row.persona_tags as PersonaTag[],
+      salesMotionTags: row.sales_motion_tags as SalesMotionTag[],
       formula: row.formula as ValueDriver["formula"],
       narrativePitch: row.narrative_pitch as string,
       status: row.status as DriverStatus,

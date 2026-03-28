@@ -20,6 +20,7 @@ import type {
   ArtifactSlot,
   ProgressDirective,
   UIIndicator,
+  WorkspaceRegion,
 } from "@valueos/shared";
 
 // ============================================================================
@@ -49,6 +50,8 @@ export interface TransformationLineage {
 export interface TransformedArtifact {
   /** Which artifact slot this fills. */
   slot_id: string;
+  /** Where this artifact should render in the collaborative workspace. */
+  region: WorkspaceRegion;
   /** SDUI component name (must exist in the component registry). */
   component: string;
   /** Component version. */
@@ -194,6 +197,7 @@ export const TransformationLineageSchema = z.object({
 
 export const TransformedArtifactSchema = z.object({
   slot_id: z.string(),
+  region: z.enum(["header", "left_rail", "center_canvas", "right_panel", "footer"]),
   component: z.string(),
   version: z.number().int().positive(),
   props: z.record(z.unknown()),

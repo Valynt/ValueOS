@@ -5,6 +5,8 @@
  * authentication, request/response transformation, and retry logic.
  */
 
+import crypto from "crypto";
+
 import { getClientConfig } from "@shared/config/client-config";
 
 import type { JsonObject } from "../../types/json.js";
@@ -69,7 +71,7 @@ export class UnifiedApiClient {
   private config: ApiClientConfig;
   private interceptors: {
     request: Array<(config: RequestConfig) => RequestConfig>;
-    response: Array<(response: ApiResponse) => ApiResponse>;
+    response: Array<<T>(response: ApiResponse<T>) => ApiResponse<T>>;
     error: Array<(error: ApiError) => ApiError>;
   };
 
@@ -103,8 +105,8 @@ export class UnifiedApiClient {
     this.interceptors.request.push(interceptor);
   }
 
-  addResponseInterceptor(interceptor: (response: ApiResponse) => ApiResponse): void {
-    this.interceptors.response.push(interceptor);
+  addResponseInterceptor<T>(interceptor: (response: ApiResponse<T>) => ApiResponse<T>): void {
+    this.interceptors.response.push(interceptor as <U>(response: ApiResponse<U>) => ApiResponse<U>);
   }
 
   addErrorInterceptor(interceptor: (error: ApiError) => ApiError): void {
@@ -302,7 +304,7 @@ export class UnifiedApiClient {
 
   private async makeRequestWithRetry(config: FinalRequestConfig): Promise<Response> {
     const maxRetries = config.retryAttempts ?? this.config.retryAttempts;
-    let lastError: Error;
+    let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -311,7 +313,7 @@ export class UnifiedApiClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-         
+
         const response = await fetch(config.url, {
           ...config,
           signal: controller.signal,
@@ -345,7 +347,7 @@ export class UnifiedApiClient {
       }
     }
 
-    throw lastError;
+    throw lastError ?? new Error("Request failed with no error captured");
   }
 
   private async parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -360,7 +362,7 @@ export class UnifiedApiClient {
 
     return {
       success: true,
-      data,
+      data: data as T,
     };
   }
 

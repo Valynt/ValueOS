@@ -4,7 +4,7 @@
  * Endpoints for async LLM job management
  */
 
-import { Request, Response, Router } from 'express';
+import { type Request, type Response, type Router, Router as ExpressRouter } from 'express';
 
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
@@ -25,7 +25,7 @@ import { llmQueue } from '../services/realtime/MessageQueue.js';
 import { logger } from '../utils/logger.js';
 import { sanitizeAgentInput } from '../utils/security.js';
 
-const router = Router();
+const router: Router = ExpressRouter();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
@@ -94,7 +94,7 @@ router.post(
       });
     }
 
-    const sanitizedPrompt = promptSanitization ? promptSanitization.sanitized : undefined;
+    const sanitizedPrompt = promptSanitization ? promptSanitization.sanitized as string : undefined;
     const sanitizedPromptVariables = variablesSanitization ? variablesSanitization.sanitized : undefined;
 
     // Add job to queue
@@ -104,7 +104,7 @@ router.post(
       userId,
       sessionId,
       promptKey,
-      promptVariables: sanitizedPromptVariables as Record<string, any>,
+      promptVariables: sanitizedPromptVariables as Record<string, unknown>,
       prompt: sanitizedPrompt,
       model,
       maxTokens,
@@ -304,7 +304,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       });
     }
 
-    const sanitizedJobs: unknown[] = [];
+    const sanitizedJobs: Array<Record<string, unknown> & { type?: string; prompt?: string; promptKey?: string }> = [];
 
     for (const [index, jobData] of jobs.entries()) {
       const promptSanitization = jobData.prompt ? sanitizeAgentInput(jobData.prompt) : null;
@@ -336,7 +336,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
     }
 
     const submittedJobs = await Promise.all(
-      sanitizedJobs.map(async (jobData, index) => {
+      sanitizedJobs.map(async (jobData: Record<string, unknown>, index: number) => {
         const job = await llmQueue.addJob({
           ...jobData,
           tenant_id: batchTenantId,

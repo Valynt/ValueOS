@@ -33,7 +33,8 @@ import { parseCorsAllowlist } from "@shared/config/cors";
 import { initializeContext } from "@shared/lib/context";
 import compression from "compression";
 import cors from "cors";
-import express from "express";
+import * as express from "express";
+import type { Application, Request, Response, NextFunction } from "express";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
@@ -74,6 +75,8 @@ import { reasoningTracesRouter } from "./api/reasoningTraces.js";
 import { valueGraphRouter as valueGraphCaseRouter } from "./routes/value-graph.js";
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
+import experienceRouter from "./api/experience.js";
+import experienceStreamRouter from "./api/experience-stream.js";
 import { getConfig } from "./config/environment.js";
 import {
   secretHealthMiddleware,
@@ -115,7 +118,7 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
   try {
     const telemetryModule = await import("./config/telemetry");
     tracingMiddleware = telemetryModule.tracingMiddleware;
-    telemetrySdk = await telemetryModule.initializeTelemetry();
+    telemetrySdk = (await telemetryModule.initializeTelemetry()) as { shutdown?: () => Promise<void> } | null;
 
     const latencyModule = await import("./middleware/latencyMetricsMiddleware");
     latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
@@ -183,7 +186,7 @@ logger.info('[Instrumentation] Supabase query instrumentation registered');
 EntitlementsService.setInstance(new EntitlementsService(supabase));
 logger.info('[Instrumentation] EntitlementsService registered');
 
-const app = express();
+const app: Application = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
 // Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
 app.set("trust proxy", 1);
@@ -461,7 +464,7 @@ app.use(compression());
 // Parsers are instantiated once and reused across requests.
 const stripeRawParser = express.raw({ type: "application/json", limit: "256kb" });
 const jsonParser = express.json();
-app.use((req, _res, next) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
     stripeRawParser(req, _res, next);
   } else {
@@ -474,7 +477,7 @@ app.use(cspNonceMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
 app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
   if (!stateChangingMethods.has(req.method)) {
     return next();
@@ -510,7 +513,7 @@ if (getMetricsRegistry) {
   app.get(
     "/metrics",
     serviceIdentityMiddleware,
-    async (_req: express.Request, res: express.Response) => {
+    async (_req: Request, res: Response) => {
       const registry = getMetricsRegistry();
       res.set("Content-Type", registry.contentType);
       res.end(await registry.metrics());
@@ -520,7 +523,7 @@ if (getMetricsRegistry) {
 
 // Conditionally add latency metrics endpoint
 if (typeof getLatencySnapshot === "function") {
-  app.get("/metrics/latency", serviceIdentityMiddleware, (_req, res) => {
+  app.get("/metrics/latency", serviceIdentityMiddleware, (_req: Request, res: Response) => {
     res.json({
       routes: getLatencySnapshot(),
       timestamp: new Date().toISOString(),
@@ -590,6 +593,8 @@ app.use(
 app.use("/api/llm", llmConcurrencyGuard, llmRouter);
 app.use("/api/mcp", mcpDiscoveryRouter);
 app.use("/api", workflowRouter);
+app.use("/api", experienceRouter);
+app.use("/api", experienceStreamRouter);
 app.use(
   "/api/documents",
   requireAuth,

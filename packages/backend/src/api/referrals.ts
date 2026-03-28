@@ -422,13 +422,15 @@ router.delete(
       }
 
       logger.info("Referral code deactivated", {
-        userId: sanitizeForLogging(userId),
+        userId: sanitizeForLogging(userId) as string,
       });
 
       await auditLogService.logAudit({
         userId,
         userName:
-          req.user?.user_metadata?.full_name || req.user?.email || "User",
+          ((req.user?.user_metadata as Record<string, unknown> | undefined)?.full_name as string | undefined) ||
+          req.user?.email ||
+          "User",
         userEmail: req.user?.email || "",
         action: "referral.code_deactivated",
         resourceType: "referral",

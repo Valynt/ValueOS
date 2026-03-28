@@ -72,9 +72,10 @@ export class ReferralAnalyticsService {
 
       // Get overall stats
       const { data: overallStats, error: overallError } = await this.supabase
-        .from<ReferralRecord>('referrals')
+        .from('referrals')
         .select('status, created_at, completed_at')
-        .gte('created_at', cutoffDate.toISOString());
+        .gte('created_at', cutoffDate.toISOString())
+        .returns<ReferralRecord[]>();
 
       if (overallError) {
         logger.error('Failed to fetch overall referral stats', overallError);
@@ -83,9 +84,10 @@ export class ReferralAnalyticsService {
 
       // Get reward stats
       const { data: rewardStats, error: rewardError } = await this.supabase
-        .from<RewardRecord>('referral_rewards')
+        .from('referral_rewards')
         .select('reward_type, reward_value, created_at')
-        .gte('created_at', cutoffDate.toISOString());
+        .gte('created_at', cutoffDate.toISOString())
+        .returns<RewardRecord[]>();
 
       if (rewardError) {
         logger.error('Failed to fetch reward stats', rewardError);
@@ -94,11 +96,12 @@ export class ReferralAnalyticsService {
 
       // Get top referrers
       const { data: topReferrers, error: referrersError } = await this.supabase
-        .from<TopReferrerRecord>('referral_stats')
+        .from('referral_stats')
         .select('user_id, total_referrals, completed_referrals')
         .gte('total_referrals', 1)
         .order('completed_referrals', { ascending: false })
-        .limit(10);
+        .limit(10)
+        .returns<TopReferrerRecord[]>();
 
       if (referrersError) {
         logger.error('Failed to fetch top referrers', referrersError);
@@ -173,9 +176,10 @@ export class ReferralAnalyticsService {
   private async getMonthlyStats(cutoffDate: Date): Promise<ReferralAnalytics['monthly_stats']> {
     try {
       const { data: monthlyData, error } = await this.supabase
-        .from<ReferralRecord>('referrals')
+        .from('referrals')
         .select('status, created_at, completed_at')
-        .gte('created_at', cutoffDate.toISOString());
+        .gte('created_at', cutoffDate.toISOString())
+        .returns<ReferralRecord[]>();
 
       if (error || !monthlyData) {
         return [];
@@ -306,16 +310,16 @@ export class ReferralAnalyticsService {
       // This would require additional tracking tables or events
       // For now, return basic funnel data
       const { data: codes, error: codesError } = await this.supabase
-        .from<Record<string, unknown>>('referral_codes')
+        .from('referral_codes')
         .select('id');
 
       const { data: claimed, error: claimedError } = await this.supabase
-        .from<Record<string, unknown>>('referrals')
+        .from('referrals')
         .select('id')
         .eq('status', 'claimed');
 
       const { data: completed, error: completedError } = await this.supabase
-        .from<Record<string, unknown>>('referrals')
+        .from('referrals')
         .select('id')
         .eq('status', 'completed');
 
