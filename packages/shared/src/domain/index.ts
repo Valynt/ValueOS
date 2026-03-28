@@ -45,3 +45,7 @@ export * from "./Violation.js";
 // Reasoning Trace — Sprint 51
 // Persisted record of agent reasoning for every secureInvoke call.
 export * from "./ReasoningTrace.js";
+
+// Experience Model — Sprint 55
+// Bridging layer: maps backend agent state → user-perceivable experience.
+export * from "./ExperienceModel.js";

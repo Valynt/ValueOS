@@ -61,6 +61,9 @@ const performanceBudgetPlugin = (): Plugin => ({
 export default defineConfig({
   envDir: __dirname,
   plugins: [react(), performanceBudgetPlugin()],
+  define: {
+    "process.env": {},
+  },
   resolve: {
     extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
     alias: {

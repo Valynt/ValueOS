@@ -1,8 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode, useEffect } from "react";
 
-import { NotificationProvider } from "@/components/shell/NotificationCenter";
-
 import { ApiRequestProvider } from "../../contexts/ApiRequestContext";
 import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 import { TrpcProvider, trpcQueryClient } from "../../lib/trpc";
@@ -33,7 +31,7 @@ export function AppProviders({ children }: AppProvidersProps) {
       <ApiRequestProvider>
         <TrpcProvider>
           <QueryClientProvider client={trpcQueryClient}>
-            <NotificationProvider>{children}</NotificationProvider>
+            {children}
           </QueryClientProvider>
         </TrpcProvider>
       </ApiRequestProvider>
