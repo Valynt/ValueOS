@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { CheckCircle2, Edit3, ExternalLink, FileText, Lock, Unlock } from 'lucide-react';
+import { CheckCircle2, Download, Edit3, ExternalLink, FileText, Mail, Share2, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExecutiveArtifact } from '@/types/agent-ux';
 import { ConfidenceBadge } from '@/components/trust/ConfidenceBadge';
@@ -31,6 +31,55 @@ const ARTIFACT_TYPE_CONFIG = {
   'customer-narrative': { label: 'Customer Narrative', icon: FileText, color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
   'internal-case': { label: 'Internal Case', icon: FileText, color: 'text-blue-300', bg: 'bg-blue-500/10' },
 };
+
+function ExportSection({ artifacts }: { artifacts: ExecutiveArtifact[] }) {
+  const [showShareOptions, setShowShareOptions] = useState(false);
+
+  return (
+    <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <Download className="w-5 h-5 text-emerald-400" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-emerald-300">Ready to Present</div>
+          <div className="text-xs text-white/50">{artifacts.length} artifacts generated</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors">
+          <Download className="w-4 h-4" />
+          <span className="text-xs font-medium">Export PDF</span>
+        </button>
+        <button
+          onClick={() => setShowShareOptions(!showShareOptions)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 text-white/70 hover:bg-white/10 transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+          <span className="text-xs font-medium">Share</span>
+        </button>
+      </div>
+
+      {showShareOptions && (
+        <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-3 gap-2">
+          <button className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <Mail className="w-4 h-4 text-white/60" />
+            <span className="text-[10px] text-white/50">Email</span>
+          </button>
+          <button className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <ExternalLink className="w-4 h-4 text-white/60" />
+            <span className="text-[10px] text-white/50">Link</span>
+          </button>
+          <button className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <FileText className="w-4 h-4 text-white/60" />
+            <span className="text-[10px] text-white/50">Copy</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ArtifactTab({
   artifact,
@@ -301,6 +350,11 @@ export function ArtifactsPanel({
           </div>
         )}
       </div>
+
+      {/* Export Section - shown when artifacts are ready */}
+      {!selectedArtifact.isDraft && !isEditing && (
+        <ExportSection artifacts={artifacts} />
+      )}
     </div>
   );
 }

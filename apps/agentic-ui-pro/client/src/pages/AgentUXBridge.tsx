@@ -192,6 +192,7 @@ export function AgentUXBridge() {
     activePanel,
     showActivityFeed,
     showTrustPanel,
+    focusMode,
     startWorkflow,
     resetWorkflow,
     approveCheckpoint,
@@ -205,6 +206,7 @@ export function AgentUXBridge() {
     setActivePanel,
     toggleActivityFeed,
     toggleTrustPanel,
+    toggleFocusMode,
   } = useAgentUXStore();
 
   const executiveSummaryStream = streams['executive_summary'];
@@ -280,19 +282,19 @@ export function AgentUXBridge() {
                 <Bot className="w-8 h-8 text-violet-400" />
               </div>
               <div className="text-center max-w-md">
-                <h2 className="text-xl font-semibold text-white mb-2">Agent-UX Bridge Demo</h2>
+                <h2 className="text-xl font-semibold text-white mb-2">New Value Case</h2>
                 <p className="text-sm text-white/50 leading-relaxed">
-                  Watch how complex agent activity — discovery, modeling, validation, and composition —
-                  translates into a clear, trustworthy user experience.
+                  Build a CFO-defensible business case with AI-assisted discovery,
+                  modeling, and validation.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
                 {[
-                  { icon: Zap, title: 'State → Experience', desc: 'Every backend state maps to a clear UI state' },
-                  { icon: BarChart3, title: 'Output → Artifacts', desc: 'Raw JSON becomes ROI models and memos' },
-                  { icon: Layers, title: 'Workflow → Journey', desc: 'Complex orchestration becomes 4 clear steps' },
-                  { icon: Shield, title: 'Confidence → Trust', desc: 'Every claim is explainable and defensible' },
+                  { icon: Zap, title: 'Discover', desc: 'Auto-extract opportunity signals' },
+                  { icon: BarChart3, title: 'Model', desc: 'Build financial scenarios' },
+                  { icon: Shield, title: 'Validate', desc: 'Stress-test assumptions' },
+                  { icon: FileText, title: 'Export', desc: 'Generate executive artifacts' },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
@@ -305,12 +307,34 @@ export function AgentUXBridge() {
                 })}
               </div>
 
+              {/* Resume option if there's persisted state */}
+              {workflowState !== 'INITIATED' && workflowState !== 'FINALIZED' && (
+                <div className="w-full max-w-md p-4 rounded-xl border border-amber-500/20 bg-amber-500/8">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="w-5 h-5 text-amber-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-amber-300">Resume previous session?</div>
+                      <div className="text-xs text-white/50">Continue from {workflowState.toLowerCase()}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Restore persisted state and continue
+                        startWorkflow();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-medium hover:bg-amber-500/30 transition-colors"
+                    >
+                      Resume
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={startWorkflow}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium transition-colors shadow-lg shadow-violet-500/25"
               >
                 <Play className="w-4 h-4" />
-                Start Demo Workflow
+                Start New Value Case
               </button>
             </div>
           )}
@@ -404,15 +428,15 @@ export function AgentUXBridge() {
         {/* Right sidebar — trust panel + activity feed */}
         <aside className={cn(
           'flex-shrink-0 border-l border-white/6 flex flex-col bg-[#0c0c10] transition-all',
-          (showTrustPanel || showActivityFeed) ? 'w-72' : 'w-0 overflow-hidden'
+          focusMode ? 'w-0 overflow-hidden' : (showTrustPanel || showActivityFeed) ? 'w-72' : 'w-0 overflow-hidden'
         )}>
-          {showTrustPanel && defensibilityScore && (
+          {showTrustPanel && defensibilityScore && !focusMode && (
             <div className="p-3 border-b border-white/6">
               <DefensibilityScoreCard score={defensibilityScore} compact />
             </div>
           )}
 
-          {showActivityFeed && (
+          {showActivityFeed && !focusMode && (
             <div className="flex-1 overflow-hidden">
               <ActivityFeed
                 activities={activities}

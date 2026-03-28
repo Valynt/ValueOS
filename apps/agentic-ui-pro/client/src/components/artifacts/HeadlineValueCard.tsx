@@ -63,7 +63,18 @@ export function HeadlineValueCard({
       {/* Main value */}
       <div className="p-4">
         <div className="text-xs text-white/40 mb-1">Annual Value</div>
-        <div className="text-2xl font-bold text-white font-mono">{formatCurrency(annualValue)}</div>
+        <div
+          className={cn(
+            "text-2xl font-bold text-white font-mono",
+            onClick && "cursor-pointer hover:text-violet-300 transition-colors underline decoration-dotted decoration-white/30 underline-offset-4"
+          )}
+          title={onClick ? "Click to see calculation" : undefined}
+        >
+          {formatCurrency(annualValue)}
+        </div>
+        {onClick && (
+          <div className="text-[10px] text-white/30 mt-1">Click to view derivation</div>
+        )}
 
         {/* Metrics row */}
         <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/6">

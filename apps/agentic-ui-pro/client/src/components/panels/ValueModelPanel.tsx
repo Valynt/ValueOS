@@ -13,6 +13,7 @@ import { ConfidenceBadge } from '@/components/trust/ConfidenceBadge';
 import { EvidencePanel } from '@/components/trust/EvidencePanel';
 import { SkeletonCard } from '@/components/async/StreamingText';
 import { HeadlineValueCard } from '@/components/artifacts/HeadlineValueCard';
+import { NodeConfidenceCard } from '@/components/artifacts/NodeConfidenceCard';
 
 interface ValueModelPanelProps {
   valueGraph: ValueGraph | null;
@@ -49,7 +50,25 @@ function ValueNodeCard({
   onSelect: () => void;
 }) {
   const [showEvidence, setShowEvidence] = useState(false);
+  const [showConfidence, setShowConfidence] = useState(false);
   const config = CATEGORY_CONFIG[node.category];
+
+  // Build NodeConfidence from node data
+  const nodeConfidence = {
+    nodeId: node.id,
+    score: node.confidence,
+    evidenceCoverage: Math.min(node.evidence.length / 3, 1), // Normalize to 0-1
+    sourceIndependence: node.evidence.length > 1 ? 0.8 : 0.4,
+    auditTrailComplete: node.evidence.length > 0 && node.assumptions.every(a => !a.isUnsupported),
+    warnings: node.assumptions
+      .filter(a => a.plausibilityFlag === 'aggressive' || a.isUnsupported)
+      .map(a => ({
+        type: a.plausibilityFlag === 'aggressive' ? 'aggressive_assumption' : 'low_coverage' as const,
+        severity: a.isUnsupported ? 'critical' : 'warning' as const,
+        message: a.plausibilityFlag === 'aggressive' ? `${a.label} uses aggressive estimate` : `${a.label} lacks support`,
+        remediation: 'Review and confirm or adjust',
+      })),
+  };
 
   return (
     <div
@@ -105,20 +124,35 @@ function ValueNodeCard({
           </div>
         )}
 
-        {/* Evidence toggle */}
-        {node.evidence.length > 0 && (
+        {/* Toggles */}
+        <div className="flex items-center gap-4 mt-3">
+          {node.evidence.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowEvidence(!showEvidence); }}
+              className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/60 transition-colors"
+            >
+              {showEvidence ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              {node.evidence.length} evidence source{node.evidence.length !== 1 ? 's' : ''}
+            </button>
+          )}
           <button
-            onClick={(e) => { e.stopPropagation(); setShowEvidence(!showEvidence); }}
-            className="flex items-center gap-1 mt-2 text-[10px] text-white/40 hover:text-white/60 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setShowConfidence(!showConfidence); }}
+            className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
           >
-            {showEvidence ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            {node.evidence.length} evidence source{node.evidence.length !== 1 ? 's' : ''}
+            {showConfidence ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            Confidence details
           </button>
-        )}
+        </div>
 
         {showEvidence && (
           <div className="mt-2" onClick={(e) => e.stopPropagation()}>
             <EvidencePanel evidence={node.evidence} />
+          </div>
+        )}
+
+        {showConfidence && (
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <NodeConfidenceCard nodeConfidence={nodeConfidence} />
           </div>
         )}
       </div>

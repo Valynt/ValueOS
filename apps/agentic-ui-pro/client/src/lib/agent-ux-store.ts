@@ -58,6 +58,7 @@ interface AgentUXStore {
   showTrustPanel: boolean;
   showProvenance: boolean;
   provenanceClaimId: string | null;
+  focusMode: boolean; // Ambient UI when trust is high
 
   // ── Optimistic UI ────────────────────────────────────────────────────────
   pendingActions: Set<string>;
@@ -81,6 +82,7 @@ interface AgentUXStore {
   setActivePanel: (panel: AgentUXStore["activePanel"]) => void;
   toggleActivityFeed: () => void;
   toggleTrustPanel: () => void;
+  toggleFocusMode: () => void;
   openProvenance: (claimId: string) => void;
   closeProvenance: () => void;
 
@@ -117,6 +119,7 @@ export const useAgentUXStore = create<AgentUXStore>()(
       showTrustPanel: false,
       showProvenance: false,
       provenanceClaimId: null,
+      focusMode: false,
       pendingActions: new Set(),
       lastError: null,
 
@@ -206,10 +209,12 @@ export const useAgentUXStore = create<AgentUXStore>()(
               break;
 
             case "defensibility_update":
-              set({
+              set(state => ({
                 defensibilityScore: event.data,
-                showTrustPanel: true,
-              });
+                showTrustPanel: state.focusMode ? false : true,
+                // Auto-enable focus mode when trust is high
+                focusMode: event.data.global >= 0.8 ? true : state.focusMode,
+              }));
               break;
           }
         });
@@ -374,6 +379,7 @@ export const useAgentUXStore = create<AgentUXStore>()(
       toggleActivityFeed: () =>
         set(s => ({ showActivityFeed: !s.showActivityFeed })),
       toggleTrustPanel: () => set(s => ({ showTrustPanel: !s.showTrustPanel })),
+      toggleFocusMode: () => set(s => ({ focusMode: !s.focusMode })),
       openProvenance: claimId =>
         set({ showProvenance: true, provenanceClaimId: claimId }),
       closeProvenance: () =>

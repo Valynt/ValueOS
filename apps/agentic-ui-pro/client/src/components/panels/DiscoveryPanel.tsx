@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, ChevronDown, ChevronRight, Database, FileText, Mic, Phone, TrendingUp, User, Users, Zap } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, ChevronDown, ChevronRight, Database, FileText, Loader2, Mic, Phone, TrendingUp, User, Users, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MissingDataFlag, OpportunityContext, PainSignal, Stakeholder } from '@/types/agent-ux';
 import { SkeletonCard } from '@/components/async/StreamingText';
@@ -100,6 +100,9 @@ function PainSignalCard({ signal }: { signal: PainSignal }) {
 function DataGapItem({ flag, onResolve }: { flag: MissingDataFlag; onResolve: (value: string) => void }) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState('');
+  const { isPending } = useAgentUXStore();
+
+  const isResolving = isPending(`resolve-gap-${flag.id}`);
 
   const impactConfig = {
     blocking: { color: 'text-rose-300', bg: 'bg-rose-500/10' },
@@ -122,7 +125,10 @@ function DataGapItem({ flag, onResolve }: { flag: MissingDataFlag; onResolve: (v
   }
 
   return (
-    <div className="p-2.5 rounded-lg bg-white/3 border border-white/8">
+    <div className={cn(
+      'p-2.5 rounded-lg bg-white/3 border border-white/8 transition-all',
+      isResolving && 'opacity-60 bg-white/5'
+    )}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5">
           <AlertCircle className={cn('w-3 h-3 flex-shrink-0', config.color)} />
@@ -134,7 +140,12 @@ function DataGapItem({ flag, onResolve }: { flag: MissingDataFlag; onResolve: (v
       </div>
       <div className="text-xs text-white/40 mb-2">{flag.description}</div>
 
-      {isEditing ? (
+      {isResolving ? (
+        <div className="flex items-center gap-2 text-xs text-white/50">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <span>Saving...</span>
+        </div>
+      ) : isEditing ? (
         <div className="flex gap-2">
           <input
             type="text"
