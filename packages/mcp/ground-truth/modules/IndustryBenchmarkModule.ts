@@ -161,7 +161,7 @@ export class IndustryBenchmarkModule extends BaseModule {
   override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
 
-    const benchmarkConfig = config as BenchmarkConfig;
+    const benchmarkConfig = config as unknown as BenchmarkConfig;
     this.blsApiKey = benchmarkConfig.blsApiKey;
     this.censusApiKey = benchmarkConfig.censusApiKey;
     this.secApiKey = config["secApiKey"] as string | undefined;

@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { logger } from '@/lib/logger';
 
 export function ResetPasswordPage() {
   const [email, setEmail] = useState('');
@@ -27,7 +28,7 @@ export function ResetPasswordPage() {
       await resetPassword(email);
       setSuccess(true);
     } catch (err: unknown) {
-      console.error('Password reset error:', err);
+      logger.error('Password reset error:', { error: err });
       setError((err instanceof Error ? err.message : null) || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);

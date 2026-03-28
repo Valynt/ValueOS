@@ -387,7 +387,7 @@ export class SECWebhookSystem {
   ): boolean {
     if (notification.type !== "sec_filing") return false;
 
-    const filing = notification.data.filing as SECFiling;
+    const filing = (notification.data as { filing: SECFiling }).filing;
     const filters = subscription.filters;
 
     // Check filing types
@@ -542,7 +542,7 @@ export class SECWebhookSystem {
         notificationId: delivery.notificationId,
         attempt: delivery.attempt,
         nextRetryIn: backoffSeconds,
-        error: response ? `HTTP ${response.status}` : error?.message,
+        error: response ? `HTTP ${response.status}` : error instanceof Error ? error.message : String(error),
       });
     }
   }

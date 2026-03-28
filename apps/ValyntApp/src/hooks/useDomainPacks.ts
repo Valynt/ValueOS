@@ -8,6 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { logger } from "@/lib/logger";
 
 // ============================================================================
 // Types (mirrored from backend)
@@ -152,7 +153,7 @@ export function useDomainPacks() {
         const res = await apiClient.get<{ packs: DomainPack[] }>(API_BASE);
         if (res.success) return res.data?.packs ?? [];
       } catch (err) {
-        console.error("Failed to fetch domain packs:", err);
+        logger.error("Failed to fetch domain packs:", { error: err });
       }
       // Fallback to demo data when backend is unavailable or returns failure
       return DEMO_PACKS;
@@ -177,7 +178,7 @@ export function useMergedContext(caseId: string | undefined) {
         const res = await apiClient.get<MergedContext>(`${API_BASE}/value-cases/${caseId}/merged-context`);
         if (res.success) return res.data as MergedContext;
       } catch (err) {
-        console.error("Failed to fetch merged context:", err);
+        logger.error("Failed to fetch merged context:", { error: err });
       }
       // Fallback to demo data when backend is unavailable or returns failure
       const packId = getPackIdFromUrl();

@@ -77,4 +77,4 @@ export function LoadingOverlay({
   return content;
 }
 
-export default LoadingOverlay;
+export { LoadingOverlay };

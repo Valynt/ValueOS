@@ -360,7 +360,7 @@ function useGreeting() {
   return firstName ? `${timeOfDay}, ${firstName}` : timeOfDay;
 }
 
-export default function Dashboard() {
+export function Dashboard() {
   const greeting = useGreeting();
   const { data: cases, isLoading } = useCasesList();
 

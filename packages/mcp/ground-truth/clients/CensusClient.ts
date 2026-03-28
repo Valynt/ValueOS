@@ -352,7 +352,7 @@ export class CensusClient {
 
     // Skip header row
     for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+      const row = data[i] as string[];
       try {
         const [
           name,
@@ -381,12 +381,16 @@ export class CensusClient {
           medianHouseholdIncome: parseInt(medianHouseholdIncome) || 0,
           perCapitaIncome: parseInt(perCapitaIncome) || 0,
           povertyRate:
-            povertyUniverse > 0 ? (parseInt(povertyCount) / parseInt(povertyUniverse)) * 100 : 0,
+            parseInt(povertyUniverse as string) > 0
+              ? (parseInt(povertyCount as string) / parseInt(povertyUniverse as string)) * 100
+              : 0,
           unemploymentRate:
-            laborForce > 0 ? (parseInt(unemployed) / parseInt(laborForce)) * 100 : 0,
+            parseInt(laborForce as string) > 0
+              ? (parseInt(unemployed as string) / parseInt(laborForce as string)) * 100
+              : 0,
           educationBachelorPlus:
-            educationUniverse > 0
-              ? (parseInt(bachelorsPlus) / parseInt(educationUniverse)) * 100
+            parseInt(educationUniverse as string) > 0
+              ? (parseInt(bachelorsPlus as string) / parseInt(educationUniverse as string)) * 100
               : 0,
           housingUnits: parseInt(housingUnits) || 0,
           medianHomeValue: parseInt(medianHomeValue) || 0,
@@ -406,7 +410,7 @@ export class CensusClient {
 
     // Skip header row
     for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+      const row = data[i] as string[];
       try {
         const [
           name,
@@ -455,7 +459,7 @@ export class CensusClient {
     // For now, we'll create proxy data based on population and income
 
     for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+      const row = data[i] as string[];
       try {
         const [name, population, medianIncome, geoid] = row;
 
@@ -465,16 +469,16 @@ export class CensusClient {
             naicsCode,
             naicsTitle: this.getNaicsTitle(naicsCode),
             year,
-            stateCode: geoid.substring(0, 2),
-            stateName: name.split(",")[1]?.trim() || name,
-            countyCode: geoid.length > 5 ? geoid.substring(2, 5) : undefined,
-            countyName: geoid.length > 5 ? name.split(",")[0] : undefined,
-            establishmentCount: Math.floor(parseInt(population) / 10000), // Rough proxy
-            employmentCount: Math.floor(parseInt(population) / 500), // Rough proxy
-            annualPayroll: (parseInt(population) * parseInt(medianIncome)) / 10, // Rough proxy
-            firstQuarterPayroll: (parseInt(population) * parseInt(medianIncome)) / 40, // Rough proxy
-            averageEmployeeCount: Math.floor(parseInt(population) / 500),
-            averageAnnualPay: parseInt(medianIncome) * 1.2, // Rough proxy
+            stateCode: (geoid as string).substring(0, 2),
+            stateName: (name as string).split(",")[1]?.trim() || (name as string),
+            countyCode: (geoid as string).length > 5 ? (geoid as string).substring(2, 5) : undefined,
+            countyName: (geoid as string).length > 5 ? (name as string).split(",")[0] : undefined,
+            establishmentCount: Math.floor(parseInt(population as string) / 10000), // Rough proxy
+            employmentCount: Math.floor(parseInt(population as string) / 500), // Rough proxy
+            annualPayroll: (parseInt(population as string) * parseInt(medianIncome as string)) / 10, // Rough proxy
+            firstQuarterPayroll: (parseInt(population as string) * parseInt(medianIncome as string)) / 40, // Rough proxy
+            averageEmployeeCount: Math.floor(parseInt(population as string) / 500),
+            averageAnnualPay: parseInt(medianIncome as string) * 1.2, // Rough proxy
           };
 
           results.push(businessData);
@@ -494,7 +498,7 @@ export class CensusClient {
 
     // Skip header row
     for (let i = 1; i < data.length; i++) {
-      const row = data[i];
+      const row = data[i] as string[];
       try {
         const [name, population, geoid] = row;
 

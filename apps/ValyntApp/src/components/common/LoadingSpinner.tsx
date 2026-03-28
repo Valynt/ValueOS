@@ -43,4 +43,4 @@ export function LoadingSpinner({
   return content;
 }
 
-export default LoadingSpinner;
+export { LoadingSpinner };

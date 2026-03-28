@@ -107,16 +107,18 @@ function connectorClass(status: PipelineStepStatus): string {
   }
 }
 
-function StepNode({ step, isLast }: StepNodeProps) {
+function StepNode({ step, isLast, stepNumber }: StepNodeProps & { stepNumber: number }) {
   const icon = STEP_ICONS[step.stepName] ?? <ChevronRight className="h-4 w-4" />;
+  const stepId = `step-${step.step}`;
 
   return (
-    <div className="flex items-start gap-0 flex-1 min-w-0">
+    <div className="flex items-start gap-0 flex-1 min-w-0" role="listitem" aria-label={`Step ${stepNumber}: ${step.stepName}, ${step.status}`}>
       {/* Step circle + label column */}
       <div className="flex flex-col items-center gap-1.5 min-w-[72px]">
         {/* Circle */}
         <div
           className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-500 ${statusRingClass(step.status)}`}
+          aria-current={step.status === "running" ? "step" : undefined}
         >
           {step.status === "running" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -132,10 +134,10 @@ function StepNode({ step, isLast }: StepNodeProps) {
         {/* Step name */}
         <span
           className={`text-[11px] font-semibold tracking-wide text-center leading-tight ${step.status === "running"
-              ? "text-brand-indigo"
-              : step.status === "completed"
-                ? "text-zinc-700"
-                : "text-zinc-400"
+            ? "text-brand-indigo"
+            : step.status === "completed"
+              ? "text-zinc-700"
+              : "text-zinc-400"
             }`}
         >
           {step.stepName}
@@ -221,9 +223,9 @@ export function PipelineStepper({
       )}
 
       {/* Steps row */}
-      <div className="flex items-start w-full">
+      <div className="flex items-start w-full" role="list" aria-label="Pipeline progress">
         {steps.map((step, i) => (
-          <StepNode key={step.step} step={step} isLast={i === steps.length - 1} />
+          <StepNode key={step.step} step={step} isLast={i === steps.length - 1} stepNumber={i + 1} />
         ))}
       </div>
     </div>

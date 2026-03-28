@@ -1,6 +1,6 @@
 /**
  * Avatar Component
- * 
+ *
  * User avatar with image, initials fallback, and status indicator.
  * Follows ValueOS design system.
  */
@@ -31,7 +31,7 @@ const avatarVariants = cva(
 
 export interface AvatarProps
   extends React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>,
-    VariantProps<typeof avatarVariants> {}
+  VariantProps<typeof avatarVariants> { }
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -168,6 +168,8 @@ const AvatarGroup = ({ users, max = 4, size = "sm", className }: AvatarGroupProp
             avatarVariants({ size }),
             "flex items-center justify-center bg-muted text-muted-foreground ring-2 ring-background"
           )}
+          role="status"
+          aria-label={`${remainingCount} more users`}
         >
           +{remainingCount}
         </div>

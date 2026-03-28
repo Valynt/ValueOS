@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 
 import ErrorBoundary from "./ErrorBoundary";
+import { navigateToLogin } from "../lib/safeNavigation";
 
 interface ProviderWrapperProps {
   children: ReactNode;
@@ -38,7 +39,7 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
                   We encountered an issue with authentication. Please try logging in again.
                 </p>
                 <button
-                  onClick={() => (window.location.href = "/login")}
+                  onClick={() => navigateToLogin()}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Go to Login
@@ -54,4 +55,4 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
   );
 };
 
-export default ProviderWrapper;
+export { ProviderWrapper };

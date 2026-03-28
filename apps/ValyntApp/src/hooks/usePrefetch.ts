@@ -1,5 +1,7 @@
 import { useCallback } from "react";
 
+import { logger } from "@/lib/logger";
+
 /**
  * Hook for prefetching routes and resources
  */
@@ -8,9 +10,8 @@ export const usePrefetch = () => {
     // For React Router, we can preload route components
     // This is a simplified implementation - in practice, you'd integrate
     // with your route definitions and lazy loading
-     
-    // eslint-disable-next-line no-console
-    console.debug("Prefetching route:", route);
+
+    logger.debug("Prefetching route:", { route });
 
     // Example: preload critical components based on route
     switch (route) {
@@ -38,7 +39,7 @@ export const usePrefetch = () => {
         const cache = await caches.open("prefetch-cache");
         await cache.add(url);
       } catch (error) {
-        console.warn("Resource prefetch failed:", error);
+        logger.warn("Resource prefetch failed:", { error });
       }
     }
   }, []);

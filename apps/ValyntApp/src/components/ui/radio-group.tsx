@@ -12,6 +12,7 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
     <div
       ref={ref}
       className={cn("grid gap-2", className)}
+      role="radiogroup"
       {...props}
     />
   )

@@ -32,7 +32,7 @@ const statusConfig = {
 
 const categories = ["CRM", "Communications", "Ground Truth", "LLM Gateway", "Billing"];
 
-export default function Integrations() {
+export function Integrations() {
   return (
     <div className="p-6 lg:p-10 max-w-[1400px] mx-auto space-y-8">
       <div>

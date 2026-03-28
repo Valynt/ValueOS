@@ -27,6 +27,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/utils";
+import { safeNavigate } from "@/lib/safeNavigation";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -381,9 +382,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const navigate = useCallback((path: string) => {
-    // Use window.location as a fallback; in practice the router's navigate
-    // would be injected via registerCommands from a component with router access.
-    window.location.assign(path);
+    safeNavigate(path, { fallback: "/dashboard" });
   }, []);
 
   const defaultCommands = useMemo(() => createDefaultCommands(navigate), [navigate]);

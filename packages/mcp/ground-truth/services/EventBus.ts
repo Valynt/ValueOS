@@ -409,10 +409,11 @@ export class EventBus {
     this.registerHandler(
       "system.health",
       async (event: Event) => {
+        const data = event.data as { component: string; status: string; metrics?: Record<string, unknown> };
         logger.info("System health event", {
-          component: event.data.component,
-          status: event.data.status,
-          metrics: event.data.metrics,
+          component: data.component,
+          status: data.status,
+          metrics: data.metrics,
         });
       },
       10
@@ -422,10 +423,11 @@ export class EventBus {
     this.registerHandler(
       "system.error",
       async (event: Event) => {
+        const data = event.data as { component: string; error: string; context?: Record<string, unknown> };
         logger.error("System error event", {
-          component: event.data.component,
-          error: event.data.error,
-          context: event.data.context,
+          component: data.component,
+          error: data.error,
+          context: data.context,
         });
       },
       50

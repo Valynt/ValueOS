@@ -130,7 +130,10 @@ export function useAgentOrchestrator(
         onErrorRef.current?.(error);
       },
     }),
-    // agentId is the only value that should recreate the stream options
+    // Intentional dependency omission: addThoughtRef and onErrorRef are stable
+    // refs that always point to the latest callbacks. Including them would cause
+    // unnecessary re-creation of stream options on every render. Only agentId
+    // changes should trigger recreation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agentId],
   );

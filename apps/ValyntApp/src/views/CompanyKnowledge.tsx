@@ -28,7 +28,7 @@ const tabs: Array<{ key: Tab; label: string; icon: React.ElementType }> = [
   { key: "history", label: "History", icon: Clock },
 ];
 
-export default function CompanyKnowledge() {
+export function CompanyKnowledge() {
   const { companyContext, isLoading, isReady } = useCompanyValueContext();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 

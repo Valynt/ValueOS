@@ -157,7 +157,7 @@ function getMilestoneCompletionCriteria(
   return milestone.stageKeys.flatMap((stageKey) => workflowExecution.stages?.[stageKey]?.completion_criteria ?? []);
 }
 
-export default function ValueCaseCanvas() {
+export function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
   const [evidenceOpen, setEvidenceOpen] = useState(false);

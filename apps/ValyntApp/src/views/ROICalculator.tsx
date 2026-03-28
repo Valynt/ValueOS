@@ -17,7 +17,7 @@ import { ReasoningViewer } from "../components/ReasoningViewer";
 import { Tooltip } from "../components/ui/tooltip";
 import { useDrawer } from "../contexts/DrawerContext";
 
-export default function ROICalculator() {
+export function ROICalculator() {
   const [showReasoning, setShowReasoning] = useState(false);
   const [reasoningText, setReasoningText] = useState<string>("");
   const { openDrawer } = useDrawer();
@@ -193,8 +193,8 @@ export default function ROICalculator() {
                     setOptimizationGoal(goal.id as "roi" | "npv" | "payback")
                   }
                   className={`px-3 py-3 text-xs font-medium rounded-xl border transition-all ${optimizationGoal === goal.id
-                      ? "bg-primary/20 border-primary/50 text-primary shadow-glow-teal"
-                      : "bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                    ? "bg-primary/20 border-primary/50 text-primary shadow-glow-teal"
+                    : "bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
                     }`}
                 >
                   {goal.label}

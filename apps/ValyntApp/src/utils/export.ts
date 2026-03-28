@@ -3,6 +3,7 @@
  * Provides export functionality for dashboards and data (PDF, PNG, Excel)
  */
 
+import { logger } from "@/lib/logger";
 import * as React from "react";
 
 export interface ExportOptions {
@@ -453,7 +454,7 @@ export function useExport() {
 
       downloadBlob(blob, actualFilename);
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", { error });
       throw error;
     } finally {
       setIsExporting(false);
@@ -482,7 +483,7 @@ export function useExport() {
 
       downloadBlob(blob, actualFilename);
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", { error });
       throw error;
     } finally {
       setIsExporting(false);

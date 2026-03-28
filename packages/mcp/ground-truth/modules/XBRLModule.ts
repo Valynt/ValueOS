@@ -1,10 +1,10 @@
 /**
  * XBRL Parser Module - Tier 1 Structured Financial Data
- * 
+ *
  * Provides deterministic access to XBRL-tagged financial data from SEC filings.
  * XBRL (eXtensible Business Reporting Language) is the standardized format for
  * financial reporting, ensuring consistent, machine-readable data.
- * 
+ *
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Standard: XBRL US GAAP Taxonomy
  */
@@ -31,10 +31,10 @@ interface XBRLConfig {
 
 /**
  * XBRL Module - Tier 1 Structured Data Source
- * 
+ *
  * Implements MCP tool: get_authoritative_financials (structured variant)
  * Node Mapping: [NODE: XBRL_Parser], [NODE: Tier_1_Canonical]
- * 
+ *
  * Uses SEC's XBRL API for standardized financial facts:
  * https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
  */
@@ -71,7 +71,7 @@ export class XBRLModule extends BaseModule {
 
   override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
-    
+
     const xbrlConfig = config as XBRLConfig;
     this.userAgent = xbrlConfig.userAgent || 'ValueCanvas contact@valuecanvas.com';
     this.baseUrl = xbrlConfig.baseUrl || this.baseUrl;
@@ -139,7 +139,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get all XBRL facts for a company
-   * 
+   *
    * Uses SEC's companyfacts API endpoint
    * Caches results to minimize API calls
    */
@@ -201,7 +201,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Extract specific fact from company facts data
-   * 
+   *
    * Handles multiple taxonomies (us-gaap, dei, etc.) and periods
    */
   private extractFact(
@@ -209,14 +209,14 @@ export class XBRLModule extends BaseModule {
     tag: string,
     period?: string
   ): XBRLFact | null {
-    const facts = factsData.facts;
+    const facts = factsData.facts as Record<string, Record<string, { label?: string; units?: Record<string, Array<{ val: number | string; filed: string; form?: string; accn?: string; frame?: string; fy?: number; fp?: string; start?: string; end?: string }>> }>>;
     if (!facts) {
       return null;
     }
 
     // Search in us-gaap taxonomy first (most common)
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
-    
+
     for (const taxonomy of taxonomies) {
       if (!facts[taxonomy] || !facts[taxonomy][tag]) {
         continue;
@@ -232,7 +232,7 @@ export class XBRLModule extends BaseModule {
       // Get the appropriate unit (USD for monetary values, shares for counts, etc.)
       const unitKeys = Object.keys(units);
       const preferredUnits = ['USD', 'shares', 'pure'];
-      
+
       let selectedUnit = unitKeys[0];
       for (const preferred of preferredUnits) {
         if (unitKeys.includes(preferred)) {
@@ -250,7 +250,7 @@ export class XBRLModule extends BaseModule {
       let filteredData = unitData;
       if (period) {
         filteredData = unitData.filter((item: Record<string, unknown>) => {
-          return item.fy?.toString() === period || 
+          return item.fy?.toString() === period ||
                  item.fp === period ||
                  item.frame === period;
         });
@@ -261,8 +261,8 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get most recent fact
-      const sortedData = filteredData.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-        return new Date(b.filed).getTime() - new Date(a.filed).getTime();
+      const sortedData = filteredData.sort((a, b) => {
+        return new Date(b.filed as string).getTime() - new Date(a.filed as string).getTime();
       });
 
       const mostRecent = sortedData[0];
@@ -288,7 +288,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get trend data for a specific metric over multiple periods
-   * 
+   *
    * Implements time-series analysis for financial metrics
    */
   async getTrend(
@@ -307,13 +307,14 @@ export class XBRLModule extends BaseModule {
 
     // Extract all available periods for this metric
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
-    
+    const factsData = facts as { facts: Record<string, Record<string, { units?: Record<string, Array<{ val: number | string; filed: string; fy?: number; fp?: string; frame?: string }>> }>> };
+
     for (const taxonomy of taxonomies) {
-      if (!facts.facts[taxonomy] || !facts.facts[taxonomy][xbrlTag]) {
+      if (!factsData.facts[taxonomy] || !factsData.facts[taxonomy][xbrlTag]) {
         continue;
       }
 
-      const tagData = facts.facts[taxonomy][xbrlTag];
+      const tagData = factsData.facts[taxonomy][xbrlTag];
       const units = tagData.units;
 
       if (!units) {
@@ -330,23 +331,23 @@ export class XBRLModule extends BaseModule {
 
       // Sort by filing date
       const sortedData = unitData
-        .filter((item: Record<string, unknown>) => item["val"] !== null && item.val !== undefined)
-        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-          return new Date(a.filed).getTime() - new Date(b.filed).getTime();
+        .filter((item) => item["val"] !== null && item.val !== undefined)
+        .sort((a, b) => {
+          return new Date(a.filed as string).getTime() - new Date(b.filed as string).getTime();
         });
 
       // Limit to requested number of periods
-      const limitedData = periods 
-        ? sortedData.slice(-periods) 
+      const limitedData = periods
+        ? sortedData.slice(-periods)
         : sortedData;
 
       for (const item of limitedData) {
-        const periodLabel = item.fy 
+        const periodLabel = item.fy
           ? `FY${item.fy}${item.fp ? `-${item.fp}` : ''}`
           : item.frame || 'Unknown';
-        
+
         trendData.periods.push(periodLabel);
-        trendData.values.push(item.val);
+        trendData.values.push(item.val as number);
       }
 
       break; // Use first taxonomy that has data
@@ -370,7 +371,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get multiple facts at once for efficiency
-   * 
+   *
    * Batch retrieval for multiple metrics
    */
   async getMultipleFacts(
@@ -415,7 +416,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Calculate financial ratios from XBRL data
-   * 
+   *
    * Derives common financial ratios from base metrics
    */
   async calculateRatios(

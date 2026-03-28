@@ -38,7 +38,7 @@ const tools = [
 
 const tabs = ["Runs", "Memory", "Configuration", "Permissions"];
 
-export default function AgentDetail() {
+export function AgentDetail() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState("Runs");
 
@@ -181,15 +181,15 @@ export default function AgentDetail() {
             <div className="bg-white border border-zinc-200 rounded-2xl p-5">
               <h3 className="text-[13px] font-semibold text-zinc-900 mb-4">Agent Configuration</h3>
               <pre className="bg-zinc-50 rounded-xl p-4 text-[12px] font-mono text-zinc-700 overflow-x-auto">
-{JSON.stringify({
-  agent_id: "opportunity",
-  model: "together/meta-llama/Llama-3-70b-chat-hf",
-  temperature: 0.3,
-  max_tokens: 4096,
-  system_prompt: "You are the Opportunity Agent for ValueOS...",
-  safety: { max_input_length: 10000, blocked_patterns: ["DROP TABLE", "DELETE FROM"], pii_detection: true },
-  budget: { max_cost_per_run: 1.00, max_tokens_per_run: 50000 },
-}, null, 2)}
+                {JSON.stringify({
+                  agent_id: "opportunity",
+                  model: "together/meta-llama/Llama-3-70b-chat-hf",
+                  temperature: 0.3,
+                  max_tokens: 4096,
+                  system_prompt: "You are the Opportunity Agent for ValueOS...",
+                  safety: { max_input_length: 10000, blocked_patterns: ["DROP TABLE", "DELETE FROM"], pii_detection: true },
+                  budget: { max_cost_per_run: 1.00, max_tokens_per_run: 50000 },
+                }, null, 2)}
               </pre>
             </div>
           </div>

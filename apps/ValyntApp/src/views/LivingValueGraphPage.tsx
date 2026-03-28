@@ -28,7 +28,7 @@ import {
   WorkflowTimeline,
 } from '../features/living-value-graph';
 
-export default function LivingValueGraphPage() {
+export function LivingValueGraphPage() {
   const { opportunityId, caseId } = useParams<{ opportunityId: string; caseId: string }>();
   const [isApprovalDrawerOpen, setIsApprovalDrawerOpen] = useState(false);
 

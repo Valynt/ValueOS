@@ -417,7 +417,7 @@ export class LiveDataFeedService {
       if (cached && now < cached.expiresAt) {
         logger.debug("Cache hit", { cacheKey, source });
         this.updateQualityMetrics(source, true);
-        return cached.data;
+        return cached.data as T;
       }
     }
 
@@ -447,7 +447,7 @@ export class LiveDataFeedService {
         const cached = this.cache.get(cacheKey);
         if (cached) {
           logger.warn("Returning stale cache data due to fetch failure", { cacheKey, source });
-          return cached.data;
+          return cached.data as T;
         }
       }
 

@@ -442,11 +442,12 @@ export class StreamingSentimentAnalyzer {
   private setupEventHandlers(): void {
     // Handle session management events
     this.eventBus.registerHandler("sentiment.start_session", async (event) => {
+      const data = event.data as { sessionId: string; eventType: string; companyName: string; metadata?: Record<string, unknown> };
       await this.startSession(
-        event.data.sessionId,
-        event.data.eventType,
-        event.data.companyName,
-        event.data.metadata
+        data.sessionId,
+        data.eventType,
+        data.companyName,
+        data.metadata
       );
     });
 
@@ -454,13 +455,15 @@ export class StreamingSentimentAnalyzer {
     this.eventBus.registerHandler(
       "sentiment.process_transcript",
       async (event) => {
-        await this.processTranscript(event.data.transcript);
+        const data = event.data as { transcript: TranscriptSegment };
+        await this.processTranscript(data.transcript);
       }
     );
 
     // Handle session end events
     this.eventBus.registerHandler("sentiment.end_session", async (event) => {
-      await this.endSession(event.data.sessionId);
+      const data = event.data as { sessionId: string };
+      await this.endSession(data.sessionId);
     });
   }
 

@@ -51,7 +51,7 @@ function sendToAnalytics(name: string, metric: Metric) {
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
   }).catch((error: unknown) => {
-    console.warn("Failed to send web vitals to analytics:", error);
+    logger.warn("Failed to send web vitals to analytics:", { error });
   });
 
   // Also send to Google Analytics 4 if available

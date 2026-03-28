@@ -294,7 +294,7 @@ export class ParallelInitializer extends EventEmitter {
     destroyer?: (connection: T) => Promise<void>
   ): ConnectionPool<T> {
     const pool = new ConnectionPool(factory, this.config.poolSize, destroyer);
-    this.connectionPools.set(name, pool);
+    this.connectionPools.set(name, pool as ConnectionPool<unknown>);
     return pool;
   }
 

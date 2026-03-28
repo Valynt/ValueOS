@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
 import { usePdfExport } from "@/hooks/useCaseExport";
+import { buildTenantPath, safeNavigate } from "@/lib/safeNavigation";
 
 
 type ArtifactType = "executive-memo" | "cfo-recommendation" | "customer-narrative" | "internal-case";
@@ -199,7 +200,12 @@ export function ExecutiveOutputStudio() {
                   variant="outline"
                   size="sm"
                   className="text-red-700 border-red-300 hover:bg-red-100"
-                  onClick={() => window.location.href = `/org/${caseId}/workspace`}
+                  onClick={() => {
+                    const safePath = buildTenantPath(caseId ?? "", "workspace");
+                    if (safePath) {
+                      safeNavigate(safePath, { fallback: "/dashboard" });
+                    }
+                  }}
                 >
                   Run Integrity Check
                 </Button>

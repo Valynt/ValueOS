@@ -401,7 +401,7 @@ const filterTabs: { key: FilterTab; label: string }[] = [
   { key: "complete", label: "Complete" },
 ];
 
-export default function Opportunities() {
+export function Opportunities() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");

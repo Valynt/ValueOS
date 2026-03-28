@@ -13,6 +13,7 @@
 import { Component, ErrorInfo, ReactNode, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import { safeReload, navigateToLogin } from "@/lib/safeNavigation";
 
 interface Props {
   children: ReactNode;
@@ -207,7 +208,7 @@ class ErrorBoundary extends Component<Props, State> {
 
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => safeReload()}
               className={cn(
                 "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors",
                 "border border-border text-foreground hover:bg-secondary",
@@ -223,7 +224,7 @@ class ErrorBoundary extends Component<Props, State> {
                 onClick={() => {
                   localStorage.clear();
                   sessionStorage.clear();
-                  window.location.href = "/login";
+                  navigateToLogin();
                 }}
                 className={cn(
                   "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors",
@@ -241,4 +242,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export { ErrorBoundary };

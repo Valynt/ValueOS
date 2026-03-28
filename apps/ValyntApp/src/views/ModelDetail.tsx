@@ -21,7 +21,7 @@ const kpis = [
 
 const tabs = ["Overview", "KPIs", "Scenarios", "History"];
 
-export default function ModelDetail() {
+export function ModelDetail() {
   const { id } = useParams();
   const modelId = id ?? model.id;
   const [activeTab, setActiveTab] = useState("KPIs");

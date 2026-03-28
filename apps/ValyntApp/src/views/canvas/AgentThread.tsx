@@ -17,6 +17,7 @@ import {
   useCheckpointReviewDecision,
 } from "@/hooks/useCheckpointReview";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
+import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
 interface AgentThreadProps {
@@ -101,8 +102,8 @@ export function AgentThread({
       job?.mode === "direct"
         ? " · direct"
         : job?.mode === "kafka"
-        ? " · async"
-        : "";
+          ? " · async"
+          : "";
 
     switch (job?.status) {
       case "queued":
@@ -112,9 +113,8 @@ export function AgentThread({
           ? currentSubTask
           : `Running${job.agentId ? ` · ${job.agentId}` : ""}`;
       case "retrying":
-        return `Retrying${
-          job.attemptsMade != null ? ` (attempt ${job.attemptsMade})` : ""
-        }`;
+        return `Retrying${job.attemptsMade != null ? ` (attempt ${job.attemptsMade})` : ""
+          }`;
       case "completed":
         return `Completed${modeTag}`;
       case "failed":
@@ -166,7 +166,9 @@ export function AgentThread({
         ? job.lastKnownGoodOutput
         : JSON.stringify(job.lastKnownGoodOutput, null, 2);
 
-    navigator.clipboard.writeText(artifact).catch(() => {});
+    navigator.clipboard.writeText(artifact).catch((err) => {
+      logger.warn("Failed to copy artifact to clipboard:", { error: err });
+    });
   };
 
   const reviewBanner = useMemo(() => {

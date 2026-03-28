@@ -19,7 +19,7 @@ const statusConfig: Record<string, { color: string; bg: string }> = {
   archived: { color: "text-zinc-500", bg: "bg-zinc-100" },
 };
 
-export default function Models() {
+export function Models() {
   const [filter, setFilter] = useState("all");
 
   const filtered = filter === "all" ? models : models.filter((m) => m.status === filter);

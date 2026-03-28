@@ -14,7 +14,7 @@ const logger = createLogger({ component: "AuthCallback" });
 
 const REDIRECT_DELAY_MS = 2000; // Delay before redirecting on error to show message
 
-export default function AuthCallback() {
+export function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 

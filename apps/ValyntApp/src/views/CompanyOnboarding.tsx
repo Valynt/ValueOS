@@ -31,6 +31,7 @@ import {
 import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 const phases = [
   { key: "company", label: "Company", step: 1 },
@@ -153,7 +154,7 @@ export default function CompanyOnboarding() {
       }
       navigate("/dashboard");
     } catch (err) {
-      console.error("Skip onboarding failed:", err);
+      logger.error("Skip onboarding failed:", { error: err });
       setSubmissionError("We couldn't skip onboarding right now. Please try again.");
     }
   };
@@ -276,13 +277,13 @@ export default function CompanyOnboarding() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors",
                 phase === p.step ? "bg-zinc-950 text-white" :
-                phase > p.step ? "text-zinc-600" : "text-zinc-300"
+                  phase > p.step ? "text-zinc-600" : "text-zinc-300"
               )}
             >
               <div className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0",
                 phase === p.step ? "bg-white text-zinc-950" :
-                phase > p.step ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-400"
+                  phase > p.step ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-400"
               )}>
                 {phase > p.step ? "✓" : p.step}
               </div>

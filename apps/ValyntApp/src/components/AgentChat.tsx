@@ -29,7 +29,7 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
         logger.info("New message:", message);
       },
       onError: (error) => {
-        console.error("Agent chat error:", error);
+        logger.error("Agent chat error:", { error });
       },
       onToolExecuted: (toolCall, result) => {
         logger.info("Tool executed:", toolCall, result);

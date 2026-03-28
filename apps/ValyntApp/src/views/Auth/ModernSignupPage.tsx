@@ -8,6 +8,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { logger } from "@/lib/logger";
 
 export function ModernSignupPage() {
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ export function ModernSignupPage() {
       }
       navigate("/", { replace: true });
     } catch (err: unknown) {
-      console.error("Signup error:", err);
+      logger.error("Signup error:", { error: err });
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage || "Failed to create account");
@@ -80,7 +81,7 @@ export function ModernSignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center antialiased selection:bg-zinc-800 selection:text-zinc-200 text-zinc-50 bg-black p-4">
       {/* Animated Background */}
-      <div 
+      <div
         className="fixed top-0 w-full h-screen -z-10"
         style={{
           maskImage: 'linear-gradient(to bottom, transparent, black 0%, black 80%, transparent)',
@@ -94,20 +95,20 @@ export function ModernSignupPage() {
 
       {/* Main Container */}
       <div className="w-full max-w-[320px] sm:max-w-[350px] mx-auto space-y-8">
-        
+
         {/* Brand & Header */}
         <div className="flex flex-col items-center space-y-6 text-center">
           {/* Logo Lockup */}
           <div className="flex items-center gap-3 select-none">
-            <svg 
-              width="32" 
-              height="32" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className="text-white"
             >
               <path d="M12 2L22 12L12 22L2 12L7 7H12" />
@@ -116,15 +117,15 @@ export function ModernSignupPage() {
               VALUEOS
             </span>
           </div>
-          
+
           <div className="space-y-1.5">
             <h1 className="text-xl font-semibold text-white tracking-tight">
               Create your account
             </h1>
             <p className="text-xs text-zinc-400">
               Already have an account?{" "}
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="font-medium text-white underline underline-offset-4 hover:text-zinc-300 transition-colors"
               >
                 Sign in
@@ -164,18 +165,18 @@ export function ModernSignupPage() {
           <form onSubmit={handleSubmit} className="grid gap-4">
             {/* Full Name Input */}
             <div className="grid gap-2">
-              <label 
-                htmlFor="fullName" 
+              <label
+                htmlFor="fullName"
                 className="text-xs font-medium leading-none text-zinc-300"
               >
                 Full Name
               </label>
-              <input 
-                id="fullName" 
-                placeholder="John Doe" 
-                type="text" 
-                autoCapitalize="words" 
-                autoComplete="name" 
+              <input
+                id="fullName"
+                placeholder="John Doe"
+                type="text"
+                autoCapitalize="words"
+                autoComplete="name"
                 className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                 required
                 value={fullName}
@@ -186,19 +187,19 @@ export function ModernSignupPage() {
 
             {/* Email Input */}
             <div className="grid gap-2">
-              <label 
-                htmlFor="email" 
+              <label
+                htmlFor="email"
                 className="text-xs font-medium leading-none text-zinc-300"
               >
                 Email
               </label>
-              <input 
-                id="email" 
-                placeholder="name@example.com" 
-                type="email" 
-                autoCapitalize="none" 
-                autoComplete="email" 
-                autoCorrect="off" 
+              <input
+                id="email"
+                placeholder="name@example.com"
+                type="email"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect="off"
                 className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                 required
                 value={email}
@@ -209,8 +210,8 @@ export function ModernSignupPage() {
 
             {/* Password Input */}
             <div className="grid gap-2">
-              <label 
-                htmlFor="password" 
+              <label
+                htmlFor="password"
                 className="text-xs font-medium leading-none text-zinc-300"
               >
                 Password
@@ -246,10 +247,10 @@ export function ModernSignupPage() {
                 Must be at least 8 characters
               </p>
             </div>
-            
+
             {/* Signup Button */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-black hover:bg-zinc-200 h-9 w-full shadow-[0_0_20px_-5px_rgba(255,255,255,0.15)]"
               disabled={loading || oauthLoading}
             >
@@ -280,7 +281,7 @@ export function ModernSignupPage() {
           </div>
 
           {/* Google Signup */}
-          <button 
+          <button
             onClick={() => handleOAuthSignIn('google')}
             disabled={loading || oauthLoading}
             className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-zinc-800 bg-black hover:bg-zinc-900 hover:border-zinc-700 text-zinc-200 h-9 w-full gap-2"
@@ -298,15 +299,15 @@ export function ModernSignupPage() {
         {/* Footer */}
         <p className="px-4 text-center text-xs text-zinc-600 leading-relaxed">
           By clicking continue, you agree to our{" "}
-          <a 
-            href="/terms" 
+          <a
+            href="/terms"
             className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
           >
             Terms of Service
           </a>{" "}
           and{" "}
-          <a 
-            href="/privacy" 
+          <a
+            href="/privacy"
             className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
           >
             Privacy Policy

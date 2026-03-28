@@ -122,4 +122,4 @@ export function EmptySearchState({
   );
 }
 
-export default EmptyState;
+export { EmptyState, EmptySearchState };

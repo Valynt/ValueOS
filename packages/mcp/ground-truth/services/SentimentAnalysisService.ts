@@ -70,7 +70,7 @@ export class SentimentAnalysisService {
   private cache = getCache();
 
   constructor() {
-    this.llmGateway = new LLMGateway("openai", true); // Use OpenAI for financial analysis
+    this.llmGateway = new LLMGateway("openai", { enabled: true });
   }
 
   /**

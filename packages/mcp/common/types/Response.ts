@@ -5,7 +5,7 @@
  * structure for success, error, and metadata handling.
  */
 
-import { createErrorResponse, MCPBaseError } from "../errors/MCPBaseError";
+import { createErrorResponse, MCPBaseError, MCPErrorMetadata, MCPErrorDetails } from "../errors/MCPBaseError";
 
 // ============================================================================
 // Base Response Interface
@@ -35,8 +35,8 @@ export interface MCPBaseResponse<T = unknown> {
     code: string;
     message: string;
     category: string;
-    metadata: Record<string, unknown>;
-    details?: Record<string, unknown>;
+    metadata: MCPErrorMetadata;
+    details?: MCPErrorDetails;
   };
   metadata: MCPResponseMetadata;
 }
@@ -58,8 +58,8 @@ export interface MCPErrorResponse extends MCPBaseResponse {
     code: string;
     message: string;
     category: string;
-    metadata: Record<string, unknown>;
-    details?: Record<string, unknown>;
+    metadata: MCPErrorMetadata;
+    details?: MCPErrorDetails;
   };
 }
 

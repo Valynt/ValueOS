@@ -44,7 +44,7 @@ const accounts = [
   }
 ];
 
-export default function Home() {
+export function Home() {
   return (
     <div className="flex-1 overflow-auto bg-background">
       <div className="max-w-6xl mx-auto px-8 py-12">
@@ -82,7 +82,7 @@ export default function Home() {
           </div>
         </div>
 
-        
+
 
         <div className="grid grid-cols-1 gap-4">
           <div className="grid grid-cols-12 px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/50">

@@ -45,6 +45,9 @@ const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
         ref={ref}
         className={cn(skeletonVariants({ variant }), !animate && "animate-none", className)}
         {...props}
+        role="status"
+        aria-label="Loading..."
+        aria-busy="true"
       />
     );
   }

@@ -41,7 +41,7 @@ async function setKillSwitch(name: string, killed: boolean): Promise<void> {
   }
 }
 
-export default function AgentAdminPage() {
+export function AgentAdminPage() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +110,10 @@ export default function AgentAdminPage() {
                 </td>
                 <td className="py-3 pr-6">
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      agent.killed
-                        ? "bg-red-100 text-red-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.killed
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-100 text-green-700"
+                      }`}
                   >
                     {agent.killed ? "Killed" : "Active"}
                   </span>
@@ -123,11 +122,10 @@ export default function AgentAdminPage() {
                   <button
                     onClick={() => void handleToggle(agent)}
                     disabled={toggling === agent.name}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 ${
-                      agent.killed
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : "bg-red-600 hover:bg-red-700 text-white"
-                    }`}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 ${agent.killed
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
+                      }`}
                   >
                     {toggling === agent.name
                       ? "…"

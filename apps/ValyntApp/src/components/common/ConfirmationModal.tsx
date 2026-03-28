@@ -35,11 +35,24 @@ export function ConfirmationModal({
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
+      // Store the previously focused element to restore focus on close
+      const previousFocus = document.activeElement as HTMLElement | null;
+
+      const timer = setTimeout(() => {
         if (requireTypedConfirmation && inputRef.current) {
           inputRef.current.focus();
+        } else {
+          // Focus the confirm button by default for keyboard accessibility
+          const confirmButton = modalRef.current?.querySelector('[data-confirm-button]') as HTMLElement;
+          confirmButton?.focus();
         }
       }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        // Restore focus when modal closes
+        previousFocus?.focus();
+      };
     } else {
       setTypedText("");
       setIsProcessing(false);
@@ -146,6 +159,7 @@ export function ConfirmationModal({
             variant={isDangerous ? "destructive" : "default"}
             onClick={handleConfirm}
             disabled={!canConfirm || isProcessing}
+            data-confirm-button
           >
             {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isProcessing ? "Processing..." : confirmText}
@@ -156,4 +170,4 @@ export function ConfirmationModal({
   );
 }
 
-export default ConfirmationModal;
+export { ConfirmationModal };

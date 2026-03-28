@@ -68,4 +68,4 @@ export function ButtonSpinner({
   );
 }
 
-export default Spinner;
+export { Spinner };

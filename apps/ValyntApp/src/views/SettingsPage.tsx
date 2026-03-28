@@ -152,7 +152,7 @@ function BillingTab() {
   );
 }
 
-export default function SettingsPage() {
+export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("org");
   const tabContent = useMemo<Record<TabKey, React.ReactNode>>(() => ({ org: <OrgTab />, users: <UsersTab />, "api-keys": <ApiKeysTab />, billing: <BillingTab /> }), []);
 

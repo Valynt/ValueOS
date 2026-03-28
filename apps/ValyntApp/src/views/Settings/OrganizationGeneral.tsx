@@ -99,9 +99,10 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
   };
 
   useEffect(() => {
+    // Only apply theme on mount to set initial defaults
     applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
-    // We only want to apply the initial defaults on mount; subsequent updates
-    // are driven via the save handler.
+    // Intentionally run once on mount only - subsequent theme changes
+    // are applied via handleSave to avoid preview flickering
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

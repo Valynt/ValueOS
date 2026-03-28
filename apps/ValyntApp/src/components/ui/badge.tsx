@@ -1,6 +1,6 @@
 /**
  * Badge Component
- * 
+ *
  * Small status indicators and labels.
  * Follows ValueOS design system.
  */
@@ -48,7 +48,7 @@ const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {
+  VariantProps<typeof badgeVariants> {
   removable?: boolean;
   onRemove?: () => void;
 }
@@ -69,7 +69,7 @@ const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
               e.stopPropagation();
               onRemove?.();
             }}
-            className="ml-1 -mr-0.5 rounded-full p-0.5 hover:bg-black/10"
+            className="ml-1 -mr-0.5 rounded-full p-0.5 hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label="Remove"
           >
             <X className="h-3 w-3" aria-hidden="true" />
@@ -147,9 +147,9 @@ export interface CountBadgeProps {
 
 const CountBadge = ({ count, max = 99, variant = "default", className }: CountBadgeProps) => {
   const displayCount = count > max ? `${max}+` : count;
-  
+
   if (count === 0) return null;
-  
+
   return (
     <Badge
       variant={variant}

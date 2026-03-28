@@ -3,6 +3,7 @@
  * Provides XSS prevention, input validation, and CSRF protection for UI templates
  */
 
+import { logger } from "@/lib/logger";
 import * as DOMPurify from "isomorphic-dompurify";
 import React from "react";
 
@@ -491,7 +492,7 @@ export const logSecurityEvent = (
 
   // In production, send to security monitoring service
   if (process.env.NODE_ENV === "production") {
-    console.warn("SECURITY_EVENT:", JSON.stringify(fullEvent));
+    logger.warn("SECURITY_EVENT:", { event: fullEvent });
   }
 };
 

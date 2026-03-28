@@ -1,6 +1,6 @@
 /**
  * Card Component
- * 
+ *
  * Container component with variants for different use cases.
  * Follows ValueOS design system.
  */
@@ -37,7 +37,7 @@ const cardVariants = cva(
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
+  VariantProps<typeof cardVariants> { }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant, padding, ...props }, ref) => (
@@ -121,11 +121,11 @@ export interface MetricCardProps {
 }
 
 const MetricCard = ({ label, value, icon, trend, className }: MetricCardProps) => {
-  const trendColor = trend?.direction === "up" 
-    ? "text-success" 
-    : trend?.direction === "down" 
-    ? "text-destructive" 
-    : "text-muted-foreground";
+  const trendColor = trend?.direction === "up"
+    ? "text-success"
+    : trend?.direction === "down"
+      ? "text-destructive"
+      : "text-muted-foreground";
 
   return (
     <Card variant="default" padding="md" className={className}>
@@ -161,14 +161,23 @@ export interface ActionCardProps {
 }
 
 const ActionCard = ({ title, description, icon, onClick, className }: ActionCardProps) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <Card
       variant="interactive"
       padding="md"
       className={cn("group", className)}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? title : undefined}
     >
       <div className="flex items-start gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">

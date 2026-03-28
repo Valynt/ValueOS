@@ -34,7 +34,7 @@ const mockChallenge: Challenge = {
   status: 'resolved'
 };
 
-export default function ImpactCascade() {
+export function ImpactCascade() {
   const [viewMode, setViewMode] = useState<'tree' | 'table'>('tree');
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
 
@@ -53,21 +53,19 @@ export default function ImpactCascade() {
             <div className="inline-flex rounded-md border border-border p-0.5 ml-4">
               <button
                 onClick={() => setViewMode('tree')}
-                className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                  viewMode === 'tree'
+                className={`px-3 py-1.5 text-sm rounded transition-colors ${viewMode === 'tree'
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Tree View
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                  viewMode === 'table'
+                className={`px-3 py-1.5 text-sm rounded transition-colors ${viewMode === 'table'
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Table View
               </button>
@@ -97,9 +95,8 @@ export default function ImpactCascade() {
                     draggable
                     onDragStart={() => setDraggedFeature(feature.id)}
                     onDragEnd={() => setDraggedFeature(null)}
-                    className={`p-3 bg-secondary/50 rounded-lg border border-border cursor-grab active:cursor-grabbing flex items-center gap-2 hover:bg-secondary transition-colors ${
-                      draggedFeature === feature.id ? 'opacity-50' : ''
-                    }`}
+                    className={`p-3 bg-secondary/50 rounded-lg border border-border cursor-grab active:cursor-grabbing flex items-center gap-2 hover:bg-secondary transition-colors ${draggedFeature === feature.id ? 'opacity-50' : ''
+                      }`}
                   >
                     <GripVertical className="w-4 h-4 text-muted-foreground" />
                     <span className="text-lg">{feature.icon}</span>

@@ -135,7 +135,7 @@ function FleetSummary({ agents }: { agents: AgentInfo[] }) {
   );
 }
 
-export default function Agents() {
+export function Agents() {
   const [search, setSearch] = useState("");
   const { data: agents, isLoading } = useAgentList();
 

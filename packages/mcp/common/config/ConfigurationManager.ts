@@ -145,7 +145,7 @@ export class ConfigurationValidator {
 
     if (
       !config.environment ||
-      !["development", "staging", "production"].includes(config.environment)
+      !["development", "staging", "production"].includes(config.environment as string)
     ) {
       errors.push("Invalid environment. Must be: development, staging, production");
     }
@@ -154,20 +154,21 @@ export class ConfigurationValidator {
       errors.push("debug must be a boolean");
     }
 
-    if (!config.logLevel || !["error", "warn", "info", "debug"].includes(config.logLevel)) {
+    if (!config.logLevel || !["error", "warn", "info", "debug"].includes(config.logLevel as string)) {
       errors.push("Invalid logLevel. Must be: error, warn, info, debug");
     }
 
     if (!config.timeout || typeof config.timeout !== "object") {
       errors.push("timeout configuration is required");
     } else {
-      if (typeof config.timeout.default !== "number" || config.timeout.default <= 0) {
+      const timeoutConfig = config.timeout as Record<string, unknown>;
+      if (typeof timeoutConfig.default !== "number" || timeoutConfig.default <= 0) {
         errors.push("timeout.default must be a positive number");
       }
-      if (typeof config.timeout.external !== "number" || config.timeout.external <= 0) {
+      if (typeof timeoutConfig.external !== "number" || timeoutConfig.external <= 0) {
         errors.push("timeout.external must be a positive number");
       }
-      if (typeof config.timeout.database !== "number" || config.timeout.database <= 0) {
+      if (typeof timeoutConfig.database !== "number" || timeoutConfig.database <= 0) {
         errors.push("timeout.database must be a positive number");
       }
     }
@@ -176,7 +177,7 @@ export class ConfigurationValidator {
       throw new Error(`Configuration validation failed:\n${errors.join("\n")}`);
     }
 
-    return config as MCPBaseConfig;
+    return config as unknown as MCPBaseConfig;
   }
 
   /**
@@ -189,7 +190,7 @@ export class ConfigurationValidator {
       throw new Error("CRM configuration is required");
     }
 
-    if (!Array.isArray(config.crm.providers) || config.crm.providers.length === 0) {
+    if (!Array.isArray((config.crm as { providers: unknown }).providers) || (config.crm as { providers: unknown[] }).providers.length === 0) {
       throw new Error("At least one CRM provider must be configured");
     }
 
@@ -197,7 +198,7 @@ export class ConfigurationValidator {
     (config.crm as { providers: Record<string, unknown>[] }).providers.forEach((provider, index: number) => {
       const providerErrors: string[] = [];
 
-      if (!["hubspot", "salesforce", "dynamics"].includes(provider.provider)) {
+      if (!["hubspot", "salesforce", "dynamics"].includes(provider.provider as string)) {
         providerErrors.push(`Invalid provider at index ${index}`);
       }
 
@@ -214,7 +215,7 @@ export class ConfigurationValidator {
       }
     });
 
-    return config as MCPCRMServerConfig;
+    return config as unknown as MCPCRMServerConfig;
   }
 
   /**
@@ -229,13 +230,14 @@ export class ConfigurationValidator {
 
     // Validate modules
     const requiredModules = ["edgar", "xbrl", "marketData", "privateCompany", "industryBenchmark"];
+    const financialConfig = config.financial as { modules: Record<string, unknown> };
     requiredModules.forEach((module) => {
-      if (!config.financial.modules[module]) {
+      if (!financialConfig.modules[module]) {
         throw new Error(`${module} module configuration is required`);
       }
     });
 
-    return config as MCPFinancialServerConfig;
+    return config as unknown as MCPFinancialServerConfig;
   }
 }
 

@@ -9,6 +9,7 @@ import {
   fetchRoleMatrix,
   type OrganizationRole,
 } from '@/services/adminSettingsService';
+import { logger } from '@/lib/logger';
 
 const AVAILABLE_PERMISSIONS = [
   { id: 'users.read', name: 'View Users', category: 'Users', action: 'read' as const },
@@ -39,6 +40,7 @@ export const OrganizationRoles: React.FC = () => {
       const response = await fetchRoleMatrix();
       setRoles(response);
     } catch (requestError) {
+      logger.error("Failed to load roles:", { error: requestError });
       setError(requestError instanceof Error ? requestError.message : 'Unable to load roles');
     } finally {
       setIsLoading(false);
@@ -64,6 +66,7 @@ export const OrganizationRoles: React.FC = () => {
       setSelectedPermissions(new Set());
       await loadRoles();
     } catch (requestError) {
+      logger.error("Failed to create role:", { error: requestError });
       setError(requestError instanceof Error ? requestError.message : 'Unable to create role');
     } finally {
       setIsSaving(false);
@@ -77,6 +80,7 @@ export const OrganizationRoles: React.FC = () => {
       await deleteRole(roleId);
       await loadRoles();
     } catch (requestError) {
+      logger.error("Failed to delete role:", { error: requestError });
       setError(requestError instanceof Error ? requestError.message : 'Unable to delete role');
     } finally {
       setIsSaving(false);
@@ -108,33 +112,33 @@ export const OrganizationRoles: React.FC = () => {
           <button onClick={() => setShowCreateModal(true)} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus className="h-4 w-4 mr-2" />Create Role</button>
         </div>
         <div className="p-4">
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        {isLoading ? (
-          <div className="py-10 flex items-center justify-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading roles...</div>
-        ) : roles.length === 0 ? (
-          <div className="py-10 text-center text-muted-foreground">No roles configured for this organization yet.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roles.map((role) => (
-              <div key={role.id} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5 text-blue-600" />
-                    <h4 className="font-medium text-gray-900">{role.name}</h4>
+          {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+          {isLoading ? (
+            <div className="py-10 flex items-center justify-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading roles...</div>
+          ) : roles.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground">No roles configured for this organization yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {roles.map((role) => (
+                <div key={role.id} className="p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-blue-600" />
+                      <h4 className="font-medium text-gray-900">{role.name}</h4>
+                    </div>
+                    <button className="p-1 hover:bg-red-100 rounded" onClick={() => void handleDeleteRole(role.id)} disabled={isSaving}>
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
                   </div>
-                  <button className="p-1 hover:bg-red-100 rounded" onClick={() => void handleDeleteRole(role.id)} disabled={isSaving}>
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
+                  <p className="text-sm text-gray-600 mb-3">{role.description || 'No description provided.'}</p>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-gray-500"><Users className="h-4 w-4 mr-1" />Managed role</div>
+                    <span className="text-gray-500">{role.permissions.length} permissions</span>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">{role.description || 'No description provided.'}</p>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-gray-500"><Users className="h-4 w-4 mr-1" />Managed role</div>
-                  <span className="text-gray-500">{role.permissions.length} permissions</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
         </div>
       </SettingsSection>
 

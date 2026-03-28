@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { OpportunityValueBrief } from "@/features/opportunities";
 import { useCreateCase } from "@/hooks/useCases";
 
-export default function OpportunityDetail() {
+export function OpportunityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const createCase = useCreateCase();
