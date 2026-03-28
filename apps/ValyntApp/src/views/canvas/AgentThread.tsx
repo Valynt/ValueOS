@@ -8,10 +8,11 @@ import {
   Shield,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 
-import { useTenant } from "@/contexts/TenantContext";
 import { useAgentJob } from "@/hooks/useAgentJob";
+import { useCheckpointReview, useCheckpointReviewDecision } from "@/hooks/useCheckpointReview";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { cn } from "@/lib/utils";
 
@@ -25,14 +26,33 @@ interface AgentThreadProps {
   directResult?: AgentJobResult | null;
   /** Current sub-task text from a processing heartbeat, if available. */
   currentSubTask?: string | null;
+  /** Lifecycle stage id used for checkpoint persistence. */
+  stageId?: string;
+  /** Stage risk level to enforce rationale requirements. */
+  riskLevel?: "low" | "medium" | "high";
 }
 
-export function AgentThread({ runId, directResult, currentSubTask }: AgentThreadProps) {
-  const { currentTenant } = useTenant();
-  const tenantId = currentTenant?.id ?? null;
+export function AgentThread({
+  runId,
+  directResult,
+  currentSubTask,
+  stageId = "hypothesis",
+  riskLevel = "medium",
+}: AgentThreadProps) {
+  const { caseId } = useParams<{ caseId: string }>();
+  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult);
+  const { data: review } = useCheckpointReview(caseId, runId ?? null, stageId);
+  const reviewDecision = useCheckpointReviewDecision();
 
-  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult, tenantId);
   const [message, setMessage] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const currentStatus = review?.status ?? "pending";
+  const isApproved = currentStatus === "approved";
+  const isChangesRequested = currentStatus === "changes_requested";
+
+  const requireApproveRationale = riskLevel === "high";
 
   const statusIcon = () => {
     if (!runId) return null;
@@ -92,11 +112,41 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
     }
   };
 
+  const reviewBanner = useMemo(() => {
+    if (isApproved) return "Approved";
+    if (isChangesRequested) return "Changes Requested";
+    return "Pending Review";
+  }, [isApproved, isChangesRequested]);
+
+  const submitDecision = (decision: "approved" | "changes_requested") => {
+    if (!caseId || !runId) return;
+
+    const trimmedRationale = rationale.trim();
+    const mustProvideRationale = decision === "changes_requested" || (decision === "approved" && requireApproveRationale);
+    if (mustProvideRationale && !trimmedRationale) {
+      setValidationError(
+        decision === "changes_requested"
+          ? 'Rationale is required when requesting changes.'
+          : 'Rationale is required for approvals in high-risk stages.',
+      );
+      return;
+    }
+
+    setValidationError(null);
+    reviewDecision.mutate({
+      caseId,
+      runId,
+      stageId,
+      decision,
+      rationale: trimmedRationale || undefined,
+      riskLevel,
+    });
+  };
+
   return (
     <div className="space-y-3">
       <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Agent Workflow</h4>
 
-      {/* No run yet */}
       {!runId && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-dashed border-zinc-200">
           <Clock className="w-4 h-4 text-zinc-300 flex-shrink-0" />
@@ -106,7 +156,6 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
         </div>
       )}
 
-      {/* Active run status */}
       {runId && (
         <div className="space-y-2">
           <div className={cn("flex items-center gap-3 p-3 rounded-xl", statusBg())}>
@@ -118,44 +167,15 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
               {job?.message && (
                 <p className="text-[11px] text-zinc-500 mt-0.5">{job.message}</p>
               )}
-              {job?.queuedAt && (
-                <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Queued {new Date(job.queuedAt).toLocaleTimeString()}
-                </p>
-              )}
-              {job?.completedAt && job.latency && (
-                <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Completed in {(job.latency / 1000).toFixed(1)}s
-                </p>
-              )}
             </div>
           </div>
 
-          {/* Retry details */}
           {job?.status === "retrying" && (
             <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 text-[12px] text-orange-800">
               <p className="font-medium">
                 Retrying after a transient error
                 {job.attemptsMade != null ? ` — attempt ${job.attemptsMade}` : ""}
               </p>
-              {job.nextRetryAt && (
-                <p className="text-[11px] text-orange-600 mt-0.5">
-                  Next attempt at {new Date(job.nextRetryAt).toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          )}
-
-          {job?.status === "unavailable" && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
-              The agent infrastructure (Kafka/event bus) is not running in this environment.
-              The agent ran and persisted its output — reload the Hypothesis stage to see results.
-            </div>
-          )}
-
-          {job?.status === "error" && job.error && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700">
-              {job.error}
             </div>
           )}
 
@@ -163,28 +183,51 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
         </div>
       )}
 
-      {/* Human checkpoint — shown when run completed */}
       {job?.status === "completed" && (
-        <div className="p-4 rounded-2xl border-2 border-amber-300 bg-amber-50/50">
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-4 h-4 text-amber-600" />
-            <span className="text-[12px] font-semibold text-amber-800">Review Required</span>
+        <div className="p-4 rounded-2xl border-2 border-amber-300 bg-amber-50/50 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-600" />
+              <span className="text-[12px] font-semibold text-amber-800">Review Required</span>
+            </div>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-amber-300 text-amber-800">
+              {reviewBanner}
+            </span>
           </div>
-          <p className="text-[12px] text-amber-700 mb-3">
+
+          <p className="text-[12px] text-amber-700">
             Agent run completed. Review the hypothesis output before proceeding to the Model stage.
           </p>
+
+          <textarea
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            placeholder={requireApproveRationale ? "Rationale required for this high-risk approval stage" : "Add rationale (required for Request Changes)"}
+            rows={2}
+            className="w-full resize-none bg-white border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-zinc-800 placeholder:text-zinc-400 outline-none"
+          />
+
+          {validationError && <p className="text-[11px] text-red-600">{validationError}</p>}
+
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[12px] font-medium hover:bg-zinc-800 transition-colors">
+            <button
+              onClick={() => submitDecision("approved")}
+              disabled={reviewDecision.isPending || isChangesRequested}
+              className="px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[12px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Approve
             </button>
-            <button className="px-3 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-[12px] font-medium hover:bg-zinc-50 transition-colors">
+            <button
+              onClick={() => submitDecision("changes_requested")}
+              disabled={reviewDecision.isPending || isApproved}
+              className="px-3 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-[12px] font-medium hover:bg-zinc-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Request Changes
             </button>
           </div>
         </div>
       )}
 
-      {/* Agent input */}
       <div className="flex items-end gap-2 bg-white border border-zinc-200 rounded-2xl p-2 mt-4">
         <textarea
           value={message}
