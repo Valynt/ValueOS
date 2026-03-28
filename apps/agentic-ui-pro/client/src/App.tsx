@@ -14,6 +14,7 @@ import PatternDetailPage from "./pages/PatternDetailPage";
 import WorkflowsPage from "./pages/WorkflowsPage";
 import WorkflowDetailPage from "./pages/WorkflowDetailPage";
 import PromptLabPage from "./pages/PromptLabPage";
+import { AgentUXBridge } from "./pages/AgentUXBridge";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/workflows" component={WorkflowsPage} />
       <Route path="/workflows/:id" component={WorkflowDetailPage} />
       <Route path="/prompt-lab" component={PromptLabPage} />
+      <Route path="/agent-ux" component={AgentUXBridge} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -63,6 +63,14 @@ const features = [
     color: 'text-cyan-400',
     bg: 'bg-cyan-500/10',
   },
+  {
+    icon: Sparkles,
+    title: 'Agent-UX Bridge',
+    description: 'Live demo: watch a full value case workflow run end-to-end — discovery, modeling, validation, artifacts, and human approval.',
+    href: '/agent-ux',
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+  },
 ];
 
 const stats = [
@@ -119,6 +127,12 @@ export default function Home() {
             <Link href="/prompt-lab">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
                 Prompt Lab
+              </Button>
+            </Link>
+            <Link href="/agent-ux">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                Agent-UX Bridge
               </Button>
             </Link>
           </div>
