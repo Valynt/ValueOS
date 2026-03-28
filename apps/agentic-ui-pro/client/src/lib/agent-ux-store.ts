@@ -5,8 +5,8 @@
  * Every piece of state here has a direct UI representation — no orphaned state.
  */
 
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type {
   AgentActivity,
   DefensibilityScore,
@@ -18,9 +18,9 @@ import type {
   ValueHypothesis,
   WorkflowProgress,
   WorkflowState,
-} from '@/types/agent-ux';
-import { STATE_EXPERIENCE_MAP } from '@/types/agent-ux';
-import { agentSimulator } from './agent-simulator';
+} from "@/types/agent-ux";
+import { STATE_EXPERIENCE_MAP } from "@/types/agent-ux";
+import { agentSimulator } from "./agent-simulator";
 
 interface StreamState {
   [field: string]: {
@@ -53,31 +53,43 @@ interface AgentUXStore {
   // ── UI state ─────────────────────────────────────────────────────────────
   selectedArtifactId: string | null;
   selectedNodeId: string | null;
-  activePanel: 'discovery' | 'model' | 'integrity' | 'artifacts' | 'checkpoint';
+  activePanel: "discovery" | "model" | "integrity" | "artifacts" | "checkpoint";
   showActivityFeed: boolean;
   showTrustPanel: boolean;
   showProvenance: boolean;
   provenanceClaimId: string | null;
+
+  // ── Optimistic UI ────────────────────────────────────────────────────────
+  pendingActions: Set<string>;
+  lastError: { actionId: string; error: string } | null;
 
   // ── Actions ──────────────────────────────────────────────────────────────
   startWorkflow: () => void;
   resetWorkflow: () => void;
   approveCheckpoint: () => void;
   rejectCheckpoint: () => void;
-  resolveDataGap: (flagId: string, value: string) => void;
-  acceptHypothesis: (id: string) => void;
-  rejectHypothesis: (id: string) => void;
-  editArtifact: (artifactId: string, section: string, content: string) => void;
+  resolveDataGap: (flagId: string, value: string) => Promise<void>;
+  acceptHypothesis: (id: string) => Promise<void>;
+  rejectHypothesis: (id: string) => Promise<void>;
+  editArtifact: (
+    artifactId: string,
+    section: string,
+    content: string
+  ) => Promise<void>;
   selectArtifact: (id: string | null) => void;
   selectNode: (id: string | null) => void;
-  setActivePanel: (panel: AgentUXStore['activePanel']) => void;
+  setActivePanel: (panel: AgentUXStore["activePanel"]) => void;
   toggleActivityFeed: () => void;
   toggleTrustPanel: () => void;
   openProvenance: (claimId: string) => void;
   closeProvenance: () => void;
 
+  // ── Optimistic UI helpers ────────────────────────────────────────────────
+  isPending: (actionId: string) => boolean;
+  clearError: () => void;
+
   // ── Computed ─────────────────────────────────────────────────────────────
-  getStateExperience: () => typeof STATE_EXPERIENCE_MAP[WorkflowState];
+  getStateExperience: () => (typeof STATE_EXPERIENCE_MAP)[WorkflowState];
   getReadinessLabel: () => string;
   getProgressPercent: () => number;
 }
@@ -86,7 +98,7 @@ export const useAgentUXStore = create<AgentUXStore>()(
   persist(
     (set, get) => ({
       // Initial state
-      workflowState: 'INITIATED',
+      workflowState: "INITIATED",
       progress: null,
       isRunning: false,
       opportunity: null,
@@ -100,11 +112,13 @@ export const useAgentUXStore = create<AgentUXStore>()(
       streams: {},
       selectedArtifactId: null,
       selectedNodeId: null,
-      activePanel: 'discovery',
+      activePanel: "discovery",
       showActivityFeed: true,
       showTrustPanel: false,
       showProvenance: false,
       provenanceClaimId: null,
+      pendingActions: new Set(),
+      lastError: null,
 
       // ── Actions ────────────────────────────────────────────────────────────
 
@@ -126,42 +140,48 @@ export const useAgentUXStore = create<AgentUXStore>()(
           valueGraph: null,
           defensibilityScore: null,
           artifacts: [],
-          workflowState: 'INITIATED',
-          activePanel: 'discovery',
+          workflowState: "INITIATED",
+          activePanel: "discovery",
         });
 
         // Subscribe to simulator events
-        const unsubscribe = agentSimulator.on((event) => {
+        const unsubscribe = agentSimulator.on(event => {
           switch (event.type) {
-            case 'activity':
-              set((state) => ({
-                activities: [event.data, ...state.activities].slice(0, state.maxActivities),
+            case "activity":
+              set(state => ({
+                activities: [event.data, ...state.activities].slice(
+                  0,
+                  state.maxActivities
+                ),
               }));
               break;
 
-            case 'progress':
+            case "progress":
               set({ progress: event.data });
               break;
 
-            case 'state_change':
+            case "state_change":
               set({ workflowState: event.data.to });
               // Auto-navigate to appropriate panel
-              const panelMap: Record<string, AgentUXStore['activePanel']> = {
-                INITIATED: 'discovery',
-                DRAFTING: 'model',
-                VALIDATING: 'integrity',
-                COMPOSING: 'artifacts',
-                REFINING: 'artifacts',
-                FINALIZED: 'artifacts',
+              const panelMap: Record<string, AgentUXStore["activePanel"]> = {
+                INITIATED: "discovery",
+                DRAFTING: "model",
+                VALIDATING: "integrity",
+                COMPOSING: "artifacts",
+                REFINING: "artifacts",
+                FINALIZED: "artifacts",
               };
               const panel = panelMap[event.data.to];
               if (panel) set({ activePanel: panel });
               break;
 
-            case 'stream_token':
-              set((state) => {
+            case "stream_token":
+              set(state => {
                 const field = event.data.field;
-                const existing = state.streams[field] || { text: '', isComplete: false };
+                const existing = state.streams[field] || {
+                  text: "",
+                  isComplete: false,
+                };
                 return {
                   streams: {
                     ...state.streams,
@@ -174,18 +194,18 @@ export const useAgentUXStore = create<AgentUXStore>()(
               });
               break;
 
-            case 'checkpoint':
+            case "checkpoint":
               set({
                 pendingCheckpoint: event.data,
-                activePanel: 'checkpoint',
+                activePanel: "checkpoint",
               });
               break;
 
-            case 'graph_update':
+            case "graph_update":
               set({ valueGraph: event.data });
               break;
 
-            case 'defensibility_update':
+            case "defensibility_update":
               set({
                 defensibilityScore: event.data,
                 showTrustPanel: true,
@@ -195,20 +215,23 @@ export const useAgentUXStore = create<AgentUXStore>()(
         });
 
         // Start the simulation
-        agentSimulator.start().then(() => {
-          // Load artifacts after composing
-          const artifacts = agentSimulator.getSeedArtifacts();
-          set({ artifacts, selectedArtifactId: artifacts[0]?.id ?? null });
-          unsubscribe();
-        }).catch(() => {
-          unsubscribe();
-        });
+        agentSimulator
+          .start()
+          .then(() => {
+            // Load artifacts after composing
+            const artifacts = agentSimulator.getSeedArtifacts();
+            set({ artifacts, selectedArtifactId: artifacts[0]?.id ?? null });
+            unsubscribe();
+          })
+          .catch(() => {
+            unsubscribe();
+          });
       },
 
       resetWorkflow: () => {
         agentSimulator.reset();
         set({
-          workflowState: 'INITIATED',
+          workflowState: "INITIATED",
           progress: null,
           isRunning: false,
           opportunity: null,
@@ -221,7 +244,7 @@ export const useAgentUXStore = create<AgentUXStore>()(
           streams: {},
           selectedArtifactId: null,
           selectedNodeId: null,
-          activePanel: 'discovery',
+          activePanel: "discovery",
           showTrustPanel: false,
           showProvenance: false,
           provenanceClaimId: null,
@@ -233,9 +256,9 @@ export const useAgentUXStore = create<AgentUXStore>()(
           const artifacts = agentSimulator.getSeedArtifacts();
           set({
             pendingCheckpoint: null,
-            workflowState: 'FINALIZED',
+            workflowState: "FINALIZED",
             artifacts,
-            activePanel: 'artifacts',
+            activePanel: "artifacts",
           });
         });
       },
@@ -243,44 +266,76 @@ export const useAgentUXStore = create<AgentUXStore>()(
       rejectCheckpoint: () => {
         set({
           pendingCheckpoint: null,
-          workflowState: 'REFINING',
-          activePanel: 'model',
+          workflowState: "REFINING",
+          activePanel: "model",
         });
       },
 
-      resolveDataGap: (flagId, value) => {
-        set((state) => {
-          if (!state.opportunity) return state;
-          return {
-            opportunity: {
-              ...state.opportunity,
-              missingDataFlags: state.opportunity.missingDataFlags.map((f) =>
-                f.id === flagId ? { ...f, resolved: true, resolvedValue: value } : f
-              ),
-            },
-          };
+      resolveDataGap: async (flagId, value) => {
+        const actionId = `resolve-gap-${flagId}`;
+        // Optimistic update
+        set(state => ({
+          pendingActions: new Set(state.pendingActions).add(actionId),
+          opportunity: state.opportunity
+            ? {
+                ...state.opportunity,
+                missingDataFlags: state.opportunity.missingDataFlags.map(f =>
+                  f.id === flagId
+                    ? { ...f, resolved: true, resolvedValue: value }
+                    : f
+                ),
+              }
+            : null,
+        }));
+
+        // Simulate async operation
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Clear pending
+        set(state => {
+          const newPending = new Set(state.pendingActions);
+          newPending.delete(actionId);
+          return { pendingActions: newPending };
         });
       },
 
-      acceptHypothesis: (id) => {
-        set((state) => ({
-          hypotheses: state.hypotheses.map((h) =>
-            h.id === id ? { ...h, status: 'accepted' } : h
+      acceptHypothesis: async id => {
+        const actionId = `accept-hypothesis-${id}`;
+        set(state => ({
+          pendingActions: new Set(state.pendingActions).add(actionId),
+          hypotheses: state.hypotheses.map(h =>
+            h.id === id ? { ...h, status: "accepted" } : h
           ),
         }));
+        await new Promise(resolve => setTimeout(resolve, 300));
+        set(state => {
+          const newPending = new Set(state.pendingActions);
+          newPending.delete(actionId);
+          return { pendingActions: newPending };
+        });
       },
 
-      rejectHypothesis: (id) => {
-        set((state) => ({
-          hypotheses: state.hypotheses.map((h) =>
-            h.id === id ? { ...h, status: 'rejected' } : h
+      rejectHypothesis: async id => {
+        const actionId = `reject-hypothesis-${id}`;
+        set(state => ({
+          pendingActions: new Set(state.pendingActions).add(actionId),
+          hypotheses: state.hypotheses.map(h =>
+            h.id === id ? { ...h, status: "rejected" } : h
           ),
         }));
+        await new Promise(resolve => setTimeout(resolve, 300));
+        set(state => {
+          const newPending = new Set(state.pendingActions);
+          newPending.delete(actionId);
+          return { pendingActions: newPending };
+        });
       },
 
-      editArtifact: (artifactId, section, content) => {
-        set((state) => ({
-          artifacts: state.artifacts.map((a) =>
+      editArtifact: async (artifactId, section, content) => {
+        const actionId = `edit-artifact-${artifactId}`;
+        set(state => ({
+          pendingActions: new Set(state.pendingActions).add(actionId),
+          artifacts: state.artifacts.map(a =>
             a.id === artifactId
               ? {
                   ...a,
@@ -288,7 +343,7 @@ export const useAgentUXStore = create<AgentUXStore>()(
                   editHistory: [
                     ...a.editHistory,
                     {
-                      userId: 'current-user',
+                      userId: "current-user",
                       timestamp: new Date().toISOString(),
                       section,
                       before: section,
@@ -299,15 +354,30 @@ export const useAgentUXStore = create<AgentUXStore>()(
               : a
           ),
         }));
+        await new Promise(resolve => setTimeout(resolve, 400));
+        set(state => {
+          const newPending = new Set(state.pendingActions);
+          newPending.delete(actionId);
+          return { pendingActions: newPending };
+        });
       },
 
-      selectArtifact: (id) => set({ selectedArtifactId: id }),
-      selectNode: (id) => set({ selectedNodeId: id }),
-      setActivePanel: (panel) => set({ activePanel: panel }),
-      toggleActivityFeed: () => set((s) => ({ showActivityFeed: !s.showActivityFeed })),
-      toggleTrustPanel: () => set((s) => ({ showTrustPanel: !s.showTrustPanel })),
-      openProvenance: (claimId) => set({ showProvenance: true, provenanceClaimId: claimId }),
-      closeProvenance: () => set({ showProvenance: false, provenanceClaimId: null }),
+      isPending: (actionId: string) => {
+        return get().pendingActions.has(actionId);
+      },
+
+      clearError: () => set({ lastError: null }),
+
+      selectArtifact: id => set({ selectedArtifactId: id }),
+      selectNode: id => set({ selectedNodeId: id }),
+      setActivePanel: panel => set({ activePanel: panel }),
+      toggleActivityFeed: () =>
+        set(s => ({ showActivityFeed: !s.showActivityFeed })),
+      toggleTrustPanel: () => set(s => ({ showTrustPanel: !s.showTrustPanel })),
+      openProvenance: claimId =>
+        set({ showProvenance: true, provenanceClaimId: claimId }),
+      closeProvenance: () =>
+        set({ showProvenance: false, provenanceClaimId: null }),
 
       // ── Computed ────────────────────────────────────────────────────────────
 
@@ -317,10 +387,10 @@ export const useAgentUXStore = create<AgentUXStore>()(
 
       getReadinessLabel: () => {
         const score = get().defensibilityScore?.global ?? 0;
-        if (score >= 0.85) return 'Presentation Ready';
-        if (score >= 0.7) return 'Needs Minor Review';
-        if (score >= 0.5) return 'Needs Significant Review';
-        return 'Not Ready';
+        if (score >= 0.85) return "Presentation Ready";
+        if (score >= 0.7) return "Needs Minor Review";
+        if (score >= 0.5) return "Needs Significant Review";
+        return "Not Ready";
       },
 
       getProgressPercent: () => {
@@ -328,8 +398,8 @@ export const useAgentUXStore = create<AgentUXStore>()(
       },
     }),
     {
-      name: 'agent-ux-store',
-      partialize: (state) => ({
+      name: "agent-ux-store",
+      partialize: state => ({
         workflowState: state.workflowState,
         opportunity: state.opportunity,
         hypotheses: state.hypotheses,

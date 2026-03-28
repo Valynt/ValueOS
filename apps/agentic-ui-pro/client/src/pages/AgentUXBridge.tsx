@@ -68,19 +68,22 @@ function Header() {
             <span className="text-sm font-semibold text-white">ValueOS</span>
             <span className="text-white/20">·</span>
             <span className="text-sm text-white/50 truncate">
-              {opportunity?.name || 'Agent-UX Bridge Demo'}
+              {opportunity?.name || 'New Value Case'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className={cn(
               'w-1.5 h-1.5 rounded-full flex-shrink-0',
               workflowState === 'FINALIZED' ? 'bg-emerald-400' :
-              isRunning ? 'bg-violet-400 animate-pulse' :
-              'bg-white/20'
+                isRunning ? 'bg-violet-400 animate-pulse' :
+                  'bg-white/20'
             )} />
             <span className="text-xs text-white/40">
-              {experience.label}
-              {isRunning && workflowState !== 'REFINING' && workflowState !== 'FINALIZED' && ' · ' + experience.activeVerb}
+              {isRunning && workflowState !== 'FINALIZED'
+                ? experience.activeVerb
+                : workflowState === 'FINALIZED'
+                  ? 'Ready for presentation'
+                  : experience.label}
             </span>
           </div>
         </div>
@@ -152,8 +155,8 @@ function PanelNav({
               isActive
                 ? 'bg-violet-500/15 text-violet-300 border border-violet-500/25'
                 : isAvailable
-                ? 'text-white/50 hover:text-white/80 hover:bg-white/5'
-                : 'text-white/20 cursor-not-allowed'
+                  ? 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                  : 'text-white/20 cursor-not-allowed'
             )}
           >
             <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-violet-400' : '')} />

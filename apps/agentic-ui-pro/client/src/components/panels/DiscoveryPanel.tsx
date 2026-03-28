@@ -11,6 +11,8 @@ import { AlertCircle, Building2, CheckCircle2, ChevronDown, ChevronRight, Databa
 import { cn } from '@/lib/utils';
 import type { MissingDataFlag, OpportunityContext, PainSignal, Stakeholder } from '@/types/agent-ux';
 import { SkeletonCard } from '@/components/async/StreamingText';
+import { useAgentUXStore } from '@/lib/agent-ux-store';
+import { STATE_EXPERIENCE_MAP } from '@/types/agent-ux';
 
 interface DiscoveryPanelProps {
   opportunity: OpportunityContext | null;
@@ -170,13 +172,15 @@ function DataGapItem({ flag, onResolve }: { flag: MissingDataFlag; onResolve: (v
 
 export function DiscoveryPanel({ opportunity, isLoading, onResolveGap, className }: DiscoveryPanelProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('pain-signals');
+  const { workflowState } = useAgentUXStore();
 
   if (isLoading && !opportunity) {
+    const experience = STATE_EXPERIENCE_MAP[workflowState];
     return (
       <div className={cn('space-y-3', className)}>
+        <SkeletonCard label={experience?.activeVerb || 'Assembling context...'} />
         <SkeletonCard label="Fetching CRM data..." />
-        <SkeletonCard label="Analyzing call transcripts..." />
-        <SkeletonCard label="Retrieving SEC filings..." />
+        <SkeletonCard label="Analyzing opportunity signals..." />
       </div>
     );
   }

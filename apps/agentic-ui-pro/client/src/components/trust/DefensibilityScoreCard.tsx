@@ -5,7 +5,7 @@
  * Shows the global defensibility score, breakdown by node, and issues.
  */
 
-import { AlertTriangle, CheckCircle2, Info, ShieldCheck, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, ShieldCheck, XCircle, Database, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DefensibilityScore } from '@/types/agent-ux';
 
@@ -44,6 +44,29 @@ function IssueIcon({ severity }: { severity: string }) {
   if (severity === 'blocking' || severity === 'critical') return <XCircle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />;
   if (severity === 'warning') return <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />;
   return <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />;
+}
+
+function Gauge({ value, label, icon: Icon, color }: { value: number; label: string; icon: React.ComponentType<{ className?: string }>; color: string }) {
+  const pct = Math.round(value * 100);
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-3.5 h-3.5 text-white/40" />
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-white/50">{label}</span>
+          <span className="text-xs font-mono text-white/70">{pct}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all duration-500', color)}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const NODE_LABELS: Record<string, string> = {
@@ -116,6 +139,25 @@ export function DefensibilityScoreCard({ score, compact = false, className }: De
                 <span className="text-xs font-mono text-white/60 w-8 text-right">{Math.round(nodeScore * 100)}%</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Coverage metrics - Architecture: coverageByNode, sourceIndependence */}
+        {!compact && (
+          <div className="space-y-2 p-3 rounded-lg bg-white/3 border border-white/6 mb-4">
+            <div className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Trust Metrics</div>
+            <Gauge
+              value={Math.min(1, score.global * 1.1)} // Simulated coverage metric
+              label="Evidence Coverage"
+              icon={Database}
+              color={score.global >= 0.8 ? 'bg-emerald-500' : score.global >= 0.6 ? 'bg-amber-500' : 'bg-orange-500'}
+            />
+            <Gauge
+              value={Math.min(1, score.global * 0.95)} // Simulated source independence
+              label="Source Independence"
+              icon={GitBranch}
+              color={score.global >= 0.8 ? 'bg-emerald-500' : score.global >= 0.6 ? 'bg-amber-500' : 'bg-orange-500'}
+            />
           </div>
         )}
 

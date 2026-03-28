@@ -12,6 +12,7 @@ import type { ValueGraph, ValueHypothesis, ValueNode } from '@/types/agent-ux';
 import { ConfidenceBadge } from '@/components/trust/ConfidenceBadge';
 import { EvidencePanel } from '@/components/trust/EvidencePanel';
 import { SkeletonCard } from '@/components/async/StreamingText';
+import { HeadlineValueCard } from '@/components/artifacts/HeadlineValueCard';
 
 interface ValueModelPanelProps {
   valueGraph: ValueGraph | null;
@@ -92,8 +93,8 @@ function ValueNodeCard({
                     <span className={cn(
                       'text-[10px] px-1 py-0.5 rounded',
                       assumption.plausibilityFlag === 'aggressive' ? 'bg-amber-500/10 text-amber-300' :
-                      assumption.plausibilityFlag === 'conservative' ? 'bg-blue-500/10 text-blue-300' :
-                      'bg-white/5 text-white/40'
+                        assumption.plausibilityFlag === 'conservative' ? 'bg-blue-500/10 text-blue-300' :
+                          'bg-white/5 text-white/40'
                     )}>
                       {assumption.value}{assumption.unit ? ` ${assumption.unit}` : ''}
                     </span>
@@ -239,27 +240,34 @@ export function ValueModelPanel({
       {/* Value graph */}
       {valueGraph && (
         <>
-          {/* Scenario selector */}
+          {/* Headline value cards - Architecture: Raw JSON → ValueHypothesis → HeadlineValueCard */}
           <div>
             <div className="text-xs text-white/40 font-medium uppercase tracking-wider mb-2">Financial Scenarios</div>
-            <div className="flex gap-2">
-              <ScenarioCard
-                scenario={valueGraph.scenarios.conservative}
-                label="Conservative"
-                isActive={activeScenario === 'conservative'}
+            <div className="grid grid-cols-3 gap-3">
+              <HeadlineValueCard
+                roi={valueGraph.scenarios.conservative.roi}
+                paybackMonths={valueGraph.scenarios.conservative.paybackMonths}
+                confidence={valueGraph.defensibilityScore}
+                scenario="conservative"
+                annualValue={valueGraph.scenarios.conservative.totalValue}
+                className={activeScenario === 'conservative' ? 'ring-1 ring-violet-500/30' : 'opacity-70'}
                 onClick={() => setActiveScenario('conservative')}
               />
-              <ScenarioCard
-                scenario={valueGraph.scenarios.base}
-                label="Base Case"
-                isActive={activeScenario === 'base'}
-                onClick={() => setActiveScenario('base')}
+              <HeadlineValueCard
+                roi={valueGraph.scenarios.base.roi}
+                paybackMonths={valueGraph.scenarios.base.paybackMonths}
+                confidence={valueGraph.defensibilityScore}
+                scenario="base"
+                annualValue={valueGraph.scenarios.base.totalValue}
+                className={activeScenario === 'base' ? 'ring-1 ring-violet-500/30' : ''}
               />
-              <ScenarioCard
-                scenario={valueGraph.scenarios.upside}
-                label="Upside"
-                isActive={activeScenario === 'upside'}
-                onClick={() => setActiveScenario('upside')}
+              <HeadlineValueCard
+                roi={valueGraph.scenarios.upside.roi}
+                paybackMonths={valueGraph.scenarios.upside.paybackMonths}
+                confidence={valueGraph.defensibilityScore}
+                scenario="upside"
+                annualValue={valueGraph.scenarios.upside.totalValue}
+                className={activeScenario === 'upside' ? 'ring-1 ring-violet-500/30' : 'opacity-70'}
               />
             </div>
           </div>
