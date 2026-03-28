@@ -332,7 +332,7 @@ export class ServiceConfigManager {
       }),
     };
 
-    const eventExecutorEnv: Partial<ServiceConfiguration["eventExecutor"]> = {
+    const eventExecutorEnv = {
       enabled: env.EVENT_EXECUTOR_ENABLED === "true",
       kafka: {
         ...(env.KAFKA_BROKERS && { brokers: env.KAFKA_BROKERS.split(",") }),
@@ -345,7 +345,7 @@ export class ServiceConfigManager {
             agentResponses: env.KAFKA_TOPIC_AGENT_RESPONSES,
           }),
         },
-      } as Partial<ServiceConfiguration["eventExecutor"]["kafka"]>,
+      },
       circuitBreaker: {
         ...(env.EXECUTOR_CB_FAILURE_THRESHOLD && {
           failureThreshold: parseInt(env.EXECUTOR_CB_FAILURE_THRESHOLD),
@@ -353,16 +353,14 @@ export class ServiceConfigManager {
         ...(env.EXECUTOR_CB_RESET_TIMEOUT && {
           resetTimeout: parseInt(env.EXECUTOR_CB_RESET_TIMEOUT),
         }),
-      } as Partial<ServiceConfiguration["eventExecutor"]["circuitBreaker"]>,
-    };
+      },
+    } as Partial<ServiceConfiguration["eventExecutor"]>;
 
-    const agentMessageQueueEnv: Partial<
-      ServiceConfiguration["agentMessageQueue"]
-    > = {
+    const agentMessageQueueEnv = {
       enabled: env.AGENT_QUEUE_ENABLED !== "false",
       redis: {
         ...(env.AGENT_QUEUE_REDIS_URL && { url: env.AGENT_QUEUE_REDIS_URL }),
-      } as Partial<ServiceConfiguration["agentMessageQueue"]["redis"]>,
+      },
       queue: {
         ...(env.AGENT_QUEUE_CONCURRENCY && {
           concurrency: parseInt(env.AGENT_QUEUE_CONCURRENCY),
@@ -370,24 +368,24 @@ export class ServiceConfigManager {
         ...(env.AGENT_QUEUE_RATE_LIMIT_MAX && {
           rateLimitMax: parseInt(env.AGENT_QUEUE_RATE_LIMIT_MAX),
         }),
-      } as Partial<ServiceConfiguration["agentMessageQueue"]["queue"]>,
-    };
+      },
+    } as Partial<ServiceConfiguration["agentMessageQueue"]>
 
-    const rateLimiterEnv: Partial<ServiceConfiguration["rateLimiter"]> = {
+    const rateLimiterEnv = {
       redis: {
         enabled: env.RATE_LIMITER_REDIS_ENABLED === "true",
         ...(env.RATE_LIMITER_REDIS_URL && { url: env.RATE_LIMITER_REDIS_URL }),
-      } as Partial<ServiceConfiguration["rateLimiter"]["redis"]>,
-    };
+      },
+    } as Partial<ServiceConfiguration["rateLimiter"]>
 
-    const eventSourcingEnv: Partial<ServiceConfiguration["eventSourcing"]> = {
+    const eventSourcingEnv = {
       enabled: env.EVENT_SOURCING_ENABLED !== "false",
       database: {
         ...(env.EVENT_SOURCING_MAX_CONNECTIONS && {
           maxConnections: parseInt(env.EVENT_SOURCING_MAX_CONNECTIONS),
         }),
-      } as Partial<ServiceConfiguration["eventSourcing"]["database"]>,
-    };
+      },
+    } as Partial<ServiceConfiguration["eventSourcing"]>
 
     return {
       agentAPI: agentAPIEnv,

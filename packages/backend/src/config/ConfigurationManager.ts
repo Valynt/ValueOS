@@ -88,7 +88,7 @@ export class ConfigurationManager {
     }
 
     const config = await this.getConfiguration(organizationId, userRole);
-    return (config as Record<string, unknown>)[setting] ?? null;
+    return (config as Record<string, unknown>)[setting] as T | null;
   }
 
   /**

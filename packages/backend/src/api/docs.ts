@@ -1,6 +1,6 @@
 /**
  * API Documentation Endpoints
- * 
+ *
  * Serves OpenAPI specification and interactive documentation
  */
 
@@ -17,14 +17,14 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
 import { DOCS_BRANDING, renderDocsLandingPage, renderReDocPage } from './docsContent.js'
 
-const router = Router();
+const router: Router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, '../../openapi.yaml');
-const openApiSpec = YAML.load(fs.readFileSync(openApiPath, 'utf8'));
+const openApiSpec = YAML.load(fs.readFileSync(openApiPath, 'utf8')) as Record<string, unknown>;
 
 /**
  * Serve OpenAPI specification as JSON
@@ -79,7 +79,7 @@ router.get('/', (_req, res) => {
  */
 router.get('/sdk/:language', (req, res) => {
   const { language } = req.params;
-  
+
   const supportedLanguages = [
     'typescript',
     'javascript',
@@ -90,14 +90,14 @@ router.get('/sdk/:language', (req, res) => {
     'php',
     'csharp'
   ];
-  
+
   if (!supportedLanguages.includes(language)) {
     return res.status(400).json({
       error: 'Unsupported language',
       supported: supportedLanguages
     });
   }
-  
+
   // In production, this would generate actual SDK code
   return res.json({
     message: `SDK generation for ${language}`,

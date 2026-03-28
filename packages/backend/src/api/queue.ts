@@ -338,12 +338,19 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
     const submittedJobs = await Promise.all(
       sanitizedJobs.map(async (jobData: Record<string, unknown>, index: number) => {
         const job = await llmQueue.addJob({
-          ...jobData,
+          type: ((jobData.type as string) || 'custom_prompt') as "canvas_generation" | "canvas_refinement" | "custom_prompt",
           tenant_id: batchTenantId,
           userId,
-          sessionId
+          sessionId,
+          promptKey: jobData.promptKey as string | undefined,
+          prompt: jobData.prompt as string | undefined,
+          promptVariables: jobData.promptVariables as Record<string, unknown> | undefined,
+          model: jobData.model as string | undefined,
+          maxTokens: jobData.maxTokens as number | undefined,
+          temperature: jobData.temperature as number | undefined,
+          metadata: jobData.metadata as Record<string, unknown> | undefined,
         }, {
-          priority: index // Maintain order
+          priority: index
         });
 
         return {

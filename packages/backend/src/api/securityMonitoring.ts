@@ -180,7 +180,7 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
       charts: {
         eventsByCategory: calculateEventsByCategory(metrics),
         eventsByOutcome: calculateEventsByOutcome(metrics),
-        eventsOverTime: calculateEventsOverTime(recentEvents),
+        eventsOverTime: calculateEventsOverTime(recentEvents.map(e => ({ timestamp: e.timestamp ?? new Date().toISOString() }))),
       },
     });
   } catch (error) {
