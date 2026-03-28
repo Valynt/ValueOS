@@ -82,9 +82,12 @@ export function useRunFinancialModelingAgent(caseId: string | undefined) {
 
   return useMutation<{ jobId: string }, Error, { query?: string }>({
     mutationFn: async (input) => {
+      const query = input.query ?? "Build financial model for this value case";
+      const idempotency_key = `financial-modeling:${caseId ?? "unknown"}:${query.trim().toLowerCase()}`;
       const res = await apiClient.post<{ data?: { jobId?: string } }>("/api/agents/financial-modeling/invoke", {
-        query: input.query ?? "Build financial model for this value case",
+        query,
         context: { value_case_id: caseId },
+        idempotency_key,
       });
       if (!res.success) throw new Error(res.error?.message ?? "Request failed");
       return { jobId: res.data?.data?.jobId ?? "" };

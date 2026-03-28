@@ -24,7 +24,7 @@ const { mockGet, mockUseTenant } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/client/unified-api-client", () => ({
-  apiClient: { get: mockGet },
+  apiClient: { get: mockGet, post: vi.fn() },
 }));
 
 // Prevent the browser Supabase client from throwing at module load time when
@@ -44,6 +44,8 @@ vi.mock("@/contexts/TenantContext", () => ({
 }));
 
 import { useAgentJob } from "../useAgentJob";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,4 +243,60 @@ describe("useAgentJob — multi-tenant cache isolation", () => {
     // No network call for direct mode
     expect(mockGet).not.toHaveBeenCalled();
   });
+
+  it("reloads to unavailable after transient outage and recovers via resume mutation", async () => {
+    mockUseTenant.mockReturnValue(makeTenant("tenant-A"));
+    mockGet
+      .mockResolvedValueOnce(makeJobResponse("job-reload", "processing"))
+      .mockResolvedValueOnce({ success: false, error: { message: "503 unavailable" } })
+      .mockResolvedValue({ success: true, data: { data: { jobId: "job-reload", status: "processing" } } });
+
+    const { result } = renderHook(() => useAgentJob("job-reload"), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data?.status).toBe("processing"));
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.data?.status).toBe("unavailable"));
+
+    // @ts-expect-error mocked post exists in mock factory
+    (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      success: true,
+      data: { data: { jobId: "job-reload", status: "processing" } },
+    });
+
+    await act(async () => {
+      await result.current.resumePolling.mutateAsync();
+    });
+
+    expect((apiClient.post as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe("/api/agents/jobs/job-reload/resume");
+  });
+
+  it("allows manual retry after failed run", async () => {
+    mockUseTenant.mockReturnValue(makeTenant("tenant-A"));
+    mockGet.mockResolvedValueOnce(makeJobResponse("job-retry", "failed"));
+
+    const { result } = renderHook(() => useAgentJob("job-retry"), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data?.status).toBe("failed"));
+
+    // @ts-expect-error mocked post exists in mock factory
+    (apiClient.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      success: true,
+      data: { data: { jobId: "job-retry", status: "queued" } },
+    });
+
+    await act(async () => {
+      await result.current.retryRun.mutateAsync();
+    });
+
+    expect((apiClient.post as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe("/api/agents/jobs/job-retry/retry");
+  });
+
 });

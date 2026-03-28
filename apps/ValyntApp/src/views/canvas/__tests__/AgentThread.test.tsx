@@ -10,9 +10,9 @@ import { render, screen } from "@testing-library/react";
 import { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentJobResult } from "@/hooks/useAgentJob";
-
 import { AgentThread } from "../AgentThread";
+
+import type { AgentJobResult } from "@/hooks/useAgentJob";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -25,6 +25,7 @@ vi.mock("@/contexts/TenantContext", () => ({
 vi.mock("@/api/client/unified-api-client", () => ({
   apiClient: {
     get: vi.fn().mockResolvedValue({ success: true, data: { data: null } }),
+    post: vi.fn().mockResolvedValue({ success: true, data: { data: null } }),
   },
 }));
 
@@ -94,6 +95,25 @@ describe("AgentThread", () => {
       { wrapper },
     );
     expect(screen.getByText("Analyzing SEC filings…")).toBeInTheDocument();
+  });
+
+
+
+  it("renders degraded-state CTAs and last known good artifact", () => {
+    const direct = makeResult({
+      status: "error",
+      error: "Timeout",
+      lastKnownGoodOutput: { artifactId: "artifact-22" },
+      lastKnownGoodAt: "2026-03-27T08:15:00.000Z",
+    });
+
+    render(<AgentThread runId="job-1" directResult={direct} />, { wrapper });
+
+    expect(screen.getByRole("button", { name: /retry run/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /resume polling/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /view last successful artifact/i })).toBeInTheDocument();
+    expect(screen.getByText(/last known good output/i)).toBeInTheDocument();
+    expect(screen.getByText(/artifact-22/i)).toBeInTheDocument();
   });
 
   it("shows run ID in footer", () => {

@@ -8,9 +8,8 @@ import {
   Shield,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { useTenant } from "@/contexts/TenantContext";
 import { useAgentJob } from "@/hooks/useAgentJob";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { cn } from "@/lib/utils";
@@ -28,11 +27,22 @@ interface AgentThreadProps {
 }
 
 export function AgentThread({ runId, directResult, currentSubTask }: AgentThreadProps) {
-  const { currentTenant } = useTenant();
-  const tenantId = currentTenant?.id ?? null;
-
-  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult, tenantId);
+  const { data: job, isLoading, retryRun, resumePolling } = useAgentJob(runId ?? null, directResult);
   const [message, setMessage] = useState("");
+
+  const isDegraded = job?.status === "failed" || job?.status === "error" || job?.status === "unavailable";
+
+  const retryBackoffLabel = useMemo(() => {
+    if (!job?.nextRetryAt) return null;
+    const nextRetryDate = new Date(job.nextRetryAt);
+    if (Number.isNaN(nextRetryDate.getTime())) return null;
+
+    const deltaMs = Math.max(0, nextRetryDate.getTime() - Date.now());
+    const seconds = Math.ceil(deltaMs / 1000);
+    return seconds > 0
+      ? `Next automatic attempt in ~${seconds}s`
+      : `Next automatic attempt at ${nextRetryDate.toLocaleTimeString()}`;
+  }, [job?.nextRetryAt]);
 
   const statusIcon = () => {
     if (!runId) return null;
@@ -92,6 +102,16 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
     }
   };
 
+  const handleViewArtifact = () => {
+    if (!job?.lastKnownGoodOutput) return;
+    const artifact = typeof job.lastKnownGoodOutput === "string"
+      ? job.lastKnownGoodOutput
+      : JSON.stringify(job.lastKnownGoodOutput, null, 2);
+    navigator.clipboard.writeText(artifact).catch(() => {
+      // no-op; users can still read rendered artifact preview below
+    });
+  };
+
   return (
     <div className="space-y-3">
       <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Agent Workflow</h4>
@@ -118,6 +138,14 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
               {job?.message && (
                 <p className="text-[11px] text-zinc-500 mt-0.5">{job.message}</p>
               )}
+              {job?.attemptsMade != null && (
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Retry attempt {job.attemptsMade}
+                </p>
+              )}
+              {retryBackoffLabel && (
+                <p className="text-[11px] text-zinc-500 mt-0.5">{retryBackoffLabel}</p>
+              )}
               {job?.queuedAt && (
                 <p className="text-[11px] text-zinc-400 mt-0.5">
                   Queued {new Date(job.queuedAt).toLocaleTimeString()}
@@ -131,31 +159,61 @@ export function AgentThread({ runId, directResult, currentSubTask }: AgentThread
             </div>
           </div>
 
-          {/* Retry details */}
-          {job?.status === "retrying" && (
-            <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 text-[12px] text-orange-800">
-              <p className="font-medium">
-                Retrying after a transient error
-                {job.attemptsMade != null ? ` — attempt ${job.attemptsMade}` : ""}
-              </p>
-              {job.nextRetryAt && (
-                <p className="text-[11px] text-orange-600 mt-0.5">
-                  Next attempt at {new Date(job.nextRetryAt).toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          )}
-
           {job?.status === "unavailable" && (
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
               The agent infrastructure (Kafka/event bus) is not running in this environment.
-              The agent ran and persisted its output — reload the Hypothesis stage to see results.
+              You can resume polling now or view the last successful artifact.
             </div>
           )}
 
           {job?.status === "error" && job.error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700">
               {job.error}
+            </div>
+          )}
+
+          {isDegraded && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => retryRun.mutate()}
+                disabled={retryRun.isPending}
+                className="px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[12px] font-medium hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {retryRun.isPending ? "Retrying…" : "Retry run"}
+              </button>
+              <button
+                type="button"
+                onClick={() => resumePolling.mutate()}
+                disabled={resumePolling.isPending}
+                className="px-3 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-[12px] font-medium hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {resumePolling.isPending ? "Resuming…" : "Resume polling"}
+              </button>
+              <button
+                type="button"
+                onClick={handleViewArtifact}
+                disabled={!job?.lastKnownGoodOutput}
+                className="px-3 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-[12px] font-medium hover:bg-zinc-50 disabled:opacity-50"
+              >
+                View last successful artifact
+              </button>
+            </div>
+          )}
+
+          {isDegraded && job?.lastKnownGoodOutput && (
+            <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-[12px] text-zinc-700">
+              <p className="font-medium">Last known good output</p>
+              {job.lastKnownGoodAt && (
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Captured at {new Date(job.lastKnownGoodAt).toLocaleString()}
+                </p>
+              )}
+              <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-white border border-zinc-200 p-2 text-[11px] leading-relaxed">
+                {typeof job.lastKnownGoodOutput === "string"
+                  ? job.lastKnownGoodOutput
+                  : JSON.stringify(job.lastKnownGoodOutput, null, 2)}
+              </pre>
             </div>
           )}
 
