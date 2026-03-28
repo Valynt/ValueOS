@@ -22,6 +22,8 @@ import { RealizationStage } from "./canvas/RealizationStage";
 import { ValueGraphStage } from "./canvas/ValueGraphStage";
 
 import { useToast } from "@/components/ui/use-toast";
+import { useWorkflowExecutionViewModel } from "@/features/workflow/hooks/useWorkflowExecutionViewModel";
+import { WORKFLOW_STATUS_PRESENTATION } from "@/features/workflow/hooks/workflowExecutionPresentation";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { usePptxExport } from "@/hooks/useCaseExport";
 import { useCase } from "@/hooks/useCases";
@@ -55,6 +57,17 @@ export default function ValueCaseCanvas() {
   };
   const { data: merged } = useMergedContext(caseId);
   const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
+  const { data: workflowExecution } = useWorkflowExecutionViewModel(caseId);
+  const workflowStatus = workflowExecution ?? {
+    statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
+    statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
+    statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,
+    confidenceBarClassName: WORKFLOW_STATUS_PRESENTATION.never_run.confidenceClassName,
+    confidencePercent: 0,
+    confidenceLabel: "0%",
+    ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
+    lastUpdatedLabel: "No execution activity yet",
+  };
   const pptxExport = usePptxExport(caseId);
   const { toast } = useToast();
 
@@ -99,8 +112,13 @@ export default function ValueCaseCanvas() {
             <h2 className="text-[15px] font-black text-zinc-950 tracking-tight truncate">
               {caseTitle ?? <span className="inline-block w-48 h-4 bg-zinc-100 rounded animate-pulse" />}
             </h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 flex-shrink-0">
-              Running
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 text-white",
+                workflowStatus.statusIconClassName
+              )}
+            >
+              {workflowStatus.statusLabel}
             </span>
             {merged?.pack && (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 flex-shrink-0">
@@ -116,9 +134,12 @@ export default function ValueCaseCanvas() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-[11px] text-zinc-400">Confidence</span>
           <div className="w-20 h-2 bg-zinc-100 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: "87%" }} />
+            <div
+              className={cn("h-full rounded-full", workflowStatus.confidenceBarClassName)}
+              style={{ width: `${workflowStatus.confidencePercent}%` }}
+            />
           </div>
-          <span className="text-[12px] font-semibold text-zinc-700">87%</span>
+          <span className="text-[12px] font-semibold text-zinc-700">{workflowStatus.confidenceLabel}</span>
         </div>
 
         {/* Version history */}
@@ -150,7 +171,7 @@ export default function ValueCaseCanvas() {
         {/* Run stage */}
         <button className="flex items-center gap-1.5 px-3 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800">
           <Play className="w-3.5 h-3.5" />
-          Run Stage
+          {workflowStatus.ctaText}
         </button>
       </div>
 
@@ -189,8 +210,8 @@ export default function ValueCaseCanvas() {
             <h3 className="text-[15px] font-black text-zinc-950 tracking-tight">
               {currentStage?.label}
             </h3>
-            <span className="text-[11px] text-zinc-400">{currentStage?.description}</span>
-            <span className="text-[11px] text-zinc-300 ml-auto">Last updated 25m ago</span>
+            <span className="text-[11px] text-zinc-400">{workflowStatus.statusMessage}</span>
+            <span className="text-[11px] text-zinc-300 ml-auto">{workflowStatus.lastUpdatedLabel}</span>
           </div>
           {stageContent[activeStage]}
         </div>
