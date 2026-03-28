@@ -1,6 +1,6 @@
 /**
  * Configuration Entry Point
- * 
+ *
  * Central export for all configuration modules.
  * Provides easy access to env config, LLM config, and validation utilities.
  */
@@ -17,9 +17,8 @@ export {
   validateEnv,
   validateLLMConfig,
   validateEnvOrThrow,
-  logValidationResults,
 } from './validateEnv';
-export type { ValidationResult, LLMValidationResult } from './validateEnv.js'
+export type { ValidationResult } from './validateEnv.js'
 
 // Governance and entrypoint configuration
 export {

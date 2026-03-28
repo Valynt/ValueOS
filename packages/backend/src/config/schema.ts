@@ -350,7 +350,7 @@ function mapEnvVarsToConfig(
  * It will be removed in a future release.
  */
 export function loadAndValidateConfig(
-  env: Record<string, string> = process.env
+  env: Record<string, string> = process.env as Record<string, string>
 ): ConfigValidationResult {
   writeStderr(
     "[DEPRECATION] loadAndValidateConfig() is deprecated. Use validateEnvironment() from env-validation.ts instead."

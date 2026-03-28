@@ -1,8 +1,8 @@
 /**
  * Progressive Feature Rollout System
- * 
+ *
  * Enables gradual feature rollout with automatic rollback on errors
- * 
+ *
  * Usage:
  *   const rollout = new ProgressiveRollout('new-ui-redesign');
  *   if (await rollout.isEnabledForUser(userId)) {
@@ -12,6 +12,7 @@
 
 import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
+import React from 'react'
 
 const CONFIG_TTL = 60 * 1000; // 1 minute
 const ERROR_TTL = 10 * 1000; // 10 seconds
@@ -171,7 +172,7 @@ export class ProgressiveRollout {
 
     // Check exclude groups
     if (this.config.excludeGroups && userGroups) {
-      const hasExcludedGroup = userGroups.some(group => 
+      const hasExcludedGroup = userGroups.some(group =>
         this.config!.excludeGroups!.includes(group)
       );
       if (hasExcludedGroup) {
@@ -184,7 +185,7 @@ export class ProgressiveRollout {
       if (!userGroups) {
         return false;
       }
-      const hasTargetGroup = userGroups.some(group => 
+      const hasTargetGroup = userGroups.some(group =>
         this.config!.targetGroups!.includes(group)
       );
       if (!hasTargetGroup) {
@@ -409,7 +410,7 @@ export class ProgressiveRollout {
   private async sendRollbackAlert(reason: string): Promise<void> {
     // Send to monitoring system
     try {
-       
+
       await fetch(import.meta.env.VITE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
