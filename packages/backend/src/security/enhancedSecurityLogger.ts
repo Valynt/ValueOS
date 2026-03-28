@@ -19,6 +19,7 @@ export interface SecurityEvent {
   userAgent?: string;
   sessionId?: string;
   requestId?: string;
+  timestamp?: string;
 }
 
 export type SecurityCategory =
@@ -65,7 +66,7 @@ export function logSecurityEvent(event: SecurityEvent): void {
 
   // Use appropriate log level based on severity and outcome
   const logLevel = getLogLevel(event.severity, event.outcome);
-  logger[logLevel]("SECURITY_EVENT", sanitizedEvent);
+  logger[logLevel]("SECURITY_EVENT", sanitizedEvent as unknown as Record<string, unknown>);
 }
 
 /**
@@ -420,7 +421,7 @@ export class SecurityMetricsCollector {
 
 // Override the original logSecurityEvent to also record metrics
 const originalLogSecurityEvent = logSecurityEvent;
-globalThis.logSecurityEvent = function (event: SecurityEvent): void {
+(globalThis as Record<string, unknown>).logSecurityEvent = function (event: SecurityEvent): void {
   // Record metrics
   SecurityMetricsCollector.getInstance().recordEvent(event);
 

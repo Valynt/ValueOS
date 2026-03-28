@@ -247,7 +247,7 @@ router.post("/reports/:reportId/download", requirePermission(PERMISSIONS.COMPLIA
   }
 
   try {
-    const report = await complianceReportGeneratorService.getReportById(req.params.reportId);
+    const report = await (complianceReportGeneratorService as unknown as { getReportById(id: string): Promise<unknown> }).getReportById(req.params.reportId);
 
     if (!report) {
       return res.status(404).json({ error: "Report not found" });

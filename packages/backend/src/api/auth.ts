@@ -44,7 +44,7 @@ function getServerSupabase() {
 }
 
 function getSupabaseAdminAuthAdapter() {
-  return new SupabaseAdminAuthAdapter(getServerSupabase());
+  return new SupabaseAdminAuthAdapter(getServerSupabase() as unknown as import("@shared/lib/auth/supabaseAdminAuth").SupabaseAdminAuthClient);
 }
 
 type AuthActor = {

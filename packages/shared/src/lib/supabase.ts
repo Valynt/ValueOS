@@ -53,7 +53,7 @@ function getPreferHeader(init: RequestInit | undefined): string {
   }
   if (Array.isArray(h)) {
     const entry = (h as string[][]).find(
-      ([k]) => k.toLowerCase() === "prefer",
+      (item) => item.length > 0 && item[0] !== undefined && item[0].toLowerCase() === "prefer",
     );
     return entry?.[1] ?? "";
   }

@@ -11,6 +11,7 @@
  */
 
 import { Router, type IRouter } from "express";
+import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
@@ -202,7 +203,7 @@ router.post(
         case_id: caseId,
         job_id: jobId,
         request_id: requestId,
-        status: workflowExecution.status === "initiated" ? "running" : workflowExecution.status,
+        status: workflowExecution.status === "pending" ? "running" : workflowExecution.status,
         estimated_completion: "2-3 minutes",
         steps: [
           "crm_ingestion",
@@ -447,7 +448,7 @@ router.post(
       const auditLogger = new AuditLogger();
 
       const orchestrator = new ValueLifecycleOrchestrator(
-        supabaseClient,
+        supabaseClient as unknown as ReturnType<typeof createClient>,
         llmGateway,
         memorySystem,
         auditLogger,

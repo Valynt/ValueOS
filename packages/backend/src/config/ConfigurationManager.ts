@@ -1,6 +1,6 @@
 /**
  * Configuration Manager
- * 
+ *
  * Central service for managing organization configurations with:
  * - CRUD operations
  * - Access control enforcement
@@ -53,14 +53,14 @@ export class ConfigurationManager {
     // Try cache first
     const cacheKey = `${this.CACHE_PREFIX}${organizationId}`;
     const cached = await getCache<OrganizationConfiguration>(cacheKey);
-    
+
     if (cached) {
       return this.filterByAccess(cached, userRole);
     }
 
     // Load from database
     const config = await this.loadFromDatabase(organizationId);
-    
+
     if (config) {
       // Cache it
       await setCache(cacheKey, config, this.CACHE_TTL);
@@ -233,37 +233,41 @@ export class ConfigurationManager {
     try {
       switch (setting) {
         case 'llmSpendingLimits':
-          if (value.dailyLimit <= 0) {
+          const llmValue = value as { dailyLimit: number; dailySpend: number; monthlyHardCap: number; monthlySoftCap: number };
+          if (llmValue.dailyLimit <= 0) {
             errors.push('Daily limit must be positive');
           }
-          if (value.dailySpend < 0) {
+          if (llmValue.dailySpend < 0) {
             errors.push('Daily spend cannot be negative');
           }
-          if (value.monthlyHardCap <= 0) {
+          if (llmValue.monthlyHardCap <= 0) {
             errors.push('Monthly hard cap must be positive');
           }
-          if (value.monthlySoftCap >= value.monthlyHardCap) {
+          if (llmValue.monthlySoftCap >= llmValue.monthlyHardCap) {
             errors.push('Soft cap must be less than hard cap');
           }
           break;
 
         case 'authPolicy':
-          if (value.passwordPolicy.minLength < 8) {
+          const authValue = value as { passwordPolicy: { minLength: number } };
+          if (authValue.passwordPolicy.minLength < 8) {
             errors.push('Minimum password length must be at least 8');
           }
           break;
 
         case 'sessionControl':
-          if (value.timeoutMinutes <= 0) {
+          const sessionValue = value as { timeoutMinutes: number; maxConcurrentSessions: number };
+          if (sessionValue.timeoutMinutes <= 0) {
             errors.push('Timeout must be positive');
           }
-          if (value.maxConcurrentSessions <= 0) {
+          if (sessionValue.maxConcurrentSessions <= 0) {
             errors.push('Max concurrent sessions must be positive');
           }
           break;
 
         case 'rateLimiting':
-          if (value.requestsPerMinute <= 0) {
+          const rateValue = value as { requestsPerMinute: number };
+          if (rateValue.requestsPerMinute <= 0) {
             errors.push('Rate limit must be positive');
           }
           break;

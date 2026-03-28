@@ -68,7 +68,7 @@ export class HypothesisAgentTransformer
   async transform(
     input: TransformInput<HypothesisAgentOutput>
   ): Promise<TransformedArtifact | null> {
-    const { agent_output, target_slot, trace_id, grounding_score } = input;
+    const { agent_output, target_slot } = input;
 
     // No output to transform
     if (!agent_output?.hypotheses?.length) {
@@ -127,16 +127,28 @@ export class HypothesisAgentTransformer
     const valueNodes = agent_output.hypotheses.map((h: typeof agent_output.hypotheses[0]) => ({
       id: h.id,
       label: h.description.slice(0, 60),
-      category: h.category,
-      estimatedValue: h.estimated_value
+      value: h.estimated_value
         ? `$${(h.estimated_value.low / 1000).toFixed(0)}k–$${(h.estimated_value.high / 1000).toFixed(0)}k`
         : "TBD",
-      confidence: h.confidence,
+      category: h.category,
+      confidencePct: Math.round(this.confidenceToScore(h.confidence) * 100),
       evidenceCount: h.evidence_ids?.length ?? 0,
-      impactCascade: h.impact_cascade,
-      hasObjections: agent_output.red_team_objections?.some(
+      riskLevel: agent_output.red_team_objections?.some(
         (o: typeof agent_output.red_team_objections[0]) => o.target_hypothesis_id === h.id
-      ),
+      )
+        ? "warning"
+        : h.confidence === "low"
+          ? "risk"
+          : "validated",
+      status:
+        agent_output.red_team_objections?.some(
+          (o: typeof agent_output.red_team_objections[0]) => o.target_hypothesis_id === h.id
+        ) || h.confidence === "low"
+          ? "at_risk"
+          : "active",
+      collaborationHint: h.impact_cascade?.kpi
+        ? `Confirm impact on ${h.impact_cascade.kpi}`
+        : "Confirm value-driver estimate",
     }));
 
     const totalValueLow = agent_output.hypotheses.reduce(
@@ -150,6 +162,7 @@ export class HypothesisAgentTransformer
 
     return {
       slot_id: target_slot.id,
+      region: target_slot.region,
       component: "ValueTreeCard",
       version: 1,
       props: {
@@ -199,6 +212,7 @@ export class HypothesisAgentTransformer
 
     return {
       slot_id: target_slot.id,
+      region: target_slot.region,
       component: "AssumptionRegister",
       version: 1,
       props: {
@@ -248,6 +262,7 @@ export class HypothesisAgentTransformer
 
     return {
       slot_id: target_slot.id,
+      region: target_slot.region,
       component: "ReadinessGauge",
       version: 1,
       props: {

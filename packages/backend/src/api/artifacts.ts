@@ -5,6 +5,7 @@
  * Tasks: 8.1, 8.2, 8.3, 8.4
  */
 
+import type { Request, Response, NextFunction } from "express";
 import { randomUUID } from "node:crypto";
 
 import { Queue } from "bullmq";
@@ -77,7 +78,7 @@ router.post(
   "/cases/:caseId/artifacts/generate",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId } = req.params;
       const tenantId = req.tenantId as string;
@@ -201,7 +202,7 @@ router.get(
   "/artifact-jobs/:jobId",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { jobId } = req.params;
       const tenantId = req.tenantId as string;
@@ -239,7 +240,7 @@ router.get(
   "/cases/:caseId/artifacts",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId } = req.params;
       const tenantId = req.tenantId as string;
@@ -273,7 +274,7 @@ router.get(
   "/cases/:caseId/artifacts/:artifactId",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId, artifactId } = req.params;
       const tenantId = req.tenantId as string;
@@ -311,7 +312,7 @@ router.patch(
   "/cases/:caseId/artifacts/:artifactId",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId, artifactId } = req.params;
       const tenantId = req.tenantId as string;
@@ -360,7 +361,7 @@ router.get(
   "/cases/:caseId/artifacts/:artifactId/edits",
   requireAuth,
   tenantContextMiddleware,
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId, artifactId } = req.params;
       const tenantId = req.tenantId as string;

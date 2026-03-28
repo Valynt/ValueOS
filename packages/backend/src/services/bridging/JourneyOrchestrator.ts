@@ -198,7 +198,7 @@ export class JourneyOrchestrator {
     // 5. Resolve trust thresholds
     const trustThresholds = this.experienceModel.trust_thresholds;
 
-    const valueCaseStatus = this.resolveValueCaseStatus(input, phase);
+    const valueCaseStatus = this.resolveValueCaseStatus(input);
     const interactionMode =
       valueCaseStatus === "BOARD_READY_LOCKED" || phase.lifecycle_stage === "realized"
         ? "locked"
@@ -359,15 +359,10 @@ export class JourneyOrchestrator {
   }
 
   private resolveValueCaseStatus(
-    input: JourneyOrchestratorInput,
-    phase: JourneyPhase
+    input: JourneyOrchestratorInput
   ): ValueCaseStatus {
     if (input.value_case_status) {
       return input.value_case_status;
-    }
-
-    if (phase.lifecycle_stage === "realized") {
-      return "BOARD_READY_LOCKED";
     }
 
     return "IN_PROGRESS";
@@ -507,7 +502,7 @@ export class JourneyOrchestrator {
       },
     });
 
-    if (interactionMode === "locked") {
+    if (valueCaseStatus === "BOARD_READY_LOCKED") {
       sections.push({
         type: "component",
         component: "InfoBanner",
