@@ -133,9 +133,12 @@ export function useRunTargetAgent(caseId: string | undefined) {
 
   return useMutation<{ jobId: string }, Error, { query?: string }>({
     mutationFn: async (input) => {
+      const query = input.query ?? "Generate KPI targets for this value case";
+      const idempotency_key = `target:${caseId ?? "unknown"}:${query.trim().toLowerCase()}`;
       const res = await apiClient.post<{ data?: { jobId?: string } }>("/api/agents/target/invoke", {
-        query: input.query ?? "Generate KPI targets for this value case",
+        query,
         context: { value_case_id: caseId },
+        idempotency_key,
       });
       if (!res.success) throw new Error(res.error?.message ?? "Request failed");
       return { jobId: res.data?.data?.jobId ?? "" };
