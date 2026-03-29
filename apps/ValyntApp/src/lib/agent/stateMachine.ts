@@ -1,5 +1,7 @@
 import type { AgentEvent, AgentState } from "./types";
 
+import { logger } from "@/lib/logger";
+
 type StateTransition = {
   from: AgentState;
   to: AgentState;
@@ -45,7 +47,7 @@ export class AgentStateMachine {
     );
 
     if (!transition) {
-      console.warn(`Invalid transition: ${this.state} -> ${event}`);
+      logger.warn(`Invalid transition: ${this.state} -> ${event}`);
       return false;
     }
 

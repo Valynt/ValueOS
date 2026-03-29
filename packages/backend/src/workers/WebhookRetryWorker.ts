@@ -21,9 +21,13 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
-import { billingWebhookExhaustedTotal, webhookDlqSize } from '../metrics/billingMetrics.js';
+import { billingWebhookExhaustedTotal, webhookDlqSize, webhookCircuitBreakerRejectedTotal } from '../metrics/billingMetrics.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { WebhookRetryService } from '../services/billing/WebhookRetryService.js';
+import {
+  getWebhookCircuitBreaker,
+  WEBHOOK_CIRCUIT_CATEGORIES,
+} from '../services/billing/WebhookCircuitBreaker.js';
 import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 
 const logger = createLogger({ component: 'webhook-retry-worker' });
@@ -153,63 +157,141 @@ async function processWebhookRetryJob(
   });
 
   const retryService = new WebhookRetryService(supabase);
+  const circuitBreaker = getWebhookCircuitBreaker();
 
-  try {
-    await retryService.deliverWebhookEvent(eventId, tenantId, eventType, payload);
+  // Check if circuit is already open before attempting
+  if (circuitBreaker.isCircuitOpen(WEBHOOK_CIRCUIT_CATEGORIES.RETRY)) {
+    logger.warn('Webhook retry rejected due to open circuit', {
+      jobId: job.id,
+      eventId,
+      tenantId,
+      eventType,
+      attemptNumber,
+    });
 
+    // Fast-fail: mark as failed and move to DLQ immediately
+    await fastFailToDLQ(supabase, eventId, tenantId, eventType, 'circuit_breaker_open');
+    return;
+  }
+
+  // Execute with circuit breaker protection
+  const result = await circuitBreaker.execute(
+    WEBHOOK_CIRCUIT_CATEGORIES.RETRY,
+    eventType,
+    async () => retryService.deliverWebhookEvent(eventId, tenantId, eventType, payload)
+  );
+
+  if (result.success) {
     logger.info('Webhook delivered successfully', {
       jobId: job.id,
       eventId,
       tenantId,
       attemptNumber,
     });
-  } catch (err) {
-    const isLastAttempt = job.attemptsMade >= MAX_ATTEMPTS - 1;
+    return;
+  }
 
-    if (isLastAttempt) {
-      // All attempts exhausted — mark as permanently failed
-      logger.error('Webhook retry exhausted — marking as failed', err, {
-        jobId: job.id,
+  // Handle failure
+  const err = result.error!;
+
+  // If circuit is now open, fast-fail remaining attempts
+  if (result.circuitOpen) {
+    logger.error('Webhook delivery failed — circuit breaker opened', err, {
+      jobId: job.id,
+      eventId,
+      tenantId,
+      eventType,
+      attemptNumber,
+    });
+
+    await fastFailToDLQ(supabase, eventId, tenantId, eventType, 'circuit_breaker_opened_during_retry');
+    return;
+  }
+
+  const isLastAttempt = job.attemptsMade >= MAX_ATTEMPTS - 1;
+
+  if (isLastAttempt) {
+    // All attempts exhausted — mark as permanently failed
+    logger.error('Webhook retry exhausted — marking as failed', err, {
+      jobId: job.id,
+      eventId,
+      tenantId,
+      eventType,
+      attemptsMade: job.attemptsMade,
+    });
+
+    const { error: updateError } = await supabase
+      .from('webhook_events')
+      .update({
+        status: 'failed',
+        last_error: err.message,
+        failed_at: new Date().toISOString(),
+      })
+      .eq('id', eventId);
+
+    if (updateError) {
+      logger.error('Failed to mark exhausted webhook event as failed in DB', updateError, {
         eventId,
         tenantId,
         eventType,
-        attemptsMade: job.attemptsMade,
-      });
-
-      const { error: updateError } = await supabase
-        .from('webhook_events')
-        .update({
-          status: 'failed',
-          last_error: (err as Error).message,
-          failed_at: new Date().toISOString(),
-        })
-        .eq('id', eventId);
-
-      if (updateError) {
-        // Log but don't re-throw — the job is already exhausted. Operators
-        // must reconcile manually; the counter below provides the signal.
-        logger.error('Failed to mark exhausted webhook event as failed in DB', updateError, {
-          eventId,
-          tenantId,
-          eventType,
-        });
-      }
-
-      billingWebhookExhaustedTotal.labels({ event_type: eventType }).inc();
-      webhookDlqSize.inc(); // event moved to DLQ
-    } else {
-      logger.warn('Webhook delivery failed — will retry', {
-        jobId: job.id,
-        eventId,
-        tenantId,
-        attemptNumber,
-        error: (err as Error).message,
       });
     }
 
-    // Re-throw so BullMQ records the failure and applies backoff
-    throw err;
+    billingWebhookExhaustedTotal.labels({ event_type: eventType }).inc();
+    webhookDlqSize.inc();
+  } else {
+    logger.warn('Webhook delivery failed — will retry', {
+      jobId: job.id,
+      eventId,
+      tenantId,
+      attemptNumber,
+      error: err.message,
+    });
   }
+
+  // Re-throw so BullMQ records the failure and applies backoff
+  throw err;
+}
+
+/**
+ * Fast-fail a webhook event to the dead-letter queue when circuit breaker is open.
+ * This prevents retry amplification storms by rejecting events immediately.
+ */
+async function fastFailToDLQ(
+  supabase: SupabaseClient,
+  eventId: string,
+  tenantId: string,
+  eventType: string,
+  reason: string,
+): Promise<void> {
+  webhookCircuitBreakerRejectedTotal.labels({ event_type: eventType }).inc();
+
+  const { error: updateError } = await supabase
+    .from('webhook_events')
+    .update({
+      status: 'failed',
+      last_error: `Circuit breaker open: ${reason}`,
+      failed_at: new Date().toISOString(),
+    })
+    .eq('id', eventId);
+
+  if (updateError) {
+    logger.error('Failed to mark circuit-breaker-rejected webhook as failed', updateError, {
+      eventId,
+      tenantId,
+      eventType,
+    });
+  }
+
+  billingWebhookExhaustedTotal.labels({ event_type: eventType }).inc();
+  webhookDlqSize.inc();
+
+  logger.warn('Webhook fast-failed to DLQ due to circuit breaker', {
+    eventId,
+    tenantId,
+    eventType,
+    reason,
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -561,6 +561,161 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(insertError).toBeDefined(); // Should be rejected by RLS
     });
   });
+
+  describe("Additional Tenant-Scoped Tables RLS Coverage", () => {
+    describe("workflow_executions RLS Policies", () => {
+      it("CRITICAL: should prevent cross-tenant access to workflow_executions", async () => {
+        const { data: execution, error: createError } = await adminClient
+          .from("workflow_executions")
+          .insert({
+            id: "test-workflow-exec-001",
+            organization_id: TENANT_1_ID,
+            workflow_definition_id: "test-definition",
+            status: "running",
+            context: {},
+          })
+          .select()
+          .single();
+
+        if (createError && createError.message.includes("does not exist")) return;
+
+        expect(createError).toBeNull();
+        expect(execution).toBeDefined();
+
+        const { data: accessData } = await tenant2Client
+          .from("workflow_executions")
+          .select("*")
+          .eq("id", "test-workflow-exec-001");
+
+        expect(accessData).toEqual([]);
+        await adminClient.from("workflow_executions").delete().eq("id", "test-workflow-exec-001");
+      });
+    });
+
+    describe("usage_events RLS Policies", () => {
+      it("CRITICAL: should prevent cross-tenant access to usage data", async () => {
+        const { data: event, error: createError } = await adminClient
+          .from("usage_events")
+          .insert({
+            id: "test-usage-event-001",
+            tenant_id: TENANT_1_ID,
+            metric: "api_calls",
+            amount: 1,
+            request_id: "req-test-001",
+            agent_uuid: "agent-test-001",
+            workload_identity: "workload-test-001",
+            idempotency_key: "idem-test-001",
+            processed: false,
+          })
+          .select()
+          .single();
+
+        if (createError && createError.message.includes("does not exist")) return;
+
+        expect(createError).toBeNull();
+        expect(event).toBeDefined();
+
+        const { data: accessData } = await tenant2Client
+          .from("usage_events")
+          .select("*")
+          .eq("id", "test-usage-event-001");
+
+        expect(accessData).toEqual([]);
+        await adminClient.from("usage_events").delete().eq("id", "test-usage-event-001");
+      });
+    });
+
+    describe("webhook_events RLS Policies", () => {
+      it("CRITICAL: should prevent cross-tenant access to webhook events", async () => {
+        const { data: webhook, error: createError } = await adminClient
+          .from("webhook_events")
+          .insert({
+            id: "test-webhook-001",
+            tenant_id: TENANT_1_ID,
+            stripe_event_id: "evt_test_001",
+            event_type: "invoice.payment_succeeded",
+            payload: { test: "data" },
+            status: "pending",
+            processed: false,
+          })
+          .select()
+          .single();
+
+        if (createError && createError.message.includes("does not exist")) return;
+
+        expect(createError).toBeNull();
+        expect(webhook).toBeDefined();
+
+        const { data: accessData } = await tenant2Client
+          .from("webhook_events")
+          .select("*")
+          .eq("id", "test-webhook-001");
+
+        expect(accessData).toEqual([]);
+        await adminClient.from("webhook_events").delete().eq("id", "test-webhook-001");
+      });
+    });
+
+    describe("semantic_memory RLS Policies", () => {
+      it("CRITICAL: should prevent cross-tenant access to memory data", async () => {
+        const { data: memory, error: createError } = await adminClient
+          .from("semantic_memory")
+          .insert({
+            id: "test-memory-001",
+            tenant_id: TENANT_1_ID,
+            agent_id: "agent-test",
+            content: "Test memory content",
+            embedding: Array(1536).fill(0),
+            memory_type: "episodic",
+          })
+          .select()
+          .single();
+
+        if (createError && createError.message.includes("does not exist")) return;
+
+        expect(createError).toBeNull();
+        expect(memory).toBeDefined();
+
+        const { data: accessData } = await tenant2Client
+          .from("semantic_memory")
+          .select("*")
+          .eq("id", "test-memory-001");
+
+        expect(accessData).toEqual([]);
+        await adminClient.from("semantic_memory").delete().eq("id", "test-memory-001");
+      });
+    });
+
+    describe("dead_letter_events RLS Policies", () => {
+      it("CRITICAL: should prevent cross-tenant access to dead letter queue", async () => {
+        const { data: dlqEvent, error: createError } = await adminClient
+          .from("dead_letter_events")
+          .insert({
+            id: "test-dlq-001",
+            tenant_id: TENANT_1_ID,
+            event_type: "usage_event",
+            payload: { test: "data" },
+            error_message: "Test error",
+            retry_count: 0,
+          })
+          .select()
+          .single();
+
+        if (createError && createError.message.includes("does not exist")) return;
+
+        expect(createError).toBeNull();
+        expect(dlqEvent).toBeDefined();
+
+        const { data: accessData } = await tenant2Client
+          .from("dead_letter_events")
+          .select("*")
+          .eq("id", "test-dlq-001");
+
+        expect(accessData).toEqual([]);
+        await adminClient.from("dead_letter_events").delete().eq("id", "test-dlq-001");
+      });
+    });
+  });
 });
 
 /**

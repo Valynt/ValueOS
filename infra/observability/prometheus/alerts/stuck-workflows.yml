@@ -1,0 +1,93 @@
+# Stuck Workflow Alerts
+#
+# These alerts detect workflow executions that have been running for
+# longer than expected, indicating potential hangs or resource exhaustion.
+#
+# The WorkflowWatchdogWorker already detects stuck workflows and emits
+# metrics. These alerts add automated paging when stuck workflows are detected.
+
+groups:
+  - name: stuck_workflows
+    rules:
+      # Alert when workflows are detected as stuck by the watchdog
+      # The watchdog runs every 5 minutes (configurable via WATCHDOG_INTERVAL_MINUTES)
+      - alert: WorkflowStuckDetected
+        expr: |
+          increase(workflow_stuck_detected_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: agent-platform
+          service: workflow-executor
+        annotations:
+          summary: "Workflow execution stuck detected"
+          description: |
+            {{ $value }} workflow execution(s) detected as stuck
+            (running longer than timeout threshold).
+            The watchdog has attempted to requeue or fail these executions.
+          runbook_url: "https://wiki.internal/runbooks/stuck-workflow"
+          impact: "User sessions may be unresponsive; resource exhaustion possible"
+
+      # Alert when watchdog itself is failing
+      # This is critical - without the watchdog, stuck workflows go undetected
+      - alert: WorkflowWatchdogFailing
+        expr: |
+          increase(workflow_watchdog_failures_total[10m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: agent-platform
+          service: workflow-executor
+        annotations:
+          summary: "Workflow watchdog failing"
+          description: |
+            The workflow watchdog worker has failed {{ $value }} times.
+            Stuck workflow detection may not be functioning.
+          runbook_url: "https://wiki.internal/runbooks/workflow-watchdog-failure"
+          impact: "CRITICAL: Stuck workflows will not be auto-detected"
+
+      # Alert on high requeue rate (indicates systemic issue)
+      # This catches cases where workflows consistently timeout and get requeued
+      - alert: WorkflowHighRequeueRate
+        expr: |
+          (
+            increase(workflow_stuck_detected_total[10m]) > 5
+          ) and (
+            increase(workflow_watchdog_runs_total[10m]) > 0
+          )
+        for: 5m
+        labels:
+          severity: warning
+          team: agent-platform
+          service: workflow-executor
+        annotations:
+          summary: "High workflow requeue rate"
+          description: |
+            {{ $value }} workflows stuck in the last 10 minutes.
+            This indicates a systemic issue with workflow execution.
+            Possible causes: LLM API latency, external API timeouts, resource exhaustion.
+          runbook_url: "https://wiki.internal/runbooks/workflow-requeue-rate"
+          impact: "User experience degradation; resource exhaustion risk"
+
+      # Alert when active workflow count is high AND stuck rate is increasing
+      # This is a leading indicator before complete resource exhaustion
+      - alert: WorkflowResourceExhaustionRisk
+        expr: |
+          (
+            workflow_executions_active_count > 50
+          ) and (
+            rate(workflow_stuck_detected_total[5m]) > 0.1
+          )
+        for: 3m
+        labels:
+          severity: critical
+          team: agent-platform
+          service: workflow-executor
+        annotations:
+          summary: "Workflow resource exhaustion risk"
+          description: |
+            {{ $value }} active workflows with increasing stuck rate.
+            System is approaching resource exhaustion.
+            Consider: scaling workers, reducing concurrency, or investigating bottlenecks.
+          runbook_url: "https://wiki.internal/runbooks/workflow-resource-exhaustion"
+          impact: "CRITICAL: System may become unresponsive"

@@ -297,6 +297,78 @@ function maskUserId(userId: string): string {
 }
 
 /**
+ * Resolve organization_id to tenant_id
+ * SECURITY: organization_id must be canonicalized to tenant_id via lookup.
+ * This prevents cross-tenant access via crafted organization_id claims.
+ *
+ * @param organizationId - Organization ID from JWT claim
+ * @returns Promise<string | null> - Tenant ID or null if not found
+ */
+export async function resolveOrganizationIdToTenantId(organizationId: string): Promise<string | null> {
+  try {
+    const { supabase } = await import("./supabase.js");
+    if (!supabase) throw new Error("Supabase client not initialized");
+
+    // First try: look up tenant directly by organization_id
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!tenantError && tenant?.id) {
+      return tenant.id;
+    }
+
+    // Fallback: check if the organization_id IS a tenant_id (legacy compatibility)
+    const { data: directTenant, error: directError } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    if (!directError && directTenant?.id) {
+      return directTenant.id;
+    }
+
+    // Last resort: check organizations table mapping
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .select("tenant_id")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    if (!orgError && org?.tenant_id) {
+      return org.tenant_id;
+    }
+
+    logger.warn("Could not resolve organization_id to tenant_id", {
+      organizationId: maskOrganizationId(organizationId),
+    });
+
+    return null;
+  } catch (error) {
+    logger.error("Error resolving organization to tenant", error instanceof Error ? error : undefined, {
+      organizationId: maskOrganizationId(organizationId),
+    });
+    return null;
+  }
+}
+
+/**
+ * Mask organization ID for logging (privacy protection)
+ *
+ * @param orgId - Organization ID to mask
+ * @returns Masked organization ID
+ */
+function maskOrganizationId(orgId: string): string {
+  if (orgId.length <= 8) {
+    return "***";
+  }
+  return `${orgId.substring(0, 4)}...${orgId.substring(orgId.length - 4)}`;
+}
+
+/**
  * Security error for tenant violations
  */
 export class TenantSecurityError extends Error {

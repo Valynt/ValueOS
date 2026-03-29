@@ -6,6 +6,17 @@ import { isDevelopment, isProduction } from "../../config/environment";
 import { RequestIdContext, RequestIdContextValue, RequestIdRow } from "../lib/RequestIdContext";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 
+declare global {
+  interface Window {
+    __VALUEOS_CONTEXT__?: {
+      tenantId?: string;
+      organizationId?: string;
+      userId?: string;
+      sessionId?: string;
+    };
+  }
+}
+
 /**
  * Enhanced circuit breaker state for error tracking
  */
@@ -393,9 +404,22 @@ export class EnhancedComponentErrorBoundary extends Component<
    */
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { componentName, onError, correlationContext, telemetryConfig } = this.props;
+    const requestId = this.context?.lastFailedRequestId ?? null;
+
+    // Get tenant context from global if available (S1-3: Enhanced context)
+    const globalContext = typeof window !== "undefined" ? window.__VALUEOS_CONTEXT__ : undefined;
 
     // Create error correlation
     const errorCorrelation = this.createErrorCorrelation(error, errorInfo);
+
+    // Merge correlation contexts
+    const mergedContext = {
+      ...correlationContext,
+      tenantId: correlationContext?.tenantId ?? globalContext?.tenantId,
+      organizationId: correlationContext?.organizationId ?? globalContext?.organizationId,
+      userId: correlationContext?.userId ?? globalContext?.userId,
+      sessionId: correlationContext?.sessionId ?? globalContext?.sessionId,
+    };
 
     // Update state with error info and correlation
     this.setState((prevState) => ({
@@ -416,6 +440,9 @@ export class EnhancedComponentErrorBoundary extends Component<
       circuitBreakerState: this.state.circuitBreaker.state,
       retryCount: this.state.retryCount,
       severity: errorCorrelation.severity,
+      requestId,
+      tenantId: mergedContext.tenantId,
+      organizationId: mergedContext.organizationId,
     });
 
     // Call error handler if provided
@@ -430,10 +457,39 @@ export class EnhancedComponentErrorBoundary extends Component<
         circuitBreakerState: this.state.circuitBreaker.state,
         retryCount: this.state.retryCount,
         severity: errorCorrelation.severity,
+        requestId,
+        tenantId: mergedContext.tenantId,
+        organizationId: mergedContext.organizationId,
       });
     }
 
-    // Send telemetry event
+    // S1-3: ALWAYS emit telemetry event with full correlation context
+    // This ensures SDUI errors are traceable even without explicit telemetry config
+    sduiTelemetry.recordEvent({
+      type: TelemetryEventType.COMPONENT_ERROR,
+      component_id: componentName,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        error_type: error.constructor.name,
+        error_message: error.message,
+        stack_trace: error.stack || "",
+        component_stack: errorInfo.componentStack || "",
+        severity: errorCorrelation.severity,
+        circuit_breaker_state: this.state.circuitBreaker.state,
+        retry_count: this.state.retryCount,
+        recovery_attempts: this.state.circuitBreaker.recoveryAttempts,
+        correlation_id: errorCorrelation.id,
+        request_id: requestId,
+        tenant_id: mergedContext.tenantId,
+        organization_id: mergedContext.organizationId,
+        user_id: mergedContext.userId,
+        session_id: mergedContext.sessionId,
+        error_boundary: "EnhancedComponentErrorBoundary",
+        custom_tags: telemetryConfig?.customTags,
+      },
+    });
+
+    // Send configured telemetry event (if explicitly enabled)
     if (telemetryConfig?.enableTelemetry) {
       this.sendErrorTelemetry(error, errorCorrelation, errorInfo);
     }

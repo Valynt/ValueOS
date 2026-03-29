@@ -3,6 +3,8 @@
  * Generates and validates CSRF tokens for state-changing operations
  */
 
+import { logger } from "@/lib/logger";
+
 /**
  * Constant-time string comparison to prevent timing attacks.
  * Always iterates over max(a.length, b.length) characters.
@@ -44,7 +46,7 @@ class CSRFProtection {
 
       return token;
     } catch (error) {
-      console.error("Failed to get CSRF token");
+      logger.error("Failed to get CSRF token", error);
       return this.generateToken(); // Fallback
     }
   }
@@ -56,7 +58,7 @@ class CSRFProtection {
     try {
       sessionStorage.removeItem(this.tokenKey);
     } catch (error) {
-      console.error("Failed to clear CSRF token");
+      logger.error("Failed to clear CSRF token", error);
     }
   }
 
@@ -159,7 +161,7 @@ class CSRFProtection {
   secureFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const secureInit = init ? this.addTokenToRequest(init) : this.addTokenToRequest({});
 
-     
+
     // eslint-disable-next-line no-restricted-globals
     return fetch(input, secureInit);
   };

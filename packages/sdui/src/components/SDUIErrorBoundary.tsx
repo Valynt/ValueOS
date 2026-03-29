@@ -10,16 +10,24 @@
  * - Allows retry
  * - Tracks error metrics
  * - Prevents error propagation
+ * - Enhanced telemetry with tenant context and request correlation (S1-3)
  */
 
 import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 import { RequestIdContext, RequestIdContextValue, RequestIdRow } from "../lib/RequestIdContext";
+import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 
 declare global {
   interface Window {
     analytics?: { track: (event: string, props?: Record<string, unknown>) => void };
+    __VALUEOS_CONTEXT__?: {
+      tenantId?: string;
+      organizationId?: string;
+      userId?: string;
+      sessionId?: string;
+    };
   }
 }
 
@@ -87,6 +95,10 @@ export class SDUIErrorBoundary extends Component<Props, State, RequestIdContextV
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { componentId, componentType, onError } = this.props;
+    const requestId = this.context?.lastFailedRequestId ?? null;
+
+    // Get tenant context from global if available
+    const tenantContext = typeof window !== "undefined" ? window.__VALUEOS_CONTEXT__ : undefined;
 
     // Create span for error tracking
     this.tracer.startActiveSpan("sdui_component_error", (span) => {
@@ -101,6 +113,11 @@ export class SDUIErrorBoundary extends Component<Props, State, RequestIdContextV
         "error.message": error.message,
         "error.stack": error.stack || "",
         "retry.count": this.state.retryCount,
+        "request.id": requestId ?? "",
+        "tenant.id": tenantContext?.tenantId ?? "",
+        "organization.id": tenantContext?.organizationId ?? "",
+        "user.id": tenantContext?.userId ?? "",
+        "session.id": tenantContext?.sessionId ?? "",
       });
 
       // Log error with full context
@@ -112,6 +129,11 @@ export class SDUIErrorBoundary extends Component<Props, State, RequestIdContextV
         componentStack: errorInfo.componentStack,
         retryCount: this.state.retryCount,
         timestamp: new Date().toISOString(),
+        requestId,
+        tenantId: tenantContext?.tenantId,
+        organizationId: tenantContext?.organizationId,
+        userId: tenantContext?.userId,
+        sessionId: tenantContext?.sessionId,
       });
 
       // Call external error handler
@@ -132,8 +154,33 @@ export class SDUIErrorBoundary extends Component<Props, State, RequestIdContextV
           component_type: componentType,
           error_message: error.message,
           retry_count: this.state.retryCount,
+          request_id: requestId,
+          tenant_id: tenantContext?.tenantId,
+          organization_id: tenantContext?.organizationId,
         });
       }
+
+      // S1-3: Emit to SDUITelemetry with full correlation context
+      sduiTelemetry?.recordEvent({
+        type: TelemetryEventType.COMPONENT_ERROR,
+        component_id: componentId || "unknown",
+        timestamp: new Date().toISOString(),
+        metadata: {
+          component_type: componentType || "unknown",
+          error_message: error.message,
+          error_type: error.constructor.name,
+          stack_trace: error.stack || "",
+          component_stack: errorInfo.componentStack || "",
+          retry_count: this.state.retryCount,
+          request_id: requestId,
+          tenant_id: tenantContext?.tenantId,
+          organization_id: tenantContext?.organizationId,
+          user_id: tenantContext?.userId,
+          session_id: tenantContext?.sessionId,
+          severity: "high",
+          error_boundary: "SDUIErrorBoundary",
+        },
+      });
 
       span.end();
     });

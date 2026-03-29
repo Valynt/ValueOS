@@ -1,0 +1,54 @@
+name: RLS Policy Gate
+
+on:
+  pull_request:
+    paths:
+      - 'infra/supabase/migrations/**'
+      - 'infra/supabase/tests/database/**'
+      - '.github/workflows/rls-gate.yml'
+
+jobs:
+  rls-gate:
+    name: rls-policy-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Run migrations
+        run: supabase db reset
+
+      - name: Verify RLS coverage
+        run: |
+          # Query for tables without tenant-scoped RLS
+          psql \
+            "postgresql://postgres:postgres@localhost:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f infra/supabase/tests/database/rls_lint.test.sql
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/rls-gate
+          cat > artifacts/ci-lanes/rls-gate/summary.md <<EOF_SUMMARY
+          # rls-policy-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-rls-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/rls-gate/**
+          if-no-files-found: warn
+          retention-days: 30

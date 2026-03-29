@@ -57,7 +57,7 @@ export async function bootstrap(
     const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : "Unknown error"}`;
     errors.push(errorMsg);
     onError?.(errorMsg);
-    console.error("❌", errorMsg);
+    logger.error("❌", errorMsg);
   }
 
   // Step 2: Validate required environment variables
@@ -69,7 +69,7 @@ export async function bootstrap(
     const warningMsg = `Missing environment variables: ${missingVars.join(", ")}`;
     warnings.push(warningMsg);
     onWarning?.(warningMsg);
-    console.warn("⚠️", warningMsg);
+    logger.warn("⚠️", warningMsg);
   }
 
   // Step 3: Initialize analytics (if enabled)
@@ -116,8 +116,8 @@ export async function bootstrap(
 export async function bootstrapWithLogging(): Promise<BootstrapResult> {
   return bootstrap({
     onProgress: (msg) => logger.info(`⏳ ${msg}`),
-    onWarning: (msg) => console.warn(`⚠️ ${msg}`),
-    onError: (msg) => console.error(`❌ ${msg}`),
+    onWarning: (msg) => logger.warn(`⚠️ ${msg}`),
+    onError: (msg) => logger.error(`❌ ${msg}`),
   });
 }
 

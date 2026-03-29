@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import {
   CACHE_TTL_TIERS_SECONDS,
   CacheTtlTier,
+  MissingTenantContextError,
   tenantReadCacheKey,
   tenantReadCachePattern,
 } from "@shared/lib/redisKeys";
@@ -18,6 +19,7 @@ import {
 } from "../../lib/metrics/cacheMetrics.js";
 import { readCacheEventsTotal } from "../../lib/metrics/httpMetrics.js";
 import { getRedisClient } from "../../lib/redis.js";
+import { logger } from "../../lib/logger.js";
 import {
   CacheMetricLabels,
   getNearCacheTtlSeconds,
@@ -124,13 +126,25 @@ export class ReadThroughCacheService {
   }
 
   private static createKey(config: ReadCacheConfig): string {
-    const queryHash = this.hashPayload(config.keyPayload);
-    return tenantReadCacheKey({
-      tenantId: config.tenantId,
-      endpoint: config.endpoint,
-      scope: config.scope,
-      queryHash,
-    });
+    try {
+      const queryHash = this.hashPayload(config.keyPayload);
+      return tenantReadCacheKey({
+        tenantId: config.tenantId,
+        endpoint: config.endpoint,
+        scope: config.scope,
+        queryHash,
+      });
+    } catch (error) {
+      if (error instanceof MissingTenantContextError) {
+        // Convert to a 500-equivalent error for API layer
+        const securityError = new Error(
+          `Cache operation failed: Missing tenant context. ${error.message}`
+        );
+        (securityError as Error & { statusCode: number }).statusCode = 500;
+        throw securityError;
+      }
+      throw error;
+    }
   }
 
   private static cacheMetricLabels(config: ReadCacheConfig): CacheMetricLabels {
@@ -252,19 +266,28 @@ export class ReadThroughCacheService {
   }
 
   private static deleteNearCachedEndpoint(tenantId: string, endpoint: string): number {
-    const prefix = tenantReadCachePattern({ tenantId, endpoint }).replace(/\*$/, "");
-    let deleted = 0;
+    try {
+      const prefix = tenantReadCachePattern({ tenantId, endpoint }).replace(/\*$/, "");
+      let deleted = 0;
 
-    for (const key of this.nearCache.keys()) {
-      if (!key.startsWith(prefix)) {
-        continue;
+      for (const key of this.nearCache.keys()) {
+        if (!key.startsWith(prefix)) {
+          continue;
+        }
+
+        this.nearCache.delete(key);
+        deleted += 1;
       }
 
-      this.nearCache.delete(key);
-      deleted += 1;
+      return deleted;
+    } catch (error) {
+      if (error instanceof MissingTenantContextError) {
+        // Log and return 0 - invalidation is best-effort
+        logger.warn("Cache invalidation skipped: missing tenant context", { tenantId, endpoint });
+        return 0;
+      }
+      throw error;
     }
-
-    return deleted;
   }
 
   static async getOrLoad<T>(
@@ -373,8 +396,21 @@ export class ReadThroughCacheService {
     tenantId: string,
     endpoint: string
   ): Promise<number> {
+    let pattern: string;
+    try {
+      pattern = tenantReadCachePattern({ tenantId, endpoint });
+    } catch (error) {
+      if (error instanceof MissingTenantContextError) {
+        const securityError = new Error(
+          `Cache invalidation failed: Missing tenant context. ${error.message}`
+        );
+        (securityError as Error & { statusCode: number }).statusCode = 500;
+        throw securityError;
+      }
+      throw error;
+    }
+
     const redis = (await getRedisClient()) as RedisWithScanAndMulti | null;
-    const pattern = tenantReadCachePattern({ tenantId, endpoint });
     let cursor = "0";
     const nearDeleted = this.deleteNearCachedEndpoint(tenantId, endpoint);
     let redisDeleted = 0;

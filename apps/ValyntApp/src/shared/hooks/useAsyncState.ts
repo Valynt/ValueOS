@@ -269,7 +269,7 @@ export function useCachedData<T>(
       const MAX_CACHE_BYTES = 4 * 1024 * 1024;
       const payloadBytes = new TextEncoder().encode(payload).length;
       if (payloadBytes > MAX_CACHE_BYTES) {
-        console.warn(
+        logger.warn(
           `[useCachedData] Skipping cache write for key "${key}": payload size ${payloadBytes} bytes exceeds limit.`
         );
         return;
@@ -278,13 +278,13 @@ export function useCachedData<T>(
         localStorage.setItem(`cache_${key}`, payload);
       } catch (error) {
         if (error instanceof DOMException && error.name === "QuotaExceededError") {
-          console.warn(
+          logger.warn(
             `[useCachedData] localStorage quota exceeded for key "${key}". Cache write skipped.`,
             error
           );
         } else {
           // Unexpected storage errors: log and notify, but do not throw from inside useEffect.
-          console.error(
+          logger.error(
             `[useCachedData] Unexpected localStorage error while writing cache for key "${key}". Cache write skipped.`,
             error
           );

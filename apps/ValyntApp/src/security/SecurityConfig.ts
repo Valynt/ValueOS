@@ -8,6 +8,7 @@
 import { getConfig } from "../config/environment";
 
 import { getEnvCORSOrigins, validateCORSConfig } from "./CORSValidator";
+import { logger } from "@/lib/logger";
 
 /**
  * Password policy configuration
@@ -466,8 +467,7 @@ export function loadSecurityConfig(): SecurityConfig {
       try {
         validateCORSConfig(corsConfig);
       } catch (error) {
-        // Assuming a logger is available or using console.error
-        console.error(
+        logger.error(
           "CORS configuration validation failed",
           error instanceof Error ? error : undefined
         );

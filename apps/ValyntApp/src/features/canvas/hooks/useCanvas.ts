@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { apiClient } from "../../../api/client/unified-api-client";
+import { logger } from "@/lib/logger";
 import type { Canvas, CanvasEdge, CanvasNode, CanvasViewport } from "../types";
 
 export function useCanvas(_canvasId?: string) {
@@ -16,7 +17,7 @@ export function useCanvas(_canvasId?: string) {
         setCanvas(response.data);
       }
     } catch (error) {
-      console.error("Failed to load canvas", error);
+      logger.error("Failed to load canvas", error);
     } finally {
       setIsLoading(false);
     }

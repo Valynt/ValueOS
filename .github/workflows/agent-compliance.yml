@@ -1,0 +1,60 @@
+name: Agent Security Compliance
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "packages/backend/src/lib/agent-fabric/agents/**"
+      - "scripts/ci/enforce-base-agent-compliance.js"
+      - ".github/workflows/agent-compliance.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "packages/backend/src/lib/agent-fabric/agents/**"
+      - "scripts/ci/enforce-base-agent-compliance.js"
+
+jobs:
+  compliance-check:
+    name: Verify Agent Security Contract
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Run agent compliance check
+        run: node scripts/ci/enforce-base-agent-compliance.js
+        working-directory: ${{ github.workspace }}
+
+      - name: Comment PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ **Agent Security Compliance Check Failed**
+              
+              One or more agents are bypassing the BaseAgent security contract.
+              
+              **Requirements:**
+              - All agents MUST extend BaseAgent
+              - All LLM calls MUST go through secureInvoke
+              - All agents MUST propagate organization_id for tenant isolation
+              - All agents MUST be registered in AgentFactory
+              
+              See workflow logs for details.`
+            })

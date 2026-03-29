@@ -60,7 +60,7 @@ export interface AuditLogCreateInput {
   action: string;
   resourceType: string;
   resourceId: string;
-  tenantId?: string;
+  tenantId: string; // SECURITY: Mandatory for tenant isolation (S0-4)
   details?: Record<string, unknown>;
   /** Snapshot of the resource state before the mutation. Stored in details.before_state. */
   beforeState?: Record<string, unknown>;
@@ -233,7 +233,7 @@ export class AuditLogService extends BaseService {
     workspace_id?: string;
     user_id: string;
     session_id?: string;
-    organization_id?: string;
+    organization_id: string; // Now required for tenant isolation
     action_data: Record<string, unknown>;
     result_data: Record<string, unknown>;
     success: boolean;
@@ -250,6 +250,7 @@ export class AuditLogService extends BaseService {
       action: `action_router:${input.action_type}`,
       resourceType: "action",
       resourceId: input.trace_id || "unknown",
+      tenantId: input.organization_id, // Use organization_id as tenant_id
       details: {
         workspace_id: input.workspace_id,
         session_id: input.session_id,
@@ -269,9 +270,24 @@ export class AuditLogService extends BaseService {
   /**
    * Create an audit log entry (immutable)
    * AUD-301: Logs are INSERT-only with cryptographic integrity
+   * SECURITY: tenant_id is mandatory - null tenant_id breaks tenant isolation
    */
   async createEntry(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     this.validateRequired(input, ["userId", "userName", "action", "resourceType", "resourceId"]);
+
+    // SECURITY: Enforce mandatory tenant_id (S0-4)
+    if (!input.tenantId) {
+      logger.error("CRITICAL: Audit log entry rejected - missing tenant_id", {
+        action: input.action,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        userId: input.userId,
+      });
+      throw new Error(
+        "Audit log entry rejected: tenant_id is mandatory for tenant isolation compliance. " +
+        "This error indicates a security gap that must be fixed immediately."
+      );
+    }
 
     const requiredContract = this.buildRequiredContract(input);
 
@@ -325,7 +341,7 @@ export class AuditLogService extends BaseService {
               });
 
               const logEntry = {
-                tenant_id: input.tenantId ?? null,
+                tenant_id: input.tenantId, // Already validated as non-null above
                 user_id: input.userId,
                 user_name: input.userName,
                 user_email: input.userEmail,

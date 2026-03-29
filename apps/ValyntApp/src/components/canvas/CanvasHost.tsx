@@ -102,7 +102,7 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(
+    logger.error(
       `[CanvasHost] Widget "${this.props.componentType}" (${this.props.widgetId}) crashed:`,
       error.message,
       errorInfo.componentStack,

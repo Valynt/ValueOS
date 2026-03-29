@@ -30,11 +30,11 @@ validateFrontendStartupEnv(import.meta.env as Record<string, string | undefined>
 // Bootstrap application before rendering
 bootstrap({
   onProgress: (msg) => logger.info(`⏳ ${msg}`),
-  onWarning: (msg) => console.warn(`⚠️ ${msg}`),
-  onError: (msg) => console.error(`❌ ${msg}`),
+  onWarning: (msg) => logger.warn(`⚠️ ${msg}`),
+  onError: (msg) => logger.error(`❌ ${msg}`),
 }).then((result) => {
   if (!result.success && import.meta.env.PROD) {
-    console.error("Bootstrap failed:", result.errors);
+    logger.error("Bootstrap failed:", result.errors);
   }
 
   bootstrapSDUITelemetry();

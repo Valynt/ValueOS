@@ -3,6 +3,8 @@
  * Prevents brute force attacks by limiting authentication attempts
  */
 
+import { logger } from "@/lib/logger";
+
 interface RateLimitEntry {
   attempts: number;
   firstAttempt: number;
@@ -48,7 +50,7 @@ class AuthRateLimiter {
     try {
       localStorage.setItem(`${this.storageKey}_${identifier}`, JSON.stringify(data));
     } catch (error) {
-      console.error("Failed to save rate limit data");
+      logger.error("Failed to save rate limit data", error);
     }
   }
 
@@ -118,7 +120,7 @@ class AuthRateLimiter {
     if (data.isLocked && data.lockUntil) {
       return {
         isLocked: true,
-        lockoutRemaining: Math.ceil((data.lockoutRemaining - now) / 1000 / 60),
+        lockoutRemaining: Math.ceil((data.lockUntil - now) / 1000 / 60),
       };
     }
 
@@ -132,7 +134,7 @@ class AuthRateLimiter {
     try {
       localStorage.removeItem(`${this.storageKey}_${identifier}`);
     } catch (error) {
-      console.error("Failed to clear rate limit data");
+      logger.error("Failed to clear rate limit data", error);
     }
   }
 
@@ -173,7 +175,7 @@ class AuthRateLimiter {
         }
       });
     } catch (error) {
-      console.error("Failed to clear rate limit data");
+      logger.error("Failed to clear rate limit data", error);
     }
   }
 }

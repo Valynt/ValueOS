@@ -74,12 +74,15 @@ interface MetricCardProps {
 
 function MetricCard({ icon, label, value, highlight }: MetricCardProps) {
   return (
-    <div className="rounded-lg bg-vc-surface-2 p-4">
+    <div className="rounded-lg bg-vc-surface-2 p-4" role="group" aria-label={label}>
       <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
         <span className="text-sm">{label}</span>
       </div>
-      <div className={`mt-2 text-2xl font-bold ${highlight ? "text-primary" : ""}`}>
+      <div
+        className={`mt-2 text-2xl font-bold ${highlight ? "text-primary" : ""}`}
+        aria-label={`${label}: ${value}`}
+      >
         {value}
       </div>
     </div>

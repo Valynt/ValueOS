@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 /**
  * Security Headers and Content Security Policy
  * Provides comprehensive HTTP security headers for web applications
@@ -375,7 +377,7 @@ class SecurityHeaders {
       };
 
       // Log CSP violation
-      console.warn("CSP Violation:", violation);
+      logger.warn("CSP Violation:", violation);
 
       // Send to monitoring service
       this.sendCSPViolationReport(violation);
@@ -390,7 +392,7 @@ class SecurityHeaders {
       // Raw fetch retained: CSP violation reports fire from a SecurityPolicyViolationEvent
       // handler that runs outside React context. apiClient requires auth context.
       // Migrate when apiClient exposes an unauthenticated reporting method.
-       
+
       // eslint-disable-next-line no-restricted-globals
       fetch("/api/security/csp-violation", {
         method: "POST",
@@ -399,7 +401,7 @@ class SecurityHeaders {
         },
         body: JSON.stringify(violation),
       }).catch((error) => {
-        console.error("Failed to send CSP violation report:", error);
+        logger.error("Failed to send CSP violation report:", error);
       });
     }
   }

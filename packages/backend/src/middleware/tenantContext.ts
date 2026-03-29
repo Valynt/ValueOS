@@ -4,6 +4,7 @@ import { getContext, runWithContext } from "@shared/lib/context";
 import { createLogger } from "@shared/lib/logger";
 import {
   getUserTenantId,
+  resolveOrganizationIdToTenantId,
   verifyTenantExists,
   verifyTenantMembership,
 } from "@shared/lib/tenantVerification";
@@ -52,12 +53,19 @@ type TenantCandidateSource =
   | "tct"
   | "service-header"
   | "user-claim"
+  | "user-claim-org-canonicalized"
   | "user-lookup"
   | "none";
 
 type TenantContextUser = {
+  id?: string;
   role?: string | string[];
+  roles?: string | string[];
+  email?: string;
+  tenant_id?: string;
+  organization_id?: string;
   app_metadata?: { roles?: unknown; tier?: string };
+  [key: string]: unknown;
 };
 
 const resolveRoles = (user: TenantContextUser | undefined): string[] => {
@@ -88,7 +96,7 @@ const buildRequestContext = (
   req: Request,
   userId?: string | null
 ): TCTPayload => {
-  const user = (req as TenantRequest).user;
+  const user = (req as TenantRequest).user as TenantContextUser | undefined;
   const session = (req as TenantRequest).session;
   const roles = resolveRoles(user);
   const exp =
@@ -202,13 +210,42 @@ export const tenantContextMiddleware = (enforce = true) => {
     }
 
     // ── Source 3: User JWT claim ───────────────────────────────────────────
-    const claimTenantId =
-      (req as TenantRequest).user?.tenant_id ||
-      (req as TenantRequest).user?.organization_id;
+    // SECURITY: organization_id is NOT a direct tenant resolution source.
+    // If JWT contains only organization_id, it MUST be canonicalized to tenant_id
+    // via database lookup. Only tenant_id is authoritative.
+    const jwtTenantId = (req as TenantRequest).user?.tenant_id as string | undefined;
+    const jwtOrganizationId = (req as TenantRequest).user?.organization_id as string | undefined;
 
-    if (!resolvedTenantId && claimTenantId) {
-      resolvedTenantId = claimTenantId;
-      tenantSource = "user-claim";
+    // Track if we had to canonicalize org_id to tenant_id
+    let didCanonicalizeOrgId = false;
+
+    if (!resolvedTenantId && (jwtTenantId || jwtOrganizationId)) {
+      let claimTenantId: string | null = null;
+
+      if (jwtTenantId) {
+        claimTenantId = jwtTenantId;
+      } else if (jwtOrganizationId) {
+        // Canonicalize: organization_id MUST map to tenant_id via lookup
+        claimTenantId = await resolveOrganizationIdToTenantId(jwtOrganizationId);
+        didCanonicalizeOrgId = true;
+
+        if (!claimTenantId) {
+          logger.warn("Organization ID could not be canonicalized to tenant", {
+            userId,
+            organizationId: jwtOrganizationId,
+            path: req.path,
+          });
+          return res.status(403).json({
+            error: "tenant_required",
+            message: "Organization context requires valid tenant mapping.",
+          });
+        }
+      }
+
+      if (claimTenantId) {
+        resolvedTenantId = claimTenantId;
+        tenantSource = didCanonicalizeOrgId ? "user-claim-org-canonicalized" : "user-claim";
+      }
     }
 
     // ── Source 4: User lookup (DB) ─────────────────────────────────────────
@@ -237,6 +274,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     // If the authenticated user's JWT claim disagrees with the resolved tenant,
     // deny the request regardless of path. This was previously only enforced
     // on agent-scoped paths; it now applies universally.
+    const claimTenantId = jwtTenantId || (didCanonicalizeOrgId ? resolvedTenantId : null);
     if (
       claimTenantId &&
       resolvedTenantId &&
@@ -253,6 +291,21 @@ export const tenantContextMiddleware = (enforce = true) => {
       return res.status(403).json({
         error: "tenant_mismatch",
         message: "Tenant context must match authenticated tenant claim.",
+      });
+    }
+
+    // ── TCT vs JWT Conflict Detection ───────────────────────────────────────
+    // If a TCT token was provided, its tid must match the JWT tenant claim
+    if (tctPayload && jwtTenantId && tctPayload.tid !== jwtTenantId) {
+      logger.warn("TCT vs JWT tenant conflict", {
+        tctTenantId: tctPayload.tid,
+        jwtTenantId,
+        userId,
+        path: req.path,
+      });
+      return res.status(403).json({
+        error: "tenant_mismatch",
+        message: "Tenant context token conflicts with authenticated tenant claim.",
       });
     }
 
@@ -317,11 +370,11 @@ export const tenantContextMiddleware = (enforce = true) => {
 
     // ── Attach context and continue ────────────────────────────────────────
     const attachContext = () => {
-      (req as TenantRequest).tenantId = resolvedTenantId;
+      (req as TenantRequest).tenantId = resolvedTenantId!;
       (req as TenantRequest).organizationId =
-        (req as TenantRequest).organizationId ??
-        (req as TenantRequest).user?.organization_id ??
-        resolvedTenantId;
+        ((req as TenantRequest).organizationId as string | undefined) ??
+        ((req as TenantRequest).user?.organization_id as string | undefined) ??
+        resolvedTenantId!;
       (req as TenantRequest).tenantSource = tenantSource;
       next();
     };

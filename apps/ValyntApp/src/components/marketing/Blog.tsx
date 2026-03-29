@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { SEO } from './SEO';
 
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 
 interface BlogPost {
@@ -35,7 +36,7 @@ export default function Blog() {
 
   const fetchPosts = async () => {
     if (!supabase) {
-      console.error('Supabase client not initialized. Skipping blog posts fetch.');
+      logger.error('Supabase client not initialized. Skipping blog posts fetch.');
       setLoading(false);
       return;
     }
@@ -52,7 +53,7 @@ export default function Blog() {
       if (error) throw error;
       setPosts(data || []);
     } catch (error) {
-      console.error('Error fetching blog posts:', error);
+      logger.error('Error fetching blog posts:', error);
     } finally {
       setLoading(false);
     }
@@ -155,9 +156,8 @@ export default function Blog() {
           <div className="flex flex-wrap justify-center gap-3 mb-8">
             <button
               onClick={() => setSelectedType(null)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                selectedType === null ? 'shadow-lg' : 'hover:bg-white/5'
-              }`}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${selectedType === null ? 'shadow-lg' : 'hover:bg-white/5'
+                }`}
               style={selectedType === null ? {
                 backgroundColor: '#18C3A5',
                 color: '#0B0C0F'
@@ -174,9 +174,8 @@ export default function Blog() {
                 <button
                   key={type}
                   onClick={() => setSelectedType(type as string)}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                    selectedType === type ? 'shadow-lg' : 'hover:bg-white/5'
-                  }`}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${selectedType === type ? 'shadow-lg' : 'hover:bg-white/5'
+                    }`}
                   style={selectedType === type ? {
                     backgroundColor: '#18C3A5',
                     color: '#0B0C0F'
@@ -198,9 +197,8 @@ export default function Blog() {
                 <button
                   key={tag}
                   onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    selectedTag === tag ? 'shadow-md' : 'hover:bg-white/5'
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${selectedTag === tag ? 'shadow-md' : 'hover:bg-white/5'
+                    }`}
                   style={selectedTag === tag ? {
                     backgroundColor: 'rgba(24, 195, 165, 0.2)',
                     color: '#18C3A5',

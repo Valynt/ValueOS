@@ -1,10 +1,11 @@
-import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
+import { getUserTenantId, resolveOrganizationIdToTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCurrentTenantContext, tenantContextMiddleware } from '../tenantContext.js';
 
 const tenantVerificationMocks = vi.hoisted(() => ({
   getUserTenantId: vi.fn(),
+  resolveOrganizationIdToTenantId: vi.fn(),
   verifyTenantExists: vi.fn(),
   verifyTenantMembership: vi.fn(),
 }));
@@ -46,6 +47,7 @@ describe('tenantContextMiddleware', () => {
     tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
     tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
     tenantVerificationMocks.getUserTenantId.mockResolvedValue(null);
+    tenantVerificationMocks.resolveOrganizationIdToTenantId.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -135,18 +137,43 @@ describe('tenantContextMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('resolves from user JWT claim (organization_id fallback)', async () => {
+  it('resolves from user JWT claim (organization_id) via canonicalization', async () => {
+    // organization_id must be canonicalized to tenant_id via lookup
+    tenantVerificationMocks.resolveOrganizationIdToTenantId.mockResolvedValue('org-tenant-123');
+
     const req = buildReq({
-      user: { id: 'user-org', organization_id: 'org-from-claim' },
+      user: { id: 'user-org', organization_id: 'org-456' },
     });
     const res = mockRes();
     const next = vi.fn();
 
     await tenantContextMiddleware()(req, res as any, next);
 
-    expect(req.tenantId).toBe('org-from-claim');
-    expect(req.tenantSource).toBe('user-claim');
+    expect(resolveOrganizationIdToTenantId).toHaveBeenCalledWith('org-456');
+    expect(req.tenantId).toBe('org-tenant-123');
+    expect(req.tenantSource).toBe('user-claim-org-canonicalized');
     expect(next).toHaveBeenCalled();
+  });
+
+  it('rejects when organization_id cannot be canonicalized to tenant', async () => {
+    // Simulate canonicalization failure
+    tenantVerificationMocks.resolveOrganizationIdToTenantId.mockResolvedValue(null);
+
+    const req = buildReq({
+      user: { id: 'user-org', organization_id: 'org-invalid' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(resolveOrganizationIdToTenantId).toHaveBeenCalledWith('org-invalid');
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'tenant_required',
+      message: 'Organization context requires valid tenant mapping.',
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 
   // ── Source 4: User lookup ────────────────────────────────────────────────
@@ -427,6 +454,33 @@ describe('tenantContextMiddleware', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: 'Not Found' })
     );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects when TCT tenant conflicts with JWT tenant claim → 403', async () => {
+    const jwt = await import('jsonwebtoken');
+    // Token claims tid=tenant-tct but JWT has tenant_id=tenant-jwt
+    const token = jwt.default.sign(
+      { iss: 'jwt', sub: 'user-123', tid: 'tenant-tct', roles: [], tier: 'free', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'test-tct-secret',
+      { algorithm: 'HS256' }
+    );
+
+    const req = buildReq({
+      headers: { 'x-tenant-context': token },
+      header: vi.fn((name: string) => name === 'x-tenant-id' ? undefined : undefined),
+      user: { id: 'user-123', tenant_id: 'tenant-jwt' }, // JWT claim conflicts with TCT
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware(true)(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'tenant_mismatch',
+      message: 'Tenant context token conflicts with authenticated tenant claim.',
+    });
     expect(next).not.toHaveBeenCalled();
   });
 

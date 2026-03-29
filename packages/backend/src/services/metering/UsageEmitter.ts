@@ -64,7 +64,8 @@ const MAX_RETRY_COUNT = 3;
 const MAX_RETRY_BATCH_SIZE = 100;
 const REPLAY_COMPLETED_MARKER = "__replay_completed__";
 const REPLAY_EVENT_TYPE = "usage_event_replay";
-const failedEventsBuffer: FailedUsageEvent[] = [];
+// Note: DLQ is now fully persistent via dead_letter_events table
+// No in-memory buffer - prevents data loss on process restart
 
 class UsageEmitter {
   private readonly usageLedgerIngestionService: UsageLedgerIngestionService;
@@ -178,6 +179,8 @@ class UsageEmitter {
   }
 
   private async addToDeadLetterQueue(payload: UsageEvidencePayload, errorMessage: string): Promise<void> {
+    // Persist immediately to database - no in-memory buffer
+    // This ensures events survive process restarts
     await this.persistToDeadLetterTable({
       payload,
       retryCount: 0,
@@ -185,36 +188,39 @@ class UsageEmitter {
       timestamp: new Date().toISOString(),
     });
 
-    if (failedEventsBuffer.length >= 10000) {
-      logger.warn("Dead-letter queue full, dropping oldest event");
-      failedEventsBuffer.shift();
-    }
-
-    failedEventsBuffer.push({
-      payload,
-      retryCount: 0,
-      lastError: errorMessage,
-      timestamp: new Date().toISOString(),
-    });
-
-    logger.debug("Event added to dead-letter queue", {
+    logger.warn("Usage event persisted to dead-letter queue", {
       tenantId: payload.tenantId,
       metric: payload.metric,
-      queueSize: failedEventsBuffer.length,
+      idempotencyKey: payload.idempotencyKey,
     });
   }
 
-  getDeadLetterQueueSize(): number {
-    return failedEventsBuffer.length;
+  /**
+   * Get the current size of the dead-letter queue from the database.
+   * Returns the count of retriable usage events in dead_letter_events.
+   */
+  async getDeadLetterQueueSize(): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("dead_letter_events")
+      .select("*", { count: "exact", head: true })
+      .eq("event_type", "usage_event")
+      .lt("retry_count", MAX_RETRY_COUNT)
+      .neq("error_message", REPLAY_COMPLETED_MARKER);
+
+    if (error) {
+      logger.error("Failed to query dead-letter queue size", error);
+      return 0;
+    }
+
+    return count ?? 0;
   }
 
   async retryFailedEvents(): Promise<{ retried: number; failed: number; dropped: number }> {
     const results = { retried: 0, failed: 0, dropped: 0 };
 
-    const durableEvents = await this.fetchRetriableDeadLetterEvents();
-    const eventsToRetry = [...durableEvents, ...failedEventsBuffer];
+    // Fetch only from persistent storage - no in-memory buffer
+    const eventsToRetry = await this.fetchRetriableDeadLetterEvents();
     const seenIdempotencyKeys = new Set<string>();
-    failedEventsBuffer.length = 0;
 
     const dedupedEventsToRetry = eventsToRetry.filter((event) => {
       if (seenIdempotencyKeys.has(event.payload.idempotencyKey)) {
@@ -250,10 +256,7 @@ class UsageEmitter {
         event.lastError = (err as Error).message;
         await this.persistRetryAttempt(event);
 
-        if (failedEventsBuffer.length < 10000) {
-          failedEventsBuffer.push(event);
-        }
-
+        // No in-memory buffer - failure is already persisted
         results.failed++;
       }
     }

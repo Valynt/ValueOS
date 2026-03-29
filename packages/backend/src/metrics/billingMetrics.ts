@@ -216,6 +216,22 @@ export const subscriptionCreationReconciliationResolved = new Gauge({
   registers: [registry],
 });
 
+/** Webhook retry circuit breaker opened (prevents retry amplification storms). */
+export const webhookCircuitBreakerOpenTotal = new Counter<'event_type'>({
+  name: 'webhook_circuit_breaker_open_total',
+  help: 'Webhook retry circuit breaker transitioned to OPEN state',
+  labelNames: ['event_type'],
+  registers: [registry],
+});
+
+/** Webhook events fast-failed due to open circuit breaker. */
+export const webhookCircuitBreakerRejectedTotal = new Counter<'event_type'>({
+  name: 'webhook_circuit_breaker_rejected_total',
+  help: 'Webhook events rejected due to open circuit breaker (fast-fail to DLQ)',
+  labelNames: ['event_type'],
+  registers: [registry],
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed' | 'duplicate'): void {

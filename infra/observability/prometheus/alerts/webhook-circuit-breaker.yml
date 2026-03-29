@@ -1,0 +1,86 @@
+# Webhook Circuit Breaker Alerts
+#
+# These alerts detect when the webhook retry circuit breaker opens,
+# indicating potential retry amplification storms or downstream failures.
+#
+# Severity: critical - requires immediate attention to prevent revenue loss
+
+groups:
+  - name: webhook_circuit_breaker
+    rules:
+      # Alert when circuit breaker transitions to OPEN
+      # This indicates 5 consecutive failures in webhook delivery
+      - alert: WebhookCircuitBreakerOpen
+        expr: |
+          increase(webhook_circuit_breaker_open_total[1m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: billing-platform
+          service: webhook-retry-worker
+        annotations:
+          summary: "Webhook retry circuit breaker opened"
+          description: |
+            The webhook retry circuit breaker has opened due to {{ $value }} 
+            consecutive failures. Webhook events will be fast-failed to the DLQ
+            to prevent retry amplification storms.
+          runbook_url: "https://wiki.internal/runbooks/webhook-circuit-breaker"
+          impact: "Revenue events may be delayed until circuit recovers"
+
+      # Alert when events are being rejected due to open circuit
+      # This indicates ongoing downstream issues
+      - alert: WebhookCircuitBreakerRejectingEvents
+        expr: |
+          rate(webhook_circuit_breaker_rejected_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: billing-platform
+          service: webhook-retry-worker
+        annotations:
+          summary: "Webhook events being rejected by circuit breaker"
+          description: |
+            {{ $value | humanize }} webhook events per second are being 
+            fast-failed to the DLQ due to an open circuit breaker.
+            Investigate downstream system health (Stripe API, database).
+          runbook_url: "https://wiki.internal/runbooks/webhook-circuit-breaker"
+          impact: "Revenue data may be delayed; check DLQ for manual recovery"
+
+      # Alert when webhook retry queue depth grows significantly
+      # Combined with circuit breaker status to detect storms
+      - alert: WebhookRetryQueueBacklog
+        expr: |
+          billing_webhook_retry_queue_size > 100
+          and
+          increase(webhook_circuit_breaker_open_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: billing-platform
+          service: webhook-retry-worker
+        annotations:
+          summary: "Webhook retry queue backlog with open circuit"
+          description: |
+            {{ $value }} webhook events are pending retry while the 
+            circuit breaker is open. This indicates a severe downstream 
+            failure or retry amplification storm.
+          runbook_url: "https://wiki.internal/runbooks/webhook-retry-backlog"
+          impact: "Immediate revenue risk - manual queue flush may be required"
+
+      # Alert when webhook exhaustion rate spikes
+      # This captures both normal exhaustion and circuit-breaker fast-fails
+      - alert: WebhookRetryExhaustionRate
+        expr: |
+          rate(billing_webhook_exhausted_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          team: billing-platform
+          service: webhook-retry-worker
+        annotations:
+          summary: "High webhook retry exhaustion rate"
+          description: |
+            {{ $value | humanize }} webhooks per second are exhausting
+            all retry attempts (or being fast-failed by circuit breaker).
+          runbook_url: "https://wiki.internal/runbooks/webhook-dlq"
+          impact: "Events in DLQ require manual inspection and replay"

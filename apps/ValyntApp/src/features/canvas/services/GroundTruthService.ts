@@ -1,5 +1,6 @@
 import { createMCPServer } from "../../../mcp-ground-truth";
 import type { ClaimSeverity, CompanySize, ESOIndustry } from "../../../types/eso";
+import { logger } from "@/lib/logger";
 
 // ============================================================================
 // Response Types
@@ -71,7 +72,7 @@ const MAX_CACHE_ENTRIES = 200;
 
 export class GroundTruthService {
   private static instance: GroundTruthService;
-   
+
   private mcpServer: {
     executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   } | null = null;
@@ -160,7 +161,7 @@ export class GroundTruthService {
         return metric;
       }
     } catch (error) {
-      console.error(`Failed to fetch ground truth for metric ${metricId}`, error);
+      logger.error(`Failed to fetch ground truth for metric ${metricId}`, error);
     }
 
     return null;
@@ -201,7 +202,7 @@ export class GroundTruthService {
       });
       if (result) return result as unknown as ValidationResult;
     } catch (error) {
-      console.error(`Failed to validate claim for ${metricId}`, error);
+      logger.error(`Failed to validate claim for ${metricId}`, error);
     }
     return null;
   }
@@ -225,7 +226,7 @@ export class GroundTruthService {
       });
       if (result) return result as unknown as FeasibilityResult;
     } catch (error) {
-      console.error(`Failed to assess feasibility for ${metricId}`, error);
+      logger.error(`Failed to assess feasibility for ${metricId}`, error);
     }
     return null;
   }
@@ -243,7 +244,7 @@ export class GroundTruthService {
       const result = await this.mcpServer!.executeTool("eso_composite_health", { metrics });
       if (result) return result as unknown as CompositeHealthResult;
     } catch (error) {
-      console.error("Failed to compute composite health", error);
+      logger.error("Failed to compute composite health", error);
     }
     return null;
   }

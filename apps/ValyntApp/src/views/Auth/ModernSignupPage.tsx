@@ -69,7 +69,7 @@ export function ModernSignupPage() {
       await signInWithProvider(provider);
       // Redirect happens automatically via Supabase
     } catch (err: unknown) {
-      console.error("OAuth sign in error:", err);
+      logger.error("OAuth sign in error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "OAuth sign in failed";
       setError(errorMessage);

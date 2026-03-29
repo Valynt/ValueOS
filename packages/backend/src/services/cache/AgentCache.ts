@@ -15,6 +15,7 @@ import {
   cacheRequestsTotal,
 } from "../../lib/metrics/cacheMetrics.js";
 import { logger } from "../../lib/logger.js";
+import { auditLog } from "../../lib/audit.js";
 import {
   deleteCache,
   deleteCachePattern,
@@ -70,6 +71,44 @@ export interface CacheOptions {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Rate limiter for cache invalidation operations (S1-4)
+ * Prevents abuse of cache invalidation APIs
+ */
+class CacheInvalidationRateLimiter {
+  private attempts = new Map<string, { count: number; resetTime: number }>();
+  private maxAttempts: number;
+  private windowMs: number;
+
+  constructor(maxAttempts = 10, windowMs = 60000) {
+    this.maxAttempts = maxAttempts;
+    this.windowMs = windowMs;
+  }
+
+  isAllowed(key: string): boolean {
+    const now = Date.now();
+    const record = this.attempts.get(key);
+
+    if (!record || now > record.resetTime) {
+      this.attempts.set(key, { count: 1, resetTime: now + this.windowMs });
+      return true;
+    }
+
+    if (record.count >= this.maxAttempts) {
+      return false;
+    }
+
+    record.count++;
+    return true;
+  }
+
+  getRemainingAttempts(key: string): number {
+    const record = this.attempts.get(key);
+    if (!record) return this.maxAttempts;
+    return Math.max(0, this.maxAttempts - record.count);
+  }
+}
+
 export class AgentCache extends EventEmitter {
   private config: CacheConfig;
   private nearCache = new Map<string, CacheEntry>();
@@ -82,6 +121,8 @@ export class AgentCache extends EventEmitter {
   };
   private cleanupInterval: NodeJS.Timeout | null = null;
   private statsInterval: NodeJS.Timeout | null = null;
+
+  private rateLimiter = new CacheInvalidationRateLimiter();
 
   constructor(config: Partial<CacheConfig> = {}) {
     super();
@@ -256,7 +297,103 @@ export class AgentCache extends EventEmitter {
     return deleted;
   }
 
-  async invalidateTenant(tenantId: string): Promise<number> {
+  /**
+   * Invalidate cache for a tenant with caller verification (S1-4)
+   *
+   * Requires the caller to provide their tenant ID, and verifies that
+   * the caller owns the target tenant before allowing invalidation.
+   * Includes audit logging and rate limiting.
+   *
+   * @param tenantId - The tenant whose cache should be invalidated
+   * @param callerTenantId - The caller's tenant ID for verification
+   * @param callerContext - Additional context for audit logging
+   * @returns Number of entries cleared
+   * @throws Error if caller doesn't own the tenant or rate limit exceeded
+   */
+  async invalidateTenant(
+    tenantId: string,
+    callerTenantId: string,
+    callerContext?: { userId?: string; requestId?: string; reason?: string }
+  ): Promise<number> {
+    // S1-4: Rate limiting check
+    const rateLimitKey = `invalidate:${callerTenantId}`;
+    if (!this.rateLimiter.isAllowed(rateLimitKey)) {
+      logger.warn("Cache invalidation rate limit exceeded", {
+        callerTenantId,
+        targetTenantId: tenantId,
+        requestId: callerContext?.requestId,
+      });
+      throw new Error("Rate limit exceeded for cache invalidation");
+    }
+
+    // S1-4: Verify caller owns the target tenant
+    if (callerTenantId !== tenantId) {
+      // In a multi-tenant system, we need to verify the caller can access this tenant
+      // For now, we only allow invalidating own tenant cache
+      // Future: Add admin/service_role capability to invalidate any tenant
+      logger.error("Cache invalidation rejected - caller doesn't own tenant", {
+        callerTenantId,
+        targetTenantId: tenantId,
+        requestId: callerContext?.requestId,
+        userId: callerContext?.userId,
+      });
+
+      // S1-4: Emit audit log for rejected invalidation attempt
+      try {
+        await auditLog({
+          event: "cache_invalidation_rejected",
+          actor: callerContext?.userId || "system",
+          tenant_id: callerTenantId,
+          resource: { type: "cache", target_tenant_id: tenantId },
+          details: {
+            reason: "caller_does_not_own_tenant",
+            request_id: callerContext?.requestId,
+            rate_limit_remaining: this.rateLimiter.getRemainingAttempts(rateLimitKey),
+          },
+        });
+      } catch (auditErr) {
+        logger.error("Failed to emit audit log for rejected cache invalidation", { error: auditErr });
+      }
+
+      throw new Error("Cache invalidation rejected: caller does not own the target tenant");
+    }
+
+    // Perform the invalidation
+    const clearedCount = await this.clear(`${tenantId}:*`);
+
+    // S1-4: Emit audit log for successful invalidation
+    try {
+      await auditLog({
+        event: "cache_invalidation",
+        actor: callerContext?.userId || "system",
+        tenant_id: tenantId,
+        resource: { type: "cache", entries_cleared: clearedCount },
+        details: {
+          reason: callerContext?.reason || "explicit_invalidation",
+          request_id: callerContext?.requestId,
+          rate_limit_remaining: this.rateLimiter.getRemainingAttempts(rateLimitKey),
+        },
+      });
+    } catch (auditErr) {
+      logger.error("Failed to emit audit log for cache invalidation", { error: auditErr });
+    }
+
+    logger.info("Cache invalidated for tenant", {
+      tenantId,
+      callerUserId: callerContext?.userId,
+      entriesCleared: clearedCount,
+      requestId: callerContext?.requestId,
+    });
+
+    return clearedCount;
+  }
+
+  /**
+   * Legacy invalidateTenant - deprecated, use invalidateTenant with caller verification
+   * @deprecated Use invalidateTenant(tenantId, callerTenantId, callerContext) instead
+   */
+  async invalidateTenantLegacy(tenantId: string): Promise<number> {
+    logger.warn("Using deprecated invalidateTenant without caller verification", { tenantId });
     return this.clear(`${tenantId}:*`);
   }
 
@@ -486,11 +623,14 @@ export class AgentCache extends EventEmitter {
   }
 
   private getDistributedKey(key: string): string {
-    return getRedisKey(undefined, `${this.config.l2KeyPrefix}${this.config.namespace}:${key}`);
+    // SECURITY: AgentCache uses a global namespace for agent coordination keys
+    // that are not tenant-scoped (e.g., kill switches, agent registry).
+    // For tenant-scoped data, use ReadThroughCacheService with explicit tenantId.
+    return `${this.config.l2KeyPrefix}${this.config.namespace}:${key}`;
   }
 
   private getDistributedPattern(pattern: string): string {
-    return getRedisKey(undefined, `${this.config.l2KeyPrefix}${this.config.namespace}:${pattern}`);
+    return `${this.config.l2KeyPrefix}${this.config.namespace}:${pattern}`;
   }
 
   private incrementRequestMetric(layer: string, outcome: string): void {

@@ -59,6 +59,18 @@ const usageEvents = createCounter(
   "Tenant API usage events recorded by the usage enforcement middleware",
 );
 
+/** Workflow execution deadline violations. */
+const workflowDeadlineViolations = createCounter(
+  "workflow_deadline_violations_total",
+  "Workflow executions that exceeded their deadline",
+);
+
+/** Active workflow executions tracked by deadline. */
+const workflowExecutionsActive = createCounter(
+  "workflow_executions_active_total",
+  "Currently active workflow executions",
+);
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export type ValueLoopStage =
@@ -173,6 +185,41 @@ export function recordUsageEvent(opts: {
 }): void {
   const { tenantId, metric, quantity = 1 } = opts;
   usageEvents.add(quantity, { metric, organization_id: tenantId });
+}
+
+/**
+ * Record a workflow execution deadline violation.
+ */
+export function recordWorkflowDeadlineViolation(opts: {
+  executionId: string;
+  organizationId: string;
+  deadlineMinutes: number;
+  actualDurationMs: number;
+}): void {
+  const { executionId, organizationId, deadlineMinutes, actualDurationMs } = opts;
+  workflowDeadlineViolations.add(1, {
+    organization_id: organizationId,
+    execution_id: executionId,
+    deadline_minutes: String(deadlineMinutes),
+  });
+  logger.warn("Workflow deadline violated", {
+    executionId,
+    organizationId,
+    deadlineMinutes,
+    actualDurationMs,
+    overrunFactor: (actualDurationMs / (deadlineMinutes * 60 * 1000)).toFixed(2),
+  });
+}
+
+/**
+ * Track active workflow execution count.
+ */
+export function recordWorkflowExecutionActive(opts: {
+  organizationId: string;
+  delta: number;
+}): void {
+  const { organizationId, delta } = opts;
+  workflowExecutionsActive.add(delta, { organization_id: organizationId });
 }
 
 /**

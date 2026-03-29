@@ -3,7 +3,8 @@ import { Component, ErrorInfo, ReactNode } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { safeNavigate, navigateToLogin } from "@/lib/safeNavigation";
+import { safeNavigate, safeReload, navigateToLogin } from "@/lib/safeNavigation";
+import { logger } from "@/lib/logger";
 
 interface Props {
   children: ReactNode;
@@ -32,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    logger.error("ErrorBoundary caught an error:", error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
 
@@ -167,31 +168,31 @@ export class ErrorBoundary extends Component<Props, State> {
                   Try Again{" "}
                   {this.state.retryCount > 0 && `(${this.state.retryCount}/${this.maxRetries})`}
                 </Button>
-              ) : (
-                <Button onClick={() => window.location.reload()}>
-                  <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
-                  Reload Page
-                </Button>
+              ) : (sfeR
+                < Button onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+              Reload Page
+            </Button>
               )}
 
-              <Button variant="outline" onClick={() => safeNavigate("/dashboard", { fallback: "/login" })}>
-                <Home className="h-4 w-4 mr-2" aria-hidden="true" />
-                Go to Home
-              </Button>
-            </div>
-
-            {errorType === "auth" && (
-              <p className="text-xs text-muted-foreground mt-4">
-                <button
-                  onClick={() => navigateToLogin()}
-                  className="underline hover:text-foreground bg-transparent border-none cursor-pointer p-0"
-                >
-                  Click here to sign in
-                </button>
-              </p>
-            )}
+            <Button variant="outline" onClick={() => safeNavigate("/dashboard", { fallback: "/login" })}>
+              <Home className="h-4 w-4 mr-2" aria-hidden="true" />
+              Go to Home
+            </Button>
           </div>
+
+          {errorType === "auth" && (
+            <p className="text-xs text-muted-foreground mt-4">
+              <button
+                onClick={() => navigateToLogin()}
+                className="underline hover:text-foreground bg-transparent border-none cursor-pointer p-0"
+              >
+                Click here to sign in
+              </button>
+            </p>
+          )}
         </div>
+        </div >
       );
     }
 

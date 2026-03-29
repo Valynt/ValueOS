@@ -29,6 +29,7 @@ import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { ArtifactJobRepository } from '../services/artifacts/ArtifactJobRepository.js';
 import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import { ArtifactRepository } from '../services/artifacts/ArtifactRepository.js';
+import { withIdempotency } from './IdempotentJobProcessor.js';
 import type { LifecycleContext } from '../types/agent.js';
 
 // ---------------------------------------------------------------------------
@@ -295,9 +296,12 @@ export function createArtifactGenerationWorker(): Worker<ArtifactGenerationJobPa
         tenantId: job.data.tenantId,
         organizationId: job.data.organizationId,
       },
-      async () => {
-        await processJob(job);
-      },
+      // S1-2: Wrap with idempotency to prevent duplicate job processing
+      withIdempotency(QUEUE_NAME, async () => processJob(job), {
+        enabled: true,
+        ttlHours: 168,
+        keyFields: ['jobId', 'tenantId', 'caseId', 'artifactType'],
+      })
     ),
     {
       connection: { url: redisUrl },

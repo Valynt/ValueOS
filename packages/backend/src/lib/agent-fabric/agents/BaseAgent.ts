@@ -190,7 +190,46 @@ export abstract class BaseAgent {
     this.knowledgeFabricValidator = validator;
   }
 
-  abstract execute(context: LifecycleContext): Promise<AgentOutput>;
+  abstract _execute(context: LifecycleContext): Promise<AgentOutput>;
+
+  /**
+   * Execute the agent with tenant verification and audit logging.
+   * This wrapper enforces security checks before delegating to the subclass implementation.
+   */
+  async execute(context: LifecycleContext): Promise<AgentOutput> {
+    // ── Tenant Verification (S0-3) ─────────────────────────────────────────
+    // Verify the context organization matches the agent's authorized tenant
+    try {
+      assertTenantContextMatch({
+        expectedTenantId: this.organizationId,
+        actualTenantId: context.organization_id,
+        source: `${this.name}.execute`,
+      });
+    } catch (error) {
+      // Emit audit log on tenant verification failure
+      await this.auditLogger.logAgentSecurity({
+        agentName: this.name,
+        tenantId: this.organizationId,
+        userId: context.user_id ?? "system",
+        action: "tenant_verification_failed",
+        details: {
+          context_organization_id: context.organization_id,
+          expected_tenant_id: this.organizationId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
+
+    // Validate input before execution
+    const isValid = await this.validateInput(context);
+    if (!isValid) {
+      throw new Error(`Invalid input context for agent ${this.name}`);
+    }
+
+    // Delegate to subclass implementation
+    return this._execute(context);
+  }
 
   async validateInput(context: LifecycleContext): Promise<boolean> {
     if (!context.workspace_id || !context.organization_id || !context.user_id) {

@@ -14,6 +14,7 @@ import { Component, ErrorInfo, ReactNode, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { safeReload, navigateToLogin } from "@/lib/safeNavigation";
+import { logger } from "@/lib/logger";
 
 interface Props {
   children: ReactNode;
@@ -107,7 +108,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error.name);
+    logger.error("ErrorBoundary caught an error:", error.name);
     this.props.onError?.(error, errorInfo);
     this.setState({ errorInfo });
   }

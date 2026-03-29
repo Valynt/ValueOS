@@ -41,7 +41,7 @@ export default function BlogPost() {
 
   const fetchPost = async (slug: string) => {
     if (!supabase) {
-      console.error('Supabase client not initialized. Skipping blog post fetch.');
+      logger.error('Supabase client not initialized. Skipping blog post fetch.');
       setLoading(false);
       navigate('/blog');
       return;
@@ -66,7 +66,7 @@ export default function BlogPost() {
       setPost(data);
       fetchRelatedPosts(data.tags, data.id);
     } catch (error) {
-      console.error('Error fetching blog post:', error);
+      logger.error('Error fetching blog post:', error);
       navigate('/blog');
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ export default function BlogPost() {
 
   const fetchRelatedPosts = async (tags: string[], currentPostId: string) => {
     if (!supabase) {
-      console.error('Supabase client not initialized. Skipping related posts fetch.');
+      logger.error('Supabase client not initialized. Skipping related posts fetch.');
       return;
     }
 
@@ -96,7 +96,7 @@ export default function BlogPost() {
 
       setRelatedPosts(related.length > 0 ? related : (data || []).slice(0, 3));
     } catch (error) {
-      console.error('Error fetching related posts:', error);
+      logger.error('Error fetching related posts:', error);
     }
   };
 

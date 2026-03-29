@@ -14,6 +14,7 @@ import {
   WorkflowStepState,
 } from '../types/workflow.types';
 import { GATING_MATRIX } from '../utils/state-gating';
+import { logger } from '@/lib/logger';
 
 interface WorkflowStore {
   // Current orchestration phase
@@ -74,13 +75,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Check if transition is valid
         if (!VALID_TRANSITIONS[current].includes(to)) {
-          console.warn(`Invalid transition from ${current} to ${to}`);
+          logger.warn(`Invalid transition from ${current} to ${to}`);
           return false;
         }
 
         // Check for blocking issues when moving forward
         if (get().blockingIssues.some(i => i.severity === 'blocking')) {
-          console.warn('Cannot advance: blocking issues exist');
+          logger.warn('Cannot advance: blocking issues exist');
           return false;
         }
 

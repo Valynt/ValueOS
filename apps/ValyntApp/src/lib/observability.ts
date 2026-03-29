@@ -1,5 +1,7 @@
 import { context, type Span, trace } from "@opentelemetry/api";
 
+import { logger } from "./logger";
+
 export interface FrontendObservabilityInitOptions {
   appName: string;
   release: string;
@@ -26,9 +28,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 
   observabilityInitialized = true;
 
-
-  // eslint-disable-next-line no-console
-  console.info("[observability.init]", {
+  logger.info("[observability.init]", {
     appName: options.appName,
     release: options.release,
     environment: options.environment,
@@ -36,9 +36,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 }
 
 export function recordMetric(name: string, value: number, tags: ObservabilityTags): void {
-
-  // eslint-disable-next-line no-console
-  console.debug("[observability.metric]", { name, value, ...tags });
+  logger.debug("[observability.metric]", { name, value, ...tags });
 }
 
 export function startSpan(name: string, tags: ObservabilityTags): { end: () => void; span: Span } {
@@ -72,7 +70,7 @@ export async function trackFrontendFlow<T>(
   try {
     return await context.with(trace.setSpan(context.active(), span), operation);
   } catch (error) {
-    console.error(`[observability] frontend flow "${flowName}" failed:`, error);
+    logger.error(`[observability] frontend flow "${flowName}" failed:`, error);
     recordMetric("frontend_flow_failed", 1, spanTags);
     throw error;
   } finally {

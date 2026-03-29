@@ -27,7 +27,7 @@ export function ModernLoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-   
+
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +72,7 @@ export function ModernLoginPage() {
       await signInWithProvider(provider);
       // Redirect happens automatically via Supabase
     } catch (err: unknown) {
-      console.error("OAuth sign in error:", err);
+      logger.error("OAuth sign in error:", err);
       const errorMessage = err instanceof Error ? err.message : "OAuth sign in failed";
       setError(errorMessage);
     } finally {

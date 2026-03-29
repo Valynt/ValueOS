@@ -81,11 +81,41 @@ export interface AgentAuditEvent {
   details?: Record<string, unknown>;
 }
 
+export interface AgentSecurityAuditParams {
+  agentName: string;
+  tenantId: string;
+  userId: string;
+  action: string;
+  details: Record<string, unknown>;
+}
+
 export class AuditLogger {
   private readonly auditLogService: AuditLogService;
 
   constructor(auditLogService?: AuditLogService) {
     this.auditLogService = auditLogService ?? new AuditLogService();
+  }
+
+  async logAgentSecurity(params: AgentSecurityAuditParams): Promise<void> {
+    try {
+      await this.auditLogService.logAudit({
+        userId: params.userId,
+        userName: params.agentName,
+        userEmail: `agent:${params.agentName}`,
+        action: `agent.security.${params.action}`,
+        resourceType: "agent",
+        resourceId: params.agentName,
+        tenantId: params.tenantId,
+        details: redactDetails(params.details),
+        status: "failed",
+      });
+    } catch (err) {
+      logger.warn("AuditLogger: failed to log agent security event", {
+        agent: params.agentName,
+        action: params.action,
+        err,
+      });
+    }
   }
 
   async logLLMInvocation(params: LLMInvocationAuditParams): Promise<void> {

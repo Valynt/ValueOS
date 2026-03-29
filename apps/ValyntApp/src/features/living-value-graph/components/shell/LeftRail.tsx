@@ -4,6 +4,7 @@
 
 import { useWorkflowState } from '../../hooks/useWorkflowState';
 import { WorkflowStepPanel } from '../left-rail/WorkflowStepPanel';
+import { logger } from '@/lib/logger';
 
 export function LeftRail() {
   const { steps, currentStep, isStepBlocked, getBlockingReason, completeStep } = useWorkflowState();
@@ -15,8 +16,7 @@ export function LeftRail() {
         currentStep={currentStep}
         onStepClick={(step) => {
           if (isStepBlocked(step)) {
-            // eslint-disable-next-line no-console
-            console.log('Blocked:', getBlockingReason(step));
+            logger.debug('Step blocked:', getBlockingReason(step));
           }
         }}
       />

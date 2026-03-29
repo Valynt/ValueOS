@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { analyticsClient } from "@/lib/analyticsClient";
 import { getConsoleLogs, startConsoleCapture } from "@/utils/consoleRecorder";
+import { logger } from "@/lib/logger";
 
 const FEEDBACK_TAG = "beta_cohort";
 
@@ -125,7 +126,7 @@ export function BetaFeedbackWidget() {
     try {
       await apiClient.post("/api/feedback", payload);
     } catch (error) {
-      console.warn("Feedback submission failed", error);
+      logger.warn("Feedback submission failed", error);
     } finally {
       setIsSubmitting(false);
       setMessage("");

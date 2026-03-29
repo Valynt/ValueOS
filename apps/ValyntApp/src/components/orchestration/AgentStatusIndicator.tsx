@@ -67,9 +67,11 @@ export function AgentStatusIndicator({
 
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${config.bgColor} ${config.color} ${
-        config.animate === "glow" ? "agent-glow" : config.animate ? "animate-pulse-glow" : ""
-      } ${className}`}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${config.bgColor} ${config.color} ${config.animate === "glow" ? "agent-glow" : config.animate ? "animate-pulse-glow" : ""
+        } ${className}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
     >
       {config.icon}
       <span className="font-medium">{config.label}</span>

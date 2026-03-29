@@ -15,7 +15,7 @@ import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
-import { recordAgentInvocation, recordLoopCompletion } from '../../observability/valueLoopMetrics.js';
+import { recordAgentInvocation, recordLoopCompletion, recordWorkflowDeadlineViolation, recordWorkflowExecutionActive } from '../../observability/valueLoopMetrics.js';
 import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
@@ -71,6 +71,8 @@ export interface WorkflowExecutorConfig {
   maxRetryAttempts: number;
   maxAgentInvocationsPerMinute: number;
 }
+
+const DEFAULT_WORKFLOW_DEADLINE_MINUTES = 30;
 
 const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   enableWorkflows: true,
@@ -202,6 +204,45 @@ export class WorkflowExecutor {
     traceId: string,
     executionRecord?: WorkflowExecutionRecord,
   ): Promise<void> {
+    const dagStartTime = Date.now();
+    const deadlineMs = DEFAULT_WORKFLOW_DEADLINE_MINUTES * 60 * 1000;
+    const deadlineTime = dagStartTime + deadlineMs;
+
+    // Track active execution
+    recordWorkflowExecutionActive({ organizationId, delta: 1 });
+
+    // Deadline check function
+    const checkDeadline = (): boolean => {
+      const now = Date.now();
+      if (now > deadlineTime) {
+        const actualDurationMs = now - dagStartTime;
+        recordWorkflowDeadlineViolation({
+          executionId,
+          organizationId,
+          deadlineMinutes: DEFAULT_WORKFLOW_DEADLINE_MINUTES,
+          actualDurationMs,
+        });
+        return false;
+      }
+      return true;
+    };
+    try {
+      await this._executeDAGAsyncInternal(executionId, organizationId, dag, initialContext, traceId, executionRecord, checkDeadline);
+    } finally {
+      // Always decrement active count
+      recordWorkflowExecutionActive({ organizationId, delta: -1 });
+    }
+  }
+
+  private async _executeDAGAsyncInternal(
+    executionId: string,
+    organizationId: string,
+    dag: WorkflowDAG,
+    initialContext: WorkflowStageContextDTO,
+    traceId: string,
+    executionRecord: WorkflowExecutionRecord | undefined,
+    checkDeadline: () => boolean,
+  ): Promise<void> {
     let executionContext = this.buildStageContext(organizationId, initialContext, 'WorkflowExecutor.executeDAGAsync.initialContext');
     const defaultRecord: WorkflowExecutionRecord = executionRecord ?? {
       id: executionId, workflow_id: dag.id ?? '', workspace_id: '', organization_id: organizationId,
@@ -237,6 +278,14 @@ export class WorkflowExecutor {
     const total = dag.stages.length;
 
     while (completed.size + failed.size < total) {
+      // Check deadline before processing next batch
+      if (!checkDeadline()) {
+        const deadlineError = `Workflow deadline exceeded: ${DEFAULT_WORKFLOW_DEADLINE_MINUTES} minutes`;
+        logger.error('Workflow deadline exceeded', { executionId, traceId, deadlineMinutes: DEFAULT_WORKFLOW_DEADLINE_MINUTES });
+        await this._updateStatus(executionId, organizationId, 'failed', null, recordSnapshot);
+        throw new Error(deadlineError);
+      }
+
       const orgId = String(executionContext.organizationId ?? executionContext.tenantId ?? '');
       if (orgId) await this.policy.assertTenantExecutionAllowed(orgId);
 

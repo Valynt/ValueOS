@@ -1,6 +1,7 @@
 import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { logger } from "@/lib/logger";
 
 
 const defaultConfig: LLMConfig = {
@@ -90,7 +91,7 @@ class LLMClient {
     const lastMessage = messages[messages.length - 1];
     const prompt = lastMessage?.content || "";
 
-     
+
     // eslint-disable-next-line no-restricted-globals
     const response = await fetch("/api/llm/chat", {
       method: "POST",
@@ -136,7 +137,7 @@ class LLMClient {
             } catch (e) {
               if (e instanceof Error && e.message === "Stream failed") throw e;
               // Ignore parse errors for malformed lines
-              console.warn("Error parsing LLM stream chunk:", e);
+              logger.warn("Error parsing LLM stream chunk:", e);
             }
           }
         }
