@@ -23,6 +23,7 @@ import type {
   AgentOutputMetadata,
   AgentOutputStatus,
   ConfidenceLevel,
+  EvidenceLink,
   LifecycleContext,
   LifecycleStage,
   PromptVersionReference,
@@ -147,7 +148,7 @@ export abstract class BaseAgent {
   }
 
   /**
-   * Builds a standardized AgentOutput object.
+   * Builds a standardized AgentOutput object with optional evidence links (S2-1).
    */
   protected buildOutput(
     result: Record<string, unknown>,
@@ -161,6 +162,8 @@ export abstract class BaseAgent {
       prompt_version_refs?: PromptVersionReference[];
       /** Reasoning trace ID from the most recent secureInvoke call. */
       trace_id?: string;
+      /** Evidence links for numeric values (S2-1). Required for financial outputs. */
+      evidence_links?: EvidenceLink[];
     }
   ): AgentOutput {
     const metadata: AgentOutputMetadata = {
@@ -169,6 +172,7 @@ export abstract class BaseAgent {
       timestamp: new Date().toISOString(),
       prompt_version_refs: extra?.prompt_version_refs,
       trace_id: extra?.trace_id,
+      evidence_links: extra?.evidence_links,
     };
     return {
       agent_id: this.name,
@@ -995,6 +999,205 @@ export abstract class BaseAgent {
       }
     }
     return results;
+  }
+
+  // -------------------------------------------------------------------------
+  // Evidence Linking (S2-1) - CFO-defensible numeric outputs
+  // -------------------------------------------------------------------------
+
+  /**
+   * Recursively scans agent output for numeric values and attaches evidence links.
+   * Required for CFO-defensible financial calculations (S2-1).
+   *
+   * @param result - The agent output result object
+   * @param traceId - The reasoning trace ID for correlation
+   * @param path - Current JSON path (used for recursion)
+   * @returns Array of evidence links for all numeric values
+   */
+  protected async attachEvidenceLinks(
+    result: Record<string, unknown>,
+    traceId: string,
+    path = ""
+  ): Promise<EvidenceLink[]> {
+    const links: EvidenceLink[] = [];
+
+    for (const [key, value] of Object.entries(result)) {
+      const currentPath = path ? `${path}.${key}` : key;
+
+      if (typeof value === "number") {
+        const evidence = await this.findEvidence(currentPath, value, traceId);
+        if (evidence) {
+          links.push({
+            value,
+            path: currentPath,
+            traceId,
+            evidence_reference: evidence.reference,
+            description: evidence.description,
+            captured_at: new Date().toISOString(),
+          });
+        }
+      } else if (value && typeof value === "object" && !Array.isArray(value)) {
+        const nestedLinks = await this.attachEvidenceLinks(
+          value as Record<string, unknown>,
+          traceId,
+          currentPath
+        );
+        links.push(...nestedLinks);
+      } else if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          const item = value[i];
+          if (typeof item === "number") {
+            const itemPath = `${currentPath}[${i}]`;
+            const evidence = await this.findEvidence(itemPath, item, traceId);
+            if (evidence) {
+              links.push({
+                value: item,
+                path: itemPath,
+                traceId,
+                evidence_reference: evidence.reference,
+                description: evidence.description,
+                captured_at: new Date().toISOString(),
+              });
+            }
+          } else if (item && typeof item === "object") {
+            const nestedLinks = await this.attachEvidenceLinks(
+              item as Record<string, unknown>,
+              traceId,
+              `${currentPath}[${i}]`
+            );
+            links.push(...nestedLinks);
+          }
+        }
+      }
+    }
+
+    return links;
+  }
+
+  /**
+   * Validates that all numeric values in the result have evidence links.
+   * Throws an error if any numeric value lacks evidence (S2-1).
+   *
+   * @param result - The agent output result object
+   * @param links - The evidence links that were attached
+   * @throws Error if any numeric value lacks evidence
+   */
+  protected validateEvidenceCoverage(
+    result: Record<string, unknown>,
+    links: EvidenceLink[]
+  ): void {
+    const numericPaths = this.extractNumericPaths(result);
+    const evidencePaths = new Set(links.map((l) => l.path));
+
+    const missing = numericPaths.filter((p) => !evidencePaths.has(p));
+    if (missing.length > 0) {
+      throw new Error(
+        `S2-1: Missing evidence for numeric values at paths: ${missing.join(", ")}. ` +
+        `All financial calculations require evidence links for auditability.`
+      );
+    }
+  }
+
+  /**
+   * Extracts all numeric value paths from a nested object.
+   * Helper for validateEvidenceCoverage.
+   *
+   * @param obj - The object to scan
+   * @param path - Current path for recursion
+   * @returns Array of paths to all numeric values
+   */
+  private extractNumericPaths(obj: unknown, path = ""): string[] {
+    const paths: string[] = [];
+
+    if (typeof obj === "number") {
+      return [path];
+    }
+
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      for (const [key, value] of Object.entries(obj)) {
+        const currentPath = path ? `${path}.${key}` : key;
+        paths.push(...this.extractNumericPaths(value, currentPath));
+      }
+    } else if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        const currentPath = path ? `${path}[${i}]` : `[${i}]`;
+        paths.push(...this.extractNumericPaths(obj[i], currentPath));
+      }
+    }
+
+    return paths;
+  }
+
+  /**
+   * Finds evidence for a numeric value at a specific path.
+   * Subclasses can override this to provide custom evidence lookup.
+   *
+   * @param path - JSON path to the numeric value
+   * @param value - The numeric value
+   * @param traceId - The reasoning trace ID
+   * @returns Evidence reference or null if not found
+   */
+  protected async findEvidence(
+    path: string,
+    value: number,
+    traceId: string
+  ): Promise<{ reference: string; description?: string } | null> {
+    // Default implementation: look for evidence in the reasoning trace
+    // Subclasses can override for custom evidence sources
+    try {
+      const trace = await reasoningTraceRepository.getByTraceId(
+        traceId,
+        this.organizationId // Tenant isolation: scoped to agent's organization
+      );
+      if (trace?.evidence_links && trace.evidence_links.length > 0) {
+        // Match evidence by path or value correlation
+        const matchingEvidence = trace.evidence_links.find((e: string) => {
+          try {
+            const evidence = JSON.parse(e);
+            return (
+              evidence.path === path ||
+              (evidence.value !== undefined && Math.abs(evidence.value - value) < 0.01)
+            );
+          } catch {
+            // Malformed evidence entry, skip it
+            return false;
+          }
+        });
+        if (matchingEvidence) {
+          try {
+            const parsed = JSON.parse(matchingEvidence);
+            return {
+              reference: parsed.reference || `trace:${traceId}`,
+              description: parsed.description || `Evidence from reasoning trace ${traceId}`,
+            };
+          } catch {
+            // Malformed matching evidence, fall through to defaults
+          }
+        }
+      }
+    } catch {
+      // Trace not found or no evidence links - continue with default
+    }
+
+    // For financial values, require explicit evidence
+    const financialPaths = [
+      "value", "roi", "npv", "irr", "payback", "savings", "cost", "benefit",
+      "revenue", "margin", "ebitda", "capex", "opex", "tcv", "arr", "mrr"
+    ];
+    const isFinancial = financialPaths.some((fp) =>
+      path.toLowerCase().includes(fp)
+    );
+
+    if (isFinancial) {
+      // Financial values require explicit evidence
+      return null;
+    }
+
+    // Non-financial values can use trace reference as evidence
+    return {
+      reference: `trace:${traceId}`,
+      description: `Derived from agent reasoning trace ${traceId}`,
+    };
   }
 
   // -------------------------------------------------------------------------

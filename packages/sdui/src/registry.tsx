@@ -74,9 +74,10 @@ import { IntegrityScoreCard } from "./components/SDUI/IntegrityScoreCard";
 import { PlanComparison } from "./components/SDUI/PlanComparison";
 import { UsageMeter } from "./components/SDUI/UsageMeter";
 
-// Sprint 50 — Value Graph UI
+// Sprint 50 — Value Graph UI components
 import { MetricCard } from "./components/SDUI/MetricCard";
 import { ValuePathCard } from "./components/SDUI/ValuePathCard";
+import { ValueSummaryCard } from "./components/SDUI/ValueSummaryCard";
 
 /**
  * Versioned component entry with compatibility information
@@ -874,6 +875,15 @@ versionedRegistry.register({
   tags: ["ui", "value-graph", "path"],
 });
 
+versionedRegistry.register({
+  component: ValueSummaryCard,
+  version: 1,
+  description: "CFO-defensible value summary card with ROI, annual value, and stakeholder metrics. All numeric values require evidence links for compliance.",
+  requiredProps: [],
+  optionalProps: ["title", "status", "roi", "annualValue", "stakeholders", "evidenceLinks", "_lineage", "_indicator"],
+  tags: ["ui", "value", "cfo", "evidence", "sprint-55"],
+});
+
 // Register fallback components
 versionedRegistry.registerFallback({
   component: UnknownComponentFallback,
@@ -1119,6 +1129,12 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["path"],
     description: "Causal value path card from UseCase to VgValueDriver with confidence and evidence chips.",
+  },
+  ValueSummaryCard: {
+    component: ValueSummaryCard,
+    versions: [1],
+    requiredProps: [],
+    description: "CFO-defensible value summary card with ROI, annual value, and stakeholder metrics. All numeric values require evidence links for Pattern 4 compliance.",
   },
   // Value Integrity Layer — Sprint 53/54
   IntegrityScoreCard: {

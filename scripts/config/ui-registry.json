@@ -405,6 +405,23 @@
         "trace": "data.trace",
         "onClose": "actions.onClose"
       }
+    },
+    {
+      "intentType": "show_value_summary",
+      "component": "ValueSummaryCard",
+      "fallback": "InfoBanner",
+      "description": "CFO-defensible value summary card with ROI, annual value, and stakeholder metrics. All numeric outputs require evidence links for Pattern 4 compliance.",
+      "propMappings": {
+        "title": "data.title",
+        "status": "data.status",
+        "roi": "data.roi",
+        "annualValue": "data.annualValue",
+        "stakeholders": "data.stakeholders",
+        "evidenceLinks": "data.evidenceLinks",
+        "validationState": "data.validationState",
+        "_lineage": "data._lineage",
+        "_indicator": "data._indicator"
+      }
     }
   ],
   "tenantOverrides": {

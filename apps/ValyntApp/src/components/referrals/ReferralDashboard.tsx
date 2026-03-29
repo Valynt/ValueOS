@@ -13,6 +13,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
 import { apiClient } from '@/api/client/unified-api-client';
+import { logger } from '@/lib/logger';
 
 
 interface ReferralStats {
@@ -69,7 +70,7 @@ export const ReferralDashboard: React.FC = () => {
       const res = await apiClient.get<{ dashboard: ReferralDashboard }>('/api/referrals/dashboard');
       setDashboard(res.data?.dashboard ?? null);
     } catch (error) {
-      console.error('Error fetching referral dashboard:', error);
+      logger.error('Error fetching referral dashboard:', error);
       toast.error('Failed to load referral data');
     } finally {
       setLoading(false);

@@ -117,6 +117,40 @@ export class ReasoningTraceRepository {
   }
 
   /**
+   * Fetch a single reasoning trace by trace_id (correlation ID).
+   * Used by S2-1 evidence linking to retrieve evidence for numeric values.
+   * Tenant-scoped: returns null when the row does not belong to organizationId.
+   *
+   * SECURITY: organizationId is REQUIRED to prevent cross-tenant data access.
+   */
+  async getByTraceId(
+    traceId: string,
+    organizationId: string
+  ): Promise<ReasoningTrace | null> {
+    const { data, error } = await supabase
+      .from("reasoning_traces")
+      .select("*")
+      .eq("trace_id", traceId)
+      .eq("organization_id", organizationId)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // PostgREST "no rows" — not found
+        return null;
+      }
+      logger.error("ReasoningTraceRepository: getByTraceId failed", {
+        error: error.message,
+        traceId,
+        organizationId,
+      });
+      throw error;
+    }
+
+    return data as ReasoningTrace;
+  }
+
+  /**
    * Fetch a single reasoning trace by id.
    * Tenant-scoped: returns null when the row does not belong to organizationId.
    * RLS enforces this at the DB layer; the explicit filter is a defence-in-depth check.

@@ -1,6 +1,6 @@
 # ValueOS Tenant Governance Audit
 ## Complete Audit + Execution Package
-**Classification:** Critical Internal | **Date:** 2026-03-28  
+**Classification:** Critical Internal | **Date:** 2026-03-28
 **Auditor:** Principal Staff Engineer + Security Architect + SaaS Platform Auditor
 
 ---
@@ -175,19 +175,19 @@ export function tenantContextMiddleware(enforce = true) {
     // 1. TCT JWT (cryptographically verified, contains explicit tid)
     // 2. User JWT claim (tenant_id ONLY - organization_id rejected)
     // 3. Service identity (verified via mTLS + service account registry)
-    
+
     // REJECT if multiple sources provide different tenant values
     // REJECT if organization_id provided without tenant_id mapping
     // REJECT if no tenant context and enforce=true
-    
+
     const resolved = await resolveTenantStrict(req);
-    
+
     // Verify user has access to resolved tenant
     const hasAccess = await verifyTenantMembership(resolved.userId, resolved.tenantId);
     if (!hasAccess) {
       return res.status(403).json({ error: 'tenant_access_denied' });
     }
-    
+
     // Store in AsyncLocalStorage for downstream access
     tenantContextStorage.run(resolved, () => {
       req.tenantContext = resolved;
@@ -240,7 +240,7 @@ BEGIN
   IF NOT security.user_has_tenant_access(target_tenant_id) THEN
     RAISE EXCEPTION 'Access denied to tenant %', target_tenant_id;
   END IF;
-  
+
   -- ... function logic ...
 END;
 $$;
@@ -263,7 +263,7 @@ export function ns(tenantId: string, key: string): string {
   if (!tenantId || typeof tenantId !== 'string') {
     throw new MissingTenantContextError('cache key construction');
   }
-  
+
   const sanitized = key.replace(/^:+|:+$/g, '');
   return `${tenantId}:${sanitized}`;
 }
@@ -278,21 +278,21 @@ export function tenantReadCacheKey(params: {
   if (!params.tenantId) {
     throw new MissingTenantContextError('read cache key');
   }
-  
+
   const scopeSegment = params.scope ? `:${params.scope}` : '';
   const querySegment = params.queryHash ? `:${params.queryHash}` : '';
   return ns(params.tenantId, `read-cache:${params.endpoint}${scopeSegment}${querySegment}`);
 }
 
 export async function invalidateTenantCache(
-  tenantId: string, 
+  tenantId: string,
   callerTenantId: string
 ): Promise<number> {
   // Verify caller owns the tenant being invalidated
   if (tenantId !== callerTenantId) {
     throw new Error('Cannot invalidate cache for other tenant');
   }
-  
+
   return redis.del(`${tenantId}:*`);
 }
 ```
@@ -305,7 +305,7 @@ export async function invalidateTenantCache(
 export abstract class BaseAgent {
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
-    
+
     // INVARIANT: Verify tenant context matches request context
     const currentTenant = getCurrentTenantContext(); // From AsyncLocalStorage
     if (currentTenant.tenantId !== context.organization_id) {
@@ -313,34 +313,34 @@ export abstract class BaseAgent {
         `Agent context (${context.organization_id}) doesn't match request tenant (${currentTenant.tenantId})`
       );
     }
-    
+
     // Verify user has access to claimed organization
     const hasAccess = await this.verifyTenantAccess(context.user_id, context.organization_id);
     if (!hasAccess) {
       throw new TenantAccessDeniedError(context.organization_id);
     }
-    
+
     // Create reasoning trace for audit
     const traceId = await this.createReasoningTrace(context);
-    
+
     // Execute with trace attached
     const result = await this.executeWithTracing(context, traceId);
-    
+
     // INVARIANT: Every numeric output MUST have evidence mapping
     const enrichedResult = await this.attachEvidenceLinks(result, traceId);
-    
+
     return this.buildOutput(enrichedResult, 'success', confidence, startTime, {
       trace_id: traceId,
       evidence_links: enrichedResult.evidenceLinks, // Mandatory
     });
   }
-  
+
   private async attachEvidenceLinks(
-    result: Record<string, unknown>, 
+    result: Record<string, unknown>,
     traceId: string
   ): Promise<EnrichedResult> {
     const evidenceLinks: EvidenceLink[] = [];
-    
+
     // Recursively find all numeric values and require evidence
     for (const [key, value] of Object.entries(result)) {
       if (typeof value === 'number') {
@@ -351,7 +351,7 @@ export abstract class BaseAgent {
         evidenceLinks.push(evidence);
       }
     }
-    
+
     return { ...result, evidenceLinks };
   }
 }
@@ -368,10 +368,10 @@ export class AuditLogService {
     if (!input.tenantId) {
       throw new Error('tenantId is required for all audit entries');
     }
-    
+
     // Build evidence chain hash
     const evidenceHash = await this.calculateEvidenceHash(input);
-    
+
     const entry = {
       tenant_id: input.tenantId, // NOT NULL enforced
       user_id: input.userId,
@@ -382,11 +382,11 @@ export class AuditLogService {
       trace_id: input.traceId, // Required for agent operations
       // ... other fields
     };
-    
+
     // Atomic write with integrity check
     return this.persistWithIntegrity(entry);
   }
-  
+
   private async calculateEvidenceHash(input: AuditLogCreateInput): Promise<string> {
     // Hash of evidence chain for tamper detection
     const evidence = JSON.stringify({
@@ -412,27 +412,27 @@ export interface IdempotentJobData {
 export abstract class IdempotentJobProcessor {
   async process(job: Job<IdempotentJobData>): Promise<void> {
     const { idempotencyKey, tenantId } = job.data;
-    
+
     // Verify job tenant matches context
     const currentTenant = getCurrentTenantContext();
     if (currentTenant.tenantId !== tenantId) {
       throw new TenantContextMismatchError();
     }
-    
+
     // Check for existing processing (idempotency)
     const existing = await this.getProcessedRecord(idempotencyKey);
     if (existing) {
       logger.info('Skipping duplicate job', { idempotencyKey });
       return;
     }
-    
+
     // Process with tenant context
     await tenantContextStorage.run({ tenantId }, async () => {
       const result = await this.executeJob(job.data);
-      
+
       // Record completion for idempotency
       await this.recordProcessed(idempotencyKey, result);
-      
+
       // Emit audit log
       await auditLogService.logAudit({
         tenantId,
@@ -443,7 +443,7 @@ export abstract class IdempotentJobProcessor {
       });
     });
   }
-  
+
   protected abstract executeJob(data: IdempotentJobData): Promise<JobResult>;
 }
 ```
@@ -453,7 +453,7 @@ export abstract class IdempotentJobProcessor {
 # 4. SPRINT PLAN
 
 ## Sprint 0: P0 Remediation (Blocks Production)
-**Duration:** 2 weeks  
+**Duration:** 2 weeks
 **Objective:** Fix all P0 issues to prevent catastrophic tenant isolation failures
 
 ### Success Criteria
@@ -472,7 +472,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ## Sprint 1: Hardening
-**Duration:** 2 weeks  
+**Duration:** 2 weeks
 **Objective:** Eliminate P1 issues and strengthen tenant boundaries
 
 ### Success Criteria
@@ -489,7 +489,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ## Sprint 2: Observability + Trust Layer
-**Duration:** 2 weeks  
+**Duration:** 2 weeks
 **Objective:** Full auditability and CFO-defensible outputs
 
 ### Success Criteria
@@ -510,7 +510,7 @@ export abstract class IdempotentJobProcessor {
 ## Sprint 0 Tasks
 
 ### Task S0-1: Harden Tenant Context Resolution
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Multi-source resolution allows cross-tenant access via crafted JWT claims.
 
@@ -532,7 +532,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S0-2: Remove Cache Key Fallback to 'public'
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Shared cache namespace allows cross-tenant data poisoning.
 
@@ -555,7 +555,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S0-3: Add Tenant Verification to BaseAgent
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Agents can be invoked with synthetic tenant context.
 
@@ -577,7 +577,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S0-4: Enforce Mandatory tenant_id in Audit Logs
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Null tenant_id breaks tenant isolation in audit queries.
 
@@ -600,7 +600,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S0-5: Implement "No RLS → No Deploy" CI Gate
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** New tables without RLS leak data immediately.
 
@@ -623,7 +623,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S0-6: Harden Emergency Bypass Authorization
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** skip_tests allows untrusted code into production.
 
@@ -647,7 +647,7 @@ export abstract class IdempotentJobProcessor {
 ## Sprint 1 Tasks
 
 ### Task S1-1: Audit All SECURITY DEFINER Functions
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Missing tenant checks in DEFINER functions allow privilege escalation.
 
@@ -668,7 +668,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S1-2: Implement Idempotency for All BullMQ Workers
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Duplicate job processing causes data corruption.
 
@@ -690,7 +690,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S1-3: Add Telemetry to SDUI Fallback Paths
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Silent SDUI failures are untraceable.
 
@@ -712,7 +712,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S1-4: Add Tenant Verification to Cache Invalidation
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Cache invalidation without verification allows cross-tenant DoS.
 
@@ -735,7 +735,7 @@ export abstract class IdempotentJobProcessor {
 ## Sprint 2 Tasks
 
 ### Task S2-1: Mandate Evidence Links for Numeric Agent Outputs
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** CFO-defensible outputs require evidence for every number.
 
@@ -758,7 +758,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S2-2: Implement End-to-End Request ID Propagation
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Request tracing required for debugging and audit.
 
@@ -781,7 +781,7 @@ export abstract class IdempotentJobProcessor {
 ---
 
 ### Task S2-3: Build Audit Trail Query Interface
-- [ ] **Implementation**
+- [x] **Implementation**
 
 **Why it matters:** Compliance requires queryable audit trail.
 
@@ -847,7 +847,7 @@ export function tenantContextMiddleware(enforce = true) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const context = await resolveTenantContextStrict(req);
-      
+
       tenantContextStorage.run(context, () => {
         (req as any).tenantContext = context;
         next();
@@ -876,7 +876,7 @@ async function resolveTenantContextStrict(req: Request): Promise<TenantContext> 
   if (tctHeader) {
     const token = Array.isArray(tctHeader) ? tctHeader[0] : tctHeader;
     const tctPayload = jwt.verify(token, process.env.TCT_SECRET!, { algorithms: ['HS256'] }) as any;
-    
+
     return {
       tenantId: tctPayload.tid,
       userId: tctPayload.sub,
@@ -893,7 +893,7 @@ async function resolveTenantContextStrict(req: Request): Promise<TenantContext> 
     if (!hasAccess) {
       throw new TenantContextMismatchError(`User ${userId} does not have access to tenant ${jwtTenantId}`);
     }
-    
+
     return {
       tenantId: jwtTenantId,
       userId,
@@ -935,7 +935,7 @@ export function createTenantScopedQuery<T extends Record<string, unknown>>(
   table: string
 ) {
   const tenantContext = getCurrentTenantContext();
-  
+
   if (!tenantContext?.tenantId) {
     throw new TenantScopeRequiredError();
   }
@@ -947,25 +947,25 @@ export function createTenantScopedQuery<T extends Record<string, unknown>>(
         .select(columns)
         .eq('tenant_id', tenantContext.tenantId);
     },
-    
+
     insert: (data: T | T[]) => {
       const dataWithTenant = Array.isArray(data)
         ? data.map(d => ({ ...d, tenant_id: tenantContext.tenantId }))
         : { ...data, tenant_id: tenantContext.tenantId };
-      
+
       return supabase
         .from(table)
         .insert(dataWithTenant)
         .eq('tenant_id', tenantContext.tenantId);
     },
-    
+
     update: (data: Partial<T>) => {
       return supabase
         .from(table)
         .update(data)
         .eq('tenant_id', tenantContext.tenantId);
     },
-    
+
     delete: () => {
       return supabase
         .from(table)
@@ -1011,11 +1011,11 @@ export function tenantCacheKey(params: {
   version?: string;
 }): string {
   validateTenantId(params.tenantId);
-  
+
   const parts = [`cache:${params.resource}`];
   if (params.id) parts.push(params.id);
   if (params.version) parts.push(`v${params.version}`);
-  
+
   return ns(params.tenantId, parts.join(':'));
 }
 
@@ -1034,19 +1034,19 @@ export async function invalidateTenantCache(
 ): Promise<number> {
   validateTenantId(tenantId);
   validateTenantId(callerTenantId);
-  
+
   if (tenantId !== callerTenantId) {
     throw new Error(`Cannot invalidate cache for tenant ${tenantId} from tenant ${callerTenantId}`);
   }
-  
+
   const pattern = tenantCachePattern({ tenantId, resource: '*' });
   const keys = await redis.keys(pattern);
-  
+
   let deleted = 0;
   for (const key of keys) {
     deleted += await redis.del(key);
   }
-  
+
   return deleted;
 }
 ```
@@ -1081,11 +1081,11 @@ export interface SecureAgentOutput {
 
 export abstract class SecureBaseAgent {
   protected abstract executeCore(context: unknown): Promise<Record<string, unknown>>;
-  
+
   async execute(context: { organization_id: string; user_id: string; [key: string]: unknown }): Promise<SecureAgentOutput> {
     const startTime = Date.now();
     const traceId = crypto.randomUUID();
-    
+
     // CRITICAL: Verify tenant context match
     const currentTenant = getCurrentTenantContext();
     if (currentTenant.tenantId !== context.organization_id) {
@@ -1094,23 +1094,23 @@ export abstract class SecureBaseAgent {
         `Agent context (${context.organization_id}) doesn't match request tenant (${currentTenant.tenantId})`
       );
     }
-    
+
     // Verify user access
     const hasAccess = await this.verifyTenantAccess(context.user_id, context.organization_id);
     if (!hasAccess) {
       await this.logSecurityEvent('access_denied', context, currentTenant.tenantId);
       throw new TenantContextMismatchError(`User ${context.user_id} does not have access to tenant ${context.organization_id}`);
     }
-    
+
     try {
       const result = await this.executeCore(context);
-      
+
       // Attach evidence links to all numeric outputs
       const evidenceLinks = await this.attachEvidenceLinks(result, traceId);
-      
+
       // Verify all numbers have evidence
       this.validateEvidenceCoverage(result, evidenceLinks);
-      
+
       const output: SecureAgentOutput = {
         result,
         status: 'success',
@@ -1123,26 +1123,26 @@ export abstract class SecureBaseAgent {
           evidence_links: evidenceLinks,
         },
       };
-      
+
       await this.logSuccess(context, output, currentTenant.tenantId);
       return output;
-      
+
     } catch (error) {
       await this.logFailure(context, error, currentTenant.tenantId);
       throw error;
     }
   }
-  
+
   private async attachEvidenceLinks(
-    result: Record<string, unknown>, 
+    result: Record<string, unknown>,
     traceId: string,
     path = ''
   ): Promise<EvidenceLink[]> {
     const links: EvidenceLink[] = [];
-    
+
     for (const [key, value] of Object.entries(result)) {
       const currentPath = path ? `${path}.${key}` : key;
-      
+
       if (typeof value === 'number') {
         const evidence = await this.findEvidence(currentPath, value, traceId);
         if (evidence) {
@@ -1158,37 +1158,37 @@ export abstract class SecureBaseAgent {
         links.push(...nestedLinks);
       }
     }
-    
+
     return links;
   }
-  
+
   private validateEvidenceCoverage(result: Record<string, unknown>, links: EvidenceLink[]): void {
     const numericPaths = this.extractNumericPaths(result);
     const evidencePaths = new Set(links.map(l => l.path));
-    
+
     const missing = numericPaths.filter(p => !evidencePaths.has(p));
     if (missing.length > 0) {
       throw new Error(`Missing evidence for numeric values: ${missing.join(', ')}`);
     }
   }
-  
+
   private extractNumericPaths(obj: unknown, path = ''): string[] {
     const paths: string[] = [];
-    
+
     if (typeof obj === 'number') {
       return [path];
     }
-    
+
     if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
       for (const [key, value] of Object.entries(obj)) {
         const currentPath = path ? `${path}.${key}` : key;
         paths.push(...this.extractNumericPaths(value, currentPath));
       }
     }
-    
+
     return paths;
   }
-  
+
   private async logSuccess(context: unknown, output: SecureAgentOutput, tenantId: string): Promise<void> {
     await auditLogService.logAudit({
       tenantId,
@@ -1204,7 +1204,7 @@ export abstract class SecureBaseAgent {
       status: 'success',
     });
   }
-  
+
   private async logFailure(context: unknown, error: unknown, tenantId: string): Promise<void> {
     await auditLogService.logAudit({
       tenantId,
@@ -1219,7 +1219,7 @@ export abstract class SecureBaseAgent {
       status: 'failed',
     });
   }
-  
+
   private async logSecurityEvent(event: string, context: unknown, tenantId: string): Promise<void> {
     await auditLogService.logAudit({
       tenantId,
@@ -1231,7 +1231,7 @@ export abstract class SecureBaseAgent {
       status: 'failed',
     });
   }
-  
+
   protected abstract getVersion(): string;
   protected abstract verifyTenantAccess(userId: string, tenantId: string): Promise<boolean>;
   protected abstract findEvidence(path: string, value: number, traceId: string): Promise<{ reference: string } | null>;
@@ -1262,7 +1262,7 @@ export interface AuditEntry {
 
 export class AuditEmitter {
   private lastHash: string | null = null;
-  
+
   async emit(entry: AuditEntry): Promise<void> {
     // Validate mandatory fields
     if (!entry.tenantId) {
@@ -1271,13 +1271,13 @@ export class AuditEmitter {
     if (!entry.userId) {
       throw new Error('userId is mandatory for audit entry');
     }
-    
+
     // Calculate evidence hash for integrity
     const evidenceHash = await this.calculateEvidenceHash(entry);
-    
+
     // Calculate chain hash
     const chainHash = await this.calculateChainHash(entry, evidenceHash);
-    
+
     const fullEntry = {
       ...entry,
       timestamp: entry.timestamp || new Date().toISOString(),
@@ -1285,17 +1285,17 @@ export class AuditEmitter {
       chain_hash: chainHash,
       previous_hash: this.lastHash,
     };
-    
+
     // Persist to database
     await this.persist(fullEntry);
-    
+
     // Update last hash
     this.lastHash = chainHash;
-    
+
     // Stream to SIEM
     await this.streamToSiem(fullEntry);
   }
-  
+
   private async calculateEvidenceHash(entry: AuditEntry): Promise<string> {
     const evidence = JSON.stringify({
       before: entry.beforeState,
@@ -1304,7 +1304,7 @@ export class AuditEmitter {
     });
     return createHash('sha256').update(evidence).digest('hex');
   }
-  
+
   private async calculateChainHash(entry: AuditEntry, evidenceHash: string): Promise<string> {
     const chain = JSON.stringify({
       tenantId: entry.tenantId,
@@ -1317,11 +1317,11 @@ export class AuditEmitter {
     });
     return createHash('sha256').update(chain).digest('hex');
   }
-  
+
   private async persist(entry: unknown): Promise<void> {
     // Implementation: Insert to audit_logs table
   }
-  
+
   private async streamToSiem(entry: unknown): Promise<void> {
     // Implementation: Stream to security event system
   }
@@ -1355,7 +1355,7 @@ interface ProcessedRecord {
 
 export abstract class IdempotentWorker<T extends IdempotentJobData> {
   private worker: Worker;
-  
+
   constructor(queueName: string, connection: { host: string; port: number }) {
     this.worker = new Worker(
       queueName,
@@ -1363,20 +1363,20 @@ export abstract class IdempotentWorker<T extends IdempotentJobData> {
       { connection }
     );
   }
-  
+
   private async processJob(job: Job<T>): Promise<void> {
     const { idempotencyKey, tenantId, traceId } = job.data;
-    
+
     // Verify tenant context (from job data, not AsyncLocalStorage)
     // Job workers don't have request context, use job data
-    
+
     // Check idempotency
     const existing = await this.getProcessedRecord(idempotencyKey);
     if (existing) {
       if (existing.tenant_id !== tenantId) {
         throw new Error('Idempotency key collision across tenants');
       }
-      
+
       await auditLogService.logAudit({
         tenantId,
         action: 'job.idempotent_skip',
@@ -1385,15 +1385,15 @@ export abstract class IdempotentWorker<T extends IdempotentJobData> {
         details: { idempotencyKey, traceId },
         status: 'success',
       });
-      
+
       return;
     }
-    
+
     try {
       const result = await this.execute(job.data);
-      
+
       await this.recordProcessed(idempotencyKey, tenantId, result);
-      
+
       await auditLogService.logAudit({
         tenantId,
         action: 'job.completed',
@@ -1402,32 +1402,32 @@ export abstract class IdempotentWorker<T extends IdempotentJobData> {
         details: { idempotencyKey, traceId },
         status: 'success',
       });
-      
+
     } catch (error) {
       await auditLogService.logAudit({
         tenantId,
         action: 'job.failed',
         resourceType: 'job',
         resourceId: job.id,
-        details: { 
-          idempotencyKey, 
-          traceId, 
+        details: {
+          idempotencyKey,
+          traceId,
           error: error instanceof Error ? error.message : String(error),
         },
         status: 'failed',
       });
-      
+
       throw error;
     }
   }
-  
+
   protected abstract execute(data: T): Promise<unknown>;
-  
+
   private async getProcessedRecord(key: string): Promise<ProcessedRecord | null> {
     // Query job_processed table
     return null; // Placeholder
   }
-  
+
   private async recordProcessed(key: string, tenantId: string, result: unknown): Promise<void> {
     // Insert to job_processed table
   }
@@ -1456,21 +1456,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
-        
+
       - name: Start Supabase local
         run: supabase start
-        
+
       - name: Run migrations
         run: supabase db reset
-        
+
       - name: Verify RLS coverage
         run: |
           # Query for tables without tenant-scoped RLS
           supabase db execute --file infra/supabase/tests/database/rls_lint.test.sql
-          
+
       - name: Fail on missing RLS
         if: failure()
         run: |
@@ -1499,12 +1499,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Run tenant scope linter
         run: |
           # Custom lint rule: All Supabase queries must include tenant scope
           npx eslint --rule 'tenant-scope/required: error' packages/backend/src
-          
+
       - name: Check for direct table access
         run: |
           # Fail if any .from(table) lacks .eq('tenant_id', ...)
@@ -1533,7 +1533,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Check agent operations have audit
         run: |
           # Verify all BaseAgent subclasses call audit logger
@@ -1541,7 +1541,7 @@ jobs:
             while read f; do
               grep -q "auditLogService\|auditLogger" "$f" || (echo "Missing audit: $f" && exit 1)
             done
-            
+
       - name: Check data mutations have audit
         run: |
           # Verify all POST/PUT/DELETE endpoints emit audit
@@ -1573,12 +1573,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Verify numeric outputs have evidence
         run: |
           # Custom AST analysis: All numbers in AgentOutput must have evidence link
           node scripts/verify-evidence-mapping.js packages/backend/src/lib/agent-fabric/agents
-          
+
       - name: Fail on missing evidence
         if: failure()
         run: |
@@ -1608,14 +1608,14 @@ emergency-bypass-authorization:
       with:
         require-code-owner-review: true
         required-approvals: 2
-        
+
     - name: Validate incident ticket
       run: |
         # Call PagerDuty API to validate incident_ticket_id
         curl -f -H "Authorization: Bearer ${{ secrets.PAGERDUTY_TOKEN }}" \
           "https://api.pagerduty.com/incidents/${{ inputs.incident_ticket_id }}" \
           || (echo "Invalid incident ticket" && exit 1)
-          
+
     - name: Post-deploy security scan
       if: always()
       run: |
@@ -1655,5 +1655,5 @@ emergency-bypass-authorization:
 
 ---
 
-**Audit Status:** COMPLETE  
+**Audit Status:** COMPLETE
 **Recommended Action:** Execute Sprint 0 immediately; block production deploy until P0 issues resolved.

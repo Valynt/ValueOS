@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCase, useCreateCase } from "@/hooks/useCases";
 import { useIntegrityScore } from "@/hooks/useIntegrityScore";
+import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -165,11 +166,12 @@ function NewCaseWizard() {
           session_id: `wizard-${Date.now()}`,
         })
         .catch((loopErr: unknown) => {
-          console.warn("Hypothesis loop failed to start:", loopErr);
+          logger.warn("Hypothesis loop failed to start:", loopErr);
         });
 
       navigate(`/app/cases/${newCase.id}`);
-    } catch {
+    } catch (err) {
+      logger.error("Failed to create case:", err);
       setLaunchError("Failed to create case. Please try again.");
     }
   };

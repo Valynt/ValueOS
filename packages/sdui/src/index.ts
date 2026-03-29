@@ -58,6 +58,8 @@ export { MetricCard } from "./components/SDUI/MetricCard";
 export type { MetricCardProps, MetricCardMetric } from "./components/SDUI/MetricCard";
 export { ValuePathCard } from "./components/SDUI/ValuePathCard";
 export type { ValuePathCardProps, ValuePathCardPath } from "./components/SDUI/ValuePathCard";
+export { ValueSummaryCard } from "./components/SDUI/ValueSummaryCard";
+export type { ValueSummaryCardProps } from "./components/SDUI/ValueSummaryCard";
 export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
 export {
   DashboardPanel,

@@ -158,6 +158,31 @@ export interface AgentOutputMetadata {
    * the full trace without a separate lookup.
    */
   trace_id?: string;
+  /**
+   * Evidence links for all numeric values in the output.
+   * Required for CFO-defensible financial calculations (S2-1).
+   */
+  evidence_links?: EvidenceLink[];
+}
+
+/**
+ * Evidence link for a numeric value in agent output.
+ * Provides traceability from calculated numbers to their source evidence.
+ * Required for compliance and auditability (S2-1).
+ */
+export interface EvidenceLink {
+  /** The numeric value that this evidence supports */
+  value: number;
+  /** JSON path to the numeric value in the result object */
+  path: string;
+  /** Trace ID for correlation with reasoning trace */
+  trace_id: string;
+  /** Reference to the source evidence (e.g., document ID, benchmark URL) */
+  evidence_reference: string;
+  /** Human-readable description of the evidence */
+  description?: string;
+  /** Timestamp when the evidence was captured */
+  captured_at?: string;
 }
 
 export interface PromptVersionReference {

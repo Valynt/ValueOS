@@ -1,17 +1,23 @@
 /**
- * Canvas Widget: ValueSummaryCard
- * Displays ROI metrics in a summary card format with CFO-defensible evidence links.
+ * SDUI Component: ValueSummaryCard
  *
- * SDUI Contract: Consumes TransformedArtifact from bridging layer
+ * Displays ROI metrics with CFO-defensible evidence links.
+ *
+ * SDUI Contract (TransformedArtifact):
  * - props: Value metrics with evidence-backed numeric values
  * - _lineage: trace_id, source_agent, grounding_score for audit trail
  * - _indicator: visual state from artifact transformation
+ *
+ * Pattern 4 Compliance:
+ * - All numeric outputs require EvidenceLink
+ * - Missing evidence triggers CFO warning
+ * - Trace panel shows reasoning lineage
  */
 
 import { BarChart3, Info, TrendingUp, Users } from "lucide-react";
 import React, { useState } from "react";
 
-import type { EvidenceLink } from "@shared/types/evidence";
+import type { EvidenceLink } from "@valueos/shared";
 
 // SDUI lineage metadata passed by JourneyOrchestrator
 interface TransformationLineage {
@@ -22,7 +28,7 @@ interface TransformationLineage {
   source_ids: string[];
 }
 
-interface ValueSummaryProps {
+export interface ValueSummaryCardProps {
   /** Primary display title */
   title?: string;
   /** Current workflow status (from saga state) */
@@ -51,7 +57,7 @@ interface MetricItem {
   evidence?: EvidenceLink;
 }
 
-export function ValueSummaryCard(props: ValueSummaryProps) {
+export const ValueSummaryCard: React.FC<ValueSummaryCardProps> = (props) => {
   const {
     title = "Value Summary",
     status = "In Progress",
@@ -178,7 +184,9 @@ export function ValueSummaryCard(props: ValueSummaryProps) {
       )}
     </div>
   );
-}
+};
+
+ValueSummaryCard.displayName = "ValueSummaryCard";
 
 /** Find evidence link for a given JSON path */
 function findEvidenceForPath(links: EvidenceLink[], path: string): EvidenceLink | undefined {
@@ -186,7 +194,7 @@ function findEvidenceForPath(links: EvidenceLink[], path: string): EvidenceLink 
 }
 
 /** Get appropriate placeholder message based on validation state */
-function getPlaceholderMessage(state: ValueSummaryProps["validationState"]): string {
+function getPlaceholderMessage(state: ValueSummaryCardProps["validationState"]): string {
   switch (state) {
     case "awaiting_evidence":
       return "Awaiting evidence-backed validation";
@@ -212,16 +220,16 @@ interface MetricCardProps {
   onEvidenceClick?: (link: EvidenceLink) => void;
 }
 
-function MetricCard({ icon, label, value, highlight, evidence, onEvidenceClick }: MetricCardProps) {
+const MetricCard: React.FC<MetricCardProps> = ({ icon, label, value, highlight, evidence, onEvidenceClick }) => {
   const hasEvidence = !!evidence;
 
   return (
     <div
-      className={`rounded-lg bg-vc-surface-2 p-4 ${hasEvidence ? "ring-1 ring-primary/20" : ""}`}
+      className={`rounded-lg bg-slate-100 p-4 dark:bg-slate-800 ${hasEvidence ? "ring-1 ring-primary/20" : ""}`}
       role="group"
       aria-label={label}
     >
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
         {icon}
         <span className="text-sm">{label}</span>
         {hasEvidence && (
@@ -242,12 +250,14 @@ function MetricCard({ icon, label, value, highlight, evidence, onEvidenceClick }
         {value}
       </div>
       {hasEvidence && (
-        <div className="mt-1 truncate text-xs text-muted-foreground" title={evidence.evidence_reference}>
+        <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400" title={evidence.evidence_reference}>
           {evidence.evidence_reference}
         </div>
       )}
     </div>
   );
-}
+};
+
+MetricCard.displayName = "MetricCard";
 
 export default ValueSummaryCard;

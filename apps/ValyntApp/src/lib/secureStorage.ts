@@ -3,6 +3,8 @@
  * Provides encrypted storage for authentication tokens and session data
  */
 
+import { logger } from "@/lib/logger";
+
 interface StorageData {
   token: string;
   refreshToken?: string;
@@ -13,12 +15,31 @@ interface StorageData {
 class SecureTokenStorage {
   private encryptionKey: CryptoKey | null = null;
   private readonly storageKey = "secure_auth_data";
-  private readonly salt!: Uint8Array;
+  private readonly saltKey = "secure_auth_salt";
+  private salt: Uint8Array;
 
   constructor() {
-    // Generate salt once during initialization for consistent key derivation
-    this.salt = new Uint8Array(16);
-    crypto.getRandomValues(this.salt);
+    // Restore or generate salt for consistent key derivation
+    const storedSalt = localStorage.getItem(this.saltKey);
+    if (storedSalt) {
+      try {
+        this.salt = new Uint8Array(
+          atob(storedSalt).split("").map((c) => c.charCodeAt(0))
+        );
+      } catch {
+        // Invalid stored salt, generate new one
+        this.salt = this.generateAndStoreSalt();
+      }
+    } else {
+      this.salt = this.generateAndStoreSalt();
+    }
+  }
+
+  private generateAndStoreSalt(): Uint8Array {
+    const salt = new Uint8Array(16);
+    crypto.getRandomValues(salt);
+    localStorage.setItem(this.saltKey, btoa(String.fromCharCode(...salt)));
+    return salt;
   }
 
   /**
@@ -109,7 +130,7 @@ class SecureTokenStorage {
 
       return new TextDecoder().decode(decrypted);
     } catch (error) {
-      console.error("Failed to decrypt data");
+      logger.error("Failed to decrypt data", error);
       return "";
     }
   }
@@ -123,12 +144,12 @@ class SecureTokenStorage {
       const encrypted = await this.encrypt(serialized);
       localStorage.setItem(this.storageKey, encrypted);
     } catch (error) {
-      console.error("Failed to store token securely");
+      logger.error("Failed to store token securely", error);
       // Fallback to sessionStorage if localStorage fails
       try {
         sessionStorage.setItem(this.storageKey, JSON.stringify(data));
       } catch (sessionError) {
-        console.error("Failed to store token in sessionStorage");
+        logger.error("Failed to store token in sessionStorage", sessionError);
       }
     }
   }
@@ -152,7 +173,7 @@ class SecureTokenStorage {
         return data;
       }
     } catch (error) {
-      console.error("Failed to retrieve token securely");
+      logger.error("Failed to retrieve token securely", error);
     }
 
     // Fallback to sessionStorage
@@ -169,7 +190,7 @@ class SecureTokenStorage {
         return data;
       }
     } catch (error) {
-      console.error("Failed to retrieve token from sessionStorage");
+      logger.error("Failed to retrieve token from sessionStorage", error);
     }
 
     return null;
@@ -183,7 +204,7 @@ class SecureTokenStorage {
       localStorage.removeItem(this.storageKey);
       sessionStorage.removeItem(this.storageKey);
     } catch (error) {
-      console.error("Failed to clear token");
+      logger.error("Failed to clear token", error);
     }
   }
 
