@@ -178,15 +178,18 @@ export function AppRoutes() {
                                   />
                                 ))}
 
+                                {/* Playwright test harness routes */}
+                                <Route path="/__playwright__/main-layout" element={<MainLayout />}>
+                                  <Route index element={<MainLayoutSkipLinkHarness />} />
+                                </Route>
+                                <Route
+                                  path="/__playwright__/branding-preview"
+                                  element={<TenantBrandingHarness />}
+                                />
+
                                 {import.meta.env.DEV && (
                                   <>
-                                    <Route path="/__playwright__/main-layout" element={<MainLayout />}>
-                                      <Route index element={<MainLayoutSkipLinkHarness />} />
-                                    </Route>
-                                    <Route
-                                      path="/__playwright__/branding-preview"
-                                      element={<TenantBrandingHarness />}
-                                    />
+                                    {/* Additional DEV-only routes can go here */}
                                   </>
                                 )}
 

@@ -21,10 +21,9 @@ export {
   CardDescription,
   CardContent,
   CardFooter,
-  MetricCard,
   ActionCard,
 } from "./card";
-export type { CardProps, MetricCardProps, ActionCardProps } from "./card";
+export type { CardProps, ActionCardProps } from "./card";
 
 // Badge
 export { Badge, badgeVariants, StatusBadge, VerificationBadge, CountBadge } from "./badge";
@@ -169,3 +168,13 @@ export type { ValidatedInputProps } from "./validated-input";
 // Toast
 export { useToast, toast } from "./use-toast";
 export type { ToastOptions } from "./use-toast";
+
+// Material Design 3 Components (Figma Migration)
+export { GlassCard, type GlassCardProps } from "./GlassCard";
+export { PrismCard, type PrismCardProps } from "./PrismCard";
+export { MaterialIcon, type MaterialIconProps } from "./MaterialIcon";
+export { MetricCard, type MetricCardProps } from "./MetricCard";
+export { ProgressRing, type ProgressRingProps } from "./ProgressRing";
+export { ChartBar, type ChartBarProps } from "./ChartBar";
+export { ValuePyramid, type ValuePyramidProps, type PyramidLevel } from "./ValuePyramid";
+export { AIChatPanel, type AIChatPanelProps, type ChatMessage } from "./AIChatPanel";

@@ -12,8 +12,8 @@ export function parseCorsAllowlist(
   const requireNonEmpty = options.requireNonEmpty ?? true;
   const origins = (value ?? "")
     .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
+    .map(origin => origin.trim())
+    .filter(origin => origin.length > 0);
 
   if (requireNonEmpty && origins.length === 0) {
     throw new Error(
@@ -22,10 +22,10 @@ export function parseCorsAllowlist(
   }
 
   if (credentialsEnabled) {
-    const wildcardOrigin = origins.find((origin) => origin.includes("*"));
+    const wildcardOrigin = origins.find(origin => origin.includes("*"));
     if (wildcardOrigin) {
       throw new Error(
-        `${options.source} contains wildcard CORS origin \"${wildcardOrigin}\" which is not allowed when credentials are enabled`
+        `${options.source} contains wildcard CORS origin "${wildcardOrigin}" which is not allowed when credentials are enabled`
       );
     }
   }

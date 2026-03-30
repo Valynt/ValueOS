@@ -5,7 +5,12 @@
  * structure for success, error, and metadata handling.
  */
 
-import { createErrorResponse, MCPBaseError, MCPErrorMetadata, MCPErrorDetails } from "../errors/MCPBaseError";
+import {
+  createErrorResponse,
+  MCPBaseError,
+  MCPErrorDetails,
+  MCPErrorMetadata,
+} from "../errors/MCPBaseError";
 
 // ============================================================================
 // Base Response Interface
@@ -75,7 +80,9 @@ export interface MCPToolResponse<T = unknown> extends MCPSuccessResponse<T> {
   };
 }
 
-export interface MCPFinancialToolResponse<T = unknown> extends MCPToolResponse<T> {
+export interface MCPFinancialToolResponse<
+  T = unknown,
+> extends MCPToolResponse<T> {
   metadata: MCPResponseMetadata & {
     tool: string;
     provider: "edgar" | "xbrl" | "marketdata" | "private" | "benchmark";
@@ -228,7 +235,8 @@ export class MCPResponseBuilder {
 
     return {
       success: false,
-      error: createErrorResponse(error, requestId || this.metadata.requestId).error,
+      error: createErrorResponse(error, requestId || this.metadata.requestId)
+        .error,
       metadata: this.metadata as MCPResponseMetadata,
     };
   }
@@ -329,11 +337,14 @@ export function createErrorResponseFromError(
     if (metadata.requestId) builder.withRequestId(metadata.requestId);
     if (metadata.provider) builder.withProvider(metadata.provider);
     if (metadata.tier) builder.withTier(metadata.tier);
-    if (metadata.cacheHit !== undefined) builder.withCacheHit(metadata.cacheHit);
+    if (metadata.cacheHit !== undefined)
+      builder.withCacheHit(metadata.cacheHit);
     if (metadata.rateLimitRemaining !== undefined)
       builder.withRateLimitRemaining(metadata.rateLimitRemaining);
-    if (metadata.warnings) metadata.warnings.forEach((w) => builder.withWarning(w));
-    if (metadata.duration !== undefined) builder.withDuration(metadata.duration);
+    if (metadata.warnings)
+      metadata.warnings.forEach(w => builder.withWarning(w));
+    if (metadata.duration !== undefined)
+      builder.withDuration(metadata.duration);
     if (metadata.debug) builder.withDebug(metadata.debug);
   }
   return builder.error(error);
@@ -351,7 +362,9 @@ export function isSuccessResponse<T>(
 /**
  * Check if response is an error
  */
-export function isErrorResponse(response: MCPBaseResponse): response is MCPErrorResponse {
+export function isErrorResponse(
+  response: MCPBaseResponse
+): response is MCPErrorResponse {
   return response.success === false;
 }
 
@@ -361,7 +374,9 @@ export function isErrorResponse(response: MCPBaseResponse): response is MCPError
 export function getResponseData<T>(response: MCPSuccessResponse<T>): T;
 export function getResponseData<T>(response: MCPErrorResponse): undefined;
 export function getResponseData<T>(response: MCPBaseResponse<T>): T | undefined;
-export function getResponseData<T>(response: MCPBaseResponse<T>): T | undefined {
+export function getResponseData<T>(
+  response: MCPBaseResponse<T>
+): T | undefined {
   if (isSuccessResponse(response)) {
     return response.data;
   }
@@ -371,10 +386,16 @@ export function getResponseData<T>(response: MCPBaseResponse<T>): T | undefined 
 /**
  * Extract error from response with type safety
  */
-export function getResponseError(response: MCPErrorResponse): MCPErrorResponse["error"];
+export function getResponseError(
+  response: MCPErrorResponse
+): MCPErrorResponse["error"];
 export function getResponseError(response: MCPSuccessResponse): undefined;
-export function getResponseError(response: MCPBaseResponse): MCPErrorResponse["error"] | undefined;
-export function getResponseError(response: MCPBaseResponse): MCPErrorResponse["error"] | undefined {
+export function getResponseError(
+  response: MCPBaseResponse
+): MCPErrorResponse["error"] | undefined;
+export function getResponseError(
+  response: MCPBaseResponse
+): MCPErrorResponse["error"] | undefined {
   if (isErrorResponse(response)) {
     return response.error;
   }
