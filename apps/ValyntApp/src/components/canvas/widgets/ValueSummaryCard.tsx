@@ -11,7 +11,7 @@
 import { BarChart3, Info, TrendingUp, Users } from "lucide-react";
 import React, { useState } from "react";
 
-import type { EvidenceLink } from "@shared/types/evidence";
+import type { EvidenceLink } from "@valueos/shared";
 
 // SDUI lineage metadata passed by JourneyOrchestrator
 interface TransformationLineage {

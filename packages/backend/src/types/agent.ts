@@ -181,7 +181,7 @@ export interface EvidenceLink {
   evidence_reference: string;
   /** Human-readable description of the evidence */
   description?: string;
-  /** Timestamp when the evidence was captured */
+  /** Timestamp when the evidence was captured (ISO 8601) - optional per Zod schema */
   captured_at?: string;
 }
 

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vizit | L'Oreal Executive Summary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-surface": "#2d3133",
+              "outline-variant": "#c6c6cd",
+              "tertiary-fixed": "#eaddff",
+              "on-surface-variant": "#45464d",
+              "secondary-fixed-dim": "#b9c7df",
+              "primary-fixed-dim": "#bec6e0",
+              "surface-bright": "#f7f9fb",
+              "on-primary": "#ffffff",
+              "surface": "#f7f9fb",
+              "on-error": "#ffffff",
+              "tertiary": "#000000",
+              "on-surface": "#191c1e",
+              "on-tertiary-container": "#9863ff",
+              "on-primary-container": "#7c839b",
+              "inverse-primary": "#bec6e0",
+              "secondary": "#515f74",
+              "error-container": "#ffdad6",
+              "error": "#ba1a1a",
+              "on-error-container": "#93000a",
+              "surface-container-low": "#f2f4f6",
+              "surface-variant": "#e0e3e5",
+              "on-secondary-fixed-variant": "#3a485b",
+              "secondary-container": "#d5e3fc",
+              "surface-dim": "#d8dadc",
+              "on-secondary": "#ffffff",
+              "background": "#f7f9fb",
+              "on-primary-fixed-variant": "#3f465c",
+              "primary": "#000000",
+              "on-tertiary-fixed-variant": "#5a00c6",
+              "surface-container-lowest": "#ffffff",
+              "on-primary-fixed": "#131b2e",
+              "on-tertiary-fixed": "#25005a",
+              "primary-container": "#131b2e",
+              "surface-tint": "#565e74",
+              "secondary-fixed": "#d5e3fc",
+              "surface-container-highest": "#e0e3e5",
+              "outline": "#76777d",
+              "inverse-on-surface": "#eff1f3",
+              "on-tertiary": "#ffffff",
+              "surface-container": "#eceef0",
+              "tertiary-fixed-dim": "#d2bbff",
+              "tertiary-container": "#25005a",
+              "on-secondary-fixed": "#0d1c2e",
+              "on-secondary-container": "#57657a",
+              "surface-container-high": "#e6e8ea",
+              "primary-fixed": "#dae2fd",
+              "on-background": "#191c1e"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased flex h-screen overflow-hidden">
+<!-- Left SideNavBar -->
+<aside class="bg-white dark:bg-slate-900 flex-shrink-0 flex flex-col py-8 px-0 gap-y-2 border-r border-slate-200 w-20">
+<div class="px-2 mb-8 flex items-center gap-3"><div class="w-12 h-12 bg-primary-container rounded-lg flex items-center justify-center text-white mx-auto shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div></div>
+<nav class="flex-1 flex flex-col gap-y-1"><a class="flex items-center py-3 transition-all duration-150 text-violet-600 dark:text-violet-400 border-l-4 border-violet-600 dark:bg-slate-800/50 justify-center" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+</a>
+<a class="flex items-center py-3 transition-transform duration-150 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 justify-center" href="#">
+<span class="material-symbols-outlined">calculate</span>
+</a>
+<a class="flex items-center py-3 transition-transform duration-150 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 justify-center" href="#">
+<span class="material-symbols-outlined">compare_arrows</span>
+</a>
+<a class="flex items-center py-3 transition-transform duration-150 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 justify-center" href="#">
+<span class="material-symbols-outlined">alt_route</span>
+</a></nav>
+<div class="mt-auto pt-6 flex flex-col gap-y-1 border-t border-slate-200/30">
+<a class="flex items-center gap-3 py-2 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors justify-center text-slate-600" href="#">
+<span class="material-symbols-outlined">help</span>
+</a>
+<a class="flex items-center gap-3 py-2 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors justify-center text-slate-600" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+</a>
+</div>
+</aside>
+<!-- Main Application Area (Flexible Content + Right Sidebar) -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
+<!-- TopAppBar -->
+<header class="bg-slate-50/60 dark:bg-slate-950/60 backdrop-blur-md sticky top-0 z-40 flex justify-between items-center w-full px-8 py-4 border-b border-slate-200/50">
+<div class="flex items-center gap-4">
+<div class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Vizit | L'Oreal</div>
+<div class="h-4 w-[1px] bg-slate-300 mx-2"></div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 rounded-lg">
+<span class="material-symbols-outlined text-slate-400 text-lg">search</span>
+<input class="bg-transparent border-none text-sm focus:ring-0 p-0 text-slate-600 dark:text-slate-300 w-48" placeholder="Search analytics..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors active:opacity-80">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-slate-200 object-cover" data-alt="professional corporate profile photo of a modern marketing executive soft studio lighting neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBW-yuOJ-yVtOu6W3u7m18e9g3L6L7dZqXfEyj6fL9o43veX0sBtYS1qSiZy56IYm30KUjbzldScqofpDsiwDIQ7CuoKhpd_A1C8CqPGAqhfA-5gQEIYK6JweWEq0jpdZtDFM4odQEM3EyJeGbZZ0HEOKTwbbGiFhpQ_wAlHSUXttxsg4IjZCYkvXSYQew6r-5t-rLAyNJxA8DNcH9GFaPyXZ2GD8vUB6tR42ZJ_7p-1eKTYLVXNj2wg4i7LQUHvjZTNmY4PzUAre8"/>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-10 max-w-7xl mx-auto w-full space-y-10">
+<!-- Hero Section: Revenue Lift -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[320px]">
+<div class="absolute top-0 right-0 p-8 opacity-10">
+<span class="material-symbols-outlined text-[160px]">trending_up</span>
+</div>
+<div class="relative z-10">
+<span class="text-label-sm font-semibold text-on-tertiary-container uppercase tracking-widest bg-violet-50 px-3 py-1 rounded-full">Projected Impact FY25</span>
+<h2 class="mt-6 text-display-lg font-bold text-primary leading-none tracking-tighter">
+                            $14.8M
+                        </h2>
+<p class="mt-2 text-headline-md font-semibold text-secondary">Projected Revenue Lift</p>
+</div>
+<div class="relative z-10 pt-8 border-t border-slate-100 mt-auto flex items-end gap-6">
+<div class="flex-1 h-32 flex items-end gap-2">
+<div class="w-full bg-slate-100 h-[40%] rounded-t-sm"></div>
+<div class="w-full bg-slate-100 h-[45%] rounded-t-sm"></div>
+<div class="w-full bg-slate-100 h-[52%] rounded-t-sm"></div>
+<div class="w-full bg-slate-100 h-[50%] rounded-t-sm"></div>
+<div class="w-full bg-violet-200 h-[70%] rounded-t-sm"></div>
+<div class="w-full bg-violet-400 h-[85%] rounded-t-sm"></div>
+<div class="w-full bg-on-tertiary-container h-[100%] rounded-t-sm"></div>
+</div>
+<div class="w-1/3 text-sm text-on-surface-variant leading-relaxed">
+                            Aggregated growth model across 14 product categories leveraging AI-optimized hero imagery.
+                        </div>
+</div>
+</div>
+<div class="space-y-6">
+<!-- Conversion Card -->
+<div class="bg-primary-container p-8 rounded-xl text-white relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 w-32 h-32 bg-on-tertiary-container/20 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700"></div>
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Conversion Lift</span>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="text-4xl font-bold">+22%</span>
+<span class="text-sm opacity-80">Upper Bound</span>
+</div>
+<p class="mt-4 text-xs opacity-70 leading-relaxed">Projected increase in Add-to-Cart velocity via visual intelligence tuning.</p>
+</div>
+<!-- L'Oreal Logo Integration Card -->
+<div class="bg-surface-container-low p-8 rounded-xl flex flex-col items-center justify-center text-center border-none">
+<img alt="L'Oreal Brand Logo" class="h-8 opacity-40 grayscale contrast-125 mb-4" data-alt="loreal brand logo minimalist elegant luxury black on transparent high fashion aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBITO_QZavfLNZRMZjN3BP7j_Hhgk1h9XmSWQo8FbnlkTkyZCZcqGxARwijI0eCB5SvjkeeY5750mWV62wRnAzAkf7HrE8uGSLgsbpCVjgYs3d6Rcthey5zdtUld0RWQsKMKUuAp2by70QBTtMsIyPTtJkXrGykYx0yaXzacglJQgapoOJ4s0tVKYQnq-imSMjbOXApMQog_iXH8RZaLCg0W2BLK5OSA0rTEQYSypAj0lrK5mDmsQNcvkO9BxcXNrwfi2aYf3Gm_ZM"/>
+<p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-widest">Tailored Proposal for L'Oreal Luxe</p>
+</div>
+</div>
+</section>
+<!-- Metrics & Asymmetric Content -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+<!-- Brand Engagement Scores -->
+<div class="lg:col-span-4 space-y-8">
+<h3 class="text-title-sm font-semibold text-on-surface-variant uppercase tracking-widest">Effectiveness Baseline</h3>
+<div class="glass-card p-6 rounded-lg border border-white/40 shadow-sm relative">
+<div class="flex justify-between items-center mb-6">
+<span class="text-sm font-semibold">Current State</span>
+<span class="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-600">Pre-Vizit</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-slate-200" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-slate-400" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="65" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center text-xl font-black">74</div>
+</div>
+<div>
+<div class="text-xs text-on-surface-variant font-medium">Engagement Score</div>
+<div class="text-sm text-secondary mt-1 italic">"Standard performance across peer luxury brands."</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg shadow-xl relative overflow-hidden group border border-violet-100">
+<div class="absolute top-0 right-0 w-1 bg-on-tertiary-container h-full"></div>
+<div class="flex justify-between items-center mb-6">
+<span class="text-sm font-bold text-on-tertiary-container">Vizit Optimized</span>
+<span class="text-[10px] bg-violet-600 px-2 py-0.5 rounded text-white font-bold animate-pulse">PREDICTED</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-violet-100" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-on-tertiary-container" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="20" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center text-xl font-black text-on-tertiary-container">92</div>
+</div>
+<div>
+<div class="text-xs text-on-tertiary-container font-bold">Projected Engagement</div>
+<div class="text-sm text-on-surface mt-1 font-medium">Top 2% of visual assets globally.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Growth Chart -->
+<div class="lg:col-span-8 bg-surface-container-low rounded-xl p-10 min-h-[480px] flex flex-col">
+<div class="flex justify-between items-start mb-12">
+<div>
+<h3 class="text-headline-md font-semibold text-primary">12-Month Revenue Trajectory</h3>
+<p class="text-sm text-on-surface-variant mt-2">Comparison of organic growth vs. AI-enhanced conversion optimization.</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-slate-300"></span>
+<span class="text-xs font-medium text-on-surface-variant">Baseline</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-on-tertiary-container"></span>
+<span class="text-xs font-medium text-on-surface-variant">Vizit Optimized</span>
+</div>
+</div>
+</div>
+<div class="flex-1 flex items-end justify-between gap-1 border-b-2 border-slate-200 pb-2 relative">
+<!-- Chart Grid Lines (Fake) -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="w-full border-t border-slate-200/50 h-0"></div>
+<div class="w-full border-t border-slate-200/50 h-0"></div>
+<div class="w-full border-t border-slate-200/50 h-0"></div>
+<div class="w-full border-t border-slate-200/50 h-0"></div>
+</div>
+<!-- Baseline Chart Points (Visualized as Bars for simplicity) -->
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[30%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[42%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[32%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[48%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[31%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[55%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[35%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[62%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[38%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[70%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[40%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[82%] rounded-t opacity-80 mt-1"></div>
+</div>
+<div class="relative flex-1 group">
+<div class="w-full bg-slate-200 h-[42%] rounded-t transition-all group-hover:bg-slate-300"></div>
+<div class="w-full bg-on-tertiary-container h-[95%] rounded-t opacity-80 mt-1"></div>
+</div>
+</div>
+<div class="flex justify-between mt-4 text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">
+<span>Month 1</span>
+<span>Month 3</span>
+<span>Month 6</span>
+<span>Month 9</span>
+<span>Month 12</span>
+</div>
+<div class="mt-10 p-4 bg-white/40 rounded-lg flex items-center gap-4 border border-white/60">
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+<strong class="text-primary">Insight:</strong> The widening gap represents the cumulative impact of "Self-Correcting Creative" workflows. By Month 12, the Vizit-enabled revenue outpaces baseline by <span class="text-on-tertiary-container font-bold">28.4%</span>.
+                        </p>
+</div>
+</div>
+</section>
+<!-- Bottom Editorial Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-10 py-12">
+<div class="space-y-6">
+<h3 class="text-title-sm font-semibold text-on-surface-variant uppercase tracking-widest">Global Asset Optimization</h3>
+<div class="relative rounded-xl overflow-hidden aspect-video shadow-2xl">
+<img alt="Luxury Product Hero" class="w-full h-full object-cover" data-alt="premium luxury perfume bottle on minimalist plinth cinematic lighting with soft golden hues and sharp focus editorial style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPugn3kixgKIwcjJNTkpZKbqpg6uhxOBW5tUxbyW5So1fhbzpO7yP3T9y1_Br-6A6AGEdTNwq9mc5sBgb0_l7RzrKU7DslFh3lkMJz_JHOcOK0ZZIcFpGw4Nvs3RPie3FM7Q-0mWY4GO_JuStn5YHeZat7PKAW1FQ2ogWmHWpGjADDtf-XeSjgCZLD4eGzQK4E-1Ftp92wdKdApCkwjLs52T78D_Iw6f1wEN5JNhoRp2WDFgH96Drv6A3NjL8eRZQ5OaOcFOHizWs"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+<div class="text-white">
+<p class="text-[10px] font-bold tracking-widest uppercase mb-1">Featured Case Study</p>
+<h4 class="text-lg font-bold">L'Oreal Luxe | Fragrance Category</h4>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col justify-center space-y-8 pl-0 md:pl-10 border-l border-slate-200">
+<div class="space-y-2">
+<p class="text-sm font-semibold text-on-tertiary-container">Strategic Recommendation</p>
+<p class="text-headline-md font-semibold text-primary">Consolidate Visual Governance</p>
+<p class="text-body-md text-on-surface-variant leading-relaxed">
+                            Integrate Vizit APIs into the primary L'Oreal PIM system to automate effectiveness scoring across all regional markets. Our model suggests this will save 4,200 human-review hours annually.
+                        </p>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors">Download Full PDF Report</button>
+<button class="px-6 py-3 bg-surface-container-high text-primary rounded-xl font-bold text-sm hover:bg-surface-container-highest transition-colors">Schedule Deep Dive</button>
+</div>
+</div>
+</section>
+</div>
+<footer class="py-10 px-10 border-t border-slate-100 flex justify-between items-center text-[11px] font-medium text-on-surface-variant uppercase tracking-widest">
+<div>© 2024 Vizit Visual Intelligence Inc.</div>
+<div class="flex gap-8">
+<a class="hover:text-primary transition-colors" href="#">Confidential</a>
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+</div>
+</footer>
+</main>
+<!-- Right Persistent AI Assistant Panel -->
+<aside class="bg-white dark:bg-slate-900 flex-shrink-0 flex flex-col py-8 px-0 gap-y-2 border-r border-slate-200 w-20" id="ai-panel">
+<!-- Chat Header -->
+<div class="p-6 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center text-violet-600 dark:text-violet-400">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div>
+<h3 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Value Analyst</h3>
+<p class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+        AI Online
+      </p>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Minimize to floating assistant">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+</div>
+<!-- Chat Messages -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar bg-slate-50/30 dark:bg-slate-950/20">
+<!-- Welcome Message -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-violet-600">smart_toy</span>
+</div>
+<div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+        Hello! I'm your Vizit AI Assistant. I've analyzed the latest visual intelligence data for L'Oreal.
+      </div>
+</div>
+<!-- Contextual Insight Card -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-violet-600">insights</span>
+</div>
+<div class="flex-1 space-y-3">
+<div class="bg-violet-600 p-4 rounded-xl text-white shadow-lg shadow-violet-500/20">
+<p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">Real-time Insight</p>
+<p class="text-xs font-medium leading-relaxed">
+            The fragrance category is currently underperforming in mobile hero imagery compared to the skin-care benchmark. Adjusting saturation levels by <span class="font-black text-white">+12%</span> could lift conversion by 4.1%.
+          </p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 hover:bg-slate-100 transition-colors">View Data</button>
+<button class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 hover:bg-slate-100 transition-colors">Apply Bias</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+<div class="relative group">
+<textarea class="w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl px-4 py-4 pr-12 border border-slate-200 dark:border-slate-700 focus:border-violet-500 focus:ring-0 transition-all text-xs text-slate-600 dark:text-slate-300 resize-none no-scrollbar h-24" placeholder="Ask about FY25 projections..."></textarea>
+<button class="absolute bottom-3 right-3 w-8 h-8 bg-violet-600 text-white rounded-lg flex items-center justify-center shadow-lg shadow-violet-500/20 hover:bg-violet-700 transition-colors">
+<span class="material-symbols-outlined text-lg">send</span>
+</button>
+</div>
+<div class="mt-4 flex justify-center gap-4">
+<button class="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">history</span>
+          History
+        </button>
+<div class="w-px h-3 bg-slate-200"></div>
+<button class="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">mic</span>
+          Voice
+        </button>
+</div>
+</div>
+</aside>
+</div>
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-violet-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-violet-700 transition-all transform hover:scale-110 z-50 group" title="Open AI Assistant">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="absolute right-full mr-4 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-slate-700">AI Assistant Available</span>
+</button></body></html>

@@ -18,6 +18,13 @@ import { useCallback, useRef, useState } from "react";
 
 import { apiClient } from "@/api/client/unified-api-client";
 
+export interface ReadinessComponent {
+  name?: string;
+  score: number;
+  /** @deprecated Weight is not currently consumed by the UI */
+  weight?: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
@@ -62,7 +69,7 @@ function makeId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function useAgentStream(options?: UseAgentStreamOptions) {
+export function useAgentStream(options: UseAgentStreamOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);

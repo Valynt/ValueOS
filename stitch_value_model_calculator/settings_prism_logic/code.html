@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings - Prism Logic</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-low": "#f2f4f6",
+              "secondary-fixed-dim": "#b9c7df",
+              "on-secondary-fixed": "#0d1c2e",
+              "outline": "#76777d",
+              "on-primary-fixed-variant": "#3f465c",
+              "surface-container-highest": "#e0e3e5",
+              "outline-variant": "#c6c6cd",
+              "on-tertiary-fixed-variant": "#5a00c6",
+              "on-error-container": "#93000a",
+              "secondary-container": "#d5e3fc",
+              "surface-container": "#eceef0",
+              "surface-bright": "#f7f9fb",
+              "error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#d2bbff",
+              "surface-container-high": "#e6e8ea",
+              "on-secondary-fixed-variant": "#3a485b",
+              "surface-dim": "#d8dadc",
+              "on-secondary": "#ffffff",
+              "inverse-on-surface": "#eff1f3",
+              "surface-tint": "#565e74",
+              "on-secondary-container": "#57657a",
+              "on-primary-fixed": "#131b2e",
+              "tertiary-container": "#25005a",
+              "secondary-fixed": "#d5e3fc",
+              "primary": "#000000",
+              "surface-variant": "#e0e3e5",
+              "secondary": "#515f74",
+              "inverse-primary": "#bec6e0",
+              "on-tertiary-fixed": "#25005a",
+              "surface": "#f7f9fb",
+              "primary-container": "#131b2e",
+              "on-surface": "#191c1e",
+              "inverse-surface": "#2d3133",
+              "on-primary": "#ffffff",
+              "tertiary": "#000000",
+              "primary-fixed-dim": "#bec6e0",
+              "background": "#f7f9fb",
+              "on-background": "#191c1e",
+              "surface-container-lowest": "#ffffff",
+              "error": "#ba1a1a",
+              "on-tertiary-container": "#9863ff",
+              "on-primary-container": "#7c839b",
+              "primary-fixed": "#dae2fd",
+              "on-tertiary": "#ffffff",
+              "on-surface-variant": "#45464d",
+              "on-error": "#ffffff",
+              "tertiary-fixed": "#eaddff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen">
+<!-- TopNavBar Component -->
+<header class="fixed top-0 w-full z-50 bg-slate-50/80 backdrop-blur-md">
+<div class="flex justify-between items-center px-8 h-16 w-full max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-slate-900">Prism Logic</span>
+<nav class="hidden md:flex items-center space-x-6 text-sm font-medium font-['Inter']">
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Dashboard</a>
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Analytics</a>
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Integrations</a>
+<a class="text-violet-600 font-semibold border-b-2 border-violet-600 pb-1" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100 rounded-lg transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-slate-900">notifications</span>
+</button>
+<button class="p-2 hover:bg-slate-100 rounded-lg transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-slate-900">help</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-high overflow-hidden">
+<img alt="User profile avatar" data-alt="Professional headshot of a software engineer with glasses, soft studio lighting, neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBuqE-DHsTVXjVHASh0P4B5zGCB5oiDviSJOlQDwIUZOb1HOkWz-QmIKxiZOy750B1EAOphaaONMfkqZJUDBGRJN5-5qz5OF8AORHUs2QFSBe-YvIlX4P2r_5uJsFA-KBHH7_pjKAh3jWWr32KcNby0vPTGXOHDC9HU7RwvpSSTNKAMJ-P8bXL_RmvzHF-lr83f3yEABEITxBwWVQHrIOl9BrSpnfizRnSGJO_a4zV6fxHTIxwrTiJTygwIZKRuo4r4j76kJx2ozQ"/>
+</div>
+</div>
+</div>
+<div class="bg-slate-200/50 h-[1px] w-full"></div>
+</header>
+<div class="pt-16 lg:pl-64 min-h-screen">
+<!-- SideNavBar Component -->
+<aside class="h-full w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-slate-100 p-4 space-y-2 border-r border-transparent">
+<div class="px-4 py-6 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">visibility</span>
+</div>
+<div>
+<div class="text-lg font-black text-slate-900">Enterprise Tier</div>
+<div class="text-xs font-medium text-on-surface-variant">Visual Intelligence</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">grid_view</span> Overview
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">visibility</span> Visual AI
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">folder_open</span> Library
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">group</span> Team
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium bg-white text-slate-900 shadow-sm rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">payments</span> Billing
+                </a>
+</nav>
+<div class="pt-4 border-t border-slate-200/50 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">contact_support</span> Support
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span> Sign Out
+                </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="max-w-5xl mx-auto px-8 py-12">
+<header class="mb-12">
+<h1 class="text-[1.75rem] font-semibold text-slate-900 mb-2">Settings</h1>
+<p class="text-on-surface-variant body-md">Manage your account preferences, security protocols, and billing cycles.</p>
+</header>
+<!-- Tabs Interface -->
+<div class="flex gap-8 border-b border-outline-variant/15 mb-12">
+<button class="pb-4 text-sm font-semibold text-primary border-b-2 border-primary transition-all">General</button>
+<button class="pb-4 text-sm font-medium text-on-surface-variant hover:text-primary transition-all">Security</button>
+<button class="pb-4 text-sm font-medium text-on-surface-variant hover:text-primary transition-all">Notifications</button>
+<button class="pb-4 text-sm font-medium text-on-surface-variant hover:text-primary transition-all">Billing</button>
+</div>
+<div class="grid grid-cols-12 gap-12 items-start">
+<!-- High-Density Form Section -->
+<div class="col-span-12 lg:col-span-8 space-y-10">
+<!-- Profile Section -->
+<section>
+<h2 class="text-sm font-semibold uppercase tracking-wider text-on-surface-variant mb-6">Account Identity</h2>
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-[0px_12px_32px_rgba(25,28,30,0.04)] border border-outline-variant/10">
+<div class="grid grid-cols-2 gap-6">
+<div class="col-span-2 md:col-span-1">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">First Name</label>
+<input class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest transition-all border-b-2 border-transparent focus:border-on-tertiary-container" type="text" value="Alexander"/>
+</div>
+<div class="col-span-2 md:col-span-1">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">Last Name</label>
+<input class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest transition-all border-b-2 border-transparent focus:border-on-tertiary-container" type="text" value="Vance"/>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">Email Address</label>
+<input class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest transition-all border-b-2 border-transparent focus:border-on-tertiary-container" type="email" value="a.vance@prismlogic.ai"/>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">Professional Bio</label>
+<textarea class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest transition-all border-b-2 border-transparent focus:border-on-tertiary-container" rows="3">Lead Visual Architect specializing in enterprise AI deployment and large-scale dataset management.</textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Regional Settings -->
+<section>
+<h2 class="text-sm font-semibold uppercase tracking-wider text-on-surface-variant mb-6">Regional &amp; Localization</h2>
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-[0px_12px_32px_rgba(25,28,30,0.04)] border border-outline-variant/10">
+<div class="grid grid-cols-2 gap-6">
+<div class="col-span-2 md:col-span-1">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">Timezone</label>
+<select class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest appearance-none">
+<option>Pacific Standard Time (UTC -8)</option>
+<option>Eastern Standard Time (UTC -5)</option>
+<option>Central European Time (UTC +1)</option>
+</select>
+</div>
+<div class="col-span-2 md:col-span-1">
+<label class="block text-xs font-semibold text-on-surface-variant mb-2">Preferred Currency</label>
+<select class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-sm focus:ring-0 focus:bg-surface-container-highest appearance-none">
+<option>USD ($)</option>
+<option>EUR (€)</option>
+<option>GBP (£)</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<div class="flex justify-end gap-4">
+<button class="px-6 py-2.5 text-sm font-semibold text-on-surface-variant hover:text-primary transition-all">Cancel Changes</button>
+<button class="px-8 py-2.5 bg-primary text-on-primary rounded-xl text-sm font-semibold hover:bg-slate-800 transition-all shadow-lg active:scale-95">Update Identity</button>
+</div>
+</div>
+<!-- Side Bento Information -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Visual AI Status Card (Signature Component) -->
+<div class="bg-primary-container p-6 rounded-xl relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="text-xs font-bold uppercase tracking-widest text-on-primary-container">System Effectiveness</span>
+</div>
+<div class="flex items-end justify-between">
+<div class="text-[3.5rem] font-bold text-white leading-none">98.4</div>
+<div class="bg-on-tertiary-container/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+<span class="text-xs font-bold text-on-tertiary-container">+2.1%</span>
+</div>
+</div>
+<div class="mt-4 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container w-[98.4%]"></div>
+</div>
+</div>
+<div class="absolute -right-8 -bottom-8 w-32 h-32 bg-on-tertiary-container/10 rounded-full blur-3xl group-hover:bg-on-tertiary-container/20 transition-all duration-700"></div>
+</div>
+<!-- Organization Info -->
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10">
+<h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Active Plan</h3>
+<div class="flex items-center gap-4 mb-6">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">diamond</span>
+</div>
+<div>
+<p class="text-sm font-bold text-primary">Enterprise Elite</p>
+<p class="text-xs text-on-surface-variant">Next renewal: Oct 12, 2024</p>
+</div>
+</div>
+<button class="w-full py-2.5 bg-white text-primary text-xs font-bold uppercase tracking-widest border border-outline-variant/30 rounded-lg hover:bg-surface-container-high transition-all">Manage Subscription</button>
+</div>
+<!-- Security Spotlight -->
+<div class="p-6 rounded-xl border border-outline-variant/15 border-dashed">
+<h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Security Overview</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-on-surface">Two-Factor Auth</span>
+<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">ACTIVE</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-on-surface">API Keys</span>
+<span class="text-xs font-bold text-primary">12 Active</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-on-surface">Last Login</span>
+<span class="text-xs text-on-surface-variant">2h ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full bg-slate-50/90 backdrop-blur-md flex justify-around items-center h-16 border-t-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] z-50">
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">grid_view</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+<button class="flex flex-col items-center justify-center text-violet-600">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">group</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-400">
+<span class="material-symbols-outlined">payments</span>
+</button>
+</nav>
+</body></html>

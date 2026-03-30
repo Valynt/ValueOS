@@ -298,6 +298,7 @@ export abstract class BaseAgent {
       ...context,
       agentType: this.name,
       tenantId: context?.tenantId ?? this.organizationId,
+      trace_id: context.requestId ?? `ev-${Date.now()}`,
     });
   }
 
@@ -1030,7 +1031,7 @@ export abstract class BaseAgent {
           links.push({
             value,
             path: currentPath,
-            traceId,
+            trace_id: traceId,
             evidence_reference: evidence.reference,
             description: evidence.description,
             captured_at: new Date().toISOString(),
@@ -1053,7 +1054,7 @@ export abstract class BaseAgent {
               links.push({
                 value: item,
                 path: itemPath,
-                traceId,
+                trace_id: traceId,
                 evidence_reference: evidence.reference,
                 description: evidence.description,
                 captured_at: new Date().toISOString(),

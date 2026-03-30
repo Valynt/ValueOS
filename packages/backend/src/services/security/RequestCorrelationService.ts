@@ -281,10 +281,20 @@ export class RequestCorrelationService {
 
   /**
    * Calculate SHA-256 integrity hash for logs (S2-3).
+   * Uses canonical JSON serialization with sorted keys for deterministic hashing.
    */
-  private calculateIntegrityHash(logs: unknown[]): string {
-    const content = JSON.stringify(logs, Object.keys(logs).sort());
-    return createHash("sha256").update(content).digest("hex");
+  private calculateIntegrityHash(logs: Record<string, unknown>): string {
+    const canonicalJson = JSON.stringify(logs, (key, value) => {
+      // Sort object keys for deterministic serialization
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        return Object.keys(value).sort().reduce((sorted, k) => {
+          sorted[k] = value[k];
+          return sorted;
+        }, {} as Record<string, unknown>);
+      }
+      return value;
+    });
+    return createHash("sha256").update(canonicalJson).digest("hex");
   }
 }
 

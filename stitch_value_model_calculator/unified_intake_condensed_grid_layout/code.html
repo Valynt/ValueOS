@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ValueEngine AI - Unified Opportunity Intake</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#000000",
+                        "on-background": "#191c1e",
+                        "outline-variant": "#c6c6cd",
+                        "tertiary-container": "#25005a",
+                        "surface-tint": "#565e74",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-tertiary-container": "#9863ff",
+                        "primary-fixed": "#dae2fd",
+                        "tertiary": "#000000",
+                        "surface": "#f7f9fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "outline": "#76777d",
+                        "on-primary-container": "#7c839b",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#45464d",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#131b2e",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "secondary": "#515f74",
+                        "background": "#f7f9fb",
+                        "on-secondary-container": "#57657a",
+                        "tertiary-fixed": "#eaddff",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface-container-high": "#e6e8ea",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "inverse-surface": "#2d3133",
+                        "on-tertiary-fixed": "#25005a",
+                        "secondary-fixed": "#d5e3fc",
+                        "secondary-container": "#d5e3fc",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#bec6e0",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "inverse-on-surface": "#eff1f3",
+                        "primary-container": "#131b2e",
+                        "error": "#ba1a1a"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #131b2e 0%, #9863ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-10 bg-[#f7f9fb] h-16">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#0F172A]">ValueEngine AI</span>
+<nav class="hidden md:flex gap-6 items-center h-full pt-1">
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-[#9863ff] border-b-2 border-[#9863ff] pb-5 translate-y-2.5" href="#">Intake</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-[#515f74] hover:text-[#000000] transition-colors" href="#">Projects</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-[#515f74] hover:text-[#000000] transition-colors" href="#">Insights</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+<span class="text-[0.6875rem] font-semibold text-secondary uppercase tracking-wider">CRM: Connected</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-secondary hover:bg-[#f2f4f6] rounded-lg transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-secondary hover:bg-[#f2f4f6] rounded-lg transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="help_center">help_center</span>
+</button>
+<div class="ml-2 w-8 h-8 rounded-full overflow-hidden border border-outline-variant/20">
+<img alt="Executive User Profile" data-alt="Close-up portrait of a professional executive in a modern office with soft natural lighting and a confident expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAONgtF94P1vFTU1jBgbjcy4GHWsYTGBXehcmlXszMsickZMUc1biphRHLJO_D396PR80ZhvYnvvgaS3fXiHks3wUdfWk4x9LKZ18SOsBqyyLE3tZ2sJWpw_9rp3ndVF85Ck6KR2Ar8BECn4XZJRK8TIr-w5DVRoGuKOOWgG9pe6GrqPUiYxvucEOGyBTtWh55O4hsped_zY8cC8kOrtyfkZnAsz0kF0zhrppwdQs2KBTvufmnh_a0OnYTPLWJxx7HYijxk1S9mRBA"/>
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-6 py-12">
+<!-- Centerpiece Hero -->
+<section class="flex flex-col items-center justify-center text-center space-y-8 mb-8">
+<div class="space-y-3">
+<span class="label-sm text-on-tertiary-container font-semibold tracking-widest uppercase">Precision Curator</span>
+<h1 class="text-5xl font-bold tracking-tight text-primary leading-tight">
+                    Hi Brian — what are you trying to <br/>
+<span class="text-gradient">build value for?</span>
+</h1>
+</div>
+<!-- Expanded Chat Input Container -->
+<div class="w-full max-w-4xl space-y-4">
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-on-tertiary-container/20 to-primary/5 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+<div class="relative flex flex-col bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/15 p-4 min-h-[220px]">
+<div class="flex items-start gap-4 h-full">
+<div class="pt-2 text-secondary">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</div>
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-xl py-2 placeholder-outline font-medium resize-none min-h-[120px]" placeholder="It all starts here..."></textarea>
+</div>
+<div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-outline-variant/10">
+<!-- Prompt Starters Inside -->
+<div class="flex flex-wrap gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-on-tertiary-container bg-tertiary-fixed/30 rounded-lg hover:bg-tertiary-fixed/50 transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="psychology">psychology</span>
+                                    Clarify problem
+                                </button>
+<button class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-on-tertiary-container bg-tertiary-fixed/30 rounded-lg hover:bg-tertiary-fixed/50 transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="groups">groups</span>
+                                    Define stakeholders
+                                </button>
+<button class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-on-tertiary-container bg-tertiary-fixed/30 rounded-lg hover:bg-tertiary-fixed/50 transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="trending_up">trending_up</span>
+                                    Identify value drivers
+                                </button>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container-low rounded-lg transition-colors text-secondary" title="Deep Research">
+<span class="material-symbols-outlined" data-icon="travel_explore">travel_explore</span>
+</button>
+<button class="p-2 hover:bg-surface-container-low rounded-lg transition-colors text-secondary" title="Attach">
+<span class="material-symbols-outlined" data-icon="attach_file">attach_file</span>
+</button>
+<button class="p-2 hover:bg-surface-container-low rounded-lg transition-colors text-secondary" title="Voice">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+</button>
+<button class="ml-2 bg-primary text-on-primary px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity shadow-lg shadow-primary/10">
+                                    Analyze
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Actions Grid (Replacing previous suggestion chips and lower section) -->
+<section class="max-w-4xl mx-auto space-y-6 mb-12">
+<div class="flex justify-between items-center px-2">
+<h2 class="text-sm font-bold uppercase tracking-widest text-outline">Or start with structured intake</h2>
+<a class="text-xs font-semibold text-on-tertiary-container hover:underline decoration-2 underline-offset-4" href="#">Source library</a>
+</div>
+<div class="grid grid-cols-1 gap-4 md:grid-cols-6">
+<!-- Tile 1 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="record_voice_over">record_voice_over</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">Analyze Sales Call</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Process transcripts and audio from Zoom/Chorus</p>
+</div>
+</div>
+<!-- Tile 2 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="database">database</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">Import from CRM</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Fetch objects from Salesforce or HubSpot</p>
+</div>
+</div>
+<!-- Tile 3 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="description">description</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">Upload Notes</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Drop PDF, DOCX, or unstructured text files</p>
+</div>
+</div>
+<!-- Tile 4 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="alternate_email">alternate_email</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">Email Thread</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Connect Outlook/Gmail to parse context</p>
+</div>
+</div>
+<!-- Tile 5 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="public">public</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">Research Company</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Analyze public filings and market data</p>
+</div>
+</div>
+<!-- Tile 6 -->
+<div class="group relative overflow-hidden bg-surface-container-lowest rounded-xl border border-outline-variant/10 hover:shadow-md transition-all duration-300 flex flex-col justify-between p-3 h-28">
+<div class="flex justify-between items-start">
+<div class="h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors w-7 h-7">
+<span class="material-symbols-outlined text-[18px]" data-icon="add_circle">add_circle</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px] text-sm" data-icon="north_east">north_east</span>
+</div>
+<div>
+<h3 class="font-bold leading-tight text-[11px]">New Case</h3>
+<p class="text-secondary mt-1 line-clamp-2 text-[9px]">Start with a blank canvas and define scope</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Asymmetric Detail Section -->
+<section class="grid grid-cols-12 gap-12 pt-12 border-t border-outline-variant/10">
+<div class="col-span-12 md:col-span-5 space-y-6">
+<div class="glass-panel p-8 rounded-2xl border border-outline-variant/10">
+<h4 class="text-xl font-bold mb-4">Why use Intake?</h4>
+<ul class="space-y-4">
+<li class="flex gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container mt-1" data-icon="check_circle">check_circle</span>
+<div>
+<p class="font-semibold text-primary">Unified Context</p>
+<p class="text-sm text-secondary">Bring all disparate data points into one strategic view.</p>
+</div>
+</li>
+<li class="flex gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container mt-1" data-icon="check_circle">check_circle</span>
+<div>
+<p class="font-semibold text-primary">AI Augmentation</p>
+<p class="text-sm text-secondary">We fill the gaps in your discovery by analyzing market trends.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="col-span-12 md:col-span-7 h-64 md:h-auto rounded-2xl overflow-hidden relative">
+<img alt="Modern Enterprise Analytics Visualization" class="absolute inset-0 w-full h-full object-cover" data-alt="Abstract data visualization with flowing translucent purple and navy layers, minimalist aesthetic with crisp lines and depth" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAph8TQJXwHA8UOlZ0l7u717PkboosXIzEUgmKg0nPps7rmAntRCjFgSkkWYynO3jtFXKdLArDpmhdvNUfWIgtWsCgtthm84d1T4QrYpYGiOJinzlbZyC1zJ3gLfd6shZ-lyBaQQuvYnHLeKpU7h8ZnXBNDJ7HPiDCk652WvxWjgfcj8G3m1soiYFVCFunbykBDTjHRKGnPVI80xtjDKf_VTpW4vKK9L6SptB6aVmcTKFaXcyGbziVi0KpCUwMnzBqoQPpwhvV0k5Y"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent flex items-end p-8">
+<p class="text-white font-medium italic">"Precision Curator has reduced my prep time for strategic reviews by 70%." — Global Sales Leader</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-surface-container-lowest h-16 flex items-center justify-around px-6 z-50 shadow-2xl">
+<button class="flex flex-col items-center gap-1 text-[#9863ff]">
+<span class="material-symbols-outlined" data-icon="home_storage">home_storage</span>
+<span class="text-[10px] font-medium">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-secondary">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="text-[10px] font-medium">Strategy</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-secondary">
+<span class="material-symbols-outlined" data-icon="input">input</span>
+<span class="text-[10px] font-medium">Data</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-secondary">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</button>
+</div>
+</body></html>
