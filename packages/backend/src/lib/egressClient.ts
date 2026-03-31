@@ -69,6 +69,9 @@ const BLOCKED_HOSTNAME_PATTERNS: RegExp[] = [
   /^192\.168\.\d+\.\d+$/,
   // Link-local
   /^169\.254\.\d+\.\d+$/,
+  // IPv4 loopback
+  /^localhost$/,
+  /^127\.\d+\.\d+\.\d+$/,
   // IPv6 loopback / link-local
   /^::1$/,
   /^fe80:/i,
@@ -139,11 +142,27 @@ function validateEgressUrl(rawUrl: string): void {
   }
 }
 
+// ── Timeout ────────────────────────────────────────────────────────────────
+
+/**
+ * Read the default egress timeout from the environment at call time.
+ * Reading lazily (rather than baking at module load) allows the value to be
+ * overridden in tests via vi.stubEnv without requiring module re-imports.
+ */
+function getDefaultEgressTimeoutMs(): number {
+  const raw = process.env.EGRESS_DEFAULT_TIMEOUT_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 30_000;
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /**
- * Drop-in replacement for fetch() that enforces the egress allowlist.
- * Use this for all outbound HTTP requests from backend services.
+ * Drop-in replacement for fetch() that enforces the egress allowlist and
+ * applies a default request timeout when the caller does not supply one.
+ *
+ * Default timeout: 30 s (override via EGRESS_DEFAULT_TIMEOUT_MS).
+ * Callers that pass their own `signal` retain full control.
  *
  * @throws {EgressBlockedError} when the target URL is not permitted.
  */
@@ -153,7 +172,14 @@ export async function egressFetch(
 ): Promise<Response> {
   const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   validateEgressUrl(rawUrl);
-  return fetch(input, init);
+
+  // Inject a default timeout only when the caller has not provided a signal.
+  const effectiveInit: RequestInit =
+    init?.signal != null
+      ? init
+      : { ...init, signal: AbortSignal.timeout(getDefaultEgressTimeoutMs()) };
+
+  return fetch(input, effectiveInit);
 }
 
 /**

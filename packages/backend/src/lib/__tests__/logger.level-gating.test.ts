@@ -14,10 +14,22 @@ vi.mock("@opentelemetry/api", () => ({
   trace: { getSpan: () => undefined },
 }));
 
+// structuredLogSchema requires tenant_id, trace_id, span_id etc. which are
+// absent in unit tests. Return success with the raw entry so the logger
+// reaches console.log/warn/error without schema-validation fallback.
 vi.mock("@shared/observability/logSchema", () => ({
   structuredLogSchema: {
-    safeParse: (entry: unknown) => ({ success: true, data: entry }),
+    safeParse: (entry: unknown) => ({
+      success: true,
+      data: {
+        ...(entry as Record<string, unknown>),
+        tenant_id: (entry as Record<string, unknown>)?.tenant_id ?? "test-tenant",
+        trace_id: (entry as Record<string, unknown>)?.trace_id ?? "test-trace",
+        span_id: (entry as Record<string, unknown>)?.span_id ?? "test-span",
+      },
+    }),
   },
+  structuredLogSeveritySchema: { parse: (v: unknown) => v },
 }));
 
 // secureSerialization is a passthrough in tests — no mock needed.

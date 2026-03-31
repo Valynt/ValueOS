@@ -18,6 +18,8 @@ vi.mock("../../lib/supabase.js", () => ({
       insert: vi.fn().mockReturnValue({ error: null }),
     }),
   }),
+  // Named export consumed by modules that import supabase directly
+  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), insert: vi.fn().mockResolvedValue({ data: null, error: null }), update: vi.fn().mockReturnThis(), delete: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) })) },
 }));
 
 vi.mock("@valueos/memory/provenance", () => ({

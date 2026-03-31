@@ -10,7 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // vi.hoisted ensures this state is available inside the vi.mock factory below.
 const _db = vi.hoisted(() => ({ processedIds: new Set<string>() }));
 
-vi.mock('../../lib/supabase', () => ({
+// Path relative to test file (src/services/billing/__tests__/) must resolve to
+// the same module WebhookService imports: src/lib/supabase.js
+vi.mock('../../../lib/supabase.js', () => ({
+  createServerSupabaseClient: vi.fn(() => ({ from: vi.fn() })),
   supabase: {
     from: vi.fn().mockImplementation((table: string) => ({
       upsert: vi.fn().mockImplementation((data: Record<string, unknown>) => {

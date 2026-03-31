@@ -28,6 +28,30 @@ const _agentResponseCache = new Map<
 const AGENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
+ * Maximum number of entries the in-process cache may hold at once.
+ * When the cap is reached the oldest-inserted entry is evicted (FIFO) before
+ * the new one is stored. This bounds heap growth under sustained unique-query
+ * load or a deliberate amplification attack.
+ * Override via AGENT_CACHE_MAX_ENTRIES.
+ */
+const AGENT_CACHE_MAX_ENTRIES = (() => {
+  const raw = process.env.AGENT_CACHE_MAX_ENTRIES;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
+})();
+
+// Proactively evict expired entries every 5 minutes so the Map does not
+// accumulate stale entries between reads.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _agentResponseCache) {
+    if (now > entry.expiresAt) {
+      _agentResponseCache.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref(); // .unref() so this timer does not prevent process exit
+
+/**
  * Build a cache key that is strictly scoped to a tenant.
  * Throws MissingTenantContextError when no tenant identifier is present —
  * falling back to a shared key would allow cross-tenant cache hits.
@@ -68,6 +92,16 @@ const agentCache = {
   ): Promise<void> {
     // Throws MissingTenantContextError if tenant context is absent — callers must handle.
     const key = _agentCacheKey(query, context);
+
+    // Enforce size cap: evict the oldest entry (first key in insertion order)
+    // before adding a new one when at capacity.
+    if (!_agentResponseCache.has(key) && _agentResponseCache.size >= AGENT_CACHE_MAX_ENTRIES) {
+      const oldestKey = _agentResponseCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        _agentResponseCache.delete(oldestKey);
+      }
+    }
+
     _agentResponseCache.set(key, {
       value,
       expiresAt: Date.now() + AGENT_CACHE_TTL_MS,

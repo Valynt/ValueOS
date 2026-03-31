@@ -5,12 +5,56 @@
  * usage before enforcing hard caps.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BillingMetric } from '../../../config/billing.js';
 import { EntitlementsService } from '../EntitlementsService.js';
 
-vi.mock("../../../lib/supabase.js");
+// Controls what usage_events returns for grace period checks
+let mockUsageEvents: Array<{ timestamp: string }> = [];
+let mockUsageError: { message: string; code: string } | null = null;
+
+// Controls what entitlements returns for checkUsageAllowed
+let mockEntitlementData: Array<Record<string, unknown>> = [];
+
+const buildChain = (resolvedValue: { data: unknown; error: unknown }) => {
+  const chain: Record<string, unknown> = {};
+  const terminal = vi.fn().mockResolvedValue(resolvedValue);
+  chain.select = vi.fn().mockReturnValue(chain);
+  chain.eq = vi.fn().mockReturnValue(chain);
+  chain.gt = vi.fn().mockReturnValue(chain);
+  chain.gte = vi.fn().mockReturnValue(chain);
+  chain.lte = vi.fn().mockReturnValue(chain);
+  chain.order = vi.fn().mockReturnValue(chain);
+  chain.limit = vi.fn().mockReturnValue(chain);
+  chain.single = terminal;
+  chain.maybeSingle = terminal;
+  // Make the chain itself thenable so await works on it
+  chain.then = (resolve: (v: unknown) => unknown) => Promise.resolve(resolvedValue).then(resolve);
+  return chain;
+};
+
+vi.mock("../../../lib/supabase.js", () => ({
+  createServerSupabaseClient: vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'usage_events') {
+        return buildChain({ data: mockUsageEvents, error: mockUsageError });
+      }
+      if (table === 'entitlements' || table === 'subscriptions') {
+        return buildChain({ data: mockEntitlementData, error: null });
+      }
+      return buildChain({ data: [], error: null });
+    }),
+  })),
+  supabase: {
+    from: vi.fn((table: string) => {
+      if (table === 'usage_events') {
+        return buildChain({ data: mockUsageEvents, error: mockUsageError });
+      }
+      return buildChain({ data: [], error: null });
+    }),
+  },
+}));
 
 // Test constants
 const GRACE_PERIOD_HOURS = 24;
@@ -23,7 +67,10 @@ describe('Grace Policy Enforcement Validation', () => {
   const graceLimit = Math.floor(baseQuota * GRACE_MULTIPLIER); // 1100
 
   beforeEach(() => {
-    // Setup test entitlement
+    mockUsageEvents = [];
+    mockUsageError = null;
+    mockEntitlementData = [];
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

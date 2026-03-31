@@ -8,7 +8,27 @@
  * INVARIANT: All financial calculations must be deterministic and accurate.
  */
 
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+
+// ScenarioBuilder imports the deprecated supabase singleton — mock it so tests
+// run without a live database connection.
+const { mockFrom } = vi.hoisted(() => {
+  const mockChain: Record<string, unknown> = {};
+  mockChain.select = vi.fn().mockReturnValue(mockChain);
+  mockChain.eq = vi.fn().mockReturnValue(mockChain);
+  mockChain.insert = vi.fn().mockResolvedValue({ data: [], error: null });
+  mockChain.update = vi.fn().mockReturnValue(mockChain);
+  mockChain.upsert = vi.fn().mockResolvedValue({ data: [], error: null });
+  mockChain.single = vi.fn().mockResolvedValue({ data: null, error: null });
+  mockChain.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+  const mockFrom = vi.fn(() => mockChain);
+  return { mockFrom };
+});
+
+vi.mock("../lib/supabase.js", () => ({
+  createServerSupabaseClient: vi.fn(() => ({ from: mockFrom })),
+  supabase: { from: mockFrom },
+}));
 
 import Decimal from "decimal.js";
 import {
@@ -36,8 +56,8 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
 
       // NPV should be positive (profitable investment)
       expect(npv.toNumber()).toBeGreaterThan(0);
-      // Known correct value: ~$89,086 at 10% discount
-      expect(npv.toNumber()).toBeCloseTo(89086, -2);
+      // Verified: -500000 + 100000/1.1 + 120000/1.21 + 140000/1.331 + 160000/1.4641 + 180000/1.61051 ≈ 16286
+      expect(npv.toNumber()).toBeCloseTo(16286, -2);
     });
 
     it("must calculate negative NPV for unprofitable investments", () => {
@@ -105,12 +125,14 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
       expect(roi.toNumber()).toBeCloseTo(9, 5);
     });
 
-    it("must handle edge case of zero costs", () => {
+    it("must throw RangeError when costs are zero", () => {
       const totalBenefits = d(1000);
       const totalCosts = d(0);
 
-      // Should not throw, behavior defined by implementation
-      expect(() => calculateROI(totalBenefits, totalCosts)).not.toThrow();
+      // Division by zero is undefined — the implementation throws rather than
+      // returning Infinity or NaN, which would silently corrupt downstream calculations.
+      expect(() => calculateROI(totalBenefits, totalCosts)).toThrow(RangeError);
+      expect(() => calculateROI(totalBenefits, totalCosts)).toThrow(/Total costs cannot be zero/);
     });
   });
 
@@ -121,8 +143,8 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
 
       const result = calculatePayback(cashFlows);
 
-      expect(result.period).toBeCloseTo(2.5, 1); // 2.5 years
-      expect(result.converged).toBe(true);
+      expect(result.fractionalPeriod?.toNumber()).toBeCloseTo(2.5, 1); // 2.5 years
+      expect(result.period).not.toBeNull(); // converged
     });
 
     it("must return null for investments that never pay back", () => {
@@ -131,8 +153,7 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
 
       const result = calculatePayback(cashFlows);
 
-      expect(result.period).toBeNull();
-      expect(result.converged).toBe(false);
+      expect(result.period).toBeNull(); // never recovers
     });
 
     it("must handle immediate payback (period 0)", () => {
@@ -142,22 +163,22 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
       const result = calculatePayback(cashFlows);
 
       // Should converge immediately
-      expect(result.converged).toBe(true);
+      expect(result.period).not.toBeNull();
     });
   });
 
   describe("IRR Calculation", () => {
     it("must calculate IRR for standard investment", () => {
       // Classic case: -1000, +300, +400, +500
-      // IRR should be around 10.6%
+      // Verified IRR: ~8.9% (NPV=0 at this rate)
       const cashFlows = dArr([-1000, 300, 400, 500]);
 
       const result = calculateIRR(cashFlows);
 
-      expect(result.irr).not.toBeNull();
       expect(result.converged).toBe(true);
-      expect(result.irr!.toNumber()).toBeGreaterThan(0.1);
-      expect(result.irr!.toNumber()).toBeLessThan(0.12);
+      expect(result.period).not.toBeNull();
+      expect(result.rate.toNumber()).toBeGreaterThan(0.08);
+      expect(result.rate.toNumber()).toBeLessThan(0.10);
     });
 
     it("must converge for multi-year investment", () => {
@@ -165,9 +186,9 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
 
       const result = calculateIRR(cashFlows);
 
+      expect(result.period).not.toBeNull();
       expect(result.converged).toBe(true);
-      expect(result.irr).not.toBeNull();
-      expect(result.irr!.toNumber()).toBeGreaterThan(0.15); // > 15%
+      expect(result.rate.toNumber()).toBeGreaterThan(0.15); // > 15%
     });
   });
 
@@ -191,10 +212,11 @@ describe("MVP Model Creation - Economic Kernel Behavior", () => {
 
       const npv = calculateNPV(cashFlows, discountRate);
 
-      // Should not lose precision
+      // Should not lose precision — result is negative because costs exceed discounted returns
       expect(npv.isNaN()).toBe(false);
       expect(npv.isFinite()).toBe(true);
-      expect(npv.toNumber()).toBeGreaterThan(0);
+      // Verified: -1B + 300M/1.1 + 400M/1.21 + 500M/1.331 ≈ -21M (negative NPV)
+      expect(npv.toNumber()).toBeLessThan(0);
     });
 
     it("must handle very small numbers", () => {
@@ -220,6 +242,7 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [
         {
           id: "hyp-1",
@@ -247,16 +270,18 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
     expect(result.upside).toBeDefined();
   });
 
-  it("must calculate positive NPV for all scenarios when inputs are positive", async () => {
+  it("must calculate positive NPV for all scenarios when benefits exceed costs", async () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      // Low cost relative to impact range ensures all three scenarios are profitable
+      estimatedCostUsd: 50000,
       acceptedHypotheses: [
         {
           id: "hyp-1",
           value_driver: "Cost Reduction",
-          estimated_impact_min: 100000,
-          estimated_impact_max: 500000,
+          estimated_impact_min: 200000,
+          estimated_impact_max: 800000,
           confidence_score: 0.9,
         },
       ],
@@ -265,7 +290,6 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
 
     const result = await scenarioBuilder.buildScenarios(input);
 
-    // All scenarios should have positive NPV for positive-value hypotheses
     expect(result.conservative.npv).toBeGreaterThan(0);
     expect(result.base.npv).toBeGreaterThan(0);
     expect(result.upside.npv).toBeGreaterThan(0);
@@ -275,6 +299,7 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [
         {
           id: "hyp-1",
@@ -298,6 +323,8 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      // Cost well below minimum impact so all scenarios have positive ROI
+      estimatedCostUsd: 50000,
       acceptedHypotheses: [
         {
           id: "hyp-1",
@@ -327,6 +354,7 @@ describe("MVP Model Creation - ScenarioBuilder Behavior", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [
         {
           id: "hyp-1",
@@ -397,6 +425,7 @@ describe("MVP Model Creation - Performance Requirements", () => {
     const input = {
       tenantId: "perf-test",
       caseId: "perf-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [
         {
           id: "hyp-perf",
@@ -423,6 +452,7 @@ describe("MVP Model Creation - Data Integrity", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [], // Empty array
       assumptions: [],
     };
@@ -440,6 +470,7 @@ describe("MVP Model Creation - Data Integrity", () => {
     const input = {
       tenantId: "test-tenant",
       caseId: "test-case",
+      estimatedCostUsd: 500000,
       acceptedHypotheses: [
         {
           id: "hyp-zero",

@@ -1,15 +1,24 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const MIGRATIONS_GLOB = 'infra/supabase/supabase/migrations/*.sql';
+const MIGRATIONS_DIR = 'infra/supabase/supabase/migrations';
 
 function listMigrationFiles() {
-  const output = execSync(`rg --files -g '${MIGRATIONS_GLOB}'`, { cwd: ROOT, encoding: 'utf8' }).trim();
-  return output ? output.split('\n').sort() : [];
+  const dir = resolve(ROOT, MIGRATIONS_DIR);
+  let results = [];
+  const list = readdirSync(dir);
+  for (let file of list) {
+    const filePath = join(dir, file);
+    const stat = statSync(filePath);
+    // Don't recurse, only pick up direct .sql children like the original glob: infra/supabase/supabase/migrations/*.sql
+    if (stat && stat.isFile() && file.endsWith('.sql')) {
+      results.push(join(MIGRATIONS_DIR, file));
+    }
+  }
+  return results.sort();
 }
 
 function lineNumberForOffset(content, offset) {
@@ -71,6 +80,7 @@ for (const file of files) {
 }
 
 if (findings.length > 0) {
+
   console.error('❌ Supabase tenant controls check failed:\n');
   for (const finding of findings) {
     console.error(`- ${finding.file}:${finding.line} [${finding.rule}] ${finding.message}`);

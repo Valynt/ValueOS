@@ -5,8 +5,7 @@
  * ensuring proper request routing, approval processes, and security.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BillingApprovalService } from '../BillingApprovalService.js';
 
@@ -31,40 +30,28 @@ describe('Approval Workflow Testing', () => {
       const request = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'plan_upgrade',
-        {
-          current_plan: 'starter',
-          new_plan: 'professional',
-          estimated_cost: 49
-        },
+        { current_plan: 'starter', new_plan: 'professional', estimated_cost: 49 },
         mockUserId,
-        'Need more capacity for growing team'
       );
 
       expect(request).toBeDefined();
       expect(request.tenant_id).toBe(mockTenantId);
-      expect(request.request_type).toBe('plan_upgrade');
+      expect(request.action_type).toBe('plan_upgrade');
       expect(request.status).toBe('pending');
-      expect(request.requested_by).toBe(mockUserId);
+      expect(request.requested_by_user_id).toBe(mockUserId);
     });
 
     it('should auto-approve requests below threshold', async () => {
-      // Test auto-approval for small amounts
       const request = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'cap_increase',
-        {
-          metric: 'ai_tokens',
-          current_cap: 1000,
-          requested_cap: 1100,
-          increase_percentage: 10
-        },
+        { metric: 'ai_tokens', current_cap: 1000, requested_cap: 1100 },
         mockUserId,
-        'Small increase needed',
-        5 // Low cost
+        { estimatedCost: 5 },
       );
 
       expect(request.status).toBe('approved');
-      expect(request.approved_by).toBe('auto');
+      expect(request.approved_by_user_id).toBe('auto');
     });
 
     it('should reject invalid requests', async () => {
@@ -83,52 +70,35 @@ describe('Approval Workflow Testing', () => {
     let pendingRequest: any;
 
     beforeEach(async () => {
-      // Create a pending request
       pendingRequest = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'custom_pricing',
-        {
-          requested_features: ['custom_reporting', 'priority_support'],
-          estimated_cost: 500
-        },
+        { requested_features: ['custom_reporting', 'priority_support'] },
         mockUserId,
-        'Need custom enterprise features'
       );
     });
 
     it('should approve valid requests', async () => {
       const approved = await BillingApprovalService.approveRequest(
-        pendingRequest.id,
+        pendingRequest.approval_id,
         mockApproverId,
         'Approved for enterprise customer'
       );
 
       expect(approved.status).toBe('approved');
-      expect(approved.approved_by).toBe(mockApproverId);
-    });
-
-    it('should reject requests with reason', async () => {
-      const rejected = await BillingApprovalService.approveRequest(
-        pendingRequest.id,
-        mockApproverId,
-        'Does not meet enterprise criteria'
-      );
-
-      expect(rejected.status).toBe('approved'); // approveRequest is for approvals only
-      // Need separate reject method or different test
+      expect(approved.approved_by_user_id).toBe(mockApproverId);
     });
 
     it('should prevent double approval', async () => {
-      // First approval
       await BillingApprovalService.approveRequest(
-        pendingRequest.id,
+        pendingRequest.approval_id,
         mockApproverId
       );
 
-      // Second approval should fail
+      // Second approval should fail — DB .eq('status', 'pending') returns no row
       await expect(
         BillingApprovalService.approveRequest(
-          pendingRequest.id,
+          pendingRequest.approval_id,
           'different-approver'
         )
       ).rejects.toThrow();
@@ -146,12 +116,8 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Attempt to approve from different tenant should fail
       await expect(
-        BillingApprovalService.approveRequest(
-          request.id,
-          'wrong-tenant-user'
-        )
+        BillingApprovalService.approveRequest(request.approval_id, 'wrong-tenant-user')
       ).rejects.toThrow();
     });
 
@@ -163,9 +129,8 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Non-admin user should not be able to approve
       const canApprove = await BillingApprovalService.canApproveRequest(
-        request.id,
+        request.approval_id,
         'regular-user'
       );
 
@@ -180,9 +145,8 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Requestor should not be able to approve own request
       const canApprove = await BillingApprovalService.canApproveRequest(
-        request.id,
+        request.approval_id,
         mockUserId
       );
 
@@ -192,17 +156,11 @@ describe('Approval Workflow Testing', () => {
 
   describe('Approval Policies', () => {
     it('should enforce approval policies by request type', async () => {
-      // Set policy requiring approval for enterprise plans
-      await BillingApprovalService.setApprovalPolicy(
-        mockTenantId,
-        'plan_upgrade',
-        {
-          requires_approval: true,
-          approval_threshold: 100,
-          requires_dual_control: false,
-          approver_roles: ['admin', 'owner']
-        }
-      );
+      await BillingApprovalService.setApprovalPolicy(mockTenantId, {
+        action_type: 'plan_upgrade',
+        thresholds: { requires_approval: true, approval_threshold: 100 },
+        required_approver_roles: ['admin', 'owner'],
+      });
 
       const request = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
@@ -211,44 +169,34 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      expect(request.status).toBe('pending'); // Should require approval
+      expect(request.status).toBe('pending');
     });
 
     it.todo('should handle dual control requirements');
 
     it('should respect cost thresholds', async () => {
-      await BillingApprovalService.setApprovalPolicy(
-        mockTenantId,
-        'cap_increase',
-        {
-          requires_approval: true,
-          approval_threshold: 50,
-          auto_approve_below: 10
-        }
-      );
+      await BillingApprovalService.setApprovalPolicy(mockTenantId, {
+        action_type: 'cap_increase',
+        thresholds: { requires_approval: true, approval_threshold: 50, auto_approve_below: 10 },
+        required_approver_roles: [],
+      });
 
-      // Low cost should auto-approve
       const autoApproved = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'cap_increase',
         { metric: 'storage_gb', increase: 5 },
         mockUserId,
-        'Small storage increase',
-        5
+        { estimatedCost: 5 },
       );
-
       expect(autoApproved.status).toBe('approved');
 
-      // High cost should require approval
       const needsApproval = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'cap_increase',
         { metric: 'storage_gb', increase: 100 },
         mockUserId,
-        'Large storage increase',
-        200
+        { estimatedCost: 200 },
       );
-
       expect(needsApproval.status).toBe('pending');
     });
   });
@@ -260,20 +208,17 @@ describe('Approval Workflow Testing', () => {
         'custom_pricing',
         { features: ['audit_feature'] },
         mockUserId,
-        'Testing audit trail'
       );
 
       const approved = await BillingApprovalService.approveRequest(
-        request.id,
+        request.approval_id,
         mockApproverId,
         'Approved for testing'
       );
 
-      // Should have complete audit trail
       expect(approved).toHaveProperty('created_at');
-      expect(approved).toHaveProperty('approved_at');
-      expect(approved.requested_by).toBe(mockUserId);
-      expect(approved.approved_by).toBe(mockApproverId);
+      expect(approved.requested_by_user_id).toBe(mockUserId);
+      expect(approved.approved_by_user_id).toBe(mockApproverId);
     });
 
     it('should prevent approval manipulation', async () => {
@@ -284,14 +229,11 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Attempt to modify request after creation
-      // Should not be allowed
       expect(request.status).toBe('pending');
-      expect(request.requested_by).toBe(mockUserId);
+      expect(request.requested_by_user_id).toBe(mockUserId);
     });
 
     it('should handle approval workflow timeouts', async () => {
-      // Test expiration logic
       const request = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'cap_increase',
@@ -299,66 +241,44 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Simulate time passing beyond expiry
-      // Request should be marked as expired
-      expect(request.status).toBe('pending'); // Initially
+      expect(request.status).toBe('pending');
       // After expiry: expect(request.status).toBe('expired');
     });
   });
 
   describe('Integration Scenarios', () => {
     it('should integrate with billing operations', async () => {
-      // Test that approvals trigger actual billing changes
       const request = await BillingApprovalService.createApprovalRequest(
         mockTenantId,
         'plan_upgrade',
-        {
-          current_plan: 'starter',
-          new_plan: 'professional',
-          proration_amount: 24.50
-        },
+        { current_plan: 'starter', new_plan: 'professional', proration_amount: 24.50 },
         mockUserId,
-        'Monthly plan upgrade'
       );
 
-      // After approval, billing system should reflect changes
       const approved = await BillingApprovalService.approveRequest(
-        request.id,
+        request.approval_id,
         mockApproverId
       );
 
       expect(approved.status).toBe('approved');
-      // Integration test would verify billing system updated
     });
 
     it('should handle bulk approval operations', async () => {
-      // Create multiple requests
       const requests = await Promise.all([
         BillingApprovalService.createApprovalRequest(
-          mockTenantId,
-          'cap_increase',
-          { metric: 'api_calls', increase: 1000 },
-          mockUserId
+          mockTenantId, 'cap_increase', { metric: 'api_calls', increase: 1000 }, mockUserId
         ),
         BillingApprovalService.createApprovalRequest(
-          mockTenantId,
-          'cap_increase',
-          { metric: 'storage_gb', increase: 50 },
-          mockUserId
-        )
+          mockTenantId, 'cap_increase', { metric: 'storage_gb', increase: 50 }, mockUserId
+        ),
       ]);
 
-      // Approve all
-      await Promise.all(
-        requests.map(req =>
-          BillingApprovalService.approveRequest(req.id, mockApproverId)
-        )
+      const approved = await Promise.all(
+        requests.map(req => BillingApprovalService.approveRequest(req.approval_id, mockApproverId))
       );
 
-      // All should be approved
-      for (const req of requests) {
-        expect(req.status).toBe('pending'); // Original status before approval
-        // Would need to refetch to check approved status
+      for (const result of approved) {
+        expect(result.status).toBe('approved');
       }
     });
   });
@@ -374,39 +294,22 @@ describe('Approval Workflow Testing', () => {
         mockUserId
       );
 
-      // Simulate concurrent approval attempts
-      const promises = [
-        BillingApprovalService.approveRequest(request.id, mockApproverId),
-        BillingApprovalService.approveRequest(request.id, 'concurrent-approver')
-      ];
+      const results = await Promise.allSettled([
+        BillingApprovalService.approveRequest(request.approval_id, mockApproverId),
+        BillingApprovalService.approveRequest(request.approval_id, 'concurrent-approver'),
+      ]);
 
-      // Only one should succeed
-      const results = await Promise.allSettled(promises);
-      const fulfilled = results.filter(r => r.status === 'fulfilled');
-      const rejected = results.filter(r => r.status === 'rejected');
-
-      expect(fulfilled.length).toBe(1);
-      expect(rejected.length).toBe(1);
+      expect(results.filter(r => r.status === 'fulfilled').length).toBe(1);
+      expect(results.filter(r => r.status === 'rejected').length).toBe(1);
     });
 
     it('should validate all input parameters', async () => {
-      // Test with invalid inputs
       await expect(
-        BillingApprovalService.createApprovalRequest(
-          '', // Invalid tenant
-          'plan_upgrade',
-          {},
-          mockUserId
-        )
+        BillingApprovalService.createApprovalRequest('', 'plan_upgrade', {}, mockUserId)
       ).rejects.toThrow();
 
       await expect(
-        BillingApprovalService.createApprovalRequest(
-          mockTenantId,
-          'plan_upgrade',
-          {},
-          '' // Invalid user
-        )
+        BillingApprovalService.createApprovalRequest(mockTenantId, 'plan_upgrade', {}, '')
       ).rejects.toThrow();
     });
   });

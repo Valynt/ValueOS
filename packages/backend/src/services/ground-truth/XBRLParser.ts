@@ -256,3 +256,5 @@ export class XBRLParser {
       .sort((a, b) => b.period.localeCompare(a.period));
   }
 }
+
+export const xbrlParser = new XBRLParser();

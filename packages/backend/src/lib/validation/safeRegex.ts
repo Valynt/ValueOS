@@ -300,9 +300,15 @@ export function isValidSlug(slug: string): boolean {
 export function isValidIsoDate(date: string): boolean {
   if (!SafePatterns.isoDate.test(date)) return false;
 
-  // Additional validation: check if date is actually valid
+  // Verify the date doesn't overflow (e.g. Feb 30 → Mar 1 in JS Date).
   const parsed = new Date(date);
-  return !isNaN(parsed.getTime());
+  if (isNaN(parsed.getTime())) return false;
+  const [year, month, day] = date.split('-').map(Number);
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month &&
+    parsed.getUTCDate() === day
+  );
 }
 
 /**
@@ -311,8 +317,9 @@ export function isValidIsoDate(date: string): boolean {
 export function isValidIsoDateTime(datetime: string): boolean {
   if (!SafePatterns.isoDateTime.test(datetime)) return false;
 
-  const parsed = new Date(datetime);
-  return !isNaN(parsed.getTime());
+  // Extract the date portion and validate it doesn't overflow.
+  const datePart = datetime.slice(0, 10);
+  return isValidIsoDate(datePart);
 }
 
 // ============================================================================

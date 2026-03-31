@@ -86,7 +86,7 @@ for (const file of composeFiles) {
 const DANGEROUS_HTML_ALLOWLIST = new Set([
   'apps/ValyntApp/src/components/security/SafeHtml.tsx',
   'eslint.config.js',
-  'packages/sdui/src/security/sanitization.ts'
+  'packages/sdui/src/security/sanitization.ts',
 ]);
 
 function listSourceFiles() {
