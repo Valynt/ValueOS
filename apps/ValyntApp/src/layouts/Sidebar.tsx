@@ -169,7 +169,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                     "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] font-medium transition-all duration-150",
                     collapsed && "justify-center px-2 min-w-10",
                     isActive
-                      ? "bg-white/8 text-sidebar-foreground"
+                      ? "bg-primary/15 text-primary"
                       : "text-muted-foreground hover:bg-white/5 hover:text-sidebar-foreground"
                   )
                 }
