@@ -39,4 +39,4 @@ export function ValueCanvas() {
 
   return <ChatCanvasLayout initialAction={initialAction} />;
 }
-export { ValueCanvas as default } from './ValueCanvas';
+export default ValueCanvas;
