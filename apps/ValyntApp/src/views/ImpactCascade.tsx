@@ -225,4 +225,4 @@ export function ImpactCascade() {
     </div>
   );
 }
-export { ImpactCascade as default } from './ImpactCascade';
+export default ImpactCascade;
