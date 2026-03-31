@@ -233,7 +233,7 @@ export function HomePage() {
           {quickActions.map((action, index) => (
             <Card
               key={index}
-              className="p-4 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer"
+              className="p-4"
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${action.color}`}>
