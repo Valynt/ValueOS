@@ -6,6 +6,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { z } from "zod";
 
 import { getDomainEventBus } from "../../../events/DomainEventBus.js";
 import type {
@@ -18,7 +19,7 @@ import type {
   DiscoveryCancelledPayload,
 } from "../../../events/DomainEventSchemas.js";
 import { OpportunityAgent } from "./OpportunityAgent.js";
-import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import type { AgentOutput, LifecycleContext, AgentConfig } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import {
   ValueGraphService,
@@ -28,6 +29,7 @@ import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
+import { BaseAgent } from "./BaseAgent.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +53,7 @@ export interface DiscoveryRun {
   completedAt?: string;
   error?: string;
   cancellationToken?: { cancelled: boolean };
+  hypothesesFound?: number;
 }
 
 export interface DiscoveryHypothesis {
@@ -69,6 +72,15 @@ export interface DiscoveryHypothesis {
   assumptions: string[];
 }
 
+// Input schema for DiscoveryAgent execution
+const DiscoveryInputSchema = z.object({
+  valueCaseId: z.string(),
+  companyName: z.string(),
+  industryContext: z.string().optional(),
+});
+
+type DiscoveryInput = z.infer<typeof DiscoveryInputSchema>;
+
 // ---------------------------------------------------------------------------
 // In-memory run store (orchestration state only, not domain state)
 // ---------------------------------------------------------------------------
@@ -79,16 +91,127 @@ const discoveryRuns = new Map<string, DiscoveryRun>();
 // DiscoveryAgent
 // ---------------------------------------------------------------------------
 
-export class DiscoveryAgent {
-  private readonly valueGraphService: ValueGraphService;
+export class DiscoveryAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+  public override readonly lifecycleStage = "discovery";
+
   private readonly graphWriter: BaseGraphWriter;
 
   constructor(
+    config: AgentConfig,
+    organizationId: string,
+    memorySystem: MemorySystem,
+    llmGateway: LLMGateway,
+    circuitBreaker: CircuitBreaker,
     valueGraphService?: ValueGraphService,
     graphWriter?: BaseGraphWriter
   ) {
-    this.valueGraphService = valueGraphService ?? defaultValueGraphService;
-    this.graphWriter = graphWriter ?? new BaseGraphWriter();
+    super(config, organizationId, memorySystem, llmGateway, circuitBreaker);
+    this.graphWriter = graphWriter ?? new BaseGraphWriter(valueGraphService ?? defaultValueGraphService);
+  }
+
+  /**
+   * Validate input context for discovery execution.
+   */
+  override async validateInput(context: LifecycleContext): Promise<boolean> {
+    // First, run base validation
+    const baseValid = await super.validateInput(context);
+    if (!baseValid) return false;
+
+    // Discovery-specific validation
+    const { valueCaseId, companyName } = context.user_inputs || {};
+    if (!valueCaseId || !companyName) {
+      logger.error("DiscoveryAgent: missing required inputs", {
+        has_value_case_id: !!valueCaseId,
+        has_company_name: !!companyName,
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Main execution entry point required by BaseAgent.
+   * This orchestrates a single discovery run with proper tenant verification
+   * and audit logging inherited from BaseAgent.execute().
+   */
+  async _execute(context: LifecycleContext): Promise<AgentOutput> {
+    const startTime = Date.now();
+
+    // Validate and extract inputs
+    const inputValidation = DiscoveryInputSchema.safeParse(context.user_inputs);
+    if (!inputValidation.success) {
+      return this.buildOutput(
+        { error: "Invalid discovery input", details: inputValidation.error.errors },
+        "failure",
+        "low",
+        startTime
+      );
+    }
+
+    const { valueCaseId, companyName, industryContext } = inputValidation.data;
+
+    // Start the discovery run (tenant context already verified by BaseAgent.execute())
+    const { runId } = await this.startDiscovery({
+      organizationId: this.organizationId,
+      valueCaseId,
+      companyName,
+      industryContext,
+    });
+
+    // Wait for completion and return result
+    const run = await this.waitForRunCompletion(runId);
+
+    if (run.status === "completed") {
+      return this.buildOutput(
+        { runId, status: run.status, valueCaseId, hypothesesFound: run.hypothesesFound },
+        "success",
+        "high",
+        startTime,
+        {
+          reasoning: `Discovery run ${runId} completed successfully for value case ${valueCaseId}`,
+          suggested_next_actions: ["Review generated hypotheses", "Proceed to TargetAgent for KPI setting"],
+        }
+      );
+    } else {
+      return this.buildOutput(
+        { runId, status: run.status, error: run.error },
+        "failure",
+        "low",
+        startTime,
+        {
+          reasoning: `Discovery run ${runId} failed: ${run.error}`,
+        }
+      );
+    }
+  }
+
+  /**
+   * Wait for a run to complete and return final state.
+   */
+  private async waitForRunCompletion(runId: string): Promise<DiscoveryRun> {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        const run = discoveryRuns.get(runId);
+        if (!run) {
+          clearInterval(checkInterval);
+          resolve({ status: "failed", error: "Run not found" } as DiscoveryRun);
+          return;
+        }
+
+        if (run.status === "completed" || run.status === "failed" || run.status === "cancelled") {
+          clearInterval(checkInterval);
+          resolve(run);
+        }
+      }, 100);
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve({ status: "failed", error: "Discovery run timeout" } as DiscoveryRun);
+      }, 5 * 60 * 1000);
+    });
   }
 
   /**
@@ -119,7 +242,7 @@ export class DiscoveryAgent {
       emittedAt: new Date().toISOString(),
       traceId: runId,
       tenantId: params.organizationId,
-      actorId: "system",
+      actorId: this.organizationId, // Use the agent's organization context
       runId,
       valueCaseId: params.valueCaseId,
       companyName: params.companyName,
@@ -298,6 +421,7 @@ export class DiscoveryAgent {
 
   /**
    * Run the OpportunityAgent to generate hypotheses.
+   * Uses factory-provided dependencies rather than creating new instances.
    */
   private async runOpportunityPhase(
     organizationId: string,
@@ -305,23 +429,14 @@ export class DiscoveryAgent {
     companyName: string,
     industryContext?: string
   ): Promise<AgentOutput> {
-    // Create fresh OpportunityAgent instance for this run
-    const memorySystem = new MemorySystem({
-      max_memories: 1000,
-      enable_persistence: true,
-    });
-    const llmGateway = new LLMGateway();
-    const circuitBreaker = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeoutMs: 30000,
-    });
-
+    // Create OpportunityAgent using the factory-injected dependencies
+    // This ensures proper tenant scoping and audit logging
     const opportunityAgent = new OpportunityAgent(
       {
         id: "opportunity",
         name: "opportunity",
         type: "opportunity",
-        lifecycle_stage: "opportunity",
+        lifecycle_stage: "discovery",
         capabilities: [],
         model: {
           provider: "openai",
@@ -348,16 +463,16 @@ export class DiscoveryAgent {
         metadata: { version: "1.0.0" },
       },
       organizationId,
-      memorySystem,
-      llmGateway,
-      circuitBreaker
+      this.memorySystem,
+      this.llmGateway,
+      this.circuitBreaker
     );
 
     const context: LifecycleContext = {
       workspace_id: opportunityId,
       organization_id: organizationId,
-      user_id: "system",
-      lifecycle_stage: "opportunity",
+      user_id: this.organizationId,
+      lifecycle_stage: "discovery",
       user_inputs: {
         query: companyName,
         industry_context: industryContext,
@@ -377,7 +492,7 @@ export class DiscoveryAgent {
         emittedAt: new Date().toISOString(),
         traceId: opportunityId,
         tenantId: organizationId,
-        actorId: "system",
+        actorId: this.organizationId,
         valueCaseId: opportunityId,
         hypothesisId: hypothesis.id,
         title: hypothesis.title,
@@ -394,7 +509,7 @@ export class DiscoveryAgent {
    * Extract hypotheses from AgentOutput data.
    */
   private extractHypotheses(output: AgentOutput): DiscoveryHypothesis[] {
-    const data = output.data as Record<string, unknown> | undefined;
+    const data = output.result as Record<string, unknown> | undefined;
     if (!data) return [];
 
     const hypotheses = data.hypotheses as Array<Record<string, unknown>> | undefined;
@@ -439,11 +554,10 @@ export class DiscoveryAgent {
         };
 
         // Write ValueDriver node for each hypothesis
-        // Map category to a valid VgValueDriver type
         const driverType = mapCategoryToDriverType(hypothesis.category);
 
         await this.graphWriter.writeValueDriver(context, {
-          type: driverType,
+          type: driverType as unknown as "revenue" | "cost_savings" | "risk_reduction" | "productivity" | "strategic_value" | "other",
           name: hypothesis.title,
           description: hypothesis.description,
           estimated_impact_usd: hypothesis.estimatedImpact?.high ?? 0,
@@ -518,7 +632,7 @@ export class DiscoveryAgent {
       emittedAt: new Date().toISOString(),
       traceId: runId,
       tenantId: run.organizationId,
-      actorId: "system",
+      actorId: this.organizationId,
       runId,
       valueCaseId: run.valueCaseId,
       error: error.message,
@@ -529,6 +643,17 @@ export class DiscoveryAgent {
       runId,
       error: error.message,
     });
+  }
+
+  override getCapabilities(): string[] {
+    return [
+      "start_discovery",
+      "cancel_discovery",
+      "orchestrate_opportunity_agent",
+      "extract_hypotheses",
+      "emit_progress_events",
+      "write_to_value_graph",
+    ];
   }
 }
 
@@ -546,12 +671,34 @@ function mapCategoryToDriverType(category: string): string {
   return mapping[category] ?? "other";
 }
 
-// Singleton instance for use by the API layer
+// Singleton instance for use by the API layer (legacy compatibility)
 let discoveryAgentInstance: DiscoveryAgent | null = null;
 
 export function getDiscoveryAgent(): DiscoveryAgent {
   if (!discoveryAgentInstance) {
-    discoveryAgentInstance = new DiscoveryAgent();
+    // Create with default dependencies - prefer using AgentFactory for new code
+    const memorySystem = new MemorySystem({ max_memories: 1000, enable_persistence: true });
+    const llmGateway = new LLMGateway();
+    const circuitBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 30000 });
+
+    discoveryAgentInstance = new DiscoveryAgent(
+      {
+        id: "discovery",
+        name: "discovery",
+        type: "discovery",
+        lifecycle_stage: "discovery",
+        capabilities: [],
+        model: { provider: "openai", model_name: "gpt-4" },
+        prompts: { system_prompt: "", user_prompt_template: "" },
+        parameters: { timeout_seconds: 60, max_retries: 3, retry_delay_ms: 1000, enable_caching: true, enable_telemetry: true },
+        constraints: { max_input_tokens: 4000, max_output_tokens: 2000, allowed_actions: [], forbidden_actions: [], required_permissions: [] },
+        metadata: { version: "1.0.0" },
+      },
+      "system", // Will be overridden when used properly via factory
+      memorySystem,
+      llmGateway,
+      circuitBreaker
+    );
   }
   return discoveryAgentInstance;
 }

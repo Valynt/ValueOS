@@ -15,6 +15,7 @@ import { logger } from "../logger.js";
 
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { ComplianceAuditorAgent } from "./agents/ComplianceAuditorAgent.js";
+import { DiscoveryAgent } from "./agents/DiscoveryAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
@@ -43,6 +44,7 @@ const FABRIC_AGENT_CLASSES: Partial<
   narrative: NarrativeAgent,
   realization: RealizationAgent,
   "compliance-auditor": ComplianceAuditorAgent,
+  discovery: DiscoveryAgent,
 };
 
 export interface AgentFactoryDeps {
