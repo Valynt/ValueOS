@@ -496,4 +496,4 @@ export function ROICalculator() {
     </div>
   );
 }
-export { ROICalculator as default } from './ROICalculator';
+export default ROICalculator;
