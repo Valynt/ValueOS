@@ -643,7 +643,7 @@ jobs:
       - name: SCA — pnpm audit (fail on high/critical)
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
