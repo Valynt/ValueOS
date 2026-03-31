@@ -35,7 +35,6 @@ const createMockSupabase = () => {
       // Build a chainable mock that resolves to { data, error } at any terminal call
       const resolved = Promise.resolve({ data: ledgerData, error: null });
       const chain: Record<string, unknown> = {};
-      const chainFn = () => chain;
       chain.select = vi.fn().mockReturnValue(chain);
       chain.eq = vi.fn().mockReturnValue(chain);
       chain.gte = vi.fn().mockReturnValue(chain);
