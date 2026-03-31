@@ -357,3 +357,5 @@ export class SECEdgarClient {
     this.circuitBreaker.isOpen = false;
   }
 }
+
+export const secEdgarClient = new SECEdgarClient();

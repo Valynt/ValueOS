@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Valynt | Agent Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {primary: "#000000", "primary-container": "#131b2e", "on-primary": "#ffffff", secondary: "#515f74", "secondary-container": "#d5e3fc", tertiary: "#000000", "tertiary-container": "#25005a", background: "#f7f9fb", surface: "#f7f9fb", "surface-container-low": "#f2f4f6", "surface-container": "#eceef0", "surface-container-high": "#e6e8ea", "surface-container-highest": "#e0e3e5", "on-surface": "#191c1e", "on-surface-variant": "#45464d", outline: "#76777d", "outline-variant": "#c6c6cd", error: "#ba1a1a", "error-container": "#ffdad6", "on-tertiary": "#ffffff", "tertiary-fixed-dim": "#d2bbff", "on-secondary-container": "#57657a", "on-primary-fixed": "#131b2e", "inverse-on-surface": "#eff1f3", "on-secondary-fixed": "#0d1c2e", "surface-variant": "#e0e3e5", "on-tertiary-container": "#9863ff", "on-tertiary-fixed": "#25005a", "tertiary-fixed": "#eaddff", "secondary-fixed": "#d5e3fc", "on-secondary": "#ffffff", "surface-tint": "#565e74", "surface-dim": "#d8dadc", "primary-fixed": "#dae2fd", "on-primary-container": "#7c839b", "on-tertiary-fixed-variant": "#5a00c6", "secondary-fixed-dim": "#b9c7df", "on-secondary-fixed-variant": "#3a485b", "on-background": "#191c1e", "on-error": "#ffffff", "on-primary-fixed-variant": "#3f465c", "inverse-primary": "#bec6e0", "on-error-container": "#93000a", "surface-container-lowest": "#ffffff", "inverse-surface": "#2d3133", "surface-bright": "#f7f9fb", "primary-fixed-dim": "#bec6e0"}, fontFamily: {headline: ["Inter"], body: ["Inter"], label: ["Inter"], display: "Inter"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(24px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 z-50 w-full flex justify-between items-center px-6 py-4 bg-white border-b border-outline-variant/50">
+<div class="flex items-center gap-8">
+<h1 class="font-manrope font-bold tracking-tighter text-2xl text-primary">Valynt</h1>
+<nav class="hidden md:flex items-center gap-6">
+<span class="font-inter text-xs font-semibold uppercase tracking-widest text-primary cursor-pointer">Intelligence</span>
+<span class="font-inter text-xs font-semibold uppercase tracking-widest text-on-surface-variant hover:text-tertiary transition-colors duration-300 cursor-pointer">Models</span>
+<span class="font-inter text-xs font-semibold uppercase tracking-widest text-on-surface-variant hover:text-tertiary transition-colors duration-300 cursor-pointer">Compliance</span>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container px-3 py-1.5 rounded-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+<input class="bg-transparent border-none text-xs text-on-surface placeholder-on-surface-variant focus:ring-0 w-48" placeholder="Search Traces..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer transition-colors">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer transition-colors">settings</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant">
+<img alt="Executive Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkOyRd2lLSvkddae2LJhdahUa_cB5L0xo0eaF4MCNNUns1L3HON-7l0_1DWKLUNHFl5hjU8unuEafQ31EV4R3iABWi-fDCKd9_QB62GG4Ukut7A-LaWpuuSdN56GGjoUaEVWo5PdHoUpNrjhthS4wiu4H76ErGW8BMrpyBCMywefI0Mz4U8heW6VZOz2_UBdhN8lT21j7M8nybSKkvVoUkH67o-JK0u9AirHXQQsg9FvRYnb4QjiEVgBOGKGk6UIvf9Ag8-L6acuI"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-zinc-50 w-20 hover:w-64 transition-all duration-500 ease-in-out border-r border-outline-variant group">
+<div class="pt-24 px-4 flex-grow space-y-2">
+<!-- Intelligence (Active) -->
+<div class="flex items-center gap-4 p-3 bg-white text-primary rounded-sm border-l-2 border-primary shadow-sm cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">insights</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Intelligence</span>
+</div>
+<!-- Models -->
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">account_tree</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Models</span>
+</div>
+<!-- Capital -->
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">account_balance</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Capital</span>
+</div>
+<!-- Risk -->
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">security</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Risk</span>
+</div>
+<!-- Strategy -->
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">explore</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Strategy</span>
+</div>
+</div>
+<div class="p-4 space-y-2 mb-4">
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">help</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Support</span>
+</div>
+<div class="flex items-center gap-4 p-3 text-on-surface-variant hover:bg-white hover:text-primary cursor-pointer transition-all duration-300">
+<span class="material-symbols-outlined shrink-0">logout</span>
+<span class="font-inter text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-300">Logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-20 pt-20 p-6 h-screen overflow-y-auto bg-white">
+<!-- Header Section -->
+<header class="mb-8 grid grid-cols-12 gap-6 items-end">
+<div class="col-span-8">
+<span class="text-tertiary font-label text-xs uppercase tracking-widest font-bold mb-2 block">Sovereign Analyst Engine</span>
+<h2 class="font-headline text-4xl font-extrabold text-primary tracking-tight">Agent Observability &amp; Integrity</h2>
+<p class="text-on-surface-variant max-w-2xl mt-2 text-sm">Deep-trace monitoring of autonomous financial agents and compliance lineage across active models.</p>
+</div>
+<div class="col-span-4 flex justify-end gap-3">
+<button class="bg-white text-primary border border-primary/20 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-surface-container-low transition-all">Export Report</button>
+<button class="bg-primary text-white px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-secondary transition-all">New Analysis</button>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Agent Activity Monitor -->
+<section class="col-span-8 bg-surface-container-low p-6 rounded-sm border border-outline-variant/50 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline text-lg text-primary font-bold flex items-center gap-2">
+<span class="material-symbols-outlined">analytics</span>
+                    Agent Activity Monitor
+                </h3>
+<div class="flex gap-4 items-center">
+<span class="flex items-center gap-1.5 text-[10px] uppercase font-bold text-tertiary">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Live Traces
+                    </span>
+<select class="bg-white border border-outline-variant text-[10px] uppercase font-bold text-on-surface-variant focus:ring-1 focus:ring-primary py-1 px-2 rounded-sm">
+<option>Last 15 Minutes</option>
+<option>Last Hour</option>
+</select>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Log Items -->
+<div class="grid grid-cols-12 gap-4 items-center py-3 border-b border-outline-variant/50 group hover:bg-white transition-colors px-2 -mx-2">
+<div class="col-span-1 font-mono text-[10px] text-on-surface-variant">14:22:01</div>
+<div class="col-span-3">
+<div class="text-xs font-bold text-primary">secureInvoke: PortfolioRebalance</div>
+<div class="text-[10px] text-on-surface-variant">Agent: VAL-Alpha-09</div>
+</div>
+<div class="col-span-5">
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 75%;"></div>
+</div>
+</div>
+<div class="col-span-1 text-[10px] font-mono text-secondary font-bold">142ms</div>
+<div class="col-span-2 text-right">
+<span class="bg-primary/10 text-primary text-[9px] font-black px-2 py-0.5 rounded-sm">VERIFIED</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-4 items-center py-3 border-b border-outline-variant/50 group hover:bg-white transition-colors px-2 -mx-2">
+<div class="col-span-1 font-mono text-[10px] text-on-surface-variant">14:21:48</div>
+<div class="col-span-3">
+<div class="text-xs font-bold text-primary">dataFetch: MarketVolatilityIndex</div>
+<div class="text-[10px] text-on-surface-variant">Source: Bloomberg API-L3</div>
+</div>
+<div class="col-span-5">
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full" style="width: 42%;"></div>
+</div>
+</div>
+<div class="col-span-1 text-[10px] font-mono text-tertiary font-bold">89ms</div>
+<div class="col-span-2 text-right">
+<span class="bg-tertiary/10 text-tertiary text-[9px] font-black px-2 py-0.5 rounded-sm">ENCRYPTED</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-4 items-center py-3 border-b border-outline-variant/50 group hover:bg-white transition-colors px-2 -mx-2">
+<div class="col-span-1 font-mono text-[10px] text-on-surface-variant">14:20:12</div>
+<div class="col-span-3">
+<div class="text-xs font-bold text-error">policyCheck: RiskLimitThreshold</div>
+<div class="text-[10px] text-error/80">Warning: Exposure Cap &gt; 12%</div>
+</div>
+<div class="col-span-5">
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 95%;"></div>
+</div>
+</div>
+<div class="col-span-1 text-[10px] font-mono text-error font-bold">310ms</div>
+<div class="col-span-2 text-right">
+<span class="bg-error-container text-error text-[9px] font-black px-2 py-0.5 rounded-sm uppercase tracking-tighter">Flagged</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Integrity & Compliance Engine -->
+<section class="col-span-4 bg-surface-container-low p-6 rounded-sm border border-outline-variant/50">
+<h3 class="font-headline text-lg text-primary font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined">verified_user</span>
+                Integrity Report
+            </h3>
+<div class="flex flex-col items-center justify-center p-6 bg-white rounded-sm mb-6 border border-outline-variant shadow-sm">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container-high" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="364.4" stroke-dashoffset="36.4" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-headline text-3xl font-black text-primary">94%</span>
+<span class="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">Trust Score</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center p-3 bg-white border border-outline-variant/50 rounded-sm">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blocked Claims</span>
+<span class="text-sm font-bold text-error">12</span>
+</div>
+<div class="flex justify-between items-center p-3 bg-white border border-outline-variant/50 rounded-sm">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Audit Trails</span>
+<span class="text-sm font-bold text-primary">1,402</span>
+</div>
+<div class="flex justify-between items-center p-3 bg-white border border-outline-variant/50 rounded-sm">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Missing Flags</span>
+<span class="text-sm font-bold text-tertiary">02</span>
+</div>
+</div>
+</section>
+<!-- Value Trace Graph -->
+<section class="col-span-5 bg-surface-container-low p-6 rounded-sm border border-outline-variant/50 h-80 relative overflow-hidden">
+<h3 class="font-headline text-lg text-primary font-bold mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined">account_tree</span>
+                Value Trace Graph
+            </h3>
+<p class="text-[10px] text-on-surface-variant mb-6 uppercase tracking-widest font-bold">Full lineage: Narrative → Logic → Source</p>
+<div class="relative h-full flex items-center justify-between px-4">
+<div class="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center border border-primary/20 z-10">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="flex-grow h-[2px] bg-gradient-to-r from-primary/30 to-secondary/30 relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-primary/40 rounded-full blur-[2px]"></div>
+</div>
+<div class="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center border border-secondary/20 z-10">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div class="flex-grow h-[2px] bg-gradient-to-r from-secondary/30 to-tertiary/30"></div>
+<div class="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center border border-tertiary/20 z-10">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">database</span>
+</div>
+</div>
+<!-- Background Decoration -->
+<div class="absolute inset-0 opacity-5 pointer-events-none">
+<div class="absolute top-1/4 left-1/4 w-48 h-48 bg-primary rounded-full blur-[100px]"></div>
+<div class="absolute bottom-1/4 right-1/4 w-48 h-48 bg-tertiary rounded-full blur-[100px]"></div>
+</div>
+</section>
+<!-- Financial Model Observability -->
+<section class="col-span-7 bg-surface-container-low p-6 rounded-sm border border-outline-variant/50 h-80 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline text-lg text-primary font-bold flex items-center gap-2">
+<span class="material-symbols-outlined">query_stats</span>
+                    Financial Model Observability
+                </h3>
+<div class="flex gap-2">
+<span class="bg-primary/5 px-2 py-1 text-[9px] font-black uppercase text-primary border border-primary/10">Bull Case</span>
+<span class="bg-error/5 px-2 py-1 text-[9px] font-black uppercase text-error border border-error/10">Bear Case</span>
+</div>
+</div>
+<div class="flex-grow flex items-end gap-1.5 mb-2">
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[40%] rounded-t-sm group relative">
+<div class="absolute -top-6 left-0 opacity-0 group-hover:opacity-100 text-[10px] font-bold text-primary">Q1</div>
+</div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[55%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[48%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[62%] rounded-t-sm"></div>
+<div class="flex-grow bg-tertiary/40 hover:bg-tertiary/60 transition-colors h-[78%] rounded-t-sm border-t-2 border-tertiary"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[58%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[45%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[52%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[68%] rounded-t-sm"></div>
+<div class="flex-grow bg-error/40 hover:bg-error/60 transition-colors h-[32%] rounded-t-sm border-t-2 border-error"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[50%] rounded-t-sm"></div>
+<div class="flex-grow bg-primary/20 hover:bg-primary/40 transition-colors h-[55%] rounded-t-sm"></div>
+</div>
+<div class="mt-4 grid grid-cols-2 gap-4">
+<div class="bg-white p-3 rounded-sm border border-outline-variant/50">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block mb-1">Assumption Sensitivity</span>
+<span class="text-sm font-bold text-on-surface">Interest Rate (+0.5bps) → <span class="text-error">-1.2% Drift</span></span>
+</div>
+<div class="bg-white p-3 rounded-sm border border-outline-variant/50">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block mb-1">Drift Detection</span>
+<span class="text-sm font-bold text-on-surface">Model Alpha-02 → <span class="text-tertiary">Stable (0.02)</span></span>
+</div>
+</div>
+</section>
+<!-- Evidence Coverage Modules -->
+<section class="col-span-12 grid grid-cols-4 gap-6">
+<div class="bg-surface-container-low p-4 rounded-sm flex items-center gap-4 border border-outline-variant/50">
+<div class="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">menu_book</span>
+</div>
+<div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase">Evidence Coverage</div>
+<div class="font-headline text-lg font-black text-primary">88.4%</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm flex items-center gap-4 border border-outline-variant/50">
+<div class="w-10 h-10 rounded-sm bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">network_ping</span>
+</div>
+<div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase">Avg Latency</div>
+<div class="font-headline text-lg font-black text-primary">114ms</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm flex items-center gap-4 border border-outline-variant/50">
+<div class="w-10 h-10 rounded-sm bg-error/10 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">gpp_maybe</span>
+</div>
+<div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase">Blocked Actions</div>
+<div class="font-headline text-lg font-black text-primary">04 Today</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-sm flex items-center gap-4 border border-outline-variant/50">
+<div class="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">history</span>
+</div>
+<div>
+<div class="text-[10px] font-bold text-on-surface-variant uppercase">Archive Recall</div>
+<div class="font-headline text-lg font-black text-primary">Instant</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center hover:bg-secondary active:scale-90 transition-all z-50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+</body></html>

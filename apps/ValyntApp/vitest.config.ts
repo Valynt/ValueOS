@@ -11,7 +11,16 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/fetch-polyfill.ts", "./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "**/*.pure-unit.test.*", "src/__tests__/audit/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/*.pure-unit.test.*",
+      "src/__tests__/audit/**",
+      // src/sdui is a symlink to packages/sdui/src. Those tests are already
+      // covered by the root-level "sdui" project. Running them here too causes
+      // both projects to compete for the same module-level state and deadlock.
+      "src/sdui/**",
+    ],
+
     env: {
       NODE_ENV: "test",
       TEST_MODE: "true",

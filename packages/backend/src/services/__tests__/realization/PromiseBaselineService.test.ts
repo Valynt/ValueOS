@@ -58,12 +58,12 @@ describe("PromiseBaselineService", () => {
     });
 
     it("should not allow cross-tenant baseline access", async () => {
-      // Seed data for tenant A
+      // Seed data for tenant A — use organization_id to match the service's query field
       mockSupabase._mockData.set("promise_baselines", [
-        factories.scenario({ tenant_id: "tenant-a", id: "baseline-a" }),
+        { ...factories.scenario({ id: "baseline-a" }), organization_id: "tenant-a", tenant_id: "tenant-a" },
       ]);
 
-      // Try to access from tenant B
+      // Querying with tenant B's id should find no matching row and throw
       await expect(service.getBaseline("baseline-a", "tenant-b")).rejects.toThrow();
     });
   });
@@ -181,6 +181,7 @@ describe("PromiseBaselineService", () => {
         {
           id: baselineId,
           tenant_id: "tenant-1",
+          organization_id: "tenant-1",
           case_id: "case-1",
           scenario_id: "scenario-1",
           scenario_type: "base",
@@ -260,6 +261,7 @@ describe("PromiseBaselineService", () => {
         {
           id: baselineId,
           tenant_id: "tenant-1",
+          organization_id: "tenant-1",
           case_id: "case-1",
           scenario_id: "scenario-1",
           scenario_type: "base",

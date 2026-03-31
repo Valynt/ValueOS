@@ -1,45 +1,45 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VectorSearchService } from "../memory/VectorSearchService.js";
 
-describe("VectorSearchService filter normalization", () => {
+// Supabase is not needed — we test the filter-building logic, not DB execution
+vi.mock("../../lib/supabase.js", () => ({
+  createServerSupabaseClient: vi.fn(),
+  supabase: { from: vi.fn(), rpc: vi.fn() },
+}));
+
+describe("VectorSearchService — SQL injection safety", () => {
   const service = new VectorSearchService();
 
-  it("extracts tenant and organization scope from filters without emitting SQL fragments", () => {
-    const normalized = (service as unknown as {
-      normalizeFilters: (filters: Record<string, unknown>) => {
-        filters: Record<string, unknown>;
-        organizationId: string | null;
-        tenantId: string | null;
-      };
-    }).normalizeFilters({
-      organization_id: "org-123",
-      tenant_id: "tenant-456",
-      workflowId: "wf'; DROP TABLE semantic_memory; --",
-      tags: ["safe", "tag"],
-    });
+  it("rejects invalid memory types to prevent SQL injection via type parameter", () => {
+    // buildFilterClause validates type against a known enum before interpolating
+    const buildFilter = (service as unknown as {
+      buildFilterClause: (type?: string, filters?: Record<string, unknown>) => string;
+    }).buildFilterClause.bind(service);
 
-    expect(normalized.organizationId).toBe("org-123");
-    expect(normalized.tenantId).toBe("tenant-456");
-    expect(normalized.filters).toEqual({
-      tags: ["safe", "tag"],
-      workflowId: "wf'; DROP TABLE semantic_memory; --",
-    });
+    expect(() => buildFilter("'; DROP TABLE semantic_memory; --" as any)).toThrow(/Invalid memory type/);
+    expect(() => buildFilter("value_proposition")).not.toThrow();
   });
 
-  it("preserves supported range filters and drops unsupported shapes", () => {
-    const normalizedRange = (service as unknown as {
-      normalizeFilterValue: (value: unknown) => unknown;
-    }).normalizeFilterValue({ gte: "2026-01-01", lte: "2026-03-01", nested: true });
+  it("escapes single quotes in string values to prevent SQL injection", () => {
+    const escape = (service as unknown as {
+      escapeSqlLiteral: (v: string) => string;
+    }).escapeSqlLiteral.bind(service);
 
-    const normalizedUnsupported = (service as unknown as {
-      normalizeFilterValue: (value: unknown) => unknown;
-    }).normalizeFilterValue({ nested: { nope: true } });
+    expect(escape("safe")).toBe("safe");
+    expect(escape("it's")).toBe("it''s");
+    expect(escape("'; DROP TABLE foo; --")).toBe("''; DROP TABLE foo; --");
+  });
 
-    expect(normalizedRange).toEqual({
-      gte: "2026-01-01",
-      lte: "2026-03-01",
-    });
-    expect(normalizedUnsupported).toBeUndefined();
+  it("rejects non-identifier filter keys to prevent SQL injection via column names", () => {
+    const isSafe = (service as unknown as {
+      isSafeIdentifier: (k: string) => boolean;
+    }).isSafeIdentifier.bind(service);
+
+    expect(isSafe("valid_column")).toBe(true);
+    expect(isSafe("column123")).toBe(true);
+    expect(isSafe("'; DROP TABLE--")).toBe(false);
+    expect(isSafe("col name")).toBe(false);
+    expect(isSafe("col-name")).toBe(false);
   });
 });

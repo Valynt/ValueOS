@@ -150,13 +150,18 @@ export class CircuitBreaker {
 
 export class CircuitBreakerManager {
   private breakers = new Map<string, CircuitBreaker>();
+  private defaultConfig: Partial<CircuitBreakerConfig>;
+
+  constructor(defaultConfig: Partial<CircuitBreakerConfig> = {}) {
+    this.defaultConfig = defaultConfig;
+  }
 
   getBreaker(
     name: string,
     config?: Partial<CircuitBreakerConfig>
   ): CircuitBreaker {
     if (!this.breakers.has(name)) {
-      this.breakers.set(name, new CircuitBreaker(config));
+      this.breakers.set(name, new CircuitBreaker({ ...this.defaultConfig, ...config }));
     }
     return this.breakers.get(name)!;
   }

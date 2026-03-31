@@ -4,7 +4,8 @@ vi.mock("../../lib/supabase.js");
 
 const logAuditMock = vi.fn(async () => undefined);
 
-vi.mock("../../services/AuditLogService", () => ({
+// Path must match the import in auditHooks.ts: ../services/security/AuditLogService
+vi.mock("../../services/security/AuditLogService", () => ({
   auditLogService: {
     logAudit: logAuditMock,
   },
