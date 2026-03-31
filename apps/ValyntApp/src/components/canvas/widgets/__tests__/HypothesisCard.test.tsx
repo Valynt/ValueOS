@@ -5,8 +5,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-
 import { HypothesisCard } from "../HypothesisCard";
+import { ToastProvider } from "@/components/common/Toast";
+
+// Test wrapper with ToastProvider
+const TestWrapper = ({ children }: { children: React.ReactNode }) => (
+  <ToastProvider>{children}</ToastProvider>
+);
 
 describe("HypothesisCard", () => {
   const mockHypothesis = {
@@ -20,7 +25,7 @@ describe("HypothesisCard", () => {
   };
 
   it("renders value driver and impact range", () => {
-    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />);
+    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />, { wrapper: TestWrapper });
 
     expect(screen.getByText("Cost Reduction")).toBeInTheDocument();
     expect(screen.getByText("$100,000")).toBeInTheDocument();
@@ -28,7 +33,7 @@ describe("HypothesisCard", () => {
   });
 
   it("displays confidence badge", () => {
-    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />);
+    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />, { wrapper: TestWrapper });
 
     expect(screen.getByText("75%")).toBeInTheDocument();
   });
@@ -40,7 +45,8 @@ describe("HypothesisCard", () => {
         id="hypothesis-card"
         data={{ hypotheses: [mockHypothesis] }}
         onAction={onAction}
-      />
+      />,
+      { wrapper: TestWrapper }
     );
 
     fireEvent.click(screen.getByText("Accept"));
@@ -54,7 +60,8 @@ describe("HypothesisCard", () => {
         id="hypothesis-card"
         data={{ hypotheses: [mockHypothesis] }}
         onAction={onAction}
-      />
+      />,
+      { wrapper: TestWrapper }
     );
 
     fireEvent.click(screen.getByText("Reject"));
@@ -68,7 +75,8 @@ describe("HypothesisCard", () => {
         id="hypothesis-card"
         data={{ hypotheses: [mockHypothesis] }}
         onAction={onAction}
-      />
+      />,
+      { wrapper: TestWrapper }
     );
 
     fireEvent.click(screen.getByText("Edit"));
@@ -76,14 +84,14 @@ describe("HypothesisCard", () => {
   });
 
   it("shows benchmark context when available", () => {
-    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />);
+    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [mockHypothesis] }} />, { wrapper: TestWrapper });
 
     expect(screen.getByText("Industry Data")).toBeInTheDocument();
   });
 
   it("shows status badge for accepted hypotheses", () => {
     const acceptedHypothesis = { ...mockHypothesis, status: "accepted" as const };
-    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [acceptedHypothesis] }} />);
+    render(<HypothesisCard id="hypothesis-card" data={{ hypotheses: [acceptedHypothesis] }} />, { wrapper: TestWrapper });
 
     expect(screen.getByText("Accepted")).toBeInTheDocument();
   });

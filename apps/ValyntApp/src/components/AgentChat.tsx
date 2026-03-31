@@ -12,16 +12,16 @@ import { cn } from "@/lib/utils";
 // Type definitions for message metadata
 interface ToolCall {
   id: string;
-  name: string;
-  arguments: Record<string, unknown>;
+  tool: string;
+  args: Record<string, unknown>;
   status?: 'pending' | 'completed' | 'failed';
   result?: unknown;
 }
 
 interface Suggestion {
   id: string;
-  title: string;
-  description: string;
+  type: string;
+  content: string;
 }
 
 interface MessageMetadata {

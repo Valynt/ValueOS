@@ -159,7 +159,7 @@ describe("AgentThread", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /view last successful artifact/i,
+        name: /view last artifact/i,
       })
     ).toBeInTheDocument();
 
@@ -194,7 +194,20 @@ describe("AgentThread", () => {
         decidedAt: "2026-03-28T12:00:00.000Z",
         riskLevel: "medium",
       },
-    });
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+      isPending: false,
+      isFetching: false,
+      isRefetching: false,
+      isPlaceholderData: false,
+      isRefetchError: false,
+      isPaused: false,
+      fetchStatus: "idle" as const,
+      status: "success" as const,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
 
     const direct = makeResult({ status: "completed", mode: "direct" });
 

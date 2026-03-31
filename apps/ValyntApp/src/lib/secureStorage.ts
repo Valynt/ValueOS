@@ -38,7 +38,7 @@ class SecureTokenStorage {
   private generateAndStoreSalt(): Uint8Array {
     const salt = new Uint8Array(16);
     crypto.getRandomValues(salt);
-    localStorage.setItem(this.saltKey, btoa(String.fromCharCode(...salt)));
+    localStorage.setItem(this.saltKey, btoa(String.fromCharCode.apply(null, Array.from(salt))));
     return salt;
   }
 
@@ -69,7 +69,7 @@ class SecureTokenStorage {
     this.encryptionKey = await crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
-        salt: this.salt,
+        salt: new Uint8Array(this.salt),
         iterations: 100000,
         hash: "SHA-256",
       },
@@ -102,7 +102,7 @@ class SecureTokenStorage {
     combined.set(iv);
     combined.set(encryptedArray, iv.length);
 
-    return btoa(String.fromCharCode(...combined));
+    return btoa(String.fromCharCode.apply(null, Array.from(combined)));
   }
 
   /**
@@ -125,7 +125,7 @@ class SecureTokenStorage {
           iv: iv,
         },
         key,
-        encrypted
+        encrypted.buffer
       );
 
       return new TextDecoder().decode(decrypted);

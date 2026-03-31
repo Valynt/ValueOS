@@ -14,10 +14,8 @@
 
 import type { Request } from "express";
 
-import { logger } from "../../lib/logger.js"
-import {
-  getSessionTimeoutForRole,
-} from "../../security/SecurityConfig";
+import { logger } from "../../lib/logger.js";
+import { getSessionTimeoutForRole } from "../../security/SecurityConfig";
 
 export interface SessionInfo {
   userId: string;
@@ -38,13 +36,14 @@ export interface SessionStatus {
 export class SessionTimeoutService {
   /**
    * Check if session is valid based on role-specific timeouts
+   * @param now - Optional timestamp for testing (defaults to Date.now())
    */
-  checkSession(session: SessionInfo): SessionStatus {
+  checkSession(session: SessionInfo, now?: number): SessionStatus {
     const config = getSessionTimeoutForRole(session.role);
-    const now = Date.now();
+    const timestamp = now ?? Date.now();
 
     // Check absolute timeout (time since session creation)
-    const sessionAge = now - session.createdAt;
+    const sessionAge = timestamp - session.createdAt;
     if (sessionAge > config.absoluteTimeout) {
       logger.info("Session expired (absolute timeout)", {
         userId: session.userId,
@@ -59,7 +58,7 @@ export class SessionTimeoutService {
     }
 
     // Check idle timeout (time since last activity)
-    const idleTime = now - session.lastActivity;
+    const idleTime = timestamp - session.lastActivity;
     if (idleTime > config.idleTimeout) {
       logger.info("Session expired (idle timeout)", {
         userId: session.userId,
@@ -98,19 +97,21 @@ export class SessionTimeoutService {
 
   /**
    * Update last activity timestamp
+   * @param now - Optional timestamp for testing (defaults to Date.now())
    */
-  updateActivity(session: SessionInfo): SessionInfo {
+  updateActivity(session: SessionInfo, now?: number): SessionInfo {
     return {
       ...session,
-      lastActivity: Date.now(),
+      lastActivity: now ?? Date.now(),
     };
   }
 
   /**
    * Renew session (reset timers)
+   * @param now - Optional timestamp for testing (defaults to Date.now())
    */
-  renewSession(session: SessionInfo): SessionInfo {
-    const now = Date.now();
+  renewSession(session: SessionInfo, now?: number): SessionInfo {
+    const timestamp = now ?? Date.now();
     logger.info("Session renewed", {
       userId: session.userId,
       role: session.role,
@@ -118,8 +119,8 @@ export class SessionTimeoutService {
 
     return {
       ...session,
-      lastActivity: now,
-      renewedAt: now,
+      lastActivity: timestamp,
+      renewedAt: timestamp,
     };
   }
 

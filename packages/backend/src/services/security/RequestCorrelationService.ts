@@ -44,6 +44,74 @@ export interface ComplianceExportOptions {
 }
 
 export class RequestCorrelationService {
+  // Integrity hash cache: key -> { hash, expiresAt }
+  private integrityCache: Map<string, { hash: string; expiresAt: number }> = new Map();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Generate cache key for integrity hash based on logs content
+   */
+  private generateCacheKey(logs: unknown[]): string {
+    // Use a fast hash of the logs for cache key
+    const content = JSON.stringify(logs, (key, value) => {
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        return Object.keys(value).sort().reduce((sorted, k) => {
+          sorted[k] = value[k];
+          return sorted;
+        }, {} as Record<string, unknown>);
+      }
+      return value;
+    });
+    return createHash("sha256").update(content).digest("hex");
+  }
+
+  /**
+   * Get cached integrity hash if valid, otherwise calculate and cache
+   */
+  private getCachedIntegrityHash(logs: unknown[]): string {
+    const cacheKey = this.generateCacheKey(logs);
+    const cached = this.integrityCache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.hash;
+    }
+
+    // Calculate new hash
+    const hash = this.calculateIntegrityHash(logs);
+
+    // Store in cache with TTL
+    this.integrityCache.set(cacheKey, {
+      hash,
+      expiresAt: Date.now() + this.CACHE_TTL_MS,
+    });
+
+    // Cleanup expired entries periodically (simple approach: every 100 inserts)
+    if (this.integrityCache.size % 100 === 0) {
+      this.cleanupExpiredCacheEntries();
+    }
+
+    return hash;
+  }
+
+  /**
+   * Remove expired entries from integrity cache
+   */
+  private cleanupExpiredCacheEntries(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.integrityCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.integrityCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Clear integrity cache (useful for testing or manual invalidation)
+   */
+  clearIntegrityCache(): void {
+    this.integrityCache.clear();
+  }
+
   /**
    * Query all logs correlated by request ID (S2-2).
    * Searches across audit_logs, security_audit_log, and reasoning_traces.
@@ -158,8 +226,8 @@ export class RequestCorrelationService {
     // Sort all logs by timestamp
     logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    // Calculate integrity hash
-    const integrityHash = this.calculateIntegrityHash(logs);
+    // Calculate integrity hash (with caching)
+    const integrityHash = this.getCachedIntegrityHash(logs);
 
     return {
       requestId,
@@ -214,7 +282,7 @@ export class RequestCorrelationService {
     }
 
     const integrityHash = includeIntegrityHash
-      ? this.calculateIntegrityHash(logs || [])
+      ? this.getCachedIntegrityHash(logs || [])
       : "";
 
     if (format === "json") {
@@ -283,7 +351,7 @@ export class RequestCorrelationService {
    * Calculate SHA-256 integrity hash for logs (S2-3).
    * Uses canonical JSON serialization with sorted keys for deterministic hashing.
    */
-  private calculateIntegrityHash(logs: Record<string, unknown>): string {
+  private calculateIntegrityHash(logs: unknown[] | Record<string, unknown>): string {
     const canonicalJson = JSON.stringify(logs, (key, value) => {
       // Sort object keys for deterministic serialization
       if (typeof value === "object" && value !== null && !Array.isArray(value)) {
