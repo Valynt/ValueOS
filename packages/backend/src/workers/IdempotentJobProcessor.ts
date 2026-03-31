@@ -239,7 +239,6 @@ export abstract class IdempotentJobProcessor<T = unknown> {
 
     // Process the job
     let result: unknown;
-    let error: Error | null = null;
 
     try {
       logger.debug('Processing job', {
@@ -252,21 +251,26 @@ export abstract class IdempotentJobProcessor<T = unknown> {
 
       result = await this.processJob(job);
     } catch (err) {
-      error = err instanceof Error ? err : new Error(String(err));
-      throw error;
-    } finally {
-      // Mark as processed (even on failure, to prevent immediate retries causing duplicates)
-      if (this.config.enabled) {
-        await markJobProcessed(
-          this.queueName,
-          jobName,
-          idempotencyKey,
-          jobData,
-          context,
-          error ?? result,
-          this.config
-        );
-      }
+      // Do NOT mark failed jobs as processed — let BullMQ retry them.
+      // The idempotency store only records successful completions so that
+      // re-queued duplicates of an already-succeeded job are skipped.
+      // Recording failures here would permanently block retries for transient
+      // errors (network blips, DB timeouts, LLM unavailability).
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+
+    // Only reached on success — record the completion to deduplicate future
+    // re-deliveries of the same job (e.g. at-least-once queue semantics).
+    if (this.config.enabled) {
+      await markJobProcessed(
+        this.queueName,
+        jobName,
+        idempotencyKey,
+        jobData,
+        context,
+        result,
+        this.config
+      );
     }
   }
 
@@ -332,29 +336,26 @@ export function withIdempotency<T = unknown>(
     }
 
     let result: unknown;
-    let error: Error | null = null;
-    let processed = false;
 
     try {
       result = await processor(job);
-      processed = true;
     } catch (err) {
-      error = err instanceof Error ? err : new Error(String(err));
-      processed = true;
-      throw error;
-    } finally {
-      // Only mark if we actually attempted processing (not for duplicates)
-      if (effectiveConfig.enabled && processed) {
-        await markJobProcessed(
-          queueName,
-          jobName,
-          idempotencyKey,
-          jobData,
-          context,
-          error ?? result,
-          effectiveConfig
-        );
-      }
+      // Do NOT mark failed jobs as processed — let BullMQ retry them.
+      // See IdempotentJobProcessor.handleJob for the full rationale.
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+
+    // Only reached on success.
+    if (effectiveConfig.enabled) {
+      await markJobProcessed(
+        queueName,
+        jobName,
+        idempotencyKey,
+        jobData,
+        context,
+        result,
+        effectiveConfig
+      );
     }
   };
 }

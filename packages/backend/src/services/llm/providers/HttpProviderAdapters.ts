@@ -14,6 +14,17 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * Timeout for LLM completion calls. LLM responses can be slow, so we use a
+ * longer window than the generic egress default (30 s). Configurable via
+ * LLM_PROVIDER_TIMEOUT_MS to allow tuning without a code change.
+ */
+const LLM_TIMEOUT_MS = (() => {
+  const raw = process.env.LLM_PROVIDER_TIMEOUT_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 90_000;
+})();
+
 export class OpenAIProviderAdapter implements LLMProviderAdapter {
   readonly provider = "openai" as const;
 
@@ -32,6 +43,7 @@ export class OpenAIProviderAdapter implements LLMProviderAdapter {
         max_tokens: request.maxTokens ?? 1000,
         temperature: request.temperature ?? 0.7,
       }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!response.ok) {
       throw new Error(`OpenAI fallback failed (${response.status})`);
@@ -76,6 +88,7 @@ export class AnthropicProviderAdapter implements LLMProviderAdapter {
         temperature: request.temperature ?? 0.7,
         messages: [{ role: "user", content: request.prompt }],
       }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!response.ok) {
       throw new Error(`Anthropic fallback failed (${response.status})`);

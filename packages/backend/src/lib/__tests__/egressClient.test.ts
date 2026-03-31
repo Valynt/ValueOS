@@ -22,8 +22,12 @@ describe('assertEgressAllowed', () => {
 
     it('allows any non-blocked hostname in dev', () => {
       expect(() => assertEgressAllowed('https://example.com')).not.toThrow();
-      expect(() => assertEgressAllowed('https://localhost:3000')).not.toThrow();
-      expect(() => assertEgressAllowed('http://127.0.0.1:8080')).not.toThrow();
+    });
+
+    it('blocks localhost and 127.x loopback even in dev', () => {
+      expect(() => assertEgressAllowed('https://localhost:3000')).toThrow(EgressBlockedError);
+      expect(() => assertEgressAllowed('http://127.0.0.1:8080')).toThrow(EgressBlockedError);
+      expect(() => assertEgressAllowed('https://127.0.0.1')).toThrow(EgressBlockedError);
     });
 
     it('still blocks hostnames on the blocklist in dev', () => {
@@ -105,7 +109,10 @@ describe('assertEgressAllowed', () => {
 
     it('blocks loopback addresses in production', () => {
       expect(() => assertEgressAllowed('https://localhost')).toThrow(EgressBlockedError);
+      expect(() => assertEgressAllowed('https://localhost:3000')).toThrow(EgressBlockedError);
       expect(() => assertEgressAllowed('https://127.0.0.1')).toThrow(EgressBlockedError);
+      expect(() => assertEgressAllowed('https://127.0.0.2')).toThrow(EgressBlockedError);
+      expect(() => assertEgressAllowed('https://127.255.255.255')).toThrow(EgressBlockedError);
     });
 
     it('blocks IPv6 loopback', () => {
@@ -159,7 +166,7 @@ describe('egressFetch', () => {
 
   it('calls fetch for allowed URLs', async () => {
     await egressFetch('https://api.openai.com/v1/chat');
-    expect(mockFetch).toHaveBeenCalledWith('https://api.openai.com/v1/chat', undefined);
+    expect(mockFetch).toHaveBeenCalled();
   });
 
   it('throws EgressBlockedError without calling fetch for blocked URLs', async () => {
@@ -170,5 +177,40 @@ describe('egressFetch', () => {
   it('accepts URL objects', async () => {
     await egressFetch(new URL('https://api.stripe.com/v1/charges'));
     expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it('injects a default AbortSignal when caller provides no signal', async () => {
+    await egressFetch('https://api.openai.com/v1/chat', { method: 'POST' });
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('preserves caller-supplied signal and does not override it', async () => {
+    const controller = new AbortController();
+    await egressFetch('https://api.openai.com/v1/chat', { signal: controller.signal });
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    expect(init.signal).toBe(controller.signal);
+  });
+
+  it('injects default signal even when init is undefined', async () => {
+    await egressFetch('https://api.openai.com/v1/chat');
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('respects EGRESS_DEFAULT_TIMEOUT_MS override', async () => {
+    // AbortSignal.timeout() does not expose its timeout value directly, so we
+    // verify the override is read at call time by checking that a signal is
+    // injected with a very short timeout that fires immediately, causing the
+    // (mocked) fetch to receive an already-aborted signal when set to 1 ms.
+    vi.stubEnv('EGRESS_DEFAULT_TIMEOUT_MS', '1');
+    // mockFetch resolves synchronously, so we just verify the signal's
+    // aborted state after a tick to let the 1 ms timer fire.
+    await egressFetch('https://api.openai.com/v1/chat');
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    // Wait for the 1 ms timeout to fire and confirm the signal aborts.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect((init.signal as AbortSignal).aborted).toBe(true);
   });
 });
