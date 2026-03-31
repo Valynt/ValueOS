@@ -191,34 +191,78 @@ export class RateLimitKeyService {
   }
 
   /**
-   * Extract IP address from request or context
+   * Read the number of trusted reverse-proxy hops at call time.
+   * Reading lazily (rather than baking at module load) allows the value to be
+   * overridden in tests via vi.stubEnv without requiring module re-imports.
+   *
+   * Set TRUSTED_PROXY_COUNT to the number of load-balancer / ingress hops
+   * that are under operator control. Defaults to 0 (no proxy trusted).
+   *
+   * When 0, the socket's remote address is always used — X-Forwarded-For and
+   * X-Real-IP are ignored entirely, preventing IP spoofing via header injection.
+   *
+   * When N > 0, the Nth address from the right of X-Forwarded-For is used
+   * (the first hop that is not a trusted proxy), which is the standard
+   * approach for correctly identifying the originating client IP.
+   */
+  private static getTrustedProxyCount(): number {
+    const raw = process.env.TRUSTED_PROXY_COUNT;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  /**
+   * Extract IP address from request or context.
+   *
+   * Only reads X-Forwarded-For / X-Real-IP when TRUSTED_PROXY_COUNT > 0.
+   * When no trusted proxy is configured, always uses the socket remote address
+   * to prevent clients from spoofing their IP via header injection.
    */
   private static extractIP(
     req: Request,
     context?: Partial<RateLimitKeyContext>
   ): string | undefined {
-    // Priority: context > request headers > connection > undefined
+    // Caller-supplied context takes precedence (used in tests / internal calls).
     if (context?.ip) {
       return context.ip;
     }
 
+    const trustedProxyCount = this.getTrustedProxyCount();
+
+    // No trusted proxy: use the direct socket address only.
+    if (trustedProxyCount === 0) {
+      return req.socket.remoteAddress || undefined;
+    }
+
+    // Trusted proxy path: pick the Nth-from-right entry in X-Forwarded-For,
+    // where N = trustedProxyCount. This is the first address that was not
+    // added by a proxy under operator control.
     const forwardedFor = req.headers['x-forwarded-for'];
-    if (typeof forwardedFor === 'string') {
-      return forwardedFor.split(',')[0]?.trim() || undefined;
-    }
-    if (Array.isArray(forwardedFor) && forwardedFor.length > 0) {
-      return forwardedFor[0];
+    const raw = Array.isArray(forwardedFor)
+      ? forwardedFor.join(',')
+      : typeof forwardedFor === 'string'
+        ? forwardedFor
+        : '';
+
+    if (raw) {
+      const ips = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      // ips[ips.length - trustedProxyCount - 1] is the client IP when
+      // exactly trustedProxyCount trusted hops appended their addresses.
+      const idx = ips.length - trustedProxyCount - 1;
+      if (idx >= 0 && ips[idx]) {
+        return ips[idx];
+      }
+      // Fewer entries than expected trusted hops — fall back to socket.
     }
 
-    const realIp = req.headers['x-real-ip'];
-    if (typeof realIp === 'string') {
-      return realIp;
-    }
-    if (Array.isArray(realIp) && realIp.length > 0) {
-      return realIp[0];
+    // X-Real-IP is only a single value; accept it only when one proxy is trusted.
+    if (trustedProxyCount === 1) {
+      const realIp = req.headers['x-real-ip'];
+      if (typeof realIp === 'string' && realIp) return realIp;
+      if (Array.isArray(realIp) && realIp[0]) return realIp[0];
     }
 
-    return req.ip || req.socket.remoteAddress || undefined;
+    return req.socket.remoteAddress || undefined;
   }
 
   /**
