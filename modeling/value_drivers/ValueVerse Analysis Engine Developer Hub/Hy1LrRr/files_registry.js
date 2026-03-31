@@ -108,7 +108,7 @@ COPY --from=builder /root/.local /root/.local
 COPY . .
 
 ENV PATH=/root/.local/bin:$PATH
-ENV LLM_API_KEY=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
+ENV LLM_API_KEY=""
 
 CMD ["python", "engine.py"]`
     },
