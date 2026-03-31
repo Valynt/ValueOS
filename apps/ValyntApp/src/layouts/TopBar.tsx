@@ -142,13 +142,13 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
       <div className="hidden md:block flex-1 max-w-md mx-2 lg:mx-4 min-w-0">
         <div
           className={cn(
-            "flex items-center gap-2 px-3 min-h-11 rounded-xl border transition-all",
+            "flex items-center gap-2 px-3 min-h-9 rounded-lg border transition-colors duration-150",
             searchFocused
-              ? "border-primary/50 bg-surface"
-              : "border-border bg-surface"
+              ? "border-primary/60 bg-background ring-2 ring-primary/10"
+              : "border-border bg-muted/40 hover:bg-muted/60 hover:border-border"
           )}
         >
-          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <Search className={cn("w-4 h-4 flex-shrink-0 transition-colors", searchFocused ? "text-primary" : "text-muted-foreground")} />
           <input
             ref={searchRef}
             type="text"
@@ -160,9 +160,11 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleSearchKeyDown}
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/8 text-[10px] text-muted-foreground font-mono">
-            /
-          </kbd>
+          {!searchFocused && (
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-background text-[10px] text-muted-foreground font-mono">
+              /
+            </kbd>
+          )}
         </div>
 
         {recentSuggestions.length > 0 && (

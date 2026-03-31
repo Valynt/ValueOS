@@ -8,6 +8,7 @@
 import {
   AlertCircle,
   ArrowUpDown,
+  Briefcase,
   Grid,
   List,
   MoreHorizontal,
@@ -18,7 +19,7 @@ import {
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/input";
@@ -122,31 +123,13 @@ function parseValue(value: string | null): number {
   return num * multiplier;
 }
 
-const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = {
-  draft: {
-    label: "Draft",
-    className: "bg-slate-100 text-slate-600 border-slate-200",
-  },
-  "in-progress": {
-    label: "In Progress",
-    className: "bg-blue-100 text-blue-700 border-blue-200",
-  },
-  committed: {
-    label: "Committed",
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  },
-  closed: {
-    label: "Closed",
-    className: "bg-purple-100 text-purple-700 border-purple-200",
-  },
-  review: {
-    label: "In Review",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
-  },
-  published: {
-    label: "Published",
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  },
+const STATUS_CONFIG: Record<CaseStatus, { label: string; variant: BadgeProps["variant"] }> = {
+  draft: { label: "Draft", variant: "secondary" },
+  "in-progress": { label: "In Progress", variant: "info" },
+  committed: { label: "Committed", variant: "success" },
+  closed: { label: "Closed", variant: "outline" },
+  review: { label: "In Review", variant: "warning" },
+  published: { label: "Published", variant: "success" },
 };
 
 const STATUS_OPTIONS = [
@@ -189,9 +172,9 @@ function CaseListSkeleton() {
 function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
     <div className="text-center py-12">
-      <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
-      <h3 className="text-lg font-medium text-slate-900 mb-1">Failed to load cases</h3>
-      <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">{error.message}</p>
+      <AlertCircle className="h-10 w-10 text-destructive/60 mx-auto mb-3" />
+      <h3 className="text-lg font-medium text-foreground mb-1">Failed to load cases</h3>
+      <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">{error.message}</p>
       <Button variant="outline" onClick={onRetry}>
         <RefreshCw className="h-4 w-4 mr-2" />
         Retry
@@ -245,8 +228,8 @@ export function CasesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cases</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Cases</h1>
+          <p className="text-muted-foreground mt-1">
             {stats.total} cases • {stats.inProgress} in progress
             {stats.totalValue > 0 &&
               ` • $${(stats.totalValue / 1_000_000).toFixed(1)}M total value`}
@@ -259,66 +242,67 @@ export function CasesPage() {
       </div>
 
       {/* Filters Bar */}
-      <Card className="mb-6 p-4">
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="flex-1 max-w-sm">
-            <SearchInput
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onClear={() => setSearchQuery("")}
-              placeholder="Search cases..."
-            />
-          </div>
-
-          {/* Status Filter */}
-          <SimpleSelect
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_OPTIONS}
+      <div className="flex items-center gap-3 mb-6">
+        {/* Search */}
+        <div className="flex-1 max-w-sm">
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
+            placeholder="Search cases..."
           />
-
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-            <SimpleSelect
-              value={sortBy}
-              onValueChange={setSortBy}
-              options={SORT_OPTIONS}
-            />
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center border rounded-md" role="group" aria-label="View mode">
-            <button
-              onClick={() => setViewMode("grid")}
-              aria-label="Grid view"
-              aria-pressed={viewMode === "grid"}
-              className={cn(
-                "p-2 transition-colors",
-                viewMode === "grid"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Grid className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              aria-label="List view"
-              aria-pressed={viewMode === "list"}
-              className={cn(
-                "p-2 transition-colors",
-                viewMode === "list"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <List className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
         </div>
-      </Card>
+
+        {/* Status Filter */}
+        <SimpleSelect
+          value={statusFilter}
+          onValueChange={setStatusFilter}
+          options={STATUS_OPTIONS}
+        />
+
+        {/* Sort */}
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          <SimpleSelect
+            value={sortBy}
+            onValueChange={setSortBy}
+            options={SORT_OPTIONS}
+          />
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* View Toggle */}
+        <div className="flex items-center border border-border rounded-lg overflow-hidden" role="group" aria-label="View mode">
+          <button
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            aria-pressed={viewMode === "grid"}
+            className={cn(
+              "p-2 transition-colors",
+              viewMode === "grid"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <Grid className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+            aria-pressed={viewMode === "list"}
+            className={cn(
+              "p-2 transition-colors",
+              viewMode === "list"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <List className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
       {/* Loading State */}
       {isLoading && <CaseListSkeleton />}
@@ -367,18 +351,33 @@ export function CasesPage() {
 
           {/* Empty State */}
           {sortedCases.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No cases found</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                }}
-              >
-                Clear filters
-              </Button>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+                <Briefcase className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-medium text-foreground mb-1">No cases found</h3>
+              <p className="text-sm text-muted-foreground mb-5 max-w-xs">
+                {searchQuery || statusFilter !== "all"
+                  ? "Try adjusting your search or filters."
+                  : "Create your first value case to get started."}
+              </p>
+              {searchQuery || statusFilter !== "all" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => navigate("/app/cases/new")}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Case
+                </Button>
+              )}
             </div>
           )}
         </>
@@ -397,29 +396,29 @@ function CaseCard({ caseData, onClick }: CaseCardProps) {
 
   return (
     <Card
-      className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+      className="p-4 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-medium text-slate-600 border border-slate-200">
+        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground border border-border">
           {caseData.initials}
         </div>
-        <Badge className={cn("text-[10px] font-semibold uppercase", statusConfig.className)}>
+        <Badge variant={statusConfig.variant} size="sm">
           {statusConfig.label}
         </Badge>
       </div>
 
-      <h2 className="font-semibold text-slate-900 mb-1">{caseData.name}</h2>
+      <h2 className="font-semibold text-foreground mb-1">{caseData.name}</h2>
       <p className="text-sm text-muted-foreground mb-3">{caseData.company}</p>
 
-      <div className="flex items-center gap-1 text-sm text-slate-500 mb-3">
+      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
         <TrendingUp size={14} />
         <span>{caseData.value ?? "—"}</span>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-slate-400">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{caseData.updatedAt}</span>
-        <span className="text-primary hover:underline">Open →</span>
+        <span className="text-primary">Open →</span>
       </div>
     </Card>
   );
@@ -440,11 +439,11 @@ function CaseRow({ caseData, onClick }: CaseRowProps) {
     >
       {/* Case Name & Company */}
       <div className="col-span-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-600 border border-slate-200">
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground border border-border">
           {caseData.initials}
         </div>
         <div>
-          <p className="font-medium text-slate-900">{caseData.name}</p>
+          <p className="font-medium text-foreground">{caseData.name}</p>
           <p className="text-sm text-muted-foreground">{caseData.company}</p>
         </div>
       </div>
@@ -456,7 +455,7 @@ function CaseRow({ caseData, onClick }: CaseRowProps) {
 
       {/* Status */}
       <div className="col-span-2">
-        <Badge className={cn("text-[10px] font-semibold uppercase", statusConfig.className)}>
+        <Badge variant={statusConfig.variant} size="sm">
           {statusConfig.label}
         </Badge>
       </div>
