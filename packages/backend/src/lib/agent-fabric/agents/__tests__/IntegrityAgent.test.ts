@@ -470,6 +470,28 @@ describe("IntegrityAgent", () => {
       expect(result.result.claims_checked).toBe(1);
     });
 
+    it("scopes memory retrieval to the active workspace", async () => {
+      await agent.execute(makeContext());
+      
+      // Should be called for both target and opportunity agents
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "target",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+          memory_type: "semantic",
+        }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "opportunity",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+          memory_type: "semantic",
+        }),
+      );
+    });
+
     it("handles memory retrieval failure gracefully", async () => {
       mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));
 
