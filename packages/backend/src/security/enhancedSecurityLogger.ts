@@ -85,7 +85,8 @@ function getLogLevel(severity: SecuritySeverity, outcome: string): "info" | "war
 /**
  * Sanitize metadata to prevent accidental secret leakage
  */
-function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
+function sanitizeMetadata(metadata?: Record<string, unknown> | null): Record<string, unknown> | undefined | null {
+  if (metadata === null) return null;
   if (!metadata) return undefined;
 
   const sanitized = { ...metadata };
@@ -113,6 +114,13 @@ function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, un
     } else if (typeof value === "string" && value.length > 500) {
       // Truncate long strings
       sanitized[key] = value.substring(0, 500) + "...[TRUNCATED]";
+    } else if (Array.isArray(value)) {
+      // Recursively sanitize array elements, preserving array type
+      sanitized[key] = value.map((item) =>
+        item !== null && typeof item === "object" && !Array.isArray(item)
+          ? sanitizeMetadata(item as Record<string, unknown>)
+          : item
+      );
     } else if (typeof value === "object" && value !== null) {
       // Recursively sanitize nested objects
       sanitized[key] = sanitizeMetadata(value as Record<string, unknown>);

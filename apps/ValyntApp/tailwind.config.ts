@@ -3,7 +3,7 @@ import tailwindcssAnimate from "tailwindcss-animate";
 
 /**
  * ValueOS Tailwind Configuration
- * 
+ *
  * Design system based on the Principal Product Designer deliverable.
  * Light theme with blue primary, emerald success, amber warning.
  */
@@ -13,25 +13,95 @@ export default {
   theme: {
     extend: {
       // ===================
-      // COLORS
+      // MATERIAL DESIGN 3 COLORS
       // ===================
+      md: {
+        // Surface colors
+        surface: {
+          DEFAULT: "var(--md-sys-color-surface)",
+          dim: "var(--md-sys-color-surface-dim)",
+          bright: "var(--md-sys-color-surface-bright)",
+          container: {
+            lowest: "var(--md-sys-color-surface-container-lowest)",
+            low: "var(--md-sys-color-surface-container-low)",
+            DEFAULT: "var(--md-sys-color-surface-container)",
+            high: "var(--md-sys-color-surface-container-high)",
+            highest: "var(--md-sys-color-surface-container-highest)",
+          },
+          variant: "var(--md-sys-color-surface-variant)",
+        },
+        // Primary colors
+        primary: {
+          DEFAULT: "var(--md-sys-color-primary)",
+          on: "var(--md-sys-color-on-primary)",
+          fixed: {
+            DEFAULT: "var(--md-sys-color-primary-fixed)",
+            dim: "var(--md-sys-color-primary-fixed-dim)",
+          },
+          container: "var(--md-sys-color-primary-container)",
+          "on-container": "var(--md-sys-color-on-primary-container)",
+          inverse: "var(--md-sys-color-inverse-primary)",
+        },
+        // Secondary colors
+        secondary: {
+          DEFAULT: "var(--md-sys-color-secondary)",
+          on: "var(--md-sys-color-on-secondary)",
+          fixed: {
+            DEFAULT: "var(--md-sys-color-secondary-fixed)",
+            dim: "var(--md-sys-color-secondary-fixed-dim)",
+          },
+          container: "var(--md-sys-color-secondary-container)",
+          "on-container": "var(--md-sys-color-on-secondary-container)",
+        },
+        // Tertiary colors (purple accent)
+        tertiary: {
+          DEFAULT: "var(--md-sys-color-tertiary)",
+          on: "var(--md-sys-color-on-tertiary)",
+          fixed: {
+            DEFAULT: "var(--md-sys-color-tertiary-fixed)",
+            dim: "var(--md-sys-color-tertiary-fixed-dim)",
+          },
+          container: "var(--md-sys-color-tertiary-container)",
+          "on-container": "var(--md-sys-color-on-tertiary-container)",
+        },
+        // Outline
+        outline: {
+          DEFAULT: "var(--md-sys-color-outline)",
+          variant: "var(--md-sys-color-outline-variant)",
+        },
+        // Error
+        error: {
+          DEFAULT: "var(--md-sys-color-error)",
+          on: "var(--md-sys-color-on-error)",
+          container: "var(--md-sys-color-error-container)",
+          "on-container": "var(--md-sys-color-on-error-container)",
+        },
+        // Background
+        background: "var(--md-sys-color-background)",
+        "on-background": "var(--md-sys-color-on-background)",
+        // Inverse surface
+        "inverse-surface": "var(--md-sys-color-inverse-surface)",
+        "inverse-on-surface": "var(--md-sys-color-inverse-on-surface)",
+        // Surface tint
+        "surface-tint": "var(--md-sys-color-surface-tint)",
+      },
       colors: {
         // Semantic colors from CSS variables
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        
+
         surface: "hsl(var(--surface))",
-        
+
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        
+
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
-        
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -46,27 +116,27 @@ export default {
           800: "hsl(var(--color-primary-800))",
           900: "hsl(var(--color-primary-900))",
         },
-        
+
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
-        
+
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
-        
+
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
-        
+
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
-        
+
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
@@ -79,7 +149,7 @@ export default {
           600: "hsl(var(--color-success-600))",
           700: "hsl(var(--color-success-700))",
         },
-        
+
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
@@ -92,11 +162,11 @@ export default {
           600: "hsl(var(--color-warning-600))",
           700: "hsl(var(--color-warning-700))",
         },
-        
+
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        
+
         // Sidebar (dark)
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -108,7 +178,7 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        
+
         // Slate scale for direct use
         slate: {
           50: "#F8FAFC",
@@ -123,45 +193,56 @@ export default {
           900: "#0F172A",
         },
       },
-      
+
       // ===================
       // TYPOGRAPHY
       // ===================
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        sans: [
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "sans-serif",
+        ],
         mono: ["JetBrains Mono", "Fira Code", "Consolas", "monospace"],
+        headline: ["Inter", "system-ui", "sans-serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+        label: ["Inter", "system-ui", "sans-serif"],
       },
-      
+
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "1rem" }], // 10px
       },
-      
+
       // ===================
       // SPACING & SIZING
       // ===================
       spacing: {
-        "sidebar": "var(--sidebar-width)",
+        sidebar: "var(--sidebar-width)",
         "sidebar-collapsed": "var(--sidebar-collapsed-width)",
-        "header": "var(--header-height)",
+        header: "var(--header-height)",
       },
-      
+
       width: {
-        "sidebar": "var(--sidebar-width)",
+        sidebar: "var(--sidebar-width)",
         "sidebar-collapsed": "var(--sidebar-collapsed-width)",
       },
-      
+
       height: {
-        "header": "var(--header-height)",
+        header: "var(--header-height)",
       },
-      
+
       minWidth: {
-        "conversation": "320px",
+        conversation: "320px",
       },
-      
+
       maxWidth: {
-        "conversation": "480px",
+        conversation: "480px",
       },
-      
+
       // ===================
       // BORDER RADIUS
       // ===================
@@ -170,19 +251,19 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      
+
       // ===================
       // SHADOWS
       // ===================
       boxShadow: {
-        "sm": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        "DEFAULT": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        "md": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-        "lg": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-        "xl": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-        "inner": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
+        sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        DEFAULT: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        inner: "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
       },
-      
+
       // ===================
       // ANIMATIONS
       // ===================
@@ -196,15 +277,15 @@ export default {
         "scale-in": "scale-in 200ms ease-out",
         "spin-slow": "spin 2s linear infinite",
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
-        "typing": "typing 1.4s infinite ease-in-out",
-        "progress": "progress 1.5s infinite linear",
-        "breathe": "breathe 3s ease-in-out infinite",
+        typing: "typing 1.4s infinite ease-in-out",
+        progress: "progress 1.5s infinite linear",
+        breathe: "breathe 3s ease-in-out infinite",
         "scan-beam": "scan-beam 2s ease-in-out infinite",
         "card-reveal": "card-reveal 400ms ease-out forwards",
         "check-draw": "check-draw 600ms ease-out forwards",
         "context-restore": "context-restore 500ms ease-out forwards",
       },
-      
+
       keyframes: {
         "fade-in": {
           from: { opacity: "0" },
@@ -238,15 +319,15 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
-        "typing": {
+        typing: {
           "0%, 80%, 100%": { transform: "scale(0.8)", opacity: "0.5" },
           "40%": { transform: "scale(1)", opacity: "1" },
         },
-        "progress": {
+        progress: {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
         },
-        "breathe": {
+        breathe: {
           "0%, 100%": { transform: "scale(1)", opacity: "0.6" },
           "50%": { transform: "scale(1.08)", opacity: "1" },
         },
@@ -267,28 +348,28 @@ export default {
           "100%": { opacity: "1", transform: "scale(1)", filter: "blur(0)" },
         },
       },
-      
+
       // ===================
       // TRANSITIONS
       // ===================
       transitionDuration: {
-        "fast": "150ms",
-        "normal": "200ms",
-        "slow": "300ms",
+        fast: "150ms",
+        normal: "200ms",
+        slow: "300ms",
       },
-      
+
       // ===================
       // Z-INDEX
       // ===================
       zIndex: {
-        "dropdown": "1000",
-        "sticky": "1020",
-        "fixed": "1030",
+        dropdown: "1000",
+        sticky: "1020",
+        fixed: "1030",
         "modal-backdrop": "1040",
-        "modal": "1050",
-        "popover": "1060",
-        "tooltip": "1070",
-        "toast": "1080",
+        modal: "1050",
+        popover: "1060",
+        tooltip: "1070",
+        toast: "1080",
       },
     },
   },

@@ -202,6 +202,5 @@ export {
   CardDescription,
   CardContent,
   CardFooter,
-  MetricCard,
   ActionCard,
 };

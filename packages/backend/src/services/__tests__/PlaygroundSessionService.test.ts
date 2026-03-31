@@ -10,22 +10,42 @@ import { PlaygroundSessionService } from '../PlaygroundSessionService.js'
 vi.mock("../../lib/supabase.js");
 
 // Mock Redis client
-vi.mock('redis', () => ({
-  createClient: vi.fn(() => ({
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    get: vi.fn(),
-    setEx: vi.fn(),
-    sAdd: vi.fn(),
-    sRem: vi.fn(),
-    sMembers: vi.fn(),
-    multi: vi.fn(() => ({
-      sAdd: vi.fn(),
-      sRem: vi.fn(),
-      exec: vi.fn(),
-    })),
-    on: vi.fn(),
-  })),
+// Service uses ioredis, not node-redis
+const mockRedisStore = new Map<string, string>();
+const mockSets = new Map<string, Set<string>>();
+
+const mockRedisClient = {
+  get: vi.fn(async (key: string) => mockRedisStore.get(key) ?? null),
+  setex: vi.fn(async (key: string, _ttl: number, value: string) => { mockRedisStore.set(key, value); return 'OK'; }),
+  del: vi.fn(async (key: string) => { mockRedisStore.delete(key); return 1; }),
+  sadd: vi.fn(async (key: string, ...members: string[]) => {
+    if (!mockSets.has(key)) mockSets.set(key, new Set());
+    members.forEach(m => mockSets.get(key)!.add(m));
+    return members.length;
+  }),
+  srem: vi.fn(async (key: string, ...members: string[]) => {
+    const s = mockSets.get(key);
+    if (!s) return 0;
+    members.forEach(m => s.delete(m));
+    return members.length;
+  }),
+  smembers: vi.fn(async (key: string) => [...(mockSets.get(key) ?? [])]),
+  multi: vi.fn(() => {
+    const pipeline: Array<() => Promise<unknown>> = [];
+    const p = {
+      sadd: vi.fn((...args: unknown[]) => { pipeline.push(() => mockRedisClient.sadd(...(args as [string, ...string[]]))); return p; }),
+      srem: vi.fn((...args: unknown[]) => { pipeline.push(() => mockRedisClient.srem(...(args as [string, ...string[]]))); return p; }),
+      exec: vi.fn(async () => { await Promise.all(pipeline.map(fn => fn())); return []; }),
+    };
+    return p;
+  }),
+  quit: vi.fn(async () => 'OK'),
+  on: vi.fn(),
+  status: 'ready',
+};
+
+vi.mock('ioredis', () => ({
+  default: vi.fn().mockImplementation(() => mockRedisClient),
 }));
 
 describe('PlaygroundSessionService', () => {
@@ -33,6 +53,11 @@ describe('PlaygroundSessionService', () => {
   let mockLayout: SDUIPageDefinition;
 
   beforeEach(() => {
+    // Reset in-memory Redis state between tests
+    mockRedisStore.clear();
+    mockSets.clear();
+    vi.clearAllMocks();
+
     service = new PlaygroundSessionService({
       ttl: 3600,
       maxHistorySize: 50,

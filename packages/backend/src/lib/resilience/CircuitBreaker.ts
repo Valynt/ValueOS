@@ -46,10 +46,16 @@ export class CircuitBreaker {
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = {
       failureThreshold: config?.failureThreshold ?? 5,
-      // recoveryTimeout is an alias for resetTimeout used by Redis/secrets subsystems
-      resetTimeout: config?.resetTimeout ?? config?.recoveryTimeout ?? 30_000,
-      halfOpenRequests: config?.halfOpenRequests ?? config?.successThreshold ?? 1,
+      // recoveryTimeout and cooldownPeriod are aliases for resetTimeout
+      resetTimeout:
+        config?.resetTimeout ??
+        config?.recoveryTimeout ??
+        config?.cooldownPeriod ??
+        30_000,
+      halfOpenRequests:
+        config?.halfOpenRequests ?? config?.successThreshold ?? 1,
       recoveryTimeout: config?.recoveryTimeout,
+      cooldownPeriod: config?.cooldownPeriod,
       monitoringPeriod: config?.monitoringPeriod,
       successThreshold: config?.successThreshold,
     };
@@ -120,7 +126,9 @@ export class CircuitBreaker {
   }
 
   getLastFailureTime(): string | null {
-    return this.lastFailure > 0 ? new Date(this.lastFailure).toISOString() : null;
+    return this.lastFailure > 0
+      ? new Date(this.lastFailure).toISOString()
+      : null;
   }
 
   private onSuccess(): void {
@@ -142,10 +150,18 @@ export class CircuitBreaker {
 
 export class CircuitBreakerManager {
   private breakers = new Map<string, CircuitBreaker>();
+  private defaultConfig: Partial<CircuitBreakerConfig>;
 
-  getBreaker(name: string, config?: Partial<CircuitBreakerConfig>): CircuitBreaker {
+  constructor(defaultConfig: Partial<CircuitBreakerConfig> = {}) {
+    this.defaultConfig = defaultConfig;
+  }
+
+  getBreaker(
+    name: string,
+    config?: Partial<CircuitBreakerConfig>
+  ): CircuitBreaker {
     if (!this.breakers.has(name)) {
-      this.breakers.set(name, new CircuitBreaker(config));
+      this.breakers.set(name, new CircuitBreaker({ ...this.defaultConfig, ...config }));
     }
     return this.breakers.get(name)!;
   }
@@ -154,7 +170,7 @@ export class CircuitBreakerManager {
   async execute<T>(
     name: string,
     fn: () => Promise<T>,
-    _options?: { timeoutMs?: number; failureRateThreshold?: number },
+    _options?: { timeoutMs?: number; failureRateThreshold?: number }
   ): Promise<T> {
     return this.getBreaker(name).execute(fn);
   }
@@ -177,5 +193,3 @@ export class LLMCircuitBreaker extends CircuitBreaker {
     super({ failureThreshold: 3, resetTimeout: 60_000, halfOpenRequests: 1 });
   }
 }
-
-

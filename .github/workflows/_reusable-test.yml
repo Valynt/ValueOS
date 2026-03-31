@@ -20,7 +20,7 @@ on:
       adhoc_filter:
         description: Optional Vitest filter used when scope is adhoc-filter
         required: false
-        default: ''
+        default: ""
         type: string
       backend_suite:
         description: Backend services suite selector (standard, integration, security, full)
@@ -81,6 +81,14 @@ jobs:
       fail-fast: false
       matrix:
         package: ${{ fromJson(needs.package-matrix-config.outputs.matrix) }}
+    services:
+      supabase:
+        image: supabase/supabase-local:latest
+        ports:
+          - 54321:54321
+          - 54322:54322
+        env:
+          POSTGRES_PASSWORD: postgres
     env:
       NODE_ENV: test
       SUPABASE_URL: http://localhost:54321
@@ -89,8 +97,8 @@ jobs:
       SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
       SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
       SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
+      ALLOW_LOCAL_JWT_FALLBACK: "true"
+      DISABLE_REDIS: "true"
       OPENAI_API_KEY: test-openai-key
       TRUST_CONTEXT: ${{ inputs.trust_context }}
     steps:
@@ -131,7 +139,16 @@ jobs:
           fi
 
           echo "Running package lane in $TRUST_CONTEXT context: npx vitest run ${ARGS[*]}"
-          npx vitest run "${ARGS[@]}"
+          npx vitest run "${ARGS[@]}" | tee test-output.txt
+
+      - name: Verify tests did not skip silently
+        run: |
+          # Fail if no tests were run (indicates silent skipping)
+          if grep -q "No test files found\|0 passed" test-output.txt; then
+            echo "❌ Tests skipped silently - check database connectivity"
+            exit 1
+          fi
+          echo "✓ Tests executed successfully"
 
       - name: Write coverage summary
         if: ${{ inputs.coverage_mode == 'summary' }}
@@ -159,6 +176,14 @@ jobs:
     name: vitest/ad-hoc
     runs-on: ubuntu-latest
     if: ${{ inputs.scope == 'adhoc-filter' && inputs.adhoc_filter != '' }}
+    services:
+      supabase:
+        image: supabase/supabase-local:latest
+        ports:
+          - 54321:54321
+          - 54322:54322
+        env:
+          POSTGRES_PASSWORD: postgres
     env:
       NODE_ENV: test
       SUPABASE_URL: http://localhost:54321
@@ -167,8 +192,8 @@ jobs:
       SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
       SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
       SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'true'
+      ALLOW_LOCAL_JWT_FALLBACK: "true"
+      DISABLE_REDIS: "true"
       OPENAI_API_KEY: test-openai-key
       TRUST_CONTEXT: ${{ inputs.trust_context }}
     steps:
@@ -278,8 +303,8 @@ jobs:
       SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
       SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
       SUPABASE_JWT_AUDIENCE: authenticated
-      ALLOW_LOCAL_JWT_FALLBACK: 'true'
-      DISABLE_REDIS: 'false'
+      ALLOW_LOCAL_JWT_FALLBACK: "true"
+      DISABLE_REDIS: "false"
       OPENAI_API_KEY: test-openai-key
       REDIS_URL: redis://localhost:6379
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test

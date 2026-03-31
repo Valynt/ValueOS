@@ -45,6 +45,17 @@ import {
 } from "../../../services/value-graph/ValueGraphService.js";
 
 // ---------------------------------------------------------------------------
+// Evidence Mapping Error (P0 Security Requirement)
+// ---------------------------------------------------------------------------
+
+export class EvidenceMappingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EvidenceMappingError";
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hallucination detection types
 // ---------------------------------------------------------------------------
 
@@ -232,7 +243,13 @@ export abstract class BaseAgent {
     }
 
     // Delegate to subclass implementation
-    return this._execute(context);
+    const result = await this._execute(context);
+
+    // ── Evidence Mapping Enforcement (P0) ─────────────────────────────────────
+    // SECURITY: Every numeric output MUST have evidence links for CFO-defensible audit trail
+    const enrichedResult = await this.enforceEvidenceMapping(result, context);
+
+    return enrichedResult;
   }
 
   async validateInput(context: LifecycleContext): Promise<boolean> {
@@ -254,6 +271,79 @@ export abstract class BaseAgent {
 
     // organizationId is set in constructor; do not mutate here
     return true;
+  }
+
+  /**
+   * Enforce evidence mapping for all numeric outputs (P0 security requirement).
+   * Every numeric value must have corresponding evidence links for CFO-defensible audit trail.
+   */
+  private async enforceEvidenceMapping(
+    result: AgentOutput,
+    context: LifecycleContext
+  ): Promise<AgentOutput> {
+    const numericValues = this.extractNumericValues(result.result);
+
+    if (numericValues.length === 0) {
+      return result;
+    }
+
+    // Check if existing evidence links cover all numeric values
+    const existingEvidence = result.metadata?.evidence_links || [];
+    const missingEvidence = numericValues.filter(value =>
+      !existingEvidence.some(evidence =>
+        evidence.metric_key === value.key &&
+        evidence.metric_value === value.value
+      )
+    );
+
+    if (missingEvidence.length > 0) {
+      // SECURITY: Log critical compliance violation
+      await this.auditLogger.logAgentSecurity({
+        agentName: this.name,
+        tenantId: this.organizationId,
+        userId: context.user_id ?? "system",
+        action: "evidence_mapping_violation",
+        details: {
+          missing_numeric_outputs: missingEvidence,
+          total_numeric_outputs: numericValues.length,
+          existing_evidence_count: existingEvidence.length,
+        },
+      });
+
+      throw new EvidenceMappingError(
+        `Agent ${this.name} produced ${missingEvidence.length} numeric value(s) without required evidence links. ` +
+        `Missing evidence for: ${missingEvidence.map(v => `${v.key}=${v.value}`).join(', ')}. ` +
+        `All financial and quantitative outputs must be backed by evidence sources for compliance.`
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Recursively extract all numeric values from agent result for evidence validation.
+   */
+  private extractNumericValues(obj: unknown, path: string = ''): Array<{key: string, value: number, path: string}> {
+    const numericValues: Array<{key: string, value: number, path: string}> = [];
+
+    if (typeof obj === 'number' && isFinite(obj)) {
+      numericValues.push({
+        key: path || 'value',
+        value: obj,
+        path
+      });
+    } else if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        numericValues.push(...this.extractNumericValues(item, `${path}[${index}]`));
+      });
+    } else if (obj && typeof obj === 'object') {
+      Object.entries(obj).forEach(([key, value]) => {
+        const currentPath = path ? `${path}.${key}` : key;
+        numericValues.push(...this.extractNumericValues(value, currentPath));
+      });
+    }
+
+    return numericValues;
   }
 
   /**
@@ -298,6 +388,7 @@ export abstract class BaseAgent {
       ...context,
       agentType: this.name,
       tenantId: context?.tenantId ?? this.organizationId,
+      traceId: context?.traceId ?? `ev-${Date.now()}`,
     });
   }
 
@@ -1030,7 +1121,7 @@ export abstract class BaseAgent {
           links.push({
             value,
             path: currentPath,
-            traceId,
+            trace_id: traceId,
             evidence_reference: evidence.reference,
             description: evidence.description,
             captured_at: new Date().toISOString(),
@@ -1053,7 +1144,7 @@ export abstract class BaseAgent {
               links.push({
                 value: item,
                 path: itemPath,
-                traceId,
+                trace_id: traceId,
                 evidence_reference: evidence.reference,
                 description: evidence.description,
                 captured_at: new Date().toISOString(),

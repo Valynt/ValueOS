@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Executive Intelligence | Page Tile View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "background": "#f7f9fb",
+                        "surface-variant": "#e0e3e5",
+                        "on-surface": "#191c1e",
+                        "outline-variant": "#c6c6cd",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "inverse-primary": "#bec6e0",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#131b2e",
+                        "surface-dim": "#d8dadc",
+                        "secondary-container": "#d5e3fc",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#131b2e",
+                        "surface": "#f7f9fb",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "surface-bright": "#f7f9fb",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#25005a",
+                        "on-primary-container": "#7c839b",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "primary-fixed": "#dae2fd",
+                        "inverse-surface": "#2d3133",
+                        "tertiary": "#000000",
+                        "primary": "#000000",
+                        "on-secondary-container": "#57657a",
+                        "tertiary-fixed": "#eaddff",
+                        "secondary-fixed": "#d5e3fc",
+                        "surface-container": "#eceef0",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-highest": "#e0e3e5",
+                        "outline": "#76777d",
+                        "on-error-container": "#93000a",
+                        "secondary": "#515f74",
+                        "on-tertiary-fixed": "#25005a",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-container": "#9863ff",
+                        "on-surface-variant": "#45464d",
+                        "surface-tint": "#565e74"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased overflow-hidden">
+<header class="w-full top-0 sticky bg-slate-50 dark:bg-slate-900 font-['Inter'] antialiased z-50">
+<div class="flex items-center justify-between px-6 py-3 w-full">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Executive Intelligence</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer active:scale-95 duration-200" href="#">Documents</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer active:scale-95 duration-200" href="#">Analysis</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer active:scale-95 duration-200" href="#">Insights</a>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-slate-900 dark:text-white font-semibold border-b-2 border-slate-900 dark:border-white pb-1 flex items-center gap-2 cursor-pointer active:scale-95 duration-200">
+<span class="material-symbols-outlined text-[20px]" data-icon="grid_view">grid_view</span>
+                    Page View
+                </button>
+<div class="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer active:scale-95 duration-200">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+                    Download PDF
+                </button>
+</div>
+</div>
+</header>
+<div class="flex h-[calc(100vh-60px)]">
+<aside class="h-screen w-64 left-0 sticky bg-slate-100 dark:bg-slate-950 font-['Inter'] text-sm leading-relaxed flex flex-col h-full border-r border-slate-200 dark:border-slate-800 p-4 shrink-0 overflow-y-auto">
+<div class="mb-8 px-2">
+<h2 class="text-slate-900 dark:text-white font-bold text-base">Memo Structure</h2>
+<p class="text-slate-500 text-xs">Q4 Strategic Review</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<button class="flex items-center gap-3 px-3 py-2 text-slate-900 dark:text-white font-bold bg-white dark:bg-slate-800 rounded-lg shadow-sm transition-all duration-300">
+<span class="material-symbols-outlined text-violet-600 dark:text-violet-400" data-icon="description">description</span>
+                    Summary
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300">
+<span class="material-symbols-outlined text-violet-600 dark:text-violet-400" data-icon="payments">payments</span>
+                    Financials
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300">
+<span class="material-symbols-outlined text-violet-600 dark:text-violet-400" data-icon="warning">warning</span>
+                    Risk Assessment
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300">
+<span class="material-symbols-outlined text-violet-600 dark:text-violet-400" data-icon="insights">insights</span>
+                    Strategy
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300">
+<span class="material-symbols-outlined text-violet-600 dark:text-violet-400" data-icon="menu_book">menu_book</span>
+                    Appendix
+                </button>
+</nav>
+<div class="mt-auto pt-6 border-t border-slate-200 dark:border-slate-800 space-y-1">
+<button class="w-full bg-on-tertiary-container/10 text-on-tertiary-container font-semibold py-2.5 rounded-lg mb-4 hover:bg-on-tertiary-container/20 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="add_comment">add_comment</span>
+                    Add Annotation
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300 w-full text-left">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Settings
+                </button>
+<button class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:pl-2 transition-all duration-300 w-full text-left">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                    Support
+                </button>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto p-10 bg-surface">
+<header class="mb-10 max-w-6xl mx-auto">
+<div class="flex justify-between items-end">
+<div>
+<span class="text-[0.6875rem] font-medium uppercase tracking-widest text-on-surface-variant mb-2 block">Enterprise Report Preview</span>
+<h1 class="text-3xl font-semibold text-slate-900 tracking-tight">L'Oreal Value Proposal - Q4 2024</h1>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-lg text-sm font-medium text-on-secondary-container">
+<span class="material-symbols-outlined text-[18px]" data-icon="history">history</span>
+                            Modified 2h ago
+                        </div>
+</div>
+</div>
+</header>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-6xl mx-auto">
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Executive Summary Page" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Modern clean executive report page layout with high-end typography, minimalist charts, and professional corporate aesthetic in white and navy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsZUUs6vHASNmcHs-oMMdJ1BGZE8Y_4zFENY1z6HvWOCI5_oGH6BLWIMkBBz04YWx36xWBNMXFr6Zhbpml4FnTPOVrmkzRweCRDD8KAcBjKODtT8VBdn5YQY3n9OGv-P0eFyzA5Fn_G7Ey-j8e__be5Heewcejf8e8_4UnYZUjS_4AnuKHf5IrZ-th0DIR4h3X0MfDf5fJaPd71U8MnFKDjD4FKX-huAELC5ad5OtDtvw58mKz8OFssHkdEd5g0vkV3mu2kcW_4aM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P1</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Executive Summary</p>
+<p class="text-xs text-slate-500">Overview of strategic goals</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Financial Projections" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Page with data visualizations including bar charts and growth trends for business financial forecasting in clean violet and slate tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9I54gcEwrHmaDgtnNtzF28pwLUEJcWnxJBl3ao6mPihSl8m4qS37pKL7NKLzhr_z5zTRXIL-l8W83izrYomyIPBWJ_6twEqQWr2TOHDKnZLqz4GBD6aO8QPBECKpY6AWsJpZtJqHNdbuS3Fq2kG6nJ-BimyPsmgGwweEDJDevs_7LuOzmIBt9XKxNxBdiFDjL0On7WPG_seB8lfjlL5zTTCPsDyurZxdDFk1YWhKWPuPi6UGWE9dHJHkXT4fW9r_b-l7rTDzD798"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P2</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Financial Projections</p>
+<p class="text-xs text-slate-500">Q4 Revenue and EBIDTA analysis</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Market Analysis" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Analytical report page showing market share distribution and competitive landscape with elegant minimalist data points" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHp3tQI5bcpoLNsxSxmI5Dvtlziee-mHWdcRt_vNqJESatm1gGHr1XOZfp_yT8ZZEBFh0Yic0H31KmAzQtvnTWQKiY_3J-CtieGBEE02YooznzxpJjr7SlAGHFpw3tKUIzPTobNWxwhQR2Jw1Lo0vgXE6c6gwscOeImP12x5pb-akBcevSAzoam7rypUxbzGk2Bx-P2sJ4rwUzes1EUPDQKOukhflbAbtRBB5iJkIhULAB1ymrJoaKIN-dM6J4tcJq2cUPP2w3TyY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P3</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Market Competitive Landscape</p>
+<p class="text-xs text-slate-500">Direct and indirect competitors</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Digital Transformation" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Clean page layout highlighting technology stacks and digital innovation roadmaps for a global cosmetic brand" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1eWStqkcgKdUHdQneQz921zEpQT4yfCwX7OG20gMQlqniXSfTAo1vbdN-fXgYZP1cZyMuXzsCY9aDPDDinJznj1QZo6Rv2thclxuvo7fsxC6M74QU_gAF9eswURHrAbhtrdZ-pESAA1tFlFzskTIYhK7jP9bQbChcl6CLha5Ag1a3YSx-QUhXQFsCzfzrcyxmiYp66ho09psaki6Sjp7ZjrIRvZp_b8yOxHtmO4PJLJ1kn33LGyuVCmApkksdX9-sco5Du2TIsKs"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P4</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Digital Strategy</p>
+<p class="text-xs text-slate-500">E-commerce growth acceleration</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Operational Efficiency" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Business report page showing supply chain optimizations and operational excellence metrics in a structured grid" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCY1jYS2UKXYb-8MnovtWvYcVT5_XhSG7HjPB0tVg7Sv4oR5zv4gXOD_Hg5xxuDLNRZYFf8SadF_Y6JeLbKF2GDP3sA3HTFgaSUZAIHkOmcO5O-hflthsNtzNAO6-cF205qCyJPNx4i6TXT6V3--EP9IytoP8jMyBGeGSKTCbZXM7jPcBf3Z7S-7pflmB-cNkgDwxGUcAuIbJn8Ar6qk7nz0ckT8tQAclkj4HT_7x0D0fBY2vF0XyDXt9NMFb0THKeGRZ3SSxLmjuA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P5</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Operations Review</p>
+<p class="text-xs text-slate-500">Supply chain sustainability metrics</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Risk Assessment" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="Strategic document page detailing risk mitigation factors and contingency planning with sophisticated color-coded tables" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXb04ciAyfhuU5a-MtT_Q-drLvYPu3MCjrxQZ5d2s5LUhL2eLdCoRqeyOJ6xkAl5NcmGBYf6MTpbLxo7aD_ycNpTqqh1ah0oF9vY7olD50h1_aO8GrLi3TABE5K71iVRwMzac_OQBrpVruubLxsqEqE_eJCmbniHuwUnFUypppqXOjiLgVXePRN83y3UjY-3nB0qeoizH-TwdFg-e7LBAcKLEAK5h-QDSRGoxPUm0BPYmS6vQNYHYLLt4lqr1EetfYVUvWYhtQuWg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P6</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Risk Matrix</p>
+<p class="text-xs text-slate-500">Regulatory and geopolitical risks</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<div class="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-surface-container">
+<span class="material-symbols-outlined text-4xl text-slate-400 mb-4" data-icon="add_circle">add_circle</span>
+<span class="text-sm font-medium text-slate-600">Click to insert<br/>new page</span>
+</div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P7</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">New Appendix</p>
+<p class="text-xs text-slate-500">Drafting additional content</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative border border-outline-variant/10 bg-surface-container-lowest">
+<img alt="Final Signoff" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="The final page of a corporate report featuring executive signatures and a concluding mission statement for a beauty company" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9vt-6vh81LVIF0vzow7QWzHmssfJ8PiYTFJu1KqkpvFBeQ57C-ojPVQlNxQ0GkqScUdA4RSeJ245qXS-MBfh9IBbWyXZbtRGHc01-d6JugPHB3BYl-bjJ5wB_6yuURGgSoVtxCazoVEgNclpW0ZZKzMgoayx3_x7_WIogbS2mV54QjVyC3RZ5H3lhw_RcUSnXKuz_wqjp7tF8tF986dWofGRrhupLM8gfZ-VzhA7SR4oOLK2rtDSF-4wZZ6gJxJjCRMmdfLIZh64"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm">P8</div>
+</div>
+<p class="mt-3 text-sm font-semibold text-slate-900">Executive Approval</p>
+<p class="text-xs text-slate-500">Board signature ready</p>
+</div>
+</div>
+<section class="mt-16 max-w-6xl mx-auto">
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="w-16 h-16 rounded-full border-4 border-on-tertiary-container/20 flex items-center justify-center relative">
+<span class="text-lg font-bold text-on-tertiary-container">92%</span>
+<svg class="absolute inset-0 w-full h-full -rotate-90">
+<circle class="text-on-tertiary-container" cx="32" cy="32" fill="none" r="30" stroke="currentColor" stroke-dasharray="188" stroke-dashoffset="15" stroke-width="4"></circle>
+</svg>
+</div>
+<div>
+<h3 class="text-lg font-semibold text-slate-900">Content Integrity Score</h3>
+<p class="text-sm text-on-surface-variant">The AI has verified all financial data matches the source PDF documents.</p>
+</div>
+</div>
+<button class="px-6 py-2.5 bg-tertiary text-on-tertiary rounded-xl font-medium hover:bg-slate-800 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+                        View Audit Log
+                    </button>
+</div>
+</section>
+</main>
+</div>
+</body></html>

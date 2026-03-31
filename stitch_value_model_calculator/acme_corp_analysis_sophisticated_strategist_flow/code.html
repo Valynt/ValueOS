@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed-variant": "#3f465c",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eceef0",
+                        "on-background": "#191c1e",
+                        "inverse-primary": "#bec6e0",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#25005a",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "primary": "#000000",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-primary-fixed": "#131b2e",
+                        "inverse-surface": "#2d3133",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "on-secondary-container": "#57657a",
+                        "surface-tint": "#565e74",
+                        "secondary": "#515f74",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "tertiary-fixed": "#eaddff",
+                        "outline-variant": "#c6c6cd",
+                        "outline": "#76777d",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-fixed": "#25005a",
+                        "on-tertiary-container": "#9863ff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-surface-variant": "#45464d",
+                        "surface-dim": "#d8dadc",
+                        "tertiary": "#000000",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "primary-fixed": "#dae2fd",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "error-container": "#ffdad6",
+                        "on-primary-container": "#7c839b",
+                        "on-surface": "#191c1e",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface": "#f7f9fb",
+                        "secondary-container": "#d5e3fc",
+                        "primary-container": "#131b2e"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(12px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .prism-chat-gradient { background: linear-gradient(to top, #f7f9fb 0%, rgba(247, 249, 251, 0) 100%); }
+    </style>
+</head>
+<body class="text-on-surface antialiased overflow-hidden">
+<!-- SideNavBar: Collapsed to icons -->
+<aside class="flex flex-col items-center py-4 fixed left-0 top-0 h-full z-40 bg-slate-100 dark:bg-slate-900 border-r border-outline-variant/15 w-16">
+<div class="mb-8">
+<span class="material-symbols-outlined text-primary text-3xl">hub</span>
+</div>
+<nav class="flex flex-col gap-6 items-center flex-1">
+<button class="p-3 rounded-lg transition-all duration-200 text-slate-500 hover:bg-slate-200" title="Home">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+</button>
+<button class="p-3 rounded-lg transition-all duration-200 bg-white dark:bg-slate-800 text-indigo-600 shadow-sm translate-x-1" title="Insights">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+</button>
+<button class="p-3 rounded-lg transition-all duration-200 text-slate-500 hover:bg-slate-200" title="Models">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</button>
+<button class="p-3 rounded-lg transition-all duration-200 text-slate-500 hover:bg-slate-200" title="Stakeholders">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</button>
+<button class="p-3 rounded-lg transition-all duration-200 text-slate-500 hover:bg-slate-200" title="Archive">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+</button>
+</nav>
+<div class="flex flex-col gap-4 mb-4">
+<button class="p-2 text-slate-500 hover:text-primary"><span class="material-symbols-outlined">help</span></button>
+<button class="p-2 text-slate-500 hover:text-primary"><span class="material-symbols-outlined">settings</span></button>
+</div>
+</aside>
+<!-- Main Shell -->
+<div class="ml-16 mr-80 min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center w-full px-8 h-14 bg-slate-50 dark:bg-slate-950 border-b border-outline-variant/15">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Acme Corp <span class="text-on-tertiary-container font-medium ml-1">Expansion Deal</span></span>
+<nav class="hidden md:flex gap-6">
+<a class="text-slate-500 hover:text-slate-700 font-medium text-sm" href="#">Strategic Intent</a>
+<a class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 font-medium text-sm" href="#">Analysis</a>
+<a class="text-slate-500 hover:text-slate-700 font-medium text-sm" href="#">Execution</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase">Active Discovery</div>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_7DBtvfCu-Nk95RhfXOWaDaC6nJYjY2LrwgtDKVrDacFzlqK_gCPGRIAdR4iqpuw-5uw4MT2NjxQc-dosCaz-QZjqlb5_NkiOpxPc4BYhCjTPc3O9DFcpkbfm7ZSKRFdFJPKGjdefy5enexU4oxyJtbXwNGNu8L5EgtopdIQmLleCNcY8cYneXKEL791vauiEJ8Igra_Q9RwzLk5HYHWF2-H5hZRwksbkvYDTwSAhNS3jB_ybQAcT4B7YJpyyBGuWnOgILDMRYPo"/>
+</div>
+</div>
+</header>
+<!-- Workspace Content -->
+<main class="flex-1 p-8 overflow-y-auto no-scrollbar pb-64">
+<!-- Hero Analysis Section -->
+<div class="mb-8">
+<div class="flex items-end justify-between mb-6">
+<div>
+<span class="text-[0.6875rem] font-semibold uppercase tracking-widest text-on-tertiary-container mb-2 block">Value Engineering</span>
+<h1 class="text-3xl font-bold tracking-tight text-on-surface">Strategic Value Hypothesis</h1>
+</div>
+</div>
+<!-- Contextual Insight Banner -->
+<div class="mb-6 p-4 bg-primary-container text-on-primary-container rounded-xl border border-primary/20 flex items-center gap-4 shadow-sm">
+<span class="material-symbols-outlined text-on-tertiary-container">info</span>
+<p class="text-sm font-medium">Acme Corp's primary headwind is a <span class="font-bold underline">12% spike in operational overhead</span> impacting their Q3 margins.</p>
+</div>
+<div class="grid grid-cols-12 gap-6">
+<!-- Chart Area -->
+<div class="col-span-8 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-semibold">Conversion Lift vs. Revenue Gain Analysis</h3>
+<span class="material-symbols-outlined text-outline-variant cursor-pointer">open_in_full</span>
+</div>
+<div class="h-48 flex items-end gap-2 px-4">
+<div class="flex-1 bg-surface-container h-[40%] rounded-t-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[55%] rounded-t-sm"></div>
+<div class="flex-1 bg-surface-container h-[45%] rounded-t-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[70%] rounded-t-sm"></div>
+<div class="flex-1 bg-surface-container h-[60%] rounded-t-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[85%] rounded-t-sm"></div>
+<div class="flex-1 bg-surface-container h-[75%] rounded-t-sm"></div>
+<div class="flex-1 bg-on-tertiary-container h-[95%] rounded-t-sm"></div>
+</div>
+<div class="flex justify-between mt-4 text-[10px] uppercase tracking-tighter text-on-surface-variant font-bold">
+<span>Baseline</span>
+<span>Optimization Phase 1</span>
+<span>Full Deployment</span>
+<span>Projected Scale</span>
+</div>
+</div>
+<!-- ROI Card -->
+<div class="col-span-4 bg-white p-6 rounded-xl border border-outline-variant/10 shadow-sm relative overflow-hidden flex flex-col justify-between">
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Projected ROI</p>
+<p class="text-4xl font-bold tracking-tighter text-on-surface">14.2<span class="text-xl opacity-50">%</span></p>
+</div>
+<div class="mt-4 h-12 w-full">
+<!-- Tiny trendline mock -->
+<svg class="w-full h-full" viewbox="0 0 100 30">
+<path d="M0 25 L20 22 L40 28 L60 15 L80 18 L100 5" fill="none" stroke="#9863ff" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+</svg>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2 font-medium">+2.4% vs industry baseline</p>
+</div>
+</div>
+</div>
+<!-- Chat History -->
+<div class="space-y-6 max-w-4xl mx-auto mt-12 mb-32">
+<!-- Agent Message -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-on-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-sm">auto_awesome</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 max-w-[85%]">
+<p class="text-sm leading-relaxed">I’ve successfully mapped the Strategic Intent for the Acme Corp Expansion deal. I've pulled the core account data and stakeholder list from Salesforce, including the recent notes from your Discovery Call on Tuesday. I’ve also enriched this with their latest Q3 10-K report. It looks like their primary headwind is a 12% spike in operational overhead. Shall we move to the Value Hypothesis?</p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex gap-4 flex-row-reverse">
+<div class="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_7DBtvfCu-Nk95RhfXOWaDaC6nJYjY2LrwgtDKVrDacFzlqK_gCPGRIAdR4iqpuw-5uw4MT2NjxQc-dosCaz-QZjqlb5_NkiOpxPc4BYhCjTPc3O9DFcpkbfm7ZSKRFdFJPKGjdefy5enexU4oxyJtbXwNGNu8L5EgtopdIQmLleCNcY8cYneXKEL791vauiEJ8Igra_Q9RwzLk5HYHWF2-H5hZRwksbkvYDTwSAhNS3jB_ybQAcT4B7YJpyyBGuWnOgILDMRYPo"/>
+</div>
+<div class="bg-primary text-on-primary p-4 rounded-2xl rounded-tr-none max-w-[85%]">
+<p class="text-sm">Yes, let's do it. What’s the baseline we’re working with for their processing time?</p>
+</div>
+</div>
+<!-- Agent Message with Source Icons -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-on-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-sm">auto_awesome</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-none border border-outline-variant/10 max-w-[85%]">
+<p class="text-sm leading-relaxed mb-3">Based on the transcript from the discovery call, I’ve flagged a mention of a '3-day lag' in manual approvals. I've also pulled a Gartner Industry Benchmark suggesting a 1.5-day average for their segment.</p>
+<div class="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-outline-variant/5">
+<span class="text-xs font-semibold">Initial Baseline Metric: 3 days</span>
+<span class="material-symbols-outlined text-[14px] text-on-tertiary-container" title="Source: Discovery Transcript">description</span>
+</div>
+<p class="text-sm leading-relaxed mt-3">Does that align with what the champion told you, or should we adjust?</p>
+</div>
+</div>
+<!-- User Message Override -->
+<div class="flex gap-4 flex-row-reverse">
+<div class="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_7DBtvfCu-Nk95RhfXOWaDaC6nJYjY2LrwgtDKVrDacFzlqK_gCPGRIAdR4iqpuw-5uw4MT2NjxQc-dosCaz-QZjqlb5_NkiOpxPc4BYhCjTPc3O9DFcpkbfm7ZSKRFdFJPKGjdefy5enexU4oxyJtbXwNGNu8L5EgtopdIQmLleCNcY8cYneXKEL791vauiEJ8Igra_Q9RwzLk5HYHWF2-H5hZRwksbkvYDTwSAhNS3jB_ybQAcT4B7YJpyyBGuWnOgILDMRYPo"/>
+</div>
+<div class="bg-primary text-on-primary p-4 rounded-2xl rounded-tr-none max-w-[85%] shadow-lg">
+<p class="text-sm">3 days is the average, but their peak season is closer to 5. Let's use <span class="underline decoration-indigo-400 decoration-2 underline-offset-2 font-bold italic">4 as a conservative baseline</span>.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Chat Input Bar -->
+<div class="fixed bottom-0 left-16 right-80 p-6 prism-chat-gradient pointer-events-none">
+<div class="max-w-4xl mx-auto pointer-events-auto">
+<div class="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-outline-variant/20 flex items-center p-2 gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium placeholder-on-surface-variant/50 px-2" placeholder="Ask your Strategist..." type="text"/>
+<div class="flex items-center gap-1">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors">
+<span class="material-symbols-outlined">mic</span>
+</button>
+<button class="ml-2 bg-on-tertiary-container text-white w-10 h-10 rounded-xl flex items-center justify-center hover:shadow-lg transition-all">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Intelligence Tracker Panel (Right) -->
+<aside class="fixed right-0 top-0 h-screen w-80 bg-surface-container-low border-l border-outline-variant/15 flex flex-col z-40">
+<div class="p-6 border-b border-outline-variant/15">
+<h2 class="text-sm font-bold uppercase tracking-widest text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-on-tertiary-container">insights</span>
+            Intelligence Tracker
+        </h2>
+</div>
+<div class="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8">
+<!-- Progress Tracker: Data Ingestion -->
+<section>
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Data Ingestion</h3>
+<span class="text-[10px] font-bold text-on-tertiary-container">80%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden mb-3">
+<div class="w-[80%] h-full bg-on-tertiary-container"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant italic">3 out of 5 steps complete</p>
+</section>
+<!-- MEDDPICC Progress -->
+<section>
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4">MEDDPICC Status</h3>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-500 text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-medium">Economic Buyer Identified</span>
+</div>
+<!-- Highlighted Override/Gap -->
+<div class="bg-error/5 border border-error/20 p-2 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error text-sm">warning</span>
+<span class="text-xs font-bold text-error">Decision Criteria: High-Risk Gap</span>
+</div>
+</div>
+<!-- Manual Override Highlighting -->
+<div class="bg-indigo-50 border border-indigo-200 p-2 rounded-lg">
+<div class="flex items-center justify-between">
+<span class="text-[10px] uppercase font-bold text-indigo-700">Baseline Metric</span>
+<span class="text-[10px] bg-indigo-200 px-1.5 py-0.5 rounded text-indigo-800">Manual Override</span>
+</div>
+<p class="text-sm font-bold mt-1">4.0 Days</p>
+</div>
+</div>
+</section>
+<!-- Connected Sources -->
+<section>
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4">Connected Sources</h3>
+<div class="flex flex-wrap gap-2">
+<div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 flex items-center gap-2 cursor-pointer hover:border-on-tertiary-container" title="Salesforce Connected">
+<img alt="SF" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPRNwRKaPeENBmFHGc28CQNc739YgeTbX2AeKhc3a4_vjN7-NKoUVfUU6UORqVFVqE4OhXjlrjPWc6gejwvPi_6gr4XIeBRQ7jf0GDhqVxDhu6as_KgDmI5ndLclhU97GMglONQpegr6PJeYUV5DrzAYXn3pHm46CsonQpiLXVf-8zq7lwEusrnCoOLWZ7LeXSTle2qZDF1UyyrmIF536xV0VkOJSaTrUxxAw3u3VRel631lgO_s2KW1YResVfK_OJWPx5vbJI_ig"/>
+<span class="text-[10px] font-medium">SFDC</span>
+</div>
+<div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 flex items-center gap-2 cursor-pointer hover:border-on-tertiary-container" title="Acme Q3 10-K">
+<span class="material-symbols-outlined text-sm text-red-500">picture_as_pdf</span>
+<span class="text-[10px] font-medium">Q3 10-K</span>
+</div>
+<div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 flex items-center gap-2 cursor-pointer hover:border-on-tertiary-container" title="Discovery Call Transcript">
+<span class="material-symbols-outlined text-sm text-blue-500">description</span>
+<span class="text-[10px] font-medium">Transcript</span>
+</div>
+</div>
+</section>
+<!-- Key Stakeholders -->
+<section>
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4">Key Stakeholders</h3>
+<div class="space-y-3">
+<div class="flex items-center gap-3 p-2 bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold">SC</div>
+<div>
+<p class="text-xs font-bold">Sarah Chen</p>
+<p class="text-[9px] text-green-600 font-bold uppercase">Champion</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-[10px] font-bold">MT</div>
+<div>
+<p class="text-xs font-bold">Marcus Thorne</p>
+<p class="text-[9px] text-on-surface-variant font-bold uppercase italic">Potential EB</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<div class="p-6 bg-surface-container-highest/30">
+<button class="w-full py-2.5 bg-on-tertiary-container text-white rounded-lg text-xs font-bold tracking-tight hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">auto_awesome</span>
+            Update Hypothesis
+        </button>
+</div>
+</aside>
+</body></html>

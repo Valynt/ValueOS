@@ -124,8 +124,9 @@ function createSdkMocks() {
   };
 }
 
-// We need a module-level reference so individual tests can override mocks.
-let sdkMocks: ReturnType<typeof createSdkMocks>;
+// Initialize at declaration so the vi.mock factory can reference it immediately.
+// beforeEach re-creates it to reset call counts between tests.
+let sdkMocks: ReturnType<typeof createSdkMocks> = createSdkMocks();
 
 vi.mock("@infisical/sdk", () => {
   return {

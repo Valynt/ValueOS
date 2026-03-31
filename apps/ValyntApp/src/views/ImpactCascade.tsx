@@ -225,3 +225,4 @@ export function ImpactCascade() {
     </div>
   );
 }
+export default ImpactCascade;

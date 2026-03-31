@@ -194,7 +194,64 @@ export const DEFAULT_AGENT_FABRIC_CONFIG: AgentFabricConfig = {
  * Load configuration with environment variable overrides
  */
 export function loadAgentFabricConfig(): AgentFabricConfig {
-  return DEFAULT_AGENT_FABRIC_CONFIG;
+  // Re-evaluate env vars on each call so tests and runtime overrides take effect.
+  // DEFAULT_AGENT_FABRIC_CONFIG is the static baseline; this function builds a
+  // fresh config that respects the current process.env state.
+  return {
+    ...DEFAULT_AGENT_FABRIC_CONFIG,
+    safetyLimits: {
+      maxExecutionTime: parseInt(process.env.AGENT_MAX_EXECUTION_TIME_MS || "30000"),
+      maxLLMCalls: parseInt(process.env.AGENT_MAX_LLM_CALLS || "20"),
+      maxRecursionDepth: parseInt(process.env.AGENT_MAX_RECURSION_DEPTH || "5"),
+      maxMemoryBytes: parseInt(process.env.AGENT_MAX_MEMORY_BYTES || String(100 * 1024 * 1024)),
+      enableDetailedTracking: process.env.AGENT_DETAILED_TRACKING === "true",
+      maxExecutionCost: parseFloat(process.env.AGENT_MAX_EXECUTION_COST || "5.00"),
+      maxHourlyCost: parseFloat(process.env.AGENT_MAX_HOURLY_COST || "10.00"),
+      costCheckIntervalMs: parseInt(process.env.AGENT_COST_CHECK_INTERVAL_MS || "5000"),
+    },
+    llmGateway: {
+      ...DEFAULT_AGENT_FABRIC_CONFIG.llmGateway,
+      defaultModel: process.env.LLM_DEFAULT_MODEL || "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+      lowCostModel: process.env.LLM_LOW_COST_MODEL || "microsoft/phi-4-mini",
+      highCostModel: process.env.LLM_HIGH_COST_MODEL || DEFAULT_AGENT_FABRIC_CONFIG.llmGateway.highCostModel,
+      gatingEnabled: process.env.LLM_GATING_ENABLED !== "false",
+      providers: {
+        together: {
+          baseUrl: process.env.TOGETHER_API_BASE_URL || "https://api.together.xyz/v1",
+          timeout: parseInt(process.env.TOGETHER_TIMEOUT_MS || "30000"),
+        },
+        openai: {
+          baseUrl: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
+          timeout: parseInt(process.env.OPENAI_TIMEOUT_MS || "30000"),
+        },
+      },
+    },
+    memory: {
+      ...DEFAULT_AGENT_FABRIC_CONFIG.memory,
+      defaultEpisodicTTL: parseInt(process.env.MEMORY_EPISODIC_TTL_SECONDS || "86400"),
+      defaultSemanticTTL: parseInt(process.env.MEMORY_SEMANTIC_TTL_SECONDS || "2592000"),
+      maxTenantMemoryBytes: parseInt(process.env.MEMORY_MAX_TENANT_BYTES || String(1024 * 1024 * 1024)),
+    },
+    audit: {
+      enabled: process.env.AUDIT_LOGGING_ENABLED !== "false",
+      retentionDays: parseInt(process.env.AUDIT_RETENTION_DAYS || "90"),
+      batchSize: parseInt(process.env.AUDIT_BATCH_SIZE || "100"),
+    },
+    costTracking: {
+      ...DEFAULT_AGENT_FABRIC_CONFIG.costTracking,
+      enabled: process.env.COST_TRACKING_ENABLED !== "false",
+      precision: parseInt(process.env.COST_PRECISION || "4"),
+      alertThresholds: {
+        perExecution: parseFloat(
+          process.env.COST_ALERT_EXECUTION_THRESHOLD ||
+          process.env.COST_ALERT_PER_EXECUTION ||
+          "2.50"
+        ),
+        hourly: parseFloat(process.env.COST_ALERT_HOURLY || "5.00"),
+        daily: parseFloat(process.env.COST_ALERT_DAILY || "50.00"),
+      },
+    },
+  };
 }
 
 /**

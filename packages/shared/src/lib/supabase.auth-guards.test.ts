@@ -44,7 +44,7 @@ describe('shared supabase auth guards', () => {
     const { createServiceRoleSupabaseClient } = await import('./supabase');
 
     expect(() => createServiceRoleSupabaseClient()).toThrow(
-      /Supabase service role key is required/,
+      /Missing required Supabase runtime configuration/,
     );
     expect(createClientSpy).not.toHaveBeenCalled();
   });

@@ -216,7 +216,7 @@ export class SemanticMemoryService {
     type: "sec_filing_chunk" | "web_chunk";
     content: string;
     sourceUrl: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     tenantId: string;
     contextId?: string;
   }): Promise<string> {

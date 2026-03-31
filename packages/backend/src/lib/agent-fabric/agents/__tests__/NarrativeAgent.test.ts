@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Hoisted mocks
 // ---------------------------------------------------------------------------
 
-const { mockStoreSemanticMemory, mockComplete, mockCreateDraft, mockPublish } = vi.hoisted(() => ({
+const { mockRetrieve, mockStoreSemanticMemory, mockComplete, mockCreateDraft, mockPublish } = vi.hoisted(() => ({
+  mockRetrieve: vi.fn().mockResolvedValue([]),
   mockStoreSemanticMemory: vi.fn().mockResolvedValue("mem_1"),
   mockComplete: vi.fn(),
   mockCreateDraft: vi.fn().mockResolvedValue({ id: "draft-1" }),
@@ -29,7 +30,7 @@ vi.mock("../../LLMGateway.js", () => ({
 vi.mock("../../MemorySystem.js", () => ({
   MemorySystem: class {
     store = vi.fn().mockResolvedValue("mem_1");
-    retrieve = vi.fn().mockResolvedValue([]);
+    retrieve = mockRetrieve;
     storeSemanticMemory = mockStoreSemanticMemory;
     clear = vi.fn().mockResolvedValue(0);
   },
@@ -205,6 +206,42 @@ describe("NarrativeAgent", () => {
       expect(output.result.executive_summary).toBe(VALID_LLM_RESPONSE.executive_summary);
       expect(output.result.defense_readiness_score).toBe(0.82);
       expect(output.result.key_proof_points).toHaveLength(3);
+    });
+
+    it("retrieves context from memory system instead of previous_stage_outputs", async () => {
+      mockComplete.mockResolvedValue(llmResponse(VALID_LLM_RESPONSE));
+
+      await agent.execute(makeContext());
+
+      // Should retrieve from all previous agents
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "opportunity",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "target",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "financial_modeling",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "integrity",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }),
+      );
     });
 
     it("persists draft to NarrativeDraftRepository when value_case_id is present", async () => {

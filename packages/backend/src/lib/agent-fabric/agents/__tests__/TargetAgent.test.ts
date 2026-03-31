@@ -440,15 +440,15 @@ describe("TargetAgent", () => {
 
     it("scopes hypothesis retrieval to the active workspace", async () => {
       await agent.execute(makeContext());
-
       expect(mockRetrieve).toHaveBeenCalledWith(
         expect.objectContaining({
           agent_id: "opportunity",
           organization_id: "org-456",
+          workspace_id: "ws-123",
           memory_type: "semantic",
         }),
       );
-    });
+    });;
 
     it("handles memory retrieval failure gracefully", async () => {
       mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));

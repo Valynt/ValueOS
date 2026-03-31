@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Profile | Prism Logic</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "outline": "#76777d",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-container-highest": "#e0e3e5",
+                        "outline-variant": "#c6c6cd",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#d5e3fc",
+                        "surface-container": "#eceef0",
+                        "surface-bright": "#f7f9fb",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "surface-dim": "#d8dadc",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-tint": "#565e74",
+                        "on-secondary-container": "#57657a",
+                        "on-primary-fixed": "#131b2e",
+                        "tertiary-container": "#25005a",
+                        "secondary-fixed": "#d5e3fc",
+                        "primary": "#000000",
+                        "surface-variant": "#e0e3e5",
+                        "secondary": "#515f74",
+                        "inverse-primary": "#bec6e0",
+                        "on-tertiary-fixed": "#25005a",
+                        "surface": "#f7f9fb",
+                        "primary-container": "#131b2e",
+                        "on-surface": "#191c1e",
+                        "inverse-surface": "#2d3133",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#000000",
+                        "primary-fixed-dim": "#bec6e0",
+                        "background": "#f7f9fb",
+                        "on-background": "#191c1e",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#9863ff",
+                        "on-primary-container": "#7c839b",
+                        "primary-fixed": "#dae2fd",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#45464d",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#eaddff"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-slate-50/80 backdrop-blur-md">
+<div class="flex justify-between items-center px-8 h-16 w-full max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tight text-slate-900">Prism Logic</span>
+<nav class="hidden md:flex gap-6 text-sm font-medium">
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Dashboard</a>
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Analytics</a>
+<a class="text-slate-500 hover:text-slate-900 transition-colors" href="#">Integrations</a>
+<a class="text-violet-600 font-semibold border-b-2 border-violet-600 pb-1" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100 rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined text-slate-600">notifications</span>
+</button>
+<button class="p-2 hover:bg-slate-100 rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined text-slate-600">help</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="close-up portrait of a professional man with a confident smile in a bright modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD90X1s_w4c5goqXDGEG0vFleYWHn6D9VhtVu8m98qRak3cqdhn0_upisgA32-qiIZYkAshoO62qR8FjWCm-0iM4ObdACpJTlxUIAeVpNGIYPT7WXLe-ds-xcISPR5s5HFE3Cbo3Wo35akyMHayZewWmYfULCZylVp4S6m8yOpZatg3w0leF2fNod0ujJKOE5RcKChdcf0vlcvOGBNwfi86FBaiQqVH9Ag2LHENfmx726FK1aCl7sp-bk-Rx2WNo_gR8J6TGfKKwVw"/>
+</div>
+</div>
+</div>
+<div class="bg-slate-200/50 h-[1px] w-full"></div>
+</header>
+<main class="pt-24 pb-12 px-8 max-w-screen-2xl mx-auto flex gap-10">
+<!-- Sidebar Navigation Shell -->
+<aside class="h-full w-64 hidden lg:flex flex-col space-y-2 shrink-0">
+<div class="p-4 mb-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm">filter_vintage</span>
+</div>
+<span class="text-lg font-black text-slate-900">Enterprise Tier</span>
+</div>
+<p class="text-xs font-medium text-on-surface-variant opacity-70">Visual Intelligence</p>
+</div>
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">grid_view</span> Overview
+            </a>
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">visibility</span> Visual AI
+            </a>
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">folder_open</span> Library
+            </a>
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">group</span> Team
+            </a>
+<a class="flex items-center gap-3 p-3 bg-white text-slate-900 shadow-sm rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined text-violet-600">payments</span> Billing
+            </a>
+<div class="pt-8 mt-auto space-y-2">
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">contact_support</span> Support
+                </a>
+<a class="flex items-center gap-3 p-3 text-slate-500 hover:bg-slate-200 transition-all rounded-lg font-medium text-sm" href="#">
+<span class="material-symbols-outlined">logout</span> Sign Out
+                </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<section class="flex-1 space-y-10">
+<!-- Profile Hero: Intentional Asymmetry -->
+<div class="flex flex-col md:flex-row gap-12 items-start">
+<div class="relative group">
+<div class="w-48 h-48 rounded-2xl overflow-hidden ring-4 ring-white shadow-xl">
+<img class="w-full h-full object-cover" data-alt="high-quality studio headshot of a smiling professional male with dark hair wearing a minimalist navy sweater" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiKA9d1PXuO8OH8zvKdiMYeI-cseNHGc8lt8VyqMBtHfphntKgnr0Lydhgd19RHWOlJjL13e3UGjRyjweAFOKK7hGX8d8xbXYz1Qm-XeDiP_JKM2QPLlRhZwwohWZOSj3n0qP1RjG51WPI5FQDmWAP6U_SCOZxvAdaJPRaO3UuFn4WbP3q9wPkdFjoMwOMkrAjfGVj06KtG6aEmWVu6VCPEh1JH0UeiJk6emY6Os7xQHihWhrSGH-fteix8u5aKb1dyDbUUe4FtvY"/>
+</div>
+<button class="absolute -bottom-4 -right-4 bg-primary text-on-primary w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</div>
+<div class="flex-1 pt-4">
+<div class="flex flex-col gap-1">
+<span class="text-[0.6875rem] font-bold uppercase tracking-widest text-on-tertiary-container bg-tertiary-fixed px-2 py-0.5 rounded w-fit mb-2">Active Member</span>
+<h1 class="text-5xl font-extrabold tracking-tight text-on-surface">Adrian Thorne</h1>
+<p class="text-xl font-medium text-on-surface-variant">Value Engineer</p>
+</div>
+<div class="mt-8 flex flex-wrap gap-8">
+<div class="flex flex-col">
+<span class="text-[0.6875rem] uppercase font-semibold text-outline tracking-tighter mb-1">Email Address</span>
+<span class="text-body-md font-medium">a.thorne@prismlogic.ai</span>
+</div>
+<div class="flex flex-col border-l border-outline-variant/20 pl-8">
+<span class="text-[0.6875rem] uppercase font-semibold text-outline tracking-tighter mb-1">Timezone</span>
+<span class="text-body-md font-medium">London, UK (GMT+1)</span>
+</div>
+<div class="flex flex-col border-l border-outline-variant/20 pl-8">
+<span class="text-[0.6875rem] uppercase font-semibold text-outline tracking-tighter mb-1">Member Since</span>
+<span class="text-body-md font-medium">March 2022</span>
+</div>
+</div>
+<div class="mt-10 flex gap-4">
+<button class="px-8 py-3 bg-primary text-on-primary rounded-xl font-semibold shadow-md active:scale-95 transition-all">
+                            Send Message
+                        </button>
+<button class="px-8 py-3 bg-surface-container-high text-on-surface rounded-xl font-semibold hover:bg-surface-container-highest transition-all">
+                            Export Profile
+                        </button>
+</div>
+</div>
+</div>
+<!-- Bento Grid Stats Section -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Effectiveness Score (Signature Component) -->
+<div class="md:col-span-4 bg-surface-container-lowest p-8 rounded-xl shadow-[0px_12px_32px_rgba(25,28,30,0.04)] flex flex-col items-center justify-center text-center relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl">analytics</span>
+</div>
+<span class="text-[0.6875rem] font-bold uppercase tracking-widest text-outline mb-6">Efficiency Rating</span>
+<div class="relative w-32 h-32 mb-4">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-low" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-on-tertiary-container" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="364.4" stroke-dashoffset="36.4" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-3xl font-black">92</span>
+</div>
+</div>
+<p class="text-sm font-semibold text-on-surface">Top 5% in Value Engineering</p>
+</div>
+<!-- Recent Activity (Tonal Depth) -->
+<div class="md:col-span-8 bg-surface-container-low p-8 rounded-xl flex flex-col gap-6">
+<div class="flex justify-between items-end">
+<h3 class="text-xl font-bold tracking-tight">Recent Activity</h3>
+<a class="text-xs font-bold text-on-tertiary-container hover:underline" href="#">VIEW LOGS</a>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">rocket_launch</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Project "Nexus Vision" Deployed</p>
+<p class="text-xs text-on-surface-variant">Visual AI Pipeline • 2 hours ago</p>
+</div>
+</div>
+<span class="text-xs font-mono text-outline">+240 XP</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant text-sm">auto_awesome</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Batch Analysis Completed</p>
+<p class="text-xs text-on-surface-variant">1,240 entities processed • Yesterday</p>
+</div>
+</div>
+<span class="text-xs font-mono text-outline">+45 XP</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-on-secondary-fixed-variant/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-fixed-variant text-sm">share</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Shared Integration Config</p>
+<p class="text-xs text-on-surface-variant">Team: Alpha Stream • 3 days ago</p>
+</div>
+</div>
+<span class="text-xs font-mono text-outline">+12 XP</span>
+</div>
+</div>
+</div>
+<!-- Secondary Stats with Glassmorphism -->
+<div class="md:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+<div class="p-6 rounded-xl bg-primary-container text-white relative overflow-hidden">
+<div class="relative z-10">
+<span class="text-[0.6875rem] font-bold uppercase tracking-widest opacity-60">Revenue Impact</span>
+<div class="text-3xl font-bold mt-2">$2.4M</div>
+<div class="flex items-center gap-1 text-on-tertiary-container mt-2">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span class="text-xs font-bold">14% YoY</span>
+</div>
+</div>
+<div class="absolute bottom-0 right-0 w-32 h-32 bg-on-tertiary-container/10 rounded-full -mr-16 -mb-16 blur-2xl"></div>
+</div>
+<div class="p-6 rounded-xl bg-surface-container-highest border border-outline-variant/10">
+<span class="text-[0.6875rem] font-bold uppercase tracking-widest text-outline">Open Initiatives</span>
+<div class="text-3xl font-bold mt-2 text-on-surface">08</div>
+<p class="text-xs font-medium text-on-surface-variant mt-2">3 pending approval</p>
+</div>
+<div class="p-6 rounded-xl bg-white border border-outline-variant/10 shadow-sm flex flex-col justify-between">
+<div>
+<span class="text-[0.6875rem] font-bold uppercase tracking-widest text-outline">Compliance Score</span>
+<div class="text-3xl font-bold mt-2 text-on-surface">100%</div>
+</div>
+<div class="w-full bg-surface-container h-1 rounded-full mt-4 overflow-hidden">
+<div class="bg-violet-600 h-full w-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Detailed Profile Sections -->
+<div class="flex flex-col gap-8">
+<div class="border-t border-outline-variant/10 pt-8">
+<h4 class="text-title-sm font-bold text-on-surface mb-6 uppercase tracking-wider">Professional Bio</h4>
+<p class="text-body-md text-on-surface-variant leading-relaxed max-w-3xl">
+                        As a Senior Value Engineer at Prism Logic, Adrian focuses on bridging the gap between high-fidelity visual AI processing and tangible business outcomes. With over 10 years of experience in data orchestration and enterprise-scale intelligence, he leads the "Nexus Vision" initiative, ensuring that our visual diagnostic tools translate into measurable ROI for Fortune 500 clients.
+                    </p>
+</div>
+<div class="border-t border-outline-variant/10 pt-8">
+<h4 class="text-title-sm font-bold text-on-surface mb-6 uppercase tracking-wider">Core Proficiencies</h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">Visual Data Modeling</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">Strategic Value Mapping</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">ROI Architecture</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">Python</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">TensorFlow</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">GraphQL</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-low text-xs font-bold text-on-surface-variant">Enterprise Scalability</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual FAB - Restricted by Logic -->
+<!-- Suppression Logic: FAB suppressed for Detail/Settings view based on 'Contextual FAB Suppression' rule -->
+</body></html>

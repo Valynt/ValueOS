@@ -15,6 +15,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,11 +53,13 @@ function StepCompany({
   data: WizardData;
   onChange: (patch: Partial<WizardData>) => void;
 }) {
+  const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-colors";
+
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">
-          Company name <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-foreground mb-1.5">
+          Company name <span className="text-destructive">*</span>
         </label>
         <input
           type="text"
@@ -64,46 +67,46 @@ function StepCompany({
           value={data.companyName}
           onChange={(e) => onChange({ companyName: e.target.value })}
           placeholder="e.g. Acme Corp"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className={inputClass}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1.5">
           Company domain{" "}
-          <span className="text-slate-400 font-normal">(optional — used for web research)</span>
+          <span className="text-muted-foreground font-normal">(optional — used for web research)</span>
         </label>
         <input
           type="text"
           value={data.companyDomain}
           onChange={(e) => onChange({ companyDomain: e.target.value })}
           placeholder="e.g. acmecorp.com"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className={inputClass}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1.5">
           CRM opportunity ID{" "}
-          <span className="text-slate-400 font-normal">(optional — links to Salesforce / HubSpot)</span>
+          <span className="text-muted-foreground font-normal">(optional — links to Salesforce / HubSpot)</span>
         </label>
         <input
           type="text"
           value={data.crmOpportunityId}
           onChange={(e) => onChange({ crmOpportunityId: e.target.value })}
           placeholder="e.g. 0065g00000AbCdEf"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors"
+          className={inputClass}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1.5">
           Brief description{" "}
-          <span className="text-slate-400 font-normal">(optional)</span>
+          <span className="text-muted-foreground font-normal">(optional)</span>
         </label>
         <textarea
           rows={3}
           value={data.description}
           onChange={(e) => onChange({ description: e.target.value })}
           placeholder="What problem are you solving for this customer?"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-slate-400 focus:bg-white bg-slate-50 transition-colors resize-none"
+          className={`${inputClass} resize-none`}
         />
       </div>
     </div>
@@ -182,14 +185,14 @@ function NewCaseWizard() {
     <div className="p-8 max-w-2xl mx-auto">
       <Link
         to="/app/cases"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 mb-6"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Cases
       </Link>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-1">New Value Case</h1>
-      <p className="text-slate-500 text-sm mb-8">
+      <h1 className="text-2xl font-bold text-foreground mb-1">New Value Case</h1>
+      <p className="text-muted-foreground text-sm mb-8">
         Step {step + 1} of {STEPS.length} — {STEPS[step]!.label}
       </p>
 
@@ -199,25 +202,25 @@ function NewCaseWizard() {
           <div key={s.label} className="flex items-center gap-2">
             <div
               className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold",
+                "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors",
                 i < step
-                  ? "bg-primary text-white"
+                  ? "bg-primary/20 text-primary"
                   : i === step
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-400",
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
               )}
             >
               {i < step ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </div>
             <span
               className={cn(
-                "text-sm",
-                i === step ? "font-medium text-slate-900" : "text-slate-400",
+                "text-sm transition-colors",
+                i === step ? "font-medium text-foreground" : "text-muted-foreground",
               )}
             >
               {s.label}
             </span>
-            {i < STEPS.length - 1 && <div className="w-8 h-px bg-slate-200 mx-1" />}
+            {i < STEPS.length - 1 && <div className="w-8 h-px bg-border mx-1" />}
           </div>
         ))}
       </div>
@@ -227,36 +230,36 @@ function NewCaseWizard() {
         {step === 0 && <StepCompany data={data} onChange={patch} />}
         {step === 1 && (
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-900">Review</h3>
+            <h3 className="font-semibold text-foreground">Review</h3>
             <div className="space-y-2 text-sm">
               <div className="flex gap-2">
-                <span className="text-slate-500 w-36 flex-shrink-0">Company</span>
-                <span className="font-medium text-slate-900">{data.companyName}</span>
+                <span className="text-muted-foreground w-36 flex-shrink-0">Company</span>
+                <span className="font-medium text-foreground">{data.companyName}</span>
               </div>
               {data.companyDomain && (
                 <div className="flex gap-2">
-                  <span className="text-slate-500 w-36 flex-shrink-0">Domain</span>
-                  <span className="text-slate-700">{data.companyDomain}</span>
+                  <span className="text-muted-foreground w-36 flex-shrink-0">Domain</span>
+                  <span className="text-foreground">{data.companyDomain}</span>
                 </div>
               )}
               {data.crmOpportunityId && (
                 <div className="flex gap-2">
-                  <span className="text-slate-500 w-36 flex-shrink-0">CRM Opportunity</span>
-                  <span className="font-mono text-xs text-slate-700">{data.crmOpportunityId}</span>
+                  <span className="text-muted-foreground w-36 flex-shrink-0">CRM Opportunity</span>
+                  <span className="font-mono text-xs text-foreground">{data.crmOpportunityId}</span>
                 </div>
               )}
               {data.description && (
                 <div className="flex gap-2">
-                  <span className="text-slate-500 w-36 flex-shrink-0">Description</span>
-                  <span className="text-slate-700">{data.description}</span>
+                  <span className="text-muted-foreground w-36 flex-shrink-0">Description</span>
+                  <span className="text-foreground">{data.description}</span>
                 </div>
               )}
             </div>
 
             {/* Agent launch notice */}
-            <div className="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-start gap-2">
+            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/15 flex items-start gap-2">
               <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {data.crmOpportunityId
                   ? "DealAssemblyAgent will fetch CRM data, run web research, and generate value hypotheses automatically."
                   : "OpportunityAgent will generate value hypotheses from the context you provided."}
@@ -296,7 +299,7 @@ function NewCaseWizard() {
       </div>
 
       {launchError && (
-        <p className="mt-3 text-sm text-red-500 text-center">{launchError}</p>
+        <p className="mt-3 text-sm text-destructive text-center">{launchError}</p>
       )}
     </div>
   );
@@ -324,8 +327,8 @@ function CaseSummarySidebar({ caseId }: { caseId: string }) {
     return (
       <div className="w-72 flex-shrink-0">
         <div className="bg-card border rounded-lg p-4 animate-pulse">
-          <div className="h-4 bg-slate-200 rounded w-1/2 mb-3" />
-          <div className="h-24 bg-slate-100 rounded" />
+          <div className="h-4 bg-muted rounded w-1/2 mb-3" />
+          <div className="h-24 bg-muted/50 rounded" />
         </div>
       </div>
     );
@@ -358,7 +361,7 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mr-2" />
         <span className="text-sm">Loading case…</span>
       </div>
@@ -369,9 +372,9 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
   if (error) {
     return (
       <div className="p-8 max-w-lg mx-auto text-center mt-16">
-        <AlertCircle className="w-10 h-10 text-red-300 mx-auto mb-4" />
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Failed to load case</h2>
-        <p className="text-sm text-slate-500 mb-6">
+        <AlertCircle className="w-10 h-10 text-destructive/50 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold text-foreground mb-2">Failed to load case</h2>
+        <p className="text-sm text-muted-foreground mb-6">
           {error instanceof Error ? error.message : "An unexpected error occurred. Please try again."}
         </p>
         <div className="flex items-center justify-center gap-3">
@@ -393,10 +396,10 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
   if (!valueCase) {
     return (
       <div className="p-8 max-w-lg mx-auto text-center mt-16">
-        <FileText className="w-10 h-10 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Case not found</h2>
-        <p className="text-sm text-slate-500 mb-6">
-          No case exists with ID <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">{caseId}</code>.
+        <FileText className="w-10 h-10 text-muted-foreground/40 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold text-foreground mb-2">Case not found</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          No case exists with ID <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded border border-border">{caseId}</code>.
           It may have been deleted or the link is incorrect.
         </p>
         <Link to="/app/cases">
@@ -414,7 +417,7 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
     <div className="p-8 max-w-5xl mx-auto">
       <Link
         to="/app/cases"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 mb-6"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Cases
@@ -422,14 +425,14 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
 
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{valueCase.name}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{valueCase.name}</h1>
           {valueCase.company_profiles?.company_name && (
-            <p className="text-slate-500 mt-1">{valueCase.company_profiles.company_name}</p>
+            <p className="text-muted-foreground mt-1">{valueCase.company_profiles.company_name}</p>
           )}
         </div>
-        <span className="px-3 py-1 rounded-full text-xs font-semibold uppercase bg-slate-100 text-slate-600">
+        <Badge variant="secondary" size="sm" className="capitalize">
           {valueCase.status}
-        </span>
+        </Badge>
       </div>
 
       {/* Two-column layout: main content + summary sidebar */}
@@ -437,7 +440,7 @@ function ExistingCaseView({ caseId }: { caseId: string }) {
         {/* Main content */}
         <div className="flex-1 min-w-0">
           <Card className="p-6">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {valueCase.description ?? "No description provided."}
             </p>
           </Card>

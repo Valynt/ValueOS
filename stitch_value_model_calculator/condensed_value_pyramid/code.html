@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VOS Command Center | Strategic Value Pyramid</title>
+<!-- Inter Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface": "#f7f9fb",
+              "background": "#f7f9fb",
+              "primary": "#0F172A", // Slate 900
+              "on-primary": "#ffffff",
+              "secondary": "#475569", // Slate 600
+              "accent": "#7C3AED", // Violet 600 (Prism Logic tertiary/on-tertiary-container vibe)
+              "outline": "#E2E8F0", // Slate 200
+              "surface-container": "#FFFFFF",
+              "on-surface": "#0F172A",
+              "on-surface-variant": "#64748B", // Slate 500
+              "tertiary-container": "#7C3AED",
+              "on-tertiary-container": "#7C3AED",
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        font-size: 20px;
+      }
+      .bg-grid {
+        background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      .prism-card {
+        background: #ffffff;
+        border: 1px solid #E2E8F0;
+        transition: border-color 0.2s ease;
+      }
+      .prism-card:hover {
+        border-color: #cbd5e1;
+      }
+      .text-balance {
+        text-wrap: balance;
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-x-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 z-50 bg-white border-r border-outline flex flex-col py-8 gap-y-2">
+<div class="px-8 mb-10 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary flex items-center justify-center rounded-sm">
+<span class="material-symbols-outlined text-white text-[18px]" style="font-variation-settings: 'FILL' 1;">deployed_code</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-primary leading-tight tracking-tight">VOS</h1>
+<p class="text-[10px] uppercase tracking-[0.1em] font-bold text-on-surface-variant">Precision OS</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col px-4">
+<div class="space-y-1">
+<div class="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 text-on-surface-variant hover:bg-slate-50 rounded-lg">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="text-xs font-semibold tracking-wide">Dashboard</span>
+</div>
+<div class="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 text-accent bg-slate-50 rounded-lg">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="text-xs font-semibold tracking-wide">Intelligence</span>
+</div>
+<div class="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 text-on-surface-variant hover:bg-slate-50 rounded-lg">
+<span class="material-symbols-outlined" data-icon="settings_input_component">settings_input_component</span>
+<span class="text-xs font-semibold tracking-wide">Operations</span>
+</div>
+<div class="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 text-on-surface-variant hover:bg-slate-50 rounded-lg">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="text-xs font-semibold tracking-wide">Assets</span>
+</div>
+</div>
+<div class="mt-8 px-4">
+<button class="w-full bg-primary text-on-primary py-3 rounded-xl text-[11px] uppercase tracking-widest font-bold hover:opacity-90 active:scale-[0.98] transition-all">
+                New Mission
+            </button>
+</div>
+</nav>
+<div class="px-4 mt-auto">
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-slate-50 transition-all rounded-lg">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="text-xs font-semibold tracking-wide">Support</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-slate-50 transition-all rounded-lg">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="text-xs font-semibold tracking-wide">Sign Out</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="pl-64 min-h-screen bg-grid">
+<!-- TopNavBar -->
+<header class="w-full sticky top-0 z-40 flex items-center justify-between px-10 h-16 bg-white/80 backdrop-blur-md border-b border-outline">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold tracking-tight text-primary">Command Center</span>
+<nav class="flex gap-6">
+<a class="text-[0.75rem] font-semibold text-on-surface-variant hover:text-primary transition-colors" href="#">Discovery</a>
+<a class="text-[0.75rem] font-bold text-primary border-b-2 border-accent pb-1" href="#">Target</a>
+<a class="text-[0.75rem] font-semibold text-on-surface-variant hover:text-primary transition-colors" href="#">Commit</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative">
+<input class="bg-slate-50 border border-outline rounded-full text-xs w-56 px-4 py-1.5 focus:ring-1 focus:ring-accent focus:border-accent transition-all" placeholder="Search parameters..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1.5 text-slate-400 text-sm">search</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1.5 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-7 h-7 rounded-full overflow-hidden border border-outline bg-white">
+<img alt="User" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD52WRhETDA_NKsL0KIff3I87HKKjqrIsKhLTQsFV6B_XkoW0V8BsxEge2kf5lJebW3OhB_O47WIz4n3xIP9nk9J1ceOQv0hpbZ0_D2y0XDYBpy5XO-OQtwV_2BIGhywIpXDQJkSoFFi5dKXsQAmVAvjTOrmEGu1X2sNatm943T9ihB1x3kCHAF4JfeOJidTp0XfUqNvGGA5bleX-cikeyEn0zGmKrj9yQp6MbI9rFgv7cDHlGiPDlKMTo85gzKRCyAuFdbIh1Pf1W5"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Value Pyramid Section -->
+<div class="max-w-6xl mx-auto px-10 py-6">
+<div class="flex flex-col gap-6">
+<!-- Level 1: The Apex -->
+<section class="w-full">
+<div class="flex items-center gap-4 mb-4">
+<div class="h-px flex-1 bg-outline"></div>
+<span class="text-[0.55rem] font-bold uppercase tracking-[0.2em] text-accent">Strategic Apex</span>
+<div class="h-px flex-1 bg-outline"></div>
+</div>
+<div class="bg-white border border-outline px-12 py-8 rounded-xl flex flex-col items-center text-center relative overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1 bg-accent"></div>
+<h2 class="text-[2.5rem] font-bold leading-[1.1] tracking-tight mb-3 text-primary max-w-2xl text-balance">
+                        Achieve overall business growth
+                    </h2>
+<p class="text-on-surface-variant text-sm max-w-xl leading-relaxed mb-6">
+                        Optimizing enterprise value through digital transformation and market expansion initiatives.
+                    </p>
+<div class="flex gap-16 items-center justify-center">
+<div class="flex flex-col items-center">
+<span class="text-[0.55rem] uppercase text-on-surface-variant tracking-[0.2em] font-bold mb-1">Target Value</span>
+<span class="text-3xl font-bold text-accent">+$240.5M</span>
+</div>
+<div class="w-px h-10 bg-outline"></div>
+<div class="flex flex-col items-center">
+<span class="text-[0.55rem] uppercase text-on-surface-variant tracking-[0.2em] font-bold mb-1">Confidence</span>
+<span class="text-3xl font-bold text-primary">94%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Level 2: Core Value Pillars -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+<!-- Revenue Enhancement -->
+<div class="prism-card px-8 py-6 rounded-xl relative overflow-hidden group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-accent mb-1 block">Pillar 01</span>
+<h3 class="text-xl font-bold tracking-tight text-primary">Revenue Enhancement</h3>
+</div>
+<span class="material-symbols-outlined text-accent text-2xl">trending_up</span>
+</div>
+<p class="text-on-surface-variant text-xs leading-relaxed mb-6">
+                        Scaling top-line performance through algorithmic optimization.
+                    </p>
+<div class="pt-4 border-t border-outline flex justify-between items-end">
+<span class="text-[0.55rem] font-bold text-on-surface-variant tracking-widest uppercase">Contribution</span>
+<span class="text-2xl font-bold text-primary">62%</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-accent transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+</div>
+<!-- Cost Reductions -->
+<div class="prism-card px-8 py-6 rounded-xl relative overflow-hidden group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-secondary mb-1 block">Pillar 02</span>
+<h3 class="text-xl font-bold tracking-tight text-primary">Cost Reductions</h3>
+</div>
+<span class="material-symbols-outlined text-secondary text-2xl">account_balance_wallet</span>
+</div>
+<p class="text-on-surface-variant text-xs leading-relaxed mb-6">
+                        Minimizing operational friction and redundant allocation.
+                    </p>
+<div class="pt-4 border-t border-outline flex justify-between items-end">
+<span class="text-[0.55rem] font-bold text-on-surface-variant tracking-widest uppercase">Contribution</span>
+<span class="text-2xl font-bold text-primary">38%</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-secondary transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+</div>
+</section>
+<!-- Level 3: Specific Value Drivers -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+<!-- Driver Cards -->
+<div class="bg-white border border-outline p-5 rounded-xl hover:border-accent transition-colors">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-accent text-sm">shopping_cart</span>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-on-surface-variant">Commerce</span>
+</div>
+<h4 class="text-[0.75rem] font-bold mb-3 text-primary">PDP Effectiveness</h4>
+<div class="h-1 w-full bg-slate-100 mb-4 rounded-full overflow-hidden">
+<div class="h-full bg-accent" style="width: 78%"></div>
+</div>
+<span class="text-xl font-bold text-primary">+12.4%</span>
+</div>
+<div class="bg-white border border-outline p-5 rounded-xl hover:border-accent transition-colors">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-accent text-sm">ads_click</span>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-on-surface-variant">Marketing</span>
+</div>
+<h4 class="text-[0.75rem] font-bold mb-3 text-primary">Retail Media Opt.</h4>
+<div class="h-1 w-full bg-slate-100 mb-4 rounded-full overflow-hidden">
+<div class="h-full bg-accent" style="width: 45%"></div>
+</div>
+<span class="text-xl font-bold text-primary">+$4.2M</span>
+</div>
+<div class="bg-white border border-outline p-5 rounded-xl hover:border-secondary transition-colors">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary text-sm">speed</span>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-on-surface-variant">Operations</span>
+</div>
+<h4 class="text-[0.75rem] font-bold mb-3 text-primary">Efficiency Gains</h4>
+<div class="h-1 w-full bg-slate-100 mb-4 rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: 89%"></div>
+</div>
+<span class="text-xl font-bold text-primary">-15m/hr</span>
+</div>
+<div class="bg-white border border-outline p-5 rounded-xl hover:border-secondary transition-colors">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary text-sm">inventory</span>
+<span class="text-[0.55rem] font-bold uppercase tracking-widest text-on-surface-variant">Assets</span>
+</div>
+<h4 class="text-[0.75rem] font-bold mb-3 text-primary">Asset Perf.</h4>
+<div class="h-1 w-full bg-slate-100 mb-4 rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: 32%"></div>
+</div>
+<span class="text-xl font-bold text-primary">92.1%</span>
+</div>
+</section>
+<!-- Level 4: The Foundation (Metrics) + Vizit -->
+<section class="w-full flex flex-col gap-4">
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+<div class="p-4 border-l border-outline bg-white/40">
+<span class="text-[0.55rem] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">Conv. Uplift</span>
+<div class="flex items-center gap-2">
+<span class="text-lg font-bold text-accent">+2.4%</span>
+<span class="material-symbols-outlined text-accent text-[14px]">north_east</span>
+</div>
+</div>
+<div class="p-4 border-l border-outline bg-white/40">
+<span class="text-[0.55rem] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">Proc. Accel.</span>
+<div class="flex items-center gap-2">
+<span class="text-lg font-bold text-primary">1.2x</span>
+<span class="material-symbols-outlined text-accent text-[14px]">bolt</span>
+</div>
+</div>
+<div class="p-4 border-l border-outline bg-white/40">
+<span class="text-[0.55rem] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">Resource Eff.</span>
+<div class="flex items-center gap-2">
+<span class="text-lg font-bold text-secondary">94%</span>
+<span class="material-symbols-outlined text-secondary text-[14px]">check_circle</span>
+</div>
+</div>
+<div class="p-4 border-l border-outline bg-white/40">
+<span class="text-[0.55rem] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">Direct Sav.</span>
+<div class="flex items-center gap-2">
+<span class="text-lg font-bold text-primary">$840k</span>
+<span class="material-symbols-outlined text-secondary text-[14px]">south</span>
+</div>
+</div>
+<div class="p-4 border-l-2 border-accent bg-white shadow-sm">
+<span class="text-[0.55rem] uppercase tracking-widest text-on-surface-variant font-bold block mb-2">Vizit Score</span>
+<div class="flex items-center justify-between">
+<span class="text-lg font-bold text-primary">8.4</span>
+<div class="flex gap-1">
+<div class="w-1 h-1 rounded-full bg-accent"></div>
+<div class="w-1 h-1 rounded-full bg-accent"></div>
+<div class="w-1 h-1 rounded-full bg-accent"></div>
+<div class="w-1 h-1 rounded-full bg-slate-200"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Intelligence Footer -->
+<section class="flex flex-col md:flex-row items-center justify-between w-full border-t border-outline pt-4 text-[0.6rem] font-bold tracking-widest text-on-surface-variant">
+<div class="flex items-center gap-3 mb-4 md:mb-0">
+<span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
+<span class="uppercase">Value realization trending +4% above baseline</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="flex items-center gap-1.5 hover:text-primary transition-colors uppercase">
+<span class="material-symbols-outlined text-[14px]">download</span>
+                        Export Analysis
+                    </button>
+<button class="flex items-center gap-1.5 hover:text-primary transition-colors uppercase">
+<span class="material-symbols-outlined text-[14px]">share</span>
+                        Distribute
+                    </button>
+</div>
+</section>
+</div>
+</div>
+</main>
+</body></html>

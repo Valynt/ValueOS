@@ -417,14 +417,26 @@ describe("ExpansionAgent", () => {
       expect(result.result.error).toContain("No proof points or expansion signals");
     });
 
-    it("retrieves from realization and opportunity agents", async () => {
+    it("retrieves from realization and opportunity agents with strict workspace_id scoping", async () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "realization", organization_id: "org-456", workspace_id: "ws-123" }),
+        {
+          agent_id: "realization",
+          memory_type: "semantic",
+          limit: 20,
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456", workspace_id: "ws-123" }),
+        {
+          agent_id: "opportunity",
+          memory_type: "semantic",
+          limit: 10,
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }
       );
     });
   });

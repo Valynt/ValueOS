@@ -101,7 +101,7 @@ describe("RealizationTracker", () => {
 
     expect(screen.getByText("Baseline Scenario")).toBeInTheDocument();
     expect(screen.getByText(/^base$/i)).toBeInTheDocument();
-    expect(screen.getByText(/1\/15\/2024/i)).toBeInTheDocument();
+    expect(screen.getByText(/Jan 15, 2024/i)).toBeInTheDocument();
   });
 
   it("displays KPI target cards", () => {

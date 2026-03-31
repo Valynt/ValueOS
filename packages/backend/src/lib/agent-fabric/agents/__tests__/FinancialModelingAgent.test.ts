@@ -321,11 +321,17 @@ describe("FinancialModelingAgent", () => {
       expect(result.status).toBe("failure");
     });
 
-    it("retrieves from opportunity agent with tenant scope", async () => {
+    it("retrieves from opportunity agent with strict workspace_id scoping to prevent cross-tenant leakage", async () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456", workspace_id: "ws-123" }),
+        {
+          agent_id: "opportunity",
+          memory_type: "semantic",
+          limit: 15,
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }
       );
     });
   });

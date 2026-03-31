@@ -196,6 +196,30 @@ describe('HypothesisLoop', () => {
   });
 
   describe('run() — happy path', () => {
+    it('transitions to INTEGRITY_VETOED and loops back to DRAFTING if integrity check produces a veto', async () => {
+      const groundTruthAgent = makeGroundTruthAgent();
+      // Mock the ground truth / integrity agent to return a veto decision
+      groundTruthAgent.analyzeGroundtruth = vi.fn().mockResolvedValue({
+        groundtruths: [],
+        analysis: 'Critical data integrity issues found',
+        vetoDecision: { veto: true, reason: 'Hallucinated metrics' }
+      });
+
+      const { loop, saga } = makeLoop({ groundTruthAgent } as any);
+      const sse = { send: vi.fn() };
+
+      const result = await loop.run(CASE_ID, TENANT_ID, CORRELATION_ID, sse);
+
+      // The loop should handle the veto, transition backwards, and either retry or exit
+      // Currently, the code blindly transitions to INTEGRITY_PASSED, so this test will fail
+      const state = await saga.getState(CASE_ID);
+      
+      // If it vetoes, it should transition to INTEGRITY_VETOED which goes to DRAFTING
+      // and then it might retry. But it definitely shouldn't reach FINALIZED with a veto.
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('veto');
+    });
+
     it('returns success:true with finalState FINALIZED', async () => {
       const { loop } = makeLoop();
       const result = await loop.run(CASE_ID, TENANT_ID, CORRELATION_ID);

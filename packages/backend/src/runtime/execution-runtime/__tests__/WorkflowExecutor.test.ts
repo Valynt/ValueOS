@@ -6,6 +6,12 @@ vi.mock('uuid', () => ({ v4: (() => { let n = 0; return () => `uuid-${++n}`; })(
 vi.mock('../../../observability/valueLoopMetrics', () => ({
   recordAgentInvocation: vi.fn(),
   recordLoopCompletion: vi.fn(),
+  recordWorkflowExecutionActive: vi.fn(),
+  recordStageTransition: vi.fn(),
+  recordHypothesisConfidence: vi.fn(),
+  recordFinancialCalculation: vi.fn(),
+  recordUsageEvent: vi.fn(),
+  recordWorkflowDeadlineViolation: vi.fn(),
 }));
 vi.mock('../../../lib/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },

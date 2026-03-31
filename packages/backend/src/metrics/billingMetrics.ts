@@ -1,31 +1,31 @@
-import { Counter, Gauge, type LabelValues } from 'prom-client';
+import { Counter, Gauge, Histogram, type LabelValues } from "prom-client";
 
-import { getMetricsRegistry } from '../middleware/metricsMiddleware.js';
+import { getMetricsRegistry } from "../middleware/metricsMiddleware.js";
 
 const registry = getMetricsRegistry();
 
-type StripeWebhookLabelNames = 'event_type' | 'status';
-type InvoiceLabelNames = 'event_type';
-type JobFailureLabelNames = 'job' | 'reason';
+type StripeWebhookLabelNames = "event_type" | "status";
+type InvoiceLabelNames = "event_type";
+type JobFailureLabelNames = "job" | "reason";
 
 const stripeWebhooksTotal = new Counter<StripeWebhookLabelNames>({
-  name: 'billing_stripe_webhooks_total',
-  help: 'Stripe webhooks processed by the billing pipeline',
-  labelNames: ['event_type', 'status'],
+  name: "billing_stripe_webhooks_total",
+  help: "Stripe webhooks processed by the billing pipeline",
+  labelNames: ["event_type", "status"],
   registers: [registry],
 });
 
 const billingInvoicesProcessedTotal = new Counter<InvoiceLabelNames>({
-  name: 'billing_invoices_processed_total',
-  help: 'Invoice-related Stripe events processed by the billing pipeline',
-  labelNames: ['event_type'],
+  name: "billing_invoices_processed_total",
+  help: "Invoice-related Stripe events processed by the billing pipeline",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 const billingJobsFailuresTotal = new Counter<JobFailureLabelNames>({
-  name: 'billing_jobs_failures_total',
-  help: 'Billing job failures by job and reason',
-  labelNames: ['job', 'reason'],
+  name: "billing_jobs_failures_total",
+  help: "Billing job failures by job and reason",
+  labelNames: ["job", "reason"],
   registers: [registry],
 });
 
@@ -34,29 +34,29 @@ const billingJobsFailuresTotal = new Counter<JobFailureLabelNames>({
 
 /** Number of usage records not yet aggregated into billing_aggregates. */
 export const billingUsageRecordsUnaggregated = new Gauge({
-  name: 'billing_usage_records_unaggregated',
-  help: 'Count of usage_events rows pending aggregation',
+  name: "billing_usage_records_unaggregated",
+  help: "Count of usage_events rows pending aggregation",
   registers: [registry],
 });
 
 /** Total Stripe submission errors (incremented on each failed Stripe API call). */
 export const billingStripeSubmissionErrorsTotal = new Counter({
-  name: 'billing_stripe_submission_errors_total',
-  help: 'Stripe usage submission errors',
+  name: "billing_stripe_submission_errors_total",
+  help: "Stripe usage submission errors",
   registers: [registry],
 });
 
 /** Current size of the webhook retry queue (pending retries in webhook_events). */
 export const billingWebhookRetryQueueSize = new Gauge({
-  name: 'billing_webhook_retry_queue_size',
-  help: 'Number of webhook events pending retry',
+  name: "billing_webhook_retry_queue_size",
+  help: "Number of webhook events pending retry",
   registers: [registry],
 });
 
 /** Age in seconds of the oldest pending billing aggregate. */
 export const billingPendingAggregatesAgeSeconds = new Gauge({
-  name: 'billing_pending_aggregates_age_seconds',
-  help: 'Age of the oldest un-aggregated usage record in seconds',
+  name: "billing_pending_aggregates_age_seconds",
+  help: "Age of the oldest un-aggregated usage record in seconds",
   registers: [registry],
 });
 
@@ -66,130 +66,194 @@ export const billingPendingAggregatesAgeSeconds = new Gauge({
  * enforcement state was not updated.
  */
 export const billingWebhookUnresolvedTenantTotal = new Counter({
-  name: 'billing_webhook_unresolved_tenant_total',
-  help: 'payment_succeeded events where tenant could not be resolved from billing_customers',
+  name: "billing_webhook_unresolved_tenant_total",
+  help: "payment_succeeded events where tenant could not be resolved from billing_customers",
   registers: [registry],
 });
 
 /** Aggregation windows skipped because another worker held the advisory lock. */
-export const billingAggregationLockSkippedTotal = new Counter<'tenant_id' | 'metric'>({
-  name: 'billing_aggregation_lock_skipped_total',
-  help: 'Aggregation windows skipped due to advisory lock held by another worker',
-  labelNames: ['tenant_id', 'metric'],
+export const billingAggregationLockSkippedTotal = new Counter<
+  "tenant_id" | "metric"
+>({
+  name: "billing_aggregation_lock_skipped_total",
+  help: "Aggregation windows skipped due to advisory lock held by another worker",
+  labelNames: ["tenant_id", "metric"],
   registers: [registry],
 });
 
 /** Stripe calls prevented by pre-submission duplicate check. */
-export const billingDuplicateSubmissionPreventedTotal = new Counter<'tenant_id' | 'metric'>({
-  name: 'billing_duplicate_submission_prevented_total',
-  help: 'Stripe calls skipped because an existing submitted aggregate was found',
-  labelNames: ['tenant_id', 'metric'],
+export const billingDuplicateSubmissionPreventedTotal = new Counter<
+  "tenant_id" | "metric"
+>({
+  name: "billing_duplicate_submission_prevented_total",
+  help: "Stripe calls skipped because an existing submitted aggregate was found",
+  labelNames: ["tenant_id", "metric"],
   registers: [registry],
 });
 
 /** Inbound usage events rejected by per-tenant Redis rate limiter. */
-export const billingInboundRateLimitedTotal = new Counter<'tenant_id'>({
-  name: 'billing_inbound_rate_limited_total',
-  help: 'Inbound usage events rejected by per-tenant rate limiter',
-  labelNames: ['tenant_id'],
+export const billingInboundRateLimitedTotal = new Counter<"tenant_id">({
+  name: "billing_inbound_rate_limited_total",
+  help: "Inbound usage events rejected by per-tenant rate limiter",
+  labelNames: ["tenant_id"],
   registers: [registry],
 });
 
 /** Redis unavailability events on the billing rate limiter (fail-open path). */
 export const billingRateLimitRedisUnavailableTotal = new Counter({
-  name: 'billing_rate_limit_redis_unavailable_total',
-  help: 'Rate limiter Redis unavailability events (fail-open path taken)',
+  name: "billing_rate_limit_redis_unavailable_total",
+  help: "Rate limiter Redis unavailability events (fail-open path taken)",
+  registers: [registry],
+});
+
+/** Total Stripe submission attempts (for error rate denominator). */
+export const billingStripeSubmissionTotal = new Counter({
+  name: "billing_stripe_submission_total",
+  help: "Total Stripe API submission attempts",
+  registers: [registry],
+});
+
+/** Stripe submission latency histogram (for p95 alerts). */
+export const billingStripeSubmissionDuration = new Histogram({
+  name: "billing_stripe_submission_duration_seconds",
+  help: "Stripe API submission latency in seconds",
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 30],
+  registers: [registry],
+});
+
+/** Total webhook processing attempts (for error rate denominator). */
+export const billingWebhookProcessingTotal = new Counter<"event_type">({
+  name: "billing_webhook_processing_total",
+  help: "Total webhook processing attempts",
+  labelNames: ["event_type"],
+  registers: [registry],
+});
+
+/** Current number of unpaid invoices. */
+export const billingInvoicesUnpaidTotal = new Gauge({
+  name: "billing_invoices_unpaid_total",
+  help: "Number of unpaid invoices",
+  registers: [registry],
+});
+
+/** Total number of invoices (for unpaid rate calculation). */
+export const billingInvoicesTotal = new Gauge({
+  name: "billing_invoices_total",
+  help: "Total number of invoices",
+  registers: [registry],
+});
+
+/** Age of oldest pending approval request. */
+export const billingApprovalRequestsPendingAge = new Gauge({
+  name: "billing_approval_requests_pending_age_seconds",
+  help: "Age of oldest pending approval request in seconds",
+  registers: [registry],
+});
+
+/** Tenant quota usage ratio by tenant and metric. */
+export const billingTenantQuotaUsageRatio = new Gauge<"tenant_id" | "metric">({
+  name: "billing_tenant_quota_usage_ratio",
+  help: "Tenant quota usage ratio (1.0 = 100%)",
+  labelNames: ["tenant_id", "metric"],
+  registers: [registry],
+});
+
+/** Tenant overage amount in dollars. */
+export const billingTenantOverageAmountDollars = new Gauge<"tenant_id">({
+  name: "billing_tenant_overage_amount_dollars",
+  help: "Tenant overage charges in USD",
+  labelNames: ["tenant_id"],
   registers: [registry],
 });
 
 /** Stripe calls throttled by the global outbound token bucket. */
 export const billingStripeRateLimitedTotal = new Counter({
-  name: 'billing_stripe_rate_limited_total',
-  help: 'Stripe API calls throttled by the global outbound token bucket',
+  name: "billing_stripe_rate_limited_total",
+  help: "Stripe API calls throttled by the global outbound token bucket",
   registers: [registry],
 });
 
 /** Webhook retry jobs exhausted (all attempts consumed). */
-export const billingWebhookExhaustedTotal = new Counter<'event_type'>({
-  name: 'billing_webhook_exhausted_total',
-  help: 'Webhook retry jobs that exhausted all retry attempts',
-  labelNames: ['event_type'],
+export const billingWebhookExhaustedTotal = new Counter<"event_type">({
+  name: "billing_webhook_exhausted_total",
+  help: "Webhook retry jobs that exhausted all retry attempts",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 // ── Webhook reliability metrics (Sprint 1.3 / 1.5) ───────────────────────────
 
 /** Total webhooks received at the ingest endpoint. */
-export const webhooksReceivedTotal = new Counter<'event_type'>({
-  name: 'webhooks_received_total',
-  help: 'Stripe webhook events received at the ingest endpoint',
-  labelNames: ['event_type'],
+export const webhooksReceivedTotal = new Counter<"event_type">({
+  name: "webhooks_received_total",
+  help: "Stripe webhook events received at the ingest endpoint",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 /** Total webhooks processed, labelled by outcome. */
-export const webhooksProcessedTotal = new Counter<'event_type' | 'status'>({
-  name: 'webhooks_processed_total',
-  help: 'Stripe webhook events processed, by event_type and status (success|duplicate|failed)',
-  labelNames: ['event_type', 'status'],
+export const webhooksProcessedTotal = new Counter<"event_type" | "status">({
+  name: "webhooks_processed_total",
+  help: "Stripe webhook events processed, by event_type and status (success|duplicate|failed)",
+  labelNames: ["event_type", "status"],
   registers: [registry],
 });
 
 /** Current number of permanently-failed webhook events in the DLQ. */
 export const webhookDlqSize = new Gauge({
-  name: 'webhook_dlq_size',
-  help: 'Number of webhook events with status=failed (dead-letter queue depth)',
+  name: "webhook_dlq_size",
+  help: "Number of webhook events with status=failed (dead-letter queue depth)",
   registers: [registry],
 });
 
 /** Total webhook processing failures (handler threw). */
-export const webhookProcessingFailuresTotal = new Counter<'event_type'>({
-  name: 'webhook_processing_failures_total',
-  help: 'Webhook events that failed during handler execution',
-  labelNames: ['event_type'],
+export const webhookProcessingFailuresTotal = new Counter<"event_type">({
+  name: "webhook_processing_failures_total",
+  help: "Webhook events that failed during handler execution",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 /** Total reconciliation job runs. */
 export const webhookReconciliationRunsTotal = new Counter({
-  name: 'webhook_reconciliation_runs_total',
-  help: 'Total Stripe↔DB reconciliation job executions',
+  name: "webhook_reconciliation_runs_total",
+  help: "Total Stripe↔DB reconciliation job executions",
   registers: [registry],
 });
 
 /** Total reconciliation job failures. */
 export const webhookReconciliationFailuresTotal = new Counter({
-  name: 'webhook_reconciliation_failures_total',
-  help: 'Stripe↔DB reconciliation jobs that failed',
+  name: "webhook_reconciliation_failures_total",
+  help: "Stripe↔DB reconciliation jobs that failed",
   registers: [registry],
 });
 
 /** Current drift count from the last reconciliation run, per tenant. */
-export const webhookReconciliationDriftCount = new Gauge<'tenant_id'>({
-  name: 'webhook_reconciliation_drift_count',
-  help: 'Number of Stripe events not found in DB during last reconciliation, per tenant',
-  labelNames: ['tenant_id'],
+export const webhookReconciliationDriftCount = new Gauge<"tenant_id">({
+  name: "webhook_reconciliation_drift_count",
+  help: "Number of Stripe events not found in DB during last reconciliation, per tenant",
+  labelNames: ["tenant_id"],
   registers: [registry],
 });
 
 /** Stripe create-subscription rollback failures (possible Stripe/DB split-brain). */
 export const billingSubscriptionCreateRollbackFailuresTotal = new Counter({
-  name: 'billing_subscription_create_rollback_failures_total',
-  help: 'Stripe subscriptions that could not be rolled back after DB create failure',
+  name: "billing_subscription_create_rollback_failures_total",
+  help: "Stripe subscriptions that could not be rolled back after DB create failure",
   registers: [registry],
 });
 
 /** Unix timestamp of the last successful partition maintenance run. */
 export const partitionMaintenanceLastSuccessTimestamp = new Gauge({
-  name: 'partition_maintenance_last_success_timestamp',
-  help: 'Unix timestamp of the most recent successful partition maintenance run',
+  name: "partition_maintenance_last_success_timestamp",
+  help: "Unix timestamp of the most recent successful partition maintenance run",
   registers: [registry],
 });
 
 /** Total partition maintenance failures observed from cron.job_run_details. */
 export const partitionMaintenanceFailuresTotal = new Counter({
-  name: 'partition_maintenance_failures_total',
-  help: 'Total failed partition maintenance executions',
+  name: "partition_maintenance_failures_total",
+  help: "Total failed partition maintenance executions",
   registers: [registry],
 });
 
@@ -199,10 +263,10 @@ export const partitionMaintenanceFailuresTotal = new Counter({
  * Each increment represents a customer being billed with no service access
  * until the reconciler resolves it.
  */
-export const subscriptionCreationDriftTotal = new Counter<'tenant_id'>({
-  name: 'subscription_creation_drift_total',
-  help: 'Subscription creation split-brain events: Stripe sub created, DB write failed, rollback failed',
-  labelNames: ['tenant_id'],
+export const subscriptionCreationDriftTotal = new Counter<"tenant_id">({
+  name: "subscription_creation_drift_total",
+  help: "Subscription creation split-brain events: Stripe sub created, DB write failed, rollback failed",
+  labelNames: ["tenant_id"],
   registers: [registry],
 });
 
@@ -211,30 +275,33 @@ export const subscriptionCreationDriftTotal = new Counter<'tenant_id'>({
  * on the current run. Should be 0 under normal operation.
  */
 export const subscriptionCreationReconciliationResolved = new Gauge({
-  name: 'subscription_creation_reconciliation_resolved',
-  help: 'Orphaned Stripe subscriptions cancelled by the creation reconciler on the last run',
+  name: "subscription_creation_reconciliation_resolved",
+  help: "Orphaned Stripe subscriptions cancelled by the creation reconciler on the last run",
   registers: [registry],
 });
 
 /** Webhook retry circuit breaker opened (prevents retry amplification storms). */
-export const webhookCircuitBreakerOpenTotal = new Counter<'event_type'>({
-  name: 'webhook_circuit_breaker_open_total',
-  help: 'Webhook retry circuit breaker transitioned to OPEN state',
-  labelNames: ['event_type'],
+export const webhookCircuitBreakerOpenTotal = new Counter<"event_type">({
+  name: "webhook_circuit_breaker_open_total",
+  help: "Webhook retry circuit breaker transitioned to OPEN state",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 /** Webhook events fast-failed due to open circuit breaker. */
-export const webhookCircuitBreakerRejectedTotal = new Counter<'event_type'>({
-  name: 'webhook_circuit_breaker_rejected_total',
-  help: 'Webhook events rejected due to open circuit breaker (fast-fail to DLQ)',
-  labelNames: ['event_type'],
+export const webhookCircuitBreakerRejectedTotal = new Counter<"event_type">({
+  name: "webhook_circuit_breaker_rejected_total",
+  help: "Webhook events rejected due to open circuit breaker (fast-fail to DLQ)",
+  labelNames: ["event_type"],
   registers: [registry],
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function recordStripeWebhook(eventType: string, status: 'received' | 'processed' | 'failed' | 'duplicate'): void {
+export function recordStripeWebhook(
+  eventType: string,
+  status: "received" | "processed" | "failed" | "duplicate"
+): void {
   stripeWebhooksTotal.labels({ event_type: eventType, status }).inc();
 }
 

@@ -10,9 +10,15 @@ import { Router, Response } from "express";
 
 import { requestCorrelationService } from "../../services/security/RequestCorrelationService.js";
 import { requireAuth } from "../auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
 import type { AuthenticatedRequest } from "../auth.js";
 
 const router = Router();
+
+// Rate limiter for compliance export (expensive operation)
+const complianceExportLimiter = createRateLimiter("strict", {
+  message: "Too many compliance export requests. Please try again later.",
+});
 
 /**
  * GET /api/correlation/:requestId
@@ -54,10 +60,12 @@ router.get(
  * POST /api/correlation/export
  * Generate compliance export with integrity verification (S2-3)
  * Tenant-scoped: only exports logs for the authenticated tenant
+ * Rate-limited: strict tier for expensive operations
  */
 router.post(
   "/export",
   requireAuth,
+  complianceExportLimiter,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const tenantId = req.tenantId || req.user?.tenant_id;

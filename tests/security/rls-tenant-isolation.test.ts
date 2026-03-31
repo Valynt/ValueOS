@@ -26,12 +26,13 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     // Fail hard if required env vars are absent — a missing secret must not
     // produce a green CI run with zero tests executed.
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceKey =
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
       throw new Error(
         "RLS tests require VITE_SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY). " +
-        "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
+          "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
       );
     }
 
@@ -47,21 +48,23 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     const email2 = `tenant2_${Date.now()}@example.com`;
     const password = "Password123!";
 
-    const { data: user1, error: user1Error } = await adminClient.auth.admin.createUser({
-      email: email1,
-      password: password,
-      email_confirm: true,
-      user_metadata: { tenant_id: TENANT_1_ID },
-    });
+    const { data: user1, error: user1Error } =
+      await adminClient.auth.admin.createUser({
+        email: email1,
+        password: password,
+        email_confirm: true,
+        user_metadata: { tenant_id: TENANT_1_ID },
+      });
     if (user1Error) throw user1Error;
     user1Id = user1.user.id;
 
-    const { data: user2, error: user2Error } = await adminClient.auth.admin.createUser({
-      email: email2,
-      password: password,
-      email_confirm: true,
-      user_metadata: { tenant_id: TENANT_2_ID },
-    });
+    const { data: user2, error: user2Error } =
+      await adminClient.auth.admin.createUser({
+        email: email2,
+        password: password,
+        email_confirm: true,
+        user_metadata: { tenant_id: TENANT_2_ID },
+      });
     if (user2Error) throw user2Error;
     user2Id = user2.user.id;
 
@@ -69,11 +72,24 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     // We try/catch here because in some envs tenants might be strictly managed
     try {
       await adminClient.from("tenants").insert([
-        { id: TENANT_1_ID, name: "Tenant 1", slug: `tenant-1-${Date.now()}`, status: "active" },
-        { id: TENANT_2_ID, name: "Tenant 2", slug: `tenant-2-${Date.now()}`, status: "active" },
+        {
+          id: TENANT_1_ID,
+          name: "Tenant 1",
+          slug: `tenant-1-${Date.now()}`,
+          status: "active",
+        },
+        {
+          id: TENANT_2_ID,
+          name: "Tenant 2",
+          slug: `tenant-2-${Date.now()}`,
+          status: "active",
+        },
       ]);
     } catch (e) {
-      console.warn("Failed to insert tenants, they might already exist or schema differs", e);
+      console.warn(
+        "Failed to insert tenants, they might already exist or schema differs",
+        e
+      );
     }
 
     // Link users to tenants
@@ -100,7 +116,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       throw new Error("Failed to sign in test users");
     }
 
-    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!;
+    const anonKey =
+      process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!;
 
     tenant1Client = createClient(process.env.VITE_SUPABASE_URL!, anonKey, {
       global: {
@@ -122,7 +139,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
   afterAll(async () => {
     // Cleanup test data
     if (adminClient) {
-      const { error } = await adminClient.from("agent_sessions").delete().like("id", "test-%");
+      const { error } = await adminClient
+        .from("agent_sessions")
+        .delete()
+        .like("id", "test-%");
       if (error) console.log("Cleanup error (agent_sessions):", error);
 
       await adminClient.from("agent_predictions").delete().like("id", "test-%");
@@ -135,15 +155,15 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       // but FKs might prevent it if we don't clean up dependent data first
       // agent_sessions and predictions are cleaned above.
 
-      if (TENANT_1_ID) await adminClient.from("tenants").delete().eq("id", TENANT_1_ID);
-      if (TENANT_2_ID) await adminClient.from("tenants").delete().eq("id", TENANT_2_ID);
+      if (TENANT_1_ID)
+        await adminClient.from("tenants").delete().eq("id", TENANT_1_ID);
+      if (TENANT_2_ID)
+        await adminClient.from("tenants").delete().eq("id", TENANT_2_ID);
     }
   });
 
   describe("agent_sessions RLS Policies", () => {
     it("CRITICAL: should prevent cross-tenant access to agent_sessions", async () => {
-      }
-
       // Create session for tenant 1 using admin client (simulating tenant 1 action or admin action for tenant 1)
       // Note: Usually tenant 1 would create their own session.
       // Let's use tenant1Client to create it if possible, but adminClient is safer for setup.
@@ -174,11 +194,13 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(accessData).toEqual([]); // Should find nothing
 
       // Cleanup
-      await adminClient.from("agent_sessions").delete().eq("id", "test-session-001");
+      await adminClient
+        .from("agent_sessions")
+        .delete()
+        .eq("id", "test-session-001");
     });
 
     it("CRITICAL: should reject NULL tenant_id inserts", async () => {
-
       // Attempt to insert with NULL tenant_id
       const { error } = await adminClient.from("agent_sessions").insert({
         id: "test-session-null",
@@ -193,7 +215,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should enforce tenant_id in updates", async () => {
-
       // Create session
       await adminClient.from("agent_sessions").insert({
         id: "test-session-update",
@@ -219,13 +240,15 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(error?.message).toContain("Cannot modify tenant_id");
 
       // Cleanup
-      await adminClient.from("agent_sessions").delete().eq("id", "test-session-update");
+      await adminClient
+        .from("agent_sessions")
+        .delete()
+        .eq("id", "test-session-update");
     });
   });
 
   describe("agent_predictions RLS Policies", () => {
     it("CRITICAL: should prevent NULL tenant_id bypass", async () => {
-
       // Attempt to insert prediction with NULL tenant_id
       const { error } = await adminClient.from("agent_predictions").insert({
         id: "test-prediction-null",
@@ -241,7 +264,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("CRITICAL: should isolate predictions by tenant", async () => {
-
       // Create predictions for both tenants
       await adminClient.from("agent_predictions").insert([
         {
@@ -290,7 +312,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("Security Audit Triggers", () => {
     it("should allow service role to write security audit logs under RLS", async () => {
-
       const { error } = await adminClient.from("security_audit_log").insert({
         event_type: "audit_test_service_role",
         user_id: crypto.randomUUID(),
@@ -300,7 +321,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should reject audit writes from authenticated users", async () => {
-
       const { error } = await tenant1Client.from("security_audit_log").insert({
         event_type: "audit_test_authenticated",
         user_id: user1Id,
@@ -310,7 +330,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should log security violations to audit table", async () => {
-
       // Get initial audit log count
       const { count: initialCount } = await adminClient
         .from("security_audit_log")
@@ -340,9 +359,11 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     });
 
     it("should provide security_violations view", async () => {
-
       // Query security violations view
-      const { data, error } = await adminClient.from("security_violations").select("*").limit(10);
+      const { data, error } = await adminClient
+        .from("security_violations")
+        .select("*")
+        .limit(10);
 
       // We expect no error, even if data is empty
       expect(error).toBeNull();
@@ -353,14 +374,17 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("RLS Verification Function", () => {
     it("should verify RLS is enabled on all critical tables", async () => {
-
       // Call verification function
-      const { data, error } = await adminClient.rpc("verify_rls_tenant_isolation");
+      const { data, error } = await adminClient.rpc(
+        "verify_rls_tenant_isolation"
+      );
 
       // If RPC doesn't exist, we might get an error, but assuming it exists from migration
       if (
         error &&
-        error.message.includes("function verify_rls_tenant_isolation() does not exist")
+        error.message.includes(
+          "function verify_rls_tenant_isolation() does not exist"
+        )
       ) {
         console.warn("verify_rls_tenant_isolation RPC not found, skipping");
         return;
@@ -393,7 +417,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("Cross-Tenant Attack Scenarios", () => {
     it("CRITICAL: should prevent session hijacking across tenants", async () => {
-
       // Create session for tenant 1
       const { data: session } = await adminClient
         .from("agent_sessions")
@@ -416,11 +439,13 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(hijackAttempt).toEqual([]);
 
       // Cleanup
-      await adminClient.from("agent_sessions").delete().eq("id", "test-hijack-session");
+      await adminClient
+        .from("agent_sessions")
+        .delete()
+        .eq("id", "test-hijack-session");
     });
 
     it("CRITICAL: should prevent prediction data leakage", async () => {
-
       // Create sensitive prediction for tenant 1
       await adminClient.from("agent_predictions").insert({
         id: "test-sensitive-pred",
@@ -443,13 +468,15 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(leakAttempt).toEqual([]);
 
       // Cleanup
-      await adminClient.from("agent_predictions").delete().eq("id", "test-sensitive-pred");
+      await adminClient
+        .from("agent_predictions")
+        .delete()
+        .eq("id", "test-sensitive-pred");
     });
   });
 
   describe("ValueCase RLS Policies - Cross-Tenant Attack Simulation", () => {
     it("CRITICAL: should prevent cross-tenant access to value_cases", async () => {
-
       // Create a value case for tenant 1
       const { data: valueCase, error: createError } = await adminClient
         .from("value_cases")
@@ -484,18 +511,22 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       expect(updateError).toBeDefined(); // Should be rejected
 
       // Cleanup
-      await adminClient.from("value_cases").delete().eq("id", "test-value-case-001");
+      await adminClient
+        .from("value_cases")
+        .delete()
+        .eq("id", "test-value-case-001");
     });
 
     it("CRITICAL: should reject value_cases insert with wrong tenant_id", async () => {
-
       // Attempt to insert value case with tenant 2's ID using tenant 1's client
-      const { error: insertError } = await tenant1Client.from("value_cases").insert({
-        id: "test-spoofed-case-001",
-        tenant_id: TENANT_2_ID, // Spoofing tenant 2's ID
-        title: "Spoofed Value Case",
-        description: "Attempting to create case for wrong tenant",
-      });
+      const { error: insertError } = await tenant1Client
+        .from("value_cases")
+        .insert({
+          id: "test-spoofed-case-001",
+          tenant_id: TENANT_2_ID, // Spoofing tenant 2's ID
+          title: "Spoofed Value Case",
+          description: "Attempting to create case for wrong tenant",
+        });
 
       expect(insertError).toBeDefined(); // Should be rejected by RLS
     });
@@ -503,7 +534,6 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("AuditLog RLS Policies - Cross-Tenant Attack Simulation", () => {
     it("CRITICAL: should prevent cross-tenant access to audit_logs", async () => {
-
       // Create an audit log entry for tenant 1
       const { data: auditLog, error: createError } = await adminClient
         .from("audit_logs")
@@ -539,24 +569,30 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
       expect(tenant2Error).toBeNull();
       // Should not see tenant 1's logs
-      expect(tenant2Logs?.filter((log) => log.id === "test-audit-log-001")).toEqual([]);
+      expect(
+        tenant2Logs?.filter(log => log.id === "test-audit-log-001")
+      ).toEqual([]);
 
       // Cleanup
-      await adminClient.from("audit_logs").delete().eq("id", "test-audit-log-001");
+      await adminClient
+        .from("audit_logs")
+        .delete()
+        .eq("id", "test-audit-log-001");
     });
 
     it("CRITICAL: should reject audit_logs insert with wrong organization_id", async () => {
-
       // Attempt to insert audit log with tenant 2's organization_id using tenant 1's client
-      const { error: insertError } = await tenant1Client.from("audit_logs").insert({
-        id: "test-spoofed-audit-001",
-        organization_id: TENANT_2_ID, // Spoofing tenant 2's ID
-        user_id: user1Id,
-        action: "spoofed_action",
-        resource_type: "test_resource",
-        resource_id: "test-resource-id",
-        changes: { spoofed: "data" },
-      });
+      const { error: insertError } = await tenant1Client
+        .from("audit_logs")
+        .insert({
+          id: "test-spoofed-audit-001",
+          organization_id: TENANT_2_ID, // Spoofing tenant 2's ID
+          user_id: user1Id,
+          action: "spoofed_action",
+          resource_type: "test_resource",
+          resource_id: "test-resource-id",
+          changes: { spoofed: "data" },
+        });
 
       expect(insertError).toBeDefined(); // Should be rejected by RLS
     });
@@ -577,7 +613,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .select()
           .single();
 
-        if (createError && createError.message.includes("does not exist")) return;
+        if (createError && createError.message.includes("does not exist"))
+          return;
 
         expect(createError).toBeNull();
         expect(execution).toBeDefined();
@@ -588,7 +625,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .eq("id", "test-workflow-exec-001");
 
         expect(accessData).toEqual([]);
-        await adminClient.from("workflow_executions").delete().eq("id", "test-workflow-exec-001");
+        await adminClient
+          .from("workflow_executions")
+          .delete()
+          .eq("id", "test-workflow-exec-001");
       });
     });
 
@@ -610,7 +650,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .select()
           .single();
 
-        if (createError && createError.message.includes("does not exist")) return;
+        if (createError && createError.message.includes("does not exist"))
+          return;
 
         expect(createError).toBeNull();
         expect(event).toBeDefined();
@@ -621,7 +662,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .eq("id", "test-usage-event-001");
 
         expect(accessData).toEqual([]);
-        await adminClient.from("usage_events").delete().eq("id", "test-usage-event-001");
+        await adminClient
+          .from("usage_events")
+          .delete()
+          .eq("id", "test-usage-event-001");
       });
     });
 
@@ -641,7 +685,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .select()
           .single();
 
-        if (createError && createError.message.includes("does not exist")) return;
+        if (createError && createError.message.includes("does not exist"))
+          return;
 
         expect(createError).toBeNull();
         expect(webhook).toBeDefined();
@@ -652,7 +697,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .eq("id", "test-webhook-001");
 
         expect(accessData).toEqual([]);
-        await adminClient.from("webhook_events").delete().eq("id", "test-webhook-001");
+        await adminClient
+          .from("webhook_events")
+          .delete()
+          .eq("id", "test-webhook-001");
       });
     });
 
@@ -671,7 +719,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .select()
           .single();
 
-        if (createError && createError.message.includes("does not exist")) return;
+        if (createError && createError.message.includes("does not exist"))
+          return;
 
         expect(createError).toBeNull();
         expect(memory).toBeDefined();
@@ -682,7 +731,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .eq("id", "test-memory-001");
 
         expect(accessData).toEqual([]);
-        await adminClient.from("semantic_memory").delete().eq("id", "test-memory-001");
+        await adminClient
+          .from("semantic_memory")
+          .delete()
+          .eq("id", "test-memory-001");
       });
     });
 
@@ -701,7 +753,8 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .select()
           .single();
 
-        if (createError && createError.message.includes("does not exist")) return;
+        if (createError && createError.message.includes("does not exist"))
+          return;
 
         expect(createError).toBeNull();
         expect(dlqEvent).toBeDefined();
@@ -712,7 +765,10 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
           .eq("id", "test-dlq-001");
 
         expect(accessData).toEqual([]);
-        await adminClient.from("dead_letter_events").delete().eq("id", "test-dlq-001");
+        await adminClient
+          .from("dead_letter_events")
+          .delete()
+          .eq("id", "test-dlq-001");
       });
     });
   });

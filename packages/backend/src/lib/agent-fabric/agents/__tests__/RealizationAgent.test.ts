@@ -399,14 +399,26 @@ describe("RealizationAgent", () => {
       expect(result.result.error).toContain("No committed KPI targets");
     });
 
-    it("retrieves KPIs from target agent and integrity results", async () => {
+    it("retrieves KPIs from target agent and integrity results with strict workspace_id scoping", async () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "target", organization_id: "org-456", workspace_id: "ws-123" }),
+        {
+          agent_id: "target",
+          memory_type: "semantic",
+          limit: 20,
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "integrity", organization_id: "org-456", workspace_id: "ws-123" }),
+        {
+          agent_id: "integrity",
+          memory_type: "semantic",
+          limit: 5,
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }
       );
     });
   });

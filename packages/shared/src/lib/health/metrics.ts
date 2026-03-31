@@ -26,13 +26,36 @@ interface HealthStatusSnapshot {
   >;
 }
 
+interface HealthServiceStats {
+  healthy: number;
+  degraded: number;
+  unhealthy: number;
+  notConfigured: number;
+  total: number;
+}
+
+interface ServiceStats {
+  total: number;
+  successful: number;
+  failed: number;
+  successRate: number;
+  avgLatency: number;
+  p95Latency: number;
+  p99Latency: number;
+}
+
 class HealthMetricsCollector {
   private metrics: HealthCheckMetric[] = [];
   private healthHistory: HealthStatusSnapshot[] = [];
   private readonly maxMetrics = 1000; // Keep last 1000 metrics
   private readonly maxHistory = 100; // Keep last 100 health snapshots
 
-  recordMetric(service: string, latency: number, success: boolean, error?: string): void {
+  recordMetric(
+    service: string,
+    latency: number,
+    success: boolean,
+    error?: string
+  ): void {
     const metric: HealthCheckMetric = {
       service,
       timestamp: Date.now(),
@@ -51,7 +74,14 @@ class HealthMetricsCollector {
 
   recordHealthSnapshot(
     overallStatus: "healthy" | "degraded" | "unhealthy",
-    checks: Record<string, any>
+    checks: Record<
+      string,
+      {
+        status: "healthy" | "degraded" | "unhealthy" | "not_configured";
+        latency?: number;
+        message?: string;
+      }
+    >
   ): void {
     const snapshot: HealthStatusSnapshot = {
       timestamp: Date.now(),
@@ -70,7 +100,7 @@ class HealthMetricsCollector {
   getHealthHistory(timeWindowMs: number = 86400000): HealthStatusSnapshot[] {
     // Default 24 hours
     const cutoff = Date.now() - timeWindowMs;
-    return this.healthHistory.filter((snapshot) => snapshot.timestamp >= cutoff);
+    return this.healthHistory.filter(snapshot => snapshot.timestamp >= cutoff);
   }
 
   getHealthTrends(timeWindowMs: number = 3600000): {
@@ -100,7 +130,7 @@ class HealthMetricsCollector {
       total: history.length,
     };
 
-    const services: Record<string, any> = {};
+    const services: Record<string, HealthServiceStats> = {};
 
     for (const snapshot of history) {
       // Count overall status
@@ -126,12 +156,15 @@ class HealthMetricsCollector {
     return { overall, services };
   }
 
-  getMetrics(service?: string, timeWindowMs: number = 3600000): HealthCheckMetric[] {
+  getMetrics(
+    service?: string,
+    timeWindowMs: number = 3600000
+  ): HealthCheckMetric[] {
     // Default 1 hour
     const cutoff = Date.now() - timeWindowMs;
     return this.metrics
-      .filter((m) => m.timestamp >= cutoff)
-      .filter((m) => !service || m.service === service);
+      .filter(m => m.timestamp >= cutoff)
+      .filter(m => !service || m.service === service);
   }
 
   getStats(service?: string, timeWindowMs: number = 3600000) {
@@ -149,11 +182,12 @@ class HealthMetricsCollector {
       };
     }
 
-    const successful = relevantMetrics.filter((m) => m.success);
-    const failed = relevantMetrics.filter((m) => !m.success);
+    const successful = relevantMetrics.filter(m => m.success);
+    const failed = relevantMetrics.filter(m => !m.success);
 
-    const latencies = relevantMetrics.map((m) => m.latency).sort((a, b) => a - b);
-    const avgLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
+    const latencies = relevantMetrics.map(m => m.latency).sort((a, b) => a - b);
+    const avgLatency =
+      latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
 
     const p95Index = Math.floor(latencies.length * 0.95);
     const p99Index = Math.floor(latencies.length * 0.99);
@@ -169,9 +203,11 @@ class HealthMetricsCollector {
     };
   }
 
-  getServiceStats(timeWindowMs: number = 3600000): Record<string, any> {
-    const services = [...new Set(this.metrics.map((m) => m.service))];
-    const stats: Record<string, any> = {};
+  getServiceStats(
+    timeWindowMs: number = 3600000
+  ): Record<string, ServiceStats> {
+    const services = [...new Set(this.metrics.map(m => m.service))];
+    const stats: Record<string, ServiceStats> = {};
 
     for (const service of services) {
       stats[service] = this.getStats(service, timeWindowMs);
@@ -198,7 +234,7 @@ export interface EnhancedHealthCheckResult {
  * Wrapper to track metrics for health check functions
  */
 export function withMetrics<
-  T extends any[],
+  T extends unknown[],
   R extends Promise<HealthCheckResult> | HealthCheckResult,
 >(service: string, fn: (...args: T) => R): (...args: T) => R {
   return (...args: T): R => {

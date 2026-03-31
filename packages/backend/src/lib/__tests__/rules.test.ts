@@ -30,13 +30,21 @@ vi.mock('@shared/lib/permissions', () => ({
 
 // ---------------------------------------------------------------------------
 // Mock: supabase client
+// vi.mock factories are hoisted to the top of the file, so any variables they
+// reference must also be hoisted via vi.hoisted().
 // ---------------------------------------------------------------------------
-const mockSupabaseFrom = vi.fn();
+const { mockSupabaseFrom } = vi.hoisted(() => ({
+  mockSupabaseFrom: vi.fn(),
+}));
 
 vi.mock('../supabase.js', () => ({
   createServerSupabaseClient: () => ({
     from: mockSupabaseFrom,
   }),
+  // Named export consumed by BaseService and other modules that import supabase.js directly
+  supabase: {
+    from: mockSupabaseFrom,
+  },
 }));
 
 // ---------------------------------------------------------------------------

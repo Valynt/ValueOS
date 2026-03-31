@@ -123,10 +123,10 @@ export function MainLayout() {
             id={MAIN_CONTENT_ID}
             ref={mainContentRef}
             tabIndex={-1}
-            className="flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none"
+            className="flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none bg-background"
           >
             <PageTransition>
-              <div className="min-h-full">
+              <div className="min-h-full flex flex-col">
                 <Outlet />
               </div>
             </PageTransition>

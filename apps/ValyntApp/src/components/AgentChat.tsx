@@ -9,6 +9,26 @@ import { Card } from "@/components/ui/card";
 import { type AgentChatContext, type ChatMessage, useAgentStream } from "@/hooks/useAgentStream";
 import { cn } from "@/lib/utils";
 
+// Type definitions for message metadata
+interface ToolCall {
+  id: string;
+  tool: string;
+  args: Record<string, unknown>;
+  status?: 'pending' | 'completed' | 'failed';
+  result?: unknown;
+}
+
+interface Suggestion {
+  id: string;
+  type: string;
+  content: string;
+}
+
+interface MessageMetadata {
+  toolCalls?: ToolCall[];
+  suggestions?: Suggestion[];
+}
+
 interface AgentChatProps {
   isOpen: boolean;
   onClose: () => void;
@@ -204,69 +224,75 @@ function MessageBubble({ message, onApplySuggestion, onExecuteTool }: MessageBub
             : "bg-[var(--vds-color-surface-2)] text-[var(--vds-color-text-primary)] border border-[var(--vds-color-border)]"
         )}
       >
-        <div className="whitespace-pre-wrap">{message.content}</div>
+        <div className="whitespace-pre-wrap">{String(message.content)}</div>
 
         {/* Tool Calls */}
-        {message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
-          <div className="mt-3 space-y-2">
-            <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Tool Executions:</div>
-            {message.metadata.toolCalls.map((toolCall) => (
-              <div key={toolCall.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
-                <div className="flex items-center gap-2 mb-1">
-                  <Wrench className="h-3 w-3 text-[var(--vds-color-text-muted)]" aria-hidden="true" />
-                  <span className="text-xs font-medium text-[var(--vds-color-text-primary)]">{toolCall.tool}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {toolCall.result ? "Executed" : "Pending"}
-                  </Badge>
-                </div>
-                <div className="text-xs text-[var(--vds-color-text-muted)]">Args: {JSON.stringify(toolCall.args)}</div>
-                {toolCall.result && (
-                  <div className="text-xs text-green-500 mt-1">
-                    Result: {JSON.stringify(toolCall.result)}
+        {(() => {
+          const toolCalls = message.metadata?.toolCalls as ToolCall[] | undefined;
+          return toolCalls && toolCalls.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Tool Executions:</div>
+              {toolCalls.map((toolCall: ToolCall) => (
+                <div key={toolCall.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Wrench className="h-3 w-3 text-[var(--vds-color-text-muted)]" aria-hidden="true" />
+                    <span className="text-xs font-medium text-[var(--vds-color-text-primary)]">{toolCall.tool}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {toolCall.result ? "Executed" : "Pending"}
+                    </Badge>
                   </div>
-                )}
-                {!toolCall.result && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 h-6 text-xs"
-                    onClick={() => onExecuteTool(toolCall.tool, toolCall.args)}
-                  >
-                    Execute
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                  <div className="text-xs text-[var(--vds-color-text-muted)]">Args: {JSON.stringify(toolCall.args)}</div>
+                  {toolCall.result && (
+                    <div className="text-xs text-green-500 mt-1">
+                      Result: {JSON.stringify(toolCall.result)}
+                    </div>
+                  )}
+                  {!toolCall.result && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-6 text-xs"
+                      onClick={() => onExecuteTool(toolCall.tool, toolCall.args)}
+                    >
+                      Execute
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Suggestions */}
-        {message.metadata?.suggestions && message.metadata.suggestions.length > 0 && (
-          <div className="mt-3 space-y-2">
-            <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Suggestions:</div>
-            {message.metadata.suggestions.map((suggestion) => (
-              <div key={suggestion.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
-                <div className="flex items-center justify-between mb-1">
-                  <Badge variant="outline" className="text-xs">
-                    {suggestion.type}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="default"
-                    className="h-6 text-xs"
-                    onClick={() => onApplySuggestion(suggestion.id)}
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />
-                    Apply
-                  </Button>
+        {(() => {
+          const suggestions = message.metadata?.suggestions as Suggestion[] | undefined;
+          return suggestions && suggestions.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-xs font-semibold text-[var(--vds-color-text-muted)]">Suggestions:</div>
+              {suggestions.map((suggestion: Suggestion) => (
+                <div key={suggestion.id} className="bg-[var(--vds-color-surface)] rounded p-2 border border-[var(--vds-color-border)]">
+                  <div className="flex items-center justify-between mb-1">
+                    <Badge variant="outline" className="text-xs">
+                      {suggestion.type}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-6 text-xs"
+                      onClick={() => onApplySuggestion(suggestion.id)}
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+                      Apply
+                    </Button>
+                  </div>
+                  <div className="text-xs text-[var(--vds-color-text-secondary)]">{suggestion.content}</div>
                 </div>
-                <div className="text-xs text-[var(--vds-color-text-secondary)]">{suggestion.content}</div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
 
-        <div className="text-xs text-[var(--vds-color-text-muted)] mt-2">{message.timestamp.toLocaleTimeString()}</div>
+        <div className="text-xs text-[var(--vds-color-text-muted)] mt-2">{new Date(message.timestamp).toLocaleTimeString()}</div>
       </div>
     </div>
   );

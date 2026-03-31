@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sophisticated Strategist | Acme Corp Expansion</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.6); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#d8dadc",
+              "primary": "#000000",
+              "secondary-fixed": "#d5e3fc",
+              "on-error-container": "#93000a",
+              "primary-fixed-dim": "#bec6e0",
+              "primary-fixed": "#dae2fd",
+              "inverse-on-surface": "#eff1f3",
+              "tertiary-container": "#25005a",
+              "on-background": "#191c1e",
+              "on-tertiary-fixed": "#25005a",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2d3133",
+              "on-secondary-container": "#57657a",
+              "on-secondary": "#ffffff",
+              "outline-variant": "#c6c6cd",
+              "on-primary-fixed-variant": "#3f465c",
+              "error": "#ba1a1a",
+              "on-primary-fixed": "#131b2e",
+              "on-primary-container": "#7c839b",
+              "surface-container-highest": "#e0e3e5",
+              "on-tertiary-container": "#9863ff",
+              "surface": "#f7f9fb",
+              "on-tertiary-fixed-variant": "#5a00c6",
+              "on-surface-variant": "#45464d",
+              "background": "#f7f9fb",
+              "tertiary-fixed-dim": "#d2bbff",
+              "tertiary-fixed": "#eaddff",
+              "surface-container": "#eceef0",
+              "inverse-primary": "#bec6e0",
+              "on-error": "#ffffff",
+              "surface-tint": "#565e74",
+              "surface-container-low": "#f2f4f6",
+              "tertiary": "#000000",
+              "on-surface": "#191c1e",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-fixed": "#0d1c2e",
+              "error-container": "#ffdad6",
+              "outline": "#76777d",
+              "secondary": "#515f74",
+              "surface-container-high": "#e6e8ea",
+              "on-secondary-fixed-variant": "#3a485b",
+              "on-primary": "#ffffff",
+              "secondary-container": "#d5e3fc",
+              "surface-bright": "#f7f9fb",
+              "secondary-fixed-dim": "#b9c7df",
+              "primary-container": "#131b2e",
+              "surface-variant": "#e0e3e5"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface text-on-surface h-screen overflow-hidden flex">
+<!-- SideNavBar (Clean White Version) -->
+<aside class="fixed left-0 top-0 h-full w-20 py-6 flex flex-col items-center gap-8 z-40 bg-white border-r border-slate-200">
+<div class="text-2xl font-black text-[#9863ff]">VE</div>
+<nav class="flex flex-col gap-4 w-full px-3">
+<div class="bg-surface-container-low text-[#9863ff] rounded-lg p-3 flex items-center justify-center transition-transform cursor-pointer" title="Strategy">
+<span class="material-symbols-outlined">insights</span>
+</div>
+<div class="text-slate-400 hover:text-slate-900 p-3 flex items-center justify-center hover:bg-surface-container-low/50 transition-all cursor-pointer" title="Analysis">
+<span class="material-symbols-outlined">query_stats</span>
+</div>
+<div class="text-slate-400 hover:text-slate-900 p-3 flex items-center justify-center hover:bg-surface-container-low/50 transition-all cursor-pointer" title="Data">
+<span class="material-symbols-outlined">database</span>
+</div>
+<div class="text-slate-400 hover:text-slate-900 p-3 flex items-center justify-center hover:bg-surface-container-low/50 transition-all cursor-pointer" title="MEDDPICC">
+<span class="material-symbols-outlined">track_changes</span>
+</div>
+</nav>
+<div class="mt-auto flex flex-col gap-4 w-full px-3">
+<div class="text-slate-400 hover:text-slate-900 p-3 flex items-center justify-center hover:bg-surface-container-low/50 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-slate-200 overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="professional headshot of a business executive in a minimalist setting clean lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBec08lH_pmP32eY6yAI5q2C0kMfqFbhiIpp7Uz_gxMAGpFecrvryCHaVPDw0ceoj1ik7sPQXrQaQ8Jb5A6m0iRDFfh5NcNCsEauZSUA4_ci-FGudG-gwNmdxpdJ98we8qYA-3tlYJz4Eiion0Sz-IIEXoEr79KWpUi0yVNV3n8yPINZluGsky6xt7LUH4prXX50zOjEI29qHPxeF7rd-NPE4_qwXYacM2Cvg75W9NLgz1rc5uTI5-ibo4qmOSOrPlPRwWc6lA86UQ"/>
+</div>
+</div>
+</aside>
+<!-- Main Viewport -->
+<main class="ml-20 flex-1 flex flex-col relative h-full">
+<!-- TopAppBar (Unified with Canvas Standards) -->
+<header class="h-16 flex items-center justify-between px-8 z-30 bg-white border-b border-slate-200">
+<div class="flex items-center gap-4">
+<h1 class="text-xl font-bold tracking-tight text-primary">Acme Corp Expansion</h1>
+<span class="px-2 py-0.5 rounded bg-surface-container text-on-surface-variant text-[0.625rem] font-bold uppercase tracking-widest">Active Analysis</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4 text-slate-500">
+<button class="hover:text-primary transition-colors flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">notifications</span></button>
+<button class="hover:text-primary transition-colors flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">help_outline</span></button>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">Export Strategy</button>
+</div>
+</div>
+</header>
+<!-- Content Split Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Central Conversation & Dashboard Area -->
+<section class="flex-1 flex flex-col bg-surface overflow-y-auto no-scrollbar p-6 gap-6">
+<!-- Strategic Value Hypothesis Dashboard -->
+<div class="grid grid-cols-12 gap-6">
+<div class="col-span-8 bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/15">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant mb-1">Strategic Value Hypothesis</h2>
+<p class="text-headline-md font-bold text-primary">Optimization Efficiency</p>
+</div>
+<div class="text-right">
+<div class="text-display-lg font-bold leading-none text-[#9863ff]">28.4%</div>
+<div class="text-label-sm font-medium text-secondary">Target ROI Velocity</div>
+</div>
+</div>
+<!-- Simplified Bar Chart Visualization -->
+<div class="flex items-end gap-10 h-32 relative">
+<div class="flex-1 flex flex-col gap-2 group">
+<div class="w-full bg-surface-container-low rounded-t-lg h-12 transition-all group-hover:bg-surface-container-high"></div>
+<span class="text-[10px] font-bold uppercase text-on-surface-variant text-center">Baseline</span>
+</div>
+<div class="flex-1 flex flex-col gap-2 group">
+<div class="w-full bg-[#9863ff] rounded-t-lg h-24 transition-all group-hover:opacity-90"></div>
+<span class="text-[10px] font-bold uppercase text-primary text-center">Optimization</span>
+</div>
+<div class="flex-1 flex flex-col gap-2 group">
+<div class="w-full bg-primary rounded-t-lg h-32 transition-all group-hover:bg-slate-800"></div>
+<span class="text-[10px] font-bold uppercase text-on-surface-variant text-center">Projected Scale</span>
+</div>
+<!-- ROI Sparkline Overlay (Conceptual) -->
+<div class="absolute bottom-10 left-0 w-full h-8 overflow-hidden opacity-50 pointer-events-none">
+<svg class="w-full h-full stroke-[#9863ff] fill-none stroke-2" viewbox="0 0 400 50">
+<path d="M0 40 Q 50 10, 100 30 T 200 10 T 300 35 T 400 5"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Effectiveness Mini-Card -->
+<div class="col-span-4 flex flex-col gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/15 flex flex-col items-center justify-center flex-1">
+<div class="relative w-24 h-24 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-[#9863ff]" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="60" stroke-width="6"></circle>
+</svg>
+<span class="absolute text-xl font-bold">76</span>
+</div>
+<p class="mt-4 text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">Expansion Readiness</p>
+</div>
+</div>
+</div>
+<!-- AI Conversation Area -->
+<div class="flex-1 flex flex-col gap-6 max-w-4xl mx-auto w-full py-4">
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="bg-primary text-on-primary px-5 py-3 rounded-2xl rounded-tr-none text-sm max-w-[80%] leading-relaxed">
+                            How does the current expansion trajectory compare against our baseline operational metrics for Q4?
+                        </div>
+</div>
+<!-- AI Agent Message -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<div class="flex flex-col gap-3 max-w-[85%]">
+<div class="bg-surface-container-lowest border border-outline-variant/15 p-5 rounded-2xl rounded-tl-none shadow-sm text-sm text-on-surface leading-relaxed">
+                                Based on the integrated Salesforce and Q3 10-K data, I suggest using a <span class="font-bold text-[#9863ff]">3-day lag baseline</span> for regional deployment velocity.
+                                <br/><br/>
+                                My analysis indicates a <span class="font-bold text-error">12% spike in operational overhead</span> correlated with the Phase 2 expansion rollout. This is primarily driven by talent acquisition bottlenecks in the EMEA region.
+                                
+                                <div class="mt-4 pt-4 border-t border-outline-variant/10 flex items-center gap-2">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Sources:</span>
+<div class="flex gap-1.5">
+<div class="w-6 h-6 rounded bg-surface-container flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[14px]">cloud_sync</span>
+</div>
+<div class="w-6 h-6 rounded bg-surface-container flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[14px]">description</span>
+</div>
+<div class="w-6 h-6 rounded bg-surface-container flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[14px]">audio_file</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="mt-auto pt-6">
+<div class="relative flex items-center">
+<input class="w-full bg-white border border-slate-200 rounded-xl py-4 pl-6 pr-16 text-sm focus:ring-2 focus:ring-[#9863ff] focus:outline-none transition-all shadow-sm" placeholder="Ask for tactical optimization steps..." type="text"/>
+<button class="absolute right-3 p-2 bg-[#9863ff] text-white rounded-lg hover:bg-opacity-90 transition-all">
+<span class="material-symbols-outlined">arrow_upward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Intelligence Tracker Sidebar (Unified Styling) -->
+<aside class="w-[320px] bg-white border-l border-slate-200 flex flex-col p-6 overflow-y-auto no-scrollbar gap-8">
+<!-- Data Ingestion -->
+<div>
+<h3 class="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4 flex justify-between items-center">
+                        Data Ingestion
+                        <span class="text-primary">80%</span>
+</h3>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-[#9863ff] h-full w-[80%]"></div>
+</div>
+</div>
+<!-- MEDDPICC Status -->
+<div>
+<h3 class="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">MEDDPICC Status</h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/15">
+<span class="material-symbols-outlined text-green-600 text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-medium text-primary">Economic Buyer Identified</span>
+</div>
+<div class="flex items-center gap-3 p-3 bg-surface-container-lowest rounded-lg border border-error/20">
+<span class="material-symbols-outlined text-error text-[20px]">warning</span>
+<div class="flex-1">
+<p class="text-xs font-medium text-error">Decision Criteria</p>
+<p class="text-[10px] text-on-surface-variant">High-risk gap flag detected</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Connected Sources -->
+<div>
+<h3 class="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Connected Sources</h3>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">hub</span>
+<span class="text-xs text-on-surface">Salesforce</span>
+</div>
+<span class="text-[10px] text-green-600 font-bold group-hover:underline">SYNCED</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">article</span>
+<span class="text-xs text-on-surface">Q3 10-K</span>
+</div>
+<span class="text-[10px] text-on-surface-variant">DOC</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">forum</span>
+<span class="text-xs text-on-surface">Call Transcript</span>
+</div>
+<span class="text-[10px] text-on-surface-variant">TXT</span>
+</div>
+</div>
+</div>
+<!-- Stakeholders -->
+<div>
+<h3 class="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Stakeholders</h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="Sarah" class="w-full h-full object-cover" data-alt="portrait of a professional woman smiling corporate style clean lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPnymBdZQ5eNKlnm1H-1U1xuM7MufpFbxTyTwlunO_Lbkr-17nPxae7Sc2WM5blxhQDONfrohxri_1wQgoTMeD2Y2JT2S8POIWaArl0nLtHsxn5n2-bc4Siy36_oo9q2R5G7qTvMq6G_8JHxghGdKzpKOzgcyl1EMflJpjsCbvqoDmfMkXKNNgeDkKiUQEDNlfk8wPP1RouacG25lfhsR6TM9XQCeQE7vABRTMTu76OiQpUcOll91_hg1uIMP3FagUEKmv-x5b6Vo"/>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">Sarah Chen</p>
+<p class="text-[10px] text-[#9863ff] font-semibold">Champion</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded-lg transition-colors cursor-pointer">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center overflow-hidden">
+<img alt="Marcus" class="w-full h-full object-cover" data-alt="portrait of a professional man serious expression corporate style clean lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDLsFG5VDgICEVIQeQz-FoLBMtIE_0Fr_gJNDliDJ9EzbcMnQ5mw3W2yTqeVowPcGS710Tw3jYk3Bg27VeEHhtNVsUX5nHYDFuqlyefmg9MyCH5EuwdhY4j6NUkNRXJwpWmfeUDuKCEnJzbOVWKhk5SJD4nksq-iryYQGsQJmto5vUhhcUzgJ4WjmUfKVu4Mlcs-DIJZUVg0gTkN8ZFhUTXLosDItZFHr-uWYuNC4YmQ0RGSmWDJcjU__-B1CY9O5BQXf2mSxKhCc"/>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">Marcus Thorne</p>
+<p class="text-[10px] text-on-surface-variant">Potential EB</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>

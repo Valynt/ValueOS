@@ -53,6 +53,9 @@ export class ReasoningTraceRepository {
     if (!parsed.success) {
       logger.warn("ReasoningTraceRepository: invalid write payload", {
         errors: parsed.error.issues,
+        traceId: data.trace_id,
+        agentName: data.agent_name,
+        valueCaseId: data.value_case_id,
       });
       return null;
     }
