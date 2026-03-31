@@ -15,8 +15,8 @@ vi.mock('@shared/lib/logger', () => ({
   }),
 }));
 
-// Mock mfaService
-vi.mock('../../services/MFAService', () => ({
+// Mock mfaService — path must match the actual import in mfa.ts
+vi.mock('../../services/auth/MFAService.js', () => ({
   mfaService: {
     hasMFAEnabled: vi.fn(),
     verifyChallenge: vi.fn(),

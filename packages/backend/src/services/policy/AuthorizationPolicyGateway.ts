@@ -50,14 +50,20 @@ export class AuthorizationPolicyGateway {
     request: AuthorizationRequest,
     validator?: DecisionValidator
   ): AuthorizationDecision {
-    const policyVersion =
-      request.mode === "custom"
-        ? (request.policyVersion ?? "custom")
-        : enforceToolPolicy(request.subject.agentType, request.resource)
-            .policyVersion;
-    const decisionId = this.createDecisionId(request, policyVersion);
+    // Compute a stable decision ID before policy evaluation so it can be
+    // attached to both allowed and denied outcomes for audit correlation.
+    const preliminaryVersion = request.mode === "custom"
+      ? (request.policyVersion ?? "custom")
+      : "unknown";
+    const decisionId = this.createDecisionId(request, preliminaryVersion);
 
     try {
+      const policyVersion =
+        request.mode === "custom"
+          ? (request.policyVersion ?? "custom")
+          : enforceToolPolicy(request.subject.agentType, request.resource)
+              .policyVersion;
+
       validator?.({ request, policyVersion });
 
       const decision: AuthorizationDecision = {
@@ -73,10 +79,16 @@ export class AuthorizationPolicyGateway {
         this.logDeniedDecision(
           decisionId,
           request,
-          policyVersion,
+          preliminaryVersion,
           error.code,
           error.message
         );
+        // Re-throw with decisionId injected so callers can correlate denied decisions
+        throw new PolicyEnforcementError(error.code, error.message, {
+          ...error.details,
+          decisionId,
+          policyVersion: preliminaryVersion,
+        });
       }
       throw error;
     }

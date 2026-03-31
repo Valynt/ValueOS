@@ -9,7 +9,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
 import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
-export interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'ref'> {
+export interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'ref' | 'animate'> {
   /** Blur intensity in pixels */
   blur?: number;
   /** Background opacity (0-1) */
@@ -18,7 +18,7 @@ export interface GlassCardProps extends Omit<HTMLMotionProps<'div'>, 'ref'> {
   borderOpacity?: number;
   /** Shadow elevation level */
   elevation?: 0 | 1 | 2 | 3 | 4 | 5;
-  /** Whether to animate on mount */
+  /** Whether to animate on mount using framer-motion */
   animated?: boolean;
 }
 
@@ -39,7 +39,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
     opacity = 0.6,
     borderOpacity = 0.1,
     elevation = 2,
-    animate = true,
+    animated = false,
     style,
     ...props
   }, ref) => {

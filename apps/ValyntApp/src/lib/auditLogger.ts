@@ -389,12 +389,21 @@ class AuditLogger {
    * Setup batch sending
    */
   private setupBatchSending(): void {
+    // Skip in test environments — the interval keeps the Node process alive
+    // after all tests finish, causing the suite to hang.
+    if (process.env.NODE_ENV === "test" || process.env.TEST_MODE === "true") {
+      return;
+    }
     // Send batch every 30 seconds
     this.sendTimer = setInterval(() => {
       if (this.pendingEvents.length > 0) {
         this.sendBatch();
       }
     }, 30000);
+    // Allow the process to exit even if this timer is still pending.
+    if (this.sendTimer && typeof (this.sendTimer as NodeJS.Timeout).unref === "function") {
+      (this.sendTimer as NodeJS.Timeout).unref();
+    }
   }
 
   /**

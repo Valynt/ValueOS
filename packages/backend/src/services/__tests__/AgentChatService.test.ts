@@ -57,15 +57,38 @@ vi.mock("../../config/llm.js", () => ({
   llmConfig: { provider: "test", gatingEnabled: false },
 }));
 
+// Paths relative to the test file (src/services/__tests__/) must resolve to
+// the same module the service (src/services/agents/AgentChatService.ts) imports.
+vi.mock("../agents/ConversationHistoryService.js", () => ({
+  conversationHistoryService: mockConversationHistory,
+}));
+// Fallback: also mock the barrel re-export path
 vi.mock("../ConversationHistoryService", () => ({
   conversationHistoryService: mockConversationHistory,
 }));
 
-vi.mock("../GeminiProxyService.js", () => ({
+vi.mock("../agents/llm/GeminiProxyService.js", () => ({
+  geminiProxyService: mockGeminiProxy,
+}));
+vi.mock("../llm/GeminiProxyService.js", () => ({
   geminiProxyService: mockGeminiProxy,
 }));
 
-vi.mock("../FallbackAIService.js", () => ({
+vi.mock("../agents/llm/FallbackAIService.js", () => ({
+  FallbackAIService: {
+    cacheAnalysis: vi.fn(),
+    shouldUseFallback: vi.fn().mockReturnValue(true),
+    getCachedAnalysis: vi.fn().mockReturnValue(null),
+    generateFallbackAnalysis: vi.fn().mockReturnValue({
+      analysisSummary: "Fallback analysis",
+      identifiedIndustry: "General",
+      valueHypotheses: [],
+      keyMetrics: [],
+      recommendedActions: ["Review manually"],
+    }),
+  },
+}));
+vi.mock("../llm/FallbackAIService.js", () => ({
   FallbackAIService: {
     cacheAnalysis: vi.fn(),
     shouldUseFallback: vi.fn().mockReturnValue(true),
@@ -80,8 +103,10 @@ vi.mock("../FallbackAIService.js", () => ({
   },
 }));
 
-vi.mock("../RetryService.js", () => ({
+// Path must match the import in agents/AgentChatService.ts
+vi.mock("../agents/resilience/RetryService.js", () => ({
   RetryService: mockRetryService,
+  withRetry: mockRetryService.executeWithRetry,
 }));
 
 vi.mock("../../lib/agent-fabric/ContextFabric", () => ({
@@ -103,6 +128,10 @@ vi.mock("../../data/valueModelExamples", () => ({
   formatExampleForPrompt: vi.fn().mockReturnValue(""),
 }));
 
+vi.mock("../agents/domain-packs/MCPTools.js", () => ({
+  createToolExecutor: vi.fn(),
+  getAllTools: vi.fn().mockReturnValue([]),
+}));
 vi.mock("../MCPTools.js", () => ({
   createToolExecutor: vi.fn(),
   getAllTools: vi.fn().mockReturnValue([]),
@@ -133,7 +162,8 @@ vi.mock("../../repositories/WorkflowStateRepository", () => ({
 // --- Imports ---
 
 import { checkStageTransition } from "../../config/chatWorkflowConfig.js";
-import { AgentChatService, AIResponseSchema } from "../AgentChatService";
+import { AgentChatService, AIResponseSchemaSchema } from "../AgentChatService";
+import type { AIResponseSchema } from "../AgentChatService";
 import type { ChatRequest } from "../AgentChatService";
 
 // --- Helpers ---
@@ -333,13 +363,13 @@ describe("AgentChatService", () => {
 
   describe("AIResponseSchema", () => {
     it("validates a correct response", () => {
-      const result = AIResponseSchema.safeParse(VALID_AI_RESPONSE);
+      const result = AIResponseSchemaSchema.safeParse(VALID_AI_RESPONSE);
       expect(result.success).toBe(true);
     });
 
     it("rejects missing analysisSummary", () => {
       const { analysisSummary, ...incomplete } = VALID_AI_RESPONSE;
-      const result = AIResponseSchema.safeParse(incomplete);
+      const result = AIResponseSchemaSchema.safeParse(incomplete);
       expect(result.success).toBe(false);
     });
 
@@ -350,7 +380,7 @@ describe("AgentChatService", () => {
           { ...VALID_AI_RESPONSE.valueHypotheses[0], impact: "Extreme" },
         ],
       };
-      const result = AIResponseSchema.safeParse(invalid);
+      const result = AIResponseSchemaSchema.safeParse(invalid);
       expect(result.success).toBe(false);
     });
 
@@ -361,7 +391,7 @@ describe("AgentChatService", () => {
           { ...VALID_AI_RESPONSE.valueHypotheses[0], confidence: 150 },
         ],
       };
-      const result = AIResponseSchema.safeParse(invalid);
+      const result = AIResponseSchemaSchema.safeParse(invalid);
       expect(result.success).toBe(false);
     });
 
@@ -372,7 +402,7 @@ describe("AgentChatService", () => {
           { label: "Revenue", value: "$1M", trend: "sideways" },
         ],
       };
-      const result = AIResponseSchema.safeParse(invalid);
+      const result = AIResponseSchemaSchema.safeParse(invalid);
       expect(result.success).toBe(false);
     });
   });

@@ -7,7 +7,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock("../../../lib/supabase.js");
+// No static vi.mock for supabase — each test uses vi.doMock after vi.resetModules()
+// so the correct mock is in place when the module is dynamically imported.
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ describe('TokenReEncryptionJob', () => {
     const rows = [{ id: 'row-1', access_token_enc: token, refresh_token_enc: null, token_key_version: 1 }];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const result = await new TokenReEncryptionJob().run();
@@ -179,7 +180,7 @@ describe('TokenReEncryptionJob', () => {
     }];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const result = await new TokenReEncryptionJob().run();
@@ -215,7 +216,7 @@ describe('TokenReEncryptionJob', () => {
     }];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const result = await new TokenReEncryptionJob().run();
@@ -243,7 +244,7 @@ describe('TokenReEncryptionJob', () => {
     }];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const result = await new TokenReEncryptionJob().run();
@@ -266,7 +267,7 @@ describe('TokenReEncryptionJob', () => {
     ];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const result = await new TokenReEncryptionJob().run();
@@ -285,7 +286,7 @@ describe('TokenReEncryptionJob', () => {
     const rows = [{ id: 'row-1', access_token_enc: token, refresh_token_enc: null, token_key_version: 1 }];
     const supabase = makeSupabaseMock(rows);
 
-    vi.doMock('../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
+    vi.doMock('../../../lib/supabase.js', () => ({ createServerSupabaseClient: () => supabase }));
     const { TokenReEncryptionJob } = await import('../TokenReEncryptionJob.js');
 
     const job = new TokenReEncryptionJob();

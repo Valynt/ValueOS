@@ -97,6 +97,7 @@ import { AuditLogService } from "../security/AuditLogService.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// tenantId is mandatory — AuditLogService rejects entries without it
 const BASE_INPUT = {
   userId: "user-abc",
   userName: "Alice",
@@ -104,6 +105,7 @@ const BASE_INPUT = {
   action: "create",
   resourceType: "value_case",
   resourceId: "case-001",
+  tenantId: "tenant-default",
 } as const;
 
 function makeReturnRow(overrides: Record<string, unknown> = {}) {
@@ -151,13 +153,15 @@ describe("AuditLogService -- tenant_id propagation", () => {
     expect(insertedRows[0]).toMatchObject({ tenant_id: tenantId });
   });
 
-  it("writes null tenant_id when tenantId is omitted (backward-compatible)", async () => {
-    mockInsertSelect.mockResolvedValue({ data: makeReturnRow(), error: null });
+  it("rejects entries when tenantId is omitted (mandatory for tenant isolation)", async () => {
+    // Destructure to omit tenantId — cast needed because the type now requires it
+    const { tenantId: _omitted, ...inputWithoutTenant } = BASE_INPUT as typeof BASE_INPUT & { tenantId?: string };
 
-    await service.createEntry({ ...BASE_INPUT });
+    await expect(
+      service.createEntry(inputWithoutTenant as any)
+    ).rejects.toThrow(/tenant_id is mandatory/);
 
-    expect(insertedRows).toHaveLength(1);
-    expect(insertedRows[0]).toMatchObject({ tenant_id: null });
+    expect(insertedRows).toHaveLength(0);
   });
 
   it("does not duplicate tenantId inside the details payload", async () => {

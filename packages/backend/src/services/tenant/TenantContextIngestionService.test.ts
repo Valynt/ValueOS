@@ -22,6 +22,7 @@ vi.mock("../../lib/supabase.js", () => {
   return {
     createServerSupabaseClient: () => ({ from: mockFrom }),
     getSupabaseClient: () => ({ from: mockFrom }),
+    supabase: { from: mockFrom },
   };
 });
 

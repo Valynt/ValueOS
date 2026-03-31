@@ -211,6 +211,10 @@ export class MCPRateLimiter extends EventEmitter {
   private constructor() {
     super();
 
+    // Skip in test environments — the interval keeps the Node process alive.
+    if (process.env.NODE_ENV === "test" || process.env.TEST_MODE === "true") {
+      return;
+    }
     // Clean up old request data every 5 minutes
     this.cleanupInterval = setInterval(
       () => {
@@ -218,6 +222,9 @@ export class MCPRateLimiter extends EventEmitter {
       },
       5 * 60 * 1000
     );
+    if (this.cleanupInterval && typeof (this.cleanupInterval as NodeJS.Timeout).unref === "function") {
+      (this.cleanupInterval as NodeJS.Timeout).unref();
+    }
   }
 
   static getInstance(): MCPRateLimiter {

@@ -14,35 +14,34 @@ import { InvoiceMathEngine } from '../InvoiceMathEngine.js';
 const createMockSupabase = () => {
   const mockFrom = vi.fn((table: string) => {
     if (table === 'rated_ledger') {
-      return {
-        select: vi.fn(() => ({
-          gte: vi.fn(() => ({
-            lte: vi.fn(() => ({
-              order: vi.fn(() => ({
-                data: [
-                  {
-                    id: 'ledger-1',
-                    tenant_id: 'test-tenant-123',
-                    subscription_id: 'sub-123',
-                    price_version_id: 'price-123',
-                    meter_key: 'ai_tokens',
-                    period_start: '2024-01-01T00:00:00Z',
-                    period_end: '2024-01-31T23:59:59Z',
-                    quantity_used: 1000,
-                    quantity_included: 500,
-                    quantity_overage: 500,
-                    unit_price: 0.01,
-                    amount: 5.00,
-                    rated_at: '2024-01-31T12:00:00Z',
-                    source_aggregate_hash: 'hash123'
-                  }
-                ],
-                error: null
-              }))
-            }))
-          }))
-        }))
-      };
+      const ledgerData = [
+        {
+          id: 'ledger-1',
+          tenant_id: 'test-tenant-123',
+          subscription_id: 'sub-123',
+          price_version_id: 'price-123',
+          meter_key: 'ai_tokens',
+          period_start: '2024-01-01T00:00:00Z',
+          period_end: '2024-01-31T23:59:59Z',
+          quantity_used: 1000,
+          quantity_included: 500,
+          quantity_overage: 500,
+          unit_price: 0.01,
+          amount: 5.00,
+          rated_at: '2024-01-31T12:00:00Z',
+          source_aggregate_hash: 'hash123'
+        }
+      ];
+      // Build a chainable mock that resolves to { data, error } at any terminal call
+      const resolved = Promise.resolve({ data: ledgerData, error: null });
+      const chain: Record<string, unknown> = {};
+      chain.select = vi.fn().mockReturnValue(chain);
+      chain.eq = vi.fn().mockReturnValue(chain);
+      chain.gte = vi.fn().mockReturnValue(chain);
+      chain.lte = vi.fn().mockReturnValue(chain);
+      chain.order = vi.fn().mockReturnValue(resolved);
+      chain.then = resolved.then.bind(resolved);
+      return chain;
     }
     if (table === 'organizations') {
       return {

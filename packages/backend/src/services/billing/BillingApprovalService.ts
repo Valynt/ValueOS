@@ -62,6 +62,30 @@ export class BillingApprovalService {
     return BillingApprovalService._instance;
   }
 
+  static async setApprovalPolicy(
+    tenantId: string,
+    policy: Partial<BillingApprovalPolicy>
+  ): Promise<void> {
+    if (!policy.action_type) {
+      throw new Error('setApprovalPolicy: action_type is required');
+    }
+    const svc = BillingApprovalService.getInstance();
+    await svc.setApprovalPolicy(
+      tenantId,
+      policy.action_type,
+      (policy.thresholds as Record<string, unknown>) ?? {},
+      policy.required_approver_roles ?? [],
+      policy.sla_hours ?? undefined,
+    );
+  }
+
+  static async canApproveRequest(
+    approvalId: string,
+    userId: string
+  ): Promise<boolean> {
+    return BillingApprovalService.getInstance().canApproveRequest(approvalId, userId);
+  }
+
   static async createApprovalRequest(
     tenantId: string,
     actionType: ApprovalActionType,
@@ -284,6 +308,17 @@ export class BillingApprovalService {
   /**
    * Get pending requests for a tenant.
    */
+  /**
+   * Returns true if the given user is permitted to approve the specified request.
+   * A user cannot approve their own request.
+   */
+  async canApproveRequest(approvalId: string, userId: string): Promise<boolean> {
+    const request = await this.getRequest(approvalId);
+    if (!request) return false;
+    if (request.requested_by_user_id === userId) return false;
+    return request.status === 'pending';
+  }
+
   async getPendingRequests(tenantId: string): Promise<BillingApprovalRequest[]> {
     const db = this.requireSupabase();
 

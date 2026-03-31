@@ -1,26 +1,54 @@
 /**
  * Evidence Mapping Enforcement Tests
- * 
+ *
  * P0 Security Requirement: All numeric outputs must have evidence links
  * for CFO-defensible audit trail.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// ── Module mocks (hoisted before imports) ────────────────────────────────────
+
+// AuditLogger wraps AuditLogService which requires a live Supabase connection.
+// Replace it with a lightweight stub so tests run without infrastructure.
+const mockLogAgentSecurity = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("../AuditLogger.js", () => ({
+  AuditLogger: vi.fn().mockImplementation(() => ({
+    logAgentSecurity: mockLogAgentSecurity,
+    logLLMInvocation: vi.fn().mockResolvedValue(undefined),
+    logMemoryStore: vi.fn().mockResolvedValue(undefined),
+    logVetoDecision: vi.fn().mockResolvedValue(undefined),
+    logAgentEvent: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+// Supabase — not needed for evidence-mapping logic
+vi.mock("../../../lib/supabase.js", () => ({
+  createServerSupabaseClient: vi.fn(),
+  supabase: { from: vi.fn() },
+}));
+
+// AgentKillSwitchService — not relevant to evidence mapping
+vi.mock("../../../services/agents/AgentKillSwitchService.js", () => ({
+  agentKillSwitchService: { isKilled: vi.fn().mockResolvedValue(false) },
+}));
+
+// ValueGraphService — not relevant to evidence mapping
+vi.mock("../../../services/value-graph/ValueGraphService.js", () => ({
+  ValueGraphService: vi.fn(),
+  valueGraphService: { getGraph: vi.fn() },
+}));
+
 import { EvidenceMappingError } from "../BaseAgent";
 import { TestAgent } from "./TestAgent";
 
 describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
   let agent: TestAgent;
-  let mockAuditLogger: any;
 
   beforeEach(() => {
-    mockAuditLogger = {
-      logAgentSecurity: vi.fn(),
-    };
-    agent = new TestAgent({
-      organizationId: "test-tenant",
-      auditLogger: mockAuditLogger,
-    });
+    vi.clearAllMocks();
+    agent = new TestAgent({ organizationId: "test-tenant" });
   });
 
   describe("Numeric Output Evidence Requirements", () => {
@@ -40,7 +68,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
       const result = await agent.execute(context);
 
       expect(result.status).toBe("success");
-      expect(mockAuditLogger.logAgentSecurity).not.toHaveBeenCalled();
+      expect(mockLogAgentSecurity).not.toHaveBeenCalled();
     });
 
     it("allows execution when numeric values have evidence links", async () => {
@@ -84,7 +112,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
       const result = await agent.execute(context);
 
       expect(result.status).toBe("success");
-      expect(mockAuditLogger.logAgentSecurity).not.toHaveBeenCalled();
+      expect(mockLogAgentSecurity).not.toHaveBeenCalled();
     });
 
     it("throws EvidenceMappingError when numeric values lack evidence", async () => {
@@ -104,7 +132,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
       await expect(agent.execute(context)).rejects.toThrow(EvidenceMappingError);
 
       // Verify security audit log was created
-      expect(mockAuditLogger.logAgentSecurity).toHaveBeenCalledWith({
+      expect(mockLogAgentSecurity).toHaveBeenCalledWith({
         agentName: "TestAgent",
         tenantId: "test-tenant",
         userId: "user-1",
@@ -148,7 +176,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
 
       await expect(agent.execute(context)).rejects.toThrow(EvidenceMappingError);
 
-      expect(mockAuditLogger.logAgentSecurity).toHaveBeenCalledWith({
+      expect(mockLogAgentSecurity).toHaveBeenCalledWith({
         agentName: "TestAgent",
         tenantId: "test-tenant",
         userId: "user-1",
@@ -188,7 +216,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
 
       await expect(agent.execute(context)).rejects.toThrow(EvidenceMappingError);
 
-      expect(mockAuditLogger.logAgentSecurity).toHaveBeenCalledWith({
+      expect(mockLogAgentSecurity).toHaveBeenCalledWith({
         agentName: "TestAgent",
         tenantId: "test-tenant",
         userId: "user-1",
@@ -225,7 +253,7 @@ describe("BaseAgent - Evidence Mapping Enforcement (P0)", () => {
 
       await expect(agent.execute(context)).rejects.toThrow(EvidenceMappingError);
 
-      expect(mockAuditLogger.logAgentSecurity).toHaveBeenCalledWith({
+      expect(mockLogAgentSecurity).toHaveBeenCalledWith({
         agentName: "TestAgent",
         tenantId: "test-tenant",
         userId: "user-1",

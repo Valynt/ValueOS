@@ -21,13 +21,14 @@ vi.mock("../modules/StructuralTruthModule");
 
 describe("MCPFinancialGroundTruthServer - Security", () => {
   let server: MCPFinancialGroundTruthServer;
+  // SEC EDGAR requires a User-Agent containing a valid email address
   const mockConfig = {
     edgar: {
-      userAgent: "test-agent",
+      userAgent: "ValueOS-Test/1.0 (test@example.com)",
       rateLimit: 10,
     },
     xbrl: {
-      userAgent: "test-agent",
+      userAgent: "ValueOS-Test/1.0 (test@example.com)",
       rateLimit: 10,
     },
     marketData: {

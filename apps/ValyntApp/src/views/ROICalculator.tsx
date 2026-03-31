@@ -496,3 +496,4 @@ export function ROICalculator() {
     </div>
   );
 }
+export default ROICalculator;
