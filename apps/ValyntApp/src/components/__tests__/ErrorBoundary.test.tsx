@@ -142,7 +142,7 @@ describe("ErrorBoundary — retry behaviour", () => {
       return <div data-testid="recovered-child">Recovered</div>;
     }
 
-    const { rerender } = render(
+    render(
       <ErrorBoundary>
         <ToggleChild />
       </ErrorBoundary>,
