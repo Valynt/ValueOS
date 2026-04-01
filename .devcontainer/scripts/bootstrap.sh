@@ -67,21 +67,15 @@ log "Checking .env..."
 
 ENV_DEST="${ROOT}/.env"
 ENV_SRC="${ROOT}/ops/env/.env.local"
-ENV_TEMPLATE="${ROOT}/.devcontainer/.env.template"
 
-if [[ -f "${ENV_DEST}" ]]; then
-  log ".env already present — skipping"
-elif [[ -f "${ENV_SRC}" ]]; then
-  cp "${ENV_SRC}" "${ENV_DEST}"
-  chmod 600 "${ENV_DEST}"
-  log ".env created from ops/env/.env.local"
-elif [[ -f "${ENV_TEMPLATE}" ]]; then
-  cp "${ENV_TEMPLATE}" "${ENV_DEST}"
-  chmod 600 "${ENV_DEST}"
-  warn ".env created from template — review and set real secrets before starting services"
-else
-  warn "No .env source found. Create ${ENV_DEST} manually before starting services."
+# Generate ops/env/.env.local from Ona-injected secrets if it doesn't exist yet.
+if [[ ! -f "${ENV_SRC}" ]]; then
+  log "ops/env/.env.local not found — generating from injected secrets..."
+  bash "${SCRIPT_DIR}/generate-env-from-secrets.sh"
 fi
+
+# Propagate to the root .env consumed by docker compose and other tooling.
+bash "${SCRIPT_DIR}/ensure-dotenv.sh"
 
 # ── 3. Validate startup secrets ─────────────────────────────────────────────
 if [[ -x "${ROOT}/.devcontainer/scripts/validate-devcontainer-secrets.sh" ]] && [[ -f "${ENV_DEST}" ]]; then
