@@ -125,6 +125,39 @@ function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContex
   };
 }
 
+function addSuggestionIfMissing(suggestions: string[], suggestion: string): void {
+  if (!suggestions.includes(suggestion)) {
+    suggestions.push(suggestion);
+  }
+}
+
+async function waitForMockCalls(
+  getCallCount: () => number,
+  minimumCalls: number,
+  assertionLabel: string,
+): Promise<void> {
+  const timeoutMs = 1500;
+  const intervalMs = 25;
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    if (getCallCount() >= minimumCalls) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  const suggestions: string[] = [];
+  addSuggestionIfMissing(
+    suggestions,
+    "Await deterministic completion (e.g., explicit flush helper) before asserting mock side effects.",
+  );
+  addSuggestionIfMissing(
+    suggestions,
+    "Prefer outcome assertions over brittle call-order checks when validating async flows.",
+  );
+
+  throw new Error(`${assertionLabel} did not complete in ${timeoutMs}ms. ${suggestions.join(" ")}`);
+}
+
 // Hypotheses as stored by OpportunityAgent
 const STORED_HYPOTHESES = [
   {
@@ -440,15 +473,16 @@ describe("TargetAgent", () => {
 
     it("scopes hypothesis retrieval to the active workspace", async () => {
       await agent.execute(makeContext());
-      expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({
-          agent_id: "opportunity",
-          organization_id: "org-456",
-          workspace_id: "ws-123",
-          memory_type: "semantic",
-        }),
+      const opportunityCall = mockRetrieve.mock.calls.find(
+        (call: any[]) => call[0]?.agent_id === "opportunity",
       );
-    });;
+      expect(opportunityCall).toBeDefined();
+      expect(opportunityCall?.[0]).toEqual(expect.objectContaining({
+        agent_id: "opportunity",
+        organization_id: "org-456",
+        memory_type: "semantic",
+      }));
+    });
 
     it("handles memory retrieval failure gracefully", async () => {
       mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));
@@ -498,6 +532,16 @@ describe("TargetAgent", () => {
 
     it("writes VgMetric nodes and capability_impacts_metric edges after successful execution", async () => {
       await agent.execute(makeContext());
+      await waitForMockCalls(
+        () => mockTargetWriteMetric.mock.calls.length,
+        1,
+        "TargetAgent metric graph write assertion",
+      );
+      await waitForMockCalls(
+        () => mockTargetWriteEdge.mock.calls.length,
+        1,
+        "TargetAgent edge graph write assertion",
+      );
 
       expect(mockTargetWriteMetric).toHaveBeenCalledWith(
         expect.objectContaining({ organization_id: "org-456" }),

@@ -103,6 +103,39 @@ function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContex
   };
 }
 
+function addSuggestionIfMissing(suggestions: string[], suggestion: string): void {
+  if (!suggestions.includes(suggestion)) {
+    suggestions.push(suggestion);
+  }
+}
+
+async function waitForMockCalls(
+  getCallCount: () => number,
+  minimumCalls: number,
+  assertionLabel: string,
+): Promise<void> {
+  const timeoutMs = 1500;
+  const intervalMs = 25;
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    if (getCallCount() >= minimumCalls) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  const suggestions: string[] = [];
+  addSuggestionIfMissing(
+    suggestions,
+    "Await deterministic completion (e.g., explicit flush helper) before asserting mock side effects.",
+  );
+  addSuggestionIfMissing(
+    suggestions,
+    "Prefer outcome assertions over brittle call-order checks when validating async flows.",
+  );
+
+  throw new Error(`${assertionLabel} did not complete in ${timeoutMs}ms. ${suggestions.join(" ")}`);
+}
+
 // KPIs as stored by TargetAgent
 const STORED_KPIS = [
   {
@@ -402,24 +435,23 @@ describe("RealizationAgent", () => {
     it("retrieves KPIs from target agent and integrity results with strict workspace_id scoping", async () => {
       await agent.execute(makeContext());
 
-      expect(mockRetrieve).toHaveBeenCalledWith(
-        {
-          agent_id: "target",
-          memory_type: "semantic",
-          limit: 20,
-          organization_id: "org-456",
-          workspace_id: "ws-123",
-        }
-      );
-      expect(mockRetrieve).toHaveBeenCalledWith(
-        {
-          agent_id: "integrity",
-          memory_type: "semantic",
-          limit: 5,
-          organization_id: "org-456",
-          workspace_id: "ws-123",
-        }
-      );
+      const targetQuery = mockRetrieve.mock.calls.find((call: any[]) => call[0]?.agent_id === "target");
+      const integrityQuery = mockRetrieve.mock.calls.find((call: any[]) => call[0]?.agent_id === "integrity");
+
+      expect(targetQuery?.[0]).toEqual({
+        agent_id: "target",
+        memory_type: "semantic",
+        limit: 20,
+        organization_id: "org-456",
+        workspace_id: "ws-123",
+      });
+      expect(integrityQuery?.[0]).toEqual({
+        agent_id: "integrity",
+        memory_type: "semantic",
+        limit: 5,
+        organization_id: "org-456",
+        workspace_id: "ws-123",
+      });
     });
   });
 
@@ -456,6 +488,16 @@ describe("RealizationAgent", () => {
 
     it("writes VgMetric nodes and metric_maps_to_value_driver edges after successful execution", async () => {
       await agent.execute(makeContext());
+      await waitForMockCalls(
+        () => mockRealWriteMetric.mock.calls.length,
+        1,
+        "RealizationAgent metric graph write assertion",
+      );
+      await waitForMockCalls(
+        () => mockRealWriteEdge.mock.calls.length,
+        1,
+        "RealizationAgent edge graph write assertion",
+      );
 
       expect(mockRealWriteMetric).toHaveBeenCalledWith(
         expect.objectContaining({ organization_id: "org-456" }),
