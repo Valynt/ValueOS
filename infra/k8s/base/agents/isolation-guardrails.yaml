@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: agent-runtime-quota
+  namespace: valynt-agents
+spec:
+  hard:
+    pods: "200"
+    requests.cpu: "80"
+    requests.memory: 160Gi
+    limits.cpu: "160"
+    limits.memory: 320Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: agent-runtime-limits
+  namespace: valynt-agents
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 250m
+        memory: 512Mi
+      default:
+        cpu: "2"
+        memory: 4Gi
+      max:
+        cpu: "4"
+        memory: 8Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agent-runtime-default-deny
+  namespace: valynt-agents
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
