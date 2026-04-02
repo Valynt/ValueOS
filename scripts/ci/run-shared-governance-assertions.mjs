@@ -31,6 +31,7 @@ function main() {
   const sharedChecks = [
     ['pnpm', ['run', 'typecheck:signal', '--verify']],
     ['pnpm', ['run', 'ci:governance:self-check']],
+    ['node', ['scripts/ci/check-workflow-step-contract.mjs']],
     ['pnpm', ['check:runtime-sentinels']],
     ['pnpm', ['check:kong-cors-origins']],
     ['npx', ['turbo', 'run', 'typecheck']],
