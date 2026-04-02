@@ -1001,7 +1001,7 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchROI(
+  async fetchROI(
     workspaceId: string,
     requestContext?: CanvasWorkspaceRequestContext
   ): Promise<{
@@ -1059,7 +1059,7 @@ export class CanvasWorkspaceDataLoader {
     }
   }
 
-  private async fetchManifestoResults(
+  async fetchManifestoResults(
     workspaceId: string,
     requestContext?: CanvasWorkspaceRequestContext
   ): Promise<ManifestoValidationResult[]> {

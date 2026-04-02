@@ -53,7 +53,7 @@ export function fromCanonicalRegistration(canonical: CanonicalAgentRegistration)
   return {
     id: canonical.id,
     name: canonical.name,
-    lifecycle_stage: canonical.lifecycleStage,
+    lifecycle_stage: (canonical.lifecycleStage ?? 'discovery') as LifecycleStage,
     capabilities: canonical.capabilities,
     region: canonical.region,
     endpoint: canonical.endpoint,

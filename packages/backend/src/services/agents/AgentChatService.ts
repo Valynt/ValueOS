@@ -326,7 +326,17 @@ export class AgentChatService {
         }
       }
 
-      // 4. Transform AI JSON to SDUI Page Definition
+      // 4. Derive confidence from structured output.
+      // Use the mean hypothesis confidence (0–100 → 0–1). Falls back to 0.5
+      // when no hypotheses are present so transitions require explicit signals.
+      const structuredConfidence =
+        parsedData.valueHypotheses.length > 0
+          ? parsedData.valueHypotheses.reduce((sum, h) => sum + h.confidence, 0) /
+            parsedData.valueHypotheses.length /
+            100
+          : 0.5;
+
+      // 5. Transform AI JSON to SDUI Page Definition
       const sduiPage = this.transformToSDUI(
         parsedData,
         request.workflowState,
@@ -342,7 +352,7 @@ export class AgentChatService {
           role: "assistant",
           content: parsedData.analysisSummary,
           agentName: template.role,
-          confidence: 0.9,
+          confidence: structuredConfidence,
           reasoning: parsedData.recommendedActions,
         }
       );
@@ -352,7 +362,7 @@ export class AgentChatService {
         request.workflowState,
         query,
         parsedData.analysisSummary,
-        0.9,
+        structuredConfidence,
         parsedData // Pass the full JSON to be saved as context
       );
 
@@ -507,14 +517,16 @@ export class AgentChatService {
         "Focus on composing the business narrative and value case for stakeholder presentation.",
       refining:
         "Focus on refining and finalizing the value case based on feedback.",
+      realizing:
+        "Focus on tracking actual results against committed targets, explaining variances, and computing the realization score.",
       realized:
-        "Focus on tracking actual results against targets, explaining variances, and documenting achieved value.",
+        "Focus on documenting confirmed delivered value and preparing the expansion case.",
       expansion:
         "Focus on identifying upsell opportunities, new use cases, and additional value that can be realized.",
     };
 
     const stage = state.currentStage as LifecycleStage;
-    const stagePrompt = stageContext[stage] || stageContext.opportunity;
+    const stagePrompt = stageContext[stage] || stageContext.discovery;
 
     // Get industry from context if available
     const industry = state.context?.industry as string | undefined;
@@ -544,69 +556,6 @@ ${stagePrompt}`;
       expansion: "Expansion Agent",
     };
     return agents[stage] || "Value Agent";
-  }
-
-  /**
-   * Parse LLM response to extract confidence and reasoning
-   */
-  private parseResponse(rawContent: string): {
-    content: string;
-    confidence: number;
-    reasoning: string[];
-  } {
-    // Simple heuristic-based confidence
-    // In production, this would be more sophisticated
-    let confidence = 0.75;
-    const reasoning: string[] = [];
-
-    // Look for confidence indicators in the response
-    const lowConfidenceIndicators = [
-      "might",
-      "could be",
-      "possibly",
-      "uncertain",
-      "not sure",
-    ];
-    const highConfidenceIndicators = [
-      "definitely",
-      "certainly",
-      "clearly",
-      "based on data",
-      "evidence shows",
-    ];
-
-    const lowerContent = rawContent.toLowerCase();
-
-    if (highConfidenceIndicators.some((ind) => lowerContent.includes(ind))) {
-      confidence = 0.9;
-    } else if (
-      lowConfidenceIndicators.some((ind) => lowerContent.includes(ind))
-    ) {
-      confidence = 0.5;
-    }
-
-    // Extract reasoning if present (look for numbered lists or bullet points)
-    const lines = rawContent.split("\n");
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (/^[\d•\-\*]\s*\.?\s*/.test(trimmed) && trimmed.length > 10) {
-        reasoning.push(trimmed.replace(/^[\d•\-\*]\s*\.?\s*/, ""));
-      }
-    });
-
-    // If no explicit reasoning found, generate from key sentences
-    if (reasoning.length === 0) {
-      const sentences = rawContent
-        .split(/[.!?]+/)
-        .filter((s) => s.trim().length > 20);
-      reasoning.push(...sentences.slice(0, 3).map((s) => s.trim()));
-    }
-
-    return {
-      content: rawContent,
-      confidence,
-      reasoning: reasoning.slice(0, 5),
-    };
   }
 
   /**

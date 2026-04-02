@@ -30,6 +30,7 @@ const LIFECYCLE_STAGES = [
   "validating",
   "composing",
   "refining",
+  "realizing",
 ] as const;
 
 export class WorkflowLifecycleIntegration {

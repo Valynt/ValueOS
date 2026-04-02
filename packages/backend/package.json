@@ -27,11 +27,11 @@
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
-    "@infisical/sdk": "^5.0.0",
     "@aws-sdk/client-iam": "^3.1012.0",
     "@aws-sdk/client-secrets-manager": "^3.989.0",
     "@aws-sdk/client-sts": "^3.1012.0",
     "@e2b/code-interpreter": "^2.3.3",
+    "@infisical/sdk": "^5.0.0",
     "@mcp/ground-truth": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.71.0",
@@ -56,6 +56,7 @@
     "cron": "^4.4.0",
     "decimal.js": "^10.6.0",
     "dotenv": "^17.2.3",
+    "exa-js": "^2.10.2",
     "exceljs": "^4.4.0",
     "express": "4.22.1",
     "express-rate-limit": "^8.2.1",

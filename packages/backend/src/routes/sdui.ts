@@ -32,13 +32,17 @@ function isValidStage(stage: string): stage is LifecycleStage {
     "validating",
     "composing",
     "refining",
+    "realizing",
     "realized",
     "expansion",
   ];
   return stages.includes(stage as LifecycleStage);
 }
 
-interface WorkspaceContext {
+// Local alias — the canonical WorkspaceContext (from sdui-integration.ts) is
+// used when calling canvasSchemaService.generateSchema(). This local type is
+// kept for the route-level variable before it is mapped to the canonical shape.
+interface RouteWorkspaceContext {
   workspaceId: string;
   userId: string;
   stage: LifecycleStage;
@@ -131,16 +135,36 @@ router.get("/api/sdui/schema/:workspaceId", async (req: Request, res: Response) 
       createCheckpoint,
     });
 
-    const context: WorkspaceContext = {
+    const routeCtx: RouteWorkspaceContext = {
       workspaceId: workspaceId || "",
-      userId: (req as unknown as { user?: { id: string } }).user?.id || "anonymous",
+      userId: req.user?.id ?? "anonymous",
       stage: isValidStage(req.query.stage as string)
         ? (req.query.stage as LifecycleStage)
-        : "opportunity",
+        : "discovery",
       metadata: {
-        tenantId: (req as unknown as { tenantId?: string }).tenantId || "",
+        tenantId: req.tenantId ?? "",
         sessionId: (req.headers["x-session-id"] as string) || "",
       },
+    };
+
+    // Map to canonical WorkspaceContext expected by CanvasSchemaService
+    const context: import("../types/sdui-integration.js").WorkspaceContext = {
+      workspace_id: routeCtx.workspaceId,
+      workspaceId: routeCtx.workspaceId,
+      organization_id: routeCtx.metadata?.tenantId ?? "",
+      user_id: routeCtx.userId,
+      userId: routeCtx.userId,
+      lifecycle_stage: routeCtx.stage,
+      lifecycleStage: routeCtx.stage,
+      session_id: routeCtx.metadata?.sessionId,
+      permissions: {
+        can_read: true,
+        can_write: false,
+        can_delete: false,
+        can_share: false,
+        can_admin: false,
+      },
+      metadata: routeCtx.metadata,
     };
 
     // Generate schema for workspace

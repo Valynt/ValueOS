@@ -28,6 +28,8 @@ import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
+import { createCronSupabaseClient } from "../../supabase/privileged/cron.js";
+import type { VgValueDriverType } from "@valueos/shared";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,10 +72,93 @@ export interface DiscoveryHypothesis {
 }
 
 // ---------------------------------------------------------------------------
-// In-memory run store (orchestration state only, not domain state)
+// DiscoveryRunStore — persists run state to workflow_executions
+//
+// Keeps a process-local cache for fast reads (getRunState) while writing
+// every mutation to Supabase so state survives restarts and is visible
+// across instances. The cancellationToken is local-only (not persisted)
+// because cancellation is a best-effort in-process signal.
 // ---------------------------------------------------------------------------
 
-const discoveryRuns = new Map<string, DiscoveryRun>();
+class DiscoveryRunStore {
+  /** Process-local cache for fast reads and cancellation tokens. */
+  private readonly cache = new Map<string, DiscoveryRun>();
+
+  async save(run: DiscoveryRun): Promise<void> {
+    this.cache.set(run.runId, run);
+    try {
+      const supabase = createCronSupabaseClient({
+        justification: "service-role:justified discovery run state persistence for background workflow",
+      });
+      const { error } = await supabase.from("workflow_executions").upsert({
+        id: run.runId,
+        tenant_id: run.organizationId,
+        organization_id: run.organizationId,
+        status: run.status,
+        started_at: run.startedAt,
+        completed_at: run.completedAt ?? null,
+        error_message: run.error ?? null,
+        metadata: {
+          type: "discovery_run",
+          valueCaseId: run.valueCaseId,
+        },
+      });
+      if (error) {
+        logger.warn("DiscoveryRunStore: failed to persist run", {
+          runId: run.runId,
+          error: error.message,
+        });
+      }
+    } catch (err) {
+      logger.warn("DiscoveryRunStore: persistence error", {
+        runId: run.runId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async get(runId: string): Promise<DiscoveryRun | undefined> {
+    // Return from cache first (includes cancellationToken)
+    const cached = this.cache.get(runId);
+    if (cached) return cached;
+
+    // Fall back to Supabase for runs started on another instance
+    try {
+      const supabase = createCronSupabaseClient({
+        justification: "service-role:justified discovery run state persistence for background workflow",
+      });
+      const { data, error } = await supabase
+        .from("workflow_executions")
+        .select("id, tenant_id, status, started_at, completed_at, error_message, metadata")
+        .eq("id", runId)
+        .maybeSingle();
+
+      if (error || !data) return undefined;
+
+      const run: DiscoveryRun = {
+        runId: data.id as string,
+        organizationId: data.tenant_id as string,
+        valueCaseId: (data.metadata as Record<string, unknown>)?.valueCaseId as string ?? "",
+        status: data.status as DiscoveryStatus,
+        startedAt: data.started_at as string,
+        completedAt: data.completed_at as string | undefined,
+        error: data.error_message as string | undefined,
+        // cancellationToken is not persisted — cross-instance cancellation
+        // must be handled via a shared signal (e.g. Redis or DB flag).
+      };
+      this.cache.set(runId, run);
+      return run;
+    } catch (err) {
+      logger.warn("DiscoveryRunStore: failed to fetch run from DB", {
+        runId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return undefined;
+    }
+  }
+}
+
+const discoveryRunStore = new DiscoveryRunStore();
 
 // ---------------------------------------------------------------------------
 // DiscoveryAgent
@@ -110,7 +195,7 @@ export class DiscoveryAgent {
       cancellationToken: { cancelled: false },
     };
 
-    discoveryRuns.set(runId, run);
+    await discoveryRunStore.save(run);
 
     // Emit started event
     const bus = getDomainEventBus();
@@ -142,7 +227,7 @@ export class DiscoveryAgent {
    * Cancel an in-progress discovery run.
    */
   async cancelDiscovery(runId: string): Promise<void> {
-    const run = discoveryRuns.get(runId);
+    const run = await discoveryRunStore.get(runId);
     if (!run) {
       throw new Error(`Discovery run not found: ${runId}`);
     }
@@ -152,6 +237,7 @@ export class DiscoveryAgent {
     }
     run.status = "cancelled";
     run.completedAt = new Date().toISOString();
+    await discoveryRunStore.save(run);
 
     const bus = getDomainEventBus();
     const cancelledPayload: DiscoveryCancelledPayload = {
@@ -170,9 +256,10 @@ export class DiscoveryAgent {
 
   /**
    * Get the current state of a discovery run.
+   * Checks the process-local cache first, then falls back to Supabase.
    */
-  getRunState(runId: string): DiscoveryRun | undefined {
-    return discoveryRuns.get(runId);
+  async getRunState(runId: string): Promise<DiscoveryRun | undefined> {
+    return discoveryRunStore.get(runId);
   }
 
   /**
@@ -266,6 +353,7 @@ export class DiscoveryAgent {
       // Mark completed
       run.status = "completed";
       run.completedAt = new Date().toISOString();
+      await discoveryRunStore.save(run);
 
       // Emit completed event
       const bus = getDomainEventBus();
@@ -310,10 +398,13 @@ export class DiscoveryAgent {
       max_memories: 1000,
       enable_persistence: true,
     });
-    const llmGateway = new LLMGateway();
+    const llmGateway = new LLMGateway({
+      provider: "together",
+      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    });
     const circuitBreaker = new CircuitBreaker({
       failureThreshold: 3,
-      resetTimeoutMs: 30000,
+      resetTimeout: 30000,
     });
 
     const opportunityAgent = new OpportunityAgent(
@@ -321,15 +412,16 @@ export class DiscoveryAgent {
         id: "opportunity",
         name: "opportunity",
         type: "opportunity",
-        lifecycle_stage: "opportunity",
+        lifecycle_stage: "discovery",
         capabilities: [],
         model: {
           provider: "openai",
           model_name: "gpt-4",
         },
         prompts: {
-          system_prompt: "",
-          user_prompt_template: "",
+          // OpportunityAgent resolves these via PromptRegistry by key.
+          system_prompt: "opportunity.system.base",
+          user_prompt_template: "opportunity.user.analysis-request",
         },
         parameters: {
           timeout_seconds: 60,
@@ -357,7 +449,8 @@ export class DiscoveryAgent {
       workspace_id: opportunityId,
       organization_id: organizationId,
       user_id: "system",
-      lifecycle_stage: "opportunity",
+      lifecycle_stage: "discovery",
+      workspace_data: {},
       user_inputs: {
         query: companyName,
         industry_context: industryContext,
@@ -434,7 +527,8 @@ export class DiscoveryAgent {
           workspace_id: opportunityId,
           organization_id: organizationId,
           user_id: "system",
-          lifecycle_stage: "opportunity",
+          lifecycle_stage: "discovery",
+          workspace_data: {},
           user_inputs: {},
         };
 
@@ -505,12 +599,13 @@ export class DiscoveryAgent {
    * Mark a run as failed and emit discovery.failed event.
    */
   private async failRun(runId: string, error: Error): Promise<void> {
-    const run = discoveryRuns.get(runId);
+    const run = await discoveryRunStore.get(runId);
     if (!run) return;
 
     run.status = "failed";
     run.error = error.message;
     run.completedAt = new Date().toISOString();
+    await discoveryRunStore.save(run);
 
     const bus = getDomainEventBus();
     const failedPayload: DiscoveryFailedPayload = {
@@ -535,15 +630,15 @@ export class DiscoveryAgent {
 /**
  * Map hypothesis category to Value Driver type.
  */
-function mapCategoryToDriverType(category: string): string {
-  const mapping: Record<string, string> = {
-    revenue_growth: "revenue",
-    cost_reduction: "cost_savings",
-    risk_mitigation: "risk_reduction",
-    operational_efficiency: "productivity",
-    strategic_advantage: "strategic_value",
+function mapCategoryToDriverType(category: string): VgValueDriverType {
+  const mapping: Record<string, VgValueDriverType> = {
+    revenue_growth: "revenue_growth",
+    cost_reduction: "cost_reduction",
+    risk_mitigation: "risk_mitigation",
+    operational_efficiency: "capital_efficiency",
+    strategic_advantage: "capital_efficiency",
   };
-  return mapping[category] ?? "other";
+  return mapping[category] ?? "capital_efficiency";
 }
 
 // Singleton instance for use by the API layer

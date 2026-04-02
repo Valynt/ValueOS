@@ -48,6 +48,7 @@ import type { PolicyEngine } from '../policy-engine/index.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
 
 import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
+import { agentLabelToLifecycleStage } from '../../lib/agent-fabric/lifecycleStageAdapter.js';
 
 // ============================================================================
 // Internal types
@@ -618,7 +619,7 @@ export class WorkflowExecutor {
       organization_id: organizationId,
       opportunity: {
         id: opportunityId,
-        lifecycle_stage: stage.agent_type,
+        lifecycle_stage: agentLabelToLifecycleStage(stage.agent_type),
         confidence_score: confidence,
         value_maturity: 'low',
       },
