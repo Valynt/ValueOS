@@ -109,22 +109,40 @@ Use this procedure only when the identity provider is unavailable and user impac
   - Record approver names and exact UTC timestamps in the incident ticket before config changes.
 - Prepare signed incident context:
   - Generate `AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE` using `AUTH_FALLBACK_INCIDENT_SIGNING_SECRET`.
-  - Signature payload format: `incidentId|severity|incidentStartedAt|ttlUntil|allowedRoutesCsv|allowedRolesCsv`.
+  - Signature payload format: `incidentId|severity|incidentStartedAt|incidentCorrelationId|ttlUntil|allowedRoutesCsv|allowedMethodsCsv`.
   - Production startup validation rejects emergency mode if signature or signing secret is missing/invalid.
+- Confirm incident ticket format before setting env vars:
+  - `AUTH_FALLBACK_INCIDENT_ID` **must** be `INC-<digits>` (example: `INC-48219`).
+- Prepare dual-approval token payload metadata:
+  - `ticketId` (must equal `AUTH_FALLBACK_INCIDENT_ID`)
+  - `approvedByPrimary` (security approver id/alias)
+  - `approvedBySecondary` (platform approver id/alias; must differ from primary)
+  - `approvalJustification` (minimum 12 chars, explicit break-glass rationale)
+  - `approvedAt`, `expiresAt`, `incidentId`, `incidentCorrelationId`, `scope=auth-fallback`
 
 ### Enable fallback (time-boxed break-glass)
 1. Set `AUTH_FALLBACK_EMERGENCY_MODE=true`.
 2. Set `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL=<ISO-8601 timestamp>` for the shortest viable window (**required ≤ 30 minutes**).
 3. Ensure `SUPABASE_JWT_ISSUER` and `SUPABASE_JWT_AUDIENCE` are set and validated.
-4. Set incident metadata and allowlists:
+4. Set incident metadata and allowlists (production routes must be exact paths; wildcards forbidden):
    - `AUTH_FALLBACK_INCIDENT_ID`
    - `AUTH_FALLBACK_INCIDENT_SEVERITY`
    - `AUTH_FALLBACK_INCIDENT_STARTED_AT`
-   - `AUTH_FALLBACK_ALLOWED_ROUTES` and/or `AUTH_FALLBACK_ALLOWED_ROLES`
+   - `AUTH_FALLBACK_INCIDENT_CORRELATION_ID`
+   - `AUTH_FALLBACK_ALLOWED_ROUTES`
+   - `AUTH_FALLBACK_ALLOWED_METHODS` (`GET,HEAD,OPTIONS` only)
    - `AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE`
    - `AUTH_FALLBACK_INCIDENT_SIGNING_SECRET`
-5. Keep `ALLOW_LOCAL_JWT_FALLBACK` unset/false in non-dev environments (production startup fails if enabled).
-6. Deploy config and monitor high-severity audit event `auth.jwt_fallback_activated`.
+   - `AUTH_FALLBACK_APPROVAL_TOKEN`
+   - `AUTH_FALLBACK_APPROVAL_SIGNING_SECRET`
+   - `AUTH_FALLBACK_MAINTENANCE_WINDOW_START`
+   - `AUTH_FALLBACK_MAINTENANCE_WINDOW_END`
+5. Force activation alerting to trigger on any fallback use:
+   - `AUTH_FALLBACK_ALERT_THRESHOLD=1`
+   - `AUTH_FALLBACK_ALERT_WINDOW_SECONDS=300` (or lower per incident severity)
+6. Confirm single-use enforcement note in incident timeline: after one successful fallback authentication in the approved maintenance window, additional fallback authentications are blocked until the next explicitly re-approved window.
+7. Keep `ALLOW_LOCAL_JWT_FALLBACK` unset/false in non-dev environments (production startup fails if enabled).
+8. Deploy config and monitor high-severity audit event `auth.jwt_fallback_request_authenticated_immutable`.
 
 ### Required monitoring while active
 - Watch audit events for route, tenant, and fallback reason details.
@@ -134,9 +152,11 @@ Use this procedure only when the identity provider is unavailable and user impac
 - Treat threshold breach as a security incident escalation.
 
 ### Disable fallback
-1. Set `AUTH_FALLBACK_EMERGENCY_MODE=false` immediately when IdP recovers.
+1. Set `AUTH_FALLBACK_EMERGENCY_MODE=false` immediately when IdP recovers (do not wait for TTL expiry).
 2. Remove/expire `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL`.
-3. Validate Supabase/IdP token verification has resumed and fallback events stop.
+3. Remove `AUTH_FALLBACK_APPROVAL_TOKEN`, `AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE`, and maintenance window env vars from active config.
+4. Redeploy config and validate Supabase/IdP token verification has resumed.
+5. Confirm no additional `auth.jwt_fallback_request_authenticated_immutable` events after disable time.
 
 ### Post-incident review (required)
 - Review all `auth.jwt_fallback_activated` audit entries and impacted tenants/routes.

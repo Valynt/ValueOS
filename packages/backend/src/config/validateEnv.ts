@@ -64,6 +64,8 @@ const DEPRECATED_ALIASES = [
   { deprecated: "SUPABASE_SERVICE_KEY", canonical: "SUPABASE_SERVICE_ROLE_KEY" },
 ];
 const AUTH_FALLBACK_HARD_MAX_TTL_SECONDS = 30 * 60;
+const AUTH_FALLBACK_INCIDENT_ID_PATTERN = /^INC-\d{4,}$/;
+const FALLBACK_APPROVAL_ACTOR_PATTERN = /^[a-z0-9._:-]{3,128}$/i;
 
 
 function parseUrl(raw: string): URL | null {
@@ -207,6 +209,27 @@ function parseAuthFallbackList(raw: string | undefined): string[] {
     .filter((value) => value.length > 0);
 }
 
+function isStrictFallbackRoutePattern(routePattern: string, nodeEnv: string): boolean {
+  const trimmed = routePattern.trim();
+  if (!trimmed.startsWith("/")) {
+    return false;
+  }
+  if (trimmed.includes("?") || trimmed.includes("#") || /\s/.test(trimmed)) {
+    return false;
+  }
+
+  const wildcardCount = (trimmed.match(/\*/g) ?? []).length;
+  if (wildcardCount === 0) {
+    return true;
+  }
+
+  if (nodeEnv === "production") {
+    return false;
+  }
+
+  return wildcardCount === 1 && trimmed.endsWith("*") && trimmed.length > 2;
+}
+
 function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
   if (nodeEnv !== "production") {
     return;
@@ -275,11 +298,19 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
     );
     return;
   }
+  if (!AUTH_FALLBACK_INCIDENT_ID_PATTERN.test(incidentId)) {
+    errors.push("AUTH_FALLBACK_INCIDENT_ID must match incident ticket format INC-<digits>.");
+    return;
+  }
 
   if (allowedRoutes.length === 0) {
     errors.push(
       "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_ALLOWED_ROUTES."
     );
+    return;
+  }
+  if (!allowedRoutes.every((routePattern) => isStrictFallbackRoutePattern(routePattern, nodeEnv))) {
+    errors.push("AUTH_FALLBACK_ALLOWED_ROUTES must use strict route patterns; broad wildcards are forbidden in production.");
     return;
   }
 
@@ -341,6 +372,10 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
     approvedAt?: string;
     expiresAt?: string;
     scope?: string;
+    ticketId?: string;
+    approvedByPrimary?: string;
+    approvedBySecondary?: string;
+    approvalJustification?: string;
   } | null = null;
   try {
     parsedApprovalPayload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8")) as typeof parsedApprovalPayload;
@@ -356,6 +391,21 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
     parsedApprovalPayload.incidentCorrelationId !== incidentCorrelationId
   ) {
     errors.push("AUTH_FALLBACK_APPROVAL_TOKEN payload must match incidentId, incidentCorrelationId, and scope=auth-fallback.");
+    return;
+  }
+  if (
+    parsedApprovalPayload.ticketId !== incidentId ||
+    !parsedApprovalPayload.approvedByPrimary ||
+    !parsedApprovalPayload.approvedBySecondary ||
+    parsedApprovalPayload.approvedByPrimary === parsedApprovalPayload.approvedBySecondary ||
+    !FALLBACK_APPROVAL_ACTOR_PATTERN.test(parsedApprovalPayload.approvedByPrimary) ||
+    !FALLBACK_APPROVAL_ACTOR_PATTERN.test(parsedApprovalPayload.approvedBySecondary) ||
+    !parsedApprovalPayload.approvalJustification ||
+    parsedApprovalPayload.approvalJustification.trim().length < 12
+  ) {
+    errors.push(
+      "AUTH_FALLBACK_APPROVAL_TOKEN must include ticketId plus distinct approvedByPrimary/approvedBySecondary metadata and approvalJustification."
+    );
     return;
   }
 
@@ -391,6 +441,21 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
   const now = Date.now();
   if (maintenanceStartDate.getTime() >= maintenanceEndDate.getTime() || now < maintenanceStartDate.getTime() || now > maintenanceEndDate.getTime()) {
     errors.push("AUTH_FALLBACK_EMERGENCY_MODE=true is only allowed inside the approved maintenance window.");
+    return;
+  }
+
+  const fallbackAlertThreshold = Number(process.env.AUTH_FALLBACK_ALERT_THRESHOLD ?? "1");
+  const fallbackAlertWindowSeconds = Number(process.env.AUTH_FALLBACK_ALERT_WINDOW_SECONDS ?? "300");
+  if (!Number.isFinite(fallbackAlertThreshold) || fallbackAlertThreshold <= 0) {
+    errors.push("AUTH_FALLBACK_ALERT_THRESHOLD must be a positive number.");
+    return;
+  }
+  if (fallbackAlertThreshold > 1) {
+    errors.push("AUTH_FALLBACK_ALERT_THRESHOLD must be 1 to alert on any fallback activation.");
+    return;
+  }
+  if (!Number.isFinite(fallbackAlertWindowSeconds) || fallbackAlertWindowSeconds <= 0) {
+    errors.push("AUTH_FALLBACK_ALERT_WINDOW_SECONDS must be a positive number.");
     return;
   }
 }
