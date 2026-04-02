@@ -25,14 +25,15 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
   beforeAll(async () => {
     // Fail hard if required env vars are absent — a missing secret must not
     // produce a green CI run with zero tests executed.
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const serviceKey =
       process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
       throw new Error(
-        "RLS tests require VITE_SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY). " +
-          "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
+        "RLS tests require a Supabase URL (VITE_SUPABASE_URL or SUPABASE_URL) and " +
+          "SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY). Set these secrets in CI " +
+          "(GitHub Actions → Settings → Secrets) and locally in .env."
       );
     }
 
@@ -119,7 +120,7 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
     const anonKey =
       process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY!;
 
-    tenant1Client = createClient(process.env.VITE_SUPABASE_URL!, anonKey, {
+    tenant1Client = createClient(supabaseUrl, anonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${session1.session.access_token}`,
@@ -127,7 +128,7 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
       },
     });
 
-    tenant2Client = createClient(process.env.VITE_SUPABASE_URL!, anonKey, {
+    tenant2Client = createClient(supabaseUrl, anonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${session2.session.access_token}`,

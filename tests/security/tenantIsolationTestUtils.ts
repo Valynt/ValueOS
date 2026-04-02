@@ -17,11 +17,8 @@ export interface TenantIsolationFixture {
   cleanup: () => Promise<void>;
 }
 
-const requiredEnv = (
-  name: "VITE_SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY" | "SUPABASE_ANON_KEY"
-): string | undefined => {
-  return process.env[name];
-};
+const resolveEnv = (...names: string[]): string | undefined =>
+  names.map((name) => process.env[name]).find((value) => Boolean(value));
 
 const createTenantClient = (
   supabaseUrl: string,
@@ -119,16 +116,21 @@ const bootstrapTenantUser = async ({
 
 export const createTenantIsolationFixture =
   async (): Promise<TenantIsolationFixture | null> => {
-    const supabaseUrl = requiredEnv("VITE_SUPABASE_URL");
-    const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-    const anonKey = requiredEnv("SUPABASE_ANON_KEY");
+    const supabaseUrl = resolveEnv("VITE_SUPABASE_URL", "SUPABASE_URL");
+    const serviceRoleKey = resolveEnv(
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_SERVICE_KEY"
+    );
+    const anonKey = resolveEnv("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY");
 
     // Fail hard if required env vars are absent — a missing secret must not
     // produce a green CI run with zero tests executed.
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
       throw new Error(
-        "Tenant isolation tests require VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY. " +
-        "Set these secrets in CI (GitHub Actions → Settings → Secrets) and locally in .env."
+        "Tenant isolation tests require a Supabase URL (VITE_SUPABASE_URL or SUPABASE_URL), " +
+          "a service key (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY), and an anon key " +
+          "(SUPABASE_ANON_KEY or VITE_SUPABASE_ANON_KEY). Set these secrets in CI " +
+          "(GitHub Actions → Settings → Secrets) and locally in .env."
       );
     }
 

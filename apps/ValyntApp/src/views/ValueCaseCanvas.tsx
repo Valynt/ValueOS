@@ -37,28 +37,28 @@ interface StageDefinition {
   description: string;
 }
 
-interface StageExecutionMetadata {
-  status?: "pending" | "in_progress" | "blocked" | "complete";
-  is_complete?: boolean;
-  blocked_reason?: string;
-  prerequisites?: string[];
-  completion_criteria?: string[];
-  last_updated_at?: string;
-}
-
 interface WorkflowExecutionMetadata {
   active_stage?: string;
   in_progress_stage?: string;
   blocked_stage?: string;
-  stages?: Record<string, StageExecutionMetadata>;
+  stages: Record<string, {
+    status?: "pending" | "in_progress" | "blocked" | "complete";
+    is_complete?: boolean;
+    blocked_reason?: string;
+    prerequisites?: string[];
+    completion_criteria?: string[];
+    last_updated_at?: string;
+  }>;
 }
 
 interface MilestoneDefinition {
   key: "discover" | "analyze" | "validate" | "decide";
   label: string;
-  progressCopy: string;
+  description: string;
   stageKeys: string[];
 }
+
+type ExecutionState = "pending" | "in_progress" | "blocked" | "complete";
 
 const stages: StageDefinition[] = [
   { key: "hypothesis", label: "Hypothesis", color: "bg-blue-500", description: "Discovery & claims" },
@@ -74,74 +74,33 @@ const milestones: MilestoneDefinition[] = [
   {
     key: "discover",
     label: "Discover",
-    progressCopy: "Capture and frame value hypotheses grounded in customer context.",
+    description: "Capture and frame value hypotheses grounded in customer context.",
     stageKeys: ["hypothesis"],
   },
   {
     key: "analyze",
     label: "Analyze",
-    progressCopy: "Quantify value architecture and map drivers to measurable outcomes.",
+    description: "Quantify value architecture and map drivers to measurable outcomes.",
     stageKeys: ["model", "value-graph"],
   },
   {
     key: "validate",
     label: "Validate",
-    progressCopy: "Pressure-test assumptions and compile evidence-backed narrative outputs.",
+    description: "Pressure-test assumptions and compile evidence-backed narrative outputs.",
     stageKeys: ["integrity", "narrative"],
   },
   {
     key: "decide",
     label: "Decide",
-    progressCopy: "Align realization execution and expansion plans for operational decisions.",
+    description: "Align realization execution and expansion plans for operational decisions.",
     stageKeys: ["realization", "expansion"],
   },
 ];
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function toStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
-}
-
-function parseStageExecutionMetadata(input: unknown): StageExecutionMetadata {
-  if (!isObjectRecord(input)) return {};
-  const status = input.status;
-  return {
-    status: status === "pending" || status === "in_progress" || status === "blocked" || status === "complete"
-      ? status
-      : undefined,
-    is_complete: typeof input.is_complete === "boolean" ? input.is_complete : undefined,
-    blocked_reason: typeof input.blocked_reason === "string" ? input.blocked_reason : undefined,
-    prerequisites: toStringList(input.prerequisites),
-    completion_criteria: toStringList(input.completion_criteria),
-    last_updated_at: typeof input.last_updated_at === "string" ? input.last_updated_at : undefined,
-  };
-}
-
-function parseWorkflowExecutionMetadata(input: unknown): WorkflowExecutionMetadata {
-  if (!isObjectRecord(input)) return {};
-  const stagesValue = isObjectRecord(input.stages) ? input.stages : {};
-  const stagesRecord: Record<string, StageExecutionMetadata> = {};
-
-  Object.entries(stagesValue).forEach(([stageKey, stageValue]) => {
-    stagesRecord[stageKey] = parseStageExecutionMetadata(stageValue);
-  });
-
-  return {
-    active_stage: typeof input.active_stage === "string" ? input.active_stage : undefined,
-    in_progress_stage: typeof input.in_progress_stage === "string" ? input.in_progress_stage : undefined,
-    blocked_stage: typeof input.blocked_stage === "string" ? input.blocked_stage : undefined,
-    stages: stagesRecord,
-  };
-}
-
 function getStageState(
   stageKey: string,
   workflowExecution: WorkflowExecutionMetadata
-): "pending" | "in_progress" | "blocked" | "complete" {
+): ExecutionState {
   const stage = workflowExecution.stages?.[stageKey];
   if (stage?.status) return stage.status;
   if (stage?.is_complete) return "complete";
@@ -157,6 +116,52 @@ function getMilestoneCompletionCriteria(
   return milestone.stageKeys.flatMap((stageKey) => workflowExecution.stages?.[stageKey]?.completion_criteria ?? []);
 }
 
+function getMilestoneState(milestone: MilestoneDefinition, stageStatuses: Record<string, ExecutionState>): ExecutionState {
+  const states = milestone.stageKeys.map((stageKey) => stageStatuses[stageKey] ?? "pending");
+
+  if (states.some((state) => state === "blocked")) return "blocked";
+  if (states.every((state) => state === "complete")) return "complete";
+  if (states.some((state) => state === "in_progress" || state === "complete")) return "in_progress";
+  return "pending";
+}
+
+function getMilestoneProgressCopy(
+  milestone: MilestoneDefinition,
+  milestoneState: ExecutionState,
+  stageStatuses: Record<string, ExecutionState>
+): string {
+  if (milestoneState === "complete") {
+    return `${milestone.label} is complete. ${milestone.description}`;
+  }
+
+  if (milestoneState === "blocked") {
+    const blockedStage = milestone.stageKeys.find((stageKey) => stageStatuses[stageKey] === "blocked");
+    const blockedStageLabel = stages.find((stage) => stage.key === blockedStage)?.label ?? "A stage";
+    return `${blockedStageLabel} is blocked and must be unblocked to continue ${milestone.label}.`;
+  }
+
+  if (milestoneState === "in_progress") {
+    const activeStage = milestone.stageKeys.find((stageKey) => stageStatuses[stageKey] === "in_progress");
+    const activeStageLabel = stages.find((stage) => stage.key === activeStage)?.label ?? milestone.label;
+    return `${milestone.label} is in progress via ${activeStageLabel}.`;
+  }
+
+  return `${milestone.label} is queued. ${milestone.description}`;
+}
+
+function normalizePrerequisiteStageKey(prerequisite: string): string | null {
+  const normalized = prerequisite.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const matchedStage = stages.find((stage) => {
+    const stageKey = stage.key.toLowerCase();
+    const stageLabel = stage.label.toLowerCase();
+    return normalized === stageKey || normalized === stageLabel || normalized.includes(stageKey) || normalized.includes(stageLabel);
+  });
+
+  return matchedStage?.key ?? null;
+}
+
 export function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
@@ -165,29 +170,33 @@ export function ValueCaseCanvas() {
   const [activeDirectResult, setActiveDirectResult] = useState<AgentJobResult | null>(null);
   const [guardMessage, setGuardMessage] = useState<string | null>(null);
 
-  const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
-    setActiveRunId(jobId);
-    setActiveDirectResult(direct ?? null);
-  };
-  const { data: merged } = useMergedContext(caseId);
-  const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
-  const { data: workflowExecution } = useWorkflowExecutionViewModel(caseId);
-  const workflowStatus = workflowExecution ?? {
-    statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
-    statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
-    statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,
-    confidenceBarClassName: WORKFLOW_STATUS_PRESENTATION.never_run.confidenceClassName,
-    confidencePercent: 0,
-    confidenceLabel: "0%",
-    ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
-    lastUpdatedLabel: "No execution activity yet",
-  };
-  const pptxExport = usePptxExport(caseId);
-  const { toast } = useToast();
+const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
+  setActiveRunId(jobId);
+  setActiveDirectResult(direct ?? null);
+};
+
+const { data: merged } = useMergedContext(caseId);
+const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
+const { data: workflowExecutionView } = useWorkflowExecutionViewModel(caseId);
+
+const workflowStatus = workflowExecutionView ?? {
+  statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
+  statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
+  statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,
+  confidenceBarClassName: WORKFLOW_STATUS_PRESENTATION.never_run.confidenceClassName,
+  confidencePercent: 0,
+  confidenceLabel: "0%",
+  ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
+  lastUpdatedLabel: "No execution activity yet",
+  execution: { stages: {} },
+};
+
+const pptxExport = usePptxExport(caseId);
+const { toast } = useToast();
 
   const workflowExecution = useMemo(
-    () => parseWorkflowExecutionMetadata(valueCase?.metadata?.workflow_execution),
-    [valueCase?.metadata]
+    () => workflowStatus.execution ?? { stages: {} },
+    [workflowStatus.execution]
   );
 
   const stageStatuses = useMemo(
@@ -200,8 +209,18 @@ export function ValueCaseCanvas() {
     [activeStage]
   );
 
+  const activeMilestoneState = useMemo(
+    () => getMilestoneState(activeMilestone, stageStatuses),
+    [activeMilestone, stageStatuses]
+  );
+
+  const activeMilestoneProgressCopy = useMemo(
+    () => getMilestoneProgressCopy(activeMilestone, activeMilestoneState, stageStatuses),
+    [activeMilestone, activeMilestoneState, stageStatuses]
+  );
+
   const milestoneCriteria = useMemo(
-    () => getMilestoneCompletionCriteria(activeMilestone, workflowExecution),
+    () => Array.from(new Set(getMilestoneCompletionCriteria(activeMilestone, workflowExecution))),
     [activeMilestone, workflowExecution]
   );
 
@@ -258,20 +277,33 @@ export function ValueCaseCanvas() {
 
   const tryEnterStage = (targetStage: StageDefinition) => {
     const stageStatus = stageStatuses[targetStage.key];
-    if (stageStatus !== "blocked") {
+    const stageMetadata = workflowExecution.stages?.[targetStage.key];
+    const prerequisites = stageMetadata?.prerequisites ?? [];
+
+    const unmetPrerequisites = prerequisites.filter((prerequisite) => {
+      const prerequisiteStageKey = normalizePrerequisiteStageKey(prerequisite);
+      if (!prerequisiteStageKey) return false;
+      return stageStatuses[prerequisiteStageKey] !== "complete";
+    });
+
+    if (stageStatus !== "blocked" && unmetPrerequisites.length === 0) {
       setGuardMessage(null);
       setActiveStage(targetStage.key);
       return;
     }
 
-    const stageMetadata = workflowExecution.stages?.[targetStage.key];
-    const prerequisites = stageMetadata?.prerequisites ?? [];
-    const blockedReason = stageMetadata?.blocked_reason ?? "Required upstream work is incomplete.";
+    const blockedReason = stageMetadata?.blocked_reason
+      ?? (unmetPrerequisites.length > 0
+        ? "Required prerequisites are not complete yet."
+        : "Required upstream work is incomplete.");
     const prerequisiteSummary = prerequisites.length > 0
       ? `Prerequisites: ${prerequisites.join(", ")}.`
       : "No explicit prerequisites were provided by execution metadata.";
+    const unmetSummary = unmetPrerequisites.length > 0
+      ? `Unmet prerequisites: ${unmetPrerequisites.join(", ")}.`
+      : "";
 
-    setGuardMessage(`${targetStage.label} is currently blocked. ${blockedReason} ${prerequisiteSummary}`);
+    setGuardMessage(`${targetStage.label} is currently blocked. ${blockedReason} ${prerequisiteSummary} ${unmetSummary}`.trim());
   };
 
   return (
@@ -377,7 +409,7 @@ export function ValueCaseCanvas() {
           <p className="text-[14px] font-semibold text-zinc-900">
             {activeMilestone.label}
           </p>
-          <p className="text-[12px] text-zinc-600">{activeMilestone.progressCopy}</p>
+          <p className="text-[12px] text-zinc-600">{activeMilestoneProgressCopy}</p>
           <p className="text-[12px] text-zinc-700 mt-2" data-testid="guided-next-action">
             Recommended next action: {recommendedNextAction}
           </p>

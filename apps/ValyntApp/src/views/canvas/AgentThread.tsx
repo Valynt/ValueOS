@@ -183,6 +183,16 @@ export function AgentThread({
     return "Pending Review";
   }, [isApproved, isChangesRequested]);
 
+  const formattedDecisionTime = useMemo(() => {
+    if (!review?.decidedAt) return null;
+    const parsed = new Date(review.decidedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString();
+  }, [review?.decidedAt]);
+
+  const canApprove = !isChangesRequested && !reviewDecision.isPending;
+  const canRequestChanges = !isApproved && !reviewDecision.isPending;
+
   const submitDecision = (decision: "approved" | "changes_requested") => {
     if (!caseId || !runId) return;
 
@@ -323,48 +333,51 @@ export function AgentThread({
         </div>
       )}
 
-      {job?.status === "completed" && (
-        <div className="p-4 border-2 border-amber-300 bg-amber-50 space-y-3">
-          <div className="flex justify-between">
-            <span>Review Required</span>
-            <span>{reviewBanner}</span>
-          </div>
-
-          <textarea
-            value={rationale}
-            onChange={(e) => setRationale(e.target.value)}
-            placeholder="Add rationale..."
-          />
-
-          {validationError && <p>{validationError}</p>}
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => submitDecision("approved")}
-              disabled={isApproved || reviewDecision.isPending}
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => submitDecision("changes_requested")}
-              disabled={isApproved || reviewDecision.isPending}
-            >
-              Request Changes
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ask the agent..."
-        />
-        <button disabled={!message.trim()}>
-          <ArrowUp />
-        </button>
-      </div>
+{job?.status === "completed" && (
+  <div className="p-4 border-2 border-amber-300 bg-amber-50 space-y-3">
+    <div className="flex justify-between">
+      <span>Review Required</span>
+      <span>{reviewBanner}</span>
     </div>
-  );
-}
+
+    <textarea
+      value={rationale}
+      onChange={(e) => setRationale(e.target.value)}
+      placeholder="Add rationale..."
+    />
+
+    {validationError && <p>{validationError}</p>}
+
+    {review?.actorId && formattedDecisionTime && (
+      <p className="text-[11px] text-zinc-600">
+        Last decision by {review.actorId} at {formattedDecisionTime}
+      </p>
+    )}
+
+    <div className="flex gap-2">
+      <button
+        onClick={() => submitDecision("approved")}
+        disabled={!canApprove}
+      >
+        Approve
+      </button>
+      <button
+        onClick={() => submitDecision("changes_requested")}
+        disabled={!canRequestChanges}
+      >
+        Request Changes
+      </button>
+    </div>
+  </div>
+)}
+
+<div className="flex gap-2">
+  <textarea
+    value={message}
+    onChange={(e) => setMessage(e.target.value)}
+    placeholder="Ask the agent..."
+  />
+  <button disabled={!message.trim()}>
+    <ArrowUp />
+  </button>
+</div>
