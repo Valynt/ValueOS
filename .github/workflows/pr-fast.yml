@@ -258,6 +258,9 @@ jobs:
           node scripts/ci/any-ratchet.mjs
           bash scripts/check-any-count.sh
 
+      - name: Backend test stability burn-down gate
+        run: node scripts/ci/check-backend-test-stability-baseline.mjs
+
       - name: Backend debt summary artifact
         if: always()
         run: pnpm --filter @valueos/backend run debt:summary
