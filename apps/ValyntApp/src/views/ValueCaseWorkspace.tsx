@@ -30,22 +30,10 @@ import { useValueCaseStream } from "@/hooks/useValueCaseStream";
  * Each entry maps to a registered CanvasHost widget type.
  */
 function buildDefaultWidgets(
-  metrics: { roi: number; annualValue: number },
   isProcessing: boolean,
   currentStep: string,
 ): SDUIWidget[] {
   return [
-    {
-      id: "ws-value-summary",
-      componentType: "value-summary",
-      props: {
-        title: "Value Summary",
-        status: isProcessing ? "Calculating..." : "Ready",
-        roi: metrics.roi,
-        annualValue: metrics.annualValue,
-        stakeholders: 0,
-      },
-    },
     {
       id: "ws-agent-response",
       componentType: "agent-response",
@@ -75,7 +63,6 @@ export function ValueCaseWorkspace() {
   // Canvas state (artifact persistence + undo/redo)
   const {
     assumptions,
-    metrics,
     isDirty,
     calculateMetrics,
     commit,
@@ -117,8 +104,8 @@ export function ValueCaseWorkspace() {
 
   const widgets = useMemo(() => {
     if (serverWidgets) return serverWidgets;
-    return buildDefaultWidgets(metrics, isProcessing, agentContext.currentStep);
-  }, [serverWidgets, metrics, isProcessing, agentContext.currentStep]);
+    return buildDefaultWidgets(isProcessing, agentContext.currentStep);
+  }, [serverWidgets, isProcessing, agentContext.currentStep]);
 
   // Handle widget actions (chat submit, button clicks, etc.)
   const handleWidgetAction = useCallback(
