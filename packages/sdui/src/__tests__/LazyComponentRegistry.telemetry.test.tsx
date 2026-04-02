@@ -6,7 +6,7 @@
  */
 
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 

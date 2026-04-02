@@ -15,7 +15,7 @@
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "node ../../node_modules/eslint/bin/eslint.js ."
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
