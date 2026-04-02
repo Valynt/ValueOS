@@ -43,14 +43,20 @@ const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
 const AUTH_FALLBACK_INCIDENT_ID = 'AUTH_FALLBACK_INCIDENT_ID';
 const AUTH_FALLBACK_INCIDENT_SEVERITY = 'AUTH_FALLBACK_INCIDENT_SEVERITY';
 const AUTH_FALLBACK_INCIDENT_STARTED_AT = 'AUTH_FALLBACK_INCIDENT_STARTED_AT';
+const AUTH_FALLBACK_INCIDENT_CORRELATION_ID = 'AUTH_FALLBACK_INCIDENT_CORRELATION_ID';
 const AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE = 'AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE';
 const AUTH_FALLBACK_INCIDENT_SIGNING_SECRET = 'AUTH_FALLBACK_INCIDENT_SIGNING_SECRET';
+const AUTH_FALLBACK_APPROVAL_TOKEN = 'AUTH_FALLBACK_APPROVAL_TOKEN';
+const AUTH_FALLBACK_APPROVAL_SIGNING_SECRET = 'AUTH_FALLBACK_APPROVAL_SIGNING_SECRET';
+const AUTH_FALLBACK_MAINTENANCE_WINDOW_START = 'AUTH_FALLBACK_MAINTENANCE_WINDOW_START';
+const AUTH_FALLBACK_MAINTENANCE_WINDOW_END = 'AUTH_FALLBACK_MAINTENANCE_WINDOW_END';
 const AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS = 'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS';
 const AUTH_FALLBACK_ALERT_THRESHOLD = 'AUTH_FALLBACK_ALERT_THRESHOLD';
 const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
 const AUTH_FALLBACK_ALLOWED_ROUTES = 'AUTH_FALLBACK_ALLOWED_ROUTES';
-const AUTH_FALLBACK_ALLOWED_ROLES = 'AUTH_FALLBACK_ALLOWED_ROLES';
+const AUTH_FALLBACK_ALLOWED_METHODS = 'AUTH_FALLBACK_ALLOWED_METHODS';
 const AUTH_FALLBACK_HARD_MAX_TTL_SECONDS = 30 * 60;
+const FALLBACK_READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // In-process fallback: used only when Redis is unavailable.
 // Accurate only within a single process instance — do not rely on this for
@@ -95,8 +101,9 @@ type FallbackEmergencyConfig = {
   incidentId: string;
   incidentSeverity: string;
   incidentStartedAt: string;
+  incidentCorrelationId: string;
   allowedRoutes: string[];
-  allowedRoles: string[];
+  allowedMethods: string[];
   requireAuthoritativeRevocation: boolean;
 };
 
@@ -172,8 +179,9 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
         incidentId: 'legacy-local-jwt-fallback',
         incidentSeverity: 'development',
         incidentStartedAt: new Date(Date.now()).toISOString(),
+        incidentCorrelationId: 'legacy-local-jwt-fallback',
         allowedRoutes: ['*'],
-        allowedRoles: [],
+        allowedMethods: ['GET', 'HEAD', 'OPTIONS'],
         requireAuthoritativeRevocation: false,
       };
     }
@@ -281,12 +289,28 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     return null;
   }
 
+  const incidentCorrelationId = getEnvVar(AUTH_FALLBACK_INCIDENT_CORRELATION_ID);
+  if (!incidentCorrelationId) {
+    logger.error('Fallback emergency mode requires incident correlation identifier', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_CORRELATION_ID,
+    });
+    return null;
+  }
+
   const allowedRoutes = parseStringListEnv(AUTH_FALLBACK_ALLOWED_ROUTES);
-  const allowedRoles = parseStringListEnv(AUTH_FALLBACK_ALLOWED_ROLES);
-  if (allowedRoutes.length === 0 && allowedRoles.length === 0) {
-    logger.error('Fallback emergency mode requires route or role allowlist metadata', undefined, {
+  if (allowedRoutes.length === 0) {
+    logger.error('Fallback emergency mode requires explicit route allowlist metadata', undefined, {
       routeFlag: AUTH_FALLBACK_ALLOWED_ROUTES,
-      roleFlag: AUTH_FALLBACK_ALLOWED_ROLES,
+    });
+    return null;
+  }
+  const configuredMethods = parseStringListEnv(AUTH_FALLBACK_ALLOWED_METHODS).map((method) => method.toUpperCase());
+  const allowedMethods = configuredMethods.length > 0 ? configuredMethods : ['GET', 'HEAD', 'OPTIONS'];
+  const writeMethodConfigured = allowedMethods.some((method) => !FALLBACK_READ_ONLY_METHODS.has(method));
+  if (writeMethodConfigured) {
+    logger.error('Fallback emergency mode cannot allow write methods', undefined, {
+      flag: AUTH_FALLBACK_ALLOWED_METHODS,
+      allowedMethods,
     });
     return null;
   }
@@ -311,9 +335,10 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     incidentId,
     incidentSeverity,
     incidentStartedAt,
+    incidentCorrelationId,
     ttlUntil,
     allowedRoutes.join(','),
-    allowedRoles.join(','),
+    allowedMethods.join(','),
   ].join('|');
   const expectedSignature = createHmac('sha256', incidentSigningSecret).update(signaturePayload).digest('hex');
 
@@ -329,12 +354,125 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     return null;
   }
 
+  const approvalArtifactToken = getEnvVar(AUTH_FALLBACK_APPROVAL_TOKEN);
+  const approvalSigningSecret = getEnvVar(AUTH_FALLBACK_APPROVAL_SIGNING_SECRET);
+  if (!approvalArtifactToken || !approvalSigningSecret) {
+    logger.error('Fallback emergency mode requires signed approval artifact token', undefined, {
+      tokenFlag: AUTH_FALLBACK_APPROVAL_TOKEN,
+      secretFlag: AUTH_FALLBACK_APPROVAL_SIGNING_SECRET,
+    });
+    return null;
+  }
+
+  const [approvalVersion, payloadSegment, signatureSegment] = approvalArtifactToken.split('.');
+  if (!approvalVersion || !payloadSegment || !signatureSegment || approvalVersion !== 'v1') {
+    logger.error('Fallback approval artifact token format is invalid', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  const expectedArtifactSignature = createHmac('sha256', approvalSigningSecret).update(payloadSegment).digest('hex');
+  if (
+    signatureSegment.length !== expectedArtifactSignature.length ||
+    !timingSafeEqual(Buffer.from(signatureSegment), Buffer.from(expectedArtifactSignature))
+  ) {
+    logger.error('Fallback approval artifact token signature verification failed', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  let parsedArtifactPayload: {
+    incidentId?: string;
+    incidentCorrelationId?: string;
+    approvedAt?: string;
+    expiresAt?: string;
+    scope?: string;
+  } | null = null;
+  try {
+    parsedArtifactPayload = JSON.parse(Buffer.from(payloadSegment, 'base64url').toString('utf8')) as typeof parsedArtifactPayload;
+  } catch {
+    logger.error('Fallback approval artifact token payload is invalid JSON', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  if (
+    !parsedArtifactPayload ||
+    parsedArtifactPayload.scope !== 'auth-fallback' ||
+    parsedArtifactPayload.incidentId !== incidentId ||
+    parsedArtifactPayload.incidentCorrelationId !== incidentCorrelationId
+  ) {
+    logger.error('Fallback approval artifact token claims do not match incident context', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+      incidentId: sanitizeForLogging(incidentId),
+      incidentCorrelationId: sanitizeForLogging(incidentCorrelationId),
+    });
+    return null;
+  }
+
+  const approvedAtDate = parsedArtifactPayload.approvedAt ? new Date(parsedArtifactPayload.approvedAt) : null;
+  const artifactExpiryDate = parsedArtifactPayload.expiresAt ? new Date(parsedArtifactPayload.expiresAt) : null;
+  if (!approvedAtDate || Number.isNaN(approvedAtDate.getTime()) || !artifactExpiryDate || Number.isNaN(artifactExpiryDate.getTime())) {
+    logger.error('Fallback approval artifact token timestamps are invalid', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  if (approvedAtDate.getTime() > Date.now() || artifactExpiryDate.getTime() <= Date.now()) {
+    logger.error('Fallback approval artifact token is not currently valid', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  if (artifactExpiryDate.getTime() > ttlDate.getTime()) {
+    logger.error('Fallback approval artifact token expiry cannot exceed emergency TTL', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+    });
+    return null;
+  }
+
+  const maintenanceWindowStart = getEnvVar(AUTH_FALLBACK_MAINTENANCE_WINDOW_START);
+  const maintenanceWindowEnd = getEnvVar(AUTH_FALLBACK_MAINTENANCE_WINDOW_END);
+  if (!maintenanceWindowStart || !maintenanceWindowEnd) {
+    logger.error('Fallback emergency mode requires an explicit approved maintenance window', undefined, {
+      startFlag: AUTH_FALLBACK_MAINTENANCE_WINDOW_START,
+      endFlag: AUTH_FALLBACK_MAINTENANCE_WINDOW_END,
+    });
+    return null;
+  }
+
+  const maintenanceStartDate = new Date(maintenanceWindowStart);
+  const maintenanceEndDate = new Date(maintenanceWindowEnd);
+  if (Number.isNaN(maintenanceStartDate.getTime()) || Number.isNaN(maintenanceEndDate.getTime())) {
+    logger.error('Fallback maintenance window timestamps are invalid', undefined, {
+      startFlag: AUTH_FALLBACK_MAINTENANCE_WINDOW_START,
+      endFlag: AUTH_FALLBACK_MAINTENANCE_WINDOW_END,
+    });
+    return null;
+  }
+
+  const now = Date.now();
+  if (maintenanceStartDate.getTime() >= maintenanceEndDate.getTime() || now < maintenanceStartDate.getTime() || now > maintenanceEndDate.getTime()) {
+    logger.error('Fallback emergency mode can only run within approved maintenance window', undefined, {
+      now: new Date(now).toISOString(),
+      maintenanceWindowStart,
+      maintenanceWindowEnd,
+    });
+    return null;
+  }
+
   return {
     incidentId,
     incidentSeverity,
     incidentStartedAt,
+    incidentCorrelationId,
     allowedRoutes,
-    allowedRoles,
+    allowedMethods,
     requireAuthoritativeRevocation: true,
   };
 }
@@ -414,16 +552,18 @@ function validateFallbackClaims(claims: JwtPayload): { ok: boolean; reason?: str
 }
 
 function isFallbackAccessAllowed(
-  claims: JwtPayload,
+  _claims: JwtPayload,
   context: VerificationContext,
   emergencyConfig: FallbackEmergencyConfig,
 ): boolean {
-  const routeAllowed = matchesAllowedValue(context.route, emergencyConfig.allowedRoutes);
-  const roleAllowed = extractRolesFromClaims(claims).some((role) =>
-    matchesAllowedValue(role, emergencyConfig.allowedRoles)
-  );
+  const method = context.method?.toUpperCase();
+  if (!method || !FALLBACK_READ_ONLY_METHODS.has(method) || !emergencyConfig.allowedMethods.includes(method)) {
+    return false;
+  }
 
-  return routeAllowed || roleAllowed;
+  const routeAllowed = matchesAllowedValue(context.route, emergencyConfig.allowedRoutes);
+
+  return routeAllowed;
 }
 
 async function isTokenRevoked(token: string, claims: JwtPayload): Promise<RevocationCheckResult> {
@@ -525,7 +665,11 @@ async function emitFallbackAuditEvent(context: {
   method?: string;
   tenantId?: string;
   reason: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRoles?: string[];
   incidentId: string;
+  incidentCorrelationId: string;
   incidentSeverity: string;
   incidentStartedAt: string;
 }) {
@@ -535,7 +679,11 @@ async function emitFallbackAuditEvent(context: {
     method: context.method || 'UNKNOWN',
     tenantId: sanitizeForLogging(context.tenantId || 'unknown'),
     reason: context.reason,
+    actorId: sanitizeForLogging(context.actorId || 'unknown'),
+    actorEmail: sanitizeForLogging(context.actorEmail || 'unknown'),
+    actorRoles: (context.actorRoles || []).map((role) => sanitizeForLogging(role)),
     incidentId: sanitizeForLogging(context.incidentId),
+    incidentCorrelationId: sanitizeForLogging(context.incidentCorrelationId),
     incidentSeverity: sanitizeForLogging(context.incidentSeverity),
     incidentStartedAt: sanitizeForLogging(context.incidentStartedAt),
     fallbackMode: true,
@@ -550,13 +698,19 @@ async function emitFallbackAuditEvent(context: {
       userId: 'system',
       userName: 'System',
       userEmail: 'system@valueos.local',
-      action: 'auth.jwt_fallback_activated',
+      action: 'auth.jwt_fallback_request_authenticated_immutable',
       resourceType: 'authentication',
       resourceId: context.route || 'unknown_route',
       status: 'success',
       details: {
+        immutable: true,
+        severity: 'critical',
         reason: context.reason,
+        actorId: context.actorId,
+        actorEmail: context.actorEmail,
+        actorRoles: context.actorRoles ?? [],
         incidentId: context.incidentId,
+        incidentCorrelationId: context.incidentCorrelationId,
         incidentSeverity: context.incidentSeverity,
         incidentStartedAt: context.incidentStartedAt,
         tenantId: context.tenantId,
@@ -565,25 +719,6 @@ async function emitFallbackAuditEvent(context: {
       },
     });
 
-    await auditLogService.logAudit({
-      userId: 'system',
-      userName: 'System',
-      userEmail: 'system@valueos.local',
-      action: 'auth.jwt_fallback_high_severity_alert',
-      resourceType: 'security_alert',
-      resourceId: context.route || 'unknown_route',
-      status: 'success',
-      details: {
-        severity: 'high',
-        reason: context.reason,
-        incidentId: context.incidentId,
-        incidentSeverity: context.incidentSeverity,
-        incidentStartedAt: context.incidentStartedAt,
-        tenantId: context.tenantId,
-        route: context.route,
-        method: context.method,
-      },
-    });
   } catch (error) {
     logger.error('Failed to persist fallback activation audit event', error instanceof Error ? error : undefined, sanitizeForLogging(error) as LogContext);
   }
@@ -863,7 +998,11 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
       method: context.method,
       tenantId: extractTenantId(claims),
       reason: 'idp_unavailable_emergency_mode',
+      actorId: claims.sub,
+      actorEmail: typeof claims.email === 'string' ? claims.email : undefined,
+      actorRoles: extractRolesFromClaims(claims),
       incidentId: emergencyConfig.incidentId,
+      incidentCorrelationId: emergencyConfig.incidentCorrelationId,
       incidentSeverity: emergencyConfig.incidentSeverity,
       incidentStartedAt: emergencyConfig.incidentStartedAt,
     });
