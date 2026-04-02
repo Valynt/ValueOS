@@ -274,6 +274,8 @@ jobs:
         run: pnpm run check:docs:consistency
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
+      - name: Docs path validity + trust score
+        run: node scripts/ci/check-doc-path-validity.mjs
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
@@ -436,6 +438,7 @@ jobs:
             artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
             artifacts/compliance/control-status-gate/**
+            artifacts/docs-trust/**
             artifacts/security/**
           if-no-files-found: warn
           retention-days: 30

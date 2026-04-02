@@ -214,6 +214,8 @@ jobs:
         run: pnpm run check:docs:consistency
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
+      - name: Docs path validity + trust score
+        run: node scripts/ci/check-doc-path-validity.mjs
       - name: Eventing architecture matrix guard
         run: pnpm run check:eventing-architecture
       - name: Ownership metadata guard
@@ -306,6 +308,14 @@ jobs:
         run: |
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
             --output-dir artifacts/security/governance
+      - name: Upload docs trust score artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-trust-${{ github.run_id }}
+          path: artifacts/docs-trust/**
+          if-no-files-found: warn
+          retention-days: 90
       - name: Upload control status gate artifact
         if: always()
         uses: actions/upload-artifact@v7

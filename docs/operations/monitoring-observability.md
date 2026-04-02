@@ -16,7 +16,7 @@ status: active
 
 ## Customer Portal Analytics & Monitoring
 
-*Source: `operations/analytics/CUSTOMER_PORTAL_ANALYTICS.md`*
+*Source: Legacy customer-portal analytics specification (consolidated into this document).*
 
 ## Overview
 
@@ -26,17 +26,17 @@ The Customer Portal Analytics system tracks user interactions, page views, expor
 
 ### Components
 
-1. **Analytics Tracking Service** (`src/lib/analytics/customerPortalTracking.ts`)
+1. **Analytics Tracking Service** (`apps/ValyntApp/src/lib/analytics.ts`)
    - Session management
    - Event tracking
    - Data collection and transmission
 
-2. **React Hooks** (`src/hooks/usePortalAnalytics.ts`)
+2. **Analytics Client Utilities** (`apps/ValyntApp/src/lib/analyticsClient.ts`)
    - Easy integration with React components
    - Automatic page view tracking
    - Event tracking helpers
 
-3. **Error Monitoring** (`src/lib/monitoring/errorMonitoring.ts`)
+3. **Error Monitoring** (`apps/ValyntApp/src/utils/errorHandling.ts`)
    - Global error capture
    - Error categorization
    - Integration with monitoring platforms

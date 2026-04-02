@@ -22,7 +22,7 @@ system: valueos-platform
 
 ## ValueOS Authentication Security Guide
 
-*Source: `security/SECURITY_GUIDE.md`*
+*Source: `docs/security-compliance/security-overview.md`*
 
 ## Overview
 
@@ -120,7 +120,7 @@ sequenceDiagram
 
 ### 1. Secure Token Storage
 
-**Implementation**: `src/lib/secureStorage.ts`
+**Implementation**: `apps/ValyntApp/src/lib/secureStorage.ts`
 
 - **Encryption**: Browser fingerprint-based XOR encryption (demo) / AES-256 (production)
 - **Validation**: Device fingerprint verification on token retrieval
@@ -142,7 +142,7 @@ const token = await secureTokenStorage.getAccessToken();
 
 ### 2. Rate Limiting
 
-**Implementation**: `src/lib/rateLimiter.ts`
+**Implementation**: `apps/ValyntApp/src/lib/rateLimiter.ts`
 
 - **Limits**: 5 attempts per 5 minutes per email/IP
 - **Lockout**: 15-minute exponential backoff
@@ -160,7 +160,7 @@ const config = {
 
 ### 3. CSRF Protection
 
-**Implementation**: `src/lib/csrfProtection.ts`
+**Implementation**: `apps/ValyntApp/src/lib/csrfProtection.ts`
 
 - **Token Generation**: 32-character random tokens
 - **Storage**: SessionStorage for request-scoped protection
@@ -178,7 +178,7 @@ const response = await csrfProtection.secureFetch("/api/auth/login", {
 
 ### 4. Session Management
 
-**Implementation**: `src/lib/sessionManager.ts`
+**Implementation**: `packages/backend/src/services/auth/SessionManager.ts`
 
 - **Timeout**: Configurable session expiration
 - **Warnings**: User notifications before expiration
@@ -187,7 +187,7 @@ const response = await csrfProtection.secureFetch("/api/auth/login", {
 
 ### 5. Security Logging
 
-**Implementation**: `src/lib/securityLogger.ts`
+**Implementation**: `packages/backend/src/services/auth/SecurityLogger.ts`
 
 - **Events**: Comprehensive authentication event tracking
 - **Severity**: Low, Medium, High, Critical classification
@@ -237,7 +237,7 @@ const response = await csrfProtection.secureFetch("/api/auth/login", {
 
 ### Automated Tests
 
-**Location**: `src/__tests__/security/`
+**Location**: `packages/backend/src/services/security/__tests__/`
 
 1. **Authentication Security Tests**
    - Rate limiting effectiveness
