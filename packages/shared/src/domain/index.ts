@@ -26,6 +26,8 @@ export * from "./DecisionContext.js";
 export * from "./DealContext.js";
 export * from "./UseCase.js";
 
+export * from "./StageHandoffContracts.js";
+
 // Canonical lifecycle stage type — re-exported for convenience.
 // The authoritative definition is OpportunityLifecycleStageSchema in Opportunity.ts.
 export type { OpportunityLifecycleStage as LifecycleStage } from "./Opportunity.js";

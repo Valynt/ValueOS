@@ -16,6 +16,7 @@ import { OpportunityAgent } from "../../lib/agent-fabric/agents/OpportunityAgent
 import { RealizationAgent } from "../../lib/agent-fabric/agents/RealizationAgent";
 import { TargetAgent } from "../../lib/agent-fabric/agents/TargetAgent";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger";
+import { agentLabelToLifecycleStage } from "../../lib/agent-fabric/lifecycleStageAdapter.js";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
 import { ValidationError as LibValidationError } from "../../lib/errors.js";
 import { logger } from "../../lib/logger.js"
@@ -45,6 +46,7 @@ export type SagaLifecycleState =
   | "VALIDATING"
   | "COMPOSING"
   | "REFINING"
+  | "REALIZING"
   | "FINALIZED";
 
 export interface LifecycleContext {
@@ -207,8 +209,10 @@ export class ValueLifecycleOrchestrator {
     const idempotencyGuard = new IdempotencyGuard(new RedisIdempotencyStore());
     const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
 
-    const redTeamAgent: RedTeamAnalyzer = new RedTeamAgent(new RedTeamLLMAdapter(this.llmGateway));
     const agentAdapter = new AgentServiceAdapter(this.llmGateway);
+    // Factory ensures each analyze() call gets an agent scoped to the correct tenant.
+    const redTeamAgentFactory = (tenantId: string): RedTeamAnalyzer =>
+      new RedTeamAgent(new RedTeamLLMAdapter(this.llmGateway), undefined, tenantId);
 
     this.hypothesisLoop = new HypothesisLoop({
       saga: this.saga,
@@ -218,7 +222,7 @@ export class ValueLifecycleOrchestrator {
       financialModelingAgent: agentAdapter,
       groundTruthAgent: agentAdapter,
       narrativeAgent: agentAdapter,
-      redTeamAgent,
+      redTeamAgent: redTeamAgentFactory,
     });
   }
 
@@ -790,7 +794,7 @@ export class ValueLifecycleOrchestrator {
       id: `${stage}-agent`,
       name: stage,
       type: stage,
-      lifecycle_stage: stage,
+      lifecycle_stage: agentLabelToLifecycleStage(stage),
       capabilities: [],
       model: { provider: 'custom', model_name: 'default' },
       prompts: { system_prompt: '', user_prompt_template: '' },

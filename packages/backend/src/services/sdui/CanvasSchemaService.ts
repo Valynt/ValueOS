@@ -150,7 +150,7 @@ export class CanvasSchemaService {
       const cached = await this.getCachedSchema(workspaceId);
       if (cached) return cached;
 
-      return this.templateAssembler.generateFallbackSchema("opportunity");
+      return this.templateAssembler.generateFallbackSchema("discovery");
     }
   }
 
@@ -235,15 +235,11 @@ export class CanvasSchemaService {
   }
 
   private async fetchManifestoResults(workspaceId: string) {
-    return (this.workspaceDataLoader as unknown as {
-      fetchManifestoResults: (workspaceId: string) => Promise<unknown>;
-    }).fetchManifestoResults(workspaceId);
+    return this.workspaceDataLoader.fetchManifestoResults(workspaceId);
   }
 
   private async fetchROI(workspaceId: string) {
-    return (this.workspaceDataLoader as unknown as {
-      fetchROI: (workspaceId: string) => Promise<unknown>;
-    }).fetchROI(workspaceId);
+    return this.workspaceDataLoader.fetchROI(workspaceId);
   }
 
   private async applyAtomicActions(

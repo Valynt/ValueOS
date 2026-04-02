@@ -17,7 +17,8 @@ export const OpportunityLifecycleStageSchema = z.enum([
   "validating",
   "composing",
   "refining",
-  "realized",
+  "realizing",  // Active post-sale tracking: expected vs actual, variance analysis
+  "realized",   // Terminal: value delivery confirmed and documented
   "expansion",
 ]);
 

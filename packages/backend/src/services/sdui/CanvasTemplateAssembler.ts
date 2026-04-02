@@ -27,15 +27,16 @@ export class CanvasTemplateAssembler {
     _state: WorkspaceState
   ): Promise<SDUIPageDefinition> {
     switch (template) {
-      case "opportunity":
+      case "discovery":
         return generateSOFOpportunityPage(data);
-      case "target":
+      case "drafting":
         return generateSOFTargetPage(data);
       case "expansion":
         return generateSOFExpansionPage(data);
-      case "integrity":
+      case "validating":
         return generateSOFIntegrityPage(data);
-      case "realization":
+      case "realizing":
+      case "realized":
         return generateSOFRealizationPage(data);
       default:
         logger.warn("Unknown template", { template });

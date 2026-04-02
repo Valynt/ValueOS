@@ -121,18 +121,38 @@ export class RedTeamAgent extends BaseAgent {
   public override readonly name = 'RedTeamAgent';
 
   /**
-   * Accepts a RedTeamLLMGateway (or LLMGateway) and MemorySystem.
+   * Accepts a RedTeamLLMGateway (or LLMGateway), MemorySystem, and optional tenantId.
    * CircuitBreaker is created internally with default config.
    * This signature is intentionally minimal so tests can inject mocks directly.
+   *
+   * tenantId must be provided when a specific tenant context is required.
+   * Construct a new instance per tenant rather than sharing one across tenants.
    */
   constructor(
     gateway: RedTeamLLMGateway,
-    memorySystem: MemorySystem,
+    memorySystem: MemorySystem = new MemorySystem({ max_memories: 100, enable_persistence: false }),
+    tenantId: string = 'system',
+    /** Provider/model reported in telemetry — should match the injected gateway. */
+    modelConfig: import('../../../../types/agent.js').ModelConfig = {
+      // 'custom' maps to Together/Llama via the injected gateway; update if the
+      // ModelConfig provider union is extended to include 'together'.
+      provider: 'custom',
+      model_name: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    },
   ) {
     super(
-      { name: 'RedTeamAgent', lifecycle_stage: 'integrity' as const },
-      // organizationId is set per-call from RedTeamInput.tenantId
-      'system',
+      {
+        id: 'red-team',
+        name: 'RedTeamAgent',
+        type: 'integrity' as import('../../../../types/agent.js').AgentType,
+        lifecycle_stage: 'validating' as const,
+        capabilities: [],
+        model: modelConfig,
+        prompts: { system_prompt: '', user_prompt_template: '' },
+        parameters: { timeout_seconds: 60, max_retries: 3, retry_delay_ms: 1000, enable_caching: false, enable_telemetry: true },
+        constraints: { max_input_tokens: 8000, max_output_tokens: 2000, allowed_actions: [], forbidden_actions: [], required_permissions: [] },
+      },
+      tenantId,
       memorySystem,
       // RedTeamLLMGateway.complete() is structurally compatible with LLMGateway.complete()
       gateway as unknown as LLMGateway,
@@ -145,8 +165,6 @@ export class RedTeamAgent extends BaseAgent {
    * All LLM calls go through secureInvoke (circuit breaker + hallucination detection).
    */
   async analyze(input: RedTeamInput): Promise<RedTeamOutput> {
-    // Set organizationId for this call so secureInvoke propagates tenant context correctly
-    (this as unknown as { organizationId: string }).organizationId = input.tenantId;
 
     const prompt = [
       RED_TEAM_SYSTEM_PROMPT,
@@ -207,10 +225,10 @@ export class RedTeamAgent extends BaseAgent {
   /**
    * Required by BaseAgent — not used in the red-team path (use analyze() instead).
    */
-  async execute(_context: LifecycleContext): Promise<AgentOutput> {
+  override async _execute(_context: LifecycleContext): Promise<AgentOutput> {
     return this.buildOutput(
       { error: 'Use RedTeamAgent.analyze() directly' },
-      'error',
+      'failure',
       'low',
       Date.now(),
     );

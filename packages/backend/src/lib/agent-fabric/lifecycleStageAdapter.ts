@@ -28,7 +28,7 @@ export const AGENT_LABEL_TO_LIFECYCLE_STAGE: Record<string, LifecycleStage> = {
   target: "drafting",
   integrity: "validating",
   narrative: "composing",
-  realization: "refining",
+  realization: "realizing",
   expansion: "expansion",
   "compliance-auditor": "validating",
 };
@@ -43,6 +43,7 @@ export const LIFECYCLE_STAGE_TO_AGENT_LABEL: Record<LifecycleStage, string> = {
   validating: "integrity",
   composing: "narrative",
   refining: "realization",
+  realizing: "realization",
   realized: "realization",
   expansion: "expansion",
 };

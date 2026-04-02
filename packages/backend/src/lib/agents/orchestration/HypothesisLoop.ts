@@ -364,7 +364,7 @@ export class HypothesisLoop {
   private financialModelingAgent: FinancialModelingAgentInterface;
   private groundTruthAgent: GroundTruthAgentInterface;
   private narrativeAgent: NarrativeAgentInterface;
-  private redTeamAgent: RedTeamAnalyzer;
+  private redTeamAgentFactory: (tenantId: string) => RedTeamAnalyzer;
   private config: LoopConfig;
 
   constructor(deps: {
@@ -375,7 +375,7 @@ export class HypothesisLoop {
     financialModelingAgent: FinancialModelingAgentInterface;
     groundTruthAgent: GroundTruthAgentInterface;
     narrativeAgent: NarrativeAgentInterface;
-    redTeamAgent: RedTeamAnalyzer;
+    redTeamAgent: RedTeamAnalyzer | ((tenantId: string) => RedTeamAnalyzer);
     config?: Partial<LoopConfig>;
   }) {
     this.saga = deps.saga;
@@ -385,7 +385,12 @@ export class HypothesisLoop {
     this.financialModelingAgent = deps.financialModelingAgent;
     this.groundTruthAgent = deps.groundTruthAgent;
     this.narrativeAgent = deps.narrativeAgent;
-    this.redTeamAgent = deps.redTeamAgent;
+    // Accept either a factory (preferred — ensures per-tenant isolation) or a
+    // pre-built instance (backward-compatible for tests that inject mocks).
+    const provided = deps.redTeamAgent;
+    this.redTeamAgentFactory = typeof provided === 'function'
+      ? provided
+      : () => provided;
     this.config = {
       maxRevisionCycles: deps.config?.maxRevisionCycles ?? DEFAULT_MAX_REVISION_CYCLES,
     };
@@ -578,7 +583,7 @@ export class HypothesisLoop {
         const redTeamResult = await this.executeWithGuard<RedTeamOutput>(
           `${valueCaseId}:redteam:${revisionCount}`,
           async () => {
-            return this.redTeamAgent.analyze({
+            return this.redTeamAgentFactory(tenantId).analyze({
               valueCaseId,
               tenantId,
               valueTree: valueTree as unknown as Record<string, unknown>,

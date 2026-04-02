@@ -113,11 +113,16 @@ async function startDiscovery(req: Request, res: Response) {
 async function getDiscoveryStatus(req: Request, res: Response) {
   try {
     const { runId } = req.params;
+    const organizationId = req.organizationId;
     const discoveryAgent = getDiscoveryAgent();
-    const runState = discoveryAgent.getRunState(runId);
+    const runState = await discoveryAgent.getRunState(runId);
 
     if (!runState) {
       return res.status(404).json({ error: 'Discovery run not found' });
+    }
+
+    if (runState.organizationId !== organizationId) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
     return res.json({
@@ -140,7 +145,18 @@ async function getDiscoveryStatus(req: Request, res: Response) {
 async function cancelDiscovery(req: Request, res: Response) {
   try {
     const { runId } = req.params;
+    const organizationId = req.organizationId;
     const discoveryAgent = getDiscoveryAgent();
+
+    // Verify ownership before cancelling
+    const runState = await discoveryAgent.getRunState(runId);
+    if (!runState) {
+      return res.status(404).json({ error: 'Discovery run not found' });
+    }
+    if (runState.organizationId !== organizationId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
     await discoveryAgent.cancelDiscovery(runId);
 
     return res.json({ message: 'Discovery run cancelled' });

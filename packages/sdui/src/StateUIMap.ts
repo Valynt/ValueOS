@@ -72,6 +72,11 @@ const PHASE_METADATA: Record<JourneyPhase["lifecycle_stage"], Pick<JourneyPhase,
     workspace_title: "CFO Collaboration Mode",
     supports_board_ready_lock: true,
   },
+  realizing: {
+    experience_mode: "realization_workspace",
+    workspace_title: "Value Realization Workspace",
+    supports_board_ready_lock: false,
+  },
   realized: {
     experience_mode: "realization_workspace",
     workspace_title: "Value Realization Workspace",
