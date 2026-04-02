@@ -75,6 +75,12 @@ export function AgentThread({
       : `Next automatic attempt at ${nextRetryDate.toLocaleTimeString()}`;
   }, [job?.nextRetryAt]);
 
+  const retryAttemptLabel = useMemo(() => {
+    if (job?.attemptsMade == null) return null;
+    const attemptNumber = Math.max(1, job.attemptsMade);
+    return `Attempt ${attemptNumber}`;
+  }, [job?.attemptsMade]);
+
   const statusIcon = () => {
     if (!runId) return null;
     if (isLoading)
@@ -254,16 +260,60 @@ export function AgentThread({
           </div>
 
           {isDegraded && (
-            <div className="flex gap-2">
-              <button onClick={() => retryRun.mutate()}>
+            <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+              <p className="text-[11px] font-medium text-zinc-700">
+                Recovery Actions
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => retryRun.mutate()}
+                  disabled={retryRun.isPending}
+                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                 Retry run
               </button>
-              <button onClick={() => resumePolling.mutate()}>
+
+                <button
+                  onClick={() => resumePolling.mutate()}
+                  disabled={resumePolling.isPending}
+                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                 Resume polling
               </button>
-              <button onClick={handleViewArtifact}>
-                View last artifact
+
+                <button
+                  onClick={handleViewArtifact}
+                  disabled={!job?.lastKnownGoodOutput}
+                  className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  View last successful artifact
               </button>
+            </div>
+
+              {(retryAttemptLabel || retryBackoffLabel) && (
+                <p className="text-[11px] text-zinc-500">
+                  {[retryAttemptLabel, retryBackoffLabel].filter(Boolean).join(" · ")}
+                </p>
+              )}
+
+              {job?.lastKnownGoodOutput && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2">
+                  <p className="text-[11px] font-medium text-emerald-700">
+                    Last known good output
+                  </p>
+                  <p className="text-[10px] text-emerald-700/80">
+                    {job.lastKnownGoodAt
+                      ? `Captured ${new Date(job.lastKnownGoodAt).toLocaleString()}`
+                      : "Captured from the previous successful run"}
+                  </p>
+                  <pre className="mt-1 max-h-28 overflow-auto rounded bg-white/80 p-2 text-[10px] text-zinc-700">
+                    {typeof job.lastKnownGoodOutput === "string"
+                      ? job.lastKnownGoodOutput
+                      : JSON.stringify(job.lastKnownGoodOutput, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 
@@ -289,11 +339,15 @@ export function AgentThread({
           {validationError && <p>{validationError}</p>}
 
           <div className="flex gap-2">
-            <button onClick={() => submitDecision("approved")}>
+            <button
+              onClick={() => submitDecision("approved")}
+              disabled={isApproved || reviewDecision.isPending}
+            >
               Approve
             </button>
             <button
               onClick={() => submitDecision("changes_requested")}
+              disabled={isApproved || reviewDecision.isPending}
             >
               Request Changes
             </button>
