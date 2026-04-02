@@ -177,6 +177,16 @@ export function AgentThread({
     return "Pending Review";
   }, [isApproved, isChangesRequested]);
 
+  const formattedDecisionTime = useMemo(() => {
+    if (!review?.decidedAt) return null;
+    const parsed = new Date(review.decidedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString();
+  }, [review?.decidedAt]);
+
+  const canApprove = !isChangesRequested && !reviewDecision.isPending;
+  const canRequestChanges = !isApproved && !reviewDecision.isPending;
+
   const submitDecision = (decision: "approved" | "changes_requested") => {
     if (!caseId || !runId) return;
 
@@ -288,12 +298,22 @@ export function AgentThread({
 
           {validationError && <p>{validationError}</p>}
 
+          {review?.actorId && formattedDecisionTime && (
+            <p className="text-[11px] text-zinc-600">
+              Last decision by {review.actorId} at {formattedDecisionTime}
+            </p>
+          )}
+
           <div className="flex gap-2">
-            <button onClick={() => submitDecision("approved")}>
+            <button
+              onClick={() => submitDecision("approved")}
+              disabled={!canApprove}
+            >
               Approve
             </button>
             <button
               onClick={() => submitDecision("changes_requested")}
+              disabled={!canRequestChanges}
             >
               Request Changes
             </button>
