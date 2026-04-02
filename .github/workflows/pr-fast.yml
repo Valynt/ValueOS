@@ -825,6 +825,8 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Dependency policy — block vulnerable jspdf lockfile resolutions
+        run: node scripts/ci/check-jspdf-version-policy.mjs
       - name: SCA — pnpm audit (fail on unwaived high/critical)
         run: |
           pnpm audit --audit-level=high --json > npm-audit-report.json || true
