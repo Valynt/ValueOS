@@ -1,8 +1,8 @@
 {
   "packageBudgets": {
     "apps/ValyntApp": {
-      "baseline": 16,
-      "nextTarget": 12,
+      "baseline": 1,
+      "nextTarget": 0,
       "scope": "production-runtime"
     },
     "packages/backend": {
@@ -31,8 +31,8 @@
   },
   "bucketBudgets": {
     "production-runtime": {
-      "baseline": 63,
-      "nextTarget": 55,
+      "baseline": 15,
+      "nextTarget": 12,
       "paths": [
         "apps/ValyntApp/src",
         "packages/backend/src"

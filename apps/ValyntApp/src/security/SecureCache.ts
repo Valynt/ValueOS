@@ -1,9 +1,16 @@
+import { ZodType } from 'zod';
+
 import { cacheEncryption, EncryptedCacheEntry } from '../config/secrets/CacheEncryption';
 import { logger } from '../lib/logger';
 
-export interface SecureCacheOptions {
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+export interface SecureCacheOptions<T extends JsonValue = JsonValue> {
   ttlMs?: number;
   tenantId?: string;
+  parser?: (value: unknown) => T;
+  schema?: ZodType<T>;
 }
 
 interface SecureCacheRecord {
@@ -15,14 +22,18 @@ interface SecureCacheRecord {
  * SecureCache keeps sensitive values encrypted in memory and wipes
  * buffers when entries expire or are removed.
  */
-export class SecureCache<T = any> {
+export class SecureCache<T extends JsonValue = JsonValue> {
   private store: Map<string, SecureCacheRecord> = new Map();
   private readonly ttlMs: number;
   private readonly tenantId: string;
+  private readonly parser: (value: unknown) => T;
 
-  constructor(options: SecureCacheOptions = {}) {
+  constructor(options: SecureCacheOptions<T> = {}) {
     this.ttlMs = options.ttlMs ?? 5 * 60 * 1000; // 5 minutes
     this.tenantId = options.tenantId || 'system';
+    this.parser = options.schema
+      ? (value: unknown) => options.schema!.parse(value)
+      : options.parser ?? this.defaultParser;
   }
 
   set(key: string, value: T): void {
@@ -48,7 +59,8 @@ export class SecureCache<T = any> {
     }
 
     try {
-      return cacheEncryption.decrypt(record.entry, this.tenantId) as T;
+      const decrypted = cacheEncryption.decrypt(record.entry, this.tenantId);
+      return this.parser(decrypted);
     } catch (error) {
       logger.error('SecureCache decrypt failed, dropping entry', error instanceof Error ? error : new Error(String(error)), {
         key,
@@ -97,11 +109,39 @@ export class SecureCache<T = any> {
     return Date.now() - record.createdAt > this.ttlMs;
   }
 
+  private defaultParser(value: unknown): T {
+    if (!isJsonValue(value)) {
+      throw new Error('SecureCache payload is not valid JSON');
+    }
+
+    return value as T;
+  }
+
   private zeroize(entry: EncryptedCacheEntry): void {
     entry.encrypted.fill(0);
     entry.iv.fill(0);
     entry.authTag.fill(0);
   }
+}
+
+export function isJsonValue(value: unknown): value is JsonValue {
+  if (value === null) {
+    return true;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).every(isJsonValue);
+  }
+
+  return false;
 }
 
 export const secureCache = new SecureCache();
