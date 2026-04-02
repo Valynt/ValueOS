@@ -222,6 +222,14 @@ export function assertInteractiveSyncAgentAllowed(agent: AgentType, caller: stri
   }
 }
 
+export function isDirectSyncFallbackAllowedWithoutKafka(agent: AgentType): boolean {
+  if (isInteractiveSyncAgentAllowed(agent)) {
+    return true;
+  }
+  const nonProduction = (process.env.NODE_ENV ?? "development") !== "production";
+  return nonProduction && (agent === "narrative" || agent === "groundtruth");
+}
+
 export function isInteractiveInvocationMode(mode: InteractiveInvocationMode | undefined): boolean {
   return (mode ?? 'interactive-sync') === 'interactive-sync';
 }

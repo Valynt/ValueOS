@@ -73,6 +73,14 @@ const NarrativeOutputSchema = z.object({
 
 type NarrativeOutput = z.infer<typeof NarrativeOutputSchema>;
 
+interface NarrativeUpstreamData {
+  claims: Array<Record<string, unknown>>;
+  integrityScore: number;
+  vetoDecision: string;
+  kpis: Array<Record<string, unknown>>;
+  financialSummary: string;
+}
+
 // ---------------------------------------------------------------------------
 // Prompt builder
 // ---------------------------------------------------------------------------
@@ -334,6 +342,94 @@ export class NarrativeAgent extends BaseAgent {
     };
   }
 
+  private async retrieveUpstreamDataFromMemory(context: LifecycleContext): Promise<NarrativeUpstreamData> {
+    const fallbackIntegrity = context.previous_stage_outputs?.integrity as Record<string, unknown> | undefined;
+    const fallbackTarget = context.previous_stage_outputs?.target as Record<string, unknown> | undefined;
+    const fallbackFinancial = context.previous_stage_outputs?.modeling as Record<string, unknown> | undefined;
+
+    try {
+      const [integrityMemories, targetMemories, financialMemories] = await Promise.all([
+        this.memorySystem.retrieve({
+          agent_id: "integrity",
+          memory_type: "semantic",
+          limit: 25,
+          organization_id: context.organization_id,
+          workspace_id: context.workspace_id,
+        }),
+        this.memorySystem.retrieve({
+          agent_id: "target",
+          memory_type: "semantic",
+          limit: 25,
+          organization_id: context.organization_id,
+          workspace_id: context.workspace_id,
+        }),
+        this.memorySystem.retrieve({
+          agent_id: "financial-modeling",
+          memory_type: "semantic",
+          limit: 15,
+          organization_id: context.organization_id,
+          workspace_id: context.workspace_id,
+        }),
+      ]);
+
+      const claims = integrityMemories
+        .filter((m) => m.metadata?.type === "claim_validation")
+        .map((m) => ({
+          claim_id: m.metadata?.claim_id,
+          claim_text: m.metadata?.claim_text ?? m.content,
+          verdict: m.metadata?.verdict,
+          confidence: m.metadata?.confidence,
+        }));
+
+      const summaryMemory = integrityMemories.find((m) => m.metadata?.type === "integrity_summary");
+      const integrityScore = Number(summaryMemory?.metadata?.confidence ?? 0);
+      const vetoDecision = summaryMemory?.metadata?.veto ? "VETOED" : "PASSED";
+
+      const kpis = targetMemories
+        .filter((m) => Boolean(m.metadata?.kpi_id))
+        .map((m) => ({
+          id: m.metadata?.kpi_id,
+          name: m.metadata?.kpi_name ?? m.content,
+          target: (m.metadata?.target as Record<string, unknown> | undefined)?.value ?? "N/A",
+          unit: m.metadata?.unit ?? "",
+          timeframe: (m.metadata?.target as Record<string, unknown> | undefined)?.timeframe_months ?? "N/A",
+          description: m.content,
+        }));
+
+      const portfolioSummary = financialMemories.find((m) => m.metadata?.type === "portfolio_summary");
+      const financialSummary = String(
+        portfolioSummary?.content ??
+          fallbackFinancial?.summary ??
+          "No financial model available."
+      );
+
+      return {
+        claims: claims.length > 0
+          ? claims
+          : ((fallbackIntegrity?.claim_validations as Array<Record<string, unknown>> | undefined) ?? []),
+        integrityScore: integrityScore > 0
+          ? integrityScore
+          : ((fallbackIntegrity?.scores as Record<string, number> | undefined)?.overall ?? 0),
+        vetoDecision,
+        kpis: kpis.length > 0
+          ? kpis
+          : ((fallbackTarget?.kpi_targets as Array<Record<string, unknown>> | undefined) ?? []),
+        financialSummary,
+      };
+    } catch (err) {
+      logger.warn("NarrativeAgent: memory retrieval failed, falling back to previous_stage_outputs", {
+        error: (err as Error).message,
+      });
+      return {
+        claims: (fallbackIntegrity?.claim_validations as Array<Record<string, unknown>> | undefined) ?? [],
+        integrityScore: (fallbackIntegrity?.scores as Record<string, number> | undefined)?.overall ?? 0,
+        vetoDecision: (fallbackIntegrity?.veto_decision as Record<string, unknown> | undefined)?.veto ? "VETOED" : "PASSED",
+        kpis: (fallbackTarget?.kpi_targets as Array<Record<string, unknown>> | undefined) ?? [],
+        financialSummary: (fallbackFinancial?.summary as string | undefined) ?? "No financial model available.",
+      };
+    }
+  }
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
 
@@ -361,35 +457,9 @@ export class NarrativeAgent extends BaseAgent {
     // Determine artifact status based on readiness
     const artifactStatus: "draft" | "final" = readinessScore < 0.8 ? "draft" : "final";
 
-    // Step 1: Retrieve integrity results and KPI targets from prior stage outputs
-    const integrityData = context.previous_stage_outputs?.integrity as
-      | Record<string, unknown>
-      | undefined;
-    const targetData = context.previous_stage_outputs?.target as
-      | Record<string, unknown>
-      | undefined;
-    const financialData = context.previous_stage_outputs?.modeling as
-      | Record<string, unknown>
-      | undefined;
-
-    const claims =
-      (integrityData?.claim_validations as
-        | Array<Record<string, unknown>>
-        | undefined) ?? [];
-    const integrityScore =
-      (integrityData?.scores as Record<string, number> | undefined)?.overall ??
-      0;
-    const vetoDecision = (
-      integrityData?.veto_decision as Record<string, unknown> | undefined
-    )?.veto
-      ? "VETOED"
-      : "PASSED";
-    const kpis =
-      (targetData?.kpi_targets as Array<Record<string, unknown>> | undefined) ??
-      [];
-    const financialSummary =
-      (financialData?.summary as string | undefined) ??
-      "No financial model available.";
+    // Step 1: Retrieve integrity, KPI, and modeling context via memory handoff.
+    const { claims, integrityScore, vetoDecision, kpis, financialSummary } =
+      await this.retrieveUpstreamDataFromMemory(context);
 
     // Step 2: Build narrative prompt — enrich with top-3 Value Graph paths (fire-and-forget read)
     const graphPathContext = await this.enrichPromptWithGraphPaths(context);
