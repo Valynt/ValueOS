@@ -12,8 +12,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Hoisted state shared between mock factories and test bodies
 // ---------------------------------------------------------------------------
 const _db = vi.hoisted(() => ({
-  webhookEvents: new Map<string, { id: string; processed: boolean }>(),
+  webhookEvents: new Map<
+    string,
+    {
+      id: string;
+      processed: boolean;
+      status: string;
+      retry_count?: number;
+      next_retry_at?: string | null;
+      idempotency_key?: string | null;
+    }
+  >(),
   billingCustomers: new Map<string, { tenant_id: string }>(),
+  dlqInserts: [] as Array<Record<string, unknown>>,
 }));
 
 const _stripe = vi.hoisted(() => ({
@@ -50,7 +61,7 @@ vi.mock("../../../lib/supabase", () => ({
               }),
             };
           }
-          const row = { id: `row-${eventId}`, processed: false };
+          const row = { id: `row-${eventId}`, processed: false, status: "pending", retry_count: 0 };
           _db.webhookEvents.set(eventId, row);
           return {
             select: () => ({
@@ -59,11 +70,25 @@ vi.mock("../../../lib/supabase", () => ({
           };
         });
 
-      const update = vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
+      const update = vi.fn().mockImplementation((payload: Record<string, unknown>) => ({
+        eq: vi.fn().mockImplementation((col: string, val: string) => {
+          if (table === "webhook_events" && col === "stripe_event_id") {
+            const existing = _db.webhookEvents.get(val) ?? {
+              id: `row-${val}`,
+              processed: false,
+              status: "pending",
+              retry_count: 0,
+            };
+            _db.webhookEvents.set(val, {
+              ...existing,
+              ...payload,
+            });
+          }
+          return {
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          };
         }),
-      });
+      }));
 
       const select = vi.fn().mockReturnValue({
         eq: vi.fn().mockImplementation((_col: string, val: string) => ({
@@ -72,12 +97,20 @@ vi.mock("../../../lib/supabase", () => ({
               const row = _db.billingCustomers.get(val);
               return Promise.resolve({ data: row ?? null, error: null });
             }
+            if (table === "webhook_events") {
+              return Promise.resolve({ data: _db.webhookEvents.get(val) ?? null, error: null });
+            }
             return Promise.resolve({ data: null, error: null });
           }),
         })),
       });
 
-      const insert = vi.fn().mockResolvedValue({ error: null });
+      const insert = vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+        if (table === "webhook_dead_letter_queue") {
+          _db.dlqInserts.push(payload);
+        }
+        return Promise.resolve({ error: null });
+      });
 
       return { upsert, update, select, insert };
     }),
@@ -94,7 +127,7 @@ vi.mock("../../../config/billing", () => ({
   GRACE_PERIOD_MS: 7 * 24 * 60 * 60 * 1000,
 }));
 
-vi.mock("../../StripeService", () => ({
+vi.mock("../StripeService.js", () => ({
   default: {
     getInstance: vi.fn(() => ({
       getClient: () => ({
@@ -158,6 +191,7 @@ import {
   recordBillingJobFailure,
 } from "../../../metrics/billingMetrics.js";
 import InvoiceService from "../InvoiceService.js";
+import { securityAuditService } from "../../post-v1/SecurityAuditService.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -195,6 +229,7 @@ describe("WebhookService", () => {
   beforeEach(() => {
     _db.webhookEvents.clear();
     _db.billingCustomers.clear();
+    _db.dlqInserts.length = 0;
     vi.clearAllMocks();
     service = new WebhookService();
   });
@@ -377,6 +412,75 @@ describe("WebhookService", () => {
       await service.processEvent(event);
 
       expect(calls).toContain("reached");
+    });
+  });
+
+  describe("tenant resolution retry and DLQ handling", () => {
+    it("persists unresolved payment_succeeded events for retry with idempotency key and next attempt", async () => {
+      const event = makeEvent("invoice.payment_succeeded", {
+        id: "evt_pending_retry",
+        data: { id: "in_pending", customer: "cus_missing", payment_intent: "pi_pending" },
+      });
+      event.request = { id: "req_1", idempotency_key: "idem_retry_1" };
+
+      await expect(service.processEvent(event)).resolves.toBe(false);
+
+      const stored = _db.webhookEvents.get("evt_pending_retry");
+      expect(stored?.status).toBe("pending_retry");
+      expect(stored?.retry_count).toBe(1);
+      expect(stored?.idempotency_key).toBe("idem_retry_1");
+      expect(typeof stored?.next_retry_at).toBe("string");
+      expect(_db.dlqInserts).toHaveLength(0);
+    });
+
+    it("eventually transitions access mode after delayed tenant mapping becomes available", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-02T00:00:00.000Z"));
+      const event = makeEvent("invoice.payment_succeeded", {
+        id: "evt_delayed_mapping",
+        data: { id: "in_delayed", customer: "cus_delayed", payment_intent: "pi_delayed" },
+      });
+
+      await expect(service.processEvent(event)).resolves.toBe(false);
+      expect(_db.webhookEvents.get("evt_delayed_mapping")?.status).toBe("pending_retry");
+
+      _db.billingCustomers.set("cus_delayed", { tenant_id: "tenant_delayed" });
+      vi.advanceTimersByTime(70_000);
+
+      await expect(service.processEvent(event)).resolves.toBe(false);
+
+      const stored = _db.webhookEvents.get("evt_delayed_mapping");
+      expect(stored?.status).toBe("processed");
+      expect(stored?.processed).toBe(true);
+      vi.useRealTimers();
+    });
+
+    it("moves event to DLQ and raises audit alert when retry threshold is exceeded", async () => {
+      const event = makeEvent("invoice.payment_succeeded", {
+        id: "evt_exhausted_retry",
+        data: { id: "in_exhausted", customer: "cus_never_found", payment_intent: "pi_exhausted" },
+      });
+
+      _db.webhookEvents.set("evt_exhausted_retry", {
+        id: "row-evt_exhausted_retry",
+        processed: false,
+        status: "pending_retry",
+        retry_count: 5,
+      });
+
+      await expect(service.processEvent(event)).resolves.toBe(false);
+
+      const stored = _db.webhookEvents.get("evt_exhausted_retry");
+      expect(stored?.status).toBe("failed");
+      expect(stored?.retry_count).toBe(6);
+      expect(_db.dlqInserts).toHaveLength(1);
+      expect(securityAuditService.logRequestEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "billing_webhook_retry_exhausted",
+          eventType: "billing.webhook.retry_exhausted",
+          severity: "high",
+        })
+      );
     });
   });
 

@@ -26,6 +26,30 @@ import StripeService from "./StripeService.js";
 import { storeWebhookPayload } from "./WebhookPayloadStore.js";
 
 const logger = createLogger({ component: "WebhookService" });
+const TENANT_RESOLUTION_MAX_RETRIES = 5;
+const TENANT_RESOLUTION_RETRY_DELAYS_MS = [
+  60_000,
+  5 * 60_000,
+  15 * 60_000,
+  60 * 60_000,
+  6 * 60 * 60_000,
+];
+
+class TenantResolutionDeferredError extends Error {
+  readonly stripeCustomerId: string;
+  readonly invoiceId: string;
+  readonly eventId: string;
+
+  constructor(params: { stripeCustomerId: string; invoiceId: string; eventId: string }) {
+    super(
+      `payment_succeeded: no billing_customers row for Stripe customer ${params.stripeCustomerId} (invoice ${params.invoiceId})`
+    );
+    this.name = "TenantResolutionDeferredError";
+    this.stripeCustomerId = params.stripeCustomerId;
+    this.invoiceId = params.invoiceId;
+    this.eventId = params.eventId;
+  }
+}
 
 export class WebhookService {
   private stripe: Stripe | null;
@@ -220,26 +244,42 @@ export class WebhookService {
     }
 
     // null → conflict (DO NOTHING fired) — fetch the existing row to log its state
+    let shouldProceedWithRetry = false;
     if (!inserted) {
       const { data: existing } = await supabase
         .from("webhook_events")
-        .select("id, processed, status")
+        .select("id, processed, status, retry_count, next_retry_at")
         .eq("stripe_event_id", event.id)
         .single();
 
-      logger.info("Webhook duplicate detected — skipping handler", {
-        eventId: event.id,
-        type: event.type,
-        existingStatus: existing?.status ?? "unknown",
-        existingProcessed: existing?.processed ?? null,
-      });
-      recordStripeWebhook(event.type, "duplicate");
-      webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
-      return true; // isDuplicate
+      const nextRetryAt = existing?.next_retry_at
+        ? new Date(existing.next_retry_at).getTime()
+        : null;
+      const retryReady = !nextRetryAt || nextRetryAt <= Date.now();
+
+      if (existing?.status === "pending_retry" && !existing?.processed && retryReady) {
+        logger.info("Webhook pending retry due — reprocessing event", {
+          eventId: event.id,
+          type: event.type,
+          retryCount: existing?.retry_count ?? 0,
+          nextRetryAt: existing?.next_retry_at ?? null,
+        });
+        shouldProceedWithRetry = true;
+      } else {
+        logger.info("Webhook duplicate detected — skipping handler", {
+          eventId: event.id,
+          type: event.type,
+          existingStatus: existing?.status ?? "unknown",
+          existingProcessed: existing?.processed ?? null,
+        });
+        recordStripeWebhook(event.type, "duplicate");
+        webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
+        return true; // isDuplicate
+      }
     }
 
     // Row existed but was already processed (e.g. redelivery after success)
-    if (inserted.processed || inserted.status === "processed") {
+    if (!shouldProceedWithRetry && (inserted?.processed || inserted?.status === "processed")) {
       logger.info("Webhook event already processed — skipping handler", {
         eventId: event.id,
         type: event.type,
@@ -323,6 +363,13 @@ export class WebhookService {
       webhooksProcessedTotal.labels({ event_type: event.type, status: "success" }).inc();
       return false; // not a duplicate
     } catch (error) {
+      if (error instanceof TenantResolutionDeferredError) {
+        await this.deferForTenantResolution(event, error);
+        recordStripeWebhook(event.type, "failed");
+        webhooksProcessedTotal.labels({ event_type: event.type, status: "failed" }).inc();
+        return false;
+      }
+
       logger.error(
         "Error processing webhook event",
         error instanceof Error ? error : undefined,
@@ -335,6 +382,81 @@ export class WebhookService {
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
     }
+  }
+
+  private async deferForTenantResolution(
+    event: Stripe.Event,
+    error: TenantResolutionDeferredError
+  ): Promise<void> {
+    const { data: existing } = await supabase
+      .from("webhook_events")
+      .select("retry_count")
+      .eq("stripe_event_id", event.id)
+      .single();
+
+    const nextRetryCount = Number(existing?.retry_count ?? 0) + 1;
+    const retryIndex = Math.min(
+      nextRetryCount - 1,
+      TENANT_RESOLUTION_RETRY_DELAYS_MS.length - 1
+    );
+    const nextAttemptAt = new Date(
+      Date.now() + TENANT_RESOLUTION_RETRY_DELAYS_MS[retryIndex]
+    ).toISOString();
+    const idempotencyKey = event.request?.idempotency_key ?? event.id;
+
+    if (nextRetryCount > TENANT_RESOLUTION_MAX_RETRIES) {
+      await supabase
+        .from("webhook_events")
+        .update({
+          status: "failed",
+          retry_count: nextRetryCount,
+          failed_at: new Date().toISOString(),
+          error_message: error.message,
+          idempotency_key: idempotencyKey,
+        })
+        .eq("stripe_event_id", event.id);
+
+      await supabase.from("webhook_dead_letter_queue").insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: event,
+        error_message: error.message,
+        retry_count: nextRetryCount,
+        original_received_at: new Date().toISOString(),
+        moved_at: new Date().toISOString(),
+      });
+
+      await securityAuditService.logRequestEvent({
+        requestId: `billing-webhook-retry-exhausted-${event.id}-${Date.now()}`,
+        actor: "stripe_webhook",
+        action: "billing_webhook_retry_exhausted",
+        resource: "billing_webhook_event",
+        requestPath: `/api/billing/webhooks/${event.type}`,
+        eventType: "billing.webhook.retry_exhausted",
+        severity: "high",
+        statusCode: 503,
+        eventData: {
+          event_id: event.id,
+          event_type: event.type,
+          idempotency_key: idempotencyKey,
+          retry_count: nextRetryCount,
+          stripe_customer_id: error.stripeCustomerId,
+          invoice_id: error.invoiceId,
+        },
+      });
+      return;
+    }
+
+    await supabase
+      .from("webhook_events")
+      .update({
+        status: "pending_retry",
+        retry_count: nextRetryCount,
+        next_retry_at: nextAttemptAt,
+        error_message: error.message,
+        idempotency_key: idempotencyKey,
+      })
+      .eq("stripe_event_id", event.id);
   }
 
   /**
@@ -423,9 +545,11 @@ export class WebhookService {
           eventId: event.id,
         }
       );
-      throw new Error(
-        `payment_succeeded: no billing_customers row for Stripe customer ${invoice.customer} (invoice ${invoice.id})`
-      );
+      throw new TenantResolutionDeferredError({
+        stripeCustomerId: String(invoice.customer),
+        invoiceId: invoice.id,
+        eventId: event.id,
+      });
     }
 
     await this.setTenantEnforcementState(
