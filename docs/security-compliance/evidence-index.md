@@ -19,6 +19,42 @@ This index maps key SOC 2, GDPR, ISO 27001, and FedRAMP-aligned controls to auto
 | ISO 27001 | A.12.4 Event logging and monitoring | `tests/compliance/audit/audit-log-immutability.test.ts` | Same as audit artifacts above | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/archive/deferred-superseded/20231103000000_create_security_audit_log.sql` |
 | SOC2 / ISO 27001 | Secrets rotation confirmed | `scripts/security/verify-secret-rotation.mjs` against AWS Secrets Manager + Vault metadata | `secret-rotation-evidence-<environment>-<GITHUB_RUN_ID>` artifact containing `artifacts/security/secret-rotation/<environment>-run-<run-id>-attempt-<attempt>.json` and `verify-secret-rotation-<environment>-run-<run-id>-attempt-<attempt>.txt` | `${GITHUB_RUN_ID}` from `.github/workflows/secret-rotation-verification.yml` or `.github/workflows/deploy.yml` (`secret-rotation-gate`) | Operational evidence from AWS Secrets Manager / Vault metadata age checks (no database migration lineage) |
 
+## Critical control machine-readable evidence artifacts
+
+All open critical controls (`severity=critical`, `status=planned`) must map to a machine-readable CI artifact path. The governance gate `scripts/ci/check-critical-controls-governance.mjs` enforces this table and writes the per-control assertions listed below.
+
+| Control ID | Required machine-readable artifact path | Burn-down dashboard artifact |
+|---|---|---|
+| CR-011 | `artifacts/compliance/critical-controls/CR-011/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-012 | `artifacts/compliance/critical-controls/CR-012/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-013 | `artifacts/compliance/critical-controls/CR-013/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-014 | `artifacts/compliance/critical-controls/CR-014/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-015 | `artifacts/compliance/critical-controls/CR-015/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-016 | `artifacts/compliance/critical-controls/CR-016/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-017 | `artifacts/compliance/critical-controls/CR-017/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-020 | `artifacts/compliance/critical-controls/CR-020/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-021 | `artifacts/compliance/critical-controls/CR-021/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-022 | `artifacts/compliance/critical-controls/CR-022/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-023 | `artifacts/compliance/critical-controls/CR-023/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-024 | `artifacts/compliance/critical-controls/CR-024/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-027 | `artifacts/compliance/critical-controls/CR-027/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-028 | `artifacts/compliance/critical-controls/CR-028/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-029 | `artifacts/compliance/critical-controls/CR-029/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-030 | `artifacts/compliance/critical-controls/CR-030/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-031 | `artifacts/compliance/critical-controls/CR-031/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-033 | `artifacts/compliance/critical-controls/CR-033/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-034 | `artifacts/compliance/critical-controls/CR-034/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-035 | `artifacts/compliance/critical-controls/CR-035/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-036 | `artifacts/compliance/critical-controls/CR-036/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-037 | `artifacts/compliance/critical-controls/CR-037/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-045 | `artifacts/compliance/critical-controls/CR-045/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-047 | `artifacts/compliance/critical-controls/CR-047/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-049 | `artifacts/compliance/critical-controls/CR-049/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-050 | `artifacts/compliance/critical-controls/CR-050/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-052 | `artifacts/compliance/critical-controls/CR-052/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-053 | `artifacts/compliance/critical-controls/CR-053/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+| CR-055 | `artifacts/compliance/critical-controls/CR-055/assertion.json` | `artifacts/compliance/critical-controls-gate/open-critical-controls-dashboard.json` |
+
 ## Canonical FedRAMP mapping set
 
 ValueOS maintains the canonical FedRAMP-aligned mapping in:
