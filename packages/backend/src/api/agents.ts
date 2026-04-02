@@ -119,7 +119,7 @@ import type { AgentType } from "../services/agent-types.js";
 import {
   buildInteractiveSyncDeniedMessage,
   getAgentColdStartClass,
-  isInteractiveSyncAgentAllowed,
+  isDirectSyncFallbackAllowedWithoutKafka,
 } from "../services/agents/AgentInvocationPolicy.js";
 
 // Shared factory instance — created lazily on first direct-execution request.
@@ -444,7 +444,7 @@ router.post(
     }
 
     if (!isKafkaEnabled()) {
-      if (!isInteractiveSyncAgentAllowed(agentId as AgentType)) {
+      if (!isDirectSyncFallbackAllowedWithoutKafka(agentId as AgentType)) {
         return void res.status(409).json({
           success: false,
           error: {

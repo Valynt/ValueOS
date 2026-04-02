@@ -159,6 +159,7 @@ class InMemoryDLQ {
 function makeLoop(overrides: {
   redTeamAgent?: RedTeamAnalyzer;
   opportunityAgent?: OpportunityAgentInterface;
+  groundTruthAgent?: GroundTruthAgentInterface;
   dlq?: InMemoryDLQ;
   maxRevisionCycles?: number;
 } = {}) {
@@ -170,7 +171,7 @@ function makeLoop(overrides: {
     dlq: dlq as unknown as InstanceType<typeof import('../../core/DeadLetterQueue.js').DeadLetterQueue>,
     opportunityAgent: overrides.opportunityAgent ?? makeOpportunityAgent(),
     financialModelingAgent: makeFinancialAgent(),
-    groundTruthAgent: makeGroundTruthAgent(),
+    groundTruthAgent: overrides.groundTruthAgent ?? makeGroundTruthAgent(),
     narrativeAgent: makeNarrativeAgent(),
     redTeamAgent: overrides.redTeamAgent ?? makeRedTeamAgent(),
     config: { maxRevisionCycles: overrides.maxRevisionCycles ?? 3 },
@@ -205,15 +206,13 @@ describe('HypothesisLoop', () => {
         vetoDecision: { veto: true, reason: 'Hallucinated metrics' }
       });
 
-      const { loop, saga } = makeLoop({ groundTruthAgent } as any);
+      const { loop } = makeLoop({ groundTruthAgent } as any);
       const sse = { send: vi.fn() };
 
       const result = await loop.run(CASE_ID, TENANT_ID, CORRELATION_ID, sse);
 
       // The loop should handle the veto, transition backwards, and either retry or exit
       // Currently, the code blindly transitions to INTEGRITY_PASSED, so this test will fail
-      const state = await saga.getState(CASE_ID);
-      
       // If it vetoes, it should transition to INTEGRITY_VETOED which goes to DRAFTING
       // and then it might retry. But it definitely shouldn't reach FINALIZED with a veto.
       expect(result.success).toBe(false);

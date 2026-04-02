@@ -264,6 +264,9 @@ router.post('/:caseId/checkpoints/review', strictLimiter, requireRole(['admin', 
   if (decision === 'changes_requested' && !rationale?.trim()) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Rationale is required for requesting changes' });
   }
+  if (decision === 'approved' && riskLevel === 'high' && !rationale?.trim()) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Rationale is required for approvals in high-risk stages' });
+  }
 
   const caseId = req.params.caseId;
   const nowIso = new Date().toISOString();
@@ -323,8 +326,18 @@ router.post('/:caseId/checkpoints/review', strictLimiter, requireRole(['admin', 
         rationale: rationale?.trim() || null,
         run_id: runId,
         case_id: caseId,
+        stage_id: stageId,
       }),
-      JSON.stringify([{ event: 'review_decision_recorded', actor_id: actorId, decided_at: nowIso, decision }]),
+      JSON.stringify([{
+        event: 'review_decision_recorded',
+        actor_id: actorId,
+        decided_at: nowIso,
+        decision,
+        rationale: rationale?.trim() || null,
+        run_id: runId,
+        case_id: caseId,
+        stage_id: stageId,
+      }]),
       checkpointId,
       organizationId,
     ],

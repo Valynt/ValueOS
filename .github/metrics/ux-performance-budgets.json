@@ -6,12 +6,27 @@
   "routeLoadMs": {
     "/": 2500,
     "/auth/login": 2500,
-    "/dashboard": 3000
+    "/signup": 2500,
+    "/reset-password": 2500,
+    "/dashboard": 3000,
+    "/opportunities": 3200,
+    "/opportunities/demo-opportunity": 3200,
+    "/opportunities/demo-opportunity/cases/demo-case": 3500,
+    "/workspace/demo-case/model": 3200,
+    "/settings": 2800,
+    "/integrations": 2800,
+    "/billing": 2800
   },
   "routeChunks": {
     "ModernLoginPage": { "maxKb": 15 },
+    "ModernSignupPage": { "maxKb": 15 },
+    "ResetPasswordPage": { "maxKb": 10 },
     "Dashboard": { "maxKb": 15 },
+    "Opportunities": { "maxKb": 35 },
+    "OpportunityDetail": { "maxKb": 35 },
     "SettingsPage": { "maxKb": 20 },
+    "BillingPortal": { "maxKb": 20 },
+    "ValueModelWorkbench": { "maxKb": 15 },
     "ValueCaseCanvas": { "maxKb": 90 }
   },
   "vendorTrend": {

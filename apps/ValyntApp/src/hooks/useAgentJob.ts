@@ -52,8 +52,18 @@ interface LastGoodSnapshot {
   completedAt?: string;
 }
 
+type JobControlAction = "manual-retry" | "resume-polling";
+
 function getLastKnownGoodKey(tenantId: string | null, jobId: string) {
   return `agent-job:last-good:${tenantId ?? "no-tenant"}:${jobId}`;
+}
+
+function getJobControlIdempotencyKey(
+  tenantId: string | null,
+  jobId: string,
+  action: JobControlAction,
+): string {
+  return `${tenantId ?? "no-tenant"}:${jobId}:${action}`;
 }
 
 function readLastKnownGood(tenantId: string | null, jobId: string): LastGoodSnapshot | null {
@@ -172,7 +182,7 @@ export function useAgentJob(
     mutationFn: async () => {
       if (!jobId) throw new Error("Missing jobId");
 
-      const idempotency_key = `${tenantId ?? "no-tenant"}:${jobId}:manual-retry`;
+      const idempotency_key = getJobControlIdempotencyKey(tenantId, jobId, "manual-retry");
       const res = await apiClient.post<{ data: AgentJobResult }>(`/api/agents/jobs/${jobId}/retry`, {
         idempotency_key,
       });
@@ -189,7 +199,7 @@ export function useAgentJob(
     mutationFn: async () => {
       if (!jobId) throw new Error("Missing jobId");
 
-      const idempotency_key = `${tenantId ?? "no-tenant"}:${jobId}:resume-polling`;
+      const idempotency_key = getJobControlIdempotencyKey(tenantId, jobId, "resume-polling");
       const res = await apiClient.post<{ data: AgentJobResult }>(`/api/agents/jobs/${jobId}/resume`, {
         idempotency_key,
       });

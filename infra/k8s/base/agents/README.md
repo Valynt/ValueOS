@@ -1,6 +1,6 @@
-# Agent Deployments and Istio Sidecar Injection
+# Agent Deployments and Production Isolation
 
-All agent workloads under `infra/k8s/base/agents/*/deployment.yaml` use an explicit **pod-level sidecar annotation** strategy:
+All agent workloads under `infra/k8s/base/agents/*/deployment.yaml` use explicit pod-level sidecar injection:
 
 ```yaml
 spec:
@@ -10,4 +10,13 @@ spec:
         sidecar.istio.io/inject: "true"
 ```
 
-This method is chosen instead of relying only on namespace labels so every agent deployment remains self-describing and continues to inject the Istio proxy even when moved to another namespace or rendered in isolation.
+## Production isolation controls
+
+The base Kustomize bundle now includes hard isolation controls for production runtime safety:
+
+- **Namespace default deny policy** (`isolation-guardrails.yaml`) blocks all ingress/egress by default.
+  Per-agent allowlists are declared in `network-policy.yaml`.
+- **ResourceQuota + LimitRange** cap total namespace usage and enforce per-container defaults/maximums.
+- **Read-only service account RBAC** (`role.yaml` + `rolebinding.yaml`) grants agents only `get` on `configmaps` and `secrets`.
+
+These controls ensure each agent runs in a constrained containerized boundary with explicit network and resource permissions.

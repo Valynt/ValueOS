@@ -2,6 +2,10 @@
  * RLS Policy Security Tests
  * Validates Row-Level Security policies for billing tables
  *
+ * Execution classification: fail-fast on missing real infra.
+ * This suite only runs in real integration mode and intentionally throws when
+ * VALUEOS_TEST_REAL_INTEGRATION + Supabase env vars are unavailable.
+ *
  * CRITICAL: These tests verify that multi-tenant data isolation is properly enforced.
  * Failures here could lead to data breaches and unauthorized access to billing information.
  */

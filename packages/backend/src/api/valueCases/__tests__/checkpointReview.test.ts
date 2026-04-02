@@ -102,6 +102,26 @@ describe('checkpoint review endpoints', () => {
 
     expect(response.body.data.status).toBe('changes_requested');
     expect(response.body.data.actorId).toBe('user-123');
+    const updateQueryParams = queryMock.mock.calls[2]?.[1] as unknown[];
+    const decisionPayload = JSON.parse(String(updateQueryParams[3]));
+    const auditPayload = JSON.parse(String(updateQueryParams[4]));
+    expect(decisionPayload).toEqual(expect.objectContaining({
+      review_status: 'changes_requested',
+      actor_id: 'user-123',
+      rationale: 'Need additional evidence',
+      run_id: 'run-1',
+      case_id: '550e8400-e29b-41d4-a716-446655440000',
+      stage_id: 'hypothesis',
+    }));
+    expect(auditPayload[0]).toEqual(expect.objectContaining({
+      event: 'review_decision_recorded',
+      actor_id: 'user-123',
+      decision: 'changes_requested',
+      rationale: 'Need additional evidence',
+      run_id: 'run-1',
+      case_id: '550e8400-e29b-41d4-a716-446655440000',
+      stage_id: 'hypothesis',
+    }));
     expect(auditLogSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'checkpoint_review_changes_requested',
@@ -109,6 +129,20 @@ describe('checkpoint review endpoints', () => {
         details: expect.objectContaining({ runId: 'run-1', caseId: '550e8400-e29b-41d4-a716-446655440000' }),
       }),
     );
+  });
+
+  it('requires rationale for approve decision in high-risk stages', async () => {
+    await request(app)
+      .post('/api/v1/cases/550e8400-e29b-41d4-a716-446655440000/checkpoints/review')
+      .send({
+        runId: 'run-1',
+        stageId: 'hypothesis',
+        decision: 'approved',
+        riskLevel: 'high',
+      })
+      .expect(400);
+
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it('returns persisted status on follow-up fetch (session resume)', async () => {

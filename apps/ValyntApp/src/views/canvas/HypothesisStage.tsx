@@ -24,7 +24,7 @@ import { useParams } from "react-router-dom";
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
 import { useHypothesisOutput, useRunHypothesisAgent } from "@/hooks/useHypothesis";
-import type { NormalizedValueHypothesis } from "@/hooks/useHypothesis";
+import type { NormalizedHypothesis } from "@/hooks/useHypothesis";
 import { cn } from "@/lib/utils";
 
 // Inline-editable text field
@@ -297,7 +297,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
   const { data: hypothesisOutput, isLoading, isError } = useHypothesisOutput(caseId);
   const runAgent = useRunHypothesisAgent(caseId);
 
-  const hypotheses: NormalizedValueHypothesis[] = hypothesisOutput?.hypotheses ?? [];
+  const hypotheses: NormalizedHypothesis[] = hypothesisOutput?.hypotheses ?? [];
 
   const confidenceToPercent = (c: number) => Math.round(c * 100);
 
@@ -411,7 +411,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
       {hypotheses.length > 0 && (
         <div className="space-y-3">
           {hypotheses.map((h, i) => {
-            const confidencePct = confidenceToPercent(h.confidenceScore);
+            const confidencePct = confidenceToPercent(h.presentation.confidenceScore);
             const status = confidencePct >= 75 ? "verified" : confidencePct >= 50 ? "needs-evidence" : "draft";
             const statusConfig = {
               verified: { label: "Verified", color: "text-emerald-700", bg: "bg-emerald-50", icon: Check },
@@ -422,7 +422,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             const StIcon = st.icon;
 
             return (
-              <div key={`${h.title}-${i}`} className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-colors">
+              <div key={h.entity.id ?? `${h.entity.description}-${i}`} className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-colors">
                 {/* Status + confidence row */}
                 <div className="flex items-center justify-between mb-3">
                   <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", st.color, st.bg)}>
@@ -433,7 +433,7 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
                 </div>
 
                 {/* Title + description */}
-                <p className="text-[14px] font-semibold text-zinc-900 mb-1">{h.title}</p>
+                <p className="text-[14px] font-semibold text-zinc-900 mb-1">{h.presentation.title}</p>
                 <p className="text-[13px] text-zinc-600 leading-relaxed mb-3">{h.entity.description}</p>
 
                 {/* Impact range */}
@@ -448,10 +448,10 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
                 )}
 
                 {/* Evidence chain */}
-                {h.evidence.length > 0 && (
+                {h.presentation.evidence.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Evidence:</span>
-                    {h.evidence.map((e) => (
+                    {h.presentation.evidence.map((e) => (
                       <span key={e} className="flex items-center gap-1 px-2 py-0.5 bg-zinc-50 border border-zinc-100 rounded-md text-[10px] text-zinc-600">
                         <FileSearch className="w-2.5 h-2.5" />
                         {e}

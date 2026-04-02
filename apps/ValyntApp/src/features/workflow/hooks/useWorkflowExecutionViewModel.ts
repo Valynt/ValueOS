@@ -13,17 +13,43 @@ interface WorkflowExecutionApiPayload {
   status?: string;
   state?: string;
   currentStage?: string;
+  activeStage?: string;
+  inProgressStage?: string;
+  blockedStage?: string;
   confidence?: number;
   confidenceScore?: number;
   updatedAt?: string;
   lastUpdatedAt?: string;
+  stages?: Record<string, unknown>;
 }
 
 interface WorkflowMetadataPayload {
   status?: string;
   currentStepId?: string;
   currentStage?: string;
+  activeStage?: string;
+  inProgressStage?: string;
+  blockedStage?: string;
   updatedAt?: string;
+  stages?: Record<string, unknown>;
+}
+
+type StageExecutionStatus = "pending" | "in_progress" | "blocked" | "complete";
+
+interface StageExecutionMetadata {
+  status?: StageExecutionStatus;
+  is_complete?: boolean;
+  blocked_reason?: string;
+  prerequisites?: string[];
+  completion_criteria?: string[];
+  last_updated_at?: string;
+}
+
+interface WorkflowExecutionMetadata {
+  active_stage?: string;
+  in_progress_stage?: string;
+  blocked_stage?: string;
+  stages: Record<string, StageExecutionMetadata>;
 }
 
 interface WorkflowExecutionViewModel {
@@ -37,6 +63,7 @@ interface WorkflowExecutionViewModel {
   ctaText: string;
   currentStageKey: string | null;
   lastUpdatedLabel: string;
+  execution: WorkflowExecutionMetadata;
 }
 
 interface WorkflowExecutionResource {
@@ -44,6 +71,53 @@ interface WorkflowExecutionResource {
   currentStage: string | null;
   confidencePercent: number;
   updatedAt: string | null;
+  execution: WorkflowExecutionMetadata;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function parseStageExecutionMetadata(input: unknown): StageExecutionMetadata {
+  if (!isObjectRecord(input)) return {};
+  const rawStatus = input.status;
+  return {
+    status:
+      rawStatus === "pending" || rawStatus === "in_progress" || rawStatus === "blocked" || rawStatus === "complete"
+        ? rawStatus
+        : undefined,
+    is_complete: typeof input.is_complete === "boolean" ? input.is_complete : undefined,
+    blocked_reason: typeof input.blocked_reason === "string" ? input.blocked_reason : undefined,
+    prerequisites: toStringList(input.prerequisites),
+    completion_criteria: toStringList(input.completion_criteria),
+    last_updated_at: typeof input.last_updated_at === "string" ? input.last_updated_at : undefined,
+  };
+}
+
+function parseWorkflowExecutionMetadata(
+  statusPayload: WorkflowExecutionApiPayload | null,
+  workflowPayload: WorkflowMetadataPayload | null
+): WorkflowExecutionMetadata {
+  const statusStages = isObjectRecord(statusPayload?.stages) ? statusPayload.stages : {};
+  const workflowStages = isObjectRecord(workflowPayload?.stages) ? workflowPayload.stages : {};
+  const mergedStages = { ...workflowStages, ...statusStages };
+
+  const stages: Record<string, StageExecutionMetadata> = {};
+  Object.entries(mergedStages).forEach(([stageKey, stageValue]) => {
+    stages[stageKey] = parseStageExecutionMetadata(stageValue);
+  });
+
+  return {
+    active_stage: statusPayload?.activeStage ?? statusPayload?.currentStage ?? workflowPayload?.activeStage ?? workflowPayload?.currentStage,
+    in_progress_stage: statusPayload?.inProgressStage ?? workflowPayload?.inProgressStage,
+    blocked_stage: statusPayload?.blockedStage ?? workflowPayload?.blockedStage,
+    stages,
+  };
 }
 
 function clampPercent(value: number): number {
@@ -108,9 +182,10 @@ async function fetchWorkflowExecutionResource(workflowId: string): Promise<Workf
 
   return {
     status,
-    currentStage: statusPayload?.currentStage ?? workflowPayload?.currentStage ?? workflowPayload?.currentStepId ?? null,
+    currentStage: statusPayload?.currentStage ?? statusPayload?.activeStage ?? workflowPayload?.currentStage ?? workflowPayload?.activeStage ?? workflowPayload?.currentStepId ?? null,
     confidencePercent: statusPayload ? resolveConfidencePercent(statusPayload) : 0,
     updatedAt: statusPayload?.updatedAt ?? statusPayload?.lastUpdatedAt ?? workflowPayload?.updatedAt ?? null,
+    execution: parseWorkflowExecutionMetadata(statusPayload, workflowPayload),
   };
 }
 
@@ -137,6 +212,7 @@ export function useWorkflowExecutionViewModel(workflowId: string | undefined) {
         ctaText: presentation.ctaText,
         currentStageKey: resource.currentStage,
         lastUpdatedLabel: formatLastUpdated(resource.updatedAt),
+        execution: resource.execution,
       };
     },
     placeholderData: {
@@ -150,6 +226,9 @@ export function useWorkflowExecutionViewModel(workflowId: string | undefined) {
       ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
       currentStageKey: null,
       lastUpdatedLabel: "No execution activity yet",
+      execution: {
+        stages: {},
+      },
     },
   });
 }

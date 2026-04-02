@@ -59,7 +59,11 @@ const MainLayout = lazy(() => import("./layouts/MainLayout").then((m) => ({ defa
 const Dashboard = lazy(() => import("./views/Dashboard"));
 const Opportunities = lazy(() => import("./views/Opportunities"));
 const OpportunityDetail = lazy(() => import("./views/OpportunityDetail"));
-const ValueCaseCanvas = lazy(() => import("./views/ValueCaseCanvas"));
+const ValueCaseCanvas = lazy(() =>
+  import("./views/ValueCaseCanvas").then((m) => ({
+    default: m.ValueCaseCanvas,
+  })),
+);
 const Models = lazy(() => import("./views/Models"));
 const ModelDetail = lazy(() => import("./views/ModelDetail"));
 const Agents = lazy(() => import("./views/Agents"));

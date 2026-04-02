@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 
-import ErrorBoundary from "./ErrorBoundary";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { navigateToLogin } from "../lib/safeNavigation";
 
 interface ProviderWrapperProps {

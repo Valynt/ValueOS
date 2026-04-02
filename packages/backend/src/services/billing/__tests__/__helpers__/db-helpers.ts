@@ -1,6 +1,10 @@
 /**
  * Database Test Helpers
  * Utilities for database setup, cleanup, and assertions
+ *
+ * Execution classification: deterministic in-memory fallback.
+ * When real integration mode is unavailable, helpers return the deterministic
+ * in-memory Supabase test double instead of skipping tests.
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";

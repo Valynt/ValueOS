@@ -28,6 +28,21 @@ Authoritative runbook for operational test execution before and after releases.
 3. Record failures and remediation tickets.
 4. Re-run critical-path smoke tests for auth, tenancy, billing, and workflow execution.
 
+
+## QA Readiness Report Requirements
+For each readiness report, generate and attach a deterministic test-inventory snapshot from code:
+
+```bash
+node scripts/qa/count-test-files-by-category.mjs
+```
+
+Include these fields in every report:
+- scan timestamp (`scanTimestamp`)
+- exact classification rules (`classificationRules`)
+- raw counts by category (`countsByCategory`)
+
+Do not use manually estimated category totals when this script output is available.
+
 ## Escalation
 - Block release if critical-path smoke fails.
 - Escalate to service owner and incident channel when regressions persist beyond one retry cycle.

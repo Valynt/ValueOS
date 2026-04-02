@@ -30,7 +30,7 @@ interface HealthServiceStats {
   healthy: number;
   degraded: number;
   unhealthy: number;
-  notConfigured: number;
+  not_configured: number;
   total: number;
 }
 
@@ -116,7 +116,7 @@ class HealthMetricsCollector {
         healthy: number;
         degraded: number;
         unhealthy: number;
-        notConfigured: number;
+        not_configured: number;
         total: number;
       }
     >;
@@ -143,12 +143,14 @@ class HealthMetricsCollector {
             healthy: 0,
             degraded: 0,
             unhealthy: 0,
-            notConfigured: 0,
+            not_configured: 0,
             total: 0,
           };
         }
 
-        services[service][check.status]++;
+        const statusKey =
+          check.status === "not_configured" ? "notConfigured" : check.status;
+        services[service][statusKey]++;
         services[service].total++;
       }
     }

@@ -5,7 +5,7 @@
     {
       "id": "auth-entry",
       "name": "Auth and tenant entry",
-      "routePaths": ["/", "/auth/login"],
+      "routePaths": ["/", "/auth/login", "/signup", "/reset-password"],
       "sourceGlobs": ["apps/ValyntApp/src/views/Auth/**/*.tsx", "apps/ValyntApp/src/views/CreateOrganization.tsx", "apps/ValyntApp/src/views/CompanyOnboarding.tsx"],
       "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
       "l10nThresholds": { "minCompletenessPercent": 100 }
@@ -19,9 +19,33 @@
       "l10nThresholds": { "minCompletenessPercent": 100 }
     },
     {
+      "id": "opportunity-discovery",
+      "name": "Opportunity discovery",
+      "routePaths": ["/opportunities", "/opportunities/demo-opportunity"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/Opportunities.tsx", "apps/ValyntApp/src/views/OpportunityDetail.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    },
+    {
+      "id": "value-case-authoring",
+      "name": "Value case authoring",
+      "routePaths": ["/opportunities/demo-opportunity/cases/demo-case"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/ValueCaseCanvas.tsx", "apps/ValyntApp/src/views/ValueCaseWorkspace.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    },
+    {
+      "id": "workspace-stages",
+      "name": "Workspace execution stages",
+      "routePaths": ["/workspace/demo-case/model"],
+      "sourceGlobs": ["apps/ValyntApp/src/views/DealAssemblyWorkspace.tsx", "apps/ValyntApp/src/views/ValueModelWorkbench.tsx", "apps/ValyntApp/src/views/IntegrityDashboard.tsx", "apps/ValyntApp/src/views/ExecutiveOutputStudio.tsx", "apps/ValyntApp/src/views/RealizationTracker.tsx"],
+      "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
+      "l10nThresholds": { "minCompletenessPercent": 100 }
+    },
+    {
       "id": "settings-billing",
       "name": "Admin, settings, and billing",
-      "routePaths": ["/settings"],
+      "routePaths": ["/settings", "/integrations", "/billing"],
       "sourceGlobs": ["apps/ValyntApp/src/views/SettingsPage.tsx", "apps/ValyntApp/src/views/Integrations.tsx", "apps/ValyntApp/src/views/BillingPortal.tsx", "apps/ValyntApp/src/views/CompanyKnowledge.tsx"],
       "a11yThresholds": { "maxCritical": 0, "maxSerious": 0 },
       "l10nThresholds": { "minCompletenessPercent": 100 }

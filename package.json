@@ -6,6 +6,7 @@
   "scripts": {
     "dev:frontend": "pnpm --filter valynt-app dev",
     "dev:backend": "pnpm --filter @valueos/backend dev",
+    "postinstall": "bash scripts/dx/ensure-local-pnpm-shims.sh",
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "dev:init": "bash scripts/dev/init-cloud-dev.sh",
     "dev:up": "bash scripts/dev/up-cloud-dev.sh",
@@ -13,8 +14,8 @@
     "dev:bootstrap": "pnpm dev:init && pnpm dev:up",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
-    "lint": "turbo run lint",
-    "check": "turbo run typecheck",
+    "lint": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run lint",
+    "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
     "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run build",
@@ -36,6 +37,7 @@
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "db:migrate": "bash scripts/db/apply-migrations.sh",
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
+    "check:billing-alert-metrics": "node scripts/ci/check-billing-alert-metrics.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",
     "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
     "check:docs:consistency": "tsx scripts/ci/check-docs-consistency.ts",
@@ -61,7 +63,8 @@
     "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
     "check:required-checks-policy": "node scripts/ci/check-required-checks-policy.mjs",
     "report:required-check-compliance": "node scripts/ci/report-required-check-compliance.mjs",
-    "validate:devcontainer": "bash scripts/validate-devcontainer.sh"
+    "validate:devcontainer": "bash scripts/validate-devcontainer.sh",
+    "typecheck:turbo:all": "node scripts/dx/typecheck-via-turbo-all.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -198,6 +201,7 @@
       "mdast-util-to-hast": ">=13.2.1",
       "rollup": ">=4.59.0",
       "dompurify": ">=3.3.2",
+      "jspdf": "^4.2.1",
       "vite": "^5.4.0"
     },
     "ignoredBuiltDependencies": [
