@@ -198,7 +198,10 @@ jobs:
       - name: Workflow DAG acyclicity guard
         run: pnpm run test:workflow-dag-validation
       - name: TypeScript any-count gate
-        run: bash scripts/check-any-count.sh
+        run: |
+          node scripts/ci/any-ratchet.mjs
+          node scripts/ci/check-strict-exception-budgets.mjs
+          bash scripts/check-any-count.sh
       - name: Backend debt summary artifact
         if: always()
         run: pnpm --filter @valueos/backend run debt:summary
