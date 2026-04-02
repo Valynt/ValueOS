@@ -47,14 +47,28 @@ if (/pending next ci promotion/i.test(latestRow)) {
 }
 
 for (const required of requiredSubstrings) {
-  if (!latestRow.toLowerCase().includes(required.toLowerCase()) && !markdown.toLowerCase().includes(required.toLowerCase())) {
-    console.error(`❌ Missing required release-log evidence marker: ${required}`);
+  if (!latestRow.toLowerCase().includes(required.toLowerCase())) {
+    console.error(`❌ Latest release-log row is missing required evidence marker: ${required}`);
     process.exit(1);
   }
 }
 
-if (!/https?:\/\//i.test(latestRow) && !/\[[^\]]+\]\((https?:\/\/[^)]+)\)/i.test(markdown)) {
-  console.error("❌ Release log must include at least one artifact link (URL).\n");
+if (!/https?:\/\//i.test(latestRow)) {
+  console.error("❌ Latest release-log row must include artifact links (URL).\n");
+  process.exit(1);
+}
+
+const latestDateMatch = latestRow.match(/\|\s*(\d{4}-\d{2}-\d{2})\s*\|/);
+if (!latestDateMatch) {
+  console.error("❌ Latest release-log row must begin with an ISO date (YYYY-MM-DD).");
+  process.exit(1);
+}
+
+const latestDate = new Date(`${latestDateMatch[1]}T00:00:00Z`);
+const ageMs = Date.now() - latestDate.getTime();
+const ageDays = ageMs / (1000 * 60 * 60 * 24);
+if (Number.isNaN(ageDays) || ageDays > 14) {
+  console.error(`❌ Latest UX scorecard release-log entry is stale (${latestDateMatch[1]}). Update it within 14 days of production promotion.`);
   process.exit(1);
 }
 

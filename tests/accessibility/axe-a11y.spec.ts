@@ -33,6 +33,22 @@ const PAGES: AuditedPage[] = [
     ],
   },
   {
+    name: "Auth - Sign Up",
+    path: "/signup",
+    componentChecks: [
+      { selector: "form", description: "auth form" },
+      { selector: "button", description: "action buttons" },
+    ],
+  },
+  {
+    name: "Auth - Reset Password",
+    path: "/reset-password",
+    componentChecks: [
+      { selector: "form", description: "password reset form" },
+      { selector: "button", description: "action buttons" },
+    ],
+  },
+  {
     name: "Marketing Blog",
     path: "/blog",
     componentChecks: [{ selector: "main", description: "main content region" }],
@@ -42,6 +58,48 @@ const PAGES: AuditedPage[] = [
     path: "/settings",
     componentChecks: [
       { selector: "main", description: "main settings container" },
+    ],
+  },
+  {
+    name: "Opportunity Discovery",
+    path: "/opportunities",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
+    ],
+  },
+  {
+    name: "Opportunity Detail",
+    path: "/opportunities/demo-opportunity",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
+    ],
+  },
+  {
+    name: "Value Case Authoring",
+    path: "/opportunities/demo-opportunity/cases/demo-case",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
+    ],
+  },
+  {
+    name: "Workspace Stage - Model",
+    path: "/workspace/demo-case/model",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
+    ],
+  },
+  {
+    name: "Integrations",
+    path: "/integrations",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
+    ],
+  },
+  {
+    name: "Billing",
+    path: "/billing",
+    componentChecks: [
+      { selector: "main, form", description: "primary route container" },
     ],
   },
 ];
