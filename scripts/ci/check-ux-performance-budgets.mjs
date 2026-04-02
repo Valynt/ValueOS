@@ -36,6 +36,33 @@ const exceptions = existsSync(exceptionsPath)
   ? JSON.parse(readFileSync(exceptionsPath, "utf-8"))
   : { exceptions: [] };
 
+const exceptionEntries = exceptions.exceptions ?? [];
+if (!Array.isArray(exceptionEntries)) {
+  console.error("❌ UX performance exceptions file must contain an array at `exceptions`");
+  process.exit(1);
+}
+
+const exceptionValidationErrors = [];
+for (const [index, exception] of exceptionEntries.entries()) {
+  if (!exception?.id) exceptionValidationErrors.push(`exceptions[${index}] missing required field: id`);
+  if (!Array.isArray(exception?.guardrailKeys) || exception.guardrailKeys.length === 0) {
+    exceptionValidationErrors.push(`exceptions[${index}] must include non-empty guardrailKeys`);
+  }
+  if (!exception?.reason) exceptionValidationErrors.push(`exceptions[${index}] missing required field: reason`);
+  if (!exception?.approvedBy) exceptionValidationErrors.push(`exceptions[${index}] missing required field: approvedBy`);
+  if (!exception?.expiresOn) {
+    exceptionValidationErrors.push(`exceptions[${index}] missing required field: expiresOn`);
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(exception.expiresOn)) {
+    exceptionValidationErrors.push(`exceptions[${index}] expiresOn must be YYYY-MM-DD`);
+  }
+}
+
+if (exceptionValidationErrors.length > 0) {
+  console.error("❌ UX performance exceptions workflow metadata is invalid:");
+  for (const error of exceptionValidationErrors) console.error(`  - ${error}`);
+  process.exit(1);
+}
+
 const jsFiles = readdirSync(distAssetsPath)
   .filter((entry) => extname(entry) === ".js")
   .map((entry) => {
@@ -120,9 +147,8 @@ if (vendorTrend.enabled !== false) {
 
 const todayIso = new Date().toISOString().slice(0, 10);
 function activeExceptionFor(key) {
-  return (exceptions.exceptions ?? []).find((exception) => {
+  return exceptionEntries.find((exception) => {
     if (!exception.guardrailKeys?.includes(key)) return false;
-    if (!exception.expiresOn) return true;
     return exception.expiresOn >= todayIso;
   });
 }
@@ -142,6 +168,9 @@ const output = {
   generatedAt: new Date().toISOString(),
   budgets,
   exceptionsPath,
+  exceptionWorkflow: {
+    requiredFields: ["id", "guardrailKeys", "reason", "approvedBy", "expiresOn"],
+  },
   bundle: {
     totalJsKb,
     largestChunk,
