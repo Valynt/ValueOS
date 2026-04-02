@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
+import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import {
   ClaimReferralRequest,
@@ -69,6 +70,8 @@ export class ReferralService {
   async claimReferral(request: ClaimReferralRequest): Promise<ClaimReferralResponse> {
     try {
       const { referral_code, referee_email, ip_address, user_agent } = request;
+      const sanitizedReferralCode = sanitizeForLogging(referral_code) as string;
+      const sanitizedRefereeEmail = sanitizeForLogging(referee_email) as string;
 
       // Call database function to process referral claim
       const { data, error } = await this.supabase
@@ -80,7 +83,10 @@ export class ReferralService {
         });
 
       if (error) {
-        logger.error('Failed to claim referral', error, { referral_code, referee_email });
+        logger.error('Failed to claim referral', error, {
+          referral_code: sanitizedReferralCode,
+          referee_email: sanitizedRefereeEmail
+        });
         return { success: false, error: error.message };
       }
 
@@ -90,14 +96,17 @@ export class ReferralService {
         logger.info('Referral claimed successfully', {
           referral_id: result.referral_id,
           referrer_id: result.referrer_id,
-          referee_email
+          referee_email: sanitizedRefereeEmail
         });
       }
 
       return result;
 
     } catch (error) {
-      logger.error('Unexpected error claiming referral', error as Error, { request });
+      logger.error('Unexpected error claiming referral', error as Error, {
+        referral_code: sanitizeForLogging(request.referral_code) as string,
+        referee_email: sanitizeForLogging(request.referee_email) as string
+      });
       return { success: false, error: 'Internal server error' };
     }
   }
