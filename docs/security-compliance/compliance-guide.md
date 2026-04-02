@@ -136,7 +136,8 @@ Evidence checkpoints are tracked in CI/governance workflows:
 
 - Canonical control remediation source: `docs/security-compliance/control-status.json`.
 - Each unchecked control in this guide must include a `Remediation Record` (`CR-###`) with owner, target date, status, and evidence location.
-- CI gate enforcement (`scripts/ci/check-control-status-critical.mjs`) fails when SOC2/HIPAA critical controls in relevant domains are stale (target date before current UTC date) or unowned.
+- CI sync enforcement (`scripts/ci/check-control-status-sync.mjs`) parses `CR-*` remediation records from this guide and verifies they match `control-status.json`.
+- CI gate enforcement (`scripts/ci/check-control-status-critical.mjs`) fails when SOC2/HIPAA critical controls are past due, unowned, or missing evidence links.
 
 ---
 

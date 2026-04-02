@@ -19,6 +19,7 @@ const RELEVANT_DOMAINS = new Set([
   "audit-logging",
 ]);
 const HIGH_RISK_SEVERITIES = new Set(["critical", "high"]);
+const CRITICAL_SEVERITY = "critical";
 const CLOSED_STATUSES = new Set(["completed", "done", "closed", "accepted-risk", "waived"]);
 
 function parseDateOnly(value) {
@@ -50,6 +51,13 @@ function isRelevant(control) {
     matchesFramework &&
     RELEVANT_DOMAINS.has(domain)
   );
+}
+
+function isCritical(control) {
+  const severity = typeof control?.severity === "string" ? control.severity.trim().toLowerCase() : "";
+  const frameworks = Array.isArray(control.frameworks) ? control.frameworks : [];
+  const matchesFramework = frameworks.some((framework) => RELEVANT_FRAMEWORKS.has(String(framework).toUpperCase()));
+  return severity === CRITICAL_SEVERITY && matchesFramework;
 }
 
 function isClosedStatus(status) {
@@ -130,6 +138,31 @@ function writeArtifacts(report) {
   writeFileSync(ARTIFACT_MD_PATH, `${lines.join("\n")}\n`, "utf8");
 }
 
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test(value);
+}
+
+function hasEvidenceLink(control) {
+  const evidenceLocation = typeof control?.evidenceLocation === "string"
+    ? control.evidenceLocation.trim()
+    : "";
+
+  if (!evidenceLocation) {
+    return false;
+  }
+
+  if (isLikelyUrl(evidenceLocation)) {
+    return true;
+  }
+
+  try {
+    const stat = readFileSync(resolve(evidenceLocation), "utf8");
+    return stat.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 const payload = JSON.parse(readFileSync(CONTROL_STATUS_PATH, "utf8"));
 const controls = Array.isArray(payload.controls) ? payload.controls : [];
 const exceptionPayload = loadJson(EXCEPTIONS_PATH, { exceptions: [] });
@@ -179,6 +212,11 @@ for (const control of controls) {
     continue;
   }
 
+  if (isCritical(control) && !hasEvidenceLink(control)) {
+    failures.push(`MISSING_EVIDENCE_LINK ${control.id}: ${control.control}`);
+    continue;
+  }
+
   const remediationTargetDate = parseDateOnly(control?.remediation?.targetDate);
   const targetDate = remediationTargetDate ?? parseDateOnly(control.targetDate);
   if (!targetDate) {
@@ -205,10 +243,47 @@ for (const issue of exceptionIssues) {
 }
 
 const relevantControlsCount = controls.filter(isRelevant).length;
+const criticalControlsCount = controls.filter(isCritical).length;
+
+for (const control of controls) {
+  if (!isCritical(control)) {
+    continue;
+  }
+
+  const status = typeof control.status === "string" ? control.status.trim().toLowerCase() : "";
+  if (isClosedStatus(status)) {
+    continue;
+  }
+
+  const remediationOwner = typeof control?.remediation?.owner === "string"
+    ? control.remediation.owner.trim()
+    : "";
+  const owner = remediationOwner || (typeof control.owner === "string" ? control.owner.trim() : "");
+
+  if (!owner) {
+    failures.push(`CRITICAL_UNOWNED ${control.id}: ${control.control}`);
+  }
+
+  if (!hasEvidenceLink(control)) {
+    failures.push(`CRITICAL_MISSING_EVIDENCE_LINK ${control.id}: ${control.control}`);
+  }
+
+  const targetDate = parseDateOnly(control?.remediation?.targetDate) ?? parseDateOnly(control?.targetDate);
+  if (!targetDate) {
+    failures.push(`CRITICAL_INVALID_TARGET_DATE ${control.id}: ${control.control}`);
+    continue;
+  }
+
+  if (targetDate < TODAY_UTC) {
+    failures.push(`CRITICAL_PAST_DUE ${control.id}: ${control.control} (owner=${owner || "unassigned"}, targetDate=${targetDate})`);
+  }
+}
+
 const report = {
   generatedAt: new Date().toISOString(),
   date: TODAY_UTC,
   controlsEvaluated: relevantControlsCount,
+  criticalControlsEvaluated: criticalControlsCount,
   failures,
   exceptionsApplied,
   result: failures.length === 0 ? "pass" : "fail",
