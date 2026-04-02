@@ -253,18 +253,16 @@ export interface RealtimeChannel {
 }
 
 export function createRealtimeChannel(_name: string): RealtimeChannel {
-  return {
-    subscribe: () => {},
-    unsubscribe: () => {},
-    on: function () {
-      return this;
-    },
-  };
+  throw new Error(
+    "createRealtimeChannel legacy shim was removed. Use getRealtimeService().subscribeToElements/Presence/Notifications."
+  );
 }
 
 export function subscribeToChanges(
   _table: string,
   _callback: (payload: unknown) => void
 ): () => void {
-  return () => {};
+  throw new Error(
+    "subscribeToChanges legacy shim was removed. Use getRealtimeService() subscriptions with explicit channel contracts."
+  );
 }

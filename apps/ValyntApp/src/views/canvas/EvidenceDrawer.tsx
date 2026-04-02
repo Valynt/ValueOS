@@ -1,22 +1,17 @@
 import {
+  AlertTriangle,
   ExternalLink,
   Shield,
   X,
 } from "lucide-react";
 
+import { useIntegrityOutput } from "@/hooks/useIntegrityOutput";
 import { cn } from "@/lib/utils";
 
-export function EvidenceDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function EvidenceDrawer({ open, onClose, caseId }: { open: boolean; onClose: () => void; caseId?: string }) {
+  const { data, isLoading, error } = useIntegrityOutput(caseId);
   if (!open) return null;
-
-  const claims = [
-    { claim: "Annual revenue $2.4B", tier: "Tier 1: EDGAR", confidence: 98, source: "10-K FY2025" },
-    { claim: "IT spend 7.5% of revenue", tier: "Tier 2: Market Data", confidence: 82, source: "Gartner benchmark" },
-    { claim: "340 on-prem servers", tier: "Tier 3: Self-reported", confidence: 70, source: "Customer interview" },
-    { claim: "99.2% current uptime", tier: "Tier 1: Customer Data", confidence: 95, source: "SLA Dashboard Export" },
-    { claim: "Server consolidation 4:1 ratio", tier: "Tier 2: Estimate", confidence: 72, source: "Engineering assessment" },
-    { claim: "APAC revenue potential $2.1M", tier: "Tier 3: Self-reported", confidence: 58, source: "VP Strategy interview" },
-  ];
+  const claims = data?.claims ?? [];
 
   return (
     <div className="fixed inset-y-0 right-0 w-[400px] bg-white border-l border-zinc-200 z-30 flex flex-col shadow-[-20px_0_40px_-10px_rgba(0,0,0,0.06)]">
@@ -33,19 +28,43 @@ export function EvidenceDrawer({ open, onClose }: { open: boolean; onClose: () =
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-3">
+        {!caseId && (
+          <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-[12px] text-amber-800">
+            Evidence is unavailable until the value case ID is resolved.
+          </div>
+        )}
+        {error && (
+          <div className="p-4 rounded-2xl border border-red-200 bg-red-50">
+            <div className="flex items-center gap-2 text-red-700 mb-1">
+              <AlertTriangle className="w-4 h-4" />
+              <p className="text-[12px] font-semibold">Evidence integration failure</p>
+            </div>
+            <p className="text-[12px] text-red-700">{error.message}</p>
+          </div>
+        )}
+        {isLoading && (
+          <div className="p-4 rounded-2xl border border-zinc-200 bg-zinc-50 text-[12px] text-zinc-600">
+            Loading evidence from Integrity output…
+          </div>
+        )}
+        {!isLoading && !error && claims.length === 0 && (
+          <div className="p-4 rounded-2xl border border-zinc-200 bg-zinc-50 text-[12px] text-zinc-600">
+            No evidence claims were returned by orchestration for this case.
+          </div>
+        )}
         {claims.map((c, i) => (
           <div key={i} className="p-4 rounded-2xl border border-zinc-200 hover:border-zinc-300 transition-colors">
-            <p className="text-[13px] font-medium text-zinc-900 mb-2">{c.claim}</p>
+            <p className="text-[13px] font-medium text-zinc-900 mb-2">{c.text}</p>
             <div className="flex items-center gap-2 mb-2">
               <span className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full font-semibold",
-                c.tier.includes("Tier 1") ? "bg-emerald-50 text-emerald-700" :
-                c.tier.includes("Tier 2") ? "bg-blue-50 text-blue-700" :
+                c.evidence_tier === 1 ? "bg-emerald-50 text-emerald-700" :
+                c.evidence_tier === 2 ? "bg-blue-50 text-blue-700" :
                 "bg-amber-50 text-amber-700"
               )}>
-                {c.tier}
+                {`Tier ${c.evidence_tier ?? 3}`}
               </span>
-              <span className="text-[11px] text-zinc-400">{c.source}</span>
+              <span className="text-[11px] text-zinc-400">{c.claim_id}</span>
               <ExternalLink className="w-3 h-3 text-zinc-300 cursor-pointer hover:text-zinc-500 ml-auto" />
             </div>
             <div className="flex items-center gap-2">
@@ -53,12 +72,12 @@ export function EvidenceDrawer({ open, onClose }: { open: boolean; onClose: () =
                 <div
                   className={cn(
                     "h-full rounded-full",
-                    c.confidence >= 90 ? "bg-emerald-500" : c.confidence >= 75 ? "bg-blue-500" : c.confidence >= 50 ? "bg-amber-500" : "bg-red-400"
+                    c.confidence_score >= 0.9 ? "bg-emerald-500" : c.confidence_score >= 0.75 ? "bg-blue-500" : c.confidence_score >= 0.5 ? "bg-amber-500" : "bg-red-400"
                   )}
-                  style={{ width: `${c.confidence}%` }}
+                  style={{ width: `${Math.round(c.confidence_score * 100)}%` }}
                 />
               </div>
-              <span className="text-[11px] font-medium text-zinc-600">{c.confidence}%</span>
+              <span className="text-[11px] font-medium text-zinc-600">{Math.round(c.confidence_score * 100)}%</span>
             </div>
           </div>
         ))}

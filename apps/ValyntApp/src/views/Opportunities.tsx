@@ -114,7 +114,7 @@ function InlineQuickStart() {
   const [company, setCompany] = useState("");
   const [selectedPackId, setSelectedPackId] = useState("");
   const navigate = useNavigate();
-  const { data: packs, isLoading: packsLoading } = useDomainPacks();
+  const { data: packs, isLoading: packsLoading, isError: packsError, error: packsErrorDetails } = useDomainPacks();
   const createCase = useCreateCase();
 
   const handleStart = async () => {
@@ -160,10 +160,12 @@ function InlineQuickStart() {
           <select
             value={selectedPackId}
             onChange={(e) => setSelectedPackId(e.target.value)}
+            disabled={packsError}
             className="appearance-none pl-8 pr-6 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-zinc-50 text-zinc-700 outline-none focus:border-zinc-400 focus:bg-white transition-colors cursor-pointer"
           >
             <option value="">No Domain Pack</option>
             {packsLoading && <option disabled>Loading…</option>}
+            {packsError && <option disabled>Domain Packs unavailable</option>}
             {packs?.map((pack) => (
               <option key={pack.id} value={pack.id}>{pack.name}</option>
             ))}
@@ -180,6 +182,11 @@ function InlineQuickStart() {
       </div>
       {createCase.isError && (
         <p className="mt-2 text-[12px] text-red-500">Failed to create case. Please try again.</p>
+      )}
+      {packsError && (
+        <p className="mt-2 text-[12px] text-amber-600">
+          Domain Pack integration unavailable: {packsErrorDetails?.message ?? "failed to load packs"}.
+        </p>
       )}
     </div>
   );

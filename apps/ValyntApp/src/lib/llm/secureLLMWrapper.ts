@@ -5,7 +5,9 @@ export interface SecureLLMOptions {
 }
 
 export async function secureLLMCall(_prompt: string, _options?: SecureLLMOptions): Promise<string> {
-  return "";
+  throw new Error(
+    "secureLLMCall is not implemented in the frontend. Invoke agent/LLM capabilities through backend orchestration APIs."
+  );
 }
 
 export default secureLLMCall;

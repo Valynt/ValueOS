@@ -566,23 +566,12 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
             )}
           </>
         ) : (
-          /* Fallback: mock data when no context */
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Annual Revenue", value: "$2.4B", sub: "+8.2% YoY", conf: 98, subColor: "text-emerald-600" },
-              { label: "Employees", value: "12,400", sub: "Manufacturing", conf: 95, subColor: "text-zinc-500" },
-              { label: "IT Spend (est.)", value: "$180M", sub: "7.5% of revenue", conf: 82, subColor: "text-zinc-500" },
-              { label: "Pain Score", value: "8.4/10", sub: "Legacy migration urgency", conf: 76, subColor: "text-red-500" },
-            ].map((m) => (
-              <div key={m.label} className="p-3 bg-zinc-50 rounded-xl">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[11px] text-zinc-400">{m.label}</p>
-                  <ConfidenceBadge value={m.conf} source="" />
-                </div>
-                <p className="text-lg font-black text-zinc-950 tracking-tight">{m.value}</p>
-                <p className={cn("text-[11px] font-medium", m.subColor)}>{m.sub}</p>
-              </div>
-            ))}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-[12px] font-semibold text-amber-800">Company context unavailable</p>
+            <p className="mt-1 text-[12px] text-amber-700">
+              Discovery context has not been captured for this case yet. Run discovery or complete onboarding to populate
+              revenue, spend, and persona evidence.
+            </p>
           </div>
         )}
       </div>
@@ -592,18 +581,18 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
         {[
           {
             label: "Personas Mapped",
-            value: isReady ? String(companyContext?.personas.length ?? 0) : "14",
-            sub: isReady ? "from onboarding" : "4 decision makers",
+            value: String(companyContext?.personas.length ?? 0),
+            sub: isReady ? "from onboarding" : "missing discovery context",
           },
           {
             label: "Competitors Identified",
-            value: isReady ? String(companyContext?.competitors.length ?? 0) : "6",
-            sub: isReady ? "from onboarding" : "2 incumbent",
+            value: String(companyContext?.competitors.length ?? 0),
+            sub: isReady ? "from onboarding" : "missing discovery context",
           },
           {
             label: "Products",
-            value: isReady ? String(companyContext?.products.length ?? 0) : "8",
-            sub: isReady ? "from onboarding" : "3 high priority",
+            value: String(companyContext?.products.length ?? 0),
+            sub: isReady ? "from onboarding" : "missing discovery context",
           },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-zinc-200 rounded-2xl p-4 text-center">

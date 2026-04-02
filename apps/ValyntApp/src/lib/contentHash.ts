@@ -1,5 +1,10 @@
-export function computeContentHash(_content: string): string { return ""; }
-export function verifyContentHash(_content: string, _hash: string): boolean { return true; }
+export function computeContentHash(_content: string): string {
+  throw new Error("computeContentHash is not implemented. Use async sha256() and persist the digest explicitly.");
+}
+
+export function verifyContentHash(_content: string, _hash: string): boolean {
+  throw new Error("verifyContentHash is not implemented. Compare persisted SHA-256 digests instead.");
+}
 
 /**
  * SHA-256 hash — uses Web Crypto API (available in Node 18+ and browsers)
