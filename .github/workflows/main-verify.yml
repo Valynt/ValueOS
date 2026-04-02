@@ -59,6 +59,15 @@ jobs:
               exit 1
             }
 
+          gitleaks detect \
+            --config=.gitleaks.toml \
+            --redact \
+            --exit-code=0 \
+            --report-format=json \
+            --report-path=artifacts/secret-scan/gitleaks-history.json \
+            --log-level=warn \
+            > /dev/null
+
       - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3
@@ -73,7 +82,7 @@ jobs:
           name: secret-scan-history-${{ github.run_id }}
           path: artifacts/secret-scan/
           if-no-files-found: warn
-          retention-days: 90
+          retention-days: 365
 
   lint-runtime-packages:
     name: lint-runtime-packages (${{ matrix.lane }})

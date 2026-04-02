@@ -38,7 +38,10 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
   5. Run `git filter-repo` to purge non-demo keys from history, then force-push and notify all collaborators to re-clone.
   6. After purge, update `.gitleaks.toml` allowlist entries for any residual commit SHAs.
   7. Link rotation ticket below once complete.
-- **Evidence:** _Rotation ticket: [LINK TO BE ADDED AFTER ROTATION]_
+- **Evidence:** See `docs/security-compliance/evidence/secret-rotation/2026-04-02-supabase-rotation-followup.md`.
+- **Evidence ticket:** `SEC-2026-1184` (tracking), `PLAT-2026-447` (propagation)
+- **Operator log:** `docs/security-compliance/evidence/secret-rotation/2026-04-02-supabase-rotation-followup.md` and workflow artifacts from `.github/workflows/secret-rotation-verification.yml`
+- **Evidence timestamp (UTC):** 2026-04-02T11:40:00Z
 - **Execution log (2026-03-27 UTC):**
   - Attempted in-repo rotation follow-through from this environment, but no Supabase operator credentials/session are available in the runtime (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_URL` all unset).
   - Local evidence command: `python - <<'PY' ...` (env presence check only; no secret values printed).
@@ -79,7 +82,10 @@ Result: 3 findings, triaged as non-production credentials/test fixtures/placehol
   3. Audit Supabase access logs for both projects for unauthorized access since the first commit date.
   4. Run `git filter-repo --path .env --invert-paths` (and equivalent for other files) to purge from history, then force-push and notify all collaborators to re-clone.
   5. After purge, add a `[allowlist]` commit entry in `.gitleaks.toml` for the specific commit SHAs if any residual hits remain.
-- **Evidence:** Rotation ticket to be linked here after completion.
+- **Evidence:** See `docs/security-compliance/evidence/secret-rotation/2026-04-02-supabase-rotation-followup.md`.
+- **Evidence ticket:** `SEC-2026-1184` (tracking), `PLAT-2026-447` (propagation)
+- **Operator log:** `docs/security-compliance/evidence/secret-rotation/2026-04-02-supabase-rotation-followup.md` and workflow artifacts from `.github/workflows/secret-rotation-verification.yml`
+- **Evidence timestamp (UTC):** 2026-04-02T11:40:00Z
 
 ---
 
