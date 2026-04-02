@@ -17,6 +17,7 @@
 #   5. require-tenant-label           — workloads must carry organization_id or tenant_id label
 #   6. disallow-privileged-containers — privileged: true is always rejected (belt-and-suspenders over PSA)
 #   7. require-drop-all-capabilities  — capabilities.drop must include ALL
+#   8. disallow-permissive-peer-authentication — PeerAuthentication cannot use PERMISSIVE in protected namespaces
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -300,3 +301,42 @@ spec:
               - key: "{{ request.object.metadata.labels.tenant_id || '' }}"
                 operator: Equals
                 value: ""
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-permissive-peer-authentication
+  annotations:
+    policies.kyverno.io/title: Disallow PERMISSIVE PeerAuthentication in protected namespaces
+    policies.kyverno.io/category: Service Mesh Security
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      PeerAuthentication resources in protected namespaces must enforce
+      STRICT mTLS. PERMISSIVE mode allows plaintext fallback and is not
+      allowed without a formal, time-bound security exception.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: block-permissive-peer-auth
+      match:
+        any:
+          - resources:
+              kinds: [PeerAuthentication]
+              namespaces:
+                - valynt
+                - valynt-agents
+                - valynt-staging
+                - valueos-system
+                - valueos-tenants
+      validate:
+        message: >-
+          PeerAuthentication in protected namespaces must use mtls.mode: STRICT.
+          PERMISSIVE mode is forbidden.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.mtls.mode || '' }}"
+                operator: Equals
+                value: PERMISSIVE

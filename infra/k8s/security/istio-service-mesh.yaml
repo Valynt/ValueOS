@@ -8,18 +8,6 @@ spec:
     mode: STRICT
 ---
 apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: permissive-for-legacy
-  namespace: valynt
-spec:
-  selector:
-    matchLabels:
-      security.istio.io/tlsMode: permissive
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: deny-all-by-default
