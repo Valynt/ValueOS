@@ -1,6 +1,6 @@
 # Security Compliance
 
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-04-02
 
 ---
 
@@ -23,6 +23,7 @@
 - [Public Browser Telemetry Standard](./public-browser-telemetry.md)
 - [Public Telemetry Retention and Privacy Standard](./public-telemetry-retention-and-privacy.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
+- [Release Attestation Verification Workflow](./release-attestation-verification.md)
 - [Security Overview](./security-overview.md)
 - [Subprocessor List](./subprocessor-list.md)
 - [Threat Model](./threat-model.md)
@@ -31,4 +32,4 @@
 
 ---
 
-**Total Documents**: 22
+**Total Documents**: 23
