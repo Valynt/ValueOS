@@ -122,6 +122,40 @@ Backlog triage guidance:
 
 Use these only for migration windows and package-scoped typecheck jobs. Production/default package tsconfigs should converge to strict-only mode without these overrides.
 
+### Backend strictness exception process (effective April 2, 2026)
+
+1. **Narrow scope only:** Every backend strictness exception must be a folder entry in `packages/backend/tsconfig.strict-exceptions.json` (no broad root-level `src/**` exceptions).
+2. **Budget required per folder:** Every exception folder must have a matching budget entry in `config/backend-strict-exception-budgets.json` with:
+   - `budget` (current ceiling),
+   - `nextTarget` (next ratchet target),
+   - `sunsetDate` (hard deadline to remove or re-justify).
+3. **Critical boundary modules are zero-budget:**
+   - `src/services/security`
+   - `src/services/auth`
+   - `src/services/tenant`
+   - `src/api`
+   - `src/middleware`
+4. **PR gate:** `node scripts/ci/check-backend-strict-exception-budget.mjs` runs in `pr-fast` and fails on:
+   - any unbudgeted exception path,
+   - any folder exceeding its budget,
+   - any exception in critical boundary modules.
+5. **Main branch guard:** the same check runs in `main-verify` (`lint-runtime-packages` backend lane) to prevent post-merge regressions.
+
+#### Sunset dates (backend strictness exceptions)
+
+| Path | Budget | Next target | Sunset date |
+|---|---:|---:|---|
+| `src/services/security` | 0 | 0 | 2026-04-30 |
+| `src/services/auth` | 0 | 0 | 2026-04-30 |
+| `src/services/tenant` | 0 | 0 | 2026-04-30 |
+| `src/api` | 0 | 0 | 2026-04-30 |
+| `src/middleware` | 0 | 0 | 2026-04-30 |
+| `src/services/billing` | 31 | 25 | 2026-05-31 |
+| `src/services/post-v1` | 77 | 65 | 2026-05-31 |
+| `src/repositories` | 19 | 15 | 2026-05-31 |
+| `src/runtime/execution-runtime` | 5 | 3 | 2026-05-31 |
+| `src/types` | 45 (ceiling 64) | 50 | 2026-06-30 |
+
 ### CI ratchet
 - CI check: `node scripts/ci/any-ratchet.mjs`
 - Budget file: `.github/any-ratchet-budgets.json`

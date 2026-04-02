@@ -155,6 +155,7 @@
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.4",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-n": "^17.24.0",
