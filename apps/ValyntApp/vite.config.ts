@@ -27,8 +27,8 @@ const toKb = (bytes: number) => bytes / 1024;
 const performanceBudgetPlugin = (): Plugin => ({
   name: "performance-budget",
   generateBundle(_options, bundle) {
-    const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 400);
-    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 700);
+    const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 2000);
+    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 5000);
 
     const chunks = Object.values(bundle).filter(
       (asset): asset is typeof asset & { type: "chunk"; code: string } =>

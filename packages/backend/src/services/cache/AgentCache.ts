@@ -15,7 +15,7 @@ import {
   cacheRequestsTotal,
 } from "../../lib/metrics/cacheMetrics.js";
 import { logger } from "../../lib/logger.js";
-import { auditLog } from "../../lib/audit.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 import {
   deleteCache,
   deleteCachePattern,
@@ -340,14 +340,20 @@ export class AgentCache extends EventEmitter {
 
       // S1-4: Emit audit log for rejected invalidation attempt
       try {
-        await auditLog({
-          event: "cache_invalidation_rejected",
-          actor: callerContext?.userId || "system",
-          tenant_id: callerTenantId,
-          resource: { type: "cache", target_tenant_id: tenantId },
+        await logSecurityEvent({
+          timestamp: new Date().toISOString(),
+          action: "cache_invalidation_rejected",
+          resource: "cache",
+          resourceType: "cache",
+          userId: callerContext?.userId || "system",
+          organizationId: callerTenantId,
+          tenantId: callerTenantId,
+          sessionId: callerContext?.requestId,
+          outcome: "blocked",
+          severity: "medium",
           details: {
+            target_tenant_id: tenantId,
             reason: "caller_does_not_own_tenant",
-            request_id: callerContext?.requestId,
             rate_limit_remaining: this.rateLimiter.getRemainingAttempts(rateLimitKey),
           },
         });
@@ -363,14 +369,20 @@ export class AgentCache extends EventEmitter {
 
     // S1-4: Emit audit log for successful invalidation
     try {
-      await auditLog({
-        event: "cache_invalidation",
-        actor: callerContext?.userId || "system",
-        tenant_id: tenantId,
-        resource: { type: "cache", entries_cleared: clearedCount },
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "cache_invalidation",
+        resource: "cache",
+        resourceType: "cache",
+        userId: callerContext?.userId || "system",
+        organizationId: tenantId,
+        tenantId,
+        sessionId: callerContext?.requestId,
+        outcome: "success",
+        severity: "low",
         details: {
+          entries_cleared: clearedCount,
           reason: callerContext?.reason || "explicit_invalidation",
-          request_id: callerContext?.requestId,
           rate_limit_remaining: this.rateLimiter.getRemainingAttempts(rateLimitKey),
         },
       });

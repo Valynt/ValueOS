@@ -169,7 +169,6 @@ export function ValueCaseCanvas() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeDirectResult, setActiveDirectResult] = useState<AgentJobResult | null>(null);
   const [guardMessage, setGuardMessage] = useState<string | null>(null);
-
 const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
   setActiveRunId(jobId);
   setActiveDirectResult(direct ?? null);
@@ -177,9 +176,9 @@ const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
 
 const { data: merged } = useMergedContext(caseId);
 const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
-const { data: workflowExecutionView } = useWorkflowExecutionViewModel(caseId);
+const { data: workflowExecutionViewModel } = useWorkflowExecutionViewModel(caseId);
 
-const workflowStatus = workflowExecutionView ?? {
+const workflowStatus = workflowExecutionViewModel ?? {
   statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
   statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
   statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,

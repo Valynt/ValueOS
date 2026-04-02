@@ -5,7 +5,7 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
-import ErrorBoundary from "@/components/common/ErrorBoundary";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
 // Lazy load academy pages
