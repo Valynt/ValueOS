@@ -9,5 +9,6 @@ export interface AuditLogPayload {
 }
 
 export async function auditLog(payload: AuditLogPayload): Promise<void> {
-  logger.info("audit.event", payload);
+  const { event, ...rest } = payload;
+  logger.info("audit.event", { audit_event: event, ...rest });
 }
