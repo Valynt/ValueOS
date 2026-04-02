@@ -432,30 +432,12 @@ jobs:
           mkdir -p reports/compliance/dsr
       - name: Tenant isolation + compliance tests
         env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npx vitest run --config tests/security/vitest.security.config.ts \
-            tests/security/rls-tenant-isolation.test.ts \
-            tests/security/api-tenant-isolation.test.ts \
-            tests/security/supabase-rls-policy-matrix.test.ts \
-            tests/security/agent-invocation-tenant-boundary.test.ts \
-            packages/memory/tests/tenant-vector-isolation.test.ts \
-            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
-            --reporter=verbose \
-            --reporter=junit \
-            --reporter=json \
-            --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
-            --outputFile.json=reports/compliance/rls/vitest-rls.json
-      - name: Assert tenant-isolation executed test count and pass rate
-        run: |
-          node scripts/ci/assert-test-minimums.mjs \
-            --format vitest \
-            --label "tenant-isolation-gate" \
-            --report reports/compliance/rls/vitest-rls.json \
-            --min-executed 10 \
-            --min-pass-rate 100
+          node scripts/ci/run-tenant-isolation-rls-suite.mjs
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

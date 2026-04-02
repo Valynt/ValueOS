@@ -13,6 +13,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: "tenant-isolation-rls",
     environment: "node",
     globals: true,
     include: [
