@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
 
 const redisExists = vi.fn();
+const redisSet = vi.fn();
 const getRedisClientMock = vi.fn();
 const auditLog = vi.fn().mockResolvedValue({ id: 'audit-id' });
 
@@ -76,6 +77,10 @@ function signApprovalArtifactToken(params: {
   approvedAt: string;
   expiresAt: string;
   signingSecret: string;
+  ticketId?: string;
+  approvedByPrimary?: string;
+  approvedBySecondary?: string;
+  approvalJustification?: string;
 }): string {
   const payload = Buffer.from(
     JSON.stringify({
@@ -84,6 +89,10 @@ function signApprovalArtifactToken(params: {
       approvedAt: params.approvedAt,
       expiresAt: params.expiresAt,
       scope: 'auth-fallback',
+      ticketId: params.ticketId ?? params.incidentId,
+      approvedByPrimary: params.approvedByPrimary ?? 'security.lead',
+      approvedBySecondary: params.approvedBySecondary ?? 'platform.director',
+      approvalJustification: params.approvalJustification ?? 'IdP outage mitigation with read-only scope.',
     })
   ).toString('base64url');
   const signature = createHmac('sha256', params.signingSecret).update(payload).digest('hex');
@@ -94,8 +103,10 @@ describe('verifyAccessToken local fallback policy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     redisExists.mockResolvedValue(0);
+    redisSet.mockResolvedValue('OK');
     getRedisClientMock.mockResolvedValue({
       exists: redisExists,
+      set: redisSet,
     });
     const now = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const incidentStartedAt = new Date(Date.now() - 60 * 1000).toISOString();
@@ -455,6 +466,7 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(verified?.user.id).toBe('user-123');
     expect(verified?.session.access_token).toBe(token);
     expect(redisExists).toHaveBeenCalled();
+    expect(redisSet).toHaveBeenCalled();
     expect(auditLog).toHaveBeenCalledTimes(1);
     expect(auditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
       action: 'auth.jwt_fallback_request_authenticated_immutable',
@@ -467,6 +479,32 @@ describe('verifyAccessToken local fallback policy', () => {
         incidentSeverity: 'critical',
       }),
     }));
+  });
+
+  it('hard-stops fallback after single-use maintenance window has been consumed', async () => {
+    __setEnvSourceForTests({ AUTH_FALLBACK_EMERGENCY_MODE: 'true' });
+    redisSet.mockResolvedValueOnce('OK').mockResolvedValueOnce(null);
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+        jti: 'jti-123',
+      },
+      'test-secret',
+      { expiresIn: '5m' },
+    );
+
+    const first = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    expect(first?.user.id).toBe('user-123');
+
+    auditLog.mockClear();
+    const second = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+    expect(second).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
   });
 
   it('rejects fallback tokens with missing tenant claim', async () => {
@@ -551,6 +589,89 @@ describe('verifyAccessToken local fallback policy', () => {
     );
 
     const verified = await verifyAccessToken(token, { route: '/api/test', method: 'POST' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when request route is not allowlisted', async () => {
+    __setEnvSourceForTests({ AUTH_FALLBACK_EMERGENCY_MODE: 'true' });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+        jti: 'jti-123',
+      },
+      'test-secret',
+      { expiresIn: '5m' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/not-allowlisted', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when approval token metadata is malformed', async () => {
+    const malformedPayload = Buffer.from(
+      JSON.stringify({
+        incidentId: 'INC-1234',
+        incidentCorrelationId: 'CORR-1234',
+        approvedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+        expiresAt: process.env.AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
+        scope: 'auth-fallback',
+        ticketId: 'INC-9999',
+        approvedByPrimary: 'security.lead',
+        approvedBySecondary: 'security.lead',
+      })
+    ).toString('base64url');
+    const malformedSig = createHmac('sha256', 'approval-signing-secret').update(malformedPayload).digest('hex');
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_APPROVAL_TOKEN: `v1.${malformedPayload}.${malformedSig}`,
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when approval token signature is malformed', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_APPROVAL_TOKEN: 'v1.badpayload.deadbeef',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
 
     expect(verified).toBeNull();
     expect(auditLog).not.toHaveBeenCalled();

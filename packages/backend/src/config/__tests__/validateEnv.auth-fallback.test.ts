@@ -34,6 +34,10 @@ function signApprovalArtifactToken(params: {
   approvedAt: string;
   expiresAt: string;
   signingSecret: string;
+  ticketId?: string;
+  approvedByPrimary?: string;
+  approvedBySecondary?: string;
+  approvalJustification?: string;
 }): string {
   const payload = Buffer.from(
     JSON.stringify({
@@ -42,6 +46,10 @@ function signApprovalArtifactToken(params: {
       approvedAt: params.approvedAt,
       expiresAt: params.expiresAt,
       scope: "auth-fallback",
+      ticketId: params.ticketId ?? params.incidentId,
+      approvedByPrimary: params.approvedByPrimary ?? "security.lead",
+      approvedBySecondary: params.approvedBySecondary ?? "platform.director",
+      approvalJustification: params.approvalJustification ?? "IdP outage mitigation with read-only scope.",
     })
   ).toString("base64url");
   const signature = createHmac("sha256", params.signingSecret).update(payload).digest("hex");
@@ -206,6 +214,104 @@ describe("validateEnv production auth fallback controls", () => {
     expect(result.valid).toBe(false);
     expect(
       result.errors.some((error) => error.includes("approved maintenance window")),
+    ).toBe(true);
+  });
+
+  it("fails when production route allowlist uses wildcard pattern", () => {
+    const { ttlUntil, incidentStartedAt } = stubBaselineProductionEnv();
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_MODE", "true");
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_TTL_UNTIL", ttlUntil);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_ID", "INC-5678");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SEVERITY", "critical");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_STARTED_AT", incidentStartedAt);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_CORRELATION_ID", "CORR-5678");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_ROUTES", "/api/secure/*");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_METHODS", "GET");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SIGNING_SECRET", "signing-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE",
+      signIncidentContext({
+        incidentId: "INC-5678",
+        incidentSeverity: "critical",
+        incidentStartedAt,
+        incidentCorrelationId: "CORR-5678",
+        ttlUntil,
+        allowedRoutes: "/api/secure/*",
+        allowedMethods: "GET",
+        signingSecret: "signing-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_SIGNING_SECRET", "approval-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_APPROVAL_TOKEN",
+      signApprovalArtifactToken({
+        incidentId: "INC-5678",
+        incidentCorrelationId: "CORR-5678",
+        approvedAt: new Date(Date.now() - 60_000).toISOString(),
+        expiresAt: ttlUntil,
+        signingSecret: "approval-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_START", new Date(Date.now() - 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_END", new Date(Date.now() + 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_ALERT_THRESHOLD", "1");
+    vi.stubEnv("AUTH_FALLBACK_ALERT_WINDOW_SECONDS", "300");
+
+    const result = validateEnv();
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes("broad wildcards"))).toBe(true);
+  });
+
+  it("fails when approval token is missing dual-approval metadata", () => {
+    const { ttlUntil, incidentStartedAt } = stubBaselineProductionEnv();
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_MODE", "true");
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_TTL_UNTIL", ttlUntil);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_ID", "INC-5678");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SEVERITY", "critical");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_STARTED_AT", incidentStartedAt);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_CORRELATION_ID", "CORR-5678");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_ROUTES", "/api/secure");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_METHODS", "GET");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SIGNING_SECRET", "signing-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE",
+      signIncidentContext({
+        incidentId: "INC-5678",
+        incidentSeverity: "critical",
+        incidentStartedAt,
+        incidentCorrelationId: "CORR-5678",
+        ttlUntil,
+        allowedRoutes: "/api/secure",
+        allowedMethods: "GET",
+        signingSecret: "signing-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_SIGNING_SECRET", "approval-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_APPROVAL_TOKEN",
+      signApprovalArtifactToken({
+        incidentId: "INC-5678",
+        incidentCorrelationId: "CORR-5678",
+        approvedAt: new Date(Date.now() - 60_000).toISOString(),
+        expiresAt: ttlUntil,
+        signingSecret: "approval-secret",
+        approvedBySecondary: "security.lead",
+        approvalJustification: "short",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_START", new Date(Date.now() - 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_END", new Date(Date.now() + 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_ALERT_THRESHOLD", "1");
+    vi.stubEnv("AUTH_FALLBACK_ALERT_WINDOW_SECONDS", "300");
+
+    const result = validateEnv();
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.includes("approvedByPrimary/approvedBySecondary metadata"),
+      ),
     ).toBe(true);
   });
 });

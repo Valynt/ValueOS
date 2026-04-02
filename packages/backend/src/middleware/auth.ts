@@ -56,6 +56,8 @@ const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
 const AUTH_FALLBACK_ALLOWED_ROUTES = 'AUTH_FALLBACK_ALLOWED_ROUTES';
 const AUTH_FALLBACK_ALLOWED_METHODS = 'AUTH_FALLBACK_ALLOWED_METHODS';
 const AUTH_FALLBACK_HARD_MAX_TTL_SECONDS = 30 * 60;
+const AUTH_FALLBACK_INCIDENT_ID_PATTERN = /^INC-\d{4,}$/;
+const FALLBACK_APPROVAL_ACTOR_PATTERN = /^[a-z0-9._:-]{3,128}$/i;
 const FALLBACK_READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // In-process fallback: used only when Redis is unavailable.
@@ -63,6 +65,7 @@ const FALLBACK_READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // multi-instance deployments. Redis-backed counting is the primary path.
 const fallbackActivations: number[] = [];
 const FALLBACK_COUNTER_REDIS_KEY = 'auth:fallback:activations';
+const FALLBACK_SINGLE_USE_REDIS_KEY_PREFIX = 'auth:fallback:single-use';
 
 type VerificationContext = {
   route?: string;
@@ -105,6 +108,7 @@ type FallbackEmergencyConfig = {
   allowedRoutes: string[];
   allowedMethods: string[];
   requireAuthoritativeRevocation: boolean;
+  maintenanceWindowEnd: string;
 };
 
 type RevocationCheckResult = {
@@ -123,6 +127,27 @@ function matchesAllowedValue(candidate: string | undefined, allowlist: string[])
     }
     return candidate === allowedValue;
   });
+}
+
+function isStrictFallbackRoutePattern(routePattern: string, nodeEnv: string): boolean {
+  const trimmedPattern = routePattern.trim();
+  if (!trimmedPattern.startsWith('/')) {
+    return false;
+  }
+  if (trimmedPattern.includes('?') || trimmedPattern.includes('#') || /\s/.test(trimmedPattern)) {
+    return false;
+  }
+
+  const wildcardCount = (trimmedPattern.match(/\*/g) || []).length;
+  if (wildcardCount === 0) {
+    return true;
+  }
+
+  if (nodeEnv === 'production') {
+    return false;
+  }
+
+  return wildcardCount === 1 && trimmedPattern.endsWith('*') && trimmedPattern.length > 2;
 }
 
 function extractRolesFromClaims(claims: JwtPayload): string[] {
@@ -247,6 +272,13 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     });
     return null;
   }
+  if (!AUTH_FALLBACK_INCIDENT_ID_PATTERN.test(incidentId)) {
+    logger.error('Fallback emergency mode requires incident ID in INC-<digits> format', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_ID,
+      value: sanitizeForLogging(incidentId),
+    });
+    return null;
+  }
 
   const incidentSeverity = getEnvVar(AUTH_FALLBACK_INCIDENT_SEVERITY);
   if (!incidentSeverity) {
@@ -301,6 +333,14 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
   if (allowedRoutes.length === 0) {
     logger.error('Fallback emergency mode requires explicit route allowlist metadata', undefined, {
       routeFlag: AUTH_FALLBACK_ALLOWED_ROUTES,
+    });
+    return null;
+  }
+  if (!allowedRoutes.every((routePattern) => isStrictFallbackRoutePattern(routePattern, nodeEnv))) {
+    logger.error('Fallback emergency mode route allowlist contains invalid or broad wildcard patterns', undefined, {
+      routeFlag: AUTH_FALLBACK_ALLOWED_ROUTES,
+      nodeEnv,
+      allowedRoutes,
     });
     return null;
   }
@@ -389,6 +429,10 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     approvedAt?: string;
     expiresAt?: string;
     scope?: string;
+    ticketId?: string;
+    approvedByPrimary?: string;
+    approvedBySecondary?: string;
+    approvalJustification?: string;
   } | null = null;
   try {
     parsedArtifactPayload = JSON.parse(Buffer.from(payloadSegment, 'base64url').toString('utf8')) as typeof parsedArtifactPayload;
@@ -409,6 +453,22 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
       flag: AUTH_FALLBACK_APPROVAL_TOKEN,
       incidentId: sanitizeForLogging(incidentId),
       incidentCorrelationId: sanitizeForLogging(incidentCorrelationId),
+    });
+    return null;
+  }
+  if (
+    parsedArtifactPayload.ticketId !== incidentId ||
+    !parsedArtifactPayload.approvedByPrimary ||
+    !parsedArtifactPayload.approvedBySecondary ||
+    parsedArtifactPayload.approvedByPrimary === parsedArtifactPayload.approvedBySecondary ||
+    !FALLBACK_APPROVAL_ACTOR_PATTERN.test(parsedArtifactPayload.approvedByPrimary) ||
+    !FALLBACK_APPROVAL_ACTOR_PATTERN.test(parsedArtifactPayload.approvedBySecondary) ||
+    !parsedArtifactPayload.approvalJustification ||
+    parsedArtifactPayload.approvalJustification.trim().length < 12
+  ) {
+    logger.error('Fallback approval artifact token requires dual-approval metadata and incident ticket linkage', undefined, {
+      flag: AUTH_FALLBACK_APPROVAL_TOKEN,
+      incidentId: sanitizeForLogging(incidentId),
     });
     return null;
   }
@@ -474,7 +534,23 @@ function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
     allowedRoutes,
     allowedMethods,
     requireAuthoritativeRevocation: true,
+    maintenanceWindowEnd,
   };
+}
+
+async function consumeSingleUseFallbackWindow(emergencyConfig: FallbackEmergencyConfig): Promise<boolean> {
+  const redis = await getRedisClient();
+  if (!redis) {
+    logger.error('Redis is required to enforce single-use auth fallback window', undefined, {
+      incidentId: sanitizeForLogging(emergencyConfig.incidentId),
+    });
+    return false;
+  }
+
+  const key = `${FALLBACK_SINGLE_USE_REDIS_KEY_PREFIX}:${emergencyConfig.incidentId}:${emergencyConfig.maintenanceWindowEnd}`;
+  const ttlSeconds = Math.max(1, Math.ceil((new Date(emergencyConfig.maintenanceWindowEnd).getTime() - Date.now()) / 1000));
+  const setResult = await redis.set(key, '1', 'EX', ttlSeconds, 'NX');
+  return setResult === 'OK';
 }
 
 function parseBearerToken(header?: string): string | null {
@@ -595,8 +671,15 @@ async function isTokenRevoked(token: string, claims: JwtPayload): Promise<Revoca
 
 async function recordFallbackActivation(alertContext: Record<string, unknown>): Promise<void> {
   const now = Date.now();
-  const threshold = Number(getEnvVar(AUTH_FALLBACK_ALERT_THRESHOLD) || '5');
+  const threshold = Number(getEnvVar(AUTH_FALLBACK_ALERT_THRESHOLD) || '1');
   const windowSeconds = Number(getEnvVar(AUTH_FALLBACK_ALERT_WINDOW_SECONDS) || '300');
+  if (!Number.isFinite(threshold) || threshold <= 0) {
+    logger.error('Invalid fallback alert threshold; forcing immediate alert behavior', undefined, {
+      flag: AUTH_FALLBACK_ALERT_THRESHOLD,
+      value: sanitizeForLogging(getEnvVar(AUTH_FALLBACK_ALERT_THRESHOLD)),
+      ...alertContext,
+    });
+  }
   const windowMs = windowSeconds * 1000;
   const allowProcessLocalCounter = getEnvVar("NODE_ENV") !== "production";
 
@@ -649,7 +732,7 @@ async function recordFallbackActivation(alertContext: Record<string, unknown>): 
     }
   }
 
-  if (activationsInWindow >= threshold) {
+  if (activationsInWindow >= Math.max(1, threshold)) {
     logger.error('High-severity alert: JWT fallback usage spike detected', undefined, {
       severity: 'critical',
       threshold,
@@ -989,6 +1072,15 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
       logger.warn('Local fallback rejected revoked token', {
         route: sanitizeForLogging(context.route),
         tokenSubject: sanitizeForLogging(claims.sub),
+      });
+      return null;
+    }
+
+    const singleUseAcquired = await consumeSingleUseFallbackWindow(emergencyConfig);
+    if (!singleUseAcquired) {
+      logger.warn('Local fallback rejected because approved maintenance window has already been consumed', {
+        route: sanitizeForLogging(context.route),
+        incidentId: sanitizeForLogging(emergencyConfig.incidentId),
       });
       return null;
     }
