@@ -1186,6 +1186,9 @@ jobs:
         if: steps.changes.outputs.monitoring_changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           promtool check rules infra/k8s/monitoring/observability-recording-alerts.yaml
+      - name: Validate billing alert metric references
+        run: |
+          node scripts/ci/check-billing-alert-metrics.mjs
       - name: Emit lane summary
         if: always()
         run: |

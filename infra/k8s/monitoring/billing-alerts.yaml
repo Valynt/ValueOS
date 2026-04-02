@@ -209,9 +209,9 @@ spec:
         - alert: WebhookProcessingErrorRate
           expr: |
             (
-              rate(billing_webhook_processing_errors_total[10m])
+              rate(webhooks_processed_total{status="failed"}[10m])
               /
-              clamp_min(rate(billing_webhook_processing_total[10m]), 0.001)
+              clamp_min(rate(webhooks_processed_total[10m]), 0.001)
             ) > 0.05
           for: 10m
           labels:
@@ -272,7 +272,7 @@ spec:
       rules:
         - alert: InvoiceGenerationFailures
           expr: |
-            rate(billing_invoice_generation_errors_total[1h]) > 0
+            increase(webhook_processing_failures_total{event_type=~"invoice\\..*"}[1h]) > 0
           for: 15m
           labels:
             severity: critical
