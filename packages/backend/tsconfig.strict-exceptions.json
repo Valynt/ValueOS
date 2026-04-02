@@ -9,15 +9,49 @@
     "allowImportingTsExtensions": false
   },
   "include": [
-    "src/api/**/*.ts",
+    "src/api/*.ts",
+    "src/api/academy/**/*.ts",
+    "src/api/artifacts/**/*.ts",
+    "src/api/billing/**/*.ts",
+    "src/api/client/**/*.ts",
+    "src/api/config/**/*.ts",
+    "src/api/conversations/**/*.ts",
+    "src/api/customer/**/*.ts",
+    "src/api/domainPacks/**/*.ts",
+    "src/api/health/**/*.ts",
+    "src/api/initiatives/**/*.ts",
+    "src/api/services/**/*.ts",
+    "src/api/trpc/**/*.ts",
+    "src/api/valueCases/**/*.ts",
+    "src/api/valueCommitments/**/*.ts",
+    "src/api/valueDrivers/**/*.ts",
+    "src/api/valueModels/**/*.ts",
     "src/middleware/**/*.ts",
     "src/runtime/**/*.ts",
-    "src/services/auth/**/*.ts",
+    "src/services/auth/*.ts",
+    "src/services/auth/cache/**/*.ts",
     "src/services/billing/**/*.ts",
-    "src/services/security/**/*.ts",
-    "src/services/tenant/**/*.ts",
+    "src/services/security/*.ts",
+    "src/services/tenant/*.ts",
+    "src/services/tenant/billing/**/*.ts",
     "src/types/**/*.ts",
     "src/types/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"],
+  "strictExceptionBudgets": [
+    { "glob": "src/api/**/*.ts", "baseline": 116, "nextTarget": 110, "sunsetDate": "2026-06-30" },
+    { "glob": "src/middleware/**/*.ts", "baseline": 44, "nextTarget": 40, "sunsetDate": "2026-06-30" },
+    { "glob": "src/runtime/**/*.ts", "baseline": 15, "nextTarget": 12, "sunsetDate": "2026-05-31" },
+    { "glob": "src/services/auth/**/*.ts", "baseline": 31, "nextTarget": 27, "sunsetDate": "2026-05-31" },
+    { "glob": "src/services/billing/**/*.ts", "baseline": 31, "nextTarget": 25, "sunsetDate": "2026-06-30" },
+    { "glob": "src/services/security/**/*.ts", "baseline": 31, "nextTarget": 26, "sunsetDate": "2026-05-31" },
+    { "glob": "src/services/tenant/**/*.ts", "baseline": 26, "nextTarget": 22, "sunsetDate": "2026-05-31" },
+    { "glob": "src/types/**/*.ts", "baseline": 45, "nextTarget": 40, "sunsetDate": "2026-06-30" }
+  ],
+  "protectedZeroNewZones": [
+    "src/api/**/*.ts",
+    "src/services/auth/**/*.ts",
+    "src/services/security/**/*.ts",
+    "src/services/tenant/**/*.ts"
+  ]
 }
