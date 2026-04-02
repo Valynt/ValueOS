@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ValueCaseCanvas } from "../ValueCaseCanvas";
 
 const mockUseCase = vi.fn();
+const useWorkflowExecutionViewModelMock = vi.fn();
 
 vi.mock("@/hooks/useCases", () => ({
   useCase: (...args: unknown[]) => mockUseCase(...args),
@@ -29,6 +30,10 @@ vi.mock("@/hooks/useCaseExport", () => ({
 
 vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
+}));
+
+vi.mock("@/features/workflow/hooks/useWorkflowExecutionViewModel", () => ({
+  useWorkflowExecutionViewModel: () => useWorkflowExecutionViewModelMock(),
 }));
 
 vi.mock("../canvas/HypothesisStage", () => ({
@@ -69,26 +74,28 @@ function renderCanvas() {
   );
 }
 
-function buildCaseWithWorkflowMetadata(workflowExecution: Record<string, unknown>) {
+function buildCase() {
   return {
     id: "case-1",
     name: "Value Case",
     company_profiles: { company_name: "Acme" },
-    metadata: {
-      workflow_execution: workflowExecution,
-    },
   };
 }
 
 describe("ValueCaseCanvas guided next-step journey", () => {
   it("shows a pending-stage recommendation", () => {
     mockUseCase.mockReturnValue({
-      data: buildCaseWithWorkflowMetadata({
-        stages: {
-          hypothesis: { status: "pending", completion_criteria: ["Document baseline assumptions"] },
-        },
-      }),
+      data: buildCase(),
       isLoading: false,
+    });
+    useWorkflowExecutionViewModelMock.mockReturnValue({
+      data: {
+        execution: {
+          stages: {
+            hypothesis: { status: "pending", completion_criteria: ["Document baseline assumptions"] },
+          },
+        },
+      },
     });
 
     renderCanvas();
@@ -100,14 +107,19 @@ describe("ValueCaseCanvas guided next-step journey", () => {
 
   it("shows an in-progress recommendation", () => {
     mockUseCase.mockReturnValue({
-      data: buildCaseWithWorkflowMetadata({
-        in_progress_stage: "model",
-        stages: {
-          hypothesis: { status: "complete" },
-          model: { status: "in_progress" },
-        },
-      }),
+      data: buildCase(),
       isLoading: false,
+    });
+    useWorkflowExecutionViewModelMock.mockReturnValue({
+      data: {
+        execution: {
+          in_progress_stage: "model",
+          stages: {
+            hypothesis: { status: "complete" },
+            model: { status: "in_progress" },
+          },
+        },
+      },
     });
 
     renderCanvas();
@@ -119,16 +131,21 @@ describe("ValueCaseCanvas guided next-step journey", () => {
 
   it("shows guard details when entering a blocked stage", () => {
     mockUseCase.mockReturnValue({
-      data: buildCaseWithWorkflowMetadata({
-        stages: {
-          model: {
-            status: "blocked",
-            blocked_reason: "Hypothesis evidence confidence is below threshold.",
-            prerequisites: ["Complete hypothesis evidence review", "Confirm baseline metrics"],
+      data: buildCase(),
+      isLoading: false,
+    });
+    useWorkflowExecutionViewModelMock.mockReturnValue({
+      data: {
+        execution: {
+          stages: {
+            model: {
+              status: "blocked",
+              blocked_reason: "Hypothesis evidence confidence is below threshold.",
+              prerequisites: ["Complete hypothesis evidence review", "Confirm baseline metrics"],
+            },
           },
         },
-      }),
-      isLoading: false,
+      },
     });
 
     renderCanvas();
@@ -188,18 +205,23 @@ describe("ValueCaseCanvas guided next-step journey", () => {
 
   it("shows complete recommendation when all stages are complete", () => {
     mockUseCase.mockReturnValue({
-      data: buildCaseWithWorkflowMetadata({
-        stages: {
-          hypothesis: { status: "complete" },
-          model: { status: "complete" },
-          integrity: { status: "complete" },
-          narrative: { status: "complete" },
-          realization: { status: "complete" },
-          expansion: { status: "complete" },
-          "value-graph": { status: "complete" },
-        },
-      }),
+      data: buildCase(),
       isLoading: false,
+    });
+    useWorkflowExecutionViewModelMock.mockReturnValue({
+      data: {
+        execution: {
+          stages: {
+            hypothesis: { status: "complete" },
+            model: { status: "complete" },
+            integrity: { status: "complete" },
+            narrative: { status: "complete" },
+            realization: { status: "complete" },
+            expansion: { status: "complete" },
+            "value-graph": { status: "complete" },
+          },
+        },
+      },
     });
 
     renderCanvas();

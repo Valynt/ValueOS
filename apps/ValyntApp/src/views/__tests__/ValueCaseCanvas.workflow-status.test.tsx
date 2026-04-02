@@ -80,6 +80,7 @@ describe("ValueCaseCanvas workflow state presentation", () => {
         confidenceLabel: "77%",
         ctaText: presentation.ctaText,
         lastUpdatedLabel: "Updated just now",
+        execution: { stages: {} },
       },
     });
 

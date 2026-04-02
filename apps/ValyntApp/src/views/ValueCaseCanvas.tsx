@@ -37,20 +37,18 @@ interface StageDefinition {
   description: string;
 }
 
-interface StageExecutionMetadata {
-  status?: "pending" | "in_progress" | "blocked" | "complete";
-  is_complete?: boolean;
-  blocked_reason?: string;
-  prerequisites?: string[];
-  completion_criteria?: string[];
-  last_updated_at?: string;
-}
-
 interface WorkflowExecutionMetadata {
   active_stage?: string;
   in_progress_stage?: string;
   blocked_stage?: string;
-  stages?: Record<string, StageExecutionMetadata>;
+  stages: Record<string, {
+    status?: "pending" | "in_progress" | "blocked" | "complete";
+    is_complete?: boolean;
+    blocked_reason?: string;
+    prerequisites?: string[];
+    completion_criteria?: string[];
+    last_updated_at?: string;
+  }>;
 }
 
 interface MilestoneDefinition {
@@ -98,47 +96,6 @@ const milestones: MilestoneDefinition[] = [
     stageKeys: ["realization", "expansion"],
   },
 ];
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function toStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string");
-}
-
-function parseStageExecutionMetadata(input: unknown): StageExecutionMetadata {
-  if (!isObjectRecord(input)) return {};
-  const status = input.status;
-  return {
-    status: status === "pending" || status === "in_progress" || status === "blocked" || status === "complete"
-      ? status
-      : undefined,
-    is_complete: typeof input.is_complete === "boolean" ? input.is_complete : undefined,
-    blocked_reason: typeof input.blocked_reason === "string" ? input.blocked_reason : undefined,
-    prerequisites: toStringList(input.prerequisites),
-    completion_criteria: toStringList(input.completion_criteria),
-    last_updated_at: typeof input.last_updated_at === "string" ? input.last_updated_at : undefined,
-  };
-}
-
-function parseWorkflowExecutionMetadata(input: unknown): WorkflowExecutionMetadata {
-  if (!isObjectRecord(input)) return {};
-  const stagesValue = isObjectRecord(input.stages) ? input.stages : {};
-  const stagesRecord: Record<string, StageExecutionMetadata> = {};
-
-  Object.entries(stagesValue).forEach(([stageKey, stageValue]) => {
-    stagesRecord[stageKey] = parseStageExecutionMetadata(stageValue);
-  });
-
-  return {
-    active_stage: typeof input.active_stage === "string" ? input.active_stage : undefined,
-    in_progress_stage: typeof input.in_progress_stage === "string" ? input.in_progress_stage : undefined,
-    blocked_stage: typeof input.blocked_stage === "string" ? input.blocked_stage : undefined,
-    stages: stagesRecord,
-  };
-}
 
 function getStageState(
   stageKey: string,
@@ -213,29 +170,33 @@ export function ValueCaseCanvas() {
   const [activeDirectResult, setActiveDirectResult] = useState<AgentJobResult | null>(null);
   const [guardMessage, setGuardMessage] = useState<string | null>(null);
 
-  const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
-    setActiveRunId(jobId);
-    setActiveDirectResult(direct ?? null);
-  };
-  const { data: merged } = useMergedContext(caseId);
-  const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
-  const { data: workflowExecutionView } = useWorkflowExecutionViewModel(caseId);
-  const workflowStatus = workflowExecutionView ?? {
-    statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
-    statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
-    statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,
-    confidenceBarClassName: WORKFLOW_STATUS_PRESENTATION.never_run.confidenceClassName,
-    confidencePercent: 0,
-    confidenceLabel: "0%",
-    ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
-    lastUpdatedLabel: "No execution activity yet",
-  };
-  const pptxExport = usePptxExport(caseId);
-  const { toast } = useToast();
+const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
+  setActiveRunId(jobId);
+  setActiveDirectResult(direct ?? null);
+};
+
+const { data: merged } = useMergedContext(caseId);
+const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
+const { data: workflowExecutionView } = useWorkflowExecutionViewModel(caseId);
+
+const workflowStatus = workflowExecutionView ?? {
+  statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
+  statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
+  statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,
+  confidenceBarClassName: WORKFLOW_STATUS_PRESENTATION.never_run.confidenceClassName,
+  confidencePercent: 0,
+  confidenceLabel: "0%",
+  ctaText: WORKFLOW_STATUS_PRESENTATION.never_run.ctaText,
+  lastUpdatedLabel: "No execution activity yet",
+  execution: { stages: {} },
+};
+
+const pptxExport = usePptxExport(caseId);
+const { toast } = useToast();
 
   const workflowExecution = useMemo(
-    () => parseWorkflowExecutionMetadata(valueCase?.metadata?.workflow_execution),
-    [valueCase?.metadata]
+    () => workflowStatus.execution ?? { stages: {} },
+    [workflowStatus.execution]
   );
 
   const stageStatuses = useMemo(
