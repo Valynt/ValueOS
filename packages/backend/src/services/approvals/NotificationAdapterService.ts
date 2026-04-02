@@ -44,8 +44,9 @@ export class NotificationAdapterService {
       channels.map((channel) =>
         this.postToChannel(channel, {
           input,
-          approveUrl: `${this.deps.callbackBaseUrl}/api/approvals/webhooks/${channel}/decision?token=${encodeURIComponent(approveToken)}`,
-          rejectUrl: `${this.deps.callbackBaseUrl}/api/approvals/webhooks/${channel}/decision?token=${encodeURIComponent(rejectToken)}`,
+          decisionEndpoint: `${this.deps.callbackBaseUrl}/api/approvals/webhooks/${channel}/decision`,
+          approveToken,
+          rejectToken,
         }),
       ),
     );
@@ -72,13 +73,23 @@ export class NotificationAdapterService {
 
   private async postToChannel(
     channel: NotificationChannel,
-    payload: { input: ApprovalNotificationRequest; approveUrl: string; rejectUrl: string },
+    payload: {
+      input: ApprovalNotificationRequest;
+      decisionEndpoint: string;
+      approveToken: string;
+      rejectToken: string;
+    },
   ): Promise<void> {
     const webhookUrl = channel === 'slack' ? this.deps.slackWebhookUrl : this.deps.teamsWebhookUrl;
     if (!webhookUrl) return;
 
     const body = {
       text: `Approval required: ${payload.input.agentName} / ${payload.input.action}`,
+      secure_handoff: {
+        endpoint: payload.decisionEndpoint,
+        approve_token: payload.approveToken,
+        reject_token: payload.rejectToken,
+      },
       blocks: [
         {
           type: 'section',
@@ -88,10 +99,10 @@ export class NotificationAdapterService {
           },
         },
         {
-          type: 'actions',
-          elements: [
-            { type: 'button', text: { type: 'plain_text', text: 'Approve' }, url: payload.approveUrl },
-            { type: 'button', text: { type: 'plain_text', text: 'Reject' }, url: payload.rejectUrl },
+            type: 'actions',
+            elements: [
+            { type: 'button', text: { type: 'plain_text', text: 'Approve' }, url: payload.decisionEndpoint },
+            { type: 'button', text: { type: 'plain_text', text: 'Reject' }, url: payload.decisionEndpoint },
           ],
         },
       ],

@@ -7,7 +7,7 @@
 
 import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { GuestValueCalculator } from './GuestValueCalculator';
 
@@ -64,7 +64,6 @@ type AccessState =
   | { status: 'error'; message: string };
 
 export function GuestAccessPage() {
-  const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [handoffToken, setHandoffToken] = useState<string | null>(null);
@@ -77,7 +76,7 @@ export function GuestAccessPage() {
   }, [location.hash]);
 
   useEffect(() => {
-    const incomingToken = fragmentToken ?? searchParams.get('token');
+    const incomingToken = fragmentToken;
 
     if (!incomingToken) {
       if (!handoffToken) {
@@ -91,10 +90,10 @@ export function GuestAccessPage() {
 
     setHandoffToken(incomingToken);
 
-    if (fragmentToken || searchParams.get('token')) {
+    if (fragmentToken) {
       navigate(location.pathname, { replace: true });
     }
-  }, [fragmentToken, handoffToken, location.pathname, navigate, searchParams]);
+  }, [fragmentToken, handoffToken, location.pathname, navigate]);
 
   useEffect(() => {
     if (!handoffToken) {
