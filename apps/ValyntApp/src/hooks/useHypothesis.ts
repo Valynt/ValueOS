@@ -8,152 +8,21 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  HypothesisConfidenceSchema,
-  HypothesisStatusSchema,
-  ValueHypothesisSchema,
-  ValueRangeSchema,
-  type ValueHypothesis,
-} from "@valueos/shared/domain";
 import { z } from "zod";
 
 import { apiClient } from "@/api/client/unified-api-client";
 import { useTenant } from "@/contexts/TenantContext";
+import {
+  HypothesisOutputEnvelopeSchema,
+  type HypothesisOutput,
+  normalizeHypothesisOutput,
+} from "@/hooks/hypothesisNormalization";
 
-// ---------------------------------------------------------------------------
-// Boundary schemas + normalized model
-// ---------------------------------------------------------------------------
-
-const LegacyHypothesisSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().min(1),
-  category: z.string().min(1),
-  estimated_impact: z
-    .object({
-      low: z.number(),
-      high: z.number(),
-      unit: z.string(),
-      timeframe_months: z.number(),
-    })
-    .nullable()
-    .optional(),
-  confidence: z.number(),
-  evidence: z.array(z.string()).default([]),
-  assumptions: z.array(z.string()).default([]),
-  kpi_targets: z.array(z.string()).default([]),
-});
-
-const HypothesisOutputApiSchema = z.object({
-  id: z.string().uuid(),
-  case_id: z.string().uuid(),
-  organization_id: z.string().uuid(),
-  agent_run_id: z.string().uuid().nullable(),
-  hypotheses: z.array(z.unknown()),
-  kpis: z.array(z.string()),
-  confidence: z.enum(["high", "medium", "low"]).nullable(),
-  reasoning: z.string().nullable(),
-  hallucination_check: z.boolean().nullable(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-});
+export type { NormalizedHypothesis } from "@/hooks/hypothesisNormalization";
 
 const HypothesisApiResponseSchema = z.object({
-  data: HypothesisOutputApiSchema.nullable(),
+  data: HypothesisOutputEnvelopeSchema.nullable(),
 });
-
-export interface NormalizedValueHypothesis {
-  entity: ValueHypothesis;
-  title: string;
-  confidenceScore: number;
-  evidence: string[];
-  assumptions: string[];
-  kpiTargets: string[];
-}
-
-export interface HypothesisOutput {
-  id: string;
-  case_id: string;
-  organization_id: string;
-  agent_run_id: string | null;
-  hypotheses: NormalizedValueHypothesis[];
-  kpis: string[];
-  confidence: "high" | "medium" | "low" | null;
-  reasoning: string | null;
-  hallucination_check: boolean | null;
-  created_at: string;
-  updated_at: string;
-}
-
-const ImpactUnitSchema = z.enum(["usd", "percent", "hours", "headcount"]);
-
-const mapConfidenceScoreToBand = (score: number): z.infer<typeof HypothesisConfidenceSchema> => {
-  if (score >= 0.75) return "high";
-  if (score >= 0.5) return "medium";
-  return "low";
-};
-
-const normalizeLegacyImpact = (
-  impact: z.infer<typeof LegacyHypothesisSchema>['estimated_impact'],
-): z.infer<typeof ValueRangeSchema> | undefined => {
-  if (!impact) return undefined;
-
-  const unitResult = ImpactUnitSchema.safeParse(impact.unit);
-  if (!unitResult.success) return undefined;
-
-  return {
-    low: String(impact.low),
-    high: String(impact.high),
-    unit: unitResult.data,
-    timeframe_months: Math.max(1, Math.trunc(impact.timeframe_months)),
-  };
-};
-
-const normalizeHypothesis = (
-  hypothesis: unknown,
-  output: z.infer<typeof HypothesisOutputApiSchema>,
-): NormalizedValueHypothesis => {
-  const parsed = LegacyHypothesisSchema.parse(hypothesis);
-  const normalizedConfidenceBand = mapConfidenceScoreToBand(parsed.confidence);
-  const normalizedStatus = HypothesisStatusSchema.parse("proposed");
-  const estimatedValue = normalizeLegacyImpact(parsed.estimated_impact);
-
-  const candidate: ValueHypothesis = {
-    id: crypto.randomUUID(),
-    organization_id: output.organization_id,
-    opportunity_id: output.case_id,
-    description: parsed.description,
-    category: parsed.category,
-    estimated_value: estimatedValue,
-    confidence: normalizedConfidenceBand,
-    status: normalizedStatus,
-    evidence_ids: [],
-    hallucination_check: output.hallucination_check ?? undefined,
-    created_at: output.created_at,
-    updated_at: output.updated_at,
-  };
-
-  const entity = ValueHypothesisSchema.parse(candidate);
-
-  return {
-    entity,
-    title: parsed.title,
-    confidenceScore: parsed.confidence,
-    evidence: parsed.evidence,
-    assumptions: parsed.assumptions,
-    kpiTargets: parsed.kpi_targets,
-  };
-};
-
-export const normalizeHypothesisOutput = (
-  payload: z.infer<typeof HypothesisOutputApiSchema>,
-): HypothesisOutput => {
-  const hypotheses = payload.hypotheses.map((hypothesis) => normalizeHypothesis(hypothesis, payload));
-
-  return {
-    ...payload,
-    hypotheses,
-  };
-};
 
 // ---------------------------------------------------------------------------
 // Hooks
