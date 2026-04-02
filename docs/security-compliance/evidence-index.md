@@ -64,6 +64,14 @@ Use:
 node scripts/compliance/generate-quarterly-evidence-pack.mjs
 ```
 
+Quarterly CI export enforcement also runs:
+
+```bash
+node scripts/ci/check-quarterly-evidence-completeness.mjs --evidence-root=evidence
+```
+
+The gate parses this index's required artifact lists and fails if any required artifact is missing or empty.
+
 Output path:
 
 - `compliance/evidence-packs/<year>-Q<quarter>/evidence-pack-<timestamp>/`

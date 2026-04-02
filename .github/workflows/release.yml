@@ -370,6 +370,13 @@ jobs:
         run: |
           node scripts/ci/write-release-control-summary.mjs
 
+      - name: Publish auditor-ready control dashboard artifact
+        env:
+          CONTROL_DASHBOARD_JSON: release-artifacts/compliance/control-dashboard.json
+          CONTROL_DASHBOARD_MD: release-artifacts/compliance/control-dashboard.md
+        run: |
+          node scripts/ci/publish-control-dashboard.mjs
+
       - name: Upload release manifest bundle
         uses: actions/upload-artifact@v7
         with:
@@ -378,6 +385,8 @@ jobs:
             release-artifacts/release-manifest.json
             release-artifacts/release-control-summary.json
             release-artifacts/release-control-summary.md
+            release-artifacts/compliance/control-dashboard.json
+            release-artifacts/compliance/control-dashboard.md
             release-artifacts/sbom.cyclonedx.json
             release-artifacts/sbom.cyclonedx.json.sig
             release-artifacts/sbom.cyclonedx.json.pem
@@ -419,6 +428,8 @@ jobs:
               'release-artifacts/sbom.spdx.json',
               'release-artifacts/sbom.spdx.json.sig',
               'release-artifacts/sbom.spdx.json.pem',
+              'release-artifacts/compliance/control-dashboard.json',
+              'release-artifacts/compliance/control-dashboard.md',
               'release-artifacts/reproducibility/reproducibility-report.md',
               'release-artifacts/reproducibility/reproducibility-comparison.json',
               'release-artifacts/reproducibility/reproducibility-allowlisted-diff.json',
