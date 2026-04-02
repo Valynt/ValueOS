@@ -35,6 +35,28 @@ Runbooks for Prometheus alert rules defined in:
 | GeneralRateLimiterBackendUnavailableWarning | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
 | GeneralRateLimiterBackendUnavailable | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
 | GeneralRateLimiterProtective503Spike | [x] complete | Backend Platform | `infra/k8s/monitoring/rate-limiter-alerts.yaml` |
+| WebhookProcessingDrift | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookDLQGrowing | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| ReconciliationJobFailing | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| ReconciliationDriftDetected | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| UsageAggregationJobFailing | [x] complete | Revenue Platform + Platform SRE | `infra/k8s/monitoring/billing-alerts.yaml` |
+| UsageAggregationJobMissing | [x] complete | Revenue Platform + Platform SRE | `infra/k8s/monitoring/billing-alerts.yaml` |
+| UsageAggregationBacklog | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| StripeSubmissionErrorRate | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| StripeSubmissionLatencyHigh | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| StripePendingAggregatesStale | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| ApprovalCleanupJobFailing | [x] complete | Revenue Platform + Platform SRE | `infra/k8s/monitoring/billing-alerts.yaml` |
+| StaleApprovalRequests | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookUnresolvedTenant | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookRetryBacklog | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookProcessingErrorRate | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookRetryExhausted | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookBullMQFailedJobsHigh | [x] complete | Revenue Platform + Platform SRE | `infra/k8s/monitoring/billing-alerts.yaml` |
+| WebhookRetryWorkerStalled | [x] complete | Revenue Platform + Platform SRE | `infra/k8s/monitoring/billing-alerts.yaml` |
+| InvoiceGenerationFailures | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| HighUnpaidInvoiceRate | [x] complete | Revenue Platform | `infra/k8s/monitoring/billing-alerts.yaml` |
+| TenantQuotaExceeded | [x] complete | Revenue Platform + Customer Success Engineering | `infra/k8s/monitoring/billing-alerts.yaml` |
+| HighOverageSpend | [x] complete | Revenue Platform + Finance Ops | `infra/k8s/monitoring/billing-alerts.yaml` |
 
 ## HighErrorRate
 - **Trigger meaning:** 5xx ratio per pod exceeds 5% for 5m. Indicates user-visible failures and potential SLO burn.
@@ -211,6 +233,39 @@ Runbooks for Prometheus alert rules defined in:
 - **Escalation:** Page **Revenue Platform** + **Backend Platform** immediately. Security on-call must be notified when override is enabled.
 - **Post-incident actions:** attach outage timeline, override start/end timestamps, impacted tenants/routes, and reconciliation outcome.
 - **Ownership:** Revenue Platform + Backend Platform.
+
+## Billing Alerts — On-call Routing Matrix
+
+Use this matrix first during billing incidents to map **alert → metric → service owner** quickly.
+
+| Alert | Primary metric(s) | Service owner | First triage service |
+|---|---|---|---|
+| WebhookProcessingDrift | `webhooks_processed_total{status="success"}`, `webhooks_received_total` | Revenue Platform | `@valueos/backend` webhook ingest + processor |
+| WebhookDLQGrowing | `webhook_dlq_size` | Revenue Platform | Webhook retry worker |
+| ReconciliationJobFailing | `webhook_reconciliation_failures_total` | Revenue Platform | Stripe reconciliation cron |
+| ReconciliationDriftDetected | `webhook_reconciliation_drift_count` | Revenue Platform | Stripe reconciliation cron |
+| UsageAggregationJobFailing | `kube_job_status_failed{job_name=~"usage-aggregation-.*"}` | Revenue Platform + Platform SRE | Usage aggregation CronJob |
+| UsageAggregationJobMissing | `kube_cronjob_status_last_schedule_time{cronjob="usage-aggregation"}` | Revenue Platform + Platform SRE | Usage aggregation CronJob |
+| UsageAggregationBacklog | `billing_usage_records_unaggregated` | Revenue Platform | Billing aggregation worker |
+| StripeSubmissionErrorRate | `billing_stripe_submission_errors_total`, `billing_stripe_submission_total` | Revenue Platform | Stripe submission path |
+| StripeSubmissionLatencyHigh | `billing_stripe_submission_duration_seconds_bucket` | Revenue Platform | Stripe submission path |
+| StripePendingAggregatesStale | `billing_pending_aggregates_age_seconds` | Revenue Platform | Billing aggregation worker |
+| ApprovalCleanupJobFailing | `kube_job_status_failed{job_name=~"approval-cleanup-.*"}` | Revenue Platform + Platform SRE | Approval cleanup CronJob |
+| StaleApprovalRequests | `billing_approval_requests_pending_age_seconds` | Revenue Platform | Approval workflow service |
+| WebhookUnresolvedTenant | `billing_webhook_unresolved_tenant_total` | Revenue Platform | `payment_succeeded` mapping flow |
+| WebhookRetryBacklog | `billing_webhook_retry_queue_size` | Revenue Platform | Webhook retry worker |
+| WebhookProcessingErrorRate | `webhooks_processed_total{status="failed"}`, `webhooks_processed_total` | Revenue Platform | Webhook processor |
+| WebhookRetryExhausted | `billing_webhook_exhausted_total` | Revenue Platform | Webhook retry worker / DLQ |
+| WebhookBullMQFailedJobsHigh | `queue_job_total{queue="webhook-retry",status="failed"}` | Revenue Platform + Platform SRE | BullMQ workers |
+| WebhookRetryWorkerStalled | `queue_consumer_lag{queue="webhook-retry"}`, `queue_job_total{queue="webhook-retry",status="active"}` | Revenue Platform + Platform SRE | BullMQ workers |
+| InvoiceGenerationFailures | `webhook_processing_failures_total{event_type=~"invoice\\..*"}` | Revenue Platform | Invoice webhook handlers |
+| HighUnpaidInvoiceRate | `billing_invoices_unpaid_total`, `billing_invoices_total` | Revenue Platform | Invoice state sync job |
+| TenantQuotaExceeded | `billing_tenant_quota_usage_ratio{tenant_id,metric}` | Revenue Platform + Customer Success Engineering | Entitlements and quota service |
+| HighOverageSpend | `billing_tenant_overage_amount_dollars{tenant_id}` | Revenue Platform + Finance Ops | Overage reporting pipeline |
+
+- **Metric inventory source of truth:** `docs/observability/billing-metrics-manifest.json`.
+- **Metric emission source:** `packages/backend/src/metrics/billingMetrics.ts`.
+- **Alert rule source:** `infra/k8s/monitoring/billing-alerts.yaml`.
 
 ## high_failure_rate
 - **Trigger meaning:** A service's success rate has dropped below 80% over at least 10 requests. Indicates a degraded but still partially functional service; user-visible errors are likely increasing.
