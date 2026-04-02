@@ -34,33 +34,10 @@ const bottomNavItems = [
   { id: 'profile', icon: 'account_circle', label: 'Profile', path: '/settings' },
 ];
 
-// Mock chat messages for demo
-const mockMessages: ChatMessage[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    content: 'Hello! I\'m your Vizit AI Assistant. I\'ve analyzed the latest visual intelligence data for your value case.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: '2',
-    role: 'assistant',
-    content: 'The revenue category is currently trending upward. Adjusting your projections could increase conversion by 4.1%.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 4),
-    metadata: {
-      agentId: 'value-analyst',
-      actions: [
-        { label: 'View Data', action: 'view-data' },
-        { label: 'Apply Bias', action: 'apply-bias' },
-      ],
-    },
-  },
-];
-
 export function ExecutiveLayout() {
   const [aiPanelOpen, setAiPanelOpen] = useState(true);
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState(mockMessages);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const { user, logout } = useAuth();
@@ -90,21 +67,18 @@ export function ExecutiveLayout() {
     setChatInput('');
     setIsAiLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMsg = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant' as const,
-        content: `I've analyzed your request about "${message}". Based on your current value model, I recommend focusing on the revenue optimization strategies we discussed.`,
-        timestamp: new Date(),
-        metadata: {
-          agentId: 'executive-assistant',
-          confidence: 0.92,
-        },
-      };
-      setChatMessages(prev => [...prev, aiMsg]);
-      setIsAiLoading(false);
-    }, 2000);
+    const aiMsg = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant' as const,
+      content:
+        'Agent chat is unavailable: no backend orchestration endpoint is wired for ExecutiveLayout yet. Configure a real chat integration to continue.',
+      timestamp: new Date(),
+      metadata: {
+        agentId: 'integration-missing',
+      },
+    };
+    setChatMessages(prev => [...prev, aiMsg]);
+    setIsAiLoading(false);
   };
 
   return (
@@ -277,8 +251,8 @@ export function ExecutiveLayout() {
                   isOnline={true}
                   onClose={() => setAiPanelOpen(false)}
                   quickActions={[
-                    { label: 'History', icon: 'history', action: () => console.log('History') },
-                    { label: 'Export', icon: 'download', action: () => console.log('Export') },
+                    { label: 'History', icon: 'history', action: () => undefined },
+                    { label: 'Export', icon: 'download', action: () => undefined },
                   ]}
                 />
               </motion.div>
