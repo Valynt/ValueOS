@@ -13,7 +13,7 @@
     "dev:bootstrap": "pnpm dev:init && pnpm dev:up",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
-    "lint": "turbo run lint",
+    "lint": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run lint",
     "check": "turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
