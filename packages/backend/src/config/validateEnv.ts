@@ -227,22 +227,33 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
   const incidentId = process.env.AUTH_FALLBACK_INCIDENT_ID;
   const incidentSeverity = process.env.AUTH_FALLBACK_INCIDENT_SEVERITY;
   const incidentStartedAt = process.env.AUTH_FALLBACK_INCIDENT_STARTED_AT;
+  const incidentCorrelationId = process.env.AUTH_FALLBACK_INCIDENT_CORRELATION_ID;
   const allowedRoutes = parseAuthFallbackList(process.env.AUTH_FALLBACK_ALLOWED_ROUTES);
-  const allowedRoles = parseAuthFallbackList(process.env.AUTH_FALLBACK_ALLOWED_ROLES);
+  const allowedMethods = parseAuthFallbackList(process.env.AUTH_FALLBACK_ALLOWED_METHODS);
   const signingSecret = process.env.AUTH_FALLBACK_INCIDENT_SIGNING_SECRET;
   const signature = process.env.AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE;
+  const approvalToken = process.env.AUTH_FALLBACK_APPROVAL_TOKEN;
+  const approvalSigningSecret = process.env.AUTH_FALLBACK_APPROVAL_SIGNING_SECRET;
+  const maintenanceStart = process.env.AUTH_FALLBACK_MAINTENANCE_WINDOW_START;
+  const maintenanceEnd = process.env.AUTH_FALLBACK_MAINTENANCE_WINDOW_END;
 
-  if (!incidentId || !incidentSeverity || !incidentStartedAt) {
+  if (!incidentId || !incidentSeverity || !incidentStartedAt || !incidentCorrelationId) {
     errors.push(
-      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_INCIDENT_ID, AUTH_FALLBACK_INCIDENT_SEVERITY, and AUTH_FALLBACK_INCIDENT_STARTED_AT."
+      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_INCIDENT_ID, AUTH_FALLBACK_INCIDENT_SEVERITY, AUTH_FALLBACK_INCIDENT_STARTED_AT, and AUTH_FALLBACK_INCIDENT_CORRELATION_ID."
     );
     return;
   }
 
-  if (allowedRoutes.length === 0 && allowedRoles.length === 0) {
+  if (allowedRoutes.length === 0) {
     errors.push(
-      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_ALLOWED_ROUTES and/or AUTH_FALLBACK_ALLOWED_ROLES."
+      "AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_ALLOWED_ROUTES."
     );
+    return;
+  }
+
+  const effectiveMethods = allowedMethods.length > 0 ? allowedMethods.map((method) => method.toUpperCase()) : ["GET", "HEAD", "OPTIONS"];
+  if (effectiveMethods.some((method) => !["GET", "HEAD", "OPTIONS"].includes(method))) {
+    errors.push("AUTH_FALLBACK_ALLOWED_METHODS may only include GET, HEAD, or OPTIONS.");
     return;
   }
 
@@ -257,9 +268,10 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
     incidentId,
     incidentSeverity,
     incidentStartedAt,
+    incidentCorrelationId,
     ttlUntil,
     allowedRoutes.join(","),
-    allowedRoles.join(","),
+    effectiveMethods.join(","),
   ].join("|");
   const expectedSignature = createHmac("sha256", signingSecret).update(payload).digest("hex");
   const providedSignature = signature.trim();
@@ -269,6 +281,85 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
     !timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature))
   ) {
     errors.push("AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE does not match signed incident context.");
+  }
+
+  if (!approvalToken || !approvalSigningSecret) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_APPROVAL_TOKEN and AUTH_FALLBACK_APPROVAL_SIGNING_SECRET.");
+    return;
+  }
+
+  const [approvalVersion, payloadSegment, signatureSegment] = approvalToken.split(".");
+  if (!approvalVersion || !payloadSegment || !signatureSegment || approvalVersion !== "v1") {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN must use format v1.<base64url-payload>.<hex-signature>.");
+    return;
+  }
+
+  const expectedApprovalSignature = createHmac("sha256", approvalSigningSecret).update(payloadSegment).digest("hex");
+  if (
+    signatureSegment.length !== expectedApprovalSignature.length ||
+    !timingSafeEqual(Buffer.from(signatureSegment), Buffer.from(expectedApprovalSignature))
+  ) {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN signature verification failed.");
+    return;
+  }
+
+  let parsedApprovalPayload: {
+    incidentId?: string;
+    incidentCorrelationId?: string;
+    approvedAt?: string;
+    expiresAt?: string;
+    scope?: string;
+  } | null = null;
+  try {
+    parsedApprovalPayload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8")) as typeof parsedApprovalPayload;
+  } catch {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN payload must be valid JSON.");
+    return;
+  }
+
+  if (
+    !parsedApprovalPayload ||
+    parsedApprovalPayload.scope !== "auth-fallback" ||
+    parsedApprovalPayload.incidentId !== incidentId ||
+    parsedApprovalPayload.incidentCorrelationId !== incidentCorrelationId
+  ) {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN payload must match incidentId, incidentCorrelationId, and scope=auth-fallback.");
+    return;
+  }
+
+  const approvedAt = parsedApprovalPayload.approvedAt ? new Date(parsedApprovalPayload.approvedAt) : null;
+  const expiresAt = parsedApprovalPayload.expiresAt ? new Date(parsedApprovalPayload.expiresAt) : null;
+  if (!approvedAt || Number.isNaN(approvedAt.getTime()) || !expiresAt || Number.isNaN(expiresAt.getTime())) {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN must include valid approvedAt and expiresAt timestamps.");
+    return;
+  }
+
+  if (approvedAt.getTime() > Date.now() || expiresAt.getTime() <= Date.now()) {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN must be currently valid.");
+    return;
+  }
+
+  if (expiresAt.getTime() > ttlDate.getTime()) {
+    errors.push("AUTH_FALLBACK_APPROVAL_TOKEN expiresAt must not exceed AUTH_FALLBACK_EMERGENCY_TTL_UNTIL.");
+    return;
+  }
+
+  if (!maintenanceStart || !maintenanceEnd) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_MODE=true requires AUTH_FALLBACK_MAINTENANCE_WINDOW_START and AUTH_FALLBACK_MAINTENANCE_WINDOW_END.");
+    return;
+  }
+
+  const maintenanceStartDate = new Date(maintenanceStart);
+  const maintenanceEndDate = new Date(maintenanceEnd);
+  if (Number.isNaN(maintenanceStartDate.getTime()) || Number.isNaN(maintenanceEndDate.getTime())) {
+    errors.push("AUTH_FALLBACK_MAINTENANCE_WINDOW_START and AUTH_FALLBACK_MAINTENANCE_WINDOW_END must be valid ISO-8601 timestamps.");
+    return;
+  }
+
+  const now = Date.now();
+  if (maintenanceStartDate.getTime() >= maintenanceEndDate.getTime() || now < maintenanceStartDate.getTime() || now > maintenanceEndDate.getTime()) {
+    errors.push("AUTH_FALLBACK_EMERGENCY_MODE=true is only allowed inside the approved maintenance window.");
+    return;
   }
 }
 

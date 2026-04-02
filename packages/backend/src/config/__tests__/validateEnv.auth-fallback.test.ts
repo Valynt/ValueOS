@@ -7,9 +7,10 @@ function signIncidentContext(params: {
   incidentId: string;
   incidentSeverity: string;
   incidentStartedAt: string;
+  incidentCorrelationId: string;
   ttlUntil: string;
   allowedRoutes: string;
-  allowedRoles?: string;
+  allowedMethods: string;
   signingSecret: string;
 }): string {
   return createHmac("sha256", params.signingSecret)
@@ -18,12 +19,33 @@ function signIncidentContext(params: {
         params.incidentId,
         params.incidentSeverity,
         params.incidentStartedAt,
+        params.incidentCorrelationId,
         params.ttlUntil,
         params.allowedRoutes,
-        params.allowedRoles ?? "",
+        params.allowedMethods,
       ].join("|")
     )
     .digest("hex");
+}
+
+function signApprovalArtifactToken(params: {
+  incidentId: string;
+  incidentCorrelationId: string;
+  approvedAt: string;
+  expiresAt: string;
+  signingSecret: string;
+}): string {
+  const payload = Buffer.from(
+    JSON.stringify({
+      incidentId: params.incidentId,
+      incidentCorrelationId: params.incidentCorrelationId,
+      approvedAt: params.approvedAt,
+      expiresAt: params.expiresAt,
+      scope: "auth-fallback",
+    })
+  ).toString("base64url");
+  const signature = createHmac("sha256", params.signingSecret).update(payload).digest("hex");
+  return `v1.${payload}.${signature}`;
 }
 
 function stubBaselineProductionEnv(): { ttlUntil: string; incidentStartedAt: string } {
@@ -73,9 +95,15 @@ describe("validateEnv production auth fallback controls", () => {
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_ID", "INC-5678");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_SEVERITY", "critical");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_STARTED_AT", incidentStartedAt);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_CORRELATION_ID", "CORR-5678");
     vi.stubEnv("AUTH_FALLBACK_ALLOWED_ROUTES", "/api/secure");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_METHODS", "GET");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_SIGNING_SECRET", "");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE", "");
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_TOKEN", "");
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_SIGNING_SECRET", "");
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_START", new Date(Date.now() - 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_END", new Date(Date.now() + 60_000).toISOString());
 
     const result = validateEnv();
 
@@ -96,7 +124,9 @@ describe("validateEnv production auth fallback controls", () => {
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_ID", "INC-5678");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_SEVERITY", "critical");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_STARTED_AT", incidentStartedAt);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_CORRELATION_ID", "CORR-5678");
     vi.stubEnv("AUTH_FALLBACK_ALLOWED_ROUTES", "/api/secure");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_METHODS", "GET");
     vi.stubEnv("AUTH_FALLBACK_INCIDENT_SIGNING_SECRET", "signing-secret");
     vi.stubEnv(
       "AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE",
@@ -104,17 +134,78 @@ describe("validateEnv production auth fallback controls", () => {
         incidentId: "INC-5678",
         incidentSeverity: "critical",
         incidentStartedAt,
+        incidentCorrelationId: "CORR-5678",
         ttlUntil,
         allowedRoutes: "/api/secure",
+        allowedMethods: "GET",
         signingSecret: "signing-secret",
       }),
     );
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_SIGNING_SECRET", "approval-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_APPROVAL_TOKEN",
+      signApprovalArtifactToken({
+        incidentId: "INC-5678",
+        incidentCorrelationId: "CORR-5678",
+        approvedAt: new Date(Date.now() - 60_000).toISOString(),
+        expiresAt: ttlUntil,
+        signingSecret: "approval-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_START", new Date(Date.now() - 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_END", new Date(Date.now() + 60_000).toISOString());
 
     const result = validateEnv();
 
     expect(result.valid).toBe(false);
     expect(
       result.errors.some((error) => error.includes("hard limit of 1800 seconds")),
+    ).toBe(true);
+  });
+
+  it("fails when emergency fallback mode is outside approved maintenance window", () => {
+    const { ttlUntil, incidentStartedAt } = stubBaselineProductionEnv();
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_MODE", "true");
+    vi.stubEnv("AUTH_FALLBACK_EMERGENCY_TTL_UNTIL", ttlUntil);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_ID", "INC-5678");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SEVERITY", "critical");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_STARTED_AT", incidentStartedAt);
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_CORRELATION_ID", "CORR-5678");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_ROUTES", "/api/secure");
+    vi.stubEnv("AUTH_FALLBACK_ALLOWED_METHODS", "GET");
+    vi.stubEnv("AUTH_FALLBACK_INCIDENT_SIGNING_SECRET", "signing-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE",
+      signIncidentContext({
+        incidentId: "INC-5678",
+        incidentSeverity: "critical",
+        incidentStartedAt,
+        incidentCorrelationId: "CORR-5678",
+        ttlUntil,
+        allowedRoutes: "/api/secure",
+        allowedMethods: "GET",
+        signingSecret: "signing-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_APPROVAL_SIGNING_SECRET", "approval-secret");
+    vi.stubEnv(
+      "AUTH_FALLBACK_APPROVAL_TOKEN",
+      signApprovalArtifactToken({
+        incidentId: "INC-5678",
+        incidentCorrelationId: "CORR-5678",
+        approvedAt: new Date(Date.now() - 60_000).toISOString(),
+        expiresAt: ttlUntil,
+        signingSecret: "approval-secret",
+      }),
+    );
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_START", new Date(Date.now() + 10 * 60_000).toISOString());
+    vi.stubEnv("AUTH_FALLBACK_MAINTENANCE_WINDOW_END", new Date(Date.now() + 20 * 60_000).toISOString());
+
+    const result = validateEnv();
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) => error.includes("approved maintenance window")),
     ).toBe(true);
   });
 });
