@@ -21,6 +21,33 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ## Entries
 
+
+### 2026-04-02 supabase-service-role-jwt — Remediation execution attempt (source incidents: 2026-05-24 + 2026-03-26)
+
+- **Status:** ⚠️ BLOCKED — operator-only rotation + Supabase audit-log access required
+- **Severity:** Critical
+- **Exposure:** Git history (per 2026-05-24 and 2026-03-26 incident records)
+- **Incident references (source of truth):**
+  - `2026-05-24 supabase-service-role-jwt — Production key rotation required (production-readiness spec)`
+  - `2026-03-26 supabase-service-role-jwt — ⚠️ REAL Supabase project keys in git history — ROTATION REQUIRED`
+- **Projects in scope:**
+  - `wfhdrrpijqygytvoaafc` (rotate `anon` + `service_role`)
+  - `bxaiabnqalurloblfwua` (rotate `anon`)
+- **Execution notes (this run):**
+  1. Rotation in Supabase dashboard could not be executed from this runtime because operator credentials/session are unavailable (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_URL` all unset).
+  2. CI/Kubernetes/runtime/local-runbook secret updates are pending on issuance of replacement keys.
+  3. Supabase access-log audit (first-exposure commit date → rotation completion) is blocked pending Supabase org/project audit-log access. No suspicious-access determination can be made yet.
+  4. Git history purge (`git filter-repo` + force-push + collaborator re-clone notice) is blocked pending Security approval and coordinated maintenance window.
+  5. Secret-scan reruns completed; evidence linked below.
+- **Scan evidence (2026-04-02 UTC):**
+  - Full history scan (local): `artifacts/secret-scan/gitleaks-history-2026-04-02.json` (1 finding, `generic-api-key`, test fixture)
+  - Working tree scan (local): `artifacts/secret-scan/gitleaks-workingtree-2026-04-02.json` (1 finding, same test fixture)
+  - Related workflow: `.github/workflows/secret-scan.yml`
+- **Rotation completed evidence link:** _PENDING — add Security ticket/console evidence URL after dashboard rotation_.
+- **Closure date:** _PENDING — set to actual UTC completion date after rotation + history purge + access-log audit are complete_.
+
+---
+
 ### 2026-05-24 supabase-service-role-jwt — Production key rotation required (production-readiness spec)
 
 - **Status:** ⚠️ ACTION REQUIRED — rotate keys immediately via Supabase dashboard
