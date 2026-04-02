@@ -61,7 +61,8 @@
     "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
     "check:required-checks-policy": "node scripts/ci/check-required-checks-policy.mjs",
     "report:required-check-compliance": "node scripts/ci/report-required-check-compliance.mjs",
-    "validate:devcontainer": "bash scripts/validate-devcontainer.sh"
+    "validate:devcontainer": "bash scripts/validate-devcontainer.sh",
+    "typecheck:turbo:all": "node scripts/dx/typecheck-via-turbo-all.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
