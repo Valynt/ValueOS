@@ -182,6 +182,13 @@ jobs:
         run: |
           find evidence -type f | sort > evidence/metadata/evidence-manifest.txt
 
+      - name: Quarterly evidence completeness gate
+        if: always()
+        run: |
+          node scripts/ci/check-quarterly-evidence-completeness.mjs \
+            --evidence-root=evidence \
+            --output-dir=artifacts/compliance/evidence-completeness
+
       - name: Create compressed evidence bundle
         if: always()
         run: |
@@ -195,4 +202,5 @@ jobs:
           path: |
             compliance-evidence-bundle-${{ github.run_id }}.tar.gz
             evidence/
+            artifacts/compliance/evidence-completeness/**
           retention-days: 365

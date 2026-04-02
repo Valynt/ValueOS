@@ -1,6 +1,6 @@
 # Code Standards
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-04-02
 
 **Consolidated from 1 source documents**
 
@@ -160,6 +160,32 @@ Use these only for migration windows and package-scoped typecheck jobs. Producti
 - CI check: `node scripts/ci/any-ratchet.mjs`
 - Budget file: `.github/any-ratchet-budgets.json`
 - Rule: non-test `any` usage must be non-increasing per package (ratchet fails on regression).
+- Backend strict-exception check: `node scripts/ci/check-strict-exception-budgets.mjs`
+- Backend strict-exception config + budgets: `packages/backend/tsconfig.strict-exceptions.json`
+
+### Backend strict-exception process (captured 2026-04-02)
+- Strict exceptions are only allowed for explicit folders/files in `include[]`; broad trust-boundary globs are not allowed.
+- Every strict-exception area must have a matching `strictExceptionBudgets` entry with:
+  - `glob` (folder/file scope),
+  - `baseline` (current count cap),
+  - `nextTarget` (next reduction milestone),
+  - `sunsetDate` (date by which exceptions must be retired).
+- CI fails when any budgeted glob regresses above baseline.
+- CI warns when a budgeted glob remains above `nextTarget`.
+- CI also validates that every strict-exception include path is covered by a budget glob.
+- Protected zero-new zones (`src/api`, `src/services/auth`, `src/services/security`, `src/services/tenant`) are hard-guarded against net-new exceptions.
+
+#### Sunset schedule (backend strict exceptions)
+| Scope glob | Baseline | Next target | Sunset date |
+|---|---:|---:|---|
+| `src/api/**/*.ts` | 116 | 110 | 2026-06-30 |
+| `src/services/auth/**/*.ts` | 31 | 27 | 2026-05-31 |
+| `src/services/security/**/*.ts` | 31 | 26 | 2026-05-31 |
+| `src/services/tenant/**/*.ts` | 26 | 22 | 2026-05-31 |
+| `src/middleware/**/*.ts` | 44 | 40 | 2026-06-30 |
+| `src/runtime/**/*.ts` | 15 | 12 | 2026-05-31 |
+| `src/services/billing/**/*.ts` | 31 | 25 | 2026-06-30 |
+| `src/types/**/*.ts` | 45 | 40 | 2026-06-30 |
 
 ### Milestones and thresholds
 - **M1 (2026-03-31):** Enable root strict baseline and introduce per-package strict exception files.

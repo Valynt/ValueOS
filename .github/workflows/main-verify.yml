@@ -201,7 +201,10 @@ jobs:
       - name: Workflow DAG acyclicity guard
         run: pnpm run test:workflow-dag-validation
       - name: TypeScript any-count gate
-        run: bash scripts/check-any-count.sh
+        run: |
+          node scripts/ci/any-ratchet.mjs
+          node scripts/ci/check-strict-exception-budgets.mjs
+          bash scripts/check-any-count.sh
       - name: Backend debt summary artifact
         if: always()
         run: pnpm --filter @valueos/backend run debt:summary
@@ -292,6 +295,9 @@ jobs:
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
+
+      - name: Remediation record sync gate
+        run: node scripts/ci/check-control-status-sync.mjs
 
       - name: Critical control status gate (SOC2/HIPAA)
         run: node scripts/ci/check-control-status-critical.mjs

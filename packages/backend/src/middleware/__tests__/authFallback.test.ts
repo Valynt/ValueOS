@@ -49,9 +49,10 @@ function signIncidentContext(env: {
   incidentId: string;
   incidentSeverity: string;
   incidentStartedAt: string;
+  incidentCorrelationId: string;
   ttlUntil: string;
   allowedRoutes: string;
-  allowedRoles?: string;
+  allowedMethods: string;
   signingSecret: string;
 }): string {
   return createHmac('sha256', env.signingSecret)
@@ -60,12 +61,33 @@ function signIncidentContext(env: {
         env.incidentId,
         env.incidentSeverity,
         env.incidentStartedAt,
+        env.incidentCorrelationId,
         env.ttlUntil,
         env.allowedRoutes,
-        env.allowedRoles ?? '',
+        env.allowedMethods,
       ].join('|')
     )
     .digest('hex');
+}
+
+function signApprovalArtifactToken(params: {
+  incidentId: string;
+  incidentCorrelationId: string;
+  approvedAt: string;
+  expiresAt: string;
+  signingSecret: string;
+}): string {
+  const payload = Buffer.from(
+    JSON.stringify({
+      incidentId: params.incidentId,
+      incidentCorrelationId: params.incidentCorrelationId,
+      approvedAt: params.approvedAt,
+      expiresAt: params.expiresAt,
+      scope: 'auth-fallback',
+    })
+  ).toString('base64url');
+  const signature = createHmac('sha256', params.signingSecret).update(payload).digest('hex');
+  return `v1.${payload}.${signature}`;
 }
 
 describe('verifyAccessToken local fallback policy', () => {
@@ -77,6 +99,8 @@ describe('verifyAccessToken local fallback policy', () => {
     });
     const now = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const incidentStartedAt = new Date(Date.now() - 60 * 1000).toISOString();
+    const maintenanceWindowStart = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const maintenanceWindowEnd = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     __setEnvSourceForTests({
       ALLOW_LOCAL_JWT_FALLBACK: 'false',
       SUPABASE_JWT_SECRET: 'test-secret',
@@ -87,17 +111,31 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_INCIDENT_ID: 'INC-1234',
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
       AUTH_FALLBACK_INCIDENT_STARTED_AT: incidentStartedAt,
+      AUTH_FALLBACK_INCIDENT_CORRELATION_ID: 'CORR-1234',
       AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '14400',
       AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_ALLOWED_METHODS: 'GET,HEAD,OPTIONS',
       AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE: signIncidentContext({
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
         incidentStartedAt,
+        incidentCorrelationId: 'CORR-1234',
         ttlUntil: now,
         allowedRoutes: '/api/test',
+        allowedMethods: 'GET,HEAD,OPTIONS',
         signingSecret: 'incident-signing-secret',
       }),
       AUTH_FALLBACK_INCIDENT_SIGNING_SECRET: 'incident-signing-secret',
+      AUTH_FALLBACK_APPROVAL_SIGNING_SECRET: 'approval-signing-secret',
+      AUTH_FALLBACK_APPROVAL_TOKEN: signApprovalArtifactToken({
+        incidentId: 'INC-1234',
+        incidentCorrelationId: 'CORR-1234',
+        approvedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+        expiresAt: now,
+        signingSecret: 'approval-signing-secret',
+      }),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_START: maintenanceWindowStart,
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_END: maintenanceWindowEnd,
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
       NODE_ENV: 'production',
     });
@@ -115,11 +153,16 @@ describe('verifyAccessToken local fallback policy', () => {
       'AUTH_FALLBACK_INCIDENT_ID',
       'AUTH_FALLBACK_INCIDENT_SEVERITY',
       'AUTH_FALLBACK_INCIDENT_STARTED_AT',
+      'AUTH_FALLBACK_INCIDENT_CORRELATION_ID',
       'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS',
       'AUTH_FALLBACK_ALLOWED_ROUTES',
-      'AUTH_FALLBACK_ALLOWED_ROLES',
+      'AUTH_FALLBACK_ALLOWED_METHODS',
       'AUTH_FALLBACK_INCIDENT_CONTEXT_SIGNATURE',
       'AUTH_FALLBACK_INCIDENT_SIGNING_SECRET',
+      'AUTH_FALLBACK_APPROVAL_TOKEN',
+      'AUTH_FALLBACK_APPROVAL_SIGNING_SECRET',
+      'AUTH_FALLBACK_MAINTENANCE_WINDOW_START',
+      'AUTH_FALLBACK_MAINTENANCE_WINDOW_END',
       'AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS',
       'NODE_ENV',
     ]) {
@@ -243,11 +286,10 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
-  it('denies fallback when emergency route or role allowlist is missing', async () => {
+  it('denies fallback when emergency route allowlist is missing', async () => {
     __setEnvSourceForTests({
       AUTH_FALLBACK_EMERGENCY_MODE: 'true',
       AUTH_FALLBACK_ALLOWED_ROUTES: '',
-      AUTH_FALLBACK_ALLOWED_ROLES: '',
     });
 
     const token = jwt.sign(
@@ -327,8 +369,10 @@ describe('verifyAccessToken local fallback policy', () => {
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
         incidentStartedAt: process.env.AUTH_FALLBACK_INCIDENT_STARTED_AT ?? '',
+        incidentCorrelationId: 'CORR-1234',
         ttlUntil,
         allowedRoutes: '/api/test',
+        allowedMethods: 'GET,HEAD,OPTIONS',
         signingSecret: 'incident-signing-secret',
       }),
     });
@@ -385,8 +429,10 @@ describe('verifyAccessToken local fallback policy', () => {
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
         incidentStartedAt,
+        incidentCorrelationId: 'CORR-1234',
         ttlUntil,
         allowedRoutes: '/api/test',
+        allowedMethods: 'GET,HEAD,OPTIONS',
         signingSecret: 'incident-signing-secret',
       }),
     });
@@ -409,18 +455,14 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(verified?.user.id).toBe('user-123');
     expect(verified?.session.access_token).toBe(token);
     expect(redisExists).toHaveBeenCalled();
-    expect(auditLog).toHaveBeenCalledTimes(2);
+    expect(auditLog).toHaveBeenCalledTimes(1);
     expect(auditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      action: 'auth.jwt_fallback_activated',
+      action: 'auth.jwt_fallback_request_authenticated_immutable',
       details: expect.objectContaining({
-        incidentId: 'INC-1234',
-        incidentSeverity: 'critical',
-      }),
-    }));
-    expect(auditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      action: 'auth.jwt_fallback_high_severity_alert',
-      details: expect.objectContaining({
-        severity: 'high',
+        immutable: true,
+        severity: 'critical',
+        actorId: 'user-123',
+        incidentCorrelationId: 'CORR-1234',
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
       }),
@@ -469,7 +511,7 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
-  it('fails closed when Supabase and Redis are both unavailable during emergency fallback', async () => {
+  it('denies fallback revocation non-authoritative when Redis is unavailable', async () => {
     __setEnvSourceForTests({ AUTH_FALLBACK_EMERGENCY_MODE: 'true' });
     getRedisClientMock.mockResolvedValue(null);
 
@@ -492,6 +534,28 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
+  it('denies fallback route when method is non-read-only even for allowlisted route', async () => {
+    __setEnvSourceForTests({ AUTH_FALLBACK_EMERGENCY_MODE: 'true' });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+        jti: 'jti-123',
+      },
+      'test-secret',
+      { expiresIn: '5m' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'POST' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
   it('expires emergency fallback access after the incident TTL passes', async () => {
     vi.useFakeTimers();
     const baseTime = new Date('2026-03-21T10:00:00.000Z');
@@ -506,8 +570,20 @@ describe('verifyAccessToken local fallback policy', () => {
       AUTH_FALLBACK_INCIDENT_ID: 'INC-1234',
       AUTH_FALLBACK_INCIDENT_SEVERITY: 'critical',
       AUTH_FALLBACK_INCIDENT_STARTED_AT: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+      AUTH_FALLBACK_INCIDENT_CORRELATION_ID: 'CORR-1234',
       AUTH_FALLBACK_ALLOWED_ROUTES: '/api/test',
+      AUTH_FALLBACK_ALLOWED_METHODS: 'GET,HEAD,OPTIONS',
       AUTH_FALLBACK_INCIDENT_SIGNING_SECRET: 'incident-signing-secret',
+      AUTH_FALLBACK_APPROVAL_SIGNING_SECRET: 'approval-signing-secret',
+      AUTH_FALLBACK_APPROVAL_TOKEN: signApprovalArtifactToken({
+        incidentId: 'INC-1234',
+        incidentCorrelationId: 'CORR-1234',
+        approvedAt: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+        expiresAt: new Date(baseTime.getTime() + 2 * 60 * 1000).toISOString(),
+        signingSecret: 'approval-signing-secret',
+      }),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_START: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+      AUTH_FALLBACK_MAINTENANCE_WINDOW_END: new Date(baseTime.getTime() + 10 * 60 * 1000).toISOString(),
       AUTH_FALLBACK_MAX_TOKEN_AGE_SECONDS: '300',
       NODE_ENV: 'production',
     });
@@ -516,8 +592,10 @@ describe('verifyAccessToken local fallback policy', () => {
         incidentId: 'INC-1234',
         incidentSeverity: 'critical',
         incidentStartedAt: new Date(baseTime.getTime() - 60 * 1000).toISOString(),
+        incidentCorrelationId: 'CORR-1234',
         ttlUntil: new Date(baseTime.getTime() + 2 * 60 * 1000).toISOString(),
         allowedRoutes: '/api/test',
+        allowedMethods: 'GET,HEAD,OPTIONS',
         signingSecret: 'incident-signing-secret',
       }),
     });
