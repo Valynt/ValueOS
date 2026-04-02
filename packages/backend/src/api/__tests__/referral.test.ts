@@ -4,6 +4,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import express from 'express';
+import request from 'supertest';
 
 // Mock the services before importing them
 const mockGenerateReferralCode = vi.fn();
@@ -48,6 +50,32 @@ vi.mock('@shared/lib/logger', () => ({
     error: vi.fn(),
     warn: vi.fn(),
   }),
+}));
+
+vi.mock('../../middleware/auth.js', () => ({
+  requireAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    req.user = {
+      id: 'test-user-id',
+      email: 'test-user@example.com',
+      user_metadata: { full_name: 'Test User' },
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    } as express.Request['user'];
+    next();
+  },
+}));
+
+vi.mock('../../middleware/secureRouter.js', () => ({
+  createSecureRouter: () => express.Router(),
+}));
+
+vi.mock('../../middleware/rateLimiter.js', () => ({
+  createRateLimiter: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
+vi.mock('../../middleware/inputValidation.js', () => ({
+  validateRequest: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
 // Import mocked services after vi.mock calls
@@ -601,5 +629,55 @@ describe('Referral Program API Integration', () => {
   it('should integrate with audit logging', async () => {
     // Test that all referral operations are logged
     // Test that audit trails are complete
+  });
+});
+
+describe('Referral API Pagination Limits', () => {
+  const buildApp = async () => {
+    const { default: referralRouter } = await import('../referrals.js');
+    const app = express();
+    app.use(express.json());
+    app.use('/api/referrals', referralRouter);
+    return app;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('limits /rewards requests to a maximum of 100 rows', async () => {
+    const rewards = Array.from({ length: 100 }, (_, idx) => ({ id: `reward-${idx}` }));
+    mockGetUserRewards.mockResolvedValueOnce(rewards);
+    const app = await buildApp();
+
+    const response = await request(app).get('/api/referrals/rewards?limit=500');
+
+    expect(response.status).toBe(200);
+    expect(mockGetUserRewards).toHaveBeenCalledWith('test-user-id', 100);
+    expect(response.body.count).toBe(100);
+    expect(response.body.rewards).toHaveLength(100);
+  });
+
+  it('normalizes non-positive /referrals limits to the default', async () => {
+    mockGetUserReferrals.mockResolvedValue([]);
+    const app = await buildApp();
+
+    const zeroLimitResponse = await request(app).get('/api/referrals/referrals?limit=0');
+    expect(zeroLimitResponse.status).toBe(200);
+    expect(mockGetUserReferrals).toHaveBeenLastCalledWith('test-user-id', 10);
+
+    const negativeLimitResponse = await request(app).get('/api/referrals/referrals?limit=-5');
+    expect(negativeLimitResponse.status).toBe(200);
+    expect(mockGetUserReferrals).toHaveBeenLastCalledWith('test-user-id', 10);
+  });
+
+  it('returns 400 for malformed non-numeric limit values', async () => {
+    const app = await buildApp();
+
+    const response = await request(app).get('/api/referrals/rewards?limit=ten');
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('Invalid limit query parameter');
+    expect(mockGetUserRewards).not.toHaveBeenCalled();
   });
 });
