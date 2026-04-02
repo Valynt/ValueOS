@@ -558,6 +558,18 @@ jobs:
             --reporter=verbose \
             --reporter=junit \
             --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
+      - name: Publish suite execution modes
+        if: always()
+        env:
+          VALUEOS_TRUSTED_CONTEXT: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          VALUEOS_TEST_REAL_INTEGRATION: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/ci/report-suite-execution-modes.mjs \
+            --lane tenant-isolation-gate \
+            --out-md reports/compliance/rls/suite-execution-modes.md \
+            --out-json reports/compliance/rls/suite-execution-modes.json
       - name: Emit lane summary
         if: always()
         run: |
@@ -1356,3 +1368,23 @@ jobs:
             src/services/billing/__tests__/integration/quota-enforcement.test.ts \
             src/services/billing/__tests__/integration/metering-pipeline.test.ts \
             src/services/billing/__tests__/integration/webhook-events.test.ts
+      - name: Publish suite execution modes
+        if: always()
+        env:
+          VALUEOS_TRUSTED_CONTEXT: "true"
+          VALUEOS_TEST_REAL_INTEGRATION: "true"
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_CI }}
+        run: |
+          node scripts/ci/report-suite-execution-modes.mjs \
+            --lane integration-supabase \
+            --out-md artifacts/integration-supabase/suite-execution-modes.md \
+            --out-json artifacts/integration-supabase/suite-execution-modes.json
+      - name: Upload integration-supabase artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-integration-supabase-${{ github.run_id }}
+          path: artifacts/integration-supabase/**
+          if-no-files-found: warn
+          retention-days: 30

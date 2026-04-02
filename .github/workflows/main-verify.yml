@@ -465,6 +465,26 @@ jobs:
             --reporter=verbose \
             --reporter=junit \
             --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
+      - name: Publish suite execution modes
+        if: always()
+        env:
+          VALUEOS_TRUSTED_CONTEXT: "true"
+          VALUEOS_TEST_REAL_INTEGRATION: "true"
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/ci/report-suite-execution-modes.mjs \
+            --lane tenant-isolation-gate \
+            --out-md reports/compliance/rls/suite-execution-modes.md \
+            --out-json reports/compliance/rls/suite-execution-modes.json
+      - name: Upload tenant-isolation compliance artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-tenant-isolation-gate-${{ github.run_id }}
+          path: reports/compliance/**
+          if-no-files-found: warn
+          retention-days: 30
 
   critical-workflows-gate:
     name: critical-workflows-gate
