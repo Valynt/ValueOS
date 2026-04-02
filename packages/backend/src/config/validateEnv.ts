@@ -93,6 +93,38 @@ function validateCacheEncryptionRules(nodeEnv: string, errors: string[]): void {
   }
 }
 
+function parseBrowserTelemetryAllowedOrigins(rawOrigins: string | undefined): string[] {
+  if (!rawOrigins) {
+    return [];
+  }
+
+  return rawOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+function validateBrowserTelemetryControls(nodeEnv: string, errors: string[]): void {
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) {
+    return;
+  }
+
+  const telemetryIngestionKey = process.env.BROWSER_TELEMETRY_INGESTION_KEY?.trim();
+  if (!telemetryIngestionKey) {
+    errors.push(`In ${nodeEnv}, BROWSER_TELEMETRY_INGESTION_KEY is required and must be non-empty.`);
+  }
+
+  const allowedOrigins = parseBrowserTelemetryAllowedOrigins(process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS);
+  if (allowedOrigins.length === 0) {
+    errors.push(`In ${nodeEnv}, BROWSER_TELEMETRY_ALLOWED_ORIGINS must contain at least one explicit origin.`);
+    return;
+  }
+
+  if (allowedOrigins.some((origin) => origin.includes("*"))) {
+    errors.push(`In ${nodeEnv}, BROWSER_TELEMETRY_ALLOWED_ORIGINS must not include wildcard origins.`);
+  }
+}
+
 
 function validateNoSecretInEnvPolicy(nodeEnv: string, errors: string[]): void {
   if (nodeEnv !== "production") {
@@ -470,6 +502,7 @@ export function validateEnv(): ValidationResult {
   validateNoSecretInEnvPolicy(nodeEnv, errors);
   validateSecureTransportRules(errors);
   validateCacheEncryptionRules(nodeEnv, errors);
+  validateBrowserTelemetryControls(nodeEnv, errors);
   validateAuthFallbackConfig(nodeEnv, errors);
   errors.push(...validateAuditLogEncryptionConfig(process.env));
 

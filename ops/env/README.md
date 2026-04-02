@@ -141,9 +141,21 @@ Optional: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`
 
 Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_POOL_ROLE`, `DATABASE_EXPECTED_CONCURRENCY`
 
+### `staging`
+
+All `test` requirements, plus browser telemetry hardening controls:
+
+- `BROWSER_TELEMETRY_INGESTION_KEY` (non-empty shared secret expected in `x-telemetry-key`)
+- `BROWSER_TELEMETRY_ALLOWED_ORIGINS` (comma-delimited explicit origins only; wildcards such as `*` are forbidden)
+
 ### `prod`
 
-All vars injected by the deployment platform. Include `APP_ENV`, `DATABASE_POOL_ROLE`, and `DATABASE_EXPECTED_CONCURRENCY` for the backend deployments. Never committed.
+All vars injected by the deployment platform. Include `APP_ENV`, `DATABASE_POOL_ROLE`, and `DATABASE_EXPECTED_CONCURRENCY` for the backend deployments. Also require browser telemetry hardening controls:
+
+- `BROWSER_TELEMETRY_INGESTION_KEY` (non-empty)
+- `BROWSER_TELEMETRY_ALLOWED_ORIGINS` (non-empty explicit allowlist; wildcard origins are rejected)
+
+Never committed.
 
 ## MCP Ground Truth benchmark behavior
 

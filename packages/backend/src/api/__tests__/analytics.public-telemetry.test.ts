@@ -62,6 +62,7 @@ describe("public analytics telemetry routes", () => {
   const originalTelemetryKey = process.env.BROWSER_TELEMETRY_INGESTION_KEY;
   const originalTelemetryOrigins = process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS;
   const originalHashSalt = process.env.TELEMETRY_LOG_HASH_SALT;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     mockInvalidateEndpoint.mockClear();
@@ -72,6 +73,7 @@ describe("public analytics telemetry routes", () => {
     delete process.env.BROWSER_TELEMETRY_INGESTION_KEY;
     delete process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS;
     process.env.TELEMETRY_LOG_HASH_SALT = "unit-test-hash-salt";
+    process.env.NODE_ENV = "test";
   });
 
   afterEach(() => {
@@ -89,6 +91,11 @@ describe("public analytics telemetry routes", () => {
       delete process.env.TELEMETRY_LOG_HASH_SALT;
     } else {
       process.env.TELEMETRY_LOG_HASH_SALT = originalHashSalt;
+    }
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
     }
   });
 
@@ -214,6 +221,20 @@ describe("public analytics telemetry routes", () => {
     expect(successResponse.status).toBe(200);
   });
 
+  it("rejects browser telemetry in staging when ingestion key configuration is missing", async () => {
+    process.env.NODE_ENV = "staging";
+    process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS = "https://app.valueos.example";
+    const app = await makeApp();
+
+    const response = await request(app)
+      .post("/api/analytics/web-vitals")
+      .set("Origin", "https://app.valueos.example")
+      .send({ name: "LCP", value: 900 });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("Telemetry key required");
+  });
+
   it("rejects browser telemetry from disallowed origins when an allowlist is configured", async () => {
     process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS = "https://app.valueos.example";
     const app = await makeApp();
@@ -226,5 +247,20 @@ describe("public analytics telemetry routes", () => {
     expect(response.status).toBe(403);
     expect(mockInvalidateEndpoint).not.toHaveBeenCalled();
     expect(mockLoggerWarn).toHaveBeenCalled();
+  });
+
+  it("rejects browser telemetry in staging when allowed origins configuration is missing", async () => {
+    process.env.NODE_ENV = "staging";
+    process.env.BROWSER_TELEMETRY_INGESTION_KEY = "browser-telemetry-secret";
+    const app = await makeApp();
+
+    const response = await request(app)
+      .post("/api/analytics/performance")
+      .set("x-telemetry-key", "browser-telemetry-secret")
+      .set("Origin", "https://app.valueos.example")
+      .send({ type: "paint", data: { duration: 15 } });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Origin not allowed for browser telemetry");
   });
 });
