@@ -38,7 +38,6 @@ function registerWidget(type: string, component: RegisteredWidget) {
 }
 
 // Lazy-load built-in widgets to keep bundle split
-const ValueSummaryCard = React.lazy(() => import("./widgets/ValueSummaryCard"));
 const AgentResponseCard = React.lazy(() => import("./widgets/AgentResponseCard"));
 const ChatInputWidget = React.lazy(() => import("./widgets/ChatInput"));
 
@@ -59,7 +58,6 @@ const UsageMeter = React.lazy(() => import("./widgets/UsageMeter"));
 const PlanComparison = React.lazy(() => import("./widgets/PlanComparison"));
 
 // Register built-in SDUI widget types
-registerWidget("value-summary", ValueSummaryCard);
 registerWidget("agent-response", AgentResponseCard);
 registerWidget("chat-input", ChatInputWidget);
 

@@ -11,7 +11,7 @@ import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
-import ErrorBoundary from "./components/common/ErrorBoundary";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { NotificationProvider } from "./components/shell/NotificationCenter";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";

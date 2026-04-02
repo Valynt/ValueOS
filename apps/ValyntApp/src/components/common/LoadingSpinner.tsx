@@ -42,5 +42,3 @@ export function LoadingSpinner({
 
   return content;
 }
-
-export { LoadingSpinner };

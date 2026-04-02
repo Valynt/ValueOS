@@ -76,5 +76,3 @@ export function LoadingOverlay({
 
   return content;
 }
-
-export { LoadingOverlay };

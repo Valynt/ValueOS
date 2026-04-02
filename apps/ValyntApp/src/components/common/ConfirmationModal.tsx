@@ -170,5 +170,3 @@ export function ConfirmationModal({
     </div>
   );
 }
-
-export { ConfirmationModal };
