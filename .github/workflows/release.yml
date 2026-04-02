@@ -241,6 +241,8 @@ jobs:
             APP=@valueos/backend
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:sha-${{ github.sha }}
+          provenance: true
+          sbom: true
 
       - name: Resolve backend immutable image reference
         id: backend-image-ref
@@ -258,6 +260,60 @@ jobs:
             VITE_API_BASE_URL=/api
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:sha-${{ github.sha }}
+          provenance: true
+          sbom: true
+
+      - name: Verify and capture build attestations (provenance + SBOM)
+        env:
+          BACKEND_METADATA: ${{ steps.backend-image.outputs.metadata }}
+          FRONTEND_METADATA: ${{ steps.frontend-image.outputs.metadata }}
+        run: |
+          mkdir -p release-artifacts/attestations
+          printf '%s\n' "$BACKEND_METADATA" > release-artifacts/attestations/backend-build-metadata.json
+          printf '%s\n' "$FRONTEND_METADATA" > release-artifacts/attestations/frontend-build-metadata.json
+
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const attestationOutputMap = {
+            backend: 'release-artifacts/attestations/backend-attestations.json',
+            frontend: 'release-artifacts/attestations/frontend-attestations.json',
+          };
+
+          const parseMetadata = (label, raw) => {
+            if (!raw || !raw.trim()) {
+              throw new Error(`${label}: docker/build-push-action metadata output is empty.`);
+            }
+            const metadata = JSON.parse(raw);
+            const attestations = Object.entries(metadata).filter(([key]) => {
+              const normalized = key.toLowerCase();
+              return normalized.includes('provenance') || normalized.includes('sbom');
+            });
+
+            if (attestations.length === 0) {
+              throw new Error(
+                `${label}: no provenance/SBOM entries found in build metadata; refusing to continue to publish.`,
+              );
+            }
+
+            const hasProvenance = attestations.some(([key]) => key.toLowerCase().includes('provenance'));
+            const hasSbom = attestations.some(([key]) => key.toLowerCase().includes('sbom'));
+
+            if (!hasProvenance || !hasSbom) {
+              throw new Error(
+                `${label}: expected both provenance and SBOM attestations, found keys: ${attestations
+                  .map(([key]) => key)
+                  .join(', ')}`,
+              );
+            }
+
+            fs.writeFileSync(attestationOutputMap[label], JSON.stringify(Object.fromEntries(attestations), null, 2));
+          };
+
+          parseMetadata('backend', process.env.BACKEND_METADATA);
+          parseMetadata('frontend', process.env.FRONTEND_METADATA);
+          console.log('Verified provenance/SBOM attestations for backend and frontend container builds.');
+          NODE
 
       - name: Resolve frontend immutable image reference
         id: frontend-image-ref
@@ -393,6 +449,10 @@ jobs:
             release-artifacts/sbom.spdx.json
             release-artifacts/sbom.spdx.json.sig
             release-artifacts/sbom.spdx.json.pem
+            release-artifacts/attestations/backend-build-metadata.json
+            release-artifacts/attestations/frontend-build-metadata.json
+            release-artifacts/attestations/backend-attestations.json
+            release-artifacts/attestations/frontend-attestations.json
 
       - name: Create Release PR or tag & publish
         id: changesets
