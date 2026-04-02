@@ -118,6 +118,9 @@ jobs:
       - name: A11y ESLint weekly warning ratchet
         if: matrix.lane == 'valynt-app'
         run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
+      - name: Backend strict exception budget ratchet
+        if: matrix.lane == 'backend'
+        run: node scripts/ci/check-backend-strict-exception-budget.mjs
 
   production-eslint-ratchet:
     name: production-eslint-ratchet

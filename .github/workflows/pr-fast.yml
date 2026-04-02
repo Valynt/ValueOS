@@ -98,6 +98,8 @@ jobs:
           node scripts/ci/valyntapp-ts-error-policy.mjs --enforce --report-file=artifacts/ci-lanes/ts-type-ratchet/valyntapp-ts-error-weekly.md
       - name: Sprint debt ratchet (TS + lint baselines)
         run: node scripts/ci/debt-ratchet.mjs
+      - name: Backend strict exception budget ratchet
+        run: node scripts/ci/check-backend-strict-exception-budget.mjs
 
       - name: Emit lane summary
         if: always()

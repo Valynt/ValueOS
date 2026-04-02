@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "owner": "team-platform",
+    "updatedAt": "2026-04-02",
+    "policy": "Per-folder strictness exception budgets. Budgets must never increase; critical modules remain at zero exceptions.",
+    "defaultSunsetDate": "2026-06-30"
+  },
+  "criticalModules": [
+    {
+      "path": "src/services/security",
+      "budget": 0,
+      "sunsetDate": "2026-04-30"
+    },
+    {
+      "path": "src/services/auth",
+      "budget": 0,
+      "sunsetDate": "2026-04-30"
+    },
+    {
+      "path": "src/services/tenant",
+      "budget": 0,
+      "sunsetDate": "2026-04-30"
+    },
+    {
+      "path": "src/api",
+      "budget": 0,
+      "sunsetDate": "2026-04-30"
+    },
+    {
+      "path": "src/middleware",
+      "budget": 0,
+      "sunsetDate": "2026-04-30"
+    }
+  ],
+  "exceptionFolders": [
+    {
+      "path": "src/services/billing",
+      "budget": 31,
+      "nextTarget": 25,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "path": "src/services/post-v1",
+      "budget": 77,
+      "nextTarget": 65,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "path": "src/repositories",
+      "budget": 19,
+      "nextTarget": 15,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "path": "src/runtime/execution-runtime",
+      "budget": 5,
+      "nextTarget": 3,
+      "sunsetDate": "2026-05-31"
+    },
+    {
+      "path": "src/types",
+      "budget": 64,
+      "nextTarget": 50,
+      "sunsetDate": "2026-06-30"
+    }
+  ]
+}
