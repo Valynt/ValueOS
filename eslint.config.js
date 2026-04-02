@@ -70,6 +70,14 @@ const pluginConfig = {
       version: "detect",
     },
     "import/resolver": {
+      typescript: {
+        alwaysTryTypes: true,
+        project: [
+          path.join(__dirname, "tsconfig.app.json"),
+          path.join(__dirname, "apps/*/tsconfig*.json"),
+          path.join(__dirname, "packages/*/tsconfig*.json"),
+        ],
+      },
       node: {
         moduleDirectory: [
           "node_modules",
@@ -199,9 +207,7 @@ const baseConfig = {
     ],
 
     // ESM Import Rules
-    // Disabled: eslint-import-resolver-typescript is not installed, so path aliases don't resolve.
-    // Re-enable after: pnpm add -Dw eslint-import-resolver-typescript
-    "import/no-unresolved": "off",
+    "import/no-unresolved": "error",
     "import/order": [
       "warn",
       {

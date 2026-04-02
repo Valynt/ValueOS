@@ -8,14 +8,88 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": false
   },
+  "strictExceptionBudgets": {
+    "capturedAt": "2026-04-02",
+    "folders": {
+      "src/middleware/config": {
+        "glob": "src/middleware/config/**/*.ts",
+        "baseline": 1,
+        "nextTarget": 0,
+        "sunsetDate": "2026-05-31"
+      },
+      "src/middleware/cost-controls": {
+        "glob": [
+          "src/middleware/costThrottlingMiddleware.ts",
+          "src/middleware/planEnforcementMiddleware.ts"
+        ],
+        "baseline": 2,
+        "nextTarget": 1,
+        "sunsetDate": "2026-05-31"
+      },
+      "src/services/billing/config": {
+        "glob": "src/services/billing/config/**/*.ts",
+        "baseline": 1,
+        "nextTarget": 0,
+        "sunsetDate": "2026-06-15"
+      },
+      "src/services/bridging": {
+        "glob": "src/services/bridging/**/*.ts",
+        "baseline": 5,
+        "nextTarget": 3,
+        "sunsetDate": "2026-06-15"
+      },
+      "src/services/domain-packs": {
+        "glob": [
+          "src/services/domainPacks/**/*.ts",
+          "src/services/domain-packs/**/*.ts"
+        ],
+        "baseline": 12,
+        "nextTarget": 8,
+        "sunsetDate": "2026-06-30"
+      },
+      "src/services/post-v1": {
+        "glob": "src/services/post-v1/**/*.ts",
+        "baseline": 77,
+        "nextTarget": 60,
+        "sunsetDate": "2026-07-31"
+      },
+      "src/services/reasoning": {
+        "glob": "src/services/reasoning/**/*.ts",
+        "baseline": 10,
+        "nextTarget": 6,
+        "sunsetDate": "2026-06-30"
+      },
+      "src/services/workflow": {
+        "glob": "src/services/workflow/**/*.ts",
+        "baseline": 18,
+        "nextTarget": 12,
+        "sunsetDate": "2026-06-30"
+      },
+      "src/types": {
+        "glob": ["src/types/**/*.ts", "src/types/**/*.d.ts"],
+        "baseline": 47,
+        "nextTarget": 35,
+        "sunsetDate": "2026-08-31"
+      }
+    },
+    "protectedZeroNewZones": {
+      "src/api": 0,
+      "src/services/auth": 0,
+      "src/services/security": 0,
+      "src/services/tenant": 0
+    }
+  },
   "include": [
-    "src/api/**/*.ts",
-    "src/middleware/**/*.ts",
-    "src/runtime/**/*.ts",
-    "src/services/auth/**/*.ts",
-    "src/services/billing/**/*.ts",
-    "src/services/security/**/*.ts",
-    "src/services/tenant/**/*.ts",
+    "src/middleware/config/**/*.ts",
+    "src/middleware/costThrottlingMiddleware.ts",
+    "src/middleware/planEnforcementMiddleware.ts",
+    "src/services/billing/config/**/*.ts",
+    "src/services/bridging/**/*.ts",
+    "src/services/domainPacks/**/*.ts",
+    "src/services/domain-packs/**/*.ts",
+    "src/services/post-v1/**/*.ts",
+    "src/services/reasoning/**/*.ts",
+    "src/services/workflow/**/*.ts",
     "src/types/**/*.ts",
     "src/types/**/*.d.ts"
   ],

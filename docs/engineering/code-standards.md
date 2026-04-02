@@ -1,6 +1,6 @@
 # Code Standards
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-04-02
 
 **Consolidated from 1 source documents**
 
@@ -121,6 +121,30 @@ Backlog triage guidance:
 - `packages/shared/tsconfig.strict-exceptions.json`
 
 Use these only for migration windows and package-scoped typecheck jobs. Production/default package tsconfigs should converge to strict-only mode without these overrides.
+
+### Backend strict exception process (required)
+`packages/backend/tsconfig.strict-exceptions.json` is now exception-only and must remain folder-scoped (no broad `src/api/**`, `src/services/auth/**`, `src/services/security/**`, or `src/services/tenant/**` exception globs).
+
+1. **Propose a scoped exception** in a PR by adding a single folder/file glob under `include`.
+2. Add/update a matching entry in `strictExceptionBudgets.folders` with:
+   - `glob`
+   - `baseline` (current file count under that exception)
+   - `nextTarget` (reduction target for the next sprint)
+   - `sunsetDate` (hard removal date)
+3. Run `node scripts/ci/check-strict-exception-budgets.mjs` locally.
+4. If the exception is in a protected trust boundary (`src/api`, `src/services/auth`, `src/services/security`, `src/services/tenant`), PR must fail — protected zones are zero-budget for new strictness exceptions.
+5. Remove the exception glob by its sunset date; if extension is unavoidable, update the date and justification in PR description and CODEOWNERS review notes.
+
+### Backend strict exception sunset dates (as of 2026-04-02)
+- `src/middleware/config` → sunset **2026-05-31**
+- `src/middleware/cost-controls` → sunset **2026-05-31**
+- `src/services/billing/config` → sunset **2026-06-15**
+- `src/services/bridging` → sunset **2026-06-15**
+- `src/services/domain-packs` → sunset **2026-06-30**
+- `src/services/reasoning` → sunset **2026-06-30**
+- `src/services/workflow` → sunset **2026-06-30**
+- `src/services/post-v1` → sunset **2026-07-31**
+- `src/types` → sunset **2026-08-31**
 
 ### CI ratchet
 - CI check: `node scripts/ci/any-ratchet.mjs`
