@@ -108,6 +108,9 @@ export function useMergedContext(caseId: string | undefined) {
         throw new DomainPackApiError(res.error?.message ?? "Merged context request failed");
       } catch (err) {
         logger.error("Failed to fetch merged context:", { error: err });
+        if (err instanceof DomainPackApiError) {
+          throw err;
+        }
         throw new DomainPackApiError("Merged domain-pack context is unavailable. Check backend orchestration.");
       }
     },
