@@ -63,6 +63,32 @@ function main() {
     return target && target < TODAY_UTC && !['completed', 'done', 'closed', 'accepted-risk', 'waived'].includes(normalizeStatus(control.status));
   });
 
+  const openCriticalByDueDateOwner = criticalControls
+    .filter((control) => !['completed', 'done', 'closed', 'accepted-risk', 'waived'].includes(normalizeStatus(control.status)))
+    .map((control) => ({
+      id: control.id,
+      control: control.control,
+      status: control.status,
+      targetDate: parseDateOnly(control?.remediation?.targetDate) ?? parseDateOnly(control?.targetDate) ?? 'missing',
+      owner: (
+        typeof control?.remediation?.owner === 'string' && control.remediation.owner.trim()
+          ? control.remediation.owner.trim()
+          : (typeof control.owner === 'string' ? control.owner.trim() : '')
+      ) || 'missing',
+      evidenceLocation: typeof control?.evidenceLocation === 'string' && control.evidenceLocation.trim()
+        ? control.evidenceLocation.trim()
+        : 'missing',
+    }))
+    .sort((a, b) => {
+      if (a.targetDate !== b.targetDate) {
+        return a.targetDate.localeCompare(b.targetDate);
+      }
+      if (a.owner !== b.owner) {
+        return a.owner.localeCompare(b.owner);
+      }
+      return a.id.localeCompare(b.id);
+    });
+
   const criticalGaps = criticalControls.filter((control) => {
     const owner = typeof control?.remediation?.owner === 'string' && control.remediation.owner.trim()
       ? control.remediation.owner.trim()
@@ -87,6 +113,7 @@ function main() {
       targetDate: control?.remediation?.targetDate ?? control?.targetDate ?? null,
       owner: control?.remediation?.owner ?? control.owner ?? null,
     })),
+    openCriticalByDueDateOwner,
     criticalOwnerOrEvidenceGaps: criticalGaps.map((control) => ({
       id: control.id,
       control: control.control,
@@ -132,6 +159,16 @@ function main() {
   } else {
     for (const control of report.criticalOwnerOrEvidenceGaps) {
       lines.push(`- ${control.id} | owner=${control.owner ?? 'missing'} | evidenceLocation=${control.evidenceLocation ?? 'missing'}`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`## Open critical controls by due date / owner (${report.openCriticalByDueDateOwner.length})`, '');
+  if (report.openCriticalByDueDateOwner.length === 0) {
+    lines.push('- none', '');
+  } else {
+    for (const control of report.openCriticalByDueDateOwner) {
+      lines.push(`- ${control.id} | targetDate=${control.targetDate} | owner=${control.owner} | status=${control.status} | evidenceLocation=${control.evidenceLocation}`);
     }
     lines.push('');
   }
