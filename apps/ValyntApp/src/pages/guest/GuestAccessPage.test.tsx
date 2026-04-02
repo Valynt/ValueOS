@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GuestAccessPage } from './GuestAccessPage';
@@ -13,7 +13,6 @@ vi.mock('react-router-dom', async (importOriginal) => {
     ...actual,
     useLocation: vi.fn(),
     useNavigate: vi.fn(),
-    useSearchParams: vi.fn(),
   };
 });
 
@@ -38,7 +37,6 @@ describe('GuestAccessPage', () => {
       state: null,
       key: 'guest-access',
     });
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), vi.fn()]);
     mockValidateToken.mockResolvedValue({
       isValid: false,
       errorMessage: 'Token not found',

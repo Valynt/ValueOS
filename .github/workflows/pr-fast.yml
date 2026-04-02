@@ -408,6 +408,12 @@ jobs:
       - name: Critical control status gate (SOC2/HIPAA)
         run: node scripts/ci/check-control-status-critical.mjs
 
+      - name: Critical controls governance gate
+        run: node scripts/ci/check-critical-controls-governance.mjs
+
+      - name: Publish control burn-down dashboard
+        run: node scripts/ci/publish-control-dashboard.mjs
+
       - name: Extract governance trust KPI snapshots
         run: |
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
@@ -436,6 +442,10 @@ jobs:
             artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
             artifacts/compliance/control-status-gate/**
+            artifacts/compliance/critical-controls/**
+            artifacts/compliance/critical-controls-gate/**
+            release-artifacts/compliance/control-dashboard.json
+            release-artifacts/compliance/control-dashboard.md
             artifacts/security/**
           if-no-files-found: warn
           retention-days: 30
@@ -459,6 +469,7 @@ jobs:
         run: |
           node scripts/ci/check-supabase-tenant-controls.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
+          node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
       - name: Emit lane summary

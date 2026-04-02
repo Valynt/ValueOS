@@ -7,7 +7,21 @@ export function createApprovalWebhookRouter(service: ApprovalWebhookService): Ro
 
   router.post('/:provider/decision', async (req: Request, res: Response) => {
     try {
-      const token = typeof req.query.token === 'string' ? req.query.token : req.body?.token;
+      if (typeof req.query.token === 'string' && req.query.token.trim()) {
+        res.status(400).json({
+          error: 'Token transport via query string is not allowed. Provide token via x-vos-action-token header or request body.',
+        });
+        return;
+      }
+
+      const headerToken = req.header('x-vos-action-token')?.trim();
+      const bodyToken = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+      if (headerToken && bodyToken && headerToken !== bodyToken) {
+        res.status(400).json({ error: 'Conflicting token values in header and body' });
+        return;
+      }
+
+      const token = headerToken || bodyToken;
       const tenantId = req.body?.tenantId as string | undefined;
       const actorId = req.body?.actorId as string | undefined;
 

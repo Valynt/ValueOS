@@ -1,6 +1,6 @@
 /**
  * Customer Portal API - Value Case Endpoint
- * GET /api/customer/value-case/:token
+ * GET /api/customer/value-case
  */
 
 import { logger } from "@shared/lib/logger";
@@ -9,10 +9,7 @@ import { z } from "zod";
 
 import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
 import { customerValueCaseReadService } from "../../services/customer/CustomerValueCaseReadService";
-
-const ValueCaseRequestSchema = z.object({
-  token: z.string().min(1, "Token is required"),
-});
+import { extractCustomerAccessToken } from "./tokenTransport";
 
 export type ValueCaseResponse = Awaited<
   ReturnType<typeof customerValueCaseReadService.readByCustomerToken>
@@ -22,11 +19,41 @@ export type ValueCaseResponse = Awaited<
 
 export async function getCustomerValueCase(req: Request, res: Response): Promise<void> {
   try {
-    const { token } = ValueCaseRequestSchema.parse(req.params);
+    const extracted = extractCustomerAccessToken(req);
+    if (extracted.error === "url_path_token_not_allowed") {
+      res.status(400).json({
+        error: "Bad Request",
+        message: "Token in URL path is not allowed. Provide token via header or request body.",
+      });
+      return;
+    }
+    if (extracted.error === "query_token_not_allowed") {
+      res.status(400).json({
+        error: "Bad Request",
+        message: "Token in query string is not allowed. Provide token via header or request body.",
+      });
+      return;
+    }
+    if (extracted.error === "conflicting_tokens") {
+      res.status(400).json({
+        error: "Bad Request",
+        message: "Conflicting token values in header and body.",
+      });
+      return;
+    }
+    if (extracted.error === "missing_token" || !extracted.token) {
+      res.status(400).json({
+        error: "Bad Request",
+        message: "Missing token. Provide token via x-customer-access-token header or request body.",
+      });
+      return;
+    }
+
+    const token = extracted.token;
     logger.info("Customer value case request");
     const endTimer = httpRequestDuration.startTimer({
       method: req.method,
-      route: "/api/customer/value-case/:token",
+      route: "/api/customer/value-case",
     });
     res.on("finish", () => {
       endTimer({ status_code: String(res.statusCode) });

@@ -65,9 +65,22 @@ spiffe://valueos.internal/ns/{k8s-namespace}/{principal-type}/{slug}
 
 ## mTLS Enforcement Policy
 
-- `PeerAuthentication` mode: **STRICT** for both `valynt` and `valynt-agents` namespaces.
-- No plaintext fallback. All intra-mesh traffic requires mutual TLS.
+- `PeerAuthentication` mode: **STRICT** for protected namespaces: `valynt`, `valynt-agents`, `valynt-staging`, `valueos-system`, and `valueos-tenants`.
+- No plaintext fallback in protected namespaces. All intra-mesh traffic requires mutual TLS.
+- `PERMISSIVE` is blocked by admission policy (`infra/k8s/security/kyverno-policies.yaml`) and CI validation (`scripts/ci/validate-k8s-security-policies.mjs`).
 - Configured in: `infra/k8s/security/mesh-authentication.yaml`
+
+### Legacy carve-out / exception process
+
+`PERMISSIVE` mTLS is prohibited for protected namespaces.
+
+If a temporary legacy carve-out is unavoidable, it must follow the audit exception process in `docs/security-compliance/audit-exceptions-policy.md` and include all of the following in one PR:
+
+1. Security owner approval and documented business justification.
+2. Explicit expiry date and rollback/remediation plan.
+3. Namespace scoping outside protected namespaces only.
+4. Compensating controls (tight `AuthorizationPolicy`, restrictive `NetworkPolicy`, and monitoring alert).
+5. Removal issue/ticket linked in the exception record.
 
 ## Authorization Model
 

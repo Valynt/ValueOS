@@ -1,0 +1,22 @@
+[
+ {
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 232,
+  "EndLine": 232,
+  "StartColumn": 14,
+  "EndColumn": 38,
+  "Match": "api_key: 'REDACTED'",
+  "Secret": "REDACTED",
+  "File": "packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts",
+  "SymlinkFile": "",
+  "Commit": "4a662e733866d93066bee6851e765aa7af737a95",
+  "Entropy": 3.6644979,
+  "Author": "bms560",
+  "Email": "143443537+bmsull560@users.noreply.github.com",
+  "Date": "2026-03-27T10:35:08Z",
+  "Message": "Harden customer benchmark percentile fallbacks (#2140)",
+  "Tags": [],
+  "RuleID": "generic-api-key",
+  "Fingerprint": "4a662e733866d93066bee6851e765aa7af737a95:packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts:generic-api-key:232"
+ }
+]

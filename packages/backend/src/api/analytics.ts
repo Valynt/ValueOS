@@ -29,6 +29,7 @@ const PUBLIC_TELEMETRY_MAX_CONTEXT_VALUE_LENGTH = 64;
 const PUBLIC_TELEMETRY_KEY_HEADER = "x-telemetry-key";
 // eslint-disable-next-line no-control-regex -- control characters are intentionally rejected for telemetry inputs
 const CONTROL_CHARACTER_PATTERN = /[\r\n\x00-\x1f\x7f]/;
+const SECURE_TELEMETRY_NODE_ENVS = new Set(["staging", "production"]);
 
 const analyticsLimiter = createRateLimiter("standard", {
   message: "Too many analytics requests. Please slow down.",
@@ -155,6 +156,11 @@ function getTelemetryAllowedOrigins(): string[] {
     .filter((origin) => origin.length > 0);
 }
 
+function isSecureTelemetryEnvironment(): boolean {
+  const nodeEnv = (process.env.NODE_ENV ?? "development").toLowerCase();
+  return SECURE_TELEMETRY_NODE_ENVS.has(nodeEnv);
+}
+
 function constantTimeEquals(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -170,22 +176,42 @@ function rejectUnauthorizedTelemetryRequest(
   req: express.Request,
   res: express.Response,
 ): boolean {
+  const secureTelemetryEnvironment = isSecureTelemetryEnvironment();
   const configuredTelemetryKey = process.env.BROWSER_TELEMETRY_INGESTION_KEY?.trim();
   const providedTelemetryKey = req.get(PUBLIC_TELEMETRY_KEY_HEADER)?.trim();
 
-  if (configuredTelemetryKey) {
-    if (!providedTelemetryKey || !constantTimeEquals(providedTelemetryKey, configuredTelemetryKey)) {
-      logger.warn("Browser telemetry rejected", {
-        reason: "invalid_telemetry_key",
-        ipHash: hashTelemetryValue(req.ip),
-        originHash: hashTelemetryValue(req.get("origin") || undefined),
-      });
-      res.status(401).json({ error: "Telemetry key required" });
-      return true;
-    }
+  if (!configuredTelemetryKey && secureTelemetryEnvironment) {
+    logger.warn("Browser telemetry rejected", {
+      reason: "missing_telemetry_key_configuration",
+      ipHash: hashTelemetryValue(req.ip),
+      originHash: hashTelemetryValue(req.get("origin") || undefined),
+    });
+    res.status(401).json({ error: "Telemetry key required" });
+    return true;
+  }
+
+  if (configuredTelemetryKey && (!providedTelemetryKey || !constantTimeEquals(providedTelemetryKey, configuredTelemetryKey))) {
+    logger.warn("Browser telemetry rejected", {
+      reason: "invalid_telemetry_key",
+      ipHash: hashTelemetryValue(req.ip),
+      originHash: hashTelemetryValue(req.get("origin") || undefined),
+    });
+    res.status(401).json({ error: "Telemetry key required" });
+    return true;
   }
 
   const allowedOrigins = getTelemetryAllowedOrigins();
+  const hasWildcardOrigin = allowedOrigins.some((origin) => origin.includes("*"));
+  if (secureTelemetryEnvironment && (allowedOrigins.length === 0 || hasWildcardOrigin)) {
+    logger.warn("Browser telemetry rejected", {
+      reason: "invalid_telemetry_origin_configuration",
+      ipHash: hashTelemetryValue(req.ip),
+      originHash: hashTelemetryValue(req.get("origin") || undefined),
+    });
+    res.status(403).json({ error: "Origin not allowed for browser telemetry" });
+    return true;
+  }
+
   if (allowedOrigins.length > 0) {
     const requestOrigin = req.get("origin")?.trim();
     if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {

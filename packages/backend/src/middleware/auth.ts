@@ -9,23 +9,14 @@ import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 // Re-export requireRole from rbac for convenience
-export { requireRole } from './rbac.js'
-
+export { requireRole } from './rbac.js';
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email?: string;
-    roles?: string[];
-    tenant_id?: string;
-    [key: string]: unknown;
-  };
-  tenantId?: string;
   correlationId?: string;
-  organizationId?: string;
 }
-import { authService } from '../services/auth/AuthService.js'
+
+import { authService } from '../services/auth/AuthService.js';
 import { auditLogService } from '../services/AuditLogService.js';
-import { AuthenticationError } from '../services/errors.js'
+import { AuthenticationError } from '../services/errors.js';
 
 import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
@@ -33,6 +24,16 @@ import { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } from 
 import { getEnvVar } from '@shared/lib/env';
 import { getRedisClient } from '@shared/lib/redisClient';
 import { authFallbackActivationsTotal } from '../metrics/authMetrics.js';
+import {
+  AuthSession,
+  AuthUser,
+  FallbackEmergencyConfig,
+  RevocationCheckResult,
+  VerificationContext,
+  VerifiedAuth,
+} from './auth/types.js';
+import { extractTenantId } from './auth/tenantAlignment.js';
+export { requireTenantRequestAlignment, extractRequestedTenantId, extractTenantId } from './auth/tenantAlignment.js';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
 
@@ -66,55 +67,6 @@ const FALLBACK_READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const fallbackActivations: number[] = [];
 const FALLBACK_COUNTER_REDIS_KEY = 'auth:fallback:activations';
 const FALLBACK_SINGLE_USE_REDIS_KEY_PREFIX = 'auth:fallback:single-use';
-
-type VerificationContext = {
-  route?: string;
-  method?: string;
-};
-
-type AuthUser = {
-  id?: string;
-  email?: string;
-  role?: string | string[];
-  tenant_id?: string;
-  app_metadata?: {
-    tenant_id?: string;
-    roles?: unknown;
-    tier?: string;
-  };
-  user_metadata?: Record<string, unknown>;
-};
-
-type AuthSession = {
-  access_token?: string;
-  token_type?: string;
-  expires_at?: number;
-  expires_in?: number;
-  user?: AuthUser;
-};
-
-/** Result of verifyAccessToken / verifyTokenWithSupabase / verifyTokenLocally */
-type VerifiedAuth = {
-  user: AuthUser;
-  session: AuthSession;
-  claims: JwtPayload;
-};
-
-type FallbackEmergencyConfig = {
-  incidentId: string;
-  incidentSeverity: string;
-  incidentStartedAt: string;
-  incidentCorrelationId: string;
-  allowedRoutes: string[];
-  allowedMethods: string[];
-  requireAuthoritativeRevocation: boolean;
-  maintenanceWindowEnd: string;
-};
-
-type RevocationCheckResult = {
-  revoked: boolean;
-  authoritative: boolean;
-};
 
 function matchesAllowedValue(candidate: string | undefined, allowlist: string[]): boolean {
   if (!candidate || allowlist.length === 0) {
@@ -826,141 +778,6 @@ function buildSessionFromClaims(token: string, claims: JwtPayload) {
   };
 }
 
-export function extractTenantId(claims: JwtPayload | null, user?: AuthUser): string | undefined {
-  return (
-    (claims?.tenant_id as string | undefined) ??
-    (claims?.organization_id as string | undefined) ??
-    (claims?.app_metadata as { tenant_id?: string } | undefined)?.tenant_id ??
-    (user?.app_metadata?.tenant_id as string | undefined) ??
-    (user?.tenant_id as string | undefined)
-  );
-}
-
-function readStringRecordValue(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-export function extractRequestedTenantId(req: Request): string | undefined {
-  const params = req.params as Record<string, string | undefined>;
-  const query = req.query as Record<string, string | string[] | undefined>;
-  const body = (req.body ?? {}) as Record<string, unknown>;
-
-  const queryValue = (key: string): string | undefined => {
-    const value = query[key];
-    if (typeof value === 'string' && value.length > 0) return value;
-    if (Array.isArray(value)) {
-      const first = value[0];
-      return typeof first === 'string' && first.length > 0 ? first : undefined;
-    }
-    return undefined;
-  };
-
-  const context = body.context;
-  const contextRecord = context && typeof context === 'object' ? (context as Record<string, unknown>) : undefined;
-
-  return (
-    params.tenantId ??
-    params.tenant_id ??
-    params.organizationId ??
-    params.organization_id ??
-    req.header('x-tenant-id') ??
-    req.header('x-organization-id') ??
-    queryValue('tenantId') ??
-    queryValue('tenant_id') ??
-    queryValue('organizationId') ??
-    queryValue('organization_id') ??
-    readStringRecordValue(body, 'tenantId') ??
-    readStringRecordValue(body, 'tenant_id') ??
-    readStringRecordValue(body, 'organizationId') ??
-    readStringRecordValue(body, 'organization_id') ??
-    (contextRecord ? readStringRecordValue(contextRecord, 'tenantId') : undefined) ??
-    (contextRecord ? readStringRecordValue(contextRecord, 'tenant_id') : undefined) ??
-    (contextRecord ? readStringRecordValue(contextRecord, 'organizationId') : undefined) ??
-    (contextRecord ? readStringRecordValue(contextRecord, 'organization_id') : undefined)
-  );
-}
-
-type TenantGuardRejectionReason = 'token_tenant_missing' | 'requested_tenant_missing' | 'tenant_mismatch';
-
-async function logTenantGuardRejection(
-  req: AuthenticatedRequest,
-  reason: TenantGuardRejectionReason,
-  details: Record<string, unknown>
-): Promise<void> {
-  try {
-    await auditLogService.logAudit({
-      userId: req.user?.id ?? 'unknown',
-      userName: req.user?.email ?? 'Unknown User',
-      userEmail: req.user?.email ?? 'unknown@valueos.local',
-      action: 'auth.tenant_guard_rejected',
-      resourceType: 'tenant_access',
-      resourceId: req.path || 'unknown_path',
-      status: 'failed',
-      details: {
-        reason,
-        method: req.method,
-        path: req.path,
-        requestId: (req as Record<string, unknown>).requestId,
-        ...details,
-      },
-    });
-  } catch (error) {
-    logger.error('Failed to write tenant guard rejection audit log', error instanceof Error ? error : undefined, {
-      reason,
-      path: sanitizeForLogging(req.path),
-    });
-  }
-}
-
-export function requireTenantRequestAlignment() {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const authReq = req as AuthenticatedRequest;
-    const tokenTenantId =
-      authReq.tenantId ||
-      authReq.user?.tenant_id ||
-      (authReq.user?.organization_id as string | undefined) ||
-      authReq.organizationId;
-    const requestedTenantId = extractRequestedTenantId(req);
-
-    if (!tokenTenantId) {
-      await logTenantGuardRejection(authReq, 'token_tenant_missing', {
-        requestedTenantId,
-      });
-      res.status(403).json({
-        error: 'tenant_forbidden',
-        message: 'Authenticated token must include tenant context.',
-      });
-      return;
-    }
-
-    if (!requestedTenantId) {
-      await logTenantGuardRejection(authReq, 'requested_tenant_missing', {
-        tokenTenantId,
-      });
-      res.status(403).json({
-        error: 'tenant_required',
-        message: 'Requested tenant context is required.',
-      });
-      return;
-    }
-
-    if (tokenTenantId !== requestedTenantId) {
-      await logTenantGuardRejection(authReq, 'tenant_mismatch', {
-        tokenTenantId,
-        requestedTenantId,
-      });
-      res.status(403).json({
-        error: 'tenant_mismatch',
-        message: 'Requested tenant does not match authenticated tenant.',
-      });
-      return;
-    }
-
-    next();
-  };
-}
-
 function applyAuthContext(req: Request, user: AuthUser | undefined, session: AuthSession | undefined, claims: JwtPayload | null) {
   const tenantId = extractTenantId(claims, user);
   const organizationId =
@@ -971,11 +788,10 @@ function applyAuthContext(req: Request, user: AuthUser | undefined, session: Aut
     ? { ...user, tenant_id: tenantId ?? user.tenant_id, organization_id: organizationId ?? user.organization_id }
     : user;
 
-  const authReq = req as AuthenticatedRequest;
-  authReq.user = userWithTenant as AuthenticatedRequest["user"];
-  (req as Record<string, unknown>).session = session;
-  authReq.tenantId = tenantId;
-  authReq.organizationId = organizationId;
+  req.user = userWithTenant as Request['user'];
+  req.session = session;
+  req.tenantId = tenantId;
+  req.organizationId = organizationId;
 }
 
 function ensureAuthHeader(req: Request, token?: string | null) {

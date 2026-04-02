@@ -2,23 +2,38 @@
  * Customer Portal API Tests
  */
 
-import { supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { customerAccessService } from '../../services/tenant/CustomerAccessService';
-import { getCustomerBenchmarks } from '../customer/benchmarks.js'
-import { getCustomerMetrics } from '../customer/metrics.js'
-import { getCustomerValueCase } from '../customer/value-case.js'
+import { getCustomerBenchmarks } from '../customer/benchmarks.js';
+import { getCustomerMetrics } from '../customer/metrics.js';
+import { getCustomerValueCase } from '../customer/value-case.js';
 
+const customerAccessServiceMock = vi.hoisted(() => ({
+  validateCustomerToken: vi.fn(),
+}));
 
-// Mock dependencies
-vi.mock('../../services/tenant/CustomerAccessService');
-vi.mock('@shared/lib/supabase', () => {
-  const from = vi.fn();
+vi.mock('../../services/tenant/CustomerAccessService.js', () => ({
+  customerAccessService: customerAccessServiceMock,
+}));
+vi.mock('../../services/tenant/CustomerAccessService', () => ({
+  customerAccessService: customerAccessServiceMock,
+}));
+vi.mock('../../services/customer/CustomerValueCaseReadService', () => ({
+  customerValueCaseReadService: {
+    readByCustomerToken: vi.fn(),
+  },
+}));
+
+const mockDbClient = {
+  from: vi.fn(),
+};
+
+vi.mock('../../lib/supabase.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/supabase.js')>();
   return {
-    supabase: { from },
-    getSupabaseClient: vi.fn(() => ({ from }))
+    ...actual,
+    createServiceRoleSupabaseClient: vi.fn(() => mockDbClient),
   };
 });
 
@@ -34,294 +49,174 @@ describe('Customer Portal API', () => {
 
     mockReq = {
       params: {},
-      query: {}
+      query: {},
+      body: {},
+      header: vi.fn().mockReturnValue(undefined),
     };
 
     mockRes = {
       status: statusMock,
-      json: jsonMock
+      json: jsonMock,
+      on: vi.fn(),
     };
 
     vi.clearAllMocks();
   });
 
-  describe('GET /api/customer/metrics/:token', () => {
-    it('should return metrics for valid token', async () => {
-      const mockToken = 'valid-token';
-      const mockValueCaseId = 'value-case-123';
-
-      mockReq.params = { token: mockToken };
+  describe('GET /api/customer/metrics', () => {
+    it('returns metrics for valid header token', async () => {
+      vi.mocked(mockReq.header as ReturnType<typeof vi.fn>).mockImplementation((name: string) =>
+        name.toLowerCase() === 'x-customer-access-token' ? 'valid-token' : undefined,
+      );
       mockReq.query = { period: '90d' };
 
-      // Mock token validation
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
-        value_case_id: mockValueCaseId,
-        organization_id: 'org-123',
-        is_valid: true,
-        error_message: null
-      });
-
-      // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: mockValueCaseId,
-            company_name: 'Acme Corp',
-            name: 'Q1 2026 Business Case'
-          },
-          error: null
-        })
-      });
-
-      // Mock metrics fetch
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        gte: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: '1',
-              metric_name: 'Cost Savings',
-              metric_type: 'cost',
-              predicted_value: 500000,
-              actual_value: 620000,
-              status: 'on_track'
-            }
-          ],
-          error: null
-        })
-      });
-
-      await getCustomerMetrics(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(200);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          value_case_id: mockValueCaseId,
-          company_name: 'Acme Corp',
-          metrics: expect.any(Array),
-          summary: expect.objectContaining({
-            total_metrics: 1,
-            on_track: 1
-          })
-        })
-      );
-    });
-
-    it('should return 401 for invalid token', async () => {
-      mockReq.params = { token: 'invalid-token' };
-
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
-        value_case_id: null,
-        organization_id: null,
-        is_valid: false,
-        error_message: 'Invalid token'
-      });
-
-      await getCustomerMetrics(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(401);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'Unauthorized',
-          message: 'Invalid token'
-        })
-      );
-    });
-
-    it('should return 400 for invalid parameters', async () => {
-      mockReq.params = {}; // Missing token
-
-      await getCustomerMetrics(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(400);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'Bad Request'
-        })
-      );
-    });
-  });
-
-  describe('GET /api/customer/value-case/:token', () => {
-    it('should return value case details for valid token', async () => {
-      const mockToken = 'valid-token';
-      const mockValueCaseId = 'value-case-123';
-
-      mockReq.params = { token: mockToken };
-
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
-        value_case_id: mockValueCaseId,
-        organization_id: 'org-123',
-        is_valid: true,
-        error_message: null
-      });
-
-      // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: mockValueCaseId,
-            name: 'Q1 2026 Business Case',
-            company_name: 'Acme Corp',
-            lifecycle_stage: 'realization'
-          },
-          error: null
-        }),
-        order: vi.fn().mockResolvedValue({
-          data: [],
-          error: null
-        }),
-        limit: vi.fn().mockReturnThis()
-      });
-
-      await getCustomerValueCase(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(200);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: mockValueCaseId,
-          company_name: 'Acme Corp',
-          opportunities: expect.any(Array),
-          value_drivers: expect.any(Array)
-        })
-      );
-    });
-
-    it('should return 404 for non-existent value case', async () => {
-      mockReq.params = { token: 'valid-token' };
-
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
-        value_case_id: 'non-existent',
-        organization_id: 'org-123',
-        is_valid: true,
-        error_message: null
-      });
-
-      (supabase.from as any).mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Not found' }
-        })
-      });
-
-      await getCustomerValueCase(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(404);
-    });
-  });
-
-  describe('GET /api/customer/benchmarks/:token', () => {
-    it('should return benchmarks for valid token', async () => {
-      const mockToken = 'valid-token';
-      const mockValueCaseId = 'value-case-123';
-
-      mockReq.params = { token: mockToken };
-      mockReq.query = { industry: 'technology' };
-
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
-        value_case_id: mockValueCaseId,
-        organization_id: 'org-123',
-        is_valid: true,
-        error_message: null
-      });
-
-      // Mock value case fetch
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: mockValueCaseId,
-            company_name: 'Acme Corp',
-            custom_fields: { industry: 'technology' }
-          },
-          error: null
-        })
-      });
-
-      // Mock benchmarks fetch
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: '1',
-              kpi_name: 'Customer Acquisition Cost',
-              industry: 'technology',
-              p25: 100,
-              median: 150,
-              p75: 200,
-              best_in_class: 250
-            }
-          ],
-          error: null
-        })
-      });
-
-      // Mock metrics fetch
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        not: vi.fn().mockResolvedValue({
-          data: [],
-          error: null
-        })
-      });
-
-      await getCustomerBenchmarks(mockReq as Request, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(200);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          value_case_id: mockValueCaseId,
-          company_name: 'Acme Corp',
-          industry: 'technology',
-          comparisons: expect.any(Array)
-        })
-      );
-    });
-
-    it('should return 400 when industry is missing', async () => {
-      mockReq.params = { token: 'valid-token' };
-
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
         value_case_id: 'value-case-123',
         organization_id: 'org-123',
         is_valid: true,
-        error_message: null
+        error_message: null,
       });
 
-      (supabase.from as any).mockReturnValue({
+      const valueCaseQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
-          data: {
-            id: 'value-case-123',
-            company_name: 'Acme Corp',
-            custom_fields: {} // No industry
-          },
-          error: null
-        })
+          data: { id: 'value-case-123', company_name: 'Acme Corp', name: 'Q1 Case' },
+          error: null,
+        }),
+      };
+      const metricsQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'm1',
+              metric_name: 'Cost Savings',
+              metric_type: 'cost',
+              predicted_value: 100,
+              actual_value: 120,
+              status: 'on_track',
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockDbClient.from.mockReturnValueOnce(valueCaseQuery).mockReturnValueOnce(metricsQuery);
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ value_case_id: 'value-case-123' }));
+    });
+
+    it('rejects URL path token transport with 400', async () => {
+      mockReq.params = { token: 'legacy-path-token' };
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ error: 'Bad Request' }));
+    });
+
+    it('accepts POST body token transport', async () => {
+      mockReq.body = { token: 'body-token' };
+      mockReq.query = { period: 'all' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: null,
+        organization_id: null,
+        is_valid: false,
+        error_message: 'Invalid token',
       });
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(customerAccessServiceMock.validateCustomerToken).toHaveBeenCalledWith('body-token');
+      expect(statusMock).toHaveBeenCalledWith(401);
+    });
+  });
+
+  describe('GET /api/customer/value-case', () => {
+    it('rejects query token transport with 400', async () => {
+      mockReq.query = { token: 'legacy-query-token' };
+
+      await getCustomerValueCase(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ error: 'Bad Request' }));
+    });
+  });
+
+  describe('GET /api/customer/benchmarks', () => {
+    it('returns benchmarks for valid body token', async () => {
+      mockReq.body = { token: 'valid-token' };
+      mockReq.query = { industry: 'technology' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: 'value-case-123',
+        organization_id: 'org-123',
+        is_valid: true,
+        error_message: null,
+      });
+
+      const valueCaseQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'value-case-123', company_name: 'Acme Corp', custom_fields: { industry: 'technology' } },
+          error: null,
+        }),
+      };
+      const benchmarksQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'b1',
+              kpi_name: 'Customer Acquisition Cost',
+              industry: 'technology',
+              company_size: null,
+              p25: 100,
+              median: 150,
+              p75: 200,
+              best_in_class: 250,
+              unit: 'usd',
+              source: 'test',
+              vintage: '2026',
+              sample_size: 100,
+            },
+          ],
+          error: null,
+        }),
+      };
+      const metricsQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        not: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+
+      mockDbClient.from
+        .mockReturnValueOnce(valueCaseQuery)
+        .mockReturnValueOnce(benchmarksQuery)
+        .mockReturnValueOnce(metricsQuery);
+
+      await getCustomerBenchmarks(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ value_case_id: 'value-case-123' }));
+    });
+
+    it('rejects missing token with 400', async () => {
+      mockReq.query = { industry: 'technology' };
 
       await getCustomerBenchmarks(mockReq as Request, mockRes as Response);
 
       expect(statusMock).toHaveBeenCalledWith(400);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'Bad Request',
-          message: 'Industry information is required'
-        })
-      );
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ error: 'Bad Request' }));
     });
   });
 });

@@ -8,9 +8,47 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 import { logger } from "../lib/logger";
 import { WorkflowStatus } from "../types";
+
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonObject = { [key: string]: JsonValue };
+
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)])
+);
+
+const workflowMetadataSchema = z
+  .object({
+    startedAt: z.string().datetime().optional(),
+    lastUpdatedAt: z.string().datetime().optional(),
+    errorCount: z.number().int().nonnegative().optional(),
+    retryCount: z.number().int().nonnegative().optional(),
+  })
+  .optional();
+
+const workflowStateSchema = z.object({
+  currentStage: z.string().min(1),
+  status: z.custom<WorkflowStatus>((value): value is WorkflowStatus => {
+    return ["pending", "running", "completed", "failed", "cancelled"].includes(String(value));
+  }, "Invalid workflow status"),
+  completedStages: z.array(z.string()),
+  context: z.record(z.string(), jsonValueSchema),
+  metadata: workflowMetadataSchema,
+});
+
+const sessionDataSchema = z.object({
+  id: z.string().min(1),
+  tenant_id: z.string().optional(),
+  user_id: z.string().min(1),
+  workflow_state: workflowStateSchema,
+  status: z.enum(["active", "completed", "error", "abandoned"]),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
 
 /**
  * Workflow state stored in database
@@ -19,7 +57,7 @@ export interface WorkflowState {
   currentStage: string;
   status: WorkflowStatus;
   completedStages: string[];
-  context: Record<string, any>;
+  context: JsonObject;
   metadata?: {
     startedAt?: string;
     lastUpdatedAt?: string;
@@ -54,6 +92,34 @@ export class WorkflowStateRepository {
     return tenantId;
   }
 
+  private parseWorkflowState(payload: unknown, context: Record<string, string>): WorkflowState | null {
+    const parsed = workflowStateSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      logger.error("Invalid workflow state payload", {
+        issues: parsed.error.issues,
+        ...context,
+      });
+      return null;
+    }
+
+    return parsed.data;
+  }
+
+  private parseSessionData(payload: unknown, context: Record<string, string>): SessionData | null {
+    const parsed = sessionDataSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      logger.error("Invalid session payload", {
+        issues: parsed.error.issues,
+        ...context,
+      });
+      return null;
+    }
+
+    return parsed.data;
+  }
+
   /**
    * Get workflow state for a session
    *
@@ -80,7 +146,7 @@ export class WorkflowStateRepository {
         return null;
       }
 
-      return data.workflow_state as WorkflowState;
+      return this.parseWorkflowState(data.workflow_state, { sessionId, tenantId: resolvedTenantId });
     } catch (error) {
       logger.error("Error getting workflow state", {
         error: error instanceof Error ? error : undefined,
@@ -99,11 +165,13 @@ export class WorkflowStateRepository {
   async saveState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void> {
     try {
       const resolvedTenantId = this.requireTenantId(tenantId);
+      const validatedState = workflowStateSchema.parse(state);
+
       // Add metadata
       const stateWithMetadata: WorkflowState = {
-        ...state,
+        ...validatedState,
         metadata: {
-          ...state.metadata,
+          ...validatedState.metadata,
           lastUpdatedAt: new Date().toISOString(),
         },
       };
@@ -150,9 +218,11 @@ export class WorkflowStateRepository {
   ): Promise<string> {
     try {
       const resolvedTenantId = this.requireTenantId(tenantId);
+      const validatedInitialState = workflowStateSchema.parse(initialState);
+
       // Add metadata
       const stateWithMetadata: WorkflowState = {
-        ...initialState,
+        ...validatedInitialState,
         metadata: {
           startedAt: new Date().toISOString(),
           lastUpdatedAt: new Date().toISOString(),
@@ -214,7 +284,7 @@ export class WorkflowStateRepository {
         return null;
       }
 
-      return data as SessionData;
+      return this.parseSessionData(data, { sessionId, tenantId: resolvedTenantId });
     } catch (error) {
       logger.error("Error getting session", {
         error: error instanceof Error ? error : undefined,
@@ -321,7 +391,10 @@ export class WorkflowStateRepository {
         return [];
       }
 
-      return (data || []) as SessionData[];
+      return (data ?? []).flatMap((session) => {
+        const parsed = this.parseSessionData(session, { userId, tenantId: resolvedTenantId });
+        return parsed ? [parsed] : [];
+      });
     } catch (error) {
       logger.error("Error getting active sessions", {
         error: error instanceof Error ? error : undefined,
@@ -387,10 +460,11 @@ export class WorkflowStateRepository {
   ): Promise<boolean> {
     try {
       const resolvedTenantId = this.requireTenantId(tenantId);
+      const validatedState = workflowStateSchema.parse(newState);
       const stateWithMetadata: WorkflowState = {
-        ...newState,
+        ...validatedState,
         metadata: {
-          ...newState.metadata,
+          ...validatedState.metadata,
           lastUpdatedAt: new Date().toISOString(),
         },
       };

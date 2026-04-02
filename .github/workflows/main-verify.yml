@@ -59,6 +59,15 @@ jobs:
               exit 1
             }
 
+          gitleaks detect \
+            --config=.gitleaks.toml \
+            --redact \
+            --exit-code=0 \
+            --report-format=json \
+            --report-path=artifacts/secret-scan/gitleaks-history.json \
+            --log-level=warn \
+            > /dev/null
+
       - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3
@@ -73,7 +82,7 @@ jobs:
           name: secret-scan-history-${{ github.run_id }}
           path: artifacts/secret-scan/
           if-no-files-found: warn
-          retention-days: 90
+          retention-days: 365
 
   lint-runtime-packages:
     name: lint-runtime-packages (${{ matrix.lane }})
@@ -302,6 +311,12 @@ jobs:
       - name: Critical control status gate (SOC2/HIPAA)
         run: node scripts/ci/check-control-status-critical.mjs
 
+      - name: Critical controls governance gate
+        run: node scripts/ci/check-critical-controls-governance.mjs
+
+      - name: Publish control burn-down dashboard
+        run: node scripts/ci/publish-control-dashboard.mjs
+
       - name: Extract governance trust KPI snapshots
         run: |
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
@@ -311,7 +326,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: control-status-gate-${{ github.run_id }}
-          path: artifacts/compliance/control-status-gate/**
+          path: |
+            artifacts/compliance/control-status-gate/**
+            artifacts/compliance/critical-controls/**
+            artifacts/compliance/critical-controls-gate/**
+            release-artifacts/compliance/control-dashboard.json
+            release-artifacts/compliance/control-dashboard.md
           if-no-files-found: warn
           retention-days: 90
 
@@ -416,6 +436,7 @@ jobs:
         run: |
           node scripts/ci/check-supabase-tenant-controls.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
+          node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
 

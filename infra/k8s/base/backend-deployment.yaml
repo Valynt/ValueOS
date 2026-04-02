@@ -98,6 +98,16 @@ spec:
                 secretKeyRef:
                   name: valynt-secrets
                   key: jwt-secret
+            - name: BROWSER_TELEMETRY_INGESTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: browser-telemetry-ingestion-key
+            - name: BROWSER_TELEMETRY_ALLOWED_ORIGINS
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: browser-telemetry-allowed-origins
             - name: REDIS_URL
               valueFrom:
                 configMapKeyRef:

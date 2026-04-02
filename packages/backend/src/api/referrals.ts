@@ -29,6 +29,39 @@ const referralPublicLimiter = createRateLimiter("strict", {
   message: "Too many referral requests. Please try again later.",
 });
 
+const DEFAULT_PAGINATION_LIMIT = 10;
+const MAX_PAGINATION_LIMIT = 100;
+
+const parsePaginationLimit = (
+  limitQueryParam: unknown,
+  res: Response
+): number | null => {
+  if (typeof limitQueryParam !== "string") {
+    return DEFAULT_PAGINATION_LIMIT;
+  }
+
+  const trimmedLimit = limitQueryParam.trim();
+
+  if (!trimmedLimit) {
+    return DEFAULT_PAGINATION_LIMIT;
+  }
+
+  if (!/^[+-]?\d+$/.test(trimmedLimit)) {
+    res.status(400).json({
+      error: "Invalid limit query parameter. Expected an integer value.",
+    });
+    return null;
+  }
+
+  const parsedLimit = Number.parseInt(trimmedLimit, 10);
+
+  if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
+    return DEFAULT_PAGINATION_LIMIT;
+  }
+
+  return Math.min(parsedLimit, MAX_PAGINATION_LIMIT);
+};
+
 /**
  * POST /api/referrals/generate
  * Generate or retrieve referral code for authenticated user
@@ -229,7 +262,11 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
 router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parsePaginationLimit(req.query.limit, res);
+
+    if (limit === null) {
+      return;
+    }
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -263,7 +300,11 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
 router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parsePaginationLimit(req.query.limit, res);
+
+    if (limit === null) {
+      return;
+    }
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });

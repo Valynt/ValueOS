@@ -454,7 +454,7 @@ const { toast } = useToast();
         </div>
       </div>
 
-      <EvidenceDrawer open={evidenceOpen} onClose={() => setEvidenceOpen(false)} />
+      <EvidenceDrawer open={evidenceOpen} onClose={() => setEvidenceOpen(false)} caseId={caseId} />
     </div>
   );
 }

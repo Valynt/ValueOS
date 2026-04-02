@@ -19,6 +19,36 @@ spec:
 
 ---
 apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valynt-staging-strict-peer-auth
+  namespace: valynt-staging
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valueos-system-strict-peer-auth
+  namespace: valueos-system
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valueos-tenants-strict-peer-auth
+  namespace: valueos-tenants
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: api-allow-gateway-spiffe

@@ -16,6 +16,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "s3" {
@@ -47,10 +51,10 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "db_master_password" {
-  description = "Development RDS master password loaded from secure Terraform backend/TF_VAR_db_master_password"
-  type        = string
-  sensitive   = true
+variable "db_allowed_bastion_security_group_ids" {
+  description = "Optional bastion or admin security group IDs allowed to access the dev database."
+  type        = list(string)
+  default     = []
 }
 
 # Data Sources
@@ -61,6 +65,7 @@ data "aws_availability_zones" "available" {
 # Local Variables
 locals {
   name_prefix = "valuecanvas-dev"
+  private_subnet_cidrs = [for subnet in aws_subnet.private : subnet.cidr_block]
   
   common_tags = {
     Project     = "ValueOS"
@@ -236,13 +241,34 @@ resource "aws_security_group" "dev_db" {
   name_prefix = "${local.name_prefix}-db-"
   vpc_id      = aws_vpc.dev.id
 
-  # Allow database access from app and public
+  # Allow database access only from private network ranges.
   ingress {
-    description = "Allow PostgreSQL from anywhere (dev only)"
+    description = "Allow PostgreSQL from private subnets in VPC"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = local.private_subnet_cidrs
+  }
+
+  # Allow application security group to connect to the database.
+  ingress {
+    description     = "Allow PostgreSQL from development application security group"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.dev_app.id]
+  }
+
+  # Optional break-glass access from explicitly approved bastion/admin SGs.
+  dynamic "ingress" {
+    for_each = toset(var.db_allowed_bastion_security_group_ids)
+    content {
+      description     = "Allow PostgreSQL from approved bastion security group ${ingress.value}"
+      from_port       = 5432
+      to_port         = 5432
+      protocol        = "tcp"
+      security_groups = [ingress.value]
+    }
   }
 
   egress {
@@ -261,6 +287,46 @@ resource "aws_security_group" "dev_db" {
   )
 }
 
+# KMS key for development data-at-rest encryption.
+resource "aws_kms_key" "dev_rds" {
+  description             = "KMS key for dev RDS and dev DB Secrets Manager secret"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_alias" "dev_rds" {
+  name          = "alias/${local.name_prefix}-rds"
+  target_key_id = aws_kms_key.dev_rds.key_id
+}
+
+# Generate a master password and persist it in AWS Secrets Manager.
+resource "random_password" "dev_db_master" {
+  length           = 24
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "aws_secretsmanager_secret" "dev_db_master" {
+  name_prefix = "${local.name_prefix}-db-master-"
+  description = "Development RDS master credential for ${local.name_prefix}"
+  kms_key_id  = aws_kms_key.dev_rds.arn
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-db-master-secret"
+    }
+  )
+}
+
+resource "aws_secretsmanager_secret_version" "dev_db_master" {
+  secret_id = aws_secretsmanager_secret.dev_db_master.id
+  secret_string = jsonencode({
+    username = "dev_user"
+    password = random_password.dev_db_master.result
+  })
+}
+
 # Development RDS (single instance, no HA)
 resource "aws_db_instance" "dev" {
   identifier = "${local.name_prefix}-postgres"
@@ -272,11 +338,12 @@ resource "aws_db_instance" "dev" {
   allocated_storage     = 20
   max_allocated_storage = 100
   storage_type          = "gp2"
-  storage_encrypted     = false  # Dev environment
+  storage_encrypted     = true
+  kms_key_id            = aws_kms_key.dev_rds.arn
 
   db_name  = "valuecanvas_dev"
   username = "dev_user"
-  password = var.db_master_password
+  password = jsondecode(aws_secretsmanager_secret_version.dev_db_master.secret_string).password
 
   vpc_security_group_ids = [aws_security_group.dev_db.id]
   db_subnet_group_name   = aws_db_subnet_group.dev.name
