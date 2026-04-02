@@ -15,6 +15,10 @@ vi.mock("@/hooks/useDomainPacks", () => ({
   useMergedContext: () => ({ data: null }),
 }));
 
+vi.mock("@/features/workflow/hooks/useWorkflowExecutionViewModel", () => ({
+  useWorkflowExecutionViewModel: () => ({ data: null }),
+}));
+
 vi.mock("@/hooks/useCaseExport", () => ({
   usePptxExport: () => ({
     mutate: vi.fn(),
@@ -153,6 +157,50 @@ describe("ValueCaseCanvas guided next-step journey", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Prerequisites: Complete hypothesis evidence review, Confirm baseline metrics."
     );
+  });
+
+  it("shows a blocked-stage recommendation", () => {
+    mockUseCase.mockReturnValue({
+      data: buildCaseWithWorkflowMetadata({
+        stages: {
+          hypothesis: { status: "complete" },
+          model: {
+            status: "blocked",
+            blocked_reason: "Need baseline confidence validation.",
+          },
+        },
+      }),
+      isLoading: false,
+    });
+
+    renderCanvas();
+
+    expect(screen.getByTestId("guided-next-action")).toHaveTextContent(
+      "Recommended next action: Unblock Model: Need baseline confidence validation."
+    );
+  });
+
+  it("guards stage entry when prerequisites are present but not complete", () => {
+    mockUseCase.mockReturnValue({
+      data: buildCaseWithWorkflowMetadata({
+        stages: {
+          hypothesis: { status: "in_progress" },
+          model: {
+            status: "pending",
+            prerequisites: ["Hypothesis", "Collect baseline evidence"],
+          },
+        },
+      }),
+      isLoading: false,
+    });
+
+    renderCanvas();
+
+    fireEvent.click(screen.getByRole("button", { name: "Model" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Model is currently blocked.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Required prerequisites are not complete yet.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Unmet prerequisites: Hypothesis.");
   });
 
   it("shows complete recommendation when all stages are complete", () => {

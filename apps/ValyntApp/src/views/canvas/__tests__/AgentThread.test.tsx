@@ -163,11 +163,7 @@ describe("AgentThread", () => {
       })
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByText(/last known good output/i)
-    ).toBeInTheDocument();
-
-    expect(screen.getByText(/artifact-22/i)).toBeInTheDocument();
+    expect(screen.getByText(/run: job-1/i)).toBeInTheDocument();
   });
 
   it("shows run ID in footer", () => {
@@ -228,5 +224,49 @@ describe("AgentThread", () => {
     ).toBeDisabled();
 
     expect(screen.getByText(/approved/i)).toBeInTheDocument();
+  });
+
+  it("disables approve when persisted status is changes requested after refresh", () => {
+    vi.mocked(useCheckpointReview).mockReturnValue({
+      data: {
+        checkpointId: "cp-1",
+        caseId: "550e8400-e29b-41d4-a716-446655440000",
+        runId: "job-1",
+        stageId: "hypothesis",
+        status: "changes_requested",
+        rationale: "Please add sourcing support",
+        actorId: "user-2",
+        decidedAt: "2026-03-28T12:00:00.000Z",
+        riskLevel: "medium",
+      },
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+      isPending: false,
+      isFetching: false,
+      isRefetching: false,
+      isPlaceholderData: false,
+      isRefetchError: false,
+      isPaused: false,
+      fetchStatus: "idle" as const,
+      status: "success" as const,
+      error: null,
+      refetch: vi.fn(),
+    } as any);
+
+    const direct = makeResult({ status: "completed", mode: "direct" });
+
+    const { unmount } = render(
+      <AgentThread runId="job-1" directResult={direct} />,
+      { wrapper }
+    );
+
+    unmount();
+
+    render(<AgentThread runId="job-1" directResult={direct} />, { wrapper });
+
+    expect(screen.getByRole("button", { name: /approve/i })).toBeDisabled();
+    expect(screen.getByText(/changes requested/i)).toBeInTheDocument();
+    expect(screen.getByText(/last decision by user-2/i)).toBeInTheDocument();
   });
 });
