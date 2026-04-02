@@ -7,6 +7,7 @@
 
 ## Scope
 
+- Supporting checklist: [Release Readiness SWAT Team Checklist](./release-readiness-swat-checklist.md)
 - **App / version:** ValueOS — ValyntApp + backend API
 - **Target environment:** cloud-dev (Gitpod/Ona + hosted Supabase)
 - **Required user flows:** login, opportunity creation, hypothesis generation, business case view
