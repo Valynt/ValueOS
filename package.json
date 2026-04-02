@@ -6,6 +6,7 @@
   "scripts": {
     "dev:frontend": "pnpm --filter valynt-app dev",
     "dev:backend": "pnpm --filter @valueos/backend dev",
+    "postinstall": "bash scripts/dx/ensure-local-pnpm-shims.sh",
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "dev:init": "bash scripts/dev/init-cloud-dev.sh",
     "dev:up": "bash scripts/dev/up-cloud-dev.sh",
@@ -14,7 +15,7 @@
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
     "lint": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run lint",
-    "check": "turbo run typecheck",
+    "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
     "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run build",
