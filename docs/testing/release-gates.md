@@ -33,6 +33,10 @@ This document defines the CI lane model across `.github/workflows/pr-fast.yml`, 
 - `critical-workflows-gate` depends on `unit-component-schema` and `tenant-isolation-gate` in `main-verify.yml`.
 - `main-verify` (job id `staging-deploy-release-gates`) depends on `tenant-isolation-gate`, `critical-workflows-gate`, `security-gate`, and `accessibility-audit`.
 
+## Backend stability recovery controls
+
+During the backend test-stability recovery window, the mandatory-vs-tracked split and weekly failure ceilings are defined in `docs/testing/backend-test-stability-recovery-plan.md`. The merge-blocking enforcement is executed by `scripts/ci/check-backend-test-stability-baseline.mjs` in `pr-fast.yml` (`unit/component/schema` lane).
+
 ## E2E test classification
 
 Tests are classified as **blocking** (merge-blocking, must pass) or **tracked** (flake-monitored, non-blocking).

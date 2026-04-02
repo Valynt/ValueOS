@@ -13,6 +13,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { bootstrapDeterministicEnv } from "../../test/deterministicBootstrap.js";
+
 // ── Metrics mock (must be before worker import) ───────────────────────────────
 
 vi.mock("../../middleware/metricsMiddleware.js", () => ({
@@ -86,8 +88,10 @@ describe("detectAndResolveStuckWorkflows", () => {
     Object.keys(mockUpdateError).forEach((k) => delete mockUpdateError[k]);
     mockSelectResult = { data: [], error: null };
 
-    process.env.SUPABASE_URL = "http://localhost";
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    bootstrapDeterministicEnv({
+      SUPABASE_URL: "http://localhost",
+      SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+    });
     // MAX_REQUEUE_ATTEMPTS is a module-level constant (default: 2) parsed once at
     // import time. Setting the env var here has no effect on the cached module.
     // Tests below rely on the default value of 2. To test a different threshold,
