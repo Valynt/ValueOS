@@ -381,3 +381,6 @@ export function AgentThread({
     <ArrowUp />
   </button>
 </div>
+    </div>
+  );
+}

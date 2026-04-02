@@ -42,14 +42,14 @@ export type EvidenceLink = z.infer<typeof EvidenceLinkSchema>;
  * Evidence tier classification for evidence quality.
  * CFO-ready outputs require "gold" tier evidence.
  */
-export const EvidenceTierSchema = z.enum([
+export const EvidenceRecordTierSchema = z.enum([
   "bronze",  // Anecdotal, stakeholder estimate
   "silver",  // Documented, but not independently verified
   "gold",    // Benchmark-backed, third-party verified
   "platinum", // Audited financial or operational data
 ]);
 
-export type EvidenceTier = z.infer<typeof EvidenceTierSchema>;
+export type EvidenceRecordTier = z.infer<typeof EvidenceRecordTierSchema>;
 
 /**
  * Evidence record with full provenance for audit trail.
@@ -62,7 +62,7 @@ export const EvidenceRecordSchema = z.object({
   claim: z.string().min(1).max(1000),
 
   /** Evidence tier classification */
-  tier: EvidenceTierSchema,
+  tier: EvidenceRecordTierSchema,
 
   /** Source type of the evidence */
   source_type: z.enum([

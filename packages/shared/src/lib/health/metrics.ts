@@ -148,7 +148,9 @@ class HealthMetricsCollector {
           };
         }
 
-        services[service][check.status]++;
+        const statusKey =
+          check.status === "not_configured" ? "notConfigured" : check.status;
+        services[service][statusKey]++;
         services[service].total++;
       }
     }
