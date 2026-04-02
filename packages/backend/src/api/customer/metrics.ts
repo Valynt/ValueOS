@@ -1,6 +1,6 @@
 /**
  * Customer Portal API - Metrics Endpoint
- * GET /api/customer/metrics/:token
+ * GET /api/customer/metrics
  */
 
 import { logger } from '@shared/lib/logger';
@@ -9,11 +9,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 
 import { customerAccessService } from '../../services/tenant/CustomerAccessService';
-
-// Request validation schema
-const MetricsRequestSchema = z.object({
-  token: z.string().min(1, 'Token is required')
-});
+import { extractCustomerAccessToken } from './tokenTransport';
 
 // Query parameters schema
 const MetricsQuerySchema = z.object({
@@ -56,8 +52,37 @@ export interface MetricsResponse {
  */
 export async function getCustomerMetrics(req: Request, res: Response): Promise<void> {
   try {
-    // Validate request parameters
-    const { token } = MetricsRequestSchema.parse(req.params);
+    const extracted = extractCustomerAccessToken(req);
+    if (extracted.error === 'url_path_token_not_allowed') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Token in URL path is not allowed. Provide token via header or request body.'
+      });
+      return;
+    }
+    if (extracted.error === 'query_token_not_allowed') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Token in query string is not allowed. Provide token via header or request body.'
+      });
+      return;
+    }
+    if (extracted.error === 'conflicting_tokens') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Conflicting token values in header and body.'
+      });
+      return;
+    }
+    if (extracted.error === 'missing_token' || !extracted.token) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Missing token. Provide token via x-customer-access-token header or request body.'
+      });
+      return;
+    }
+
+    const token = extracted.token;
     const { period, metric_type } = MetricsQuerySchema.parse(req.query);
 
     logger.info('Customer metrics request', { period, metric_type });
