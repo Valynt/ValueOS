@@ -159,11 +159,26 @@ describe("AgentThread", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /view last artifact/i,
+        name: /view last successful artifact/i,
       })
     ).toBeInTheDocument();
 
     expect(screen.getByText(/run: job-1/i)).toBeInTheDocument();
+  });
+
+  it("surfaces retry attempt + backoff timing in degraded status card", () => {
+    const direct = makeResult({
+      status: "failed",
+      attemptsMade: 3,
+      nextRetryAt: "2099-01-01T00:00:00.000Z",
+    });
+
+    render(<AgentThread runId="job-1" directResult={direct} />, {
+      wrapper,
+    });
+
+    expect(screen.getByText(/attempt 3/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/next automatic attempt/i).length).toBeGreaterThan(0);
   });
 
   it("shows run ID in footer", () => {
