@@ -94,6 +94,9 @@ When a secret must be rotated manually:
 3. **Trigger ExternalSecret refresh** — annotate the ExternalSecret to force a sync: `kubectl annotate externalsecret <name> force-sync=$(date +%s) --overwrite`.
 4. **Verify propagation** — confirm the new value is live in the running pod: `kubectl exec <pod> -- env | grep <SECRET_NAME>`.
 5. **Update CI secrets** — update the corresponding GitHub Actions secret if applicable.
+   - For Supabase rotations, update all GitHub environment secrets (`staging`, `production`) for:
+     `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY` (must match anon), and `SUPABASE_SERVICE_ROLE_KEY`.
+   - Update runtime secret stores (AWS Secrets Manager/Infisical) for the same key set before promotion.
 6. **Invalidate old value** — revoke the old credential at the source (e.g., Supabase dashboard → Regenerate keys).
 7. **Log the rotation** — add an entry to `docs/security-compliance/secret-rotation-log.md` with the rotation date, secret class, and evidence link.
 
