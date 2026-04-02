@@ -165,6 +165,22 @@ Halt the loop if:
 
 ---
 
+## 🔴 CRITICAL FAILURES → ENVIRONMENT CONFIGURATION
+
+When classifying environment-related failures, distinguish between these two root causes:
+
+1. **Missing env variables in local developer shells**
+   - Symptom: `process.env.<KEY>` is undefined in ad-hoc scripts, local shell runs, or manually launched test commands.
+   - Classification: `ENVIRONMENT` (local shell/session setup issue).
+
+2. **Missing values in test runner config**
+   - Symptom: key is absent from Vitest `test.env` blocks, so the test process never receives required defaults.
+   - Classification: `CONFIGURATION` (test runner config issue).
+
+Do **not** label the issue as config drift until the verification checklist below is complete.
+
+---
+
 ## 📋 INITIAL INVESTIGATION CHECKLIST
 
 For each failing test file, verify:
@@ -176,6 +192,7 @@ For each failing test file, verify:
 - [ ] External dependencies (DB, Redis, APIs) are available or mocked
 - [ ] Provider/context wrappers are present if required
 - [ ] No TypeScript errors in the test file itself
+- [ ] Before calling config drift, confirm `test.env.STRIPE_WEBHOOK_SECRET` exists in both `vitest.config.ts` and `packages/backend/vitest.config.ts`.
 
 ---
 
