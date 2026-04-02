@@ -171,8 +171,8 @@ export function ValueCaseCanvas() {
   };
   const { data: merged } = useMergedContext(caseId);
   const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
-  const { data: workflowExecution } = useWorkflowExecutionViewModel(caseId);
-  const workflowStatus = workflowExecution ?? {
+  const { data: workflowExecutionViewModel } = useWorkflowExecutionViewModel(caseId);
+  const workflowStatus = workflowExecutionViewModel ?? {
     statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
     statusMessage: WORKFLOW_STATUS_PRESENTATION.never_run.userMessage,
     statusIconClassName: WORKFLOW_STATUS_PRESENTATION.never_run.iconClassName,

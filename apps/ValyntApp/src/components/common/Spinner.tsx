@@ -67,5 +67,3 @@ export function ButtonSpinner({
     />
   );
 }
-
-export { Spinner };

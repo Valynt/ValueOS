@@ -266,5 +266,3 @@ export const BillingDashboard: React.FC = () => {
     </div>
   );
 };
-
-export { BillingDashboard };
