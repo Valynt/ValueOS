@@ -83,7 +83,7 @@ import { ValueSummaryCard } from "./components/SDUI/ValueSummaryCard";
  * Versioned component entry with compatibility information
  */
 export interface VersionedComponentEntry {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<Record<string, unknown>>;
   version: number;
   minCompatibleVersion?: number;
   maxCompatibleVersion?: number;
@@ -101,7 +101,7 @@ export interface VersionedComponentEntry {
  * Legacy registry entry for backward compatibility
  */
 export interface RegistryEntry {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<Record<string, unknown>>;
   versions: number[];
   requiredProps?: string[];
   description?: string;
@@ -111,7 +111,7 @@ export interface RegistryEntry {
  * Component resolution result
  */
 export interface ComponentResolutionResult {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<Record<string, unknown>>;
   version: number;
   isFallback: boolean;
   isDeprecated: boolean;
