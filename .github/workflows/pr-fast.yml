@@ -459,6 +459,7 @@ jobs:
         run: |
           node scripts/ci/check-supabase-tenant-controls.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
+          node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
       - name: Emit lane summary
