@@ -10,4 +10,10 @@ export type { SubscriptionStatus, EnforcementMode, ApprovalStatus, ApprovalActio
 export * from "./referral.js";
 // export type { Database, Json } from "./database.generated";
 export * from "./communication-event.js";
-export * from "./evidence.js";
+export {
+  EvidenceLinkSchema,
+  EvidenceRecordSchema,
+  type EvidenceLink,
+  type EvidenceRecord,
+  type EvidenceValidationResult,
+} from "./evidence.js";
