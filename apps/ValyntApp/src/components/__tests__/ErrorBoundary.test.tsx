@@ -15,7 +15,7 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
-import ErrorBoundary from "../ErrorBoundary";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 // ---------------------------------------------------------------------------
 // Helpers
