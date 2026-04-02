@@ -16,7 +16,6 @@ import { logger } from "../../lib/logger";
 import {
   AgentResponseCard,
   ChatInput,
-  ValueSummaryCard,
 } from "@/components/canvas";
 import { AgentStatusIndicator } from "@/components/orchestration";
 import { CommandBar, Sidebar, TopBar } from "@/components/shell";
@@ -33,6 +32,7 @@ const mockCases: ValueCase[] = [
 ];
 
 interface ChatCanvasLayoutProps {
+  initialAction?: unknown;
   onSettingsClick?: () => void;
   onHelpClick?: () => void;
 }
@@ -50,7 +50,6 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
     thoughts,
     isProcessing,
     submitQuery,
-    cancel,
   } = useAgentOrchestrator({
     onThought: (event) => logger.info("Thought:", event),
     onStateChange: (state) => logger.info("Agent state:", state),
@@ -58,10 +57,7 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
 
   const {
     assumptions,
-    metrics,
-    isDirty,
     calculateMetrics,
-    commit,
   } = useCanvasState();
 
   // Calculate metrics when assumptions change
@@ -141,18 +137,6 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
         <div className="flex-1 overflow-auto bg-background p-6">
           {selectedCaseId ? (
             <div className="mx-auto max-w-5xl space-y-6">
-              {/* Value Summary Widget */}
-              <ValueSummaryCard
-                id="value-summary"
-                data={{
-                  title: "Value Summary",
-                  status: selectedCase?.status === "completed" ? "Completed" : "In Progress",
-                  roi: metrics.roi || 324,
-                  annualValue: metrics.annualValue || 2400000,
-                  stakeholders: 12,
-                }}
-              />
-
               {/* Agent Response Widget */}
               <AgentResponseCard
                 id="agent-response"
