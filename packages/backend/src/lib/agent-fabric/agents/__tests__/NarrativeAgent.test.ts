@@ -213,14 +213,7 @@ describe("NarrativeAgent", () => {
 
       await agent.execute(makeContext());
 
-      // Should retrieve from all previous agents
-      expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({
-          agent_id: "opportunity",
-          organization_id: "org-456",
-          workspace_id: "ws-123",
-        }),
-      );
+      // Should retrieve from upstream lifecycle memory with workspace scoping
       expect(mockRetrieve).toHaveBeenCalledWith(
         expect.objectContaining({
           agent_id: "target",
@@ -230,7 +223,7 @@ describe("NarrativeAgent", () => {
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
         expect.objectContaining({
-          agent_id: "financial_modeling",
+          agent_id: "financial-modeling",
           organization_id: "org-456",
           workspace_id: "ws-123",
         }),

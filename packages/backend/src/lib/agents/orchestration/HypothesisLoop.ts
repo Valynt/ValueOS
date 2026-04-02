@@ -170,6 +170,10 @@ export interface OpportunityAgentInterface {
       estimatedValue?: number;
     }>;
     analysis: string;
+    vetoDecision?: {
+      veto: boolean;
+      reason?: string;
+    };
   }>;
 }
 
@@ -529,6 +533,15 @@ export class HypothesisLoop {
             highlights: evidenceBundle.items.slice(0, 3).map((e) => e.title),
           },
         });
+
+        if (evidenceResult.vetoDecision?.veto) {
+          const vetoReason = evidenceResult.vetoDecision.reason ?? 'Integrity veto without reason';
+          this.emitProgress(sse, 3, 'Evidence', 'failed', `Integrity vetoed: ${vetoReason}`, {
+            agentName: 'GroundTruthAgent',
+          });
+          await this.saga.transition(valueCaseId, SagaTrigger.INTEGRITY_VETOED, correlationId);
+          throw new Error(`Integrity vetoed value case: ${vetoReason}`);
+        }
 
         // Transition to COMPOSING
         await this.saga.transition(valueCaseId, SagaTrigger.INTEGRITY_PASSED, correlationId);

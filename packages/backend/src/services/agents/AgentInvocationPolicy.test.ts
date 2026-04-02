@@ -6,6 +6,7 @@ import {
   SCALE_TO_ZERO_ASYNC_ONLY_AGENT_DENYLIST,
   assertInteractiveSyncAgentAllowed,
   getAgentColdStartClass,
+  isDirectSyncFallbackAllowedWithoutKafka,
   isInteractiveSyncAgentAllowed,
   isScaleToZeroAsyncOnlyAgent,
 } from './AgentInvocationPolicy.js';
@@ -54,6 +55,17 @@ describe('AgentInvocationPolicy', () => {
     expect(() => assertInteractiveSyncAgentAllowed('narrative', 'test')).toThrow(
       /must not run on synchronous request path/i,
     );
+  });
+
+  it('allows direct sync fallback for narrative and groundtruth only in non-production', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    expect(isDirectSyncFallbackAllowedWithoutKafka('narrative')).toBe(true);
+    expect(isDirectSyncFallbackAllowedWithoutKafka('groundtruth')).toBe(true);
+    expect(isDirectSyncFallbackAllowedWithoutKafka('benchmark')).toBe(false);
+    process.env.NODE_ENV = 'production';
+    expect(isDirectSyncFallbackAllowedWithoutKafka('narrative')).toBe(false);
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('prevents semantic intent routing from resolving scale-to-zero agents on interactive paths', () => {
