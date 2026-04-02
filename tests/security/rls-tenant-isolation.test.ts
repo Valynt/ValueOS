@@ -1,6 +1,10 @@
 /**
  * RLS Tenant Isolation Security Tests
  *
+ * Execution classification: fail-fast on missing real infra.
+ * This suite must run against a real Supabase instance and intentionally throws
+ * during setup when required env vars are missing.
+ *
  * CRITICAL: Verifies that Row Level Security policies prevent cross-tenant data access
  *
  * These tests validate the fixes in:
