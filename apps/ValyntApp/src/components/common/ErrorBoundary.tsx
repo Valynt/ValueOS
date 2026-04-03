@@ -156,7 +156,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 </summary>
                 <pre className="text-xs text-destructive overflow-auto whitespace-pre-wrap">
                   {this.state.error.toString()}
-                  {this.state.error.stack}
+                  {import.meta.env.DEV && this.state.error.stack && (
+                    <>
+                      {"\n"}
+                      {this.state.error.stack}
+                    </>
+                  )}
                 </pre>
               </details>
             )}
