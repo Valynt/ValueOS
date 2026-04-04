@@ -371,7 +371,7 @@ export class UnifiedApiClient {
       return {
         code: "REQUEST_ERROR",
         message: error.message,
-        stack: error.stack,
+        stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
         details: {
           requestId,
           name: error.name,
