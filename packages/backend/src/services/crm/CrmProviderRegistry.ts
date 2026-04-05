@@ -8,7 +8,7 @@
 import type { CrmProviderInterface } from './CrmProviderInterface.js';
 import { HubSpotProvider } from './HubSpotProvider.js';
 import { SalesforceProvider } from './SalesforceProvider.js';
-import type { CrmProvider } from './types.js';
+import type { CrmProvider, CrmProviderCapabilities } from './types.js';
 
 const providers = new Map<CrmProvider, CrmProviderInterface>();
 
@@ -30,4 +30,14 @@ export function registerCrmProvider(provider: CrmProvider, impl: CrmProviderInte
 
 export function getSupportedProviders(): CrmProvider[] {
   return Array.from(providers.keys());
+}
+
+export function getProviderCapabilities(): Record<CrmProvider, CrmProviderCapabilities> {
+  const capabilities = {} as Record<CrmProvider, CrmProviderCapabilities>;
+
+  for (const [provider, impl] of providers.entries()) {
+    capabilities[provider] = impl.capabilities;
+  }
+
+  return capabilities;
 }

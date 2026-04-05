@@ -10,6 +10,7 @@ import type { Request } from 'express';
 import type {
   CanonicalAccount,
   CanonicalOpportunity,
+  CrmProviderCapabilities,
   CrmProvider,
   DeltaSyncResult,
   OAuthCallbackParams,
@@ -20,6 +21,7 @@ import type {
 
 export interface CrmProviderInterface {
   readonly provider: CrmProvider;
+  readonly capabilities: CrmProviderCapabilities;
 
   // OAuth flow — nonce is an opaque state token (not tenant ID)
   getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult;

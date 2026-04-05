@@ -558,6 +558,7 @@ export const api = {
 
   // Integrations
   getIntegrations: () => apiClient.get("/api/integrations"),
+  getCrmProviderCapabilities: () => apiClient.get("/api/crm/providers/capabilities"),
 
   createIntegration: (data: unknown) => apiClient.post("/api/integrations", data),
 

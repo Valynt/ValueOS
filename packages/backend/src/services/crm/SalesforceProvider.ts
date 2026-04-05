@@ -16,6 +16,7 @@ import type { CrmProviderInterface } from './CrmProviderInterface.js';
 import type {
   CanonicalAccount,
   CanonicalOpportunity,
+  CrmProviderCapabilities,
   DeltaSyncResult,
   OAuthCallbackParams,
   OAuthStartResult,
@@ -71,6 +72,16 @@ function validateInstanceUrl(url: string): boolean {
 
 export class SalesforceProvider implements CrmProviderInterface {
   readonly provider = 'salesforce' as const;
+  readonly capabilities: CrmProviderCapabilities = {
+    oauth: { supported: true, note: 'OAuth 2.0 Authorization Code + PKCE' },
+    webhook_support: { supported: true, note: 'Signed inbound webhook verification' },
+    delta_sync: { supported: true, note: 'Incremental opportunity fetch by cursor/time window' },
+    manual_sync: { supported: true, note: 'Manual sync trigger endpoint is supported' },
+    field_mapping: { supported: true, note: 'Maps Salesforce opportunity fields into canonical schema' },
+    backfill: { supported: false, note: 'Historical backfill is not yet implemented for Salesforce' },
+    test_connection: { supported: true, note: 'Connectivity/auth verification is available' },
+    disconnect: { supported: true, note: 'Connection revocation is supported' },
+  };
 
   getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();

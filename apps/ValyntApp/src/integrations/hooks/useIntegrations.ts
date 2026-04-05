@@ -1,9 +1,12 @@
 import { useCallback, useState } from "react";
 
 import type {
+  IntegrationCapabilitySupport,
   IntegrationConnection,
   IntegrationCredentialsInput,
+  IntegrationProvider,
   IntegrationProviderId,
+  IntegrationProviderCapabilities,
   IntegrationStatus,
 } from "../types";
 import { PROVIDERS } from "../types";
@@ -48,8 +51,16 @@ interface RawResponseData {
   result?: { status?: string };
 }
 
+interface RawCapabilitiesResponseData {
+  providers?: Array<{
+    provider: string;
+    capabilities?: Partial<Record<keyof IntegrationProviderCapabilities, IntegrationCapabilitySupport>>;
+  }>;
+}
+
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
+  const [providers, setProviders] = useState<IntegrationProvider[]>(PROVIDERS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,12 +68,18 @@ export function useIntegrations() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.getIntegrations();
-      if (!response.success) {
-        throw new Error(response.error?.message || "Failed to fetch integrations");
+      const [integrationsResponse, capabilitiesResponse] = await Promise.all([
+        api.getIntegrations(),
+        api.getCrmProviderCapabilities(),
+      ]);
+
+      if (!integrationsResponse.success) {
+        throw new Error(
+          integrationsResponse.error?.message || "Failed to fetch integrations"
+        );
       }
 
-      const data = response.data as unknown;
+      const data = integrationsResponse.data as unknown;
       const rawData = data as RawResponseData;
       const items = rawData.integrations ?? [];
       const mapped = items
@@ -79,6 +96,29 @@ export function useIntegrations() {
         }));
 
       setIntegrations(mapped);
+
+      if (capabilitiesResponse.success) {
+        const capabilitiesData = capabilitiesResponse.data as unknown;
+        const rawCapabilities = capabilitiesData as RawCapabilitiesResponseData;
+        const capabilitiesByProvider = new Map(
+          (rawCapabilities.providers ?? []).map((item) => [item.provider, item.capabilities ?? {}])
+        );
+
+        setProviders(
+          PROVIDERS.map((provider) => {
+            const serverCapabilities = capabilitiesByProvider.get(provider.id);
+            return {
+              ...provider,
+              capabilities: {
+                ...provider.capabilities,
+                ...serverCapabilities,
+              },
+            };
+          })
+        );
+      } else {
+        setProviders(PROVIDERS);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch integrations");
     } finally {
@@ -201,7 +241,7 @@ export function useIntegrations() {
 
   return {
     integrations,
-    providers: PROVIDERS,
+    providers,
     isLoading,
     error,
     fetchIntegrations,

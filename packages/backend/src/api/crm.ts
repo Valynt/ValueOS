@@ -29,7 +29,11 @@ import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { crmConnectionService } from "../services/crm/CrmConnectionService";
 import { crmHealthService } from "../services/crm/CrmHealthService";
 import { crmIntegrationService } from "../services/crm/CRMIntegrationService";
-import { getCrmProvider } from "../services/crm/CrmProviderRegistry";
+import {
+  getCrmProvider,
+  getProviderCapabilities,
+  getSupportedProviders,
+} from "../services/crm/CrmProviderRegistry";
 import { crmWebhookService } from "../services/crm/CrmWebhookService";
 import { consumeOAuthState } from "../services/crm/OAuthStateStore";
 import { CrmProviderSchema } from "../services/crm/types";
@@ -111,6 +115,35 @@ function sendOAuthCallbackErrorHtml(
 // ============================================================================
 
 const authMiddleware = [requireAuth, tenantContextMiddleware()];
+
+/**
+ * GET /api/crm/providers/capabilities
+ * Returns provider capability metadata for frontend rendering.
+ */
+router.get(
+  "/providers/capabilities",
+  ...authMiddleware,
+  requirePermission("integrations:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const capabilities = getProviderCapabilities();
+      const providers = getSupportedProviders().map((provider) => ({
+        provider,
+        capabilities: capabilities[provider],
+      }));
+
+      return res.json({ providers });
+    } catch (error) {
+      logger.error(
+        "Failed to load CRM provider capabilities",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({
+        error: "Failed to load CRM provider capabilities",
+      });
+    }
+  }
+);
 
 /**
  * POST /api/crm/:provider/connect/start

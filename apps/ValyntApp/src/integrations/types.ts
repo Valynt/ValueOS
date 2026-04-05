@@ -1,6 +1,25 @@
 export type IntegrationType = "crm" | "communication" | "storage" | "analytics" | "auth";
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "pending";
 export type IntegrationProviderId = "hubspot" | "salesforce";
+export type IntegrationCapabilityKey =
+  | "oauth"
+  | "webhook_support"
+  | "delta_sync"
+  | "manual_sync"
+  | "field_mapping"
+  | "backfill"
+  | "test_connection"
+  | "disconnect";
+
+export interface IntegrationCapabilitySupport {
+  supported: boolean;
+  note?: string;
+}
+
+export type IntegrationProviderCapabilities = Record<
+  IntegrationCapabilityKey,
+  IntegrationCapabilitySupport
+>;
 
 export interface IntegrationConnection {
   id: string;
@@ -36,7 +55,30 @@ export interface IntegrationProvider {
   icon: string;
   authType: "oauth" | "apikey" | "basic";
   fields: IntegrationConfigField[];
+  capabilities: IntegrationProviderCapabilities;
 }
+
+export const DEFAULT_PROVIDER_CAPABILITIES: IntegrationProviderCapabilities = {
+  oauth: { supported: false, note: "OAuth is not available for this provider." },
+  webhook_support: { supported: false, note: "Webhook support is not available." },
+  delta_sync: { supported: false, note: "Delta sync is not available." },
+  manual_sync: { supported: false, note: "Manual sync is not available." },
+  field_mapping: { supported: false, note: "Field mapping is not available." },
+  backfill: { supported: false, note: "Backfill is not available." },
+  test_connection: { supported: false, note: "Connection testing is not available." },
+  disconnect: { supported: true, note: "Disconnect is supported." },
+};
+
+export const CRM_PROVIDER_DEFAULT_CAPABILITIES: IntegrationProviderCapabilities = {
+  oauth: { supported: true, note: "OAuth is supported." },
+  webhook_support: { supported: true, note: "Webhook support is available." },
+  delta_sync: { supported: true, note: "Delta sync is supported." },
+  manual_sync: { supported: true, note: "Manual sync is supported." },
+  field_mapping: { supported: true, note: "Field mapping is supported." },
+  backfill: { supported: false, note: "Backfill is not currently supported." },
+  test_connection: { supported: true, note: "Connection testing is supported." },
+  disconnect: { supported: true, note: "Disconnect is supported." },
+};
 
 // Known providers (CRM-focused for production readiness)
 export const PROVIDERS: IntegrationProvider[] = [
@@ -70,6 +112,7 @@ export const PROVIDERS: IntegrationProvider[] = [
         required: true,
       },
     ],
+    capabilities: CRM_PROVIDER_DEFAULT_CAPABILITIES,
   },
   {
     id: "hubspot",
@@ -87,5 +130,6 @@ export const PROVIDERS: IntegrationProvider[] = [
         required: true,
       },
     ],
+    capabilities: CRM_PROVIDER_DEFAULT_CAPABILITIES,
   },
 ];

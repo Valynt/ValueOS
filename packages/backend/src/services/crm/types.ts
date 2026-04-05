@@ -15,6 +15,28 @@ import type { EvidenceTierLabel, SourceProvenance } from '../../types/evidence.j
 export const CrmProviderSchema = z.enum(['salesforce', 'hubspot']);
 export type CrmProvider = z.infer<typeof CrmProviderSchema>;
 
+export const CrmProviderCapabilityKeySchema = z.enum([
+  "oauth",
+  "webhook_support",
+  "delta_sync",
+  "manual_sync",
+  "field_mapping",
+  "backfill",
+  "test_connection",
+  "disconnect",
+]);
+export type CrmProviderCapabilityKey = z.infer<typeof CrmProviderCapabilityKeySchema>;
+
+export interface CrmProviderCapabilitySupport {
+  supported: boolean;
+  note?: string;
+}
+
+export type CrmProviderCapabilities = Record<
+  CrmProviderCapabilityKey,
+  CrmProviderCapabilitySupport
+>;
+
 // ============================================================================
 // Connection status
 // ============================================================================

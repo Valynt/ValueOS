@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { getCrmProvider, getSupportedProviders } from '../CrmProviderRegistry.js';
+import {
+  getCrmProvider,
+  getProviderCapabilities,
+  getSupportedProviders,
+} from '../CrmProviderRegistry.js';
 import { SalesforceProvider } from '../SalesforceProvider.js';
 
 describe('CrmProviderRegistry', () => {
@@ -21,5 +25,13 @@ describe('CrmProviderRegistry', () => {
   it('lists supported providers', () => {
     const providers = getSupportedProviders();
     expect(providers).toContain('salesforce');
+  });
+
+  it('exposes capabilities for each supported provider', () => {
+    const capabilities = getProviderCapabilities();
+
+    expect(capabilities.salesforce.oauth.supported).toBe(true);
+    expect(capabilities.hubspot.manual_sync.supported).toBe(true);
+    expect(capabilities.hubspot.backfill.supported).toBe(false);
   });
 });

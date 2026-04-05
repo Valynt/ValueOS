@@ -24,6 +24,7 @@ import type {
   IntegrationConfigField,
   IntegrationConnection,
   IntegrationCredentialsInput,
+  IntegrationProviderCapabilities,
   IntegrationProvider,
 } from "@/integrations/types";
 
@@ -44,6 +45,14 @@ const formatTimestamp = (value?: string) => {
   if (!value) return "Never";
   return formatDistanceToNow(new Date(value), { addSuffix: true });
 };
+
+function getCapabilityNote(
+  capabilities: IntegrationProviderCapabilities,
+  key: keyof IntegrationProviderCapabilities,
+  fallback: string
+) {
+  return capabilities[key].note ?? fallback;
+}
 
 export function IntegrationsPage() {
   const {
@@ -163,86 +172,182 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
+    const { capabilities } = provider;
 
     const StatusIcon = status === "connected" ? Check : XCircle;
+    const canConnect = capabilities.oauth.supported;
+    const canConfigure = capabilities.field_mapping.supported;
+    const canTest = capabilities.test_connection.supported;
+    const canSync = capabilities.manual_sync.supported;
+    const canDisconnect = capabilities.disconnect.supported;
+
+    const unsupportedMessages: string[] = [];
+    if (!canConnect) {
+      unsupportedMessages.push(
+        getCapabilityNote(
+          capabilities,
+          "oauth",
+          "Connect action is unavailable for this provider."
+        )
+      );
+    }
+    if (hasActiveConnection && !canConfigure) {
+      unsupportedMessages.push(
+        getCapabilityNote(
+          capabilities,
+          "field_mapping",
+          "Configure action is unavailable for this provider."
+        )
+      );
+    }
+    if (hasActiveConnection && !canSync) {
+      unsupportedMessages.push(
+        getCapabilityNote(
+          capabilities,
+          "manual_sync",
+          "Manual sync is unavailable for this provider."
+        )
+      );
+    }
+    if (hasActiveConnection && !canTest) {
+      unsupportedMessages.push(
+        getCapabilityNote(
+          capabilities,
+          "test_connection",
+          "Connection testing is unavailable for this provider."
+        )
+      );
+    }
 
     return (
-      <div className="flex items-center justify-between gap-4 p-4 border-b border-border last:border-b-0">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
-            {provider.icon}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-medium">{provider.name}</p>
-              <Badge variant="secondary" className={`${badge.className} text-xs`}>
-                <StatusIcon className="h-3 w-3 mr-1" />
-                {badge.label}
-              </Badge>
+      <div className="p-4 border-b border-border last:border-b-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
+              {provider.icon}
             </div>
-            <p className="text-sm text-muted-foreground">{provider.description}</p>
-            {hasActiveConnection && connection?.lastSyncAt && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Last sync {formatTimestamp(connection.lastSyncAt)}
-              </p>
-            )}
-            {hasActiveConnection && connection?.errorMessage && status === "error" && (
-              <p className="text-xs text-rose-600 mt-1">{connection.errorMessage}</p>
-            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{provider.name}</p>
+                <Badge variant="secondary" className={`${badge.className} text-xs`}>
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {badge.label}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{provider.description}</p>
+              {hasActiveConnection && connection?.lastSyncAt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last sync {formatTimestamp(connection.lastSyncAt)}
+                </p>
+              )}
+              {hasActiveConnection && connection?.errorMessage && status === "error" && (
+                <p className="text-xs text-rose-600 mt-1">{connection.errorMessage}</p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasActiveConnection ? (
-            <>
+          <div className="flex items-center gap-2">
+            {hasActiveConnection ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openDialog(provider)}
+                  disabled={actionProvider === provider.id || !canConfigure}
+                  title={
+                    canConfigure
+                      ? "Configure integration"
+                      : getCapabilityNote(
+                          capabilities,
+                          "field_mapping",
+                          "Configure action is unavailable for this provider."
+                        )
+                  }
+                >
+                  <Settings2 className="h-3 w-3 mr-2" />
+                  Configure
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTest(connection)}
+                  disabled={actionProvider === provider.id || !canTest}
+                  title={
+                    canTest
+                      ? "Test integration connection"
+                      : getCapabilityNote(
+                          capabilities,
+                          "test_connection",
+                          "Connection testing is unavailable for this provider."
+                        )
+                  }
+                >
+                  <RefreshCw className="h-3 w-3 mr-2" />
+                  Test
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleSync(connection)}
+                  disabled={actionProvider === provider.id || !canSync}
+                  title={
+                    canSync
+                      ? "Sync integration"
+                      : getCapabilityNote(
+                          capabilities,
+                          "manual_sync",
+                          "Manual sync is unavailable for this provider."
+                        )
+                  }
+                >
+                  Sync
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDisconnect(connection)}
+                  disabled={actionProvider === provider.id || !canDisconnect}
+                  title={
+                    canDisconnect
+                      ? "Disconnect integration"
+                      : getCapabilityNote(
+                          capabilities,
+                          "disconnect",
+                          "Disconnect action is unavailable for this provider."
+                        )
+                  }
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Disconnect
+                </Button>
+              </>
+            ) : (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => openDialog(provider)}
-                disabled={actionProvider === provider.id}
+                disabled={actionProvider === provider.id || !canConnect}
+                title={
+                  canConnect
+                    ? "Connect integration"
+                    : getCapabilityNote(
+                        capabilities,
+                        "oauth",
+                        "Connect action is unavailable for this provider."
+                      )
+                }
               >
-                <Settings2 className="h-3 w-3 mr-2" />
-                Configure
+                Connect
+                <ExternalLink className="h-3 w-3 ml-2" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleTest(connection)}
-                disabled={actionProvider === provider.id}
-              >
-                <RefreshCw className="h-3 w-3 mr-2" />
-                Test
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSync(connection)}
-                disabled={actionProvider === provider.id}
-              >
-                Sync
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => handleDisconnect(connection)}
-                disabled={actionProvider === provider.id}
-              >
-                <XCircle className="h-3 w-3 mr-1" />
-                Disconnect
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openDialog(provider)}
-              disabled={actionProvider === provider.id}
-            >
-              Connect
-              <ExternalLink className="h-3 w-3 ml-2" />
-            </Button>
-          )}
+            )}
+          </div>
         </div>
+        {unsupportedMessages.length > 0 && (
+          <div className="text-xs text-muted-foreground mt-2">
+            {unsupportedMessages[0]}
+          </div>
+        )}
       </div>
     );
   };
