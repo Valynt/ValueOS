@@ -9,11 +9,11 @@ interface SEOProps {
 }
 
 export function SEO({
-  title = "VALYNT | The Value Operating System - Value Intelligence Platform",
-  description = "VALYNT is the AI-native Value Operating System that models, measures, and proves your outcomes automatically. Achieve 3.4× faster value realization, reduce churn by 67%, and increase expansion revenue by 2.1× with autonomous agents.",
-  keywords = "value operating system, VOS, value intelligence platform, VALYNT, AI agents, value realization, outcome orchestration, economic truth, business case automation, sales enablement, customer success, value engineering",
-  ogImage = "https://valynt.xyz/og-image.jpg",
-  canonicalUrl = "https://valynt.xyz",
+  title = "ValueOS | The Value Operating System - Value Intelligence Platform",
+  description = "ValueOS is the AI-native Value Operating System that models, measures, and proves your outcomes automatically. Achieve 3.4× faster value realization, reduce churn by 67%, and increase expansion revenue by 2.1× with autonomous agents.",
+  keywords = "value operating system, VOS, value intelligence platform, ValueOS, AI agents, value realization, outcome orchestration, economic truth, business case automation, sales enablement, customer success, value engineering",
+  ogImage = "https://valueos.com/og-image.jpg",
+  canonicalUrl = "https://valueos.com",
 }: SEOProps) {
   useEffect(() => {
     document.title = title;
@@ -45,7 +45,7 @@ export function SEO({
     const metaTags = [
       { name: "description", content: description },
       { name: "keywords", content: keywords },
-      { name: "author", content: "VALYNT Inc." },
+      { name: "author", content: "ValueOS Inc." },
       {
         name: "robots",
         content:
@@ -59,13 +59,13 @@ export function SEO({
       { name: "language", content: "English" },
       { name: "revisit-after", content: "7 days" },
       { name: "rating", content: "general" },
-      { name: "application-name", content: "VALYNT" },
+      { name: "application-name", content: "ValueOS" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       {
         name: "apple-mobile-web-app-status-bar-style",
         content: "black-translucent",
       },
-      { name: "apple-mobile-web-app-title", content: "VALYNT" },
+      { name: "apple-mobile-web-app-title", content: "ValueOS" },
       { name: "msapplication-TileColor", content: "#050505" },
       { name: "msapplication-TileImage", content: "/ms-icon-144x144.png" },
 
@@ -75,12 +75,12 @@ export function SEO({
       { property: "og:image", content: ogImage },
       {
         property: "og:image:alt",
-        content: "VALYNT - AI-Powered Value Operating System",
+        content: "ValueOS - AI-Powered Value Operating System",
       },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { property: "og:url", content: canonicalUrl },
-      { property: "og:site_name", content: "VALYNT" },
+      { property: "og:site_name", content: "ValueOS" },
       { property: "og:locale", content: "en_US" },
 
       { name: "twitter:card", content: "summary_large_image" },
@@ -91,11 +91,11 @@ export function SEO({
       { name: "twitter:image", content: ogImage },
       {
         name: "twitter:image:alt",
-        content: "VALYNT - AI-Powered Value Operating System",
+        content: "ValueOS - AI-Powered Value Operating System",
       },
 
-      { property: "article:publisher", content: "https://valynt.xyz" },
-      { property: "article:author", content: "VALYNT Inc." },
+      { property: "article:publisher", content: "https://valueos.com" },
+      { property: "article:author", content: "ValueOS Inc." },
 
       { name: "pinterest-rich-pin", content: "true" },
     ];
@@ -128,7 +128,7 @@ export function SEO({
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        name: "VALYNT",
+        name: "ValueOS",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
         description: description,
@@ -145,12 +145,12 @@ export function SEO({
         },
         publisher: {
           "@type": "Organization",
-          name: "VALYNT Inc.",
+          name: "ValueOS Inc.",
           logo: {
             "@type": "ImageObject",
-            url: "https://valynt.xyz/logo.png",
+            url: "https://valueos.com/logo.png",
           },
-          url: "https://valynt.xyz",
+          url: "https://valueos.com",
           sameAs: [
             "https://twitter.com/valuecanvas",
             "https://linkedin.com/company/valuecanvas",
@@ -161,9 +161,9 @@ export function SEO({
       {
         "@context": "https://schema.org",
         "@type": "Organization",
-        name: "VALYNT Inc.",
-        url: "https://valynt.xyz",
-        logo: "https://valynt.xyz/logo.png",
+        name: "ValueOS Inc.",
+        url: "https://valueos.com",
+        logo: "https://valueos.com/logo.png",
         description:
           "AI-powered Value Operating System for enterprise value realization",
         sameAs: [
@@ -174,19 +174,19 @@ export function SEO({
         contactPoint: {
           "@type": "ContactPoint",
           contactType: "Sales",
-          email: "sales@valuecanvas.ai",
+          email: "sales@valueos.com",
         },
       },
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        name: "VALYNT",
+        name: "ValueOS",
         url: canonicalUrl,
         potentialAction: {
           "@type": "SearchAction",
           target: {
             "@type": "EntryPoint",
-            urlTemplate: "https://valuecanvas.ai/search?q={search_term_string}",
+            urlTemplate: "https://valueos.com/search?q={search_term_string}",
           },
           "query-input": "required name=search_term_string",
         },
@@ -199,25 +199,25 @@ export function SEO({
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: "https://valynt.xyz",
+            item: "https://valueos.com",
           },
           {
             "@type": "ListItem",
             position: 2,
             name: "The Problem",
-            item: "https://valynt.xyz/#problem",
+            item: "https://valueos.com/#problem",
           },
           {
             "@type": "ListItem",
             position: 3,
             name: "The Solution",
-            item: "https://valynt.xyz/#solution",
+            item: "https://valueos.com/#solution",
           },
           {
             "@type": "ListItem",
             position: 4,
             name: "How It Works",
-            item: "https://valynt.xyz/#how-it-works",
+            item: "https://valueos.com/#how-it-works",
           },
         ],
       },
@@ -238,7 +238,7 @@ export function SEO({
             name: "Is my customer data safe?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Absolutely. VALYNT is built on a multi-tenant architecture with strict security and enterprise-grade secrets management. Your data is isolated, encrypted, and governed by strict compliance.",
+              text: "Absolutely. ValueOS is built on a multi-tenant architecture with strict security and enterprise-grade secrets management. Your data is isolated, encrypted, and governed by strict compliance.",
             },
           },
           {

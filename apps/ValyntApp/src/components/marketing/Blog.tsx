@@ -95,7 +95,7 @@ export default function Blog() {
   return (
     <>
       <SEO
-        title="Resources & Insights: Transform Cost Centers into Profit Engines | VALYNT"
+        title="Resources & Insights: Transform Cost Centers into Profit Engines | ValueOS"
         description="Expert guides, case studies, and frameworks for turning Customer Success, Services, and Support into revenue-generating profit centers. Reduce CAC, prove ROI, and drive measurable value outcomes."
       />
 
@@ -103,15 +103,15 @@ export default function Blog() {
         {JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Blog",
-          "name": "VALYNT Resources & Insights",
+          "name": "ValueOS Resources & Insights",
           "description": "Expert resources on transforming cost centers into profit centers through value operations",
-          "url": "https://valynt.xyz/blog",
+          "url": "https://valueos.com/blog",
           "publisher": {
             "@type": "Organization",
-            "name": "VALYNT",
+            "name": "ValueOS",
             "logo": {
               "@type": "ImageObject",
-              "url": "https://valynt.xyz/logo.png"
+              "url": "https://valueos.com/logo.png"
             }
           }
         })}

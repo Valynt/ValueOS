@@ -150,7 +150,7 @@ export default function BlogPost() {
   return (
     <>
       <SEO
-        title={`${post.title} - VALYNT Blog`}
+        title={`${post.title} - ValueOS Blog`}
         description={post.excerpt}
       />
 
@@ -160,7 +160,7 @@ export default function BlogPost() {
           "@type": "Article",
           "headline": post.title,
           "description": post.excerpt,
-          "image": post.featured_image || "https://valynt.xyz/default-og-image.png",
+          "image": post.featured_image || "https://valueos.com/default-og-image.png",
           "author": {
             "@type": "Person",
             "name": post.author,
@@ -168,17 +168,17 @@ export default function BlogPost() {
           },
           "publisher": {
             "@type": "Organization",
-            "name": "VALYNT",
+            "name": "ValueOS",
             "logo": {
               "@type": "ImageObject",
-              "url": "https://valynt.xyz/logo.png"
+              "url": "https://valueos.com/logo.png"
             }
           },
           "datePublished": post.published_date,
           "dateModified": post.published_date,
           "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": `https://valynt.xyz/blog/${post.slug}`
+            "@id": `https://valueos.com/blog/${post.slug}`
           },
           "keywords": post.tags.join(", ")
         })}
