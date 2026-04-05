@@ -369,7 +369,7 @@ Populate the environment variables listed in the [Configuration](#configuration)
 ## Related Documentation
 
 - [Security Overview](./security-overview.md) — Security controls matrix
-- [Compliance Guide](./compliance-guide.md) — SOC 2 / HIPAA / GDPR compliance mappings
+- [Compliance Guide](./compliance-guide.md) — SOC 2 / ISO27001 / GDPR compliance mappings
 - [Production Contract](./production-contract.md) — Production requirements for secrets
 - [Architecture Overview](../architecture/architecture-overview.md) — System architecture
 - [Deployment Guide](../operations/deployment-guide.md) — Deployment procedures including secrets configuration

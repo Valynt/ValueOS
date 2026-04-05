@@ -1,4 +1,4 @@
-# Control Traceability Matrix (SOC 2 / GDPR / HIPAA)
+# Control Traceability Matrix (SOC 2 / GDPR / ISO27001)
 
 This matrix links framework controls to implementation paths, scheduled jobs, and alert/audit surfaces.
 
@@ -16,7 +16,7 @@ This matrix links framework controls to implementation paths, scheduled jobs, an
 | Art. 30 Records of Processing | `packages/backend/src/services/security/ComplianceReportGeneratorService.ts`, `packages/backend/src/api/compliance.ts` | Automated control checks validate `control_status` + `audit_logs` evidence types and surface missing evidence separately from configured/validated controls | `compliance_control_audit` run snapshots and alert events |
 | Art. 32 Security of Processing | `packages/backend/src/services/security/ComplianceControlStatusService.ts`, `AuditTrailService.ts` | Scheduled sweep verifies evidence freshness, RLS on required tables, and encryption-required configuration | Immutable `audit_logs` integrity chain + control-check failure events |
 
-## HIPAA
+## ISO27001
 
 | Control | Implementation paths | Scheduled job/check | Alert / immutable audit evidence |
 |---|---|---|---|

@@ -42,7 +42,7 @@
       "data_class": "Compliance control evidence",
       "framework_windows": {
         "SOC2": { "operational_days": 365, "archive_years": 7 },
-        "HIPAA": { "operational_days": 730, "archive_years": 6 },
+        "ISO27001": { "operational_days": 730, "archive_years": 6 },
         "PCI-DSS": { "operational_days": 365, "archive_years": 2 }
       },
       "default_window": { "operational_days": 365, "archive_years": 7 },

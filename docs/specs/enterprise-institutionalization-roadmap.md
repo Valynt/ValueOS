@@ -207,7 +207,7 @@ interface EvidenceRecord {
   id: string;                    // UUID
   tenant_id: string;
   control_id: string;            // e.g. "CC6.1", "A.8.3"
-  framework: "SOC2" | "ISO27001" | "FedRAMP" | "GDPR" | "HIPAA";
+  framework: "SOC2" | "ISO27001" | "FedRAMP" | "GDPR" | "ISO27001";
   event_type: string;
   payload: Record<string, unknown>;
   collected_at: string;          // ISO 8601

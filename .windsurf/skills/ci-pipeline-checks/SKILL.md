@@ -551,7 +551,7 @@ semgrep --config p/security --include="src/"
 ### Regulatory Requirements
 - **SOX**: Financial reporting controls
 - **GDPR**: Data protection compliance
-- **HIPAA**: Healthcare data security (if applicable)
+- **ISO27001**: Healthcare data security (if applicable)
 - **PCI DSS**: Payment card industry standards
 
 ### Audit Trail

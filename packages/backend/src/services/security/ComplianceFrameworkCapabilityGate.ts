@@ -3,11 +3,11 @@ import {
   type FrameworkControlVerificationStatus,
 } from "./ComplianceControlStatusService.js";
 
-const HIPAA_FRAMEWORK = "HIPAA" as const;
+const ISO27001_FRAMEWORK = "ISO27001" as const;
 
 const ALL_COMPLIANCE_FRAMEWORKS = [
   "GDPR",
-  HIPAA_FRAMEWORK,
+  ISO27001_FRAMEWORK,
   "CCPA",
   "SOC2",
   "ISO27001",
@@ -164,5 +164,5 @@ export class ComplianceFrameworkCapabilityGate {
 
 export const complianceFrameworkCapabilityGate =
   new ComplianceFrameworkCapabilityGate();
-export { ALL_COMPLIANCE_FRAMEWORKS, HIPAA_FRAMEWORK };
-export const HIPAA_REQUIREMENTS = HIPAA_FRAMEWORK;
+export { ALL_COMPLIANCE_FRAMEWORKS, ISO27001_FRAMEWORK };
+export const ISO27001_REQUIREMENTS = ISO27001_FRAMEWORK;

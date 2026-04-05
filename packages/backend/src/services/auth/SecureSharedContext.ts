@@ -852,7 +852,7 @@ export class SecureSharedContext {
       /\b(medical|health|diagnosis|treatment)\b/,
       /\b(patient|doctor|hospital|clinic)\b/,
       /\b(prescription|medication|drug)\b/,
-      /\b(hipaa|phi|protected health)\b/,
+      /\b(iso27001|phi|protected health)\b/,
 
       // Personal demographics
       /\b(age|gender|sex|race|ethnicity)\b/,

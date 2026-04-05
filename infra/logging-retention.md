@@ -6,7 +6,7 @@
   - Security audit events
   - Security alert evidence
   - Compliance control evidence
-- Each class has framework-specific operational windows (SOC2/GDPR/HIPAA/ISO27001/NIST/PCI-DSS), long-term archive years, legal-hold requirement, and WORM lock mode.
+- Each class has framework-specific operational windows (SOC2/GDPR/ISO27001/ISO27001/NIST/PCI-DSS), long-term archive years, legal-hold requirement, and WORM lock mode.
 
 ## Database rotation + staged archive
 - Migration `infra/supabase/supabase/migrations/20260804000000_security_audit_worm_archive.sql` introduces:
@@ -31,7 +31,7 @@
 - `infra/k8s/security-audit-retention-cronjob.yaml`
   - `security-audit-retention` daily archival/export run.
   - `security-audit-archive-integrity` six-hour integrity verification run.
-- Job environments expose framework windows for SOC2/GDPR/HIPAA and reference policy version `security-audit-retention-v1`.
+- Job environments expose framework windows for SOC2/GDPR/ISO27001 and reference policy version `security-audit-retention-v1`.
 
 ## Alerting
 - `infra/prometheus/alerts/security-audit-archive-alerts.yml` raises critical alerts for:

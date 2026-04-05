@@ -45,7 +45,7 @@ export interface EncryptionPolicy {
   compliance: {
     soc2: boolean;
     gdpr: boolean;
-    hipaa?: boolean;
+    iso27001?: boolean;
   };
 }
 
@@ -426,7 +426,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: true,
-        hipaa: false,
+        iso27001: false,
       },
     });
 
@@ -440,7 +440,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: true,
-        hipaa: false,
+        iso27001: false,
       },
     });
 
@@ -454,7 +454,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: true,
-        hipaa: false,
+        iso27001: false,
       },
     });
 
@@ -468,7 +468,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: false,
-        hipaa: false,
+        iso27001: false,
       },
     });
 
@@ -482,7 +482,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: true,
-        hipaa: true,
+        iso27001: true,
       },
     });
 
@@ -495,7 +495,7 @@ export class DataEncryptionService {
       compliance: {
         soc2: true,
         gdpr: true,
-        hipaa: false,
+        iso27001: false,
       },
     });
   }
@@ -580,13 +580,13 @@ export class DataEncryptionService {
   checkComplianceStatus(): {
     soc2Compliant: boolean;
     gdprCompliant: boolean;
-    hipaaCompliant: boolean;
+    iso27001Compliant: boolean;
     issues: string[];
   } {
     const issues: string[] = [];
     let soc2Compliant = true;
     let gdprCompliant = true;
-    let hipaaCompliant = true;
+    let iso27001Compliant = true;
 
     for (const [dataType, policy] of this.policies.entries()) {
       if (policy.encryptionRequired && !policy.compliance.soc2) {
@@ -599,16 +599,16 @@ export class DataEncryptionService {
         issues.push(`${dataType} not GDPR compliant`);
       }
 
-      if (policy.compliance.hipaa && !policy.encryptionRequired) {
-        hipaaCompliant = false;
-        issues.push(`${dataType} requires HIPAA encryption but not encrypted`);
+      if (policy.compliance.iso27001 && !policy.encryptionRequired) {
+        iso27001Compliant = false;
+        issues.push(`${dataType} requires ISO27001 encryption but not encrypted`);
       }
     }
 
     return {
       soc2Compliant,
       gdprCompliant,
-      hipaaCompliant,
+      iso27001Compliant,
       issues,
     };
   }

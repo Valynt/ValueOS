@@ -1,4 +1,4 @@
-export type ComplianceFramework = "soc2" | "gdpr" | "hipaa" | "pci" | "iso27001";
+export type ComplianceFramework = "soc2" | "gdpr" | "iso27001" | "pci" | "iso27001";
 export type ComplianceStatus = "compliant" | "non_compliant" | "partial" | "not_applicable";
 
 export interface ComplianceControl {

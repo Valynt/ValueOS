@@ -398,7 +398,7 @@ jobs:
       - name: Remediation record sync gate
         run: node scripts/ci/check-control-status-sync.mjs
 
-      - name: Critical control status gate (SOC2/HIPAA)
+      - name: Critical control status gate (SOC2/ISO27001)
         run: node scripts/ci/check-control-status-critical.mjs
 
       - name: Critical controls governance gate

@@ -67,7 +67,7 @@ const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
 };
 
 const CONCURRENT_TENANT_CHECKS = 5;
-const SUPPORTED_TECHNICAL_FRAMEWORKS: ComplianceFramework[] = ["SOC2", "GDPR", "HIPAA"];
+const SUPPORTED_TECHNICAL_FRAMEWORKS: ComplianceFramework[] = ["SOC2", "GDPR", "ISO27001"];
 const TECHNICAL_REQUIRED_TABLES = ["audit_logs", "audit_logs_archive", "compliance_reports", "organization_configurations"];
 const IMMUTABLE_AUDIT_TABLES = ["audit_logs", "audit_logs_archive"];
 const IMMUTABLE_AUDIT_POLICY_NAMES = [
@@ -197,9 +197,9 @@ const TECHNICAL_ASSERTIONS: TechnicalAssertionDefinition[] = [
     }),
   },
   {
-    framework: "HIPAA",
-    controlId: "hipaa_164_312_b_audit_controls",
-    assertionId: "hipaa_service_identity_configured",
+    framework: "ISO27001",
+    controlId: "iso27001_164_312_b_audit_controls",
+    assertionId: "iso27001_service_identity_configured",
     evidenceType: "security_audit_log",
     evaluate: (state) => ({
       status: state.serviceIdentityConfigured ? "pass" : "fail",
@@ -209,21 +209,21 @@ const TECHNICAL_ASSERTIONS: TechnicalAssertionDefinition[] = [
     }),
   },
   {
-    framework: "HIPAA",
-    controlId: "hipaa_164_312_b_audit_controls",
-    assertionId: "hipaa_mfa_enforced_in_production",
+    framework: "ISO27001",
+    controlId: "iso27001_164_312_b_audit_controls",
+    assertionId: "iso27001_mfa_enforced_in_production",
     evidenceType: "control_status",
     evaluate: (state) => ({
       status: state.productionMfaEnforced ? "pass" : "fail",
       message: state.productionMfaEnforced
-        ? "MFA is enforced for production access in HIPAA-relevant environments."
-        : "MFA is not enforced for production access in HIPAA-relevant environments.",
+        ? "MFA is enforced for production access in ISO27001-relevant environments."
+        : "MFA is not enforced for production access in ISO27001-relevant environments.",
     }),
   },
   {
-    framework: "HIPAA",
-    controlId: "hipaa_164_312_c_integrity",
-    assertionId: "hipaa_required_tables_rls_enabled",
+    framework: "ISO27001",
+    controlId: "iso27001_164_312_c_integrity",
+    assertionId: "iso27001_required_tables_rls_enabled",
     evidenceType: "control_status",
     evaluate: (state) => {
       const requiredTables = ["audit_logs", "audit_logs_archive", "compliance_reports", "organization_configurations"];
@@ -231,18 +231,18 @@ const TECHNICAL_ASSERTIONS: TechnicalAssertionDefinition[] = [
       return missingTables.length === 0
         ? {
             status: "pass",
-            message: "Row-level security is enabled on HIPAA-relevant reporting tables.",
+            message: "Row-level security is enabled on ISO27001-relevant reporting tables.",
           }
         : {
             status: "fail",
-            message: `Row-level security is missing on HIPAA-relevant tables: ${missingTables.join(", ")}.`,
+            message: `Row-level security is missing on ISO27001-relevant tables: ${missingTables.join(", ")}.`,
           };
     },
   },
   {
-    framework: "HIPAA",
-    controlId: "hipaa_164_312_c_integrity",
-    assertionId: "hipaa_immutable_audit_protections_present",
+    framework: "ISO27001",
+    controlId: "iso27001_164_312_c_integrity",
+    assertionId: "iso27001_immutable_audit_protections_present",
     evidenceType: "audit_logs",
     evaluate: (state) => {
       const missingPolicies = IMMUTABLE_AUDIT_POLICY_NAMES.filter((policy) => !state.immutableAuditPolicies.has(policy));
@@ -250,18 +250,18 @@ const TECHNICAL_ASSERTIONS: TechnicalAssertionDefinition[] = [
       return missingPolicies.length === 0 && missingTriggers.length === 0
         ? {
             status: "pass",
-            message: "Immutable audit protections are present for HIPAA audit evidence stores.",
+            message: "Immutable audit protections are present for ISO27001 audit evidence stores.",
           }
         : {
             status: "fail",
-            message: `HIPAA audit integrity protections are incomplete. Missing policies: ${missingPolicies.join(", ") || "none"}; missing triggers: ${missingTriggers.join(", ") || "none"}.`,
+            message: `ISO27001 audit integrity protections are incomplete. Missing policies: ${missingPolicies.join(", ") || "none"}; missing triggers: ${missingTriggers.join(", ") || "none"}.`,
           };
     },
   },
   {
-    framework: "HIPAA",
-    controlId: "hipaa_164_312_c_integrity",
-    assertionId: "hipaa_encryption_required_config_enforced",
+    framework: "ISO27001",
+    controlId: "iso27001_164_312_c_integrity",
+    assertionId: "iso27001_encryption_required_config_enforced",
     evidenceType: "control_status",
     evaluate: (state) => ({
       status: state.encryptionRequired ? "pass" : "fail",
@@ -556,8 +556,8 @@ export class ComplianceControlCheckService {
           : "Cryptographic service identity assertions are missing.",
       },
       {
-        framework: "HIPAA",
-        control_id: "hipaa_mfa_enforced_in_production",
+        framework: "ISO27001",
+        control_id: "iso27001_mfa_enforced_in_production",
         source: state.organizationAuthPolicy.found ? "tenant_config" : "environment",
         status: state.productionMfaEnforced ? "configured" : "missing",
         message: state.productionMfaEnforced
@@ -565,8 +565,8 @@ export class ComplianceControlCheckService {
           : "Production MFA is not fully configured for regulated access.",
       },
       {
-        framework: "HIPAA",
-        control_id: "hipaa_service_identity_configured",
+        framework: "ISO27001",
+        control_id: "iso27001_service_identity_configured",
         source: "environment",
         status: state.serviceIdentityConfigured ? "configured" : "missing",
         message: state.serviceIdentityConfigured
@@ -574,13 +574,13 @@ export class ComplianceControlCheckService {
           : "Protected internal routes lack service identity configuration.",
       },
       {
-        framework: "HIPAA",
-        control_id: "hipaa_encryption_required_config",
+        framework: "ISO27001",
+        control_id: "iso27001_encryption_required_config",
         source: "environment",
         status: state.encryptionRequired ? "configured" : "missing",
         message: state.encryptionRequired
-          ? "Encryption-required settings are configured for HIPAA-relevant paths."
-          : "Encryption-required settings are incomplete for HIPAA-relevant paths.",
+          ? "Encryption-required settings are configured for ISO27001-relevant paths."
+          : "Encryption-required settings are incomplete for ISO27001-relevant paths.",
       },
     ];
   }

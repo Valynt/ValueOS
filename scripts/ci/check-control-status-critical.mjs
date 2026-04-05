@@ -10,7 +10,7 @@ const ARTIFACT_JSON_PATH = resolve(ARTIFACT_DIR, "status.json");
 const ARTIFACT_MD_PATH = resolve(ARTIFACT_DIR, "summary.md");
 const TODAY_UTC = new Date().toISOString().slice(0, 10);
 
-const RELEVANT_FRAMEWORKS = new Set(["SOC2", "HIPAA"]);
+const RELEVANT_FRAMEWORKS = new Set(["SOC2", "ISO27001"]);
 const RELEVANT_DOMAINS = new Set([
   "tenant-isolation",
   "auth",
@@ -292,7 +292,7 @@ const report = {
 writeArtifacts(report);
 
 if (failures.length > 0) {
-  console.error("High-risk SOC2/HIPAA controls in tenant-isolation/auth/audit domains are non-compliant:");
+  console.error("High-risk SOC2/ISO27001 controls in tenant-isolation/auth/audit domains are non-compliant:");
   for (const failure of failures) {
     console.error(` - ${failure}`);
   }
