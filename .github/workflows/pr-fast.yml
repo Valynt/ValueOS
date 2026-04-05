@@ -11,7 +11,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
-  security-events: write  # for gitleaks SARIF upload
+  security-events: write # for gitleaks SARIF upload
 
 jobs:
   # ── Secret scan (diff) — must pass before any merge ─────────────────────────
@@ -439,6 +439,8 @@ jobs:
 
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
+      - name: Security header drift guard
+        run: node scripts/ci/check-security-header-drift.mjs
 
       - name: CI security control-matrix guard
         run: node scripts/ci/check-ci-security-control-matrix.mjs
@@ -1098,7 +1100,6 @@ jobs:
           fi
 
           echo "log-level-production-gate: PASS"
-
 
   # ── Flake gate (REQ-C1) ──────────────────────────────────────────────────
   flake-gate:

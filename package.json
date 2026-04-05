@@ -68,7 +68,8 @@
     "validate:devcontainer": "bash scripts/validate-devcontainer.sh",
     "typecheck:turbo:all": "node scripts/dx/typecheck-via-turbo-all.mjs",
     "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs",
-    "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs"
+    "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs",
+    "check:security-header-drift": "node scripts/ci/check-security-header-drift.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
