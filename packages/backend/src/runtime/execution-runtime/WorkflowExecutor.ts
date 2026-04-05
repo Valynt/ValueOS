@@ -8,7 +8,6 @@
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { buildRuntimeFailureDetails, type RuntimeFailureDetails } from '@valueos/shared';
-import { z } from 'zod';
 import { securityLogger } from '../../services/core/SecurityLogger.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,7 +37,6 @@ import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryMa
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
 import { HandoffCardBuilder } from '../../services/workflows/HandoffCardBuilder.js';
-import { ScenarioSchema } from '../../services/value/ScenarioBuilder.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
   ExecutionEnvelope,
@@ -56,6 +54,7 @@ import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
 import { validateWorkflowDAG } from './dag-validator.js';
 import { WorkflowStatePersistence } from './state-persistence.js';
 import { buildRetryOptions, buildStageRetryConfig } from './retry-policy.js';
+import { validateStageOutputSchema } from './workflow-stage-output-schema.js';
 import { stageTransitionEventBus } from '../approval-inbox/StageTransitionEventBus.js';
 
 // ============================================================================
@@ -90,12 +89,6 @@ const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   maxRetryAttempts: 3,
   maxAgentInvocationsPerMinute: 20,
 };
-
-const ScenarioBuildOutputSchema = z.object({
-  conservative: ScenarioSchema,
-  base: ScenarioSchema,
-  upside: ScenarioSchema,
-});
 
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
@@ -537,7 +530,7 @@ private async _executeDAGAsyncInternal(
           });
         }
 
-        const schemaValidationResult = this._validateStageOutputSchema(stage, stageOutput);
+        const schemaValidationResult = validateStageOutputSchema(stage, stageOutput);
         if (!schemaValidationResult.valid) {
           const msg = `Output failed ${schemaValidationResult.schemaName} schema validation.`;
 
@@ -1347,26 +1340,6 @@ private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
     };
   }
 
-  private _validateStageOutputSchema(
-    stage: WorkflowStage,
-    stageOutput: unknown,
-  ): { valid: true } | { valid: false; schemaName: string; issues: string[] } {
-    if (stage.id !== 'scenario_building') {
-      return { valid: true };
-    }
-
-    const parsedOutput = ScenarioBuildOutputSchema.safeParse(stageOutput);
-    if (parsedOutput.success) {
-      return { valid: true };
-    }
-
-    return {
-      valid: false,
-      schemaName: 'ScenarioBuildOutputSchema',
-      issues: parsedOutput.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
-    };
-  }
-
   private async _persistAndUpdate(executionId: string, organizationId: string, record: WorkflowExecutionRecord, status: WorkflowStatus, stageId: string | null): Promise<void> {
     await this.statePersistence.persistAndUpdate(executionId, organizationId, record, status, stageId);
   }
@@ -1387,3 +1360,5 @@ private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
     return validateWorkflowDAG(rawDag);
   }
 }
+
+export { validateStageOutputSchema } from './workflow-stage-output-schema.js';

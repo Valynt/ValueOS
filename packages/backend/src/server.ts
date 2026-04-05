@@ -170,6 +170,11 @@ import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/secu
 import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
 import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
 import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
+import {
+  getRequestedTenantId,
+  getWebSocketToken,
+  parseBearerToken,
+} from "./server/websocket-request-auth.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 const WS_MAX_MESSAGES_PER_SECOND = Number(process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30");
 const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536");
@@ -240,31 +245,6 @@ const websocketLimiter = new WebSocketLimiter({
 let websocketConnectionCounter = 0;
 
 const tenantResolver = new TenantContextResolver();
-
-function parseBearerToken(header?: string | string[]): string | null {
-  if (!header) return null;
-  const headerValue = Array.isArray(header) ? header[0] : header;
-  if (!headerValue) return null;
-  const prefix = "Bearer ";
-  if (!headerValue.startsWith(prefix)) return null;
-  const token = headerValue.slice(prefix.length).trim();
-  return token.length > 0 ? token : null;
-}
-
-function getWebSocketToken(req: IncomingMessage): string | null {
-  // Only accept tokens via Authorization header to prevent token leakage
-  // in server logs, proxy logs, and browser history.
-  return parseBearerToken(req.headers.authorization);
-}
-
-function getRequestedTenantId(req: IncomingMessage): string | null {
-  const url = new URL(req.url ?? "", "http://localhost");
-  return (
-    url.searchParams.get("tenantId") ??
-    url.searchParams.get("tenant_id") ??
-    url.searchParams.get("organization_id")
-  );
-}
 
 async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
   const clientIp = req.socket.remoteAddress;
@@ -1048,5 +1028,5 @@ function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
   }
 }
 
-export { app, server, wss, broadcastReasoningUpdate };
+export { app, server, wss, broadcastReasoningUpdate, parseBearerToken, getWebSocketToken, getRequestedTenantId };
 export default app;

@@ -12,16 +12,16 @@ import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../lib/logger.js"
 import { getAgentPerformanceMonitor } from "../monitoring/AgentPerformanceMonitor.js"
 import {
-  getDefaultAlertThresholds,
-  getDefaultQuotas,
-  getDefaultSLA,
-  getPriorityForTier,
-  getPriorityWeight,
-  getQuotaForResource,
-  getQuotasForTier,
-  getSLAForTier,
-  getTierWeight,
-} from "./tenant-performance-defaults.js";
+  resolveDefaultAlertThresholds,
+  resolveDefaultQuotas,
+  resolveDefaultSLA,
+  resolvePriorityWeight,
+  resolveQuotaForResource,
+  resolveTierPriority,
+  resolveTierQuotas,
+  resolveTierSLA,
+  resolveTierWeight,
+} from "./TenantPerformancePolicy.js";
 
 // ============================================================================
 // Types
@@ -873,27 +873,27 @@ export class TenantPerformanceManager extends EventEmitter {
   }
 
   private getQuotaForResource(quotas: ResourceQuotas, resourceType: ResourceType): number {
-    return getQuotaForResource(quotas, resourceType);
+    return resolveQuotaForResource(quotas, resourceType);
   }
 
   private getQuotasForTier(tier: TenantTier): ResourceQuotas {
-    return getQuotasForTier(tier);
+    return resolveTierQuotas(tier);
   }
 
   private getSLAForTier(tier: TenantTier): ServiceLevelAgreement {
-    return getSLAForTier(tier);
+    return resolveTierSLA(tier);
   }
 
   private getPriorityForTier(tier: TenantTier): TenantPriority {
-    return getPriorityForTier(tier);
+    return resolveTierPriority(tier);
   }
 
   private getPriorityWeight(priority: TenantPriority): number {
-    return getPriorityWeight(priority);
+    return resolvePriorityWeight(priority);
   }
 
   private getTierWeight(tier: TenantTier): number {
-    return getTierWeight(tier);
+    return resolveTierWeight(tier);
   }
 
   private async createAlert(
@@ -1235,17 +1235,29 @@ export class TenantPerformanceManager extends EventEmitter {
   }
 
   private getDefaultQuotas(): ResourceQuotas {
-    return getDefaultQuotas();
+    return resolveDefaultQuotas();
   }
 
   private getDefaultSLA(): ServiceLevelAgreement {
-    return getDefaultSLA();
+    return resolveDefaultSLA();
   }
 
   private getDefaultAlertThresholds(): Record<string, number> {
-    return getDefaultAlertThresholds();
+    return resolveDefaultAlertThresholds();
   }
 }
+
+export {
+  resolveQuotaForResource,
+  resolveTierQuotas,
+  resolveTierSLA,
+  resolveTierPriority,
+  resolvePriorityWeight,
+  resolveTierWeight,
+  resolveDefaultQuotas,
+  resolveDefaultSLA,
+  resolveDefaultAlertThresholds,
+} from "./TenantPerformancePolicy.js";
 
 // ============================================================================
 // Supporting Types
