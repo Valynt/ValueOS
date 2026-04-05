@@ -1,10 +1,64 @@
 import { z } from "zod";
 import {
-  AssumptionSchema,
+  AssumptionSchema as BaseAssumptionSchema,
   ConfidenceScoreSchema,
   EvidenceRefSchema,
   StakeholderSchema,
 } from "./domain-primitives";
+
+const SourceReferenceSchema = EvidenceRefSchema;
+const LinkedEvidenceRefsSchema = z.array(SourceReferenceSchema).min(1, "assumptions require at least one linked evidence reference");
+
+const BaseAssumptionSchemaWithoutEvidence = BaseAssumptionSchema.omit({
+  evidence: true,
+});
+
+const SupportedAssumptionLinkageSchema = BaseAssumptionSchemaWithoutEvidence.extend({
+  evidenceState: z.literal("supported"),
+  evidenceRefs: LinkedEvidenceRefsSchema,
+}).strict();
+
+const PendingAssumptionLinkageSchema = BaseAssumptionSchemaWithoutEvidence.extend({
+  evidenceState: z.literal("pending"),
+  pendingReason: z.string().min(1),
+  evidenceRefs: z.array(SourceReferenceSchema).default([]),
+}).strict();
+
+export const AssumptionSchema = z.discriminatedUnion("evidenceState", [
+  SupportedAssumptionLinkageSchema,
+  PendingAssumptionLinkageSchema,
+]);
+
+function validateAssumptionEvidenceLinkage(
+  assumptions: z.infer<typeof AssumptionSchema>[],
+  ctx: z.RefinementCtx
+): void {
+  assumptions.forEach((assumption, index) => {
+    if (assumption.evidenceState === "supported" && assumption.evidenceRefs.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "supported assumptions require linked evidence references",
+        path: ["assumptions", index, "evidenceRefs"],
+      });
+    }
+
+    if (assumption.evidenceState === "pending" && (!assumption.pendingReason || assumption.pendingReason.trim().length < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pending assumptions require pendingReason",
+        path: ["assumptions", index, "pendingReason"],
+      });
+    }
+
+    if (assumption.evidenceState === "pending" && assumption.evidenceRefs.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pending assumptions must not include evidence refs until support is provided",
+        path: ["assumptions", index, "evidenceRefs"],
+      });
+    }
+  });
+}
 
 /**
  * INITIATED
@@ -69,7 +123,9 @@ export const ValueHypothesisDraftSchema = z.object({
   confidence: ConfidenceScoreSchema,
 
   draftedAt: z.string().datetime(),
-}).strict();
+}).strict().superRefine((payload, ctx) => {
+  validateAssumptionEvidenceLinkage(payload.assumptions, ctx);
+});
 
 export type ValueHypothesisDraft = z.infer<typeof ValueHypothesisDraftSchema>;
 
@@ -103,7 +159,9 @@ export const FinancialModelSchema = z.object({
   confidence: ConfidenceScoreSchema,
 
   generatedAt: z.string().datetime(),
-}).strict();
+}).strict().superRefine((payload, ctx) => {
+  validateAssumptionEvidenceLinkage(payload.assumptions, ctx);
+});
 
 export type FinancialModel = z.infer<typeof FinancialModelSchema>;
 
