@@ -18,7 +18,7 @@
     "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:domain-pack-import-paths && pnpm run check:generated-src-artifacts && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
+    "ci:verify": "pnpm run check:package-json-parse && pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:domain-pack-import-paths && pnpm run check:generated-src-artifacts && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -70,8 +70,9 @@
     "typecheck:turbo:all": "node scripts/dx/typecheck-via-turbo-all.mjs",
     "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs",
     "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs",
-    "check:security-header-drift": "node scripts/ci/check-security-header-drift.mjs"
-    "check:domain-pack-import-paths": "node scripts/ci/check-domain-pack-import-paths.mjs"
+    "check:security-header-drift": "node scripts/ci/check-security-header-drift.mjs",
+    "check:domain-pack-import-paths": "node scripts/ci/check-domain-pack-import-paths.mjs",
+    "check:package-json-parse": "node scripts/ci/check-package-json-parse.mjs",
     "check:generated-src-artifacts": "node scripts/ci/check-generated-src-artifacts.mjs --tracked-only"
   },
   "dependencies": {
