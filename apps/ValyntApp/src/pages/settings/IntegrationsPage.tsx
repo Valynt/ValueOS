@@ -46,6 +46,9 @@ const formatTimestamp = (value?: string) => {
   return formatDistanceToNow(new Date(value), { addSuffix: true });
 };
 
+const getConnectLabel = (provider: IntegrationProvider) => `Connect with ${provider.name}`;
+const getReconnectLabel = (provider: IntegrationProvider) => `Reconnect ${provider.name}`;
+
 export function IntegrationsPage() {
   const {
     integrations,
@@ -126,15 +129,10 @@ export function IntegrationsPage() {
     }
 
     const payload: IntegrationCredentialsInput = {
-      accessToken: formValues.accessToken?.trim() || "",
+      accessToken: formValues.accessToken?.trim() || undefined,
       refreshToken: formValues.refreshToken?.trim() || undefined,
       instanceUrl: formValues.instanceUrl?.trim() || undefined,
     };
-
-    if (!payload.accessToken) {
-      setFormError("Access token is required");
-      return null;
-    }
 
     return payload;
   };
@@ -245,7 +243,7 @@ export function IntegrationsPage() {
                   disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
                 >
                   <ExternalLink className="h-3 w-3 mr-2" />
-                  Reconnect
+                  {getReconnectLabel(provider)}
                 </Button>
               )}
               <Button
@@ -285,7 +283,7 @@ export function IntegrationsPage() {
               }
               disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
             >
-              {oauthInProgressProvider === provider.id ? "Connecting..." : "Connect"}
+              {oauthInProgressProvider === provider.id ? "Connecting..." : getConnectLabel(provider)}
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
           )}
@@ -462,11 +460,10 @@ export function IntegrationsPage() {
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>
-              {activeProvider ? `Connect ${activeProvider.name}` : "Connect integration"}
+              {activeProvider ? getConnectLabel(activeProvider) : "Connect integration"}
             </DialogTitle>
             <DialogDescription>
-              Enter credentials for the selected provider. Tokens are stored securely and never
-              shown again.
+              Enter credentials for the selected provider.
             </DialogDescription>
           </DialogHeader>
 

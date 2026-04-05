@@ -1,0 +1,39 @@
+{
+  "title": "CRM Integration Health by Tenant/Provider",
+  "tags": ["valueos", "crm", "integration"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Connection Health (success vs failure)",
+      "targets": [
+        { "expr": "sum by (tenant_id, provider) (rate(crm_integration_operation_success_total{operation=~\"connect.*\"}[5m]))", "legendFormat": "{{tenant_id}}/{{provider}} success" },
+        { "expr": "sum by (tenant_id, provider) (rate(crm_integration_operation_failure_total{operation=~\"connect.*\"}[5m]))", "legendFormat": "{{tenant_id}}/{{provider}} failure" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sync Health (latency p95)",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, tenant_id, provider) (rate(crm_integration_operation_latency_ms_bucket{operation=\"sync.delta\"}[5m])))", "legendFormat": "{{tenant_id}}/{{provider}} p95" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook Backlog by tenant/provider",
+      "targets": [
+        { "expr": "crm_webhook_backlog", "legendFormat": "{{tenant_id}}/{{provider}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook Queue Lag by tenant/provider",
+      "targets": [
+        { "expr": "crm_queue_lag_seconds{queue=\"webhook\"}", "legendFormat": "{{tenant_id}}/{{provider}}" }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,11 @@
 import { createLogger } from '../../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+import {
+  CRM_INTEGRATION_EVENTS,
+  recordCrmIntegrationEvent,
+  runCrmOperation,
+} from './CrmIntegrationObservability.js';
 
 import { getCrmProvider } from './CrmProviderRegistry.js';
 import { consumeOAuthState, createOAuthState, updateOAuthStateCodeVerifier } from './OAuthStateStore.js';
@@ -40,29 +45,45 @@ export class CrmConnectionService {
     provider: CrmProvider,
     redirectUri: string,
   ): Promise<{ authUrl: string; state: string }> {
-    const impl = getCrmProvider(provider);
+    return runCrmOperation(
+      {
+        provider,
+        tenantId,
+        operation: 'connect.start_oauth',
+        correlationId: `${provider}:${tenantId}:${Date.now()}`,
+      },
+      async () => {
+        const impl = getCrmProvider(provider);
+        recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.CONNECT_STARTED, {
+          provider,
+          tenantId,
+          operation: 'connect.start_oauth',
+          correlationId: `${provider}:${tenantId}:${Date.now()}`,
+        });
 
-    // Persist state first to get the canonical nonce, then build the auth URL
-    // with that nonce. Back-fill the PKCE codeVerifier after getAuthUrl returns it.
-    const nonce = await createOAuthState({
-      tenantId,
-      provider,
-      redirectUri,
-      createdAt: Date.now(),
-    });
+        // Persist state first to get the canonical nonce, then build the auth URL
+        // with that nonce. Back-fill the PKCE codeVerifier after getAuthUrl returns it.
+        const nonce = await createOAuthState({
+          tenantId,
+          provider,
+          redirectUri,
+          createdAt: Date.now(),
+        });
 
-    const result = impl.getAuthUrl(nonce, redirectUri);
+        const result = impl.getAuthUrl(nonce, redirectUri);
 
-    if (result.codeVerifier) {
-      await updateOAuthStateCodeVerifier(nonce, result.codeVerifier);
-    }
+        if (result.codeVerifier) {
+          await updateOAuthStateCodeVerifier(nonce, result.codeVerifier);
+        }
 
-    logger.info('OAuth flow started', {
-      tenantId,
-      provider,
-      audit_event: 'oauth.flow.started',
-    });
-    return { authUrl: result.authUrl, state: nonce };
+        logger.info('OAuth flow started', {
+          tenantId,
+          provider,
+          audit_event: 'oauth.flow.started',
+        });
+        return { authUrl: result.authUrl, state: nonce };
+      }
+    );
   }
 
   /**
@@ -82,6 +103,12 @@ export class CrmConnectionService {
     // Consume the nonce — one-time use, validates provider match
     const stateMeta = await consumeOAuthState(state, provider);
     if (!stateMeta) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.CONNECT_FAILED, {
+        provider,
+        tenantId,
+        operation: 'connect.complete_oauth',
+        correlationId: state,
+      }, { reason: 'invalid_state' });
       logger.warn('OAuth callback rejected: invalid, expired, or replayed state', {
         tenantId,
         provider,
@@ -93,6 +120,12 @@ export class CrmConnectionService {
 
     // Verify the tenant matches the one that initiated the flow
     if (stateMeta.tenantId !== tenantId) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.CONNECT_FAILED, {
+        provider,
+        tenantId,
+        operation: 'connect.complete_oauth',
+        correlationId: state,
+      }, { reason: 'tenant_mismatch' });
       logger.warn('OAuth callback rejected: tenant mismatch', {
         expectedTenant: stateMeta.tenantId,
         actualTenant: tenantId,
@@ -145,57 +178,83 @@ export class CrmConnectionService {
     redirectUri: string,
     connectedBy: string,
   ): Promise<CrmConnectionRow> {
-    const impl = getCrmProvider(provider);
-    // State is not needed for token exchange with most providers,
-    // but pass empty string for interface compatibility.
-    const tokens = await impl.exchangeCodeForTokens({ code, state: '' }, redirectUri);
-
-    // Validate minimum required scopes
-    const required = REQUIRED_SCOPES[provider] || [];
-    const missing = required.filter((s) => !tokens.scopes.includes(s));
-    if (missing.length > 0) {
-      logger.warn('CRM connection missing required scopes', {
-        tenantId,
+    return runCrmOperation(
+      {
         provider,
-        missing,
-        granted: tokens.scopes,
-      });
-    }
+        tenantId,
+        operation: 'connect.complete_oauth',
+        correlationId: `${provider}:${tenantId}:${Date.now()}`,
+      },
+      async () => {
+        const impl = getCrmProvider(provider);
+        // State is not needed for token exchange with most providers,
+        // but pass empty string for interface compatibility.
+        const tokens = await impl.exchangeCodeForTokens({ code, state: '' }, redirectUri);
 
-    const row = await this.upsertConnection(tenantId, provider, tokens, connectedBy);
+        // Validate minimum required scopes
+        const required = REQUIRED_SCOPES[provider] || [];
+        const missing = required.filter((s) => !tokens.scopes.includes(s));
+        if (missing.length > 0) {
+          logger.warn('CRM connection missing required scopes', {
+            tenantId,
+            provider,
+            missing,
+            granted: tokens.scopes,
+          });
+        }
 
-    logger.info('CRM connected', {
-      tenantId,
-      provider,
-      connectionId: row.id,
-      fingerprint: tokenFingerprint(tokens.accessToken),
-      audit_event: 'oauth.callback.success',
-    });
-    return row;
+        const row = await this.upsertConnection(tenantId, provider, tokens, connectedBy);
+        recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.CONNECT_SUCCEEDED, {
+          provider,
+          tenantId,
+          operation: 'connect.complete_oauth',
+          correlationId: row.id,
+        });
+
+        logger.info('CRM connected', {
+          tenantId,
+          provider,
+          connectionId: row.id,
+          fingerprint: tokenFingerprint(tokens.accessToken),
+          audit_event: 'oauth.callback.success',
+        });
+        return row;
+      }
+    );
   }
 
   /**
    * Disconnect a CRM provider for a tenant.
    */
   async disconnect(tenantId: string, provider: CrmProvider): Promise<void> {
-    const { error } = await this.supabase
-      .from('crm_connections')
-      .update({
-        status: 'disconnected',
-        access_token_enc: null,
-        refresh_token_enc: null,
-        token_expires_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('tenant_id', tenantId)
-      .eq('provider', provider);
+    await runCrmOperation(
+      {
+        provider,
+        tenantId,
+        operation: 'connect.disconnect',
+        correlationId: `${provider}:${tenantId}:${Date.now()}`,
+      },
+      async () => {
+        const { error } = await this.supabase
+          .from('crm_connections')
+          .update({
+            status: 'disconnected',
+            access_token_enc: null,
+            refresh_token_enc: null,
+            token_expires_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('tenant_id', tenantId)
+          .eq('provider', provider);
 
-    if (error) {
-      logger.error('Failed to disconnect CRM', error, { tenantId, provider });
-      throw error;
-    }
+        if (error) {
+          logger.error('Failed to disconnect CRM', error, { tenantId, provider });
+          throw error;
+        }
 
-    logger.info('CRM disconnected', { tenantId, provider });
+        logger.info('CRM disconnected', { tenantId, provider });
+      }
+    );
   }
 
   /**
@@ -251,6 +310,12 @@ export class CrmConnectionService {
         return refreshed;
       }
     } catch (err) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.REAUTH_REQUIRED, {
+        provider,
+        tenantId,
+        operation: 'token.refresh',
+        correlationId: `${provider}:${tenantId}`,
+      });
       logger.error('Token refresh failed', err instanceof Error ? err : undefined, {
         tenantId,
         provider,

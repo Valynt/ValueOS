@@ -1,9 +1,16 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetIntegrations, mockApiClientGet, mockApiClientPost, mockWindowOpen } = vi.hoisted(
+const {
+  mockGetIntegrations,
+  mockCreateIntegration,
+  mockApiClientGet,
+  mockApiClientPost,
+  mockWindowOpen,
+} = vi.hoisted(
   () => ({
     mockGetIntegrations: vi.fn(),
+    mockCreateIntegration: vi.fn(),
     mockApiClientGet: vi.fn(),
     mockApiClientPost: vi.fn(),
     mockWindowOpen: vi.fn(),
@@ -13,7 +20,7 @@ const { mockGetIntegrations, mockApiClientGet, mockApiClientPost, mockWindowOpen
 vi.mock("@/api/client/unified-api-client", () => ({
   api: {
     getIntegrations: mockGetIntegrations,
-    createIntegration: vi.fn(),
+    createIntegration: mockCreateIntegration,
     deleteIntegration: vi.fn(),
     testIntegration: vi.fn(),
     syncIntegration: vi.fn(),
@@ -161,5 +168,22 @@ describe("useIntegrations OAuth flow", () => {
       "popup=yes,width=600,height=720"
     );
     expect(result.current.oauthInProgressProvider).toBe("salesforce");
+  });
+
+  it("does not send direct token payloads to createIntegration for CRM OAuth providers", async () => {
+    mockApiClientPost.mockResolvedValue({
+      success: true,
+      data: { authUrl: "https://crm.example.com/oauth/start" },
+    });
+    mockWindowOpen.mockReturnValue({ closed: false });
+
+    const { result } = renderHook(() => useIntegrations());
+
+    await act(async () => {
+      await result.current.connect("hubspot", { accessToken: "should-not-be-used" });
+    });
+
+    expect(mockApiClientPost).toHaveBeenCalledWith("/api/crm/hubspot/connect/start");
+    expect(mockCreateIntegration).not.toHaveBeenCalled();
   });
 });
