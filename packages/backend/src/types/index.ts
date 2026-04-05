@@ -61,9 +61,32 @@ export {
 } from "./domain-primitives";
 
 export {
+  VALUE_LIFECYCLE_SCHEMA_VERSION_V1,
+  ValueLifecycleSchemaVersionV1Schema,
+  OpportunityContextSchemaV1,
+  ValueHypothesisDraftSchemaV1,
+  FinancialModelSchemaV1,
+  IntegrityAssessmentSchemaV1,
+  ExecutiveNarrativeSchemaV1,
+  ValueLifecycleSchemaV1,
+  ValueLifecycleSchema,
   OpportunityContextSchema,
   ValueHypothesisDraftSchema,
   FinancialModelSchema,
   IntegrityAssessmentSchema,
   ExecutiveNarrativeSchema,
+  serializeValueLifecyclePayload,
+  deserializeValueLifecyclePayload,
+} from "./agent-schemas";
+
+export type {
+  ValueLifecycleSchemaVersionV1,
+  ValueLifecycleSchemaVersion,
+  OpportunityContextV1,
+  ValueHypothesisDraftV1,
+  FinancialModelV1,
+  IntegrityAssessmentV1,
+  ExecutiveNarrativeV1,
+  ValueLifecycleV1,
+  ValueLifecycle,
 } from "./agent-schemas";

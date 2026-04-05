@@ -6,10 +6,17 @@ import {
   StakeholderSchema,
 } from "./domain-primitives";
 
+export const VALUE_LIFECYCLE_SCHEMA_VERSION_V1 = "v1" as const;
+export type ValueLifecycleSchemaVersionV1 = typeof VALUE_LIFECYCLE_SCHEMA_VERSION_V1;
+export type ValueLifecycleSchemaVersion = ValueLifecycleSchemaVersionV1;
+
+export const ValueLifecycleSchemaVersionV1Schema = z.literal(VALUE_LIFECYCLE_SCHEMA_VERSION_V1);
+
 /**
  * INITIATED
  */
-export const OpportunityContextSchema = z.object({
+export const OpportunityContextSchemaV1 = z.object({
+  schemaVersion: ValueLifecycleSchemaVersionV1Schema,
   stage: z.literal("INITIATED"),
 
   organizationId: z.string().uuid(),
@@ -39,12 +46,13 @@ export const OpportunityContextSchema = z.object({
   createdAt: z.string().datetime(),
 }).strict();
 
-export type OpportunityContext = z.infer<typeof OpportunityContextSchema>;
+export type OpportunityContextV1 = z.infer<typeof OpportunityContextSchemaV1>;
 
 /**
  * DRAFTING
  */
-export const ValueHypothesisDraftSchema = z.object({
+export const ValueHypothesisDraftSchemaV1 = z.object({
+  schemaVersion: ValueLifecycleSchemaVersionV1Schema,
   stage: z.literal("DRAFTING"),
 
   organizationId: z.string().uuid(),
@@ -71,12 +79,13 @@ export const ValueHypothesisDraftSchema = z.object({
   draftedAt: z.string().datetime(),
 }).strict();
 
-export type ValueHypothesisDraft = z.infer<typeof ValueHypothesisDraftSchema>;
+export type ValueHypothesisDraftV1 = z.infer<typeof ValueHypothesisDraftSchemaV1>;
 
 /**
  * FINANCIAL / MODELING
  */
-export const FinancialModelSchema = z.object({
+export const FinancialModelSchemaV1 = z.object({
+  schemaVersion: ValueLifecycleSchemaVersionV1Schema,
   stage: z.literal("FINANCIAL"),
 
   organizationId: z.string().uuid(),
@@ -105,12 +114,13 @@ export const FinancialModelSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
-export type FinancialModel = z.infer<typeof FinancialModelSchema>;
+export type FinancialModelV1 = z.infer<typeof FinancialModelSchemaV1>;
 
 /**
  * VALIDATING
  */
-export const IntegrityAssessmentSchema = z.object({
+export const IntegrityAssessmentSchemaV1 = z.object({
+  schemaVersion: ValueLifecycleSchemaVersionV1Schema,
   stage: z.literal("VALIDATING"),
 
   organizationId: z.string().uuid(),
@@ -138,12 +148,13 @@ export const IntegrityAssessmentSchema = z.object({
   assessedAt: z.string().datetime(),
 }).strict();
 
-export type IntegrityAssessment = z.infer<typeof IntegrityAssessmentSchema>;
+export type IntegrityAssessmentV1 = z.infer<typeof IntegrityAssessmentSchemaV1>;
 
 /**
  * COMPOSING
  */
-export const ExecutiveNarrativeSchema = z.object({
+export const ExecutiveNarrativeSchemaV1 = z.object({
+  schemaVersion: ValueLifecycleSchemaVersionV1Schema,
   stage: z.literal("COMPOSING"),
 
   organizationId: z.string().uuid(),
@@ -172,4 +183,45 @@ export const ExecutiveNarrativeSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
-export type ExecutiveNarrative = z.infer<typeof ExecutiveNarrativeSchema>;
+export type ExecutiveNarrativeV1 = z.infer<typeof ExecutiveNarrativeSchemaV1>;
+
+export const ValueLifecycleSchemaV1 = z.discriminatedUnion("stage", [
+  OpportunityContextSchemaV1,
+  ValueHypothesisDraftSchemaV1,
+  FinancialModelSchemaV1,
+  IntegrityAssessmentSchemaV1,
+  ExecutiveNarrativeSchemaV1,
+]);
+
+/**
+ * Extension point for future versions:
+ *   export const ValueLifecycleSchema = z.union([ValueLifecycleSchemaV1, ValueLifecycleSchemaV2]);
+ */
+export const ValueLifecycleSchema = ValueLifecycleSchemaV1;
+
+export type ValueLifecycleV1 = z.infer<typeof ValueLifecycleSchemaV1>;
+export type ValueLifecycle = z.infer<typeof ValueLifecycleSchema>;
+
+/**
+ * Backward-compatible exports retained for existing imports.
+ * These currently point at v1 schemas/types.
+ */
+export const OpportunityContextSchema = OpportunityContextSchemaV1;
+export type OpportunityContext = OpportunityContextV1;
+export const ValueHypothesisDraftSchema = ValueHypothesisDraftSchemaV1;
+export type ValueHypothesisDraft = ValueHypothesisDraftV1;
+export const FinancialModelSchema = FinancialModelSchemaV1;
+export type FinancialModel = FinancialModelV1;
+export const IntegrityAssessmentSchema = IntegrityAssessmentSchemaV1;
+export type IntegrityAssessment = IntegrityAssessmentV1;
+export const ExecutiveNarrativeSchema = ExecutiveNarrativeSchemaV1;
+export type ExecutiveNarrative = ExecutiveNarrativeV1;
+
+export function serializeValueLifecyclePayload(payload: ValueLifecycle): string {
+  return JSON.stringify(ValueLifecycleSchema.parse(payload));
+}
+
+export function deserializeValueLifecyclePayload(payload: string | unknown): ValueLifecycle {
+  const raw = typeof payload === "string" ? JSON.parse(payload) : payload;
+  return ValueLifecycleSchema.parse(raw);
+}
