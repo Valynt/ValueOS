@@ -481,11 +481,15 @@ export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const options = init || {};
-    const method = (options.method || "GET").toUpperCase();
+    const requestMethod = input instanceof Request ? input.method : undefined;
+    const method = (options.method || requestMethod || "GET").toUpperCase();
+
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      const requestOptions: RequestInit = { ...options, method };
+
       return fetchWithCSRF(
-        typeof input === "string" || input instanceof URL ? input.toString() : String(input),
-        options,
+        typeof input === "string" || input instanceof URL ? input.toString() : input.url,
+        requestOptions,
         config,
         baseFetch
       );
