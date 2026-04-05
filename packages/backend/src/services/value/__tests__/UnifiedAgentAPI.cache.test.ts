@@ -46,7 +46,7 @@ vi.mock("../ReadThroughCacheService.js", () => ({
   },
 }));
 
-import { UnifiedAgentAPI } from "../UnifiedAgentAPI";
+import { UnifiedAgentAPI } from "../UnifiedAgentAPI.js";
 
 vi.mock("../../../lib/supabase.js");
 

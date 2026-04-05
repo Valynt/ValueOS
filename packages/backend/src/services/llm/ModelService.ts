@@ -11,7 +11,7 @@ import { ValueTreeLinkRepository } from "../../repositories/ValueTreeLinkReposit
 import { ValueTreeNodeRepository } from "../../repositories/ValueTreeNodeRepository";
 import { ValueTreeRepository } from "../../repositories/ValueTreeRepository";
 import { TargetAgentOutput } from "../../types/vos";
-import { LifecycleContext } from "../types/agent";
+import { LifecycleContext } from "../../types/agent.js";
 
 import { auditLogService } from "./AuditLogService.js"
 import { userSettingsService } from "./UserSettingsService.js"

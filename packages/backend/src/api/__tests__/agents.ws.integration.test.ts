@@ -71,7 +71,7 @@ describe("Agent reasonings websocket broadcast", () => {
     await waitForOpen(ws);
 
     // Mock UnifiedAgentAPI to return resolved issue
-    const unifiedMock = await import("../services/UnifiedAgentAPI");
+    const unifiedMock = await import("../services/value/UnifiedAgentAPI.js");
     (unifiedMock.getUnifiedAgentAPI as any) = () => ({
       invoke: async () => ({
         data: { resolvedIssueId: "issue-xyz", resolution: "accept" },

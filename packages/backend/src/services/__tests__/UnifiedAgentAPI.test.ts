@@ -15,7 +15,7 @@ import {
   resetUnifiedAgentAPI,
   UnifiedAgentAPI,
   UnifiedAgentRequest,
-} from '../UnifiedAgentAPI';
+} from "../value/UnifiedAgentAPI.js";
 
 vi.mock("../../lib/supabase.js");
 
