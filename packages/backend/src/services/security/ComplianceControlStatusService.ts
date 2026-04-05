@@ -300,34 +300,83 @@ export class ComplianceControlStatusService {
     return "pass";
   }
 
-  private async appendControlEvidence(control: ControlStatusRecord): Promise<void> {
-    const evidencePayload = {
-      tenant_id: control.tenant_id,
-      control_id: control.control_id,
-      framework: control.framework,
-      evidence_pointer: control.evidence_pointer,
-      evidence_payload: {
-        metric_value: control.metric_value,
-        metric_unit: control.metric_unit,
-      },
-      evidence_ts: control.evidence_ts,
-    };
+  /**
+   * Best-effort persistence semantics:
+   * - We intentionally allow partial writes across compliance_control_* tables.
+   * - If all-or-nothing persistence is required, move this write path into a
+   *   transaction-capable Postgres function/RPC and call it here.
+   */
+  private async insertControlRowsBestEffort(
+    tenantId: string,
+    evidenceRows: Array<{
+      tenant_id: string;
+      control_id: string;
+      framework: ComplianceFramework;
+      evidence_pointer: string;
+      evidence_payload: { metric_value: number; metric_unit: "percent" | "hours" | "count" };
+      evidence_ts: string;
+    }>,
+    auditRows: Array<{
+      tenant_id: string;
+      control_id: string;
+      event_type: "control_status_updated";
+      event_payload: { status: ControlStatus; framework: ComplianceFramework; evidence_pointer: string };
+      evidence_ts: string;
+    }>,
+    statusRows: ControlStatusRecord[]
+  ): Promise<void> {
+    const controlIds = statusRows.map((control) => control.control_id);
 
-    await this.supabase.from("compliance_control_evidence").insert(evidencePayload);
+    try {
+      const { error } = await this.supabase.from("compliance_control_evidence").insert(evidenceRows);
+      if (error) {
+        logger.warn("ComplianceControlStatusService: partial insert failure on compliance_control_evidence", {
+          tenantId,
+          controlIds,
+          error: error.message,
+        });
+      }
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: compliance_control_evidence insert threw", {
+        tenantId,
+        controlIds,
+        err,
+      });
+    }
 
-    await this.supabase.from("compliance_control_audit").insert({
-      tenant_id: control.tenant_id,
-      control_id: control.control_id,
-      event_type: "control_status_updated",
-      event_payload: {
-        status: control.status,
-        framework: control.framework,
-        evidence_pointer: control.evidence_pointer,
-      },
-      evidence_ts: control.evidence_ts,
-    });
+    try {
+      const { error } = await this.supabase.from("compliance_control_audit").insert(auditRows);
+      if (error) {
+        logger.warn("ComplianceControlStatusService: partial insert failure on compliance_control_audit", {
+          tenantId,
+          controlIds,
+          error: error.message,
+        });
+      }
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: compliance_control_audit insert threw", {
+        tenantId,
+        controlIds,
+        err,
+      });
+    }
 
-    await this.supabase.from("compliance_control_status").insert(control);
+    try {
+      const { error } = await this.supabase.from("compliance_control_status").insert(statusRows);
+      if (error) {
+        logger.warn("ComplianceControlStatusService: partial insert failure on compliance_control_status", {
+          tenantId,
+          controlIds,
+          error: error.message,
+        });
+      }
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: compliance_control_status insert threw", {
+        tenantId,
+        controlIds,
+        err,
+      });
+    }
   }
 
   private async buildComputedControls(tenantId: string): Promise<ControlStatusRecord[]> {
@@ -390,7 +439,34 @@ export class ComplianceControlStatusService {
 
   async refreshControlStatus(tenantId: string): Promise<ControlStatusRecord[]> {
     const controls = await this.buildComputedControls(tenantId);
-    await Promise.all(controls.map((control) => this.appendControlEvidence(control)));
+
+    const evidenceRows = controls.map((control) => ({
+      tenant_id: control.tenant_id,
+      control_id: control.control_id,
+      framework: control.framework,
+      evidence_pointer: control.evidence_pointer,
+      evidence_payload: {
+        metric_value: control.metric_value,
+        metric_unit: control.metric_unit,
+      },
+      evidence_ts: control.evidence_ts,
+    }));
+
+    const auditRows = controls.map((control) => ({
+      tenant_id: control.tenant_id,
+      control_id: control.control_id,
+      event_type: "control_status_updated" as const,
+      event_payload: {
+        status: control.status,
+        framework: control.framework,
+        evidence_pointer: control.evidence_pointer,
+      },
+      evidence_ts: control.evidence_ts,
+    }));
+
+    const statusRows = controls.map((control) => ({ ...control }));
+
+    await this.insertControlRowsBestEffort(tenantId, evidenceRows, auditRows, statusRows);
     return controls;
   }
 
