@@ -51,3 +51,19 @@ export { EVIDENCE_TIER, evidenceTierToLabel, evidenceTierToNumeric } from "./evi
 
 // --- Audit ---
 export type { AuditLogEntry } from "./audit";
+
+// --- Agent schema primitives/contracts ---
+export {
+  EvidenceRefSchema,
+  AssumptionSchema,
+  StakeholderSchema,
+  ConfidenceScoreSchema,
+} from "./domain-primitives";
+
+export {
+  OpportunityContextSchema,
+  ValueHypothesisDraftSchema,
+  FinancialModelSchema,
+  IntegrityAssessmentSchema,
+  ExecutiveNarrativeSchema,
+} from "./agent-schemas";
