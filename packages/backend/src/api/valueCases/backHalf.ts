@@ -549,6 +549,7 @@ const PdfExportBodySchema = z
 backHalfRouter.post(
   "/:id/export/pdf",
   ...auth,
+  rateLimiters.strict,
   async (req: Request, res: Response) => {
     const tenantId = getTenantId(req);
     const caseId = getCaseId(req);
@@ -666,6 +667,7 @@ const PptxExportBodySchema = z
 backHalfRouter.post(
   "/:id/export/pptx",
   ...auth,
+  rateLimiters.strict,
   async (req: Request, res: Response) => {
     const tenantId = getTenantId(req);
     const caseId = getCaseId(req);
@@ -871,4 +873,3 @@ backHalfRouter.post(
     }
   }
 );
-
