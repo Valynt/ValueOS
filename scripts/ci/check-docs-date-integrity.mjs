@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -12,6 +13,8 @@ const reportMdPath = path.join(reportDir, 'date-integrity-report.md');
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+const ACTIONABLE_DOC_STALE_DAYS = Number.parseInt(process.env.ACTIONABLE_DOC_STALE_DAYS ?? '30', 10);
+const STALE_DOC_BANNER_START = '<!-- stale-doc-banner:start -->';
 
 function toIsoDate(rawValue) {
   const value = String(rawValue).trim();
@@ -145,6 +148,45 @@ function parseFrontMatter(markdown) {
   return fields;
 }
 
+function getActionableDocOwner(filePath) {
+  if (filePath.startsWith('docs/operations/')) {
+    return 'team-operations';
+  }
+
+  if (filePath.startsWith('docs/release/')) {
+    return 'team-release';
+  }
+
+  return 'team-platform';
+}
+
+function isActionableDoc(filePath) {
+  if (filePath === 'docs/spec-backlog.md') {
+    return true;
+  }
+
+  if (/^docs\/(?:specs\/)?sprint-plan-[^/]+\.md$/i.test(filePath)) {
+    return true;
+  }
+
+  return /(^docs\/|\/)[^/]*readiness[^/]*\.md$/i.test(filePath);
+}
+
+function calculateAgeInDays(isoDate) {
+  const today = new Date(`${utcToday}T00:00:00.000Z`);
+  const targetDate = new Date(`${isoDate}T00:00:00.000Z`);
+  const ageMs = today.getTime() - targetDate.getTime();
+  return Math.floor(ageMs / (24 * 60 * 60 * 1000));
+}
+
+function getCurrentSourceCommit() {
+  try {
+    return execSync('git rev-parse --short=12 HEAD', { cwd: repoRoot, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return null;
+  }
+}
+
 function parseMarkdownFrontMatterDates() {
   const markdownFiles = collectFiles('docs', (file) => file.endsWith('.md'));
   const findings = [];
@@ -255,10 +297,146 @@ function parseComplianceManifestDates() {
   return findings;
 }
 
+function parseActionableDocsMetadata() {
+  const markdownFiles = collectFiles('docs', (file) => file.endsWith('.md') && isActionableDoc(file));
+  const findings = [];
+  const expectedSourceCommit = getCurrentSourceCommit();
+
+  for (const file of markdownFiles) {
+    const content = readFileSync(path.resolve(repoRoot, file), 'utf8');
+    const frontMatter = parseFrontMatter(content);
+    const bannerPresent = content.includes(STALE_DOC_BANNER_START);
+
+    if (!frontMatter) {
+      findings.push({
+        type: 'missing-front-matter',
+        source: file,
+        scope: 'actionable-doc',
+        field: 'frontmatter',
+        value: '',
+        message: `${file} is an actionable document and must include YAML front-matter with generated_at, owner, and source_commit.`,
+        blocking: true,
+      });
+      continue;
+    }
+
+    for (const requiredField of ['generated_at', 'owner', 'source_commit']) {
+      const rawValue = frontMatter.get(requiredField);
+      if (!rawValue || !String(rawValue).trim()) {
+        findings.push({
+          type: 'missing-required-field',
+          source: file,
+          scope: 'actionable-doc',
+          field: requiredField,
+          value: rawValue ?? '',
+          message: `${file} is missing required front-matter field: ${requiredField}.`,
+          blocking: true,
+        });
+      }
+    }
+
+    const generatedAtRaw = frontMatter.get('generated_at');
+    const generatedAt = generatedAtRaw ? toIsoDate(generatedAtRaw) : null;
+    if (!generatedAt) {
+      findings.push({
+        type: 'invalid-date-format',
+        source: file,
+        scope: 'actionable-doc',
+        field: 'generated_at',
+        value: generatedAtRaw ?? '',
+        message: `${file} has invalid generated_at value (${generatedAtRaw ?? 'missing'}); expected YYYY-MM-DD or ISO-8601 datetime.`,
+        blocking: true,
+      });
+      continue;
+    }
+
+    if (generatedAt > utcToday) {
+      findings.push({
+        type: 'future-date',
+        source: file,
+        scope: 'actionable-doc',
+        field: 'generated_at',
+        value: generatedAt,
+        message: `${file} has generated_at=${generatedAt}, which is in the future relative to UTC run date (${utcToday}).`,
+        blocking: true,
+      });
+      continue;
+    }
+
+    const ageDays = calculateAgeInDays(generatedAt);
+    const status = (frontMatter.get('status') ?? '').toLowerCase();
+    if (ageDays > ACTIONABLE_DOC_STALE_DAYS) {
+      if (status === 'archived') {
+        if (!bannerPresent) {
+          findings.push({
+            type: 'missing-stale-banner',
+            source: file,
+            scope: 'actionable-doc',
+            field: 'status',
+            value: status,
+            message: `${file} is archived due to staleness but is missing the stale warning banner.`,
+            blocking: true,
+          });
+        } else {
+          findings.push({
+            type: 'archived-stale-doc',
+            source: file,
+            scope: 'actionable-doc',
+            field: 'generated_at',
+            value: generatedAt,
+            message: `${file} is archived and stale (${ageDays} days old). Regenerate to reactivate.`,
+            blocking: false,
+          });
+        }
+      } else {
+        findings.push({
+          type: 'stale-doc',
+          source: file,
+          scope: 'actionable-doc',
+          field: 'generated_at',
+          value: generatedAt,
+          message: `${file} is stale (${ageDays} days old; threshold=${ACTIONABLE_DOC_STALE_DAYS} days). Refresh or archive it.`,
+          blocking: true,
+        });
+      }
+    }
+
+    const owner = frontMatter.get('owner');
+    const expectedOwner = getActionableDocOwner(file);
+    if (owner && owner !== expectedOwner) {
+      findings.push({
+        type: 'owner-mismatch',
+        source: file,
+        scope: 'actionable-doc',
+        field: 'owner',
+        value: owner,
+        message: `${file} owner=${owner} differs from inferred owner ${expectedOwner}.`,
+        blocking: false,
+      });
+    }
+
+    const sourceCommit = frontMatter.get('source_commit');
+    if (sourceCommit && expectedSourceCommit && !/^[0-9a-f]{7,40}$/i.test(sourceCommit)) {
+      findings.push({
+        type: 'invalid-source-commit',
+        source: file,
+        scope: 'actionable-doc',
+        field: 'source_commit',
+        value: sourceCommit,
+        message: `${file} has source_commit=${sourceCommit}, which is not a valid git commit hash.`,
+        blocking: true,
+      });
+    }
+  }
+
+  return findings;
+}
+
 const findings = [
   ...parseAdrIndexDates('docs/engineering/adr-index.md'),
   ...parseMarkdownFrontMatterDates(),
   ...parseComplianceManifestDates(),
+  ...parseActionableDocsMetadata(),
 ];
 
 const blockingFindings = findings.filter((finding) => finding.blocking);
@@ -278,6 +456,8 @@ const report = {
     last_updated: 'must_not_be_future',
     review_date: 'tracked_for_visibility_only (non-blocking)',
     compliance_manifest_timestamps: 'must_not_be_future',
+    actionable_docs_metadata: `docs/spec-backlog.md, sprint plans, and readiness docs require generated_at/owner/source_commit front-matter`,
+    actionable_docs_staleness: `generated_at age must be <= ${ACTIONABLE_DOC_STALE_DAYS} days unless status=archived with stale banner`,
   },
   findings,
 };

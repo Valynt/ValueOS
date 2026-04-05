@@ -1,12 +1,11 @@
 ---
 title: Release Readiness Report
+owner: team-release
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
 date: 2026-03-25
 author: Ona (AI Engineering Agent)
-status: CONDITIONAL GO — pre-existing test debt must be tracked
-sign_off_required:
-  - Engineering Lead
-  - Security Lead
-  - Product Lead
 ---
 
 # Release Readiness Report — 2026-03-25

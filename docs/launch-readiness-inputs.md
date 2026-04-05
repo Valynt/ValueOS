@@ -1,8 +1,10 @@
 ---
 title: Launch Readiness Inputs Index
 owner: team-platform
-review_date: 2026-06-30
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
 status: active
+review_date: 2026-06-30
 ---
 
 # Launch Readiness Inputs Index

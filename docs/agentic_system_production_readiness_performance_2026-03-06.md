@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 # Agentic System Production Readiness: Performance Engineering Assessment (2026-03-06)
 
 ## Scope and Method

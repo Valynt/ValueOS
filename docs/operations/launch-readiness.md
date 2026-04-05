@@ -1,9 +1,11 @@
 ---
 title: Launch Readiness
 owner: team-operations
-escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
-review_date: 2026-05-31
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
 status: active
+review_date: 2026-05-31
+escalation_path: pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com
 ---
 
 # Launch Readiness

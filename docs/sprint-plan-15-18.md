@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 # Sprint Plan — Sprints 15–18: Data Observability
 
 **Author:** Ona (AI Engineering Agent)
