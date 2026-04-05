@@ -1,6 +1,8 @@
 import { Check, Loader2, Plus, Shield, Trash2, Users, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { ConfirmationModal } from '@/components/common/ConfirmationModal';
+import { useToast } from '@/components/common/Toast';
 import { SettingsSection } from '../../components/settings';
 
 import {
@@ -24,9 +26,12 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 export const OrganizationRoles: React.FC = () => {
+  const { success, error: showErrorToast } = useToast();
   const [roles, setRoles] = useState<OrganizationRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+  const [rolePendingDelete, setRolePendingDelete] = useState<OrganizationRole | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
@@ -74,16 +79,21 @@ export const OrganizationRoles: React.FC = () => {
   };
 
   const handleDeleteRole = async (roleId: string) => {
+    setDeletingRoleId(roleId);
     setIsSaving(true);
     setError(null);
     try {
       await deleteRole(roleId);
+      success('Role deleted successfully.');
       await loadRoles();
     } catch (requestError) {
       logger.error("Failed to delete role:", { error: requestError });
-      setError(requestError instanceof Error ? requestError.message : 'Unable to delete role');
+      const message = requestError instanceof Error ? requestError.message : 'Unable to delete role';
+      setError(message);
+      showErrorToast(message);
     } finally {
       setIsSaving(false);
+      setDeletingRoleId(null);
     }
   };
 
@@ -126,8 +136,17 @@ export const OrganizationRoles: React.FC = () => {
                       <Shield className="h-5 w-5 text-blue-600" />
                       <h4 className="font-medium text-gray-900">{role.name}</h4>
                     </div>
-                    <button className="p-1 hover:bg-red-100 rounded" onClick={() => void handleDeleteRole(role.id)} disabled={isSaving}>
-                      <Trash2 className="h-4 w-4 text-red-600" />
+                    <button
+                      className="p-1 hover:bg-red-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setRolePendingDelete(role)}
+                      disabled={isSaving || deletingRoleId === role.id}
+                      aria-label={`Delete role ${role.name}`}
+                    >
+                      {deletingRoleId === role.id ? (
+                        <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      )}
                     </button>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{role.description || 'No description provided.'}</p>
@@ -193,6 +212,24 @@ export const OrganizationRoles: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={rolePendingDelete !== null}
+        onClose={() => setRolePendingDelete(null)}
+        onConfirm={() =>
+          rolePendingDelete ? handleDeleteRole(rolePendingDelete.id) : Promise.resolve()
+        }
+        title="Delete role"
+        message={
+          rolePendingDelete
+            ? `This action cannot be undone. Type "${rolePendingDelete.name}" to permanently delete this role.`
+            : ''
+        }
+        confirmText="Delete role"
+        requireTypedConfirmation
+        confirmationPhrase={rolePendingDelete?.name ?? ''}
+        isDangerous
+      />
     </div>
   );
 };
