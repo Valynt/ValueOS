@@ -41,9 +41,11 @@ function renderSettings(initialPath: string) {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/settings/*" element={<SettingsLayout />}>
+          <Route index element={<div data-testid="settings-route-index" />} />
           {settingsNavItems.map((item) => (
             <Route key={item.path} path={item.path} element={item.element} />
           ))}
+          <Route path="*" element={<div data-testid="settings-route-fallback" />} />
         </Route>
       </Routes>
     </MemoryRouter>
@@ -69,5 +71,19 @@ describe("Settings routing", () => {
       await user.click(screen.getByRole("link", { name: item.label }));
       expect(screen.getByTestId(`settings-page-${item.path}`)).toBeInTheDocument();
     }
+  });
+
+  it("uses only relative child paths for settings tab routes", () => {
+    for (const item of settingsNavItems) {
+      expect(item.path).not.toBe("");
+      expect(item.path).not.toBe("/");
+      expect(item.path.startsWith("/")).toBe(false);
+      expect(item.path.startsWith("settings/")).toBe(false);
+    }
+  });
+
+  it("has a concrete profile route entry", () => {
+    const hasProfile = settingsNavItems.some((item) => item.path === "profile");
+    expect(hasProfile).toBe(true);
   });
 });

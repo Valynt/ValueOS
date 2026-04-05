@@ -255,8 +255,8 @@ export function AppRoutes() {
                                             />
                                           }
                                         >
-                                          <Route path="settings" element={<Navigate to="profile" replace />} />
                                           <Route path="settings/*" element={<SettingsLayout />}>
+                                            <Route index element={<Navigate to="profile" replace />} />
                                             {settingsNavItems.map((item) => (
                                               <Route
                                                 key={item.path}
