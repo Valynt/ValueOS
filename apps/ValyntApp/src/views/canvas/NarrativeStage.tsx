@@ -1,4 +1,4 @@
-import { ValuePathCard } from "@valueos/sdui";
+import { useHumanCheckpointDependencies, ValuePathCard } from "@valueos/sdui";
 import {
   ChevronDown,
   ChevronUp,
@@ -13,12 +13,55 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { usePdfExport, usePptxExport } from "@/hooks/useCaseExport";
 import { useNarrativeDraft, useRunNarrativeAgent } from "@/hooks/useNarrative";
 import { useValueGraph } from "@/hooks/useValueGraph";
+import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+
+type ExportApprovalStatus = "idle" | "awaiting_approval" | "approved";
+
+interface ExportApprovalRecord {
+  status: ExportApprovalStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+}
+
+function getApprovalStorageKey(caseId: string, outputId: string): string {
+  return `narrative_export_approval:${caseId}:${outputId}`;
+}
+
+function isMatchingApprovalEvent(
+  actionData: Record<string, unknown>,
+  caseId: string,
+  outputId: string,
+): boolean {
+  const candidateCaseId = typeof actionData.caseId === "string" ? actionData.caseId : null;
+  const candidateOutputId = typeof actionData.outputId === "string" ? actionData.outputId : null;
+  return candidateCaseId === caseId && candidateOutputId === outputId;
+}
+
+function getApprovalStatus(actionData: Record<string, unknown>): ExportApprovalStatus | null {
+  const rawStatus = typeof actionData.approvalStatus === "string" ? actionData.approvalStatus : null;
+  if (rawStatus === "approved") return "approved";
+  if (rawStatus === "awaiting_approval") return "awaiting_approval";
+  return null;
+}
+
+function formatApprovalTimestamp(timestamp: string | null): string | null {
+  if (!timestamp) return null;
+  const asDate = new Date(timestamp);
+  if (Number.isNaN(asDate.getTime())) return null;
+  return asDate.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 // Collapsible section
 function Section({
@@ -56,11 +99,116 @@ export function NarrativeStage({
   opportunityId?: string;
 }) {
   const { data: draft, isLoading, error } = useNarrativeDraft(caseId);
+  const checkpointDependencies = useHumanCheckpointDependencies();
   const runAgent = useRunNarrativeAgent(caseId);
   const pdfExport = usePdfExport(caseId);
   const pptxExport = usePptxExport(caseId);
   const { data: graphData } = useValueGraph(opportunityId ?? null);
   const topPaths = graphData?.paths.slice(0, 3) ?? [];
+  const approvalStorageKey = useMemo(
+    () => (caseId && draft?.id ? getApprovalStorageKey(caseId, draft.id) : null),
+    [caseId, draft?.id],
+  );
+  const [approval, setApproval] = useState<ExportApprovalRecord>({
+    status: "idle",
+    approvedBy: null,
+    approvedAt: null,
+  });
+
+  useEffect(() => {
+    if (!approvalStorageKey) {
+      setApproval({ status: "idle", approvedBy: null, approvedAt: null });
+      return;
+    }
+    const persisted = storage.get<ExportApprovalRecord>(approvalStorageKey);
+    if (persisted?.status === "approved" || persisted?.status === "awaiting_approval") {
+      setApproval(persisted);
+      return;
+    }
+    setApproval({ status: "idle", approvedBy: null, approvedAt: null });
+  }, [approvalStorageKey]);
+
+  const persistApproval = useCallback((next: ExportApprovalRecord) => {
+    if (!approvalStorageKey) return;
+    storage.set(approvalStorageKey, next);
+  }, [approvalStorageKey]);
+
+  useEffect(() => {
+    if (!caseId || !draft?.id || !checkpointDependencies?.broker) return;
+    const maybeUnsubscribe = checkpointDependencies.broker.subscribe((event) => {
+      const actionData = event.payload.actionData;
+      if (!isMatchingApprovalEvent(actionData, caseId, draft.id)) return;
+      const eventStatus = getApprovalStatus(actionData);
+      if (!eventStatus) return;
+      const nextApproval: ExportApprovalRecord =
+        eventStatus === "approved"
+          ? {
+            status: "approved",
+            approvedBy:
+              (typeof actionData.approvedBy === "string" ? actionData.approvedBy : null) ??
+              event.payload.userId,
+            approvedAt:
+              (typeof actionData.approvedAt === "string" ? actionData.approvedAt : null) ??
+              event.payload.emittedAt,
+          }
+          : {
+            status: "awaiting_approval",
+            approvedBy: null,
+            approvedAt: null,
+          };
+      setApproval(nextApproval);
+      persistApproval(nextApproval);
+    });
+
+    let asyncUnsubscribe: (() => void) | null = null;
+    if (maybeUnsubscribe instanceof Promise) {
+      let active = true;
+      void maybeUnsubscribe.then((unsubscribe) => {
+        if (!active) {
+          unsubscribe();
+          return;
+        }
+        asyncUnsubscribe = unsubscribe;
+      });
+      return () => {
+        asyncUnsubscribe?.();
+        active = false;
+      };
+    }
+
+    return maybeUnsubscribe;
+  }, [caseId, checkpointDependencies?.broker, draft?.id, persistApproval]);
+
+  const requestExportApproval = useCallback(async () => {
+    if (!checkpointDependencies?.broker || !caseId || !draft?.id || !checkpointDependencies.auth.userId) return;
+    const nextApproval: ExportApprovalRecord = {
+      status: "awaiting_approval",
+      approvedBy: null,
+      approvedAt: null,
+    };
+    setApproval(nextApproval);
+    persistApproval(nextApproval);
+    await checkpointDependencies.broker.publishCheckpointEvent({
+      schemaVersion: "1.0",
+      idempotencyKey: `narrative-export-${caseId}-${draft.id}`,
+      emittedAt: new Date().toISOString(),
+      tenantId: "frontend",
+      sessionId: `narrative-export-${caseId}`,
+      userId: checkpointDependencies.auth.userId,
+      actionType: "narrative.export.approval",
+      actionData: {
+        caseId,
+        outputId: draft.id,
+        approvalStatus: "awaiting_approval",
+      },
+      requiresApproval: true,
+      reason: "Narrative export requires human approval before sharing.",
+      checkpointIdempotencyKey: `narrative-export:${caseId}:${draft.id}`,
+    });
+  }, [caseId, checkpointDependencies, draft?.id, persistApproval]);
+
+  const exportBlocked = approval.status !== "approved";
+  const approvalTimestamp = formatApprovalTimestamp(approval.approvedAt);
 
   // Debounced handler — prevents double-enqueue during network latency.
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -200,10 +348,30 @@ export function NarrativeStage({
       {/* Export panel */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5">
         <h4 className="text-[13px] font-semibold text-zinc-900 mb-4">Export & Share</h4>
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+          <p className="text-[11px] font-medium text-zinc-600">
+            {approval.status === "approved"
+              ? `Approved by ${approval.approvedBy ?? "reviewer"}${approvalTimestamp ? ` at ${approvalTimestamp}` : ""}`
+              : "Awaiting approval"}
+          </p>
+          <button
+            onClick={() => { void requestExportApproval(); }}
+            disabled={
+              approval.status === "awaiting_approval" ||
+              !caseId ||
+              !draft?.id ||
+              !checkpointDependencies?.auth.userId ||
+              !checkpointDependencies?.broker
+            }
+            className="px-2.5 py-1.5 rounded-lg border border-zinc-300 text-[10px] font-semibold text-zinc-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {approval.status === "approved" ? "Re-request approval" : "Request approval"}
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => pdfExport.mutate({ renderUrl: window.location.href, title: draft?.format?.replace(/_/g, " ") })}
-            disabled={pdfExport.isPending || !caseId}
+            disabled={pdfExport.isPending || !caseId || exportBlocked}
             className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
           >
             <Download className="w-4 h-4 text-zinc-500 mb-2" />
@@ -213,7 +381,7 @@ export function NarrativeStage({
           </button>
           <button
             onClick={() => pptxExport.mutate({ title: draft?.format?.replace(/_/g, " ") })}
-            disabled={pptxExport.isPending || !caseId}
+            disabled={pptxExport.isPending || !caseId || exportBlocked}
             className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
           >
             <ExternalLink className="w-4 h-4 text-zinc-500 mb-2" />
@@ -223,7 +391,8 @@ export function NarrativeStage({
           </button>
           <button
             onClick={() => draft?.content && navigator.clipboard.writeText(draft.content)}
-            className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left"
+            disabled={exportBlocked}
+            className="p-4 rounded-xl border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
           >
             <Copy className="w-4 h-4 text-zinc-500 mb-2" />
             <p className="text-[12px] font-semibold text-zinc-900">Copy to Clipboard</p>
