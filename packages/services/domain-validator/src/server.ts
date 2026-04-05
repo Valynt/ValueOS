@@ -193,9 +193,10 @@ app.get('/stats', async (_req: Request, res: Response) => {
 /**
  * 404 handler
  */
-app.use((_req: Request, res: Response) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({
     error: 'Not found',
+    path: req.path,
   });
 });
 

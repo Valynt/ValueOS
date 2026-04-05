@@ -11,7 +11,16 @@
     "packages/memory/tsconfig.strict-zone.json",
     "packages/shared/tsconfig.strict-zone.json",
     "packages/sdui-types/tsconfig.strict-zone.json",
-    "packages/mcp/tsconfig.strict-zone.json"
+    "packages/mcp/tsconfig.strict-zone.json",
+    "packages/backend/tsconfig.strict-zone.dto.json",
+    "packages/backend/tsconfig.strict-zone.service-interfaces.json",
+    "packages/backend/tsconfig.strict-zone.workers.json",
+    "packages/backend/tsconfig.strict-zone.persistence.json",
+    "packages/backend/tsconfig.strict-zone.api.json",
+    "packages/backend/tsconfig.strict-zone.auth.json",
+    "packages/backend/tsconfig.strict-zone.runtime.json",
+    "packages/backend/tsconfig.strict-zone.security.json",
+    "packages/backend/tsconfig.strict-zone.tenant-data.json"
   ],
   "eslint_strict_any_zones": [
     "packages/backend/src/middleware",
@@ -20,10 +29,16 @@
     "packages/backend/src/services/billing",
     "packages/backend/src/api/auth.ts",
     "packages/backend/src/api/admin.ts",
-    "packages/infra/eso"
+    "packages/infra/eso",
+    "packages/backend/src/types",
+    "packages/backend/src/api",
+    "packages/backend/src/services/types",
+    "packages/backend/src/workers",
+    "packages/backend/src/repositories",
+    "packages/backend/src/domain"
   ],
-  "comment": "Strict islands phase 2: expanded to shared, sdui-types, and mcp packages (all at 0 TS errors). ESLint strict-any zones now also cover cleaned shared-library hotspots in packages/infra/eso.",
-  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig. ESLint strict-any zones are expanded independently -- see eslint.config.js strictNoAnyOverrides.",
+  "comment": "Strict islands phase 3: retain capability zones while prioritizing backend boundary strict projects (DTO, service interfaces, workers, persistence) as the primary migration track.",
+  "migration_note": "Boundary-first rollout: use typecheck:strict:boundaries as the primary migration lane in CI/docs while capability strict zones remain temporary compatibility checks. Expand strict_zones package coverage separately after zero-error validation per zone.",
   "ratchet": {
     "baseline_file": ".quality/tsc-baseline.json",
     "command": "pnpm exec tsc --noEmit --pretty false"

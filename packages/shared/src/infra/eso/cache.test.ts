@@ -105,9 +105,9 @@ describe("ESOCache", () => {
     };
 
     const [first, second, third] = await Promise.all([
-      cache.getOrLoad({ adapter: "BLS", key: "series-A" }, loader),
-      cache.getOrLoad({ adapter: "BLS", key: "series-A" }, loader),
-      cache.getOrLoad({ adapter: "BLS", key: "series-A" }, loader),
+      cache.getOrLoad({ adapter: "BLS", key: "series-A", tenantId: "tenant-test" }, loader),
+      cache.getOrLoad({ adapter: "BLS", key: "series-A", tenantId: "tenant-test" }, loader),
+      cache.getOrLoad({ adapter: "BLS", key: "series-A", tenantId: "tenant-test" }, loader),
     ]);
 
     expect(first).toEqual({ value: 1 });
@@ -115,7 +115,10 @@ describe("ESOCache", () => {
     expect(third).toEqual({ value: 1 });
     expect(loaderCalls).toBe(1);
 
-    const cached = await cache.getOrLoad({ adapter: "BLS", key: "series-A" }, loader);
+    const cached = await cache.getOrLoad(
+      { adapter: "BLS", key: "series-A", tenantId: "tenant-test" },
+      loader,
+    );
     expect(cached).toEqual({ value: 1 });
     expect(loaderCalls).toBe(1);
   });
@@ -132,7 +135,7 @@ describe("ESOCache", () => {
     };
 
     const first = await cache.getOrLoad(
-      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200 },
+      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200, tenantId: "tenant-test" },
       loader,
     );
     expect(first).toEqual({ version: 1 });
@@ -140,7 +143,7 @@ describe("ESOCache", () => {
     await new Promise((resolve) => setTimeout(resolve, 35));
 
     const stale = await cache.getOrLoad(
-      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200 },
+      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200, tenantId: "tenant-test" },
       loader,
     );
     expect(stale).toEqual({ version: 1 });
@@ -148,7 +151,7 @@ describe("ESOCache", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     const refreshed = await cache.getOrLoad(
-      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200 },
+      { adapter: "SEC", key: "filing-1", ttlMs: 25, staleTtlMs: 200, tenantId: "tenant-test" },
       loader,
     );
     expect(refreshed).toEqual({ version: 2 });
@@ -166,11 +169,15 @@ describe("ESOCache", () => {
     const cache = new ESOCache(1000);
     let loaderCalls = 0;
 
-    const first = await cache.getOrLoad({ adapter: "BLS", key: "series-a" }, async () => {
+    const first = await cache.getOrLoad(
+      { adapter: "BLS", key: "series-a", tenantId: "tenant-test" },
+      async () => {
       loaderCalls += 1;
       return { rows: loaderCalls };
     });
-    const second = await cache.getOrLoad({ adapter: "BLS", key: "series-a" }, async () => {
+    const second = await cache.getOrLoad(
+      { adapter: "BLS", key: "series-a", tenantId: "tenant-test" },
+      async () => {
       loaderCalls += 1;
       return { rows: loaderCalls };
     });

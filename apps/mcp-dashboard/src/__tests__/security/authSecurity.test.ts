@@ -12,7 +12,7 @@ import { securityLogger } from "../../lib/securityLogger";
 
 // Test constants
 const MAX_FAILED_ATTEMPTS = 5;
-const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 4;
+const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 5;
 const HOUR_MS = 3600000;
 const SECOND_MS = 1000;
 const PARTIAL_FAILED_ATTEMPTS = 3;
@@ -30,26 +30,33 @@ declare global {
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
-// Mock localStorage
-const localStorageMock: Storage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-  key: vi.fn(),
-  length: 0,
+const createStorageMock = (): Storage => {
+  const store = new Map<string, string>();
+
+  return {
+    get length() {
+      return store.size;
+    },
+    clear: vi.fn(() => {
+      store.clear();
+    }),
+    getItem: vi.fn((key: string) => (store.has(key) ? store.get(key)! : null)),
+    key: vi.fn((index: number) => Array.from(store.keys())[index] ?? null),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+  };
 };
+
+// Mock localStorage
+const localStorageMock = createStorageMock();
 globalThis.localStorage = localStorageMock;
 
 // Mock sessionStorage
-const sessionStorageMock: Storage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-  key: vi.fn(),
-  length: 0,
-};
+const sessionStorageMock = createStorageMock();
 globalThis.sessionStorage = sessionStorageMock;
 
 // Mock navigator
@@ -294,7 +301,19 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       weakPasswords.forEach((password) => {
         expect(() => {
-          if (password.length < 8) {
+          const hasUppercase = /[A-Z]/.test(password);
+          const hasLowercase = /[a-z]/.test(password);
+          const hasNumber = /\d/.test(password);
+          const hasSpecialCharacter = /[^A-Za-z0-9]/.test(password);
+
+          const isStrongPassword =
+            password.length >= 8 &&
+            hasUppercase &&
+            hasLowercase &&
+            hasNumber &&
+            hasSpecialCharacter;
+
+          if (!isStrongPassword) {
             throw new Error("Password must be at least 8 characters");
           }
         }).toThrow("Password must be at least 8 characters");
