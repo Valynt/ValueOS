@@ -428,6 +428,37 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
     expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
+  it('fails scenario_building stage when output violates canonical scenario schema', async () => {
+    const executor = await makeExecutor();
+    const malformedScenarioOutput = {
+      conservative: { scenario_type: 'conservative' },
+      base: { scenario_type: 'base' },
+      upside: { scenario_type: 'upside' },
+    };
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: malformedScenarioOutput }, attempts: 1 });
+
+    await executor.executeDAGAsync(
+      'exec-1',
+      'org-1',
+      makeDAG({ stages: [makeStage({ id: 'scenario_building', name: 'Build Scenarios' })] }) as never,
+      makeCtx(),
+      'trace-1',
+    );
+
+    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'stage_failed',
+      stageId: 'scenario_building',
+      metadata: expect.objectContaining({
+        reason: 'schema_violation',
+        schema: 'ScenarioBuildOutputSchema',
+        stageId: 'scenario_building',
+        issues: expect.any(Array),
+      }),
+    }));
+    expect((executor as never).executionStore.recordStageRun).not.toHaveBeenCalled();
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
   it('calls assertTenantExecutionAllowed on each DAG iteration', async () => {
     const policy = makePolicyMock();
     const executor = await makeExecutor(policy);
