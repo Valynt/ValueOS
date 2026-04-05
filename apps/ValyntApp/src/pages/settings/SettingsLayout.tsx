@@ -8,16 +8,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
 
-const settingsTabs = [
-  { path: "profile", label: "My profile" },
-  { path: "security", label: "Security" },
-  { path: "billing", label: "Billing" },
-  { path: "notifications", label: "Notifications" },
-  { path: "team", label: "Team" },
-  { path: "branding", label: "Branding" },
-  { path: "integrations", label: "Integrations" },
-  { path: "tenant-context", label: "Company Context" },
-];
+import { settingsNavItems } from "./settingsNavigation";
 
 export function SettingsLayout() {
   return (
@@ -29,7 +20,7 @@ export function SettingsLayout() {
 
           {/* Horizontal Tabs */}
           <nav className="flex gap-1 -mb-px">
-            {settingsTabs.map((tab) => (
+            {settingsNavItems.map((tab) => (
               <NavLink
                 key={tab.path}
                 to={tab.path}
