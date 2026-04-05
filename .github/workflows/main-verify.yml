@@ -84,6 +84,44 @@ jobs:
           if-no-files-found: warn
           retention-days: 365
 
+  debt-inventory-report:
+    name: debt-inventory-report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate debt inventory reports
+        run: node scripts/debt/inventory.mjs --report-only
+      - name: Debt inventory semantic guard
+        run: node scripts/ci/check-debt-report-semantic-content.mjs
+      - name: Upload debt report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debt-inventory-report-${{ github.run_id }}
+          path: |
+            docs/debt/inventory-report.json
+            docs/debt/top-20-dead-exports.md
+          if-no-files-found: warn
+          retention-days: 30
+
   lint-runtime-packages:
     name: lint-runtime-packages (${{ matrix.lane }})
     runs-on: ubuntu-latest

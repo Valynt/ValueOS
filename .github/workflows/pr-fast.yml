@@ -99,6 +99,10 @@ jobs:
           node scripts/ci/valyntapp-ts-error-policy.mjs --enforce --report-file=artifacts/ci-lanes/ts-type-ratchet/valyntapp-ts-error-weekly.md
       - name: Sprint debt ratchet (TS + lint baselines)
         run: node scripts/ci/debt-ratchet.mjs
+      - name: Generate debt inventory reports
+        run: node scripts/debt/inventory.mjs --report-only
+      - name: Debt inventory semantic guard
+        run: node scripts/ci/check-debt-report-semantic-content.mjs
       - name: Backend strict exception budget ratchet
         run: node scripts/ci/check-backend-strict-exception-budget.mjs
 
@@ -120,7 +124,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: lane-ts-type-ratchet-${{ github.run_id }}
-          path: artifacts/ci-lanes/ts-type-ratchet/**
+          path: |
+            artifacts/ci-lanes/ts-type-ratchet/**
+            docs/debt/inventory-report.json
+            docs/debt/top-20-dead-exports.md
           if-no-files-found: warn
           retention-days: 30
 

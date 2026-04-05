@@ -1,18 +1,105 @@
 {
-  "generated_at": "2026-02-13T02:38:02.823Z",
+  "generated_at": "2026-04-05T20:51:29.700Z",
   "strict_zones": [
     "packages/backend/src",
     "apps/ValyntApp/src/services",
     "infra/terraform"
   ],
   "todo_fixme": {
-    "total": 105,
-    "strict": 50,
-    "malformedStrict": []
+    "total": 24,
+    "strict": 1,
+    "malformedStrict": [
+      {
+        "file": "packages/backend/src/api/academy/routers/certifications.router.ts",
+        "line": 313,
+        "text": "* TODO(ticket: VOS-2314 owner: @backend-platform date: 2026-03-26): Move to background job for better performance."
+      }
+    ]
   },
   "dead_exports": {
-    "total": 0,
-    "strict": 0,
-    "top20": []
+    "total": 2318,
+    "strict": 1795,
+    "top20": [
+      {
+        "location": "packages/memory/index.ts:41",
+        "symbol": "SemanticSearchResult"
+      },
+      {
+        "location": "packages/memory/index.ts:55",
+        "symbol": "ContradictionResult"
+      },
+      {
+        "location": "packages/memory/index.ts:69",
+        "symbol": "SemanticFactTypeSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:77",
+        "symbol": "SemanticFactStatusSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:83",
+        "symbol": "SemanticFactInputSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:93",
+        "symbol": "SemanticFactInput"
+      },
+      {
+        "location": "packages/memory/index.ts:95",
+        "symbol": "SemanticSearchOptionsSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:105",
+        "symbol": "SemanticSearchOptions"
+      },
+      {
+        "location": "packages/memory/index.ts:111",
+        "symbol": "SemanticMemoryFilter"
+      },
+      {
+        "location": "packages/memory/index.ts:204",
+        "symbol": "SemanticMemory"
+      },
+      {
+        "location": "packages/memory/index.ts:20",
+        "symbol": "EpisodicRecord"
+      },
+      {
+        "location": "packages/memory/index.ts:36",
+        "symbol": "EpisodicSearchResult"
+      },
+      {
+        "location": "packages/memory/index.ts:42",
+        "symbol": "EpisodicContext"
+      },
+      {
+        "location": "packages/memory/index.ts:53",
+        "symbol": "EpisodicRecordInputSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:63",
+        "symbol": "EpisodicRecordInput"
+      },
+      {
+        "location": "packages/memory/index.ts:65",
+        "symbol": "EpisodicRetrievalOptionsSchema"
+      },
+      {
+        "location": "packages/memory/index.ts:86",
+        "symbol": "EpisodicRetrievalOptions"
+      },
+      {
+        "location": "packages/memory/index.ts:92",
+        "symbol": "EpisodicStore"
+      },
+      {
+        "location": "packages/memory/index.ts:142",
+        "symbol": "EpisodicMemory"
+      },
+      {
+        "location": "packages/memory/index.ts:33",
+        "symbol": "HybridSearchResult"
+      }
+    ]
   }
 }
