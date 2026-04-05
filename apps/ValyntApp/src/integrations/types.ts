@@ -47,29 +47,7 @@ export const PROVIDERS: IntegrationProvider[] = [
     description: "Connect your Salesforce CRM",
     icon: "SF",
     authType: "oauth",
-    fields: [
-      {
-        key: "accessToken",
-        label: "Access Token",
-        type: "password",
-        placeholder: "Paste Salesforce access token",
-        required: true,
-      },
-      {
-        key: "refreshToken",
-        label: "Refresh Token (optional)",
-        type: "password",
-        placeholder: "Paste refresh token if available",
-        required: false,
-      },
-      {
-        key: "instanceUrl",
-        label: "Instance URL",
-        type: "url",
-        placeholder: "https://your-instance.my.salesforce.com",
-        required: true,
-      },
-    ],
+    fields: [],
   },
   {
     id: "hubspot",
@@ -77,15 +55,7 @@ export const PROVIDERS: IntegrationProvider[] = [
     name: "HubSpot",
     description: "Connect your HubSpot CRM",
     icon: "HS",
-    authType: "apikey",
-    fields: [
-      {
-        key: "accessToken",
-        label: "Private App Token",
-        type: "password",
-        placeholder: "Paste HubSpot private app token",
-        required: true,
-      },
-    ],
+    authType: "oauth",
+    fields: [],
   },
 ];

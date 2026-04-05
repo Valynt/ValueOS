@@ -51,6 +51,7 @@ export function IntegrationsPage() {
     providers,
     isLoading,
     error,
+    oauthInProgressProvider,
     fetchIntegrations,
     connect,
     disconnect,
@@ -71,6 +72,15 @@ export function IntegrationsPage() {
   const integrationMap = useMemo(() => {
     return new Map(integrations.map((item) => [item.provider, item]));
   }, [integrations]);
+
+  const oauthProviders = useMemo(
+    () => providers.filter((provider) => provider.authType === "oauth"),
+    [providers]
+  );
+  const manualProviders = useMemo(
+    () => providers.filter((provider) => provider.authType !== "oauth"),
+    [providers]
+  );
 
   const openDialog = (provider: IntegrationProvider) => {
     setActiveProvider(provider);
@@ -131,6 +141,15 @@ export function IntegrationsPage() {
     }
   };
 
+  const handleOAuthConnect = async (provider: IntegrationProvider) => {
+    setActionProvider(provider.id);
+    try {
+      await connect(provider.id);
+    } finally {
+      setActionProvider(null);
+    }
+  };
+
   const handleDisconnect = async (integration: IntegrationConnection) => {
     setActionProvider(integration.provider);
     try {
@@ -163,6 +182,7 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
+    const isOAuth = provider.authType === "oauth";
 
     const StatusIcon = status === "connected" ? Check : XCircle;
 
@@ -194,20 +214,33 @@ export function IntegrationsPage() {
         <div className="flex items-center gap-2">
           {hasActiveConnection ? (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openDialog(provider)}
-                disabled={actionProvider === provider.id}
-              >
-                <Settings2 className="h-3 w-3 mr-2" />
-                Configure
-              </Button>
+              {!isOAuth && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openDialog(provider)}
+                  disabled={actionProvider === provider.id}
+                >
+                  <Settings2 className="h-3 w-3 mr-2" />
+                  Configure
+                </Button>
+              )}
+              {isOAuth && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleOAuthConnect(provider)}
+                  disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                >
+                  <ExternalLink className="h-3 w-3 mr-2" />
+                  Reconnect
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleTest(connection)}
-                disabled={actionProvider === provider.id}
+                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
               >
                 <RefreshCw className="h-3 w-3 mr-2" />
                 Test
@@ -216,7 +249,7 @@ export function IntegrationsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSync(connection)}
-                disabled={actionProvider === provider.id}
+                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
               >
                 Sync
               </Button>
@@ -225,7 +258,7 @@ export function IntegrationsPage() {
                 size="sm"
                 className="text-destructive hover:text-destructive"
                 onClick={() => handleDisconnect(connection)}
-                disabled={actionProvider === provider.id}
+                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
               >
                 <XCircle className="h-3 w-3 mr-1" />
                 Disconnect
@@ -235,10 +268,12 @@ export function IntegrationsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => openDialog(provider)}
-              disabled={actionProvider === provider.id}
+              onClick={() =>
+                provider.authType === "oauth" ? handleOAuthConnect(provider) : openDialog(provider)
+              }
+              disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
             >
-              Connect
+              {oauthInProgressProvider === provider.id ? "Connecting..." : "Connect"}
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
           )}
@@ -265,9 +300,24 @@ export function IntegrationsPage() {
         title="CRM"
         description="Connect your CRM to sync opportunities and contacts"
       >
-        {providers.map((provider) => (
+        {oauthProviders.map((provider) => (
           <IntegrationCard key={provider.id} provider={provider} />
         ))}
+      </SettingsSection>
+
+      <SettingsSection
+        title="Manual Credentials"
+        description="Manage integrations that require manually entered credentials."
+      >
+        {manualProviders.length === 0 ? (
+          <p className="p-4 text-sm text-muted-foreground">
+            No manual credential integrations are currently configured.
+          </p>
+        ) : (
+          manualProviders.map((provider) => (
+            <IntegrationCard key={provider.id} provider={provider} />
+          ))
+        )}
       </SettingsSection>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
