@@ -35,6 +35,8 @@ vi.mock("../../../services/workflows/IntegrityVetoService.js", () => ({
 }));
 
 import {
+  HIGH_IMPACT_MIN_CONFIDENCE_THRESHOLD,
+  HIGH_IMPACT_MIN_EVIDENCE_COVERAGE_THRESHOLD,
   HITL_CONFIDENCE_THRESHOLD,
   PolicyCheckResult,
   PolicyEngine,
@@ -559,6 +561,46 @@ describe("PolicyEngine", () => {
 
     it("HITL_CONFIDENCE_THRESHOLD is 0.6", () => {
       expect(HITL_CONFIDENCE_THRESHOLD).toBe(0.6);
+    });
+
+
+    it("requires HITL for high-impact decisions when confidence is below threshold", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.7),
+        is_high_impact_decision: true,
+        evidence_coverage_score: 0.9,
+      });
+
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(false);
+      expect(result.details.rule_id).toBe("HITL-02");
+    });
+
+    it("requires HITL for high-impact decisions when evidence coverage is below threshold", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.9),
+        is_high_impact_decision: true,
+        evidence_coverage_score: 0.6,
+      });
+
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(false);
+      expect(result.details.rule_id).toBe("HITL-02");
+    });
+
+    it("allows high-impact decisions that meet confidence and evidence thresholds", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(HIGH_IMPACT_MIN_CONFIDENCE_THRESHOLD),
+        is_high_impact_decision: true,
+        evidence_coverage_score: HIGH_IMPACT_MIN_EVIDENCE_COVERAGE_THRESHOLD,
+      });
+
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(true);
+      expect(result.hitl_required).toBe(false);
     });
   });
 });

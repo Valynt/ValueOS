@@ -88,3 +88,137 @@ export type {
   VgValueDriver,
   ValueGraphEdge,
 };
+
+export interface ClaimCentricViewResponse {
+  opportunity_id: string;
+  organization_id: string;
+  claims: Array<{
+    claim: {
+      id: string;
+      claim_text: string;
+      impact_level: "low" | "medium" | "high";
+      created_at: string;
+      updated_at: string;
+    };
+    latest_confidence: {
+      confidence_score: number;
+      evidence_coverage_score: number;
+      rationale: string | null;
+      scorer_name: string;
+      scorer_version: string;
+      recorded_at: string;
+    } | null;
+    confidence_history: Array<{
+      confidence_score: number;
+      evidence_coverage_score: number;
+      rationale: string | null;
+      recorded_at: string;
+      lifecycle_stage: string | null;
+    }>;
+    evidence_links: Array<{
+      edge: {
+        id: string;
+        edge_type: "supports" | "contradicts" | "insufficient_for";
+        rationale: string | null;
+        created_at: string;
+      };
+      evidence: {
+        id: string;
+        title: string;
+        source_uri: string | null;
+        excerpt: string | null;
+        version_no: number;
+        captured_at: string;
+      } | null;
+    }>;
+  }>;
+}
+
+export interface EvidenceCentricViewResponse {
+  opportunity_id: string;
+  organization_id: string;
+  evidence: Array<{
+    artifact: {
+      id: string;
+      title: string;
+      source_uri: string | null;
+      excerpt: string | null;
+      version_no: number;
+      captured_at: string;
+    };
+    linked_claims: Array<{
+      edge: {
+        id: string;
+        edge_type: "supports" | "contradicts" | "insufficient_for";
+        rationale: string | null;
+      };
+      claim: {
+        id: string;
+        claim_text: string;
+        impact_level: "low" | "medium" | "high";
+      } | null;
+      latest_confidence: {
+        confidence_score: number;
+        rationale: string | null;
+        recorded_at: string;
+      } | null;
+    }>;
+  }>;
+}
+
+export interface ConfidenceDriftViewResponse {
+  opportunity_id: string;
+  organization_id: string;
+  generated_at: string;
+  claims: Array<{
+    claim_id: string;
+    claim_text: string;
+    first_score: number;
+    latest_score: number;
+    delta: number;
+    first_recorded_at: string;
+    latest_recorded_at: string;
+    timeline: Array<{
+      confidence_score: number;
+      evidence_coverage_score: number;
+      rationale: string | null;
+      recorded_at: string;
+    }>;
+  }>;
+}
+
+export async function fetchClaimCentricView(opportunityId: string): Promise<ClaimCentricViewResponse> {
+  const result = await apiClient.get<ClaimCentricViewResponse>(
+    `/api/v1/opportunities/${opportunityId}/claim-evidence/claims`,
+  );
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message ?? "Failed to load claim-centric view");
+  }
+
+  return result.data;
+}
+
+export async function fetchEvidenceCentricView(opportunityId: string): Promise<EvidenceCentricViewResponse> {
+  const result = await apiClient.get<EvidenceCentricViewResponse>(
+    `/api/v1/opportunities/${opportunityId}/claim-evidence/evidence`,
+  );
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message ?? "Failed to load evidence-centric view");
+  }
+
+  return result.data;
+}
+
+export async function fetchConfidenceDriftView(opportunityId: string): Promise<ConfidenceDriftViewResponse> {
+  const result = await apiClient.get<ConfidenceDriftViewResponse>(
+    `/api/v1/opportunities/${opportunityId}/claim-evidence/confidence-drift`,
+  );
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error?.message ?? "Failed to load confidence drift view");
+  }
+
+  return result.data;
+}

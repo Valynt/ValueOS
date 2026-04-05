@@ -152,6 +152,20 @@ export const DecisionContextSchema = z.object({
    * When true, HITL gating applies if confidence is below threshold.
    */
   is_external_artifact_action: z.boolean().default(false),
+
+  /**
+   * Marks the action as high-impact (board-level, legal, or customer-commitment
+   * decision). High-impact actions enforce stronger evidence and confidence
+   * thresholds in PolicyEngine.
+   */
+  is_high_impact_decision: z.boolean().default(false),
+
+  /**
+   * Fraction (0–1) of required claim evidence links that are currently present
+   * for this decision context.
+   */
+  evidence_coverage_score: z.number().min(0).max(1).optional(),
+
 });
 
 export type DecisionContext = z.infer<typeof DecisionContextSchema>;
