@@ -266,11 +266,20 @@ export class SalesforceProvider implements CrmProviderInterface {
   }
 
   extractIdempotencyKey(payload: Record<string, unknown>): string {
-    // Salesforce outbound messages include a unique event ID
-    // For Platform Events, use replayId + entity
-    const eventId = payload.eventId || payload.Id || payload.replayId;
-    const entityType = payload.sobjectType || payload.entityType || 'unknown';
-    return `sf:${entityType}:${eventId}:${Date.now()}`;
+    // Salesforce webhook identity key is built from immutable provider fields
+    // to ensure deterministic idempotency under retries/concurrent delivery.
+    const eventId = String(payload.eventId ?? payload.replayId ?? payload.Id ?? 'unknown');
+    const entityType = String(payload.sobjectType ?? payload.entityType ?? 'unknown');
+    const occurredAt = String(
+      payload.occurredAt
+      ?? payload.timestamp
+      ?? payload.CreatedDate
+      ?? payload.createdDate
+      ?? 'na',
+    );
+    const organizationId = String(payload.organizationId ?? 'na');
+
+    return `sf:${entityType}:${eventId}:${occurredAt}:${organizationId}`;
   }
 
   async fetchDeltaOpportunities(

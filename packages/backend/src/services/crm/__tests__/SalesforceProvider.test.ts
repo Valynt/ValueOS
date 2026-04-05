@@ -95,6 +95,33 @@ describe('SalesforceProvider', () => {
       const key = provider.extractIdempotencyKey({});
       expect(key).toContain('sf:unknown:');
     });
+
+    it('returns identical keys for duplicate payloads', () => {
+      const payload = {
+        eventId: 'evt-sf-dup-001',
+        sobjectType: 'Opportunity',
+        timestamp: '2026-01-10T10:00:00.000Z',
+        organizationId: 'org-123',
+      };
+
+      const key1 = provider.extractIdempotencyKey(payload);
+      const key2 = provider.extractIdempotencyKey(payload);
+
+      expect(key1).toBe(key2);
+    });
+
+    it('returns distinct keys for distinct payload identity fields', () => {
+      const base = {
+        sobjectType: 'Opportunity',
+        timestamp: '2026-01-10T10:00:00.000Z',
+        organizationId: 'org-123',
+      };
+
+      const key1 = provider.extractIdempotencyKey({ ...base, replayId: 101 });
+      const key2 = provider.extractIdempotencyKey({ ...base, replayId: 102 });
+
+      expect(key1).not.toBe(key2);
+    });
   });
 
   describe('verifyWebhookSignature', () => {

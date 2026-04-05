@@ -151,5 +151,75 @@ describe('CrmWebhookService', () => {
         expect.any(Object),
       );
     });
+
+    it('treats unique index violation as duplicate under concurrent inserts', async () => {
+      mockProvider.verifyWebhookSignature.mockResolvedValue({ valid: true, tenantId: 'org-1' });
+      mockProvider.extractIdempotencyKey.mockReturnValue('sf:Opportunity:evt-concurrent-001');
+
+      let insertCallCount = 0;
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'crm_webhook_events') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () => Promise.resolve({ data: null, error: null }),
+              }),
+            }),
+            insert: () => ({
+              select: () => ({
+                single: async () => {
+                  insertCallCount += 1;
+                  if (insertCallCount === 1) {
+                    return { data: { id: 'event-concurrent-1' }, error: null };
+                  }
+                  return {
+                    data: null,
+                    error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+                  };
+                },
+              }),
+            }),
+          };
+        }
+
+        if (table === 'crm_connections') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: () => Promise.resolve({ data: { tenant_id: 'tenant-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+
+        return {};
+      });
+
+      const req = {
+        body: {
+          eventId: 'evt-concurrent-001',
+          organizationId: 'org-1',
+          sobjectType: 'Opportunity',
+        },
+        headers: {},
+      } as any;
+
+      const [first, second] = await Promise.all([
+        service.ingestWebhook('salesforce', req),
+        service.ingestWebhook('salesforce', req),
+      ]);
+
+      expect([first, second]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ accepted: true, duplicate: false }),
+          expect.objectContaining({ accepted: false, duplicate: true }),
+        ]),
+      );
+      expect(mockQueue.add).toHaveBeenCalledTimes(1);
+    });
   });
 });
