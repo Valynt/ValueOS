@@ -15,7 +15,7 @@ export type { LifecycleStage } from '@valueos/shared';
 
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion" | "integrity";
 
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "waiting_approval";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "degraded" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "pending_approval" | "waiting_approval";
 export type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 // ============================================================================

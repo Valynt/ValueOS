@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { RuntimeFailureDetails } from "@shared/domain/RuntimeFailureTaxonomy";
 
 import { getApiBaseUrl } from "@/lib/env";
 
@@ -44,6 +45,8 @@ export interface PipelineState {
   isComplete: boolean;
   /** Error message if the pipeline failed. */
   error: string | null;
+  /** Structured remediation details from runtime failure emission. */
+  runtimeFailure: RuntimeFailureDetails | null;
   /** Timestamp of the last received event. */
   lastEventAt: string | null;
 }
@@ -73,6 +76,7 @@ const INITIAL_STATE: PipelineState = {
   isRunning: false,
   isComplete: false,
   error: null,
+  runtimeFailure: null,
   lastEventAt: null,
 };
 
@@ -138,6 +142,7 @@ export function useValueCaseStream(
         isRunning: true,
         isComplete: false,
         error: null,
+        runtimeFailure: null,
       }));
 
       const source = new EventSource(url, { withCredentials: true });
@@ -146,6 +151,8 @@ export function useValueCaseStream(
       source.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as Record<string, unknown>;
+
+          const runtimeFailure = (data.runtime_failure ?? data.failure) as RuntimeFailureDetails | undefined;
 
           // Handle progress events from the HypothesisLoop
           if (typeof data.step === "number" && typeof data.stepName === "string") {
@@ -176,6 +183,7 @@ export function useValueCaseStream(
                   (data.maxRevisionCycles as number) ?? prev.maxRevisionCycles,
                 isRunning: !isComplete,
                 isComplete,
+                runtimeFailure: runtimeFailure ?? prev.runtimeFailure,
                 lastEventAt: data.timestamp as string,
               };
             });
@@ -197,6 +205,7 @@ export function useValueCaseStream(
                 ...prev,
                 isRunning: false,
                 error: errorMsg,
+                runtimeFailure: runtimeFailure ?? prev.runtimeFailure,
               }));
               optionsRef.current.onError?.(errorMsg);
             }
@@ -215,6 +224,7 @@ export function useValueCaseStream(
             ...prev,
             isRunning: false,
             error: "Connection lost. The pipeline may still be running.",
+            runtimeFailure: prev.runtimeFailure,
           };
         });
         source.close();

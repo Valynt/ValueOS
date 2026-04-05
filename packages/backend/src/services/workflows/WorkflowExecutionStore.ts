@@ -95,7 +95,25 @@ export class WorkflowExecutionStore implements IWorkflowExecutionStore {
       throw new Error(`Failed to get execution status: ${error.message}`);
     }
 
-    return data as WorkflowExecutionStatusDTO | null;
+    if (!data) {
+      return null;
+    }
+
+    const executionRecord = data.execution_record;
+    const runtimeFailure =
+      executionRecord &&
+      typeof executionRecord === "object" &&
+      "io" in executionRecord &&
+      executionRecord.io &&
+      typeof executionRecord.io === "object" &&
+      "runtime_failure" in executionRecord.io
+        ? executionRecord.io.runtime_failure
+        : null;
+
+    return {
+      ...(data as WorkflowExecutionStatusDTO),
+      runtime_failure: runtimeFailure as WorkflowExecutionStatusDTO["runtime_failure"],
+    };
   }
 
   async getExecutionLogs(executionId: string, organizationId: string): Promise<WorkflowExecutionLogDTO[]> {

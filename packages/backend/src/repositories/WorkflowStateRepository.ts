@@ -37,9 +37,11 @@ export type WorkflowStatus =
   | 'running'
   | 'completed'
   | 'failed'
+  | 'degraded'
   | 'cancelled'
   | 'paused'
   | 'rolled_back'
+  | 'pending_approval'
   | 'waiting_approval';
 
 export interface WorkflowStateFilter {
