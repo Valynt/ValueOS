@@ -103,6 +103,7 @@ vi.mock("../../lib/logger", () => ({
 
 // Import after mocks are registered
 import { secureTokenManager } from "../../lib/auth/SecureTokenManager";
+import { AuthRateLimitError } from "../../lib/rateLimiter";
 import { supabase } from "../../lib/supabase";
 import { AuthProvider, useAuth } from "../AuthContext";
 
@@ -191,6 +192,37 @@ describe("AuthContext", () => {
         await result.current.login({ email: "bad@example.com", password: "wrongpass" });
       })
     ).rejects.toThrow();
+  });
+
+  it("login: throws AuthRateLimitError with server lockout metadata", async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        message: "Rate limit exceeded",
+        status: 429,
+        name: "AuthError",
+        locked: true,
+        retryAfterSeconds: 180,
+        remainingAttempts: 0,
+      } as never,
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await expect(
+      act(async () => {
+        await result.current.login({ email: "test@example.com", password: "password123" });
+      }),
+    ).rejects.toMatchObject({
+      name: "AuthRateLimitError",
+      lockout: {
+        locked: true,
+        retryAfterSeconds: 180,
+        remainingAttempts: 0,
+      },
+      status: 429,
+    } satisfies Partial<AuthRateLimitError>);
   });
 
   // --- signup ---
