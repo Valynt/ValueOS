@@ -22,6 +22,7 @@ import { RealizationStage } from "./canvas/RealizationStage";
 import { ValueGraphStage } from "./canvas/ValueGraphStage";
 
 import { useToast } from "@/components/ui/use-toast";
+import { HandoffTimelineCards } from "@/features/workflow/components/HandoffTimelineCards";
 import { useWorkflowExecutionViewModel } from "@/features/workflow/hooks/useWorkflowExecutionViewModel";
 import { WORKFLOW_STATUS_PRESENTATION } from "@/features/workflow/hooks/workflowExecutionPresentation";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
@@ -516,6 +517,9 @@ const { toast } = useToast();
             <span className="text-[11px] text-zinc-300 ml-auto">{workflowStatus.lastUpdatedLabel}</span>
           </div>
           {stageContent[activeStage]}
+          <div className="mt-6">
+            <HandoffTimelineCards runId={activeRunId} stageId={activeStage} />
+          </div>
         </div>
 
         <div className="w-[340px] border-l border-zinc-200 bg-white p-5 overflow-y-auto flex-shrink-0 hidden xl:block">

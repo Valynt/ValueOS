@@ -34,6 +34,7 @@ import type {
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
+import { HandoffCardBuilder } from '../../services/workflows/HandoffCardBuilder.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
   ExecutionEnvelope,
@@ -83,6 +84,7 @@ const DEFAULT_CONFIG: WorkflowExecutorConfig = {
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionStore: WorkflowExecutionStore;
+  private readonly handoffCardBuilder: HandoffCardBuilder;
 
   constructor(
     private readonly policy: PolicyEngine,
@@ -95,6 +97,7 @@ export class WorkflowExecutor {
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
   ) {
     this.executionStore = new WorkflowExecutionStore(supabase);
+    this.handoffCardBuilder = new HandoffCardBuilder();
   }
 
   private buildStageContext(
@@ -363,6 +366,17 @@ export class WorkflowExecutor {
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed');
           await this.executionStore.recordStageRun({ executionId, organizationId, stage, executionRecord: recordSnapshot, startedAt: stageStart, completedAt: stageCompleted, output: stageOutput });
           completed.add(stage.id);
+
+          await this._buildAndPersistHandoffCards({
+            executionId,
+            organizationId,
+            dag,
+            completedStages: completed,
+            fromStage: stage,
+            stageOutput,
+            timestamp: stageCompleted.toISOString(),
+            actor: executionContext.userId ?? executionContext.actorId ?? 'workflow-orchestrator',
+          });
         } else {
           const errMsg = result.result?.stageResult.error ?? result.error ?? 'Unknown stage error';
           failed.set(stage.id, errMsg);
@@ -602,6 +616,89 @@ export class WorkflowExecutor {
       io: { ...(snapshot.io && typeof snapshot.io === 'object' ? snapshot.io as Record<string, unknown> : {}), outputs: { ...prevOutputs, [stage.id]: payload } },
       ...(status === 'completed' && (payload as Record<string, unknown>).economic_deltas ? { economicDeltas: (payload as Record<string, unknown>).economic_deltas } : {}),
     };
+  }
+
+  private async _buildAndPersistHandoffCards(input: {
+    executionId: string;
+    organizationId: string;
+    dag: WorkflowDAG;
+    completedStages: Set<string>;
+    fromStage: WorkflowStage;
+    stageOutput: Record<string, unknown>;
+    timestamp: string;
+    actor: string;
+  }): Promise<void> {
+    const outgoingTransitions = (input.dag.transitions ?? []).filter((transition) => {
+      const fromStageId = transition.from_stage ?? transition.from;
+      return fromStageId === input.fromStage.id;
+    });
+
+    if (outgoingTransitions.length === 0) {
+      return;
+    }
+
+    const getDependencies = (stageId: string): string[] =>
+      (input.dag.transitions ?? [])
+        .filter((transition) => (transition.to_stage ?? transition.to) === stageId)
+        .map((transition) => transition.from_stage ?? transition.from)
+        .filter((dependency): dependency is string => typeof dependency === 'string' && dependency.length > 0);
+
+    for (const transition of outgoingTransitions) {
+      const toStageId = transition.to_stage ?? transition.to;
+      if (!toStageId) {
+        continue;
+      }
+
+      const toStage = input.dag.stages.find((stage) => stage.id === toStageId);
+      if (!toStage) {
+        continue;
+      }
+
+      const dependencies = getDependencies(toStage.id);
+      const dependenciesMet = dependencies.length === 0 || dependencies.every((dependency) => input.completedStages.has(dependency));
+      if (!dependenciesMet) {
+        continue;
+      }
+
+      const hitlResult = this.policy.checkHITL(this._buildStageDecisionContext(toStage, {
+        organizationId: input.organizationId,
+        organization_id: input.organizationId,
+        tenantId: input.organizationId,
+        confidence_score: typeof input.stageOutput.confidence_score === 'number' ? input.stageOutput.confidence_score : 0.5,
+      }));
+
+      const policyConstraints = [
+        `hitl_required=${String(hitlResult.hitl_required)}`,
+        ...(hitlResult.hitl_reason ? [String(hitlResult.hitl_reason)] : []),
+        ...(typeof hitlResult.details?.rule_id === 'string' ? [hitlResult.details.rule_id] : []),
+      ];
+
+      const handoffCard = this.handoffCardBuilder.build({
+        runId: input.executionId,
+        fromStage: input.fromStage,
+        toStage,
+        actor: input.actor,
+        timestamp: input.timestamp,
+        dag: input.dag,
+        stageOutput: input.stageOutput,
+        policyConstraints,
+      });
+
+      await this.executionStore.recordWorkflowEvent({
+        executionId: input.executionId,
+        organizationId: input.organizationId,
+        eventType: 'stage_transition_handoff_created',
+        stageId: toStage.id,
+        metadata: {
+          run_id: input.executionId,
+          stage_id: toStage.id,
+          from_stage: input.fromStage.id,
+          transition_timestamp: input.timestamp,
+          handoff_card: handoffCard,
+          addendum_comments: [],
+        },
+      });
+    }
   }
 
   private _buildStageDecisionContext(stage: WorkflowStage, context: WorkflowStageContextDTO): import('@shared/domain/DecisionContext.js').DecisionContext {
