@@ -17,11 +17,29 @@
 import { AtomicUIAction, createAddAction } from "@sdui/AtomicUIActions";
 
 import { logger } from "../../lib/logger.js"
-import { AgentOutput } from "../../types/agent-output";
 import { SDUIUpdate } from "../../types/sdui-integration";
 import { intentRegistry } from "../sdui/IntentRegistry.js"
+import { AgentResult } from "./core/AgentContract.js"
 
 import { agentIntentConverter } from "./AgentIntentConverter.js"
+
+interface AgentIntentOutput {
+  agentType: string;
+  agentId?: string;
+  systemMap?: Record<string, unknown>;
+  leveragePoints?: unknown[];
+  interventions?: unknown[];
+  hypotheses?: unknown[];
+  kpis?: unknown[];
+  metrics?: unknown[];
+  feedbackLoops?: unknown[];
+  scores?: Record<string, number>;
+  layoutDirective?: unknown;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
 
 /**
  * Agent SDUI Adapter
@@ -41,25 +59,47 @@ export class AgentSDUIAdapter {
    */
   async processAgentOutputWithIntents(
     agentId: string,
-    output: AgentOutput,
+    result: AgentResult<AgentIntentOutput>,
     workspaceId: string,
     tenantId?: string
   ): Promise<SDUIUpdate> {
+    const typedOutput = result.output;
+    if (!typedOutput) {
+      logger.warn("No typed agent output available for intent conversion", {
+        agentId,
+        workspaceId,
+        traceId: result.meta.traceId,
+      });
+      return {
+        type: "partial_update",
+        workspaceId,
+        actions: [],
+        timestamp: Date.now(),
+        source: `agent:${agentId}`,
+      };
+    }
+
+    const output: AgentIntentOutput = {
+      ...typedOutput,
+      agentId: typedOutput.agentId ?? agentId,
+      agentType: typedOutput.agentType || agentId,
+    };
+
     logger.info("Processing agent output with intents", {
       agentId,
-      agentType: output.agent_type,
+      agentType: output.agentType,
       workspaceId,
+      traceId: result.meta.traceId,
+      contractVersion: result.meta.contractVersion,
     });
 
     try {
       // Step 1: Convert agent output to intents
-      const intents = agentIntentConverter.convert(
-        output as AgentOutput & Record<string, unknown>
-      );
+      const intents = agentIntentConverter.convert(output as AgentIntentOutput & Record<string, unknown>);
 
       if (intents.length === 0) {
         logger.warn("No intents generated from agent output", {
-          agentType: output.agent_type,
+          agentType: output.agentType,
         });
         return {
           type: "partial_update",
@@ -82,7 +122,7 @@ export class AgentSDUIAdapter {
             createAddAction(
               {
                 component: resolution.component,
-                props: resolution.props as Record<string, unknown>,
+                props: asRecord(resolution.props) ?? {},
               },
               { append: true },
               `Add ${resolution.component} from ${intent.type} intent`
@@ -94,7 +134,7 @@ export class AgentSDUIAdapter {
             createAddAction(
               {
                 component: resolution.fallback,
-                props: resolution.props as Record<string, unknown>,
+                props: asRecord(resolution.props) ?? {},
               },
               { append: true },
               `Add fallback ${resolution.fallback} for ${intent.type}`

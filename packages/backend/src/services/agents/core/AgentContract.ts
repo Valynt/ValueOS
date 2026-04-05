@@ -34,12 +34,28 @@ export interface AgentPolicy {
   traceReasoning?: boolean;
 }
 
+export interface AgentResultValidationMeta {
+  passed: boolean;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface AgentResultRetryMeta {
+  count: number;
+  maxRetries?: number;
+  exhausted?: boolean;
+  lastError?: string;
+}
+
 export interface AgentResultMeta {
   executionId: string;
+  traceId: string;
+  contractVersion?: string;
   agentType: AgentType;
   startTime: Date;
   endTime: Date;
   duration: number;
+  durationMs: number;
   tokenUsage: {
     input: number;
     output: number;
@@ -49,11 +65,13 @@ export interface AgentResultMeta {
   cacheHit: boolean;
   retryCount: number;
   circuitBreakerTripped: boolean;
+  validation: AgentResultValidationMeta;
+  retry: AgentResultRetryMeta;
 }
 
 export interface AgentResult<TOutput = unknown> {
   success: boolean;
-  output?: TOutput;
+  output?: TOutput | null;
   confidence: ConfidenceLevel;
   metadata: AgentResultMeta;
   error?: {
