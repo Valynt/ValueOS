@@ -2,6 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ExecutiveLayoutErrorBoundary } from './ExecutiveLayoutErrorBoundary';
 import { Component, type ReactNode } from 'react';
+import { RequestIdContext } from '@valueos/sdui';
+
+const { trackMock } = vi.hoisted(() => ({
+  trackMock: vi.fn(),
+}));
+
+vi.mock('@/lib/analyticsClient', () => ({
+  analyticsClient: {
+    track: trackMock,
+  },
+}));
 
 // Component that throws an error
 class ErrorThrower extends Component<{ message?: string }> {
@@ -13,6 +24,34 @@ class ErrorThrower extends Component<{ message?: string }> {
 const WorkingComponent = () => <div data-testid="working">Normal content</div>;
 
 describe('ExecutiveLayoutErrorBoundary', () => {
+  it('emits telemetry once per captured error with safe payload fields', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    window.history.pushState({}, '', '/executive/overview');
+
+    render(
+      <RequestIdContext.Provider value={{ lastFailedRequestId: 'req-123' }}>
+        <ExecutiveLayoutErrorBoundary boundaryName="ExecutiveSidebar">
+          <ErrorThrower message={'Credentials leaked\nshould-not-break-telemetry'} />
+        </ExecutiveLayoutErrorBoundary>
+      </RequestIdContext.Provider>
+    );
+
+    expect(trackMock).toHaveBeenCalledTimes(1);
+    expect(trackMock).toHaveBeenCalledWith(
+      'react_error_boundary_triggered',
+      expect.objectContaining({
+        boundary_name: 'ExecutiveSidebar',
+        error_message: 'Credentials leaked should-not-break-telemetry',
+        component_stack: expect.any(String),
+        route: '/executive/overview',
+        correlation_id: 'req-123',
+      })
+    );
+    expect(trackMock.mock.calls[0]?.[1]).not.toHaveProperty('error_stack');
+
+    consoleSpy.mockRestore();
+  });
+
   it('renders children when no error', () => {
     render(
       <ExecutiveLayoutErrorBoundary boundaryName="test">
@@ -25,6 +64,7 @@ describe('ExecutiveLayoutErrorBoundary', () => {
 
   it('catches errors and shows error UI', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    trackMock.mockClear();
 
     render(
       <ExecutiveLayoutErrorBoundary boundaryName="test-boundary">
@@ -40,6 +80,7 @@ describe('ExecutiveLayoutErrorBoundary', () => {
 
   it('renders custom fallback when provided', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    trackMock.mockClear();
 
     render(
       <ExecutiveLayoutErrorBoundary
@@ -58,6 +99,7 @@ describe('ExecutiveLayoutErrorBoundary', () => {
 
   it('shows boundary name in console error', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    trackMock.mockClear();
 
     render(
       <ExecutiveLayoutErrorBoundary boundaryName="NavPanel">
@@ -66,9 +108,10 @@ describe('ExecutiveLayoutErrorBoundary', () => {
     );
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[NavPanel]'),
-      expect.any(Error),
-      expect.any(Object)
+      expect.stringContaining('[NavPanel] Error caught'),
+      expect.objectContaining({
+        error_message: 'Test error',
+      })
     );
 
     consoleSpy.mockRestore();
@@ -76,19 +119,11 @@ describe('ExecutiveLayoutErrorBoundary', () => {
 
   it('retry button calls resetErrorBoundary', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
-    let renderCount = 0;
-
-    const CounterComponent = () => {
-      renderCount++;
-      if (renderCount === 1) {
-        throw new Error('First render fails');
-      }
-      return <div data-testid="success">Working now</div>;
-    };
+    trackMock.mockClear();
 
     render(
       <ExecutiveLayoutErrorBoundary boundaryName="test">
-        <CounterComponent />
+        <ErrorThrower message="First render fails" />
       </ExecutiveLayoutErrorBoundary>
     );
 
@@ -100,6 +135,7 @@ describe('ExecutiveLayoutErrorBoundary', () => {
 
   it('applies custom className to error UI', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    trackMock.mockClear();
 
     render(
       <ExecutiveLayoutErrorBoundary

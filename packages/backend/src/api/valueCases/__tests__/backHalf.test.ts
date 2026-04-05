@@ -8,6 +8,9 @@ import express from 'express';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockPdfExportValueCase = vi.fn();
+const mockCalculateIntegrity = vi.fn();
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -62,8 +65,15 @@ vi.mock('../../../repositories/ExpansionOpportunityRepository', () => {
   return { ExpansionOpportunityRepository };
 });
 
-vi.mock('../../../services/PdfExportService', () => ({
-  getPdfExportService: vi.fn(),
+vi.mock('../../../services/export/PdfExportService.js', () => ({
+  getPdfExportService: vi.fn(() => ({ exportValueCase: mockPdfExportValueCase })),
+}));
+
+vi.mock('../../../services/integrity/ValueIntegrityService.js', () => ({
+  ValueIntegrityService: vi.fn().mockImplementation(() => ({
+    calculateIntegrity: mockCalculateIntegrity,
+    checkHardBlocks: vi.fn(),
+  })),
 }));
 
 vi.mock('../../../services/SemanticMemory', () => ({
@@ -203,6 +213,9 @@ describe('backHalf router', () => {
   beforeEach(() => {
     capturedContext = null;
     vi.clearAllMocks();
+    mockPdfExportValueCase.mockReset();
+    mockCalculateIntegrity.mockReset();
+    mockCalculateIntegrity.mockResolvedValue({ score: 0.9 });
   });
 
   it('rejects narrative runs on the synchronous back-half route because the agent scales to zero', async () => {
@@ -253,6 +266,22 @@ describe('backHalf router', () => {
 
     expect(capturedContext).not.toBeNull();
     expect(capturedContext!['lifecycle_stage']).toBe('expansion');
+  });
+
+
+  it('returns 503 and fails closed when integrity service fails during PDF export', async () => {
+    const app = await buildApp();
+    mockCalculateIntegrity.mockRejectedValueOnce(new Error('integrity service offline'));
+
+    const response = await request(app)
+      .post('/api/v1/cases/case-123/export/pdf')
+      .set('x-request-id', 'req-503')
+      .send({ renderUrl: 'http://localhost:5173/cases/case-123/export' })
+      .expect(503);
+
+    expect(response.body.success).toBe(false);
+    expect(response.body.code).toBe('INTEGRITY_UNAVAILABLE');
+    expect(mockPdfExportValueCase).not.toHaveBeenCalled();
   });
 
   it('scopes provenance lineage lookups by tenant when claim IDs overlap', async () => {

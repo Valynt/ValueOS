@@ -62,6 +62,11 @@
 - [Top 20 Dead Exports](./debt/top-20-dead-exports.md)
 - [TypeScript `any` Dashboard](./debt/ts-any-dashboard.md)
 
+Debt inventory source of truth:
+- Generator script: `scripts/debt/inventory.mjs`
+- CI semantic guard: `scripts/ci/check-debt-report-semantic-content.mjs`
+- CI artifacts: `docs/debt/inventory-report.json` and `docs/debt/top-20-dead-exports.md` from `PR Fast` (`lane-ts-type-ratchet-*`) and `Main Verify` (`debt-inventory-report-*`) workflow artifacts.
+
 ### [Developer Experience](./developer-experience/README.md) — 5 documents
 
 - [Dev Environment](./developer-experience/dev-environment.md)

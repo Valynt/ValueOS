@@ -10,10 +10,20 @@ export type IntegrationCapabilityKey =
 
 export type IntegrationCapabilities = Record<IntegrationCapabilityKey, boolean>;
 
+export interface IntegrationCapabilitiesWire {
+  oauth: boolean;
+  webhook_support: boolean;
+  delta_sync: boolean;
+  manual_sync: boolean;
+  field_mapping: boolean;
+  backfill: boolean;
+}
+
 export interface IntegrationCapabilityRegistryEntry {
   provider: IntegrationProvider;
   displayName: string;
   capabilities: IntegrationCapabilities;
+  capabilityFlags: IntegrationCapabilitiesWire;
 }
 
 const CAPABILITY_REGISTRY: IntegrationCapabilityRegistryEntry[] = [
@@ -80,5 +90,15 @@ const CAPABILITY_REGISTRY: IntegrationCapabilityRegistryEntry[] = [
 ];
 
 export function getIntegrationCapabilityRegistry(): IntegrationCapabilityRegistryEntry[] {
-  return CAPABILITY_REGISTRY;
+  return CAPABILITY_REGISTRY.map((entry) => ({
+    ...entry,
+    capabilityFlags: {
+      oauth: entry.capabilities.oauth,
+      webhook_support: entry.capabilities.webhookSupport,
+      delta_sync: entry.capabilities.deltaSync,
+      manual_sync: entry.capabilities.manualSync,
+      field_mapping: entry.capabilities.fieldMapping,
+      backfill: entry.capabilities.backfill,
+    },
+  }));
 }

@@ -12,7 +12,7 @@
     "./ground-truth": "./ground-truth/index.ts"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project tsconfig.json --outDir dist",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "node ../../node_modules/eslint/bin/eslint.js ."

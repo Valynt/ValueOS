@@ -69,6 +69,22 @@ The Compliance Lead reviews retention compliance quarterly:
 
 Evidence of this review is written as a `control:check-passed` evidence record with `control_id: "CC6.8"`.
 
+
+## Runtime Precedence and Traceability
+
+For security audit events, runtime retention in backend config is derived from a single source of truth in `infra/retention/security-audit-retention-policy.v1.json`.
+
+Precedence order for operational retention days:
+1. **Framework-specific window** (`classes[].framework_windows[COMPLIANCE_RETENTION_FRAMEWORK].operational_days`) when `COMPLIANCE_RETENTION_FRAMEWORK` is set and mapped.
+2. **Policy default window** (`classes[].default_window.operational_days`) when a framework override is not set or is not mapped.
+3. **Legal hold controls** (`legal_hold = true`) override deletion workflows regardless of operational retention expiration.
+
+Traceability chain for auditors:
+- Policy artifact: `infra/retention/security-audit-retention-policy.v1.json`.
+- Runtime adapter: `packages/backend/src/config/complianceRetentionAdapter.ts`.
+- Consuming config: `packages/backend/src/config/dataProtection.ts` (`retentionDays.auditLogs`).
+- Drift guard: `packages/backend/src/config/__tests__/complianceRetentionAdapter.test.ts`.
+
 ## Related Files
 
 | File | Purpose |

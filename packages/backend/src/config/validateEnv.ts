@@ -111,6 +111,11 @@ function validateBrowserTelemetryControls(nodeEnv: string, errors: string[]): vo
     return;
   }
 
+  const telemetryHashSalt = process.env.TELEMETRY_LOG_HASH_SALT?.trim();
+  if (!telemetryHashSalt) {
+    errors.push(`In ${nodeEnv}, TELEMETRY_LOG_HASH_SALT is required and must be non-empty.`);
+  }
+
   const telemetryIngestionKey = process.env.BROWSER_TELEMETRY_INGESTION_KEY?.trim();
   if (!telemetryIngestionKey) {
     errors.push(`In ${nodeEnv}, BROWSER_TELEMETRY_INGESTION_KEY is required and must be non-empty.`);

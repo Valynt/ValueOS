@@ -3,7 +3,7 @@
  * Common functions for health validation across different contexts
  */
 
-import { execSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 import http from "http";
 import https from "https";
 import net from "net";
@@ -115,6 +115,19 @@ export class CircuitBreaker {
   }
 }
 
+const SERVICE_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
+const SAFE_TOKEN_PATTERN = /^[a-zA-Z0-9._/:=-]+$/;
+const DIAGNOSTIC_COMMAND_ALLOWLIST = new Set(["docker", "which", "node", "pnpm", "npm", "git"]);
+const SHELL_METACHARACTER_PATTERN = /[|&;<>`$\\\n\r]/;
+
+function hasShellMetacharacters(value: string): boolean {
+  return SHELL_METACHARACTER_PATTERN.test(value);
+}
+
+function isValidToken(token: string): boolean {
+  return token.length > 0 && SAFE_TOKEN_PATTERN.test(token) && !hasShellMetacharacters(token);
+}
+
 // Global circuit breakers for different services
 const circuitBreakers = new Map<string, CircuitBreaker>();
 
@@ -203,6 +216,13 @@ export async function checkHttpEndpoint(
 export function checkDockerService(serviceName: string, projectRoot: string): HealthCheckResult {
   const circuitBreaker = getCircuitBreaker(`docker:${serviceName}`);
 
+  if (!SERVICE_NAME_PATTERN.test(serviceName)) {
+    return {
+      healthy: false,
+      message: "invalid service name",
+    };
+  }
+
   try {
     // For synchronous operations, we need to check circuit breaker state manually
     const now = Date.now();
@@ -215,7 +235,7 @@ export function checkDockerService(serviceName: string, projectRoot: string): He
     }
 
     // Check if circuit is open
-    if (circuitBreaker.getState() === "open") {
+    if (circuitBreaker.getState() === CircuitState.OPEN) {
       const nextAttempt = circuitBreaker.getNextAttemptTime();
       if (now < nextAttempt) {
         return {
@@ -225,7 +245,7 @@ export function checkDockerService(serviceName: string, projectRoot: string): He
       }
     }
 
-    const output = execSync(`docker compose ps ${serviceName}`, {
+    const output = execFileSync("docker", ["compose", "ps", serviceName], {
       cwd: projectRoot,
       encoding: "utf8",
       timeout: 10000,
@@ -240,7 +260,7 @@ export function checkDockerService(serviceName: string, projectRoot: string): He
       healthy: isRunning,
       message: isRunning ? "running" : "not running",
     };
-  } catch (error) {
+  } catch {
     // Record failure in circuit breaker
     circuitBreaker.recordFailure();
 
@@ -272,26 +292,46 @@ export async function isPortInUse(port: number, host: string = "127.0.0.1"): Pro
  * Check if a command exists in PATH
  */
 export function commandExists(command: string): boolean {
-  try {
-    execSync(`command -v ${command}`, { stdio: "ignore" });
-    return true;
-  } catch {
+  if (!isValidToken(command)) {
     return false;
   }
+
+  const result = spawnSync("which", [command], {
+    stdio: "ignore",
+    shell: false,
+  });
+
+  return result.status === 0;
+}
+
+export interface DiagnosticCommand {
+  cmd: string;
+  args: string[];
 }
 
 /**
  * Run a command and return its output
  */
 export function runCommand(
-  command: string,
+  command: DiagnosticCommand,
   options: { cwd?: string; timeout?: number } = {}
 ): string {
-  return execSync(command, {
+  if (!isValidToken(command.cmd)) {
+    throw new Error("Invalid command token");
+  }
+
+  if (!DIAGNOSTIC_COMMAND_ALLOWLIST.has(command.cmd)) {
+    throw new Error(`Command '${command.cmd}' is not allowed`);
+  }
+
+  if (!Array.isArray(command.args) || !command.args.every((arg) => isValidToken(arg))) {
+    throw new Error("Invalid command arguments");
+  }
+
+  return execFileSync(command.cmd, command.args, {
     cwd: options.cwd,
     stdio: "pipe",
     encoding: "utf8",
     timeout: options.timeout,
-    ...options,
   });
 }

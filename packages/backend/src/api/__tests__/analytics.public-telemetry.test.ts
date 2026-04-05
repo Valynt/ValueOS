@@ -221,6 +221,18 @@ describe("public analytics telemetry routes", () => {
     expect(successResponse.status).toBe(200);
   });
 
+  it("allows telemetry in non-secure envs when TELEMETRY_LOG_HASH_SALT is missing", async () => {
+    process.env.NODE_ENV = "development";
+    delete process.env.TELEMETRY_LOG_HASH_SALT;
+    const app = await makeApp();
+
+    const response = await request(app)
+      .post("/api/analytics/web-vitals")
+      .send({ name: "LCP", value: 900 });
+
+    expect(response.status).toBe(200);
+  });
+
   it("rejects browser telemetry in staging when ingestion key configuration is missing", async () => {
     process.env.NODE_ENV = "staging";
     process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS = "https://app.valueos.example";
@@ -233,6 +245,20 @@ describe("public analytics telemetry routes", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe("Telemetry key required");
+  });
+
+  it("fails fast in staging when TELEMETRY_LOG_HASH_SALT is missing", async () => {
+    process.env.NODE_ENV = "staging";
+    process.env.BROWSER_TELEMETRY_ALLOWED_ORIGINS = "https://app.valueos.example";
+    delete process.env.TELEMETRY_LOG_HASH_SALT;
+    const app = await makeApp();
+
+    const response = await request(app)
+      .post("/api/analytics/web-vitals")
+      .set("Origin", "https://app.valueos.example")
+      .send({ name: "LCP", value: 900 });
+
+    expect(response.status).toBe(500);
   });
 
   it("rejects browser telemetry from disallowed origins when an allowlist is configured", async () => {
