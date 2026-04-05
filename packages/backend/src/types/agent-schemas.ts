@@ -173,3 +173,13 @@ export const ExecutiveNarrativeSchema = z.object({
 }).strict();
 
 export type ExecutiveNarrative = z.infer<typeof ExecutiveNarrativeSchema>;
+
+export const ValueLifecycleSchema = z.discriminatedUnion("stage", [
+  OpportunityContextSchema,
+  ValueHypothesisDraftSchema,
+  FinancialModelSchema,
+  IntegrityAssessmentSchema,
+  ExecutiveNarrativeSchema,
+]);
+
+export type ValueLifecycle = z.infer<typeof ValueLifecycleSchema>;
