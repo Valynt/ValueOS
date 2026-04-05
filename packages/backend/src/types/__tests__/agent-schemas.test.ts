@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   FinancialModelSchema,
   ValueHypothesisDraftSchema,
+  deserializeValueLifecycle,
+  serializeValueLifecycle,
 } from "../agent-schemas";
 
 const validEvidenceRef = {
@@ -32,6 +34,7 @@ const baseAssumption = {
 describe("agent assumption evidence linkage", () => {
   it("accepts supported assumptions with linked evidence refs", () => {
     const result = ValueHypothesisDraftSchema.safeParse({
+      schemaVersion: "v1",
       stage: "DRAFTING",
       organizationId: "00000000-0000-4000-8000-000000000101",
       opportunityId: "00000000-0000-4000-8000-000000000102",
@@ -61,6 +64,7 @@ describe("agent assumption evidence linkage", () => {
 
   it("rejects pending assumptions without pendingReason", () => {
     const result = FinancialModelSchema.safeParse({
+      schemaVersion: "v1",
       stage: "FINANCIAL",
       organizationId: "00000000-0000-4000-8000-000000000201",
       opportunityId: "00000000-0000-4000-8000-000000000202",
@@ -90,5 +94,43 @@ describe("agent assumption evidence linkage", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("serializes and deserializes lifecycle payloads with schemaVersion", () => {
+    const serialized = serializeValueLifecycle({
+      schemaVersion: "v1",
+      stage: "FINANCIAL",
+      organizationId: "00000000-0000-4000-8000-000000000201",
+      opportunityId: "00000000-0000-4000-8000-000000000202",
+      modelId: "00000000-0000-4000-8000-000000000203",
+      hypothesisId: "00000000-0000-4000-8000-000000000204",
+      modelVersion: "v1",
+      scenarios: [
+        {
+          scenario: "expected",
+          benefit: 50000,
+          cost: 10000,
+          netValue: 40000,
+          paybackMonths: 6,
+          roiPercent: 300,
+        },
+      ],
+      assumptions: [
+        {
+          ...baseAssumption,
+          evidenceState: "supported",
+          evidenceRefs: [validEvidenceRef],
+        },
+      ],
+      evidence: [validEvidenceRef],
+      confidence: validConfidence,
+      generatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const parsed = JSON.parse(serialized) as { schemaVersion?: string };
+    expect(parsed.schemaVersion).toBe("v1");
+
+    const deserialized = deserializeValueLifecycle(serialized);
+    expect(deserialized.schemaVersion).toBe("v1");
   });
 });
