@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   FinancialModelSchema,
   ValueHypothesisDraftSchema,
+  fromValueLifecycleEventPayload,
+  toValueLifecycleEventPayload,
 } from "../agent-schemas";
 
 const validEvidenceRef = {
@@ -38,6 +40,7 @@ describe("agent assumption evidence linkage", () => {
   it("accepts supported assumptions with linked evidence refs", () => {
     const result = ValueHypothesisDraftSchema.safeParse({
       ...agentMetadata,
+      schemaVersion: "v1",
       stage: "DRAFTING",
       organizationId: "00000000-0000-4000-8000-000000000101",
       opportunityId: "00000000-0000-4000-8000-000000000102",
@@ -68,6 +71,7 @@ describe("agent assumption evidence linkage", () => {
   it("rejects pending assumptions without pendingReason", () => {
     const result = FinancialModelSchema.safeParse({
       ...agentMetadata,
+      schemaVersion: "v1",
       stage: "FINANCIAL",
       organizationId: "00000000-0000-4000-8000-000000000201",
       opportunityId: "00000000-0000-4000-8000-000000000202",
@@ -101,6 +105,7 @@ describe("agent assumption evidence linkage", () => {
 
   it("requires shared agent metadata on lifecycle payloads", () => {
     const result = ValueHypothesisDraftSchema.safeParse({
+      schemaVersion: "v1",
       stage: "DRAFTING",
       organizationId: "00000000-0000-4000-8000-000000000101",
       opportunityId: "00000000-0000-4000-8000-000000000102",
@@ -126,5 +131,71 @@ describe("agent assumption evidence linkage", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("requires schemaVersion on lifecycle payloads", () => {
+    const result = ValueHypothesisDraftSchema.safeParse({
+      ...agentMetadata,
+      stage: "DRAFTING",
+      organizationId: "00000000-0000-4000-8000-000000000101",
+      opportunityId: "00000000-0000-4000-8000-000000000102",
+      hypothesisId: "00000000-0000-4000-8000-000000000103",
+      title: "Automate onboarding",
+      statement: "Automation can reduce onboarding cycle time by 25%",
+      valueDriver: "Operational efficiency",
+      valueRange: {
+        low: 10000,
+        expected: 25000,
+        high: 40000,
+      },
+      assumptions: [
+        {
+          ...baseAssumption,
+          evidenceState: "supported",
+          evidenceRefs: [validEvidenceRef],
+        },
+      ],
+      evidence: [validEvidenceRef],
+      confidence: validConfidence,
+      draftedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("serializes and deserializes lifecycle payload schemaVersion", () => {
+    const lifecyclePayload = {
+      ...agentMetadata,
+      schemaVersion: "v1" as const,
+      stage: "DRAFTING" as const,
+      organizationId: "00000000-0000-4000-8000-000000000101",
+      opportunityId: "00000000-0000-4000-8000-000000000102",
+      hypothesisId: "00000000-0000-4000-8000-000000000103",
+      title: "Automate onboarding",
+      statement: "Automation can reduce onboarding cycle time by 25%",
+      valueDriver: "Operational efficiency",
+      valueRange: {
+        low: 10000,
+        expected: 25000,
+        high: 40000,
+      },
+      assumptions: [
+        {
+          ...baseAssumption,
+          evidenceState: "supported" as const,
+          evidenceRefs: [validEvidenceRef],
+        },
+      ],
+      evidence: [validEvidenceRef],
+      confidence: validConfidence,
+      draftedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const serialized = toValueLifecycleEventPayload(lifecyclePayload);
+    expect(serialized.schema_version).toBe("v1");
+    expect(serialized).not.toHaveProperty("schemaVersion");
+
+    const deserialized = fromValueLifecycleEventPayload(serialized);
+    expect(deserialized.schemaVersion).toBe("v1");
   });
 });
