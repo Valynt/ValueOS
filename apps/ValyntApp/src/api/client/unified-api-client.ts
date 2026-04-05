@@ -567,6 +567,15 @@ export const api = {
 
   deleteIntegration: (id: string) => apiClient.delete(`/api/integrations/${id}`),
 
+  getIntegrationOperations: (params?: { provider?: "hubspot" | "salesforce"; limit?: number }) =>
+    apiClient.get("/api/integrations/operations", params),
+
+  replayWebhookFailure: (eventId: string) =>
+    apiClient.post(`/api/integrations/operations/webhooks/${eventId}/replay`),
+
+  retryIntegrationSync: (provider: "hubspot" | "salesforce") =>
+    apiClient.post(`/api/integrations/operations/${provider}/sync/retry`),
+
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 

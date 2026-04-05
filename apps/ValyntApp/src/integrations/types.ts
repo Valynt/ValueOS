@@ -38,6 +38,27 @@ export interface IntegrationProvider {
   fields: IntegrationConfigField[];
 }
 
+export interface IntegrationOperationEntry {
+  id: string;
+  provider: IntegrationProviderId;
+  category: "connection_event" | "webhook_failure" | "sync_failure";
+  action: string;
+  status: "success" | "failed";
+  timestamp: string;
+  correlationId: string | null;
+  details: Record<string, unknown>;
+}
+
+export interface IntegrationOperationsResponse {
+  tenantId: string;
+  generatedAt: string;
+  provider: IntegrationProviderId | "all";
+  connectionEvents: IntegrationOperationEntry[];
+  webhookFailures: IntegrationOperationEntry[];
+  syncFailures: IntegrationOperationEntry[];
+  lifecycleHistory: IntegrationOperationEntry[];
+}
+
 // Known providers (CRM-focused for production readiness)
 export const PROVIDERS: IntegrationProvider[] = [
   {

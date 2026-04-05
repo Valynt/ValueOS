@@ -6,6 +6,7 @@
 
 import { createLogger } from "@shared/lib/logger";
 import type { Request, Response, Router } from "express";
+import { z } from "zod";
 
 import { requireAuth } from "../middleware/auth";
 import {
@@ -20,11 +21,16 @@ import {
   type IntegrationConnectPayload,
 } from "../services/crm/IntegrationConnectionService";
 import { integrationControlService } from "../services/crm/IntegrationControlService";
+import { integrationOperationsService } from "../services/crm/IntegrationOperationsService";
 import { handleServiceError } from "../services/errors";
 import { auditLogService } from "../services/security/AuditLogService";
 
 const logger = createLogger({ component: "IntegrationsAPI" });
 const router: Router = createSecureRouter("strict");
+const operationsQuerySchema = z.object({
+  provider: z.enum(["hubspot", "salesforce"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
 
 router.use(requireAuth, tenantContextMiddleware());
 
@@ -59,6 +65,113 @@ function handleError(res: Response, error: unknown, message: string) {
     code: serviceError.code,
   });
 }
+
+router.get(
+  "/operations",
+  requirePermission("integrations:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      const parsed = operationsQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid operations query", details: parsed.error.flatten() });
+      }
+
+      const operations = await integrationOperationsService.getOperations(
+        tenantId,
+        parsed.data.provider,
+        parsed.data.limit
+      );
+
+      return res.json(operations);
+    } catch (error) {
+      return handleError(res, error, "Failed to load integration operations");
+    }
+  }
+);
+
+router.post(
+  "/operations/webhooks/:eventId/replay",
+  requirePermission("integrations:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      const result = await integrationOperationsService.replayWebhookFailure(
+        tenantId,
+        req.params.eventId
+      );
+
+      const actor = getActor(req);
+      await auditLogService.logAudit({
+        tenantId,
+        userId: actor.id,
+        userName: actor.name,
+        userEmail: actor.email,
+        action: "integration_webhook_replay_requested",
+        resourceType: "crm_webhook",
+        resourceId: result.eventId,
+        details: {
+          eventId: result.eventId,
+          jobId: result.jobId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent") || undefined,
+      });
+
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      return handleError(res, error, "Failed to replay webhook failure");
+    }
+  }
+);
+
+router.post(
+  "/operations/:provider/sync/retry",
+  requirePermission("integrations:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      const providerParse = z.enum(["hubspot", "salesforce"]).safeParse(req.params.provider);
+      if (!providerParse.success) {
+        return res.status(400).json({ error: "Unsupported provider" });
+      }
+
+      const result = await integrationOperationsService.retrySync(tenantId, providerParse.data);
+      const actor = getActor(req);
+      await auditLogService.logAudit({
+        tenantId,
+        userId: actor.id,
+        userName: actor.name,
+        userEmail: actor.email,
+        action: "integration_sync_retry_requested",
+        resourceType: "crm_connection",
+        resourceId: result.provider,
+        details: {
+          provider: result.provider,
+          jobId: result.jobId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent") || undefined,
+      });
+
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      return handleError(res, error, "Failed to retry sync");
+    }
+  }
+);
 
 router.get(
   "/",

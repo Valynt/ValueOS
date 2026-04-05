@@ -4,7 +4,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { Check, ExternalLink, RefreshCw, Settings2, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { SettingsAlert, SettingsSection } from "@/components/settings";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import type {
   IntegrationConfigField,
   IntegrationConnection,
   IntegrationCredentialsInput,
+  IntegrationOperationEntry,
   IntegrationProvider,
 } from "@/integrations/types";
 
@@ -60,6 +61,10 @@ export function IntegrationsPage() {
     disconnect,
     testConnection,
     sync,
+    operations,
+    fetchOperations,
+    replayWebhookFailure,
+    retrySyncFailure,
   } = useIntegrations();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,10 +72,17 @@ export function IntegrationsPage() {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [actionProvider, setActionProvider] = useState<string | null>(null);
+  const [subview, setSubview] = useState<"connections" | "operations">("connections");
 
   useEffect(() => {
     fetchIntegrations();
   }, [fetchIntegrations]);
+
+  useEffect(() => {
+    if (subview === "operations") {
+      void fetchOperations();
+    }
+  }, [fetchOperations, subview]);
 
   const integrationMap = useMemo(() => {
     return new Map(integrations.map((item) => [item.provider, item]));
@@ -280,6 +292,37 @@ export function IntegrationsPage() {
     );
   };
 
+  const renderOperationRow = (
+    entry: IntegrationOperationEntry,
+    controls?: ReactNode
+  ) => (
+    <div key={entry.id} className="flex flex-col gap-2 border-b border-border p-3 last:border-b-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
+            {entry.provider}
+          </Badge>
+          <span className="text-sm font-medium">{entry.action}</span>
+          <Badge
+            variant="secondary"
+            className={
+              entry.status === "failed"
+                ? "bg-rose-100 text-rose-700"
+                : "bg-emerald-100 text-emerald-700"
+            }
+          >
+            {entry.status}
+          </Badge>
+        </div>
+        <span className="text-xs text-muted-foreground">{formatTimestamp(entry.timestamp)}</span>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        Correlation ID: {entry.correlationId ?? "n/a"}
+      </div>
+      {controls ? <div className="flex justify-end">{controls}</div> : null}
+    </div>
+  );
+
   return (
     <div>
       {error && (
@@ -294,29 +337,124 @@ export function IntegrationsPage() {
         />
       )}
 
-      <SettingsSection
-        title="CRM"
-        description="Connect your CRM to sync opportunities and contacts"
-      >
-        {oauthProviders.map((provider) => (
-          <IntegrationCard key={provider.id} provider={provider} />
-        ))}
-      </SettingsSection>
+      <div className="mb-4 flex items-center gap-2">
+        <Button
+          variant={subview === "connections" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSubview("connections")}
+        >
+          Connections
+        </Button>
+        <Button
+          variant={subview === "operations" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSubview("operations")}
+        >
+          Operations
+        </Button>
+      </div>
 
-      <SettingsSection
-        title="Manual Credentials"
-        description="Manage integrations that require manually entered credentials."
-      >
-        {manualProviders.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            No manual credential integrations are currently configured.
-          </p>
-        ) : (
-          manualProviders.map((provider) => (
-            <IntegrationCard key={provider.id} provider={provider} />
-          ))
-        )}
-      </SettingsSection>
+      {subview === "connections" ? (
+        <>
+          <SettingsSection
+            title="CRM"
+            description="Connect your CRM to sync opportunities and contacts"
+          >
+            {oauthProviders.map((provider) => (
+              <IntegrationCard key={provider.id} provider={provider} />
+            ))}
+          </SettingsSection>
+
+          <SettingsSection
+            title="Manual Credentials"
+            description="Manage integrations that require manually entered credentials."
+          >
+            {manualProviders.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">
+                No manual credential integrations are currently configured.
+              </p>
+            ) : (
+              manualProviders.map((provider) => (
+                <IntegrationCard key={provider.id} provider={provider} />
+              ))
+            )}
+          </SettingsSection>
+        </>
+      ) : (
+        <>
+          <SettingsSection
+            title="Connection Events"
+            description="Recent integration connection lifecycle events."
+          >
+            {operations.connectionEvents.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No connection events found.</p>
+            ) : (
+              operations.connectionEvents.map((entry) => renderOperationRow(entry))
+            )}
+          </SettingsSection>
+
+          <SettingsSection
+            title="Webhook Failures"
+            description="Failed webhook jobs with replay controls for support and SRE."
+          >
+            {operations.webhookFailures.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No webhook failures found.</p>
+            ) : (
+              operations.webhookFailures.map((entry) =>
+                renderOperationRow(
+                  entry,
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await replayWebhookFailure(entry.id);
+                      await fetchOperations();
+                    }}
+                  >
+                    Replay webhook
+                  </Button>
+                )
+              )
+            )}
+          </SettingsSection>
+
+          <SettingsSection
+            title="Sync Failures"
+            description="Failed sync operations with retry controls."
+          >
+            {operations.syncFailures.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No sync failures found.</p>
+            ) : (
+              operations.syncFailures.map((entry) =>
+                renderOperationRow(
+                  entry,
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await retrySyncFailure(entry.provider);
+                      await fetchOperations();
+                    }}
+                  >
+                    Retry sync
+                  </Button>
+                )
+              )
+            )}
+          </SettingsSection>
+
+          <SettingsSection
+            title="Reauth / Disable / Disconnect History"
+            description="Auth and connection-state transitions across providers."
+          >
+            {operations.lifecycleHistory.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No lifecycle history found.</p>
+            ) : (
+              operations.lifecycleHistory.map((entry) => renderOperationRow(entry))
+            )}
+          </SettingsSection>
+        </>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-[480px]">
