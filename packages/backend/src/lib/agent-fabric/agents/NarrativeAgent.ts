@@ -50,26 +50,10 @@ import Decimal from "decimal.js";
 
 import { BaseAgent } from "./BaseAgent.js";
 import { BaseGraphWriter } from "../BaseGraphWriter.js";
-
-// ---------------------------------------------------------------------------
-// Zod schema for LLM output
-// ---------------------------------------------------------------------------
-
-const NarrativeOutputSchema = z.object({
-  executive_summary: z.string().min(1),
-  value_proposition: z.string().min(1),
-  key_proof_points: z.array(z.string()).min(1).max(10),
-  risk_mitigations: z.array(z.string()),
-  call_to_action: z.string(),
-  defense_readiness_score: z.number().min(0).max(1),
-  talking_points: z.array(
-    z.object({
-      audience: z.enum(["executive", "technical", "financial", "procurement"]),
-      point: z.string(),
-    })
-  ),
-  hallucination_check: z.boolean().optional(),
-});
+import {
+  NarrativeOutputSchema,
+  NarrativeStructuredInputSchema,
+} from "./agent-schemas.js";
 
 type NarrativeOutput = z.infer<typeof NarrativeOutputSchema>;
 
@@ -80,6 +64,11 @@ interface NarrativeUpstreamData {
   kpis: Array<Record<string, unknown>>;
   financialSummary: string;
 }
+
+const NARRATIVE_AGENT_CONTRACT = Object.freeze({
+  inputSchema: NarrativeStructuredInputSchema,
+  outputSchema: NarrativeOutputSchema,
+});
 
 // ---------------------------------------------------------------------------
 // Prompt builder
@@ -142,6 +131,35 @@ Compose a defensible executive narrative for this business case. The narrative m
 6. Assign a defense_readiness_score (0-1) reflecting how well the case can withstand scrutiny
 
 Return valid JSON matching the schema. Set hallucination_check to true only if all claims are grounded in the provided evidence.`;
+}
+
+function renderNarrativeMarkdown(output: NarrativeOutput): string {
+  const proofPoints = output.key_proof_points.map((point) => `- ${point}`).join("\n");
+  const risks = output.risk_mitigations.map((risk) => `- ${risk}`).join("\n");
+  const talkingPoints = output.talking_points
+    .map((tp) => `- **${tp.audience}**: ${tp.point}`)
+    .join("\n");
+
+  return `# Executive Summary
+${output.executive_summary}
+
+## Value Proposition
+${output.value_proposition}
+
+## Key Proof Points
+${proofPoints}
+
+## Risk Mitigations
+${risks}
+
+## Call to Action
+${output.call_to_action}
+
+## Defense Readiness
+${(output.defense_readiness_score * 100).toFixed(0)}%
+
+## Talking Points
+${talkingPoints}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +478,24 @@ export class NarrativeAgent extends BaseAgent {
     // Step 1: Retrieve integrity, KPI, and modeling context via memory handoff.
     const { claims, integrityScore, vetoDecision, kpis, financialSummary } =
       await this.retrieveUpstreamDataFromMemory(context);
+    const contractInput = NARRATIVE_AGENT_CONTRACT.inputSchema.safeParse({
+      claims,
+      integrityScore,
+      vetoDecision,
+      kpis,
+      financialSummary,
+    });
+    if (!contractInput.success) {
+      return this.buildOutput(
+        {
+          error: "Narrative input contract validation failed.",
+          issues: contractInput.error.issues,
+        },
+        "failure",
+        "low",
+        startTime
+      );
+    }
 
     // Step 2: Build narrative prompt — enrich with top-3 Value Graph paths (fire-and-forget read)
     const graphPathContext = await this.enrichPromptWithGraphPaths(context);
@@ -480,7 +516,7 @@ export class NarrativeAgent extends BaseAgent {
       narrativeOutput = await this.secureInvoke<NarrativeOutput>(
         context.workspace_id,
         prompt,
-        NarrativeOutputSchema,
+        NARRATIVE_AGENT_CONTRACT.outputSchema,
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
@@ -505,6 +541,7 @@ export class NarrativeAgent extends BaseAgent {
         startTime
       );
     }
+    const narrativeMarkdown = renderNarrativeMarkdown(narrativeOutput);
 
     // Step 2b: Write narrative_explains_hypothesis edges to Value Graph (fire-and-forget)
     await this.writeNarrativeEdges(narrativeOutput, context);
@@ -887,6 +924,7 @@ export class NarrativeAgent extends BaseAgent {
         hallucination_check: a.hallucinationCheck,
       })),
       talking_points: narrativeOutput.talking_points,
+      narrative_markdown: narrativeMarkdown,
       format,
     };
 
