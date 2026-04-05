@@ -281,6 +281,8 @@ const defaultCorsOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
 ];
+const SECURE_CORS_ENVS: AppEnv[] = ["staging", "prod"];
+const LOCALHOST_FALLBACK_CORS_ENVS: AppEnv[] = ["local", "cloud-dev", "test"];
 
 const DEFAULT_API_PORT = 3001;
 const DEFAULT_DB_POOL_IDLE_TIMEOUT_MS = 30_000;
@@ -289,6 +291,18 @@ const DEFAULT_DB_POOL_STATEMENT_TIMEOUT_MS = 30_000;
 const DEFAULT_DB_POOL_QUERY_TIMEOUT_MS = 30_000;
 
 const appEnv = parsedSettings.APP_ENV ?? inferAppEnv(parsedSettings.NODE_ENV);
+const explicitCorsAllowlist = parsedSettings.CORS_ALLOWED_ORIGINS?.trim();
+
+if (SECURE_CORS_ENVS.includes(appEnv) && !explicitCorsAllowlist) {
+  throw new Error(
+    `CORS_ALLOWED_ORIGINS must be explicitly configured when APP_ENV=${appEnv}`
+  );
+}
+
+const corsOriginsValue =
+  explicitCorsAllowlist ??
+  (LOCALHOST_FALLBACK_CORS_ENVS.includes(appEnv) ? defaultCorsOrigins.join(",") : undefined);
+
 const databasePoolSizing = deriveDatabasePoolSizing({
   appEnv,
   role: parsedSettings.DATABASE_POOL_ROLE ?? "api",
@@ -316,13 +330,10 @@ export const settings = {
       parsedSettings.DATABASE_POOL_QUERY_TIMEOUT_MS ?? DEFAULT_DB_POOL_QUERY_TIMEOUT_MS,
   },
   security: {
-    corsOrigins: parseCorsAllowlist(
-      parsedSettings.CORS_ALLOWED_ORIGINS ?? defaultCorsOrigins.join(","),
-      {
-        source: "CORS_ALLOWED_ORIGINS",
-        credentials: true,
-        requireNonEmpty: true,
-      }
-    ),
+    corsOrigins: parseCorsAllowlist(corsOriginsValue, {
+      source: "CORS_ALLOWED_ORIGINS",
+      credentials: true,
+      requireNonEmpty: true,
+    }),
   },
 };
