@@ -61,8 +61,9 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 
 - `docs-boundary-consistency-lint.mjs` — lightweight docs lint that checks canonical architecture docs for stale product names (`ValueCanvas`), invalid k8s path patterns (`infra/infra/k8s`), and legacy agent source paths (`apps/ValyntApp/src/lib/agent-fabric/agents`).
 
-- `any-ratchet.mjs` — scans non-test TypeScript files for explicit `any` usage (`: any`, `as any`, `<any>`) and enforces non-increasing per-package baselines from `.github/any-ratchet-budgets.json`.
-- `check-boundary-typing-regressions.mjs` — scans strict backend boundary globs (`protectedZeroNewZones` in `packages/backend/tsconfig.strict-exceptions.json`) for explicit `any`, unsafe casts/assertions, and non-null assertions; enforces non-increasing allowances from `boundary-typing-allowlist.json`; emits a machine-readable trend artifact at `artifacts/ci-lanes/unit-component-schema/boundary-typing-regressions.json`.
+- `any-ratchet.mjs` — scans explicit-any paths from `config/debt-budgets.json`, enforces non-increasing per-package and per-bucket baselines, and warns when counts remain above `nextTarget`.
+
+- `check-explicit-any-budget-consistency.mjs` — asserts that `config/debt-budgets.json` is the canonical explicit-any budget source; if legacy budget files still exist, they must exactly match the canonical derived package/bucket totals.
 
 - `express-openapi-security-check.mjs` — maps mounted Express route registrations (method/path + middleware chain), applies explicit route security metadata tags (`packages/backend/route-security-metadata.json`), compares auth posture against `packages/backend/openapi.yaml` security declarations, checks required rate-limit tier annotations, and emits `artifacts/security/route-security-posture.json` for SOC2 evidence artifacts.
 - `require-security-signoff-if-unprotected-routes.mjs` — on PRs, inspects added backend route registrations and requires a `security-signoff` label when newly added routes do not include auth/tenant controls on the registration line.

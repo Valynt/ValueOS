@@ -40,6 +40,10 @@ jobs:
             --report-path=gitleaks-pr.sarif
 
       - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks-pr.sarif
+          category: secret-scan-pr-diff
       - name: Emit lane summary
         if: always()
         run: |
@@ -305,7 +309,7 @@ jobs:
       - name: TypeScript any-count gate
         run: |
           node scripts/ci/any-ratchet.mjs
-          node scripts/ci/check-non-test-any-ratchet.mjs
+          node scripts/ci/check-explicit-any-budget-consistency.mjs
           node scripts/ci/check-strict-exception-budgets.mjs
           bash scripts/check-any-count.sh
       - name: Strict boundary typing regression gate

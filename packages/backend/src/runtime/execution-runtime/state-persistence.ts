@@ -1,12 +1,10 @@
-import { logger } from '../../lib/logger.js';
-import { supabase } from '../../lib/supabase.js';
 import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
-import type { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type { WorkflowEvent } from '../../types/workflow.js';
 import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
+import type { WorkflowExecutionPersistencePort } from '../ports/runtimePorts.js';
 
 export class WorkflowStatePersistence {
-  constructor(private readonly executionStore: WorkflowExecutionStore) {}
+  constructor(private readonly executionPersistence: WorkflowExecutionPersistencePort) {}
 
   async persistAndUpdate(
     executionId: string,
@@ -15,8 +13,14 @@ export class WorkflowStatePersistence {
     status: WorkflowStatus,
     stageId: string | null,
   ): Promise<void> {
-    await this.executionStore.persistExecutionRecord(executionId, organizationId, record);
-    await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
+    await this.executionPersistence.persistExecutionRecord(executionId, organizationId, record);
+    await this.executionPersistence.updateExecutionStatus({
+      executionId,
+      organizationId,
+      status,
+      currentStage: stageId,
+      executionRecord: record,
+    });
   }
 
   async updateStatus(
@@ -26,7 +30,13 @@ export class WorkflowStatePersistence {
     stageId: string | null,
     record: WorkflowExecutionRecord,
   ): Promise<void> {
-    await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
+    await this.executionPersistence.updateExecutionStatus({
+      executionId,
+      organizationId,
+      status,
+      currentStage: stageId,
+      executionRecord: record,
+    });
   }
 
   async recordWorkflowEvent(
@@ -36,16 +46,16 @@ export class WorkflowStatePersistence {
     stageId: string | null,
     metadata: Record<string, unknown>,
   ): Promise<void> {
-    await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
+    await this.executionPersistence.recordWorkflowEvent({
+      executionId,
+      organizationId,
+      eventType,
+      stageId,
+      metadata,
+    });
   }
 
   async handleWorkflowFailure(executionId: string, organizationId: string, errorMessage: string): Promise<void> {
-    await supabase
-      .from('workflow_executions')
-      .update({ status: 'failed', error_message: errorMessage, completed_at: new Date().toISOString() })
-      .eq('id', executionId)
-      .eq('organization_id', organizationId);
-
-    logger.error('Workflow failed', undefined, { executionId, errorMessage });
+    await this.executionPersistence.markWorkflowFailed(executionId, organizationId, errorMessage);
   }
 }

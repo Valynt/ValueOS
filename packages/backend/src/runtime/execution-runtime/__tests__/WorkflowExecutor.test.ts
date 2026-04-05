@@ -19,19 +19,6 @@ vi.mock('../../../lib/logger', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-vi.mock('../../../lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(function () {
-      return {
-        select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    }),
-  },
-}));
 vi.mock('@opentelemetry/api', () => {
   const activeContext = {};
   const activeSpan = undefined;
@@ -68,16 +55,6 @@ vi.mock('../../../config/telemetry', () => ({
         const span = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
         return fn ? fn(span) : undefined;
       }),
-    };
-  }),
-}));
-vi.mock('../../../services/workflows/WorkflowExecutionStore', () => ({
-  WorkflowExecutionStore: vi.fn(function () {
-    return {
-      persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
-      updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
-      recordStageRun: vi.fn().mockResolvedValue(undefined),
-      recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
     };
   }),
 }));
@@ -150,10 +127,35 @@ function makePolicyMock() {
   };
 }
 
+function makeExecutionPersistenceMock() {
+  return {
+    getActiveWorkflowDefinition: vi.fn().mockResolvedValue({
+      id: 'wf-1',
+      name: 'WF',
+      version: '1',
+      organization_id: null,
+      dag_schema: {
+        initial_stage: 'stage-1',
+        final_stages: ['stage-1'],
+        stages: [{ id: 'stage-1', agent_type: 'coordinator' }],
+        transitions: [],
+      },
+    }),
+    createWorkflowExecution: vi.fn().mockResolvedValue({ id: 'exec-1' }),
+    updateWorkflowExecutionContext: vi.fn().mockResolvedValue(undefined),
+    persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
+    updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
+    recordStageRun: vi.fn().mockResolvedValue(undefined),
+    recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
+    markWorkflowFailed: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 async function makeExecutor(
   policy = makePolicyMock(),
   cfg: Partial<{ enableWorkflows: boolean; maxRetryAttempts: number; maxAgentInvocationsPerMinute: number }> = {},
   rateLimitFn: (t: string) => boolean = () => true,
+  executionPersistence = makeExecutionPersistenceMock(),
 ) {
   const { CircuitBreakerManager } = await import('../../../services/CircuitBreaker.js');
   const { AgentRegistry } = await import('../../../services/agents/AgentRegistry.js');
@@ -168,6 +170,7 @@ async function makeExecutor(
     new MemorySystem() as never,
     rateLimitFn as never,
     { enableWorkflows: true, maxRetryAttempts: 3, maxAgentInvocationsPerMinute: 20, ...cfg },
+    { executionPersistence: executionPersistence as never },
   );
 }
 
@@ -244,26 +247,20 @@ describe('WorkflowExecutor.executeWorkflow', () => {
   });
 
   it('throws when workflow definition is not found', async () => {
-    const { supabase } = await import('../../../lib/supabase.js');
-    vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    } as never);
-    const executor = await makeExecutor();
+    const persistence = makeExecutionPersistenceMock();
+    persistence.getActiveWorkflowDefinition.mockResolvedValueOnce(null);
+    const executor = await makeExecutor(makePolicyMock(), {}, () => true, persistence);
+
     await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-missing')).rejects.toThrow('Workflow definition not found');
   });
 
   it('throws when workflow belongs to a different organization', async () => {
-    const { supabase } = await import('../../../lib/supabase.js');
-    vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: 'wf-1', organization_id: 'other-org', dag_schema: makeDAG(), version: '1', name: 'Test', is_active: true },
-        error: null,
-      }),
-    } as never);
-    const executor = await makeExecutor();
-    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-1')).rejects.toThrow('not authorized');
+    const persistence = makeExecutionPersistenceMock();
+    // Ports are responsible for tenant authorization and return null when scoped out.
+    persistence.getActiveWorkflowDefinition.mockResolvedValueOnce(null);
+    const executor = await makeExecutor(makePolicyMock(), {}, () => true, persistence);
+
+    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-1')).rejects.toThrow('Workflow definition not found');
   });
 });
 
@@ -393,7 +390,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.evaluateStructuralTruthVeto).toHaveBeenCalled();
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
   it('marks execution failed when integrity veto fires', async () => {
@@ -405,7 +402,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.evaluateIntegrityVeto).toHaveBeenCalled();
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
 
@@ -422,7 +419,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
     (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: { output: 'ok' } }, attempts: 1 });
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
   });
 
   it('marks execution failed when stage execution fails', async () => {
@@ -430,7 +427,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
     (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: false, error: new Error('stage error'), attempts: 3 });
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
   it('fails scenario_building stage when output violates canonical scenario schema', async () => {
@@ -450,7 +447,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
       'trace-1',
     );
 
-    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
+    expect((executor as never).executionPersistence.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
       eventType: 'stage_failed',
       stageId: 'scenario_building',
       metadata: expect.objectContaining({
@@ -460,8 +457,8 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
         issues: expect.any(Array),
       }),
     }));
-    expect((executor as never).executionStore.recordStageRun).not.toHaveBeenCalled();
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+    expect((executor as never).executionPersistence.recordStageRun).not.toHaveBeenCalled();
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
   it('calls assertTenantExecutionAllowed on each DAG iteration', async () => {
@@ -515,36 +512,6 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
       },
     ]);
 
-    const { supabase } = await import('../../../lib/supabase.js');
-    const defaultFrom = vi.mocked(supabase.from).getMockImplementation();
-    const updateMock = vi.fn().mockReturnThis();
-    const eqMock = vi.fn().mockReturnThis();
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === 'workflow_executions') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          update: updateMock,
-          eq: eqMock,
-          order: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return defaultFrom ? defaultFrom(table) : ({
-        select: vi.fn().mockReturnThis(),
-        insert: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        single: vi.fn().mockResolvedValue({ data: null, error: null }),
-      });
-    });
-
     await executor.executeDAGAsync(
       'exec-2',
       'org-1',
@@ -553,8 +520,10 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
       'trace-2',
     );
 
-    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({
-      context: expect.objectContaining({
+    expect((executor as never).executionPersistence.updateWorkflowExecutionContext).toHaveBeenCalledWith(
+      'exec-2',
+      'org-1',
+      expect.objectContaining({
         preModelingSnapshot: expect.arrayContaining([
           expect.objectContaining({
             node_key: 'root',
@@ -562,7 +531,7 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
           }),
         ]),
       }),
-    }));
+    );
   });
 
   it('marks execution pending_approval and halts when stage HITL is required', async () => {
@@ -583,8 +552,8 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
       'trace-1',
     );
 
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
-    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'stage_waiting_for_approval' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
+    expect((executor as never).executionPersistence.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'stage_waiting_for_approval' }));
   });
 });
 
@@ -602,8 +571,8 @@ describe('WorkflowExecutor HITL integration', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG({ stages: [makeStage({ agent_type: 'narrative' })] }) as never, makeCtx(), 'trace-1');
 
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
-    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
+    expect((executor as never).executionPersistence.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
       eventType: 'stage_hitl_pending_approval',
       metadata: expect.objectContaining({ rule_id: 'HITL-01', confidence_score: 0.45, traceId: 'trace-1' }),
     }));
@@ -623,7 +592,7 @@ describe('WorkflowExecutor HITL integration', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG({ stages: [makeStage({ agent_type: 'narrative' })] }) as never, makeCtx(), 'trace-1');
 
-    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
+    expect((executor as never).executionPersistence.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
     expect((executor as never).retryManager.executeWithRetry).toHaveBeenCalled();
   });
 });
