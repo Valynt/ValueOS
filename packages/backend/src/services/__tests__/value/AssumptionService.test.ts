@@ -4,6 +4,10 @@ import {
   type AssumptionCreateInput,
 } from "../../value/AssumptionService.js";
 
+const { invalidateScenarioBuildCacheMock } = vi.hoisted(() => ({
+  invalidateScenarioBuildCacheMock: vi.fn(async () => 1),
+}));
+
 // Mock dependencies
 vi.mock("../../../lib/logger.js", () => ({
   logger: {
@@ -107,11 +111,24 @@ vi.mock("../workflows/SagaAdapters.js", () => ({
   })),
 }));
 
+vi.mock("../../value/AuditLogService.js", () => ({
+  AuditLogService: vi.fn().mockImplementation(() => ({
+    logAudit: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+vi.mock("../../value/ScenarioBuilder.js", () => ({
+  ScenarioBuilder: {
+    invalidateScenarioBuildCache: invalidateScenarioBuildCacheMock,
+  },
+}));
+
 describe("AssumptionService", () => {
   let service: AssumptionService;
 
   beforeEach(() => {
     service = new AssumptionService();
+    invalidateScenarioBuildCacheMock.mockClear();
   });
 
   describe("createAssumption", () => {
@@ -184,6 +201,23 @@ describe("AssumptionService", () => {
       expect(result.assumptionId).toBeDefined();
       expect(result.data.sourceType).toBe("customer-confirmed");
     });
+
+    it("invalidates scenario-build cache after create", async () => {
+      const input: AssumptionCreateInput = {
+        organizationId: "org-123",
+        caseId: "case-456",
+        name: "Test Assumption",
+        value: 100000,
+        unit: "USD",
+        sourceType: "customer-confirmed",
+        confidenceScore: 0.9,
+        createdBy: "user-001",
+      };
+
+      await service.createAssumption(input);
+
+      expect(invalidateScenarioBuildCacheMock).toHaveBeenCalledWith("org-123", "case-456");
+    });
   });
 
   describe("overrideAssumption", () => {
@@ -233,6 +267,7 @@ describe("AssumptionService", () => {
       const result = await service.deleteAssumption("asm-test-123", "user-001");
 
       expect(result.deleted).toBe(true);
+      expect(invalidateScenarioBuildCacheMock).toHaveBeenCalledWith("org-123", "case-456");
     });
   });
 });
