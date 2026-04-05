@@ -16,6 +16,7 @@ import {
   RateLimitError,
   ValidationError,
 } from "../base/index.js";
+import { getProviderCapabilities } from "../base/capabilities.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,7 @@ const serviceNowErrorSchema = z.object({
 
 export class ServiceNowAdapter extends EnterpriseAdapter {
   readonly provider = "servicenow";
+  readonly capabilities = getProviderCapabilities("servicenow");
 
   private accessToken: string | null = null;
   private basicAuthHeader: string | null = null;

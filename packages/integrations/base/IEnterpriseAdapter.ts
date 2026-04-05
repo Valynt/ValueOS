@@ -8,6 +8,7 @@
  */
 
 import type {
+  IntegrationCapabilities,
   IntegrationConfig,
   IntegrationCredentials,
   NormalizedEntity,
@@ -16,6 +17,7 @@ import type {
 
 export interface IEnterpriseAdapter {
   readonly provider: string;
+  readonly capabilities: IntegrationCapabilities;
 
   connect(credentials: IntegrationCredentials): Promise<void>;
 

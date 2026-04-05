@@ -19,6 +19,7 @@ import {
   RateLimitError,
   ValidationError,
 } from "../base/index.js";
+import { getProviderCapabilities } from "../base/capabilities.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ const graphErrorSchema = z.object({ error: z.object({ code: z.string().optional(
 
 export class SharePointAdapter extends EnterpriseAdapter {
   readonly provider = "sharepoint";
+  readonly capabilities = getProviderCapabilities("sharepoint");
 
   private accessToken: string | null = null;
   private siteId: string | null = null;

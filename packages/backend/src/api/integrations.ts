@@ -19,6 +19,7 @@ import {
   integrationConnectionService,
   type IntegrationConnectPayload,
 } from "../services/crm/IntegrationConnectionService";
+import { getIntegrationCapabilityRegistry } from "../services/crm/IntegrationCapabilityRegistry";
 import { integrationControlService } from "../services/crm/IntegrationControlService";
 import { handleServiceError } from "../services/errors";
 import { auditLogService } from "../services/security/AuditLogService";
@@ -59,6 +60,15 @@ function handleError(res: Response, error: unknown, message: string) {
     code: serviceError.code,
   });
 }
+
+router.get(
+  "/capabilities",
+  requirePermission("integrations:view"),
+  async (_req: Request, res: Response) => {
+    const providers = getIntegrationCapabilityRegistry();
+    return res.json({ providers });
+  }
+);
 
 router.get(
   "/",

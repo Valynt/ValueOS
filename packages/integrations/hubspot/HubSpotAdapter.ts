@@ -13,6 +13,7 @@ import {
   RateLimitError,
   ValidationError,
 } from "../base/index.js";
+import { getProviderCapabilities } from "../base/capabilities.js";
 
 const HUBSPOT_RATE_LIMIT = 100; // requests per 10 seconds
 const DEFAULT_HUBSPOT_BASE_URL = "https://api.hubapi.com";
@@ -58,6 +59,7 @@ type HubSpotClient = {
 
 export class HubSpotAdapter extends EnterpriseAdapter {
   readonly provider = "hubspot";
+  readonly capabilities = getProviderCapabilities("hubspot");
   private accessToken: string | null = null;
   private client: HubSpotClient | null = null;
   private readonly baseUrl: string;
