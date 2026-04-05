@@ -7,6 +7,7 @@
  */
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { buildRuntimeFailureDetails, type RuntimeFailureDetails } from '@valueos/shared';
 import { z } from 'zod';
 import { securityLogger } from '../../services/core/SecurityLogger.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -63,6 +64,7 @@ interface StageLifecycleRecord {
   startedAt: string;
   completedAt: string;
   summary?: string;
+  runtimeFailure?: RuntimeFailureDetails;
 }
 
 // ============================================================================
@@ -93,6 +95,8 @@ const ScenarioBuildOutputSchema = z.object({
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionStore: WorkflowExecutionStore;
+
+  private lastDegradedState: RuntimeFailureDetails | null = null;
 
   constructor(
     private readonly policy: PolicyEngine,
@@ -300,8 +304,21 @@ export class WorkflowExecutor {
       // Check deadline before processing next batch
       if (!checkDeadline()) {
         const deadlineError = `Workflow deadline exceeded: ${DEFAULT_WORKFLOW_DEADLINE_MINUTES} minutes`;
+        const failureDetails = this.buildFailureDetails({
+          failureClass: 'execution-failed',
+          severity: 'failed',
+          machineReasonCode: 'WORKFLOW_DEADLINE_EXCEEDED',
+          diagnosis: deadlineError,
+          confidence: 0.94,
+          blastRadiusEstimate: 'workflow',
+        });
         logger.error('Workflow deadline exceeded', { executionId, traceId, deadlineMinutes: DEFAULT_WORKFLOW_DEADLINE_MINUTES });
-        await this._updateStatus(executionId, organizationId, 'failed', null, recordSnapshot);
+        await this._recordWorkflowEvent(executionId, organizationId, 'execution_failed', null, {
+          reason: 'deadline_exceeded',
+          runtime_failure: failureDetails,
+          traceId,
+        });
+        await this._updateStatus(executionId, organizationId, 'failed', null, this._withRuntimeFailure(recordSnapshot, failureDetails));
         throw new Error(deadlineError);
       }
 
@@ -337,20 +354,39 @@ export class WorkflowExecutor {
         const stageCompleted = new Date();
         inProgress.delete(stage.id);
 
-        if (result.success && result.result?.stageResult.status === 'waiting_approval') {
+        if (
+          result.success &&
+          (result.result?.stageResult.status === 'waiting_approval' ||
+            result.result?.stageResult.status === 'pending_approval')
+        ) {
           const hitlMetadata = result.result.stageResult.output ?? {};
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'waiting_approval');
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_hitl_pending_approval', stage.id, {
+            reason: 'hitl_required',
+            ...hitlMetadata,
+            traceId,
+          });
           await this._recordWorkflowEvent(executionId, organizationId, 'stage_waiting_for_approval', stage.id, {
             reason: 'hitl_required',
             ...hitlMetadata,
             traceId,
           });
-          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'waiting_approval', stage.id);
+          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'pending_approval', stage.id);
           return;
         }
 
         if (result.success && result.result?.stageResult.status === 'completed') {
           const stageOutput = result.result.stageResult.output ?? {};
+          const stageDiagnostic = result.result.stageResult.runtimeFailure;
+
+          if (stageDiagnostic && stageDiagnostic.severity === 'degraded') {
+            this.lastDegradedState = stageDiagnostic;
+            await this._recordWorkflowEvent(executionId, organizationId, 'stage_completed', stage.id, {
+              reason: 'degraded_execution',
+              runtime_failure: stageDiagnostic,
+              traceId,
+            });
+          }
 
           const schemaValidationResult = this._validateStageOutputSchema(stage, stageOutput);
           if (!schemaValidationResult.valid) {
@@ -372,22 +408,40 @@ export class WorkflowExecutor {
           const structuralCheck = await this.policy.evaluateStructuralTruthVeto(stageOutput, { traceId, agentType: stage.agent_type as AgentType, query: stage.description ?? stage.id, stageId: stage.id });
           if (structuralCheck.vetoed) {
             const msg = 'Output failed structural truth validation against expected schema.';
+            const failureDetails = this.buildFailureDetails({
+              failureClass: 'policy-blocked',
+              severity: 'failed',
+              machineReasonCode: 'POLICY_STRUCTURAL_TRUTH_VETO',
+              diagnosis: msg,
+              confidence: 0.95,
+              blastRadiusEstimate: 'workflow',
+              recommendedNextActions: ['request-override', 'reroute-owner', 'escalate-approval-inbox'],
+            });
             failed.set(stage.id, msg);
             integrityVetoed = true;
-            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata: structuralCheck.metadata }, 'failed');
-            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, { reason: 'integrity_veto', metadata: structuralCheck.metadata });
-            await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'failed', stage.id);
+            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata: structuralCheck.metadata }, 'failed', failureDetails);
+            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, { reason: 'integrity_veto', metadata: structuralCheck.metadata, runtime_failure: failureDetails });
+            await this._persistAndUpdate(executionId, organizationId, this._withRuntimeFailure(recordSnapshot, failureDetails), 'failed', stage.id);
             continue;
           }
 
           const integrityCheck = await this.policy.evaluateIntegrityVeto(stageOutput, { traceId, agentType: stage.agent_type as AgentType, query: stage.description ?? stage.id, stageId: stage.id });
           if (integrityCheck.vetoed) {
             const msg = 'Output failed integrity validation against ground truth benchmarks.';
+            const failureDetails = this.buildFailureDetails({
+              failureClass: 'policy-blocked',
+              severity: 'failed',
+              machineReasonCode: 'POLICY_INTEGRITY_VETO',
+              diagnosis: msg,
+              confidence: 0.95,
+              blastRadiusEstimate: 'workflow',
+              recommendedNextActions: ['request-override', 'reroute-owner', 'escalate-approval-inbox'],
+            });
             failed.set(stage.id, msg);
             integrityVetoed = true;
-            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata: integrityCheck.metadata }, 'failed');
-            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, { reason: 'integrity_veto', metadata: integrityCheck.metadata });
-            await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'failed', stage.id);
+            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata: integrityCheck.metadata }, 'failed', failureDetails);
+            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, { reason: 'integrity_veto', metadata: integrityCheck.metadata, runtime_failure: failureDetails });
+            await this._persistAndUpdate(executionId, organizationId, this._withRuntimeFailure(recordSnapshot, failureDetails), 'failed', stage.id);
             continue;
           }
 
@@ -396,13 +450,19 @@ export class WorkflowExecutor {
             { ...executionContext, ...stageOutput },
             `WorkflowExecutor.executeDAGAsync.output.${stage.id}`,
           );
-          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed');
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed', stageDiagnostic ?? undefined);
           await this.executionStore.recordStageRun({ executionId, organizationId, stage, executionRecord: recordSnapshot, startedAt: stageStart, completedAt: stageCompleted, output: stageOutput });
           completed.add(stage.id);
         } else {
           const errMsg = result.result?.stageResult.error ?? result.error ?? 'Unknown stage error';
+          const failureDetails = this.classifyStageFailure(errMsg);
           failed.set(stage.id, errMsg);
-          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: errMsg }, 'failed');
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: errMsg }, 'failed', failureDetails);
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, {
+            reason: 'execution_error',
+            runtime_failure: failureDetails,
+            traceId,
+          });
         }
 
         await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'in_progress', stage.id);
@@ -418,7 +478,13 @@ export class WorkflowExecutor {
 
     if (failed.size > 0) {
       logger.error('DAG execution failed', { executionId, traceId, errorSummary: [...failed.entries()].map(([id, e]) => `${id}: ${e}`).join('; ') });
-      await this._updateStatus(executionId, organizationId, 'failed', null, recordSnapshot);
+      const fallbackFailure = this.classifyStageFailure([...failed.values()][0] ?? 'Unknown stage error');
+      await this._recordWorkflowEvent(executionId, organizationId, 'execution_failed', null, {
+        reason: 'workflow_failed',
+        runtime_failure: fallbackFailure,
+        traceId,
+      });
+      await this._updateStatus(executionId, organizationId, 'failed', null, this._withRuntimeFailure(recordSnapshot, fallbackFailure));
       return;
     }
 
@@ -432,7 +498,13 @@ export class WorkflowExecutor {
       durationMs: dagStartMs,
       completedStages: [...completed.keys()] as import('../../observability/valueLoopMetrics.js').ValueLoopStage[],
     });
-    await this._updateStatus(executionId, organizationId, 'completed', null, recordSnapshot);
+    await this._updateStatus(
+      executionId,
+      organizationId,
+      'completed',
+      null,
+      this.lastDegradedState ? this._withRuntimeFailure(recordSnapshot, this.lastDegradedState) : recordSnapshot,
+    );
   }
 
   private async capturePreModelingSnapshotIfNeeded(
@@ -633,7 +705,19 @@ export class WorkflowExecutor {
         if (route.selected_agent) { this.registry.recordRelease(route.selected_agent.id); this.registry.markHealthy(route.selected_agent.id); }
         span.setStatus({ code: SpanStatusCode.OK });
         span.end();
-        return { status: 'completed', output: retryResult.response.data };
+        const attempts = retryResult.attempts ?? 1;
+        const runtimeFailure = attempts > 1
+          ? this.buildFailureDetails({
+            failureClass: 'transient-degraded',
+            severity: 'degraded',
+            machineReasonCode: 'TRANSIENT_RETRY_RECOVERED',
+            diagnosis: `Stage recovered after ${attempts} attempts.`,
+            confidence: 0.72,
+            blastRadiusEstimate: 'single-stage',
+          })
+          : undefined;
+
+        return { status: 'completed', output: retryResult.response.data, runtimeFailure };
       }
 
       if (route.selected_agent) this.registry.recordFailure(route.selected_agent.id);
@@ -641,7 +725,7 @@ export class WorkflowExecutor {
       span.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
       if (retryResult.error) span.recordException(retryResult.error);
       span.end();
-      return { status: 'failed', error: errMsg };
+      return { status: 'failed', error: errMsg, runtimeFailure: this.classifyStageFailure(errMsg) };
     });
   }
 
@@ -722,8 +806,9 @@ export class WorkflowExecutor {
     completedAt: Date,
     payload: Record<string, unknown>,
     status: 'completed' | 'failed' | 'pending_approval',
+    runtimeFailure?: RuntimeFailureDetails,
   ): WorkflowExecutionRecord {
-    const lifecycle: StageLifecycleRecord = { stageId: stage.id, lifecycleStage: stage.agent_type, status, startedAt: startedAt.toISOString(), completedAt: completedAt.toISOString(), summary: stage.description };
+    const lifecycle: StageLifecycleRecord = { stageId: stage.id, lifecycleStage: stage.agent_type, status, startedAt: startedAt.toISOString(), completedAt: completedAt.toISOString(), summary: stage.description, ...(runtimeFailure ? { runtimeFailure } : {}) };
     const prevOutputs = (snapshot.io && typeof snapshot.io === 'object' && 'outputs' in snapshot.io) ? (snapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {};
     return {
       ...snapshot,
@@ -732,6 +817,81 @@ export class WorkflowExecutor {
       io: { ...(snapshot.io && typeof snapshot.io === 'object' ? snapshot.io as Record<string, unknown> : {}), outputs: { ...prevOutputs, [stage.id]: payload } },
       ...(status === 'completed' && (payload as Record<string, unknown>).economic_deltas ? { economicDeltas: (payload as Record<string, unknown>).economic_deltas } : {}),
     };
+  }
+
+  private _withRuntimeFailure(snapshot: WorkflowExecutionRecord, runtimeFailure: RuntimeFailureDetails): WorkflowExecutionRecord {
+    return {
+      ...snapshot,
+      io: {
+        ...(snapshot.io && typeof snapshot.io === 'object' ? snapshot.io as Record<string, unknown> : {}),
+        runtime_failure: runtimeFailure,
+      },
+    };
+  }
+
+  private buildFailureDetails(input: {
+    failureClass: RuntimeFailureDetails['class'];
+    severity: RuntimeFailureDetails['severity'];
+    machineReasonCode: string;
+    diagnosis: string;
+    confidence: number;
+    blastRadiusEstimate: RuntimeFailureDetails['blastRadiusEstimate'];
+    recommendedNextActions?: RuntimeFailureDetails['recommendedNextActions'];
+  }): RuntimeFailureDetails {
+    return buildRuntimeFailureDetails({
+      class: input.failureClass,
+      severity: input.severity,
+      machineReasonCode: input.machineReasonCode,
+      diagnosis: input.diagnosis,
+      confidence: input.confidence,
+      blastRadiusEstimate: input.blastRadiusEstimate,
+      recommendedNextActions: input.recommendedNextActions,
+    });
+  }
+
+  private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
+    const msg = errorMessage.toLowerCase();
+    if (msg.includes('policy') || msg.includes('veto') || msg.includes('approval')) {
+      return this.buildFailureDetails({
+        failureClass: 'policy-blocked',
+        severity: 'failed',
+        machineReasonCode: 'POLICY_BLOCKED',
+        diagnosis: errorMessage,
+        confidence: 0.9,
+        blastRadiusEstimate: 'workflow',
+      });
+    }
+
+    if (msg.includes('missing') || msg.includes('not found') || msg.includes('artifact') || msg.includes('required')) {
+      return this.buildFailureDetails({
+        failureClass: 'data-missing',
+        severity: 'failed',
+        machineReasonCode: 'DATA_MISSING',
+        diagnosis: errorMessage,
+        confidence: 0.85,
+        blastRadiusEstimate: 'single-stage',
+      });
+    }
+
+    if (msg.includes('timeout') || msg.includes('unavailable') || msg.includes('connection') || msg.includes('service')) {
+      return this.buildFailureDetails({
+        failureClass: 'dependency-unavailable',
+        severity: 'failed',
+        machineReasonCode: 'DEPENDENCY_UNAVAILABLE',
+        diagnosis: errorMessage,
+        confidence: 0.81,
+        blastRadiusEstimate: 'workflow',
+      });
+    }
+
+    return this.buildFailureDetails({
+      failureClass: 'execution-failed',
+      severity: 'failed',
+      machineReasonCode: 'EXECUTION_FAILED',
+      diagnosis: errorMessage,
+      confidence: 0.78,
+      blastRadiusEstimate: 'single-stage',
+    });
   }
 
   private _buildStageDecisionContext(stage: WorkflowStage, context: WorkflowStageContextDTO): import('@shared/domain/DecisionContext.js').DecisionContext {
@@ -785,7 +945,7 @@ export class WorkflowExecutor {
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
   }
 
-  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
+  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval' | 'stage_hitl_pending_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
     await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 
