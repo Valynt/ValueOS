@@ -71,6 +71,14 @@ function validateInstanceUrl(url: string): boolean {
 
 export class SalesforceProvider implements CrmProviderInterface {
   readonly provider = 'salesforce' as const;
+  readonly capabilities = {
+    oauth: true,
+    webhookSupport: true,
+    deltaSync: true,
+    manualSync: true,
+    fieldMapping: true,
+    backfill: true,
+  } as const;
 
   getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();

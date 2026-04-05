@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { getCrmProvider, getSupportedProviders } from '../CrmProviderRegistry.js';
+import {
+  getCrmProvider,
+  getProviderCapabilityRegistry,
+  getSupportedProviders,
+} from '../CrmProviderRegistry.js';
 import { SalesforceProvider } from '../SalesforceProvider.js';
 
 describe('CrmProviderRegistry', () => {
@@ -21,5 +25,22 @@ describe('CrmProviderRegistry', () => {
   it('lists supported providers', () => {
     const providers = getSupportedProviders();
     expect(providers).toContain('salesforce');
+  });
+
+  it('returns capability descriptors for all providers', () => {
+    const registry = getProviderCapabilityRegistry();
+    const salesforce = registry.find((entry) => entry.provider === 'salesforce');
+
+    expect(salesforce).toBeDefined();
+    expect(salesforce?.capabilities).toEqual(
+      expect.objectContaining({
+        oauth: true,
+        webhookSupport: true,
+        deltaSync: true,
+        manualSync: true,
+        fieldMapping: true,
+        backfill: true,
+      }),
+    );
   });
 });

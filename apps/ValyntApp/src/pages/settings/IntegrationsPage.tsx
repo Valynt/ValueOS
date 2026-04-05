@@ -89,11 +89,11 @@ export function IntegrationsPage() {
   }, [integrations]);
 
   const oauthProviders = useMemo(
-    () => providers.filter((provider) => provider.authType === "oauth"),
+    () => providers.filter((provider) => provider.capabilities.oauth),
     [providers]
   );
   const manualProviders = useMemo(
-    () => providers.filter((provider) => provider.authType !== "oauth"),
+    () => providers.filter((provider) => !provider.capabilities.oauth),
     [providers]
   );
 
@@ -192,7 +192,27 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
-    const isOAuth = provider.authType === "oauth";
+    const isOAuth = provider.capabilities.oauth;
+    const canManualSync = provider.capabilities.manualSync;
+    const canFieldMap = provider.capabilities.fieldMapping;
+    const canBackfill = provider.capabilities.backfill;
+    const unsupportedMessages: string[] = [];
+
+    if (!canManualSync) {
+      unsupportedMessages.push("Manual sync is not available for this provider.");
+    }
+    if (!provider.capabilities.deltaSync) {
+      unsupportedMessages.push("Delta sync is not supported.");
+    }
+    if (!provider.capabilities.webhookSupport) {
+      unsupportedMessages.push("Webhook ingestion is not supported.");
+    }
+    if (!canFieldMap) {
+      unsupportedMessages.push("Field mapping configuration is unavailable.");
+    }
+    if (!canBackfill) {
+      unsupportedMessages.push("Historical backfill is unavailable.");
+    }
 
     const StatusIcon = status === "connected" ? Check : XCircle;
 
@@ -219,6 +239,9 @@ export function IntegrationsPage() {
             {hasActiveConnection && connection?.errorMessage && status === "error" && (
               <p className="text-xs text-rose-600 mt-1">{connection.errorMessage}</p>
             )}
+            {unsupportedMessages.length > 0 ? (
+              <p className="text-xs text-muted-foreground mt-1">{unsupportedMessages[0]}</p>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -259,7 +282,12 @@ export function IntegrationsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleSync(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                disabled={
+                  !canManualSync ||
+                  actionProvider === provider.id ||
+                  oauthInProgressProvider === provider.id
+                }
+                title={!canManualSync ? "Manual sync is not supported for this provider." : undefined}
               >
                 Sync
               </Button>
@@ -279,7 +307,7 @@ export function IntegrationsPage() {
               variant="outline"
               size="sm"
               onClick={() =>
-                provider.authType === "oauth" ? handleOAuthConnect(provider) : openDialog(provider)
+                provider.capabilities.oauth ? handleOAuthConnect(provider) : openDialog(provider)
               }
               disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
             >
@@ -287,6 +315,11 @@ export function IntegrationsPage() {
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
           )}
+          {!hasActiveConnection && !provider.capabilities.oauth && provider.fields.length === 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Manual setup is not available for this provider yet.
+            </span>
+          ) : null}
         </div>
       </div>
     );

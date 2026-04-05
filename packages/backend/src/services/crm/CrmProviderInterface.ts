@@ -11,6 +11,7 @@ import type {
   CanonicalAccount,
   CanonicalOpportunity,
   CrmProvider,
+  CrmProviderCapabilities,
   DeltaSyncResult,
   OAuthCallbackParams,
   OAuthStartResult,
@@ -20,6 +21,7 @@ import type {
 
 export interface CrmProviderInterface {
   readonly provider: CrmProvider;
+  readonly capabilities: CrmProviderCapabilities;
 
   // OAuth flow — nonce is an opaque state token (not tenant ID)
   getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult;

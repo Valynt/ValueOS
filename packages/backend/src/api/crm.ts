@@ -29,7 +29,7 @@ import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { crmConnectionService } from "../services/crm/CrmConnectionService";
 import { crmHealthService } from "../services/crm/CrmHealthService";
 import { crmIntegrationService } from "../services/crm/CRMIntegrationService";
-import { getCrmProvider } from "../services/crm/CrmProviderRegistry";
+import { getCrmProvider, getProviderCapabilityRegistry } from "../services/crm/CrmProviderRegistry";
 import { crmWebhookService } from "../services/crm/CrmWebhookService";
 import { consumeOAuthState } from "../services/crm/OAuthStateStore";
 import { CrmProviderSchema } from "../services/crm/types";
@@ -170,6 +170,21 @@ function sendOAuthCallbackErrorHtml(
 // ============================================================================
 
 const authMiddleware = [requireAuth, tenantContextMiddleware()];
+
+/**
+ * GET /api/crm/providers/capabilities
+ * Returns provider capability metadata for UI feature rendering.
+ */
+router.get(
+  "/providers/capabilities",
+  ...authMiddleware,
+  requirePermission("integrations:view"),
+  async (_req: Request, res: Response) => {
+    return res.json({
+      providers: getProviderCapabilityRegistry(),
+    });
+  }
+);
 
 /**
  * POST /api/crm/:provider/connect/start

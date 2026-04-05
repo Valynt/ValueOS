@@ -578,6 +578,8 @@ export const api = {
   retryIntegrationSync: (provider: "hubspot" | "salesforce") =>
     apiClient.post(`/api/integrations/operations/${provider}/sync/retry`),
 
+  getCrmProviderCapabilities: () => apiClient.get("/api/crm/providers/capabilities"),
+
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
