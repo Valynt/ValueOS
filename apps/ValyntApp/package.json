@@ -127,6 +127,7 @@
         "status": "excluded",
         "justification": "The customer-facing app is deployed from the monorepo but is not versioned as a standalone GitHub release artifact."
       }
-    }
+    },
+    "lifecycle": "active"
   }
 }

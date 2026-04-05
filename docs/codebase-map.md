@@ -42,11 +42,13 @@ ValueOS/
 
 ## apps/ — 3 Applications
 
-| App | Files | Description |
-|-----|-------|-------------|
-| `ValyntApp/` | 797 | Main React + Vite frontend. Feature-module architecture. |
-| `VOSAcademy/` | ~50 | VOS Academy training platform (separate Vite app). |
-| `mcp-dashboard/` | ~50 | MCP monitoring dashboard (React + Vite, 8 pages). |
+| App | Files | Lifecycle | Owner | Support expectation | Default quality gates |
+|-----|-------|-----------|-------|---------------------|-----------------------|
+| `ValyntApp/` | 797 | `active` | `team-frontend` | Customer-critical supported surface. | Included (`lint/typecheck/build/security` in PR + main workflows). |
+| `mcp-dashboard/` | ~50 | `experimental` | `team-ai-platform` | Prototype support only; best-effort and non-SLA. | Intentionally excluded from default workspace quality gates. |
+| `agentic-ui-pro/` | ~50 | `archived` | `team-frontend` | Reference-only; no active maintenance commitment. | Intentionally excluded from default workspace quality gates. |
+
+Lifecycle source of truth: `config/ci/workspace-package-policy.json` + each app `package.json` `valueos.lifecycle`. CI rejects any workspace app without explicit lifecycle metadata.
 
 ### ValyntApp Feature Modules (`apps/ValyntApp/src/features/`)
 
@@ -258,6 +260,20 @@ Migration files in `supabase/migrations/`. RLS enforced on all tenant-scoped tab
 | `test.yml` | Manual | Full test suite |
 | `terraform.yml` | Push + PR | Terraform plan/apply |
 | `migration-chain-integrity.yml` | Migration file changes | Migration chain validation |
+
+### Active app quality lane policy
+
+- `ValyntApp` is the only app currently classified as `active`; PR and main verification run explicit app-level `lint`, `typecheck`, `build`, and browser-key governance checks.
+- `mcp-dashboard` (`experimental`) and `agentic-ui-pro` (`archived`) stay intentionally excluded from default PR/main workspace gates until lifecycle promotion.
+
+### Dependency convergence policy (if an experimental app is promoted to active)
+
+Before promoting any non-active app to `active`, align with `ValyntApp` baseline to reduce cross-app compatibility debt:
+
+- React major: `18.x`
+- Zod major: `3.x`
+- TypeScript major: `5.9.x` baseline
+- Vite/Vitest baseline: governed by `scripts/ci/check-app-test-toolchain-baseline.mjs`
 | `compliance-evidence-export.yml` | Scheduled | Compliance evidence export |
 | `access-review-automation.yml` | Scheduled | Access review |
 | `oncall-drill-scorecard.yml` | Scheduled | On-call drill scoring |

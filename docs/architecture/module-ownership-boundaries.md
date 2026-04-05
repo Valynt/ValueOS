@@ -40,6 +40,25 @@ The following controls enforce this document:
 - CI guard script: `scripts/ci/check-module-boundaries.mjs`.
 - CI workflow integration: `.github/workflows/ci.yml` step `Check module boundaries`.
 
+## Workspace app lifecycle decisions (2026-04-05)
+
+| App | Lifecycle | Owner | Support expectation | Quality-gate stance |
+|---|---|---|---|---|
+| `apps/ValyntApp` | `active` | `team-frontend` | Full customer-critical support. | Included in explicit PR/main lanes (`lint`, `typecheck`, `build`, plus browser-key governance check). |
+| `apps/mcp-dashboard` | `experimental` | `team-ai-platform` | Best-effort prototyping support; no SLA commitment. | Excluded from default workspace quality gates unless promoted to active. |
+| `apps/agentic-ui-pro` | `archived` | `team-frontend` | Reference-only, no planned feature work. | Excluded from default workspace quality gates intentionally. |
+
+Lifecycle metadata is mandatory for every workspace app (`active`/`experimental`/`archived`) and enforced by `scripts/ci/check-workspace-package-governance.mjs` against both `config/ci/workspace-package-policy.json` and app-level `package.json` `valueos.lifecycle`.
+
+### Promotion policy: experimental/archived → active
+
+If `mcp-dashboard` or another app is promoted to `active`, dependency convergence with `ValyntApp` is required first:
+
+1. Align React major versions (target `18.x` parity).
+2. Align Zod major versions (target `3.x` parity).
+3. Align TypeScript baseline (`5.9.x`) and Vite/Vitest baselines enforced by CI.
+4. Add or enable explicit PR/main app lanes for `lint`, `typecheck`, `build`, and minimum security checks.
+
 
 ## Canonical Naming Map (Package Metadata Governance)
 

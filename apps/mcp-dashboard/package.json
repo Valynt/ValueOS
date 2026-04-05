@@ -59,6 +59,7 @@
         "status": "excluded",
         "justification": "Prototype-only dashboard; not part of the release train."
       }
-    }
+    },
+    "lifecycle": "experimental"
   }
 }

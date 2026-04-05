@@ -168,6 +168,45 @@ jobs:
         if: matrix.lane == 'valynt-app'
         run: node scripts/ci/a11y-eslint-weekly-ratchet.mjs --report "${{ matrix.report_path }}"
 
+  active-app-quality-gates:
+    name: active-app-quality-gates (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: valynt-app
+            app_dir: apps/ValyntApp
+            browser_key_app_arg: ValyntApp
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Active app lint
+        run: pnpm --dir ${{ matrix.app_dir }} run lint
+      - name: Active app typecheck
+        run: pnpm --dir ${{ matrix.app_dir }} run typecheck
+      - name: Active app build
+        run: pnpm --dir ${{ matrix.app_dir }} run build
+      - name: Active app browser-key governance
+        run: node scripts/security/validate-browser-api-key-governance.mjs --app=${{ matrix.browser_key_app_arg }}
+
   production-eslint-ratchet:
     name: production-eslint-ratchet
     runs-on: ubuntu-latest
@@ -1261,6 +1300,7 @@ jobs:
       - secret-scan
       - ts-type-ratchet
       - lint-runtime-packages
+      - active-app-quality-gates
       - unit-component-schema
       - tenant-isolation-static-gate
       - tenant-isolation-gate
@@ -1311,6 +1351,7 @@ jobs:
             "secret-scan:${{ needs.secret-scan.result }}" \
             "ts-type-ratchet:${{ needs.ts-type-ratchet.result }}" \
             "lint-runtime-packages:${{ needs.lint-runtime-packages.result }}" \
+            "active-app-quality-gates:${{ needs.active-app-quality-gates.result }}" \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
