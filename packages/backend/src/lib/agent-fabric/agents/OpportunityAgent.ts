@@ -34,54 +34,24 @@ import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
 import { mapCategoryToValueDriverType } from '../../../services/value-graph/valueDriverUtils.js';
+import {
+  OpportunityAgentInputSchema,
+  OpportunityAnalysisSchema,
+  ValueHypothesisSchema,
+} from './agent-schemas.js';
 
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
 // ---------------------------------------------------------------------------
 
-const ValueHypothesisSchema = z.object({
-  /**
-   * Stable identifier. The LLM may omit it; generateHypotheses() fills in a
-   * deterministic slug (`<category>-<1-based-index>`) after parsing so every
-   * hypothesis always carries a non-empty, unique-within-opportunity id.
-   */
-  id: z.string().optional(),
-  title: z.string().min(1),
-  description: z.string().min(1),
-  category: z.enum([
-    'revenue_growth',
-    'cost_reduction',
-    'risk_mitigation',
-    'operational_efficiency',
-    'strategic_advantage',
-  ]),
-  estimated_impact: z.object({
-    low: z.number(),
-    high: z.number(),
-    unit: z.enum(['usd', 'percent', 'hours', 'headcount']),
-    timeframe_months: z.number().int().positive(),
-  }),
-  confidence: z.number().min(0).max(1),
-  evidence: z.array(z.string()).min(1),
-  assumptions: z.array(z.string()),
-  kpi_targets: z.array(z.string()),
-});
-
-const OpportunityAnalysisSchema = z.object({
-  company_summary: z.string(),
-  industry_context: z.string(),
-  hypotheses: z.array(ValueHypothesisSchema).min(1),
-  stakeholder_roles: z.array(z.object({
-    role: z.string(),
-    relevance: z.string(),
-    likely_concerns: z.array(z.string()),
-  })),
-  recommended_next_steps: z.array(z.string()),
-});
-
 type OpportunityAnalysis = z.infer<typeof OpportunityAnalysisSchema>;
 type ValueHypothesis = z.infer<typeof ValueHypothesisSchema>;
+
+const OPPORTUNITY_AGENT_CONTRACT = Object.freeze({
+  inputSchema: OpportunityAgentInputSchema,
+  outputSchema: OpportunityAnalysisSchema,
+});
 
 // ---------------------------------------------------------------------------
 // Agent
@@ -92,6 +62,10 @@ export class OpportunityAgent extends BaseAgent {
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
+    const contractInput = OPPORTUNITY_AGENT_CONTRACT.inputSchema.safeParse(context);
+    if (!contractInput.success) {
+      throw new Error('Invalid input context');
+    }
     const isValid = await this.validateInput(context);
     if (!isValid) {
       throw new Error('Invalid input context');
@@ -420,7 +394,7 @@ export class OpportunityAgent extends BaseAgent {
       const result = await this.secureInvoke<OpportunityAnalysis>(
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
-        OpportunityAnalysisSchema,
+        OPPORTUNITY_AGENT_CONTRACT.outputSchema,
          
         {
           trackPrediction: true,
