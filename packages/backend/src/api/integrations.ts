@@ -18,6 +18,7 @@ import { createSecureRouter } from "../middleware/secureRouter";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import {
   integrationConnectionService,
+  listIntegrationProviderDescriptors,
   type IntegrationConnectPayload,
 } from "../services/crm/IntegrationConnectionService";
 import { integrationControlService } from "../services/crm/IntegrationControlService";
@@ -169,6 +170,24 @@ router.post(
       return res.json({ success: true, ...result });
     } catch (error) {
       return handleError(res, error, "Failed to retry sync");
+    }
+  }
+);
+
+
+router.get(
+  "/providers/capabilities",
+  requirePermission("integrations:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      return res.json({ providers: listIntegrationProviderDescriptors() });
+    } catch (error) {
+      return handleError(res, error, "Failed to load integration provider capabilities");
     }
   }
 );

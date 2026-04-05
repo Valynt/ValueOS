@@ -49,6 +49,31 @@ const formatTimestamp = (value?: string) => {
 const getConnectLabel = (provider: IntegrationProvider) => `Connect with ${provider.name}`;
 const getReconnectLabel = (provider: IntegrationProvider) => `Reconnect ${provider.name}`;
 
+const getActionReason = (
+  provider: IntegrationProvider,
+  action: "connect" | "reconnect" | "configure" | "test" | "sync"
+): string | null => {
+  if (provider.unsupportedActionReasons?.[action]) {
+    return provider.unsupportedActionReasons[action] ?? null;
+  }
+
+  if (action === "connect" || action === "reconnect") {
+    if (!provider.capabilities.oauth && !provider.capabilities.manual_sync) {
+      return "Connection is not yet supported for this provider.";
+    }
+  }
+
+  if (action === "sync" && !provider.capabilities.manual_sync) {
+    return "Manual sync is not available for this provider.";
+  }
+
+  if (action === "test" && !provider.capabilities.connection_test) {
+    return "Connection testing is not available for this provider.";
+  }
+
+  return null;
+};
+
 export function IntegrationsPage() {
   const {
     integrations,
@@ -89,11 +114,11 @@ export function IntegrationsPage() {
   }, [integrations]);
 
   const oauthProviders = useMemo(
-    () => providers.filter((provider) => provider.authType === "oauth"),
+    () => providers.filter((provider) => provider.capabilities.oauth),
     [providers]
   );
   const manualProviders = useMemo(
-    () => providers.filter((provider) => provider.authType !== "oauth"),
+    () => providers.filter((provider) => !provider.capabilities.oauth),
     [providers]
   );
 
@@ -192,7 +217,15 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
-    const isOAuth = provider.authType === "oauth";
+    const supportsOAuth = provider.capabilities.oauth && provider.authType === "oauth";
+    const supportsManualConnect = !supportsOAuth && provider.capabilities.manual_sync;
+    const canConnect = supportsOAuth || supportsManualConnect;
+    const canTest = provider.capabilities.connection_test;
+    const canSync = provider.capabilities.manual_sync;
+    const connectReason = getActionReason(provider, "connect");
+    const reconnectReason = getActionReason(provider, "reconnect");
+    const syncReason = getActionReason(provider, "sync");
+    const testReason = getActionReason(provider, "test");
 
     const StatusIcon = status === "connected" ? Check : XCircle;
 
@@ -211,6 +244,11 @@ export function IntegrationsPage() {
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{provider.description}</p>
+            {(!canConnect || !canTest || !canSync) && (
+              <p className="text-xs text-amber-700 mt-1">
+                {[connectReason, testReason, syncReason].filter(Boolean)[0]}
+              </p>
+            )}
             {hasActiveConnection && connection?.lastSyncAt && (
               <p className="text-xs text-muted-foreground mt-1">
                 Last sync {formatTimestamp(connection.lastSyncAt)}
@@ -224,7 +262,7 @@ export function IntegrationsPage() {
         <div className="flex items-center gap-2">
           {hasActiveConnection ? (
             <>
-              {!isOAuth && (
+              {supportsManualConnect && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -235,34 +273,43 @@ export function IntegrationsPage() {
                   Configure
                 </Button>
               )}
-              {isOAuth && (
+              {supportsOAuth && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleOAuthConnect(provider)}
-                  disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                  disabled={
+                    !!reconnectReason ||
+                    actionProvider === provider.id ||
+                    oauthInProgressProvider === provider.id
+                  }
+                  title={reconnectReason ?? undefined}
                 >
                   <ExternalLink className="h-3 w-3 mr-2" />
                   {getReconnectLabel(provider)}
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleTest(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-              >
-                <RefreshCw className="h-3 w-3 mr-2" />
-                Test
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSync(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-              >
-                Sync
-              </Button>
+              {canTest && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleTest(connection)}
+                  disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                >
+                  <RefreshCw className="h-3 w-3 mr-2" />
+                  Test
+                </Button>
+              )}
+              {canSync && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleSync(connection)}
+                  disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                >
+                  Sync
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -278,10 +325,13 @@ export function IntegrationsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                provider.authType === "oauth" ? handleOAuthConnect(provider) : openDialog(provider)
+              onClick={() => (supportsOAuth ? handleOAuthConnect(provider) : openDialog(provider))}
+              disabled={
+                !canConnect ||
+                actionProvider === provider.id ||
+                oauthInProgressProvider === provider.id
               }
-              disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+              title={connectReason ?? undefined}
             >
               {oauthInProgressProvider === provider.id ? "Connecting..." : getConnectLabel(provider)}
               <ExternalLink className="h-3 w-3 ml-2" />

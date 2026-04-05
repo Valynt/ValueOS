@@ -47,6 +47,38 @@ export interface IntegrationTestResult {
   message: string;
 }
 
+export type IntegrationCapability =
+  | "oauth"
+  | "webhook_support"
+  | "delta_sync"
+  | "manual_sync"
+  | "field_mapping"
+  | "backfill"
+  | "credential_rotation"
+  | "connection_test";
+
+export interface IntegrationProviderCapabilities {
+  oauth: boolean;
+  webhook_support: boolean;
+  delta_sync: boolean;
+  manual_sync: boolean;
+  field_mapping: boolean;
+  backfill: boolean;
+  credential_rotation: boolean;
+  connection_test: boolean;
+}
+
+export interface IntegrationProviderDescriptor {
+  provider: IntegrationProvider;
+  displayName: string;
+  category: "crm" | "communication";
+  description: string;
+  authType: "oauth" | "apikey" | "basic";
+  requiresInstanceUrl: boolean;
+  capabilities: IntegrationProviderCapabilities;
+  unsupportedReasons: Partial<Record<IntegrationCapability, string>>;
+}
+
 export interface IntegrationAuditEvent {
   id: string;
   timestamp: string;
@@ -58,6 +90,143 @@ export interface IntegrationAuditEvent {
 }
 
 const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "servicenow", "sharepoint", "slack"];
+
+export const INTEGRATION_PROVIDER_REGISTRY: Record<IntegrationProvider, IntegrationProviderDescriptor> = {
+  hubspot: {
+    provider: "hubspot",
+    displayName: "HubSpot",
+    category: "crm",
+    description: "Connect your HubSpot CRM",
+    authType: "oauth",
+    requiresInstanceUrl: false,
+    capabilities: {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {},
+  },
+  salesforce: {
+    provider: "salesforce",
+    displayName: "Salesforce",
+    category: "crm",
+    description: "Connect your Salesforce CRM",
+    authType: "oauth",
+    requiresInstanceUrl: true,
+    capabilities: {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {},
+  },
+  dynamics: {
+    provider: "dynamics",
+    displayName: "Dynamics",
+    category: "crm",
+    description: "Microsoft Dynamics CRM integration",
+    authType: "oauth",
+    requiresInstanceUrl: true,
+    capabilities: {
+      oauth: true,
+      webhook_support: false,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {
+      webhook_support: "Webhook ingestion is not enabled for Dynamics yet.",
+    },
+  },
+  servicenow: {
+    provider: "servicenow",
+    displayName: "ServiceNow",
+    category: "communication",
+    description: "Ticket creation and status tracking",
+    authType: "basic",
+    requiresInstanceUrl: true,
+    capabilities: {
+      oauth: false,
+      webhook_support: false,
+      delta_sync: false,
+      manual_sync: true,
+      field_mapping: false,
+      backfill: false,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {
+      oauth: "ServiceNow uses manual credentials in this release.",
+      webhook_support: "Inbound webhooks are not configured for ServiceNow.",
+      delta_sync: "Delta sync is not available for ServiceNow yet.",
+      field_mapping: "Field mapping is not available for ServiceNow yet.",
+      backfill: "Historical backfill is not available for ServiceNow yet.",
+    },
+  },
+  sharepoint: {
+    provider: "sharepoint",
+    displayName: "SharePoint",
+    category: "communication",
+    description: "Document storage and artifact sharing",
+    authType: "apikey",
+    requiresInstanceUrl: false,
+    capabilities: {
+      oauth: false,
+      webhook_support: false,
+      delta_sync: false,
+      manual_sync: true,
+      field_mapping: false,
+      backfill: false,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {
+      oauth: "SharePoint uses manual credential entry in this release.",
+      webhook_support: "Webhook processing is not available for SharePoint yet.",
+      delta_sync: "Delta sync is not available for SharePoint yet.",
+      field_mapping: "Field mapping is not available for SharePoint yet.",
+      backfill: "Historical backfill is not available for SharePoint yet.",
+    },
+  },
+  slack: {
+    provider: "slack",
+    displayName: "Slack",
+    category: "communication",
+    description: "Agent notifications and checkpoint alerts",
+    authType: "oauth",
+    requiresInstanceUrl: false,
+    capabilities: {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: false,
+      manual_sync: false,
+      field_mapping: false,
+      backfill: false,
+      credential_rotation: true,
+      connection_test: true,
+    },
+    unsupportedReasons: {
+      delta_sync: "Slack does not support CRM delta sync.",
+      manual_sync: "Slack sync is event-driven and does not support manual sync.",
+      field_mapping: "Field mapping is not applicable for Slack notifications.",
+      backfill: "Backfill is not available for Slack notifications.",
+    },
+  },
+};
+
 
 /**
  * Allowlisted hostname patterns for Salesforce instance URLs.
@@ -94,6 +263,10 @@ const PROVIDER_REQUIREMENTS: Record<IntegrationProvider, { requiresInstanceUrl: 
 };
 
 const DEFAULT_TEST_TIMEOUT_MS = 8000;
+
+export function listIntegrationProviderDescriptors(): IntegrationProviderDescriptor[] {
+  return SUPPORTED_PROVIDERS.map((provider) => INTEGRATION_PROVIDER_REGISTRY[provider]);
+}
 
 
 interface TenantIntegrationRow {

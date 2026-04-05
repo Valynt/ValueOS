@@ -1,6 +1,7 @@
 export type IntegrationType = "crm" | "communication" | "storage" | "analytics" | "auth";
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "pending";
-export type IntegrationProviderId = "hubspot" | "salesforce";
+export type IntegrationProviderId = "hubspot" | "salesforce" | "servicenow" | "sharepoint" | "slack";
+export type CrmIntegrationProviderId = "hubspot" | "salesforce";
 
 export interface IntegrationConnection {
   id: string;
@@ -28,6 +29,25 @@ export interface IntegrationCredentialsInput {
   instanceUrl?: string;
 }
 
+export interface IntegrationCapabilities {
+  oauth: boolean;
+  webhook_support: boolean;
+  delta_sync: boolean;
+  manual_sync: boolean;
+  field_mapping: boolean;
+  backfill: boolean;
+  credential_rotation: boolean;
+  connection_test: boolean;
+}
+
+export type IntegrationActionKey =
+  | "connect"
+  | "reconnect"
+  | "configure"
+  | "test"
+  | "sync"
+  | "disconnect";
+
 export interface IntegrationProvider {
   id: IntegrationProviderId;
   type: IntegrationType;
@@ -36,11 +56,14 @@ export interface IntegrationProvider {
   icon: string;
   authType: "oauth" | "apikey" | "basic";
   fields: IntegrationConfigField[];
+  requiresInstanceUrl?: boolean;
+  capabilities: IntegrationCapabilities;
+  unsupportedActionReasons?: Partial<Record<IntegrationActionKey, string>>;
 }
 
 export interface IntegrationOperationEntry {
   id: string;
-  provider: IntegrationProviderId;
+  provider: CrmIntegrationProviderId;
   category: "connection_event" | "webhook_failure" | "sync_failure";
   action: string;
   status: "success" | "failed";
@@ -52,14 +75,13 @@ export interface IntegrationOperationEntry {
 export interface IntegrationOperationsResponse {
   tenantId: string;
   generatedAt: string;
-  provider: IntegrationProviderId | "all";
+  provider: CrmIntegrationProviderId | "all";
   connectionEvents: IntegrationOperationEntry[];
   webhookFailures: IntegrationOperationEntry[];
   syncFailures: IntegrationOperationEntry[];
   lifecycleHistory: IntegrationOperationEntry[];
 }
 
-// Known providers (CRM-focused for production readiness)
 export const PROVIDERS: IntegrationProvider[] = [
   {
     id: "salesforce",
@@ -69,6 +91,17 @@ export const PROVIDERS: IntegrationProvider[] = [
     icon: "SF",
     authType: "oauth",
     fields: [],
+    requiresInstanceUrl: true,
+    capabilities: {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+      credential_rotation: true,
+      connection_test: true,
+    },
   },
   {
     id: "hubspot",
@@ -78,5 +111,15 @@ export const PROVIDERS: IntegrationProvider[] = [
     icon: "HS",
     authType: "oauth",
     fields: [],
+    capabilities: {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+      credential_rotation: true,
+      connection_test: true,
+    },
   },
 ];

@@ -559,6 +559,8 @@ export const api = {
   // Integrations
   getIntegrations: () => apiClient.get("/api/integrations"),
 
+  getIntegrationProviderCapabilities: () => apiClient.get("/api/integrations/providers/capabilities"),
+
   createIntegration: (data: unknown) => apiClient.post("/api/integrations", data),
 
   testIntegration: (id: string) => apiClient.post(`/api/integrations/${id}/test`),

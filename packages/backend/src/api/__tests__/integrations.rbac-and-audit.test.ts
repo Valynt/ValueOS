@@ -62,6 +62,27 @@ const mockConnectionService = vi.hoisted(() => ({
 
 vi.mock("../../services/crm/IntegrationConnectionService", () => ({
   integrationConnectionService: mockConnectionService,
+  listIntegrationProviderDescriptors: vi.fn(() => [
+    {
+      provider: "hubspot",
+      displayName: "HubSpot",
+      category: "crm",
+      description: "Connect your HubSpot CRM",
+      authType: "oauth",
+      requiresInstanceUrl: false,
+      capabilities: {
+        oauth: true,
+        webhook_support: true,
+        delta_sync: true,
+        manual_sync: true,
+        field_mapping: true,
+        backfill: true,
+        credential_rotation: true,
+        connection_test: true,
+      },
+      unsupportedReasons: {},
+    },
+  ]),
 }));
 
 const mockOperationsService = vi.hoisted(() => ({
@@ -136,6 +157,28 @@ describe("Integrations API RBAC + audit history", () => {
           source: "secret_access_audits",
           decision: "deny",
           reason: "AGENT_NOT_ALLOWED",
+        }),
+      ])
+    );
+  });
+
+
+
+  it("exposes provider capabilities registry for UI", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/integrations", integrationsRouter);
+
+    const res = await request(app)
+      .get("/api/integrations/providers/capabilities")
+      .expect(200);
+
+    expect(res.headers["x-required-permission"]).toBe("integrations:view");
+    expect(res.body.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "hubspot",
+          capabilities: expect.objectContaining({ oauth: true, webhook_support: true }),
         }),
       ])
     );

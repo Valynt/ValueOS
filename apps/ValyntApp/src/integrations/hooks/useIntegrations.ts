@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  CrmIntegrationProviderId,
+  IntegrationActionKey,
+  IntegrationCapabilities,
   IntegrationConnection,
   IntegrationCredentialsInput,
   IntegrationOperationsResponse,
+  IntegrationProvider,
   IntegrationProviderId,
   IntegrationStatus,
 } from "../types";
@@ -43,6 +47,19 @@ interface RawIntegration {
   scopes?: string[];
 }
 
+interface RawProviderCapabilityResponse {
+  providers?: Array<{
+    provider: string;
+    displayName?: string;
+    category?: "crm" | "communication";
+    description?: string;
+    authType?: "oauth" | "apikey" | "basic";
+    requiresInstanceUrl?: boolean;
+    capabilities?: Partial<IntegrationCapabilities>;
+    unsupportedReasons?: Partial<Record<keyof IntegrationCapabilities, string>>;
+  }>;
+}
+
 interface RawResponseData {
   integrations?: RawIntegration[];
   integration?: RawIntegration;
@@ -53,7 +70,6 @@ interface RawResponseData {
 interface CrmStatusResponse {
   connected?: boolean;
   status?: string;
-  provider?: string;
   lastSyncAt?: string;
   last_sync_at?: string;
   lastError?: string;
@@ -69,6 +85,17 @@ interface CrmHealthResponse {
   last_error?: string;
 }
 
+const defaultCapabilities: IntegrationCapabilities = {
+  oauth: false,
+  webhook_support: false,
+  delta_sync: false,
+  manual_sync: true,
+  field_mapping: false,
+  backfill: false,
+  credential_rotation: true,
+  connection_test: true,
+};
+
 const emptyOperations: IntegrationOperationsResponse = {
   tenantId: "",
   generatedAt: "",
@@ -77,18 +104,92 @@ const emptyOperations: IntegrationOperationsResponse = {
   webhookFailures: [],
   syncFailures: [],
   lifecycleHistory: [],
-const isCrmOAuthProvider = (providerId: IntegrationProviderId): boolean => {
-  const provider = PROVIDERS.find((item) => item.id === providerId);
-  return provider?.type === "crm" && provider.authType === "oauth";
 };
+
+const isCrmProvider = (providerId: IntegrationProviderId): providerId is CrmIntegrationProviderId =>
+  providerId === "hubspot" || providerId === "salesforce";
+
+const getUnsupportedActionReasons = (
+  capabilities: IntegrationCapabilities,
+  rawReasons?: Partial<Record<keyof IntegrationCapabilities, string>>
+): Partial<Record<IntegrationActionKey, string>> => {
+  const reasons: Partial<Record<IntegrationActionKey, string>> = {};
+  if (!capabilities.oauth && !capabilities.manual_sync) {
+    reasons.connect = rawReasons?.oauth || "Connection is not yet supported for this provider.";
+  }
+  if (!capabilities.oauth) {
+    reasons.reconnect = rawReasons?.oauth || "Reauthorization is not available for this provider.";
+  }
+  if (!capabilities.manual_sync) {
+    reasons.sync = rawReasons?.manual_sync || "Manual sync is not available for this provider.";
+  }
+  if (!capabilities.connection_test) {
+    reasons.test = rawReasons?.connection_test || "Connection testing is not available for this provider.";
+  }
+  return reasons;
+};
+
+const mapProviderFromRegistry = (
+  provider: RawProviderCapabilityResponse["providers"][number]
+): IntegrationProvider | null => {
+  if (!providerIds.has(provider.provider as IntegrationProviderId)) {
+    return null;
+  }
+
+  const providerId = provider.provider as IntegrationProviderId;
+  const fallbackProvider = PROVIDERS.find((item) => item.id === providerId);
+  if (!fallbackProvider) {
+    return null;
+  }
+
+  const capabilities: IntegrationCapabilities = {
+    ...defaultCapabilities,
+    ...(provider.capabilities ?? {}),
+  };
+
+  return {
+    ...fallbackProvider,
+    name: provider.displayName ?? fallbackProvider.name,
+    description: provider.description ?? fallbackProvider.description,
+    type: provider.category ?? fallbackProvider.type,
+    authType: provider.authType ?? fallbackProvider.authType,
+    requiresInstanceUrl: provider.requiresInstanceUrl ?? fallbackProvider.requiresInstanceUrl,
+    capabilities,
+    unsupportedActionReasons: getUnsupportedActionReasons(capabilities, provider.unsupportedReasons),
+  };
+};
+
+const isCrmOAuthProvider = (provider: IntegrationProvider): boolean =>
+  provider.type === "crm" && provider.authType === "oauth" && provider.capabilities.oauth;
 
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
+  const [providers, setProviders] = useState<IntegrationProvider[]>(PROVIDERS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthInProgressProvider, setOauthInProgressProvider] =
     useState<IntegrationProviderId | null>(null);
   const [operations, setOperations] = useState<IntegrationOperationsResponse>(emptyOperations);
+
+  const fetchProviders = useCallback(async () => {
+    try {
+      const response = await api.getIntegrationProviderCapabilities();
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to fetch provider capabilities");
+      }
+
+      const raw = (response.data ?? {}) as RawProviderCapabilityResponse;
+      const mapped = (raw.providers ?? [])
+        .map(mapProviderFromRegistry)
+        .filter((provider): provider is IntegrationProvider => provider !== null);
+
+      if (mapped.length > 0) {
+        setProviders(mapped);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch provider capabilities");
+    }
+  }, []);
 
   const fetchIntegrations = useCallback(async () => {
     setIsLoading(true);
@@ -99,11 +200,10 @@ export function useIntegrations() {
         throw new Error(response.error?.message || "Failed to fetch integrations");
       }
 
-      const data = response.data as unknown;
-      const rawData = data as RawResponseData;
-      const items = rawData.integrations ?? [];
+      const data = response.data as RawResponseData;
+      const items = data.integrations ?? [];
       const mapped = items
-        .filter((item) => providerIds.has(item.provider))
+        .filter((item) => providerIds.has(item.provider as IntegrationProviderId))
         .map((item) => ({
           id: item.id,
           provider: item.provider as IntegrationProviderId,
@@ -123,74 +223,71 @@ export function useIntegrations() {
     }
   }, []);
 
-  const refreshCrmConnectionState = useCallback(
-    async (providerId: IntegrationProviderId) => {
-      const [statusResponse, healthResponse] = await Promise.all([
-        apiClient.get(`/api/crm/${providerId}/status`),
-        apiClient.get(`/api/crm/${providerId}/health`),
-      ]);
+  const refreshCrmConnectionState = useCallback(async (providerId: CrmIntegrationProviderId) => {
+    const [statusResponse, healthResponse] = await Promise.all([
+      apiClient.get(`/api/crm/${providerId}/status`),
+      apiClient.get(`/api/crm/${providerId}/health`),
+    ]);
 
-      if (!statusResponse.success) {
-        throw new Error(statusResponse.error?.message || "Failed to fetch CRM status");
+    if (!statusResponse.success) {
+      throw new Error(statusResponse.error?.message || "Failed to fetch CRM status");
+    }
+    if (!healthResponse.success) {
+      throw new Error(healthResponse.error?.message || "Failed to fetch CRM health");
+    }
+
+    const statusData = (statusResponse.data ?? {}) as CrmStatusResponse;
+    const healthData = (healthResponse.data ?? {}) as CrmHealthResponse;
+
+    setIntegrations((prev) => {
+      const existing = prev.find((item) => item.provider === providerId);
+      const mergedStatus = mapStatus(healthData.status ?? statusData.status);
+      const updatedConnection: IntegrationConnection = {
+        id: existing?.id ?? providerId,
+        provider: providerId,
+        status: statusData.connected === false ? "disconnected" : mergedStatus,
+        connectedAt: existing?.connectedAt,
+        lastSyncAt:
+          statusData.lastSyncAt ??
+          statusData.last_sync_at ??
+          healthData.lastSyncAt ??
+          healthData.last_sync_at ??
+          existing?.lastSyncAt,
+        errorMessage:
+          statusData.lastError ??
+          statusData.last_error ??
+          healthData.error ??
+          healthData.lastError ??
+          healthData.last_error ??
+          undefined,
+        instanceUrl: existing?.instanceUrl,
+        scopes: existing?.scopes ?? [],
+      };
+
+      if (updatedConnection.status === "disconnected") {
+        return prev.filter((item) => item.provider !== providerId);
       }
-      if (!healthResponse.success) {
-        throw new Error(healthResponse.error?.message || "Failed to fetch CRM health");
+
+      if (!existing) {
+        return [...prev, updatedConnection];
       }
 
-      const statusData = (statusResponse.data ?? {}) as CrmStatusResponse;
-      const healthData = (healthResponse.data ?? {}) as CrmHealthResponse;
-
-      setIntegrations((prev) => {
-        const existing = prev.find((item) => item.provider === providerId);
-        const mergedStatus = mapStatus(healthData.status ?? statusData.status);
-        const updatedConnection: IntegrationConnection = {
-          id: existing?.id ?? providerId,
-          provider: providerId,
-          status: statusData.connected === false ? "disconnected" : mergedStatus,
-          connectedAt: existing?.connectedAt,
-          lastSyncAt:
-            statusData.lastSyncAt ??
-            statusData.last_sync_at ??
-            healthData.lastSyncAt ??
-            healthData.last_sync_at ??
-            existing?.lastSyncAt,
-          errorMessage:
-            statusData.lastError ??
-            statusData.last_error ??
-            healthData.error ??
-            healthData.lastError ??
-            healthData.last_error ??
-            undefined,
-          instanceUrl: existing?.instanceUrl,
-          scopes: existing?.scopes ?? [],
-        };
-
-        if (updatedConnection.status === "disconnected") {
-          return prev.filter((item) => item.provider !== providerId);
-        }
-
-        if (!existing) {
-          return [...prev, updatedConnection];
-        }
-
-        return prev.map((item) =>
-          item.provider === providerId ? { ...item, ...updatedConnection } : item
-        );
-      });
-    },
-    []
-  );
+      return prev.map((item) =>
+        item.provider === providerId ? { ...item, ...updatedConnection } : item
+      );
+    });
+  }, []);
 
   const connect = useCallback(
     async (providerId: IntegrationProviderId, credentials?: IntegrationCredentialsInput) => {
       try {
         setError(null);
-        const provider = PROVIDERS.find((item) => item.id === providerId);
+        const provider = providers.find((item) => item.id === providerId);
         if (!provider) {
           throw new Error("Unsupported integration provider");
         }
 
-        if (isCrmOAuthProvider(providerId)) {
+        if (isCrmOAuthProvider(provider)) {
           const response = await apiClient.post(`/api/crm/${providerId}/connect/start`);
           if (!response.success) {
             throw new Error(response.error?.message || "Failed to start OAuth flow");
@@ -213,12 +310,15 @@ export function useIntegrations() {
           return;
         }
 
-        if (!credentials) {
-          throw new Error("Credentials are required for manual integrations");
+        if (!provider.capabilities.manual_sync) {
+          throw new Error(
+            provider.unsupportedActionReasons?.connect ||
+              "This provider does not support manual connection in this release."
+          );
         }
 
-        if (provider.type === "crm" && provider.authType === "oauth") {
-          throw new Error("CRM OAuth providers do not accept direct token payloads.");
+        if (!credentials) {
+          throw new Error("Credentials are required for manual integrations");
         }
 
         const response = await api.createIntegration({
@@ -232,9 +332,8 @@ export function useIntegrations() {
           throw new Error(response.error?.message || "Failed to connect integration");
         }
 
-        const data = response.data as unknown;
-        const rawData = data as RawResponseData;
-        const integration = rawData.integration;
+        const data = response.data as RawResponseData;
+        const integration = data.integration;
         if (!integration) {
           throw new Error("Integration response missing");
         }
@@ -263,7 +362,7 @@ export function useIntegrations() {
         setError(err instanceof Error ? err.message : "Failed to connect");
       }
     },
-    []
+    [providers]
   );
 
   const disconnect = useCallback(async (integrationId: string) => {
@@ -287,9 +386,8 @@ export function useIntegrations() {
         throw new Error(response.error?.message || "Failed to test connection");
       }
 
-      const data = response.data as unknown;
-      const rawData = data as RawResponseData;
-      const result = rawData.result;
+      const data = response.data as RawResponseData;
+      const result = data.result;
       if (result?.status) {
         setIntegrations((prev) =>
           prev.map((i) =>
@@ -309,9 +407,8 @@ export function useIntegrations() {
       if (!response.success) {
         throw new Error(response.error?.message || "Failed to sync integration");
       }
-      const data = response.data as unknown;
-      const rawData = data as RawResponseData;
-      const integration = rawData.integration;
+      const data = response.data as RawResponseData;
+      const integration = data.integration;
       if (integration) {
         setIntegrations((prev) =>
           prev.map((i) =>
@@ -330,30 +427,27 @@ export function useIntegrations() {
     }
   }, []);
 
-  const fetchOperations = useCallback(
-    async (provider?: IntegrationProviderId) => {
-      try {
-        const response = await api.getIntegrationOperations({ provider, limit: 25 });
-        if (!response.success) {
-          throw new Error(response.error?.message || "Failed to load integration operations");
-        }
-
-        const data = (response.data ?? {}) as Partial<IntegrationOperationsResponse>;
-        setOperations({
-          tenantId: data.tenantId ?? "",
-          generatedAt: data.generatedAt ?? "",
-          provider: data.provider ?? (provider ?? "all"),
-          connectionEvents: data.connectionEvents ?? [],
-          webhookFailures: data.webhookFailures ?? [],
-          syncFailures: data.syncFailures ?? [],
-          lifecycleHistory: data.lifecycleHistory ?? [],
-        });
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load integration operations");
+  const fetchOperations = useCallback(async (provider?: CrmIntegrationProviderId) => {
+    try {
+      const response = await api.getIntegrationOperations({ provider, limit: 25 });
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to load integration operations");
       }
-    },
-    []
-  );
+
+      const data = (response.data ?? {}) as Partial<IntegrationOperationsResponse>;
+      setOperations({
+        tenantId: data.tenantId ?? "",
+        generatedAt: data.generatedAt ?? "",
+        provider: data.provider ?? (provider ?? "all"),
+        connectionEvents: data.connectionEvents ?? [],
+        webhookFailures: data.webhookFailures ?? [],
+        syncFailures: data.syncFailures ?? [],
+        lifecycleHistory: data.lifecycleHistory ?? [],
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load integration operations");
+    }
+  }, []);
 
   const replayWebhookFailure = useCallback(async (eventId: string) => {
     try {
@@ -367,7 +461,7 @@ export function useIntegrations() {
     }
   }, []);
 
-  const retrySyncFailure = useCallback(async (provider: IntegrationProviderId) => {
+  const retrySyncFailure = useCallback(async (provider: CrmIntegrationProviderId) => {
     try {
       const response = await api.retryIntegrationSync(provider);
       if (!response.success) {
@@ -392,13 +486,19 @@ export function useIntegrations() {
         return;
       }
 
-      if (data.type !== "crm-oauth-complete" || !data.provider || !providerIds.has(data.provider)) {
+      if (data.type !== "crm-oauth-complete" || !data.provider || !providerIds.has(data.provider as IntegrationProviderId)) {
         return;
       }
 
       const providerId = data.provider as IntegrationProviderId;
       setOauthInProgressProvider(null);
       setError(null);
+
+      if (!isCrmProvider(providerId)) {
+        void fetchIntegrations();
+        return;
+      }
+
       void Promise.all([fetchIntegrations(), refreshCrmConnectionState(providerId)]).catch(
         (err: unknown) => {
           setError(
@@ -416,14 +516,17 @@ export function useIntegrations() {
     };
   }, [fetchIntegrations, refreshCrmConnectionState]);
 
+  useEffect(() => {
+    void fetchProviders();
+  }, [fetchProviders]);
+
   return {
     integrations,
-    providers: PROVIDERS,
+    providers,
     isLoading,
     error,
     oauthInProgressProvider,
     fetchIntegrations,
-    refreshCrmConnectionState,
     connect,
     disconnect,
     testConnection,

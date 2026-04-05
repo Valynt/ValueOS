@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockGetIntegrations,
   mockCreateIntegration,
+  mockGetProviderCapabilities,
   mockApiClientGet,
   mockApiClientPost,
   mockWindowOpen,
@@ -11,6 +12,7 @@ const {
   () => ({
     mockGetIntegrations: vi.fn(),
     mockCreateIntegration: vi.fn(),
+    mockGetProviderCapabilities: vi.fn(),
     mockApiClientGet: vi.fn(),
     mockApiClientPost: vi.fn(),
     mockWindowOpen: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("@/api/client/unified-api-client", () => ({
   api: {
     getIntegrations: mockGetIntegrations,
     createIntegration: mockCreateIntegration,
+    getIntegrationProviderCapabilities: mockGetProviderCapabilities,
     deleteIntegration: vi.fn(),
     testIntegration: vi.fn(),
     syncIntegration: vi.fn(),
@@ -37,6 +40,10 @@ describe("useIntegrations OAuth flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("open", mockWindowOpen);
+    mockGetProviderCapabilities.mockResolvedValue({
+      success: true,
+      data: { providers: [] },
+    });
   });
 
   it("surfaces popup blocked errors when OAuth popup cannot open", async () => {
