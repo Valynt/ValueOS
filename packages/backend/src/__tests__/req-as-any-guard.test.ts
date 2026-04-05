@@ -5,13 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 
-const BASELINE_REQ_AS_ANY_VIOLATIONS = new Set<string>([
-  'src/api/workflow.ts:    const tenantId = getTenantIdFromRequest(req as any) ?? "__anon__";',
-  'src/api/workflow.ts:    const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<{ rows?: Array<{ output_data?: unknown }> }> } | undefined;',
-  'src/middleware/featureFlagMiddleware.ts:      (req as any).featureFlagVariant = variant;',
-  'src/middleware/featureFlagMiddleware.ts:      (req as any).featureFlagConfig = config;',
-  'src/middleware/tenantDbContext.ts:      (req as any).db = {',
-]);
+// If a temporary exception is unavoidable, add it here with a linked ticket and explicit expiry date.
+const BASELINE_REQ_AS_ANY_VIOLATIONS = new Set<string>([]);
 
 const BASELINE_REQ_TYPED_CAST_VIOLATIONS = new Set<string>([]);
 
