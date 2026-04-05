@@ -9,7 +9,7 @@
 
 import { createLogger } from "@shared/lib/logger";
 
-import { createServiceRoleSupabaseClient } from "../lib/supabase.js"
+import { createServiceRoleSupabaseClient } from "../../lib/supabase.js"
 
 import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
 
