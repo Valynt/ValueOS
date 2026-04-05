@@ -49,6 +49,7 @@ import type { LifecycleContext, LifecycleStage } from "../../types/agent.js";
 import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.js";
 import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
+import { getBackHalfLLMGatewayConfig } from "./backHalfFactoryConfig.js";
 
 import { ValueIntegrityService } from "../../services/integrity/ValueIntegrityService.js";
 
@@ -83,7 +84,7 @@ let _factory: ReturnType<typeof createAgentFactory> | null = null;
 function getFactory() {
   if (!_factory) {
     _factory = createAgentFactory({
-      llmGateway: new LLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
+      llmGateway: new LLMGateway(getBackHalfLLMGatewayConfig()),
       memorySystem: new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
         new SupabaseMemoryBackend()
@@ -811,7 +812,7 @@ function createOrchestrator(supabaseClient: Request["supabase"]): ValueLifecycle
 
   return new ValueLifecycleOrchestrator(
     supabaseClient as unknown as ReturnType<typeof createClient>,
-    new FabricLLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
+    new FabricLLMGateway(getBackHalfLLMGatewayConfig()),
     new FabricMemorySystem(
       { max_memories: 1000, enable_persistence: true },
       new SupabaseMemoryBackend()
