@@ -1,6 +1,6 @@
 # Domain packs import inventory (backend)
 
-Generated on **2026-04-05** from `packages/backend/src`.
+Generated on **2026-04-05** from `packages/backend/src` (post-canonicalization pass).
 
 ## Canonical namespace decision
 
@@ -36,20 +36,20 @@ These are legacy compatibility surfaces and staged migration targets:
 
    Status: retained intentionally as temporary re-export shims with deprecation comments.
 
-2. **Legacy service module root**
+2. **Legacy service module root (shim-only)**
    - `packages/backend/src/services/domainPacks/*`
-   - Imports from `packages/backend/src/agents/context/loadDomainContext.ts`
-   - Imports from `packages/backend/src/agents/context/__tests__/loadDomainContext.test.ts`
 
-   Status: still active and should be migrated in follow-up PRs to a kebab-case service root once ownership boundaries are finalized.
+   Status: retained only as compatibility shims; runtime imports now use `src/services/domain-packs/*`.
 
 ## Guardrail
 
-A CI guard now checks `packages/backend/src` for mixed-case duplicate module roots and fails on unapproved additions:
+CI guardrails now enforce both structure and import usage:
 
-- Script: `scripts/ci/check-mixed-case-module-roots.mjs`
-- Current temporary allowlist:
-  - `packages/backend/src/api::domain-packs|domainPacks`
-  - `packages/backend/src/services::domain-packs|domainPacks`
+- `scripts/ci/check-mixed-case-module-roots.mjs`
+  - Detects mixed-case duplicate module roots under `packages/backend/src`.
+- `scripts/ci/check-domain-pack-import-paths.mjs`
+  - Blocks non-shim runtime imports of `domainPacks` and requires canonical `domain-packs` imports.
 
-This blocks introducing new mixed-case duplicate roots while allowing the current staged migration shims.
+Temporary allowlist roots remain:
+- `packages/backend/src/api::domain-packs|domainPacks`
+- `packages/backend/src/services::domain-packs|domainPacks`

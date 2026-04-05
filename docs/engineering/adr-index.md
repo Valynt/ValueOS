@@ -1,6 +1,6 @@
 # ADR Index
 
-**Last Updated**: 2026-03-27
+**Last Updated**: 2026-04-05
 
 This index is the canonical log for **why** architectural decisions were made across ValueOS.
 It centralizes ADR discovery so engineers can quickly locate context, alternatives, and consequences
@@ -23,6 +23,7 @@ before changing system boundaries.
 | ADR-0017 | Service De-duplication Strategy                              | Accepted | 2026-07-15 | Service consolidation policy, canonical file ownership, and extraction strategy         | [`docs/engineering/adr/0017-service-deduplication-strategy.md`](./adr/0017-service-deduplication-strategy.md)           |
 | ADR-0018 | Messaging Technology Selection                               | Accepted | 2026-03-17 | Canonical messaging systems: NATS JetStream (agents), BullMQ (jobs), KafkaJS (external) | [`docs/engineering/adr/0018-messaging-technology-selection.md`](./adr/0018-messaging-technology-selection.md)           |
 | ADR-0019 | Production Readiness Audit Controls (March 27, 2026)        | Accepted | 2026-03-27 | Audit remediation controls for auth, billing, CI gates, workers, and observability       | [`docs/engineering/adr/0019-production-readiness-audit-2026-03.md`](./adr/0019-production-readiness-audit-2026-03.md)   |
+| ADR-0020 | Domain Packs Module-Root Canonicalization                      | Accepted | 2026-04-05 | Backend module-root migration, compatibility shims, and CI import guardrails            | [`docs/engineering/adr/0020-domain-packs-module-root-migration.md`](./adr/0020-domain-packs-module-root-migration.md)   |
 
 ## Governance Evidence
 
