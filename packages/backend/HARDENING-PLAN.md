@@ -4,10 +4,12 @@
 
 This plan hardens `packages/backend` in four tracks:
 
-1. Enforce strict TypeScript zone checks with **zero new errors** in:
-   - `auth` (`tsconfig.strict-zone.auth.json`)
-   - `tenant-data` (`tsconfig.strict-zone.tenant-data.json`)
-   - `security` (`tsconfig.strict-zone.security.json`)
+1. Enforce strict TypeScript boundary-zone checks with **zero new errors** in:
+   - `dto` (`tsconfig.strict-zone.dto.json`)
+   - `service-interfaces` (`tsconfig.strict-zone.service-interfaces.json`)
+   - `workers` (`tsconfig.strict-zone.workers.json`)
+   - `persistence` (`tsconfig.strict-zone.persistence.json`)
+   - Legacy capability zones (`auth`, `tenant-data`, `security`) remain temporary compatibility checks during migration.
 2. Reduce ESLint warning budget in `packages/backend/package.json` on a fixed sprint cadence.
 3. Add CI ratchets that fail on **increases** in TS/ESLint debt.
 4. Publish debt burndown metrics as CI dashboard artifacts so PR-level regressions are visible.
@@ -19,7 +21,7 @@ This plan hardens `packages/backend` in four tracks:
 - **No regressions:** new debt is blocked immediately.
 - **Predictable burn-down:** warning ceilings shrink on a scheduled cadence.
 - **Auditability:** every PR emits machine-readable debt metrics.
-- **Risk-first focus:** strictness starts with auth, tenant isolation, and security-critical code.
+- **Boundary-first migration:** strictness starts at DTOs, service contracts, workers, and persistence boundaries; legacy capability zones run in parallel until fully deprecated.
 
 ---
 
@@ -28,16 +30,18 @@ This plan hardens `packages/backend` in four tracks:
 Create/update debt baseline artifacts in `artifacts/backend-debt/` (or similar committed baseline directory):
 
 - `ts-zones-baseline.json`
-  - keys: `auth`, `tenant-data`, `security`
+  - keys: `dto`, `service-interfaces`, `workers`, `persistence`
   - value per key: current TypeScript error count
 - `eslint-baseline.json`
   - keys: `totalWarnings`, `maxWarningsBudget`, `byRule`
 
 Baseline generation commands:
 
-- `pnpm --filter @valueos/backend run typecheck:strict:auth`
-- `pnpm --filter @valueos/backend run typecheck:strict:tenant-data`
-- `pnpm --filter @valueos/backend run typecheck:strict:security`
+- `pnpm --filter @valueos/backend run typecheck:strict:dto`
+- `pnpm --filter @valueos/backend run typecheck:strict:service-interfaces`
+- `pnpm --filter @valueos/backend run typecheck:strict:workers`
+- `pnpm --filter @valueos/backend run typecheck:strict:persistence`
+- `pnpm --filter @valueos/backend run typecheck:strict:capabilities` (temporary compatibility lane)
 - `pnpm --filter @valueos/backend run lint`
 
 > Baselines are captured once at Sprint 0 and only updated intentionally as debt is paid down.
@@ -47,23 +51,28 @@ Baseline generation commands:
 ## Stage 1 — Strict-Zone Guardrails (Sprint 1)
 
 ### Objective
-Freeze debt growth in `auth`, `tenant-data`, and `security` zones.
+Freeze debt growth in `dto`, `service-interfaces`, `workers`, and `persistence` zones, while retaining capability zones as temporary compatibility checks.
 
 ### Changes
 
 1. Ensure zone scripts are the canonical CI commands:
-   - `typecheck:strict:auth`
-   - `typecheck:strict:tenant-data`
-   - `typecheck:strict:security`
+   - `typecheck:strict:dto`
+   - `typecheck:strict:service-interfaces`
+   - `typecheck:strict:workers`
+   - `typecheck:strict:persistence`
+   - `typecheck:strict:capabilities` (temporary)
+   - `typecheck:strict:boundaries` (primary CI/doc migration lane)
 2. Add a CI script (`scripts/ci/backend-strict-zone-ratchet.mjs`) that:
-   - runs all three zone checks,
+   - runs all boundary-zone checks (plus temporary capability compatibility checks),
    - parses TS diagnostics count per zone,
    - compares against `ts-zones-baseline.json`,
    - fails when any zone count increases.
 3. Add PR annotation output with per-zone delta:
-   - `auth: +N/-N`
-   - `tenant-data: +N/-N`
-   - `security: +N/-N`
+   - `dto: +N/-N`
+   - `service-interfaces: +N/-N`
+   - `workers: +N/-N`
+   - `persistence: +N/-N`
+   - capability compatibility deltas (temporary)
 
 ### Exit Criteria
 
@@ -152,9 +161,11 @@ Emit `artifacts/backend-debt/dashboard.json`:
   "commit": "sha",
   "branch": "name",
   "tsStrictZones": {
-    "auth": { "current": 0, "baseline": 0, "delta": 0 },
-    "tenant-data": { "current": 0, "baseline": 0, "delta": 0 },
-    "security": { "current": 0, "baseline": 0, "delta": 0 }
+    "dto": { "current": 0, "baseline": 0, "delta": 0 },
+    "service-interfaces": { "current": 0, "baseline": 0, "delta": 0 },
+    "workers": { "current": 0, "baseline": 0, "delta": 0 },
+    "persistence": { "current": 0, "baseline": 0, "delta": 0 },
+    "capabilities": { "current": 0, "baseline": 0, "delta": 0 }
   },
   "eslint": {
     "currentWarnings": 0,
@@ -188,7 +199,7 @@ Push the same JSON to a long-lived branch artifact store (or external dashboard)
 ### Sprint planning
 
 - Confirm next `--max-warnings` target (-200).
-- Select zone-focused debt tickets (`auth`, `tenant-data`, `security`) first.
+- Select zone-focused debt tickets (`dto`, `service-interfaces`, `workers`, `persistence`) first; keep capability-zone remediation as temporary compatibility follow-up.
 
 ### During sprint
 
@@ -198,7 +209,7 @@ Push the same JSON to a long-lived branch artifact store (or external dashboard)
 ### Sprint close
 
 - Publish burndown summary in sprint notes:
-  - TS zone deltas,
+  - TS boundary-zone deltas,
   - ESLint total delta,
   - next sprint ceiling.
 
