@@ -65,6 +65,7 @@ export {
   VALUE_LIFECYCLE_SCHEMA_VERSION,
   ValueLifecycleSchemaVersionLiteral,
   ValueLifecycleSchemaVersionV1Literal,
+  ValueLifecycleSchemasByVersion,
   OpportunityContextV1Schema,
   ValueHypothesisDraftV1Schema,
   FinancialModelV1Schema,
@@ -85,6 +86,7 @@ export {
 
 export type {
   AgentMetadata,
+  ValueLifecycleSchemaVersionLiteral,
   ValueLifecycleSchemaVersion,
   ValueLifecycleSchemaVersionV1,
   OpportunityContextV1,
@@ -100,4 +102,5 @@ export type {
   ExecutiveNarrative,
   ValueLifecycle,
   ValueLifecycleEventPayload,
+  ValueLifecycleEventPayloadInput,
 } from "./agent-schemas";

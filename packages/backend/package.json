@@ -18,13 +18,19 @@
     "typecheck:strict:runtime": "tsc -p tsconfig.strict-zone.runtime.json --noEmit",
     "typecheck:strict:security": "tsc -p tsconfig.strict-zone.security.json --noEmit",
     "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
-    "typecheck:strict:zones": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data",
+    "typecheck:strict:zones": "pnpm run typecheck:strict:boundaries && pnpm run typecheck:strict:capabilities",
     "lint": "eslint src/ --max-warnings=2443",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "check:service-role-boundaries": "node ../../scripts/ci/check-backend-service-role-boundaries.mjs",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
-    "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
+    "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts",
+    "typecheck:strict:dto": "tsc -p tsconfig.strict-zone.dto.json --noEmit",
+    "typecheck:strict:service-interfaces": "tsc -p tsconfig.strict-zone.service-interfaces.json --noEmit",
+    "typecheck:strict:workers": "tsc -p tsconfig.strict-zone.workers.json --noEmit",
+    "typecheck:strict:persistence": "tsc -p tsconfig.strict-zone.persistence.json --noEmit",
+    "typecheck:strict:boundaries": "pnpm run typecheck:strict:dto && pnpm run typecheck:strict:service-interfaces && pnpm run typecheck:strict:workers && pnpm run typecheck:strict:persistence",
+    "typecheck:strict:capabilities": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data"
   },
   "dependencies": {
     "@infisical/sdk": "^5.0.0",

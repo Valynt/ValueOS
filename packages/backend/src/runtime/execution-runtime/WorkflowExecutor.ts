@@ -14,7 +14,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTracer } from '../../config/telemetry.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { logger } from '../../lib/logger.js';
-import { supabase } from '../../lib/supabase.js';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 import { recordAgentInvocation, recordLoopCompletion, recordWorkflowDeadlineViolation, recordWorkflowExecutionActive } from '../../observability/valueLoopMetrics.js';
 import { valueTreeRepository, type ValueTreeNodeRow, type ValueTreeNodeWrite } from '../../repositories/ValueTreeRepository.js';
@@ -37,7 +36,6 @@ import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryMa
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
 import { HandoffCardBuilder } from '../../services/workflows/HandoffCardBuilder.js';
-import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
   ExecutionEnvelope,
   WorkflowExecutionResult,
@@ -49,6 +47,7 @@ import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
+import type { RuntimeMigrationPathTag, WorkflowExecutionPersistencePort } from '../ports/runtimePorts.js';
 
 import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
 import { validateWorkflowDAG } from './dag-validator.js';
@@ -92,9 +91,10 @@ const DEFAULT_CONFIG: WorkflowExecutorConfig = {
 
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
-  private readonly executionStore: WorkflowExecutionStore;
+  private readonly executionPersistence: WorkflowExecutionPersistencePort;
   private readonly handoffCardBuilder: HandoffCardBuilder;
   private readonly statePersistence: WorkflowStatePersistence;
+  private readonly runtimePathTag: RuntimeMigrationPathTag;
 
   private lastDegradedState: RuntimeFailureDetails | null = null;
 
@@ -107,10 +107,15 @@ export class WorkflowExecutor {
     private readonly memorySystem: MemorySystem,
     private readonly checkAgentRateLimit: (agentType: AgentType) => boolean,
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
+    dependencies: {
+      executionPersistence: WorkflowExecutionPersistencePort;
+      runtimePathTag?: RuntimeMigrationPathTag;
+    },
   ) {
-    this.executionStore = new WorkflowExecutionStore(supabase);
+    this.executionPersistence = dependencies.executionPersistence;
+    this.runtimePathTag = dependencies.runtimePathTag ?? 'new_path';
     this.handoffCardBuilder = new HandoffCardBuilder();
-    this.statePersistence = new WorkflowStatePersistence(this.executionStore);
+    this.statePersistence = new WorkflowStatePersistence(this.executionPersistence);
   }
 
   private buildStageContext(
@@ -156,43 +161,27 @@ export class WorkflowExecutor {
     await this.policy.assertTenantExecutionAllowed(envelope.organizationId);
 
     const traceId = uuidv4();
-    logger.info('Starting workflow execution', { traceId, workflowDefinitionId });
+    logger.info('Starting workflow execution', { traceId, workflowDefinitionId, runtime_path: this.runtimePathTag });
 
     try {
-      const { data: definition, error: defError } = await supabase
-        .from('workflow_definitions')
-        .select('*')
-        .eq('id', workflowDefinitionId)
-        .eq('is_active', true)
-        .or(`organization_id.is.null,organization_id.eq.${envelope.organizationId}`)
-        .maybeSingle();
-
-      if (defError || !definition) throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
-      if (definition.organization_id && definition.organization_id !== envelope.organizationId) {
-        throw new Error('Workflow not authorized for this organization');
-      }
+      const definition = await this.executionPersistence.getActiveWorkflowDefinition(workflowDefinitionId, envelope.organizationId);
+      if (!definition) throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
 
       const dag = validateWorkflowDAG(definition.dag_schema);
       const executionId = uuidv4();
       const initialStageExecutionId = uuidv4();
 
-      const { data: execution, error: execError } = await supabase
-        .from('workflow_executions')
-        .insert({
-          id: executionId,
-          organization_id: envelope.organizationId,
-          workflow_definition_id: workflowDefinitionId,
-          workflow_version: definition.version,
-          status: 'initiated',
-          current_stage: dag.initial_stage,
-          context: { ...context, executionIntent: envelope, currentStageExecutionId: initialStageExecutionId },
-          audit_context: { workflow: definition.name, version: definition.version, traceId, envelope },
-          circuit_breaker_state: {},
-        })
-        .select()
-        .single();
-
-      if (execError || !execution) throw new Error('Failed to create workflow execution');
+      const execution = await this.executionPersistence.createWorkflowExecution({
+        id: executionId,
+        organization_id: envelope.organizationId,
+        workflow_definition_id: workflowDefinitionId,
+        workflow_version: definition.version,
+        status: 'initiated',
+        current_stage: dag.initial_stage,
+        context: { ...context, executionIntent: envelope, currentStageExecutionId: initialStageExecutionId },
+        audit_context: { workflow: definition.name, version: definition.version, traceId, envelope },
+        circuit_breaker_state: {},
+      });
 
       await this._recordWorkflowEvent(executionId, envelope.organizationId, 'workflow_initiated', dag.initial_stage ?? '', { envelope, stageExecutionId: initialStageExecutionId });
 
@@ -700,7 +689,7 @@ private async _executeDAGAsyncInternal(
           stageDiagnostic ?? undefined,
         );
 
-        await this.executionStore.recordStageRun({
+        await this.executionPersistence.recordStageRun({
           executionId,
           organizationId,
           stage,
@@ -878,13 +867,13 @@ private async capturePreModelingSnapshotIfNeeded(
       },
     };
 
-    await supabase
-      .from('workflow_executions')
-      .update({ context: nextContext })
-      .eq('id', executionId)
-      .eq('organization_id', organizationId);
+    await this.executionPersistence.updateWorkflowExecutionContext(
+      executionId,
+      organizationId,
+      nextContext,
+    );
 
-    await this.executionStore.persistExecutionRecord(
+    await this.executionPersistence.persistExecutionRecord(
       executionId,
       organizationId,
       nextRecordSnapshot,
@@ -1209,7 +1198,7 @@ private async _buildAndPersistHandoffCards(input: {
       policyConstraints,
     });
 
-    await this.executionStore.recordWorkflowEvent({
+    await this.executionPersistence.recordWorkflowEvent({
       executionId: input.executionId,
       organizationId: input.organizationId,
       eventType: 'stage_transition_handoff_created',

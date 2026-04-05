@@ -198,4 +198,36 @@ describe("agent assumption evidence linkage", () => {
     const deserialized = fromValueLifecycleEventPayload(serialized);
     expect(deserialized.schemaVersion).toBe("v1");
   });
+
+  it("deserializes legacy snake_case payloads without schemaVersion", () => {
+    const serialized = {
+      ...agentMetadata,
+      schema_version: "v1" as const,
+      stage: "DRAFTING" as const,
+      organizationId: "00000000-0000-4000-8000-000000000101",
+      opportunityId: "00000000-0000-4000-8000-000000000102",
+      hypothesisId: "00000000-0000-4000-8000-000000000103",
+      title: "Automate onboarding",
+      statement: "Automation can reduce onboarding cycle time by 25%",
+      valueDriver: "Operational efficiency",
+      valueRange: {
+        low: 10000,
+        expected: 25000,
+        high: 40000,
+      },
+      assumptions: [
+        {
+          ...baseAssumption,
+          evidenceState: "supported" as const,
+          evidenceRefs: [validEvidenceRef],
+        },
+      ],
+      evidence: [validEvidenceRef],
+      confidence: validConfidence,
+      draftedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const deserialized = fromValueLifecycleEventPayload(serialized);
+    expect(deserialized.schemaVersion).toBe("v1");
+  });
 });
