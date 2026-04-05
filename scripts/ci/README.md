@@ -69,3 +69,5 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 
 - `check-k8s-ingress-security-annotations.mjs` — renders staging/production kustomize overlays and fails when ALB ingress TLS certificate annotations are empty, or when production internet-facing ingress lacks a WAFv2 ACL annotation.
 - `check-docs-date-integrity.mjs` — validates ADR registry dates against UTC run date, checks markdown front-matter date fields (`review_date`, `last_updated`), evaluates compliance-manifest timestamps for future values, supports explicit `planned_effective_date` metadata exceptions in `docs/engineering/adr-index.md`, and emits compliance-bundle artifacts at `artifacts/security/date-integrity-report.json` + `artifacts/security/date-integrity-report.md`.
+
+- `check-package-metadata-naming.mjs` — scans all repository `package.json` files for legacy `valuecanvas` identifiers in `name`, `author`, and service metadata fields; allows only explicit exceptions listed in `package-metadata-legacy-allowlist.json`.

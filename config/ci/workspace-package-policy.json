@@ -256,7 +256,7 @@
       }
     },
     "packages/services/domain-validator": {
-      "name": "@valuecanvas/domain-validator",
+      "name": "@valueos/domain-validator",
       "classification": "production-runtime",
       "supportTier": "customer-critical",
       "owner": "team-platform",

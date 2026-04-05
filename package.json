@@ -52,6 +52,7 @@
     "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
     "security:scan": "bash scripts/security/scan.sh",
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
+    "check:package-metadata-naming": "node scripts/ci/check-package-metadata-naming.mjs",
     "check:app-test-toolchain-baseline": "node scripts/ci/check-app-test-toolchain-baseline.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
