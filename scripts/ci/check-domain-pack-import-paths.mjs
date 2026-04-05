@@ -13,7 +13,7 @@ const ALLOWED_SHIM_PREFIXES = [
   'packages/backend/src/api/domainPacks.ts',
 ];
 
-const LEGACY_IMPORT_PATTERN = /from\s+['"][^'"]*domainPacks(?:\/[^'"]*)?['"]|import\s*\(\s*['"][^'"]*domainPacks(?:\/[^'"]*)?['"]\s*\)/g;
+const LEGACY_IMPORT_PATTERN = /from\s+['"][^'"]*domainPacks(?:\/[^'"]*)?['"]|import\s*\(\s*['"][^'"]*domainPacks(?:\/[^'"]*)?['"]\s*\)/;
 
 function walk(dir, files) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
