@@ -18,7 +18,7 @@
     "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
+    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:domain-pack-import-paths && pnpm run check:generated-src-artifacts && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -56,6 +56,7 @@
     "check:app-test-toolchain-baseline": "node scripts/ci/check-app-test-toolchain-baseline.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
+    "check:debt-inventory-report": "node scripts/ci/check-debt-report-semantic-content.mjs",
     "typecheck:full": "pnpm run check 2>&1 | head -1000",
     "check:eventing-architecture": "node scripts/ci/check-eventing-architecture-tags.mjs",
     "check:k8s-ingress-security-annotations": "node scripts/ci/check-k8s-ingress-security-annotations.mjs",
@@ -70,6 +71,8 @@
     "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs",
     "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs",
     "check:security-header-drift": "node scripts/ci/check-security-header-drift.mjs"
+    "check:domain-pack-import-paths": "node scripts/ci/check-domain-pack-import-paths.mjs"
+    "check:generated-src-artifacts": "node scripts/ci/check-generated-src-artifacts.mjs --tracked-only"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -171,7 +174,6 @@
     "eslint-plugin-storybook": "^10.2.19",
     "globals": "^16.5.0",
     "playwright": "^1.58.2",
-    "pnpm": "^10.32.1",
     "postcss": "^8.4.47",
     "prettier": "^3.6.2",
     "supertest": "^7.2.2",
@@ -190,7 +192,7 @@
     "yarn": "please-use-pnpm",
     "pnpm": ">=10.4.1"
   },
-  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
+  "packageManager": "pnpm@10.4.1",
   "pnpm": {
     "patchedDependencies": {
       "wouter@3.7.1": "patches/wouter@3.7.1.patch"

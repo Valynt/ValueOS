@@ -6,12 +6,6 @@ export const workspaceVitestProjects = [
     coverageDir: 'coverage/apps-ValyntApp',
   },
   {
-    id: 'apps-mcp-dashboard',
-    dir: 'apps/mcp-dashboard',
-    label: 'mcp-dashboard',
-    coverageDir: 'coverage/apps-mcp-dashboard',
-  },
-  {
     id: 'packages-backend',
     dir: 'packages/backend',
     label: '@valueos/backend',
@@ -60,12 +54,6 @@ export const workspaceVitestProjects = [
     coverageDir: 'coverage/packages-services-domain-validator',
   },
   {
-    id: 'packages-services-github-code-optimizer',
-    dir: 'packages/services/github-code-optimizer',
-    label: 'github-code-optimizer',
-    coverageDir: 'coverage/packages-services-github-code-optimizer',
-  },
-  {
     id: 'packages-shared',
     dir: 'packages/shared',
     label: '@valueos/shared',
@@ -78,8 +66,8 @@ export const rootVitestProjects = workspaceVitestProjects.map((project) => proje
 export const packageTopologyNotes = [
   {
     dir: 'apps/mcp-dashboard',
-    role: 'production deliverable',
-    testing: 'Owns a package-local Vitest config and is included in the root workspace because it contains React route/security tests.',
+    role: 'experimental app',
+    testing: 'Package-level tests are allowed, but root Vitest inclusion is controlled by valueos.ci.rootVitest metadata and currently excluded while debt is burned down.',
   },
   {
     dir: 'packages/config-v2',

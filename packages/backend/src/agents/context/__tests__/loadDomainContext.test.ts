@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { DomainPackSnapshot } from '../../../services/domainPacks/snapshot.js';
+import type { DomainPackSnapshot } from '../../../services/domain-packs/snapshot.js';
 import {
   formatDomainContextForPrompt,
   loadDomainContext,

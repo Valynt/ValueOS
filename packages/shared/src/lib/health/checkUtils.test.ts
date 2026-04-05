@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CircuitBreaker, CircuitState } from "./checkUtils.js";
+import {
+  CircuitBreaker,
+  CircuitState,
+  checkDockerService,
+  commandExists,
+  runCommand,
+} from "./checkUtils.js";
 
 describe("CircuitBreaker", () => {
   beforeEach(() => {
@@ -135,5 +141,40 @@ describe("CircuitBreaker", () => {
     expect(breaker.getFailureCount()).toBe(0);
     expect(breaker.getLastFailureTime()).toBe(0);
     expect(breaker.getNextAttemptTime()).toBe(0);
+  });
+});
+
+describe("command execution hardening", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects invalid docker service names containing shell metacharacters", () => {
+    const result = checkDockerService("api;rm -rf /", "/tmp");
+
+    expect(result.healthy).toBe(false);
+    expect(result.message).toBe("invalid service name");
+  });
+
+  it("commandExists rejects command payloads containing shell metacharacters", () => {
+    expect(commandExists("docker;echo pwned")).toBe(false);
+  });
+
+  it("runCommand rejects non-allowlisted commands", () => {
+    expect(() => runCommand({ cmd: "cat", args: ["/etc/passwd"] })).toThrow(
+      "Command 'cat' is not allowed"
+    );
+  });
+
+  it("runCommand rejects command payloads containing shell metacharacters", () => {
+    expect(() => runCommand({ cmd: "docker;echo", args: ["ps"] })).toThrow(
+      "Invalid command token"
+    );
+  });
+
+  it("runCommand rejects argument payloads containing shell metacharacters", () => {
+    expect(() => runCommand({ cmd: "docker", args: ["compose", "ps;echo"] })).toThrow(
+      "Invalid command arguments"
+    );
   });
 });

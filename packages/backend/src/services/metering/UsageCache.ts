@@ -14,6 +14,7 @@ import { createLogger } from "../../lib/logger.js"
 // Constants
 const PERCENTAGE_MULTIPLIER = 100;
 const MILLISECONDS_MULTIPLIER = 1000;
+const REFRESH_CACHE_CONCURRENCY_LIMIT = 4;
 
 const logger = createLogger({ component: "UsageCache" });
 
@@ -236,20 +237,43 @@ class UsageCache {
    * Refresh cache from database
    */
   async refreshCache(tenantId: string): Promise<void> {
-    for (const metric of BILLING_METRICS) {
-      try {
-        const usage = await this.fetchUsageFromDB(tenantId, metric);
-        const quota = await this.fetchQuotaFromDB(tenantId, metric);
+    const inFlightTasks = new Set<Promise<void>>();
+    const metricTasks: Promise<void>[] = [];
 
-        await this.set(`usage:${tenantId}:${metric}`, usage);
-        await this.set(`quota:${tenantId}:${metric}`, quota);
+    const runMetricTask = async (metric: BillingMetric): Promise<void> => {
+      try {
+        const [usage, quota] = await Promise.all([
+          this.fetchUsageFromDB(tenantId, metric),
+          this.fetchQuotaFromDB(tenantId, metric),
+        ]);
+
+        await Promise.all([
+          this.set(`usage:${tenantId}:${metric}`, usage),
+          this.set(`quota:${tenantId}:${metric}`, quota),
+        ]);
       } catch (error) {
         logger.error("Error refreshing cache", error, {
           tenantId,
           metric,
         });
       }
+    };
+
+    for (const metric of BILLING_METRICS) {
+      const task = runMetricTask(metric);
+      metricTasks.push(task);
+      inFlightTasks.add(task);
+
+      task.finally(() => {
+        inFlightTasks.delete(task);
+      });
+
+      if (inFlightTasks.size >= REFRESH_CACHE_CONCURRENCY_LIMIT) {
+        await Promise.race(inFlightTasks);
+      }
     }
+
+    await Promise.allSettled(metricTasks);
 
     logger.info("Cache refreshed", { tenantId });
   }

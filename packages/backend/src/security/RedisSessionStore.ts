@@ -60,6 +60,7 @@ const DEFAULT_CONFIG: SessionStoreConfig = {
   keyPrefix: 'session:',
   enableFallback: true,
 };
+const BULK_OPERATION_CONCURRENCY = 10;
 
 /**
  * Redis-backed session store with automatic in-memory fallback
@@ -252,17 +253,32 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        // Batch-fetch all session metadata concurrently to avoid N+1 Redis round-trips
-        const metadataEntries = await Promise.all(
-          sessionIds.map(async (sid: string) => ({
-            sessionId: sid,
-            metadata: await this.get(sid, tenantId),
-          }))
+        const metadataResults = await this.runBoundedAllSettled(
+          sessionIds,
+          BULK_OPERATION_CONCURRENCY,
+          async (sessionId) => ({
+            sessionId,
+            metadata: await this.get(sessionId, tenantId),
+          })
         );
 
-        for (const { sessionId, metadata } of metadataEntries) {
-          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
-          invalidatedSessionIds.add(sessionId);
+        const invalidateTargets = metadataResults
+          .filter((result): result is PromiseFulfilledResult<{ sessionId: string; metadata?: SessionMetadata }> => result.status === 'fulfilled')
+          .map((result) => result.value);
+
+        const invalidationResults = await this.runBoundedAllSettled(
+          invalidateTargets,
+          BULK_OPERATION_CONCURRENCY,
+          async ({ sessionId, metadata }) => {
+            await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+            return sessionId;
+          }
+        );
+
+        for (const result of invalidationResults) {
+          if (result.status === 'fulfilled') {
+            invalidatedSessionIds.add(result.value);
+          }
         }
 
         if (sessionIds.length > 0) {
@@ -275,10 +291,20 @@ export class RedisSessionStore {
     }
 
     // Also clear from memory fallback
-    for (const metadata of [...this.memoryFallback.values()]) {
-      if (metadata.userId === userId && (!tenantId || metadata.tenantId === tenantId)) {
+    const memoryTargets = [...this.memoryFallback.values()].filter(
+      (metadata) => metadata.userId === userId && (!tenantId || metadata.tenantId === tenantId)
+    );
+    const memoryInvalidationResults = await this.runBoundedAllSettled(
+      memoryTargets,
+      BULK_OPERATION_CONCURRENCY,
+      async (metadata) => {
         await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
-        invalidatedSessionIds.add(metadata.sessionId);
+        return metadata.sessionId;
+      }
+    );
+    for (const result of memoryInvalidationResults) {
+      if (result.status === 'fulfilled') {
+        invalidatedSessionIds.add(result.value);
       }
     }
 
@@ -299,17 +325,30 @@ export class RedisSessionStore {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getDeviceIndexKey(deviceId, tenantId));
 
-        // Batch-fetch all session metadata concurrently to avoid N+1 Redis round-trips
-        const metadataEntries = await Promise.all(
-          sessionIds.map(async (sid: string) => ({
-            sessionId: sid,
-            metadata: await this.get(sid, tenantId),
-          }))
+        const metadataResults = await this.runBoundedAllSettled(
+          sessionIds,
+          BULK_OPERATION_CONCURRENCY,
+          async (sessionId) => ({
+            sessionId,
+            metadata: await this.get(sessionId, tenantId),
+          })
         );
 
-        for (const { sessionId, metadata } of metadataEntries) {
-          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
-          invalidatedSessionIds.add(sessionId);
+        const invalidateTargets = metadataResults
+          .filter((result): result is PromiseFulfilledResult<{ sessionId: string; metadata?: SessionMetadata }> => result.status === 'fulfilled')
+          .map((result) => result.value);
+        const invalidationResults = await this.runBoundedAllSettled(
+          invalidateTargets,
+          BULK_OPERATION_CONCURRENCY,
+          async ({ sessionId, metadata }) => {
+            await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+            return sessionId;
+          }
+        );
+        for (const result of invalidationResults) {
+          if (result.status === 'fulfilled') {
+            invalidatedSessionIds.add(result.value);
+          }
         }
       }
     } catch (error) {
@@ -318,10 +357,20 @@ export class RedisSessionStore {
     }
 
     // Scan memory for device matches
-    for (const metadata of [...this.memoryFallback.values()]) {
-      if (metadata.deviceId === deviceId && (!tenantId || metadata.tenantId === tenantId)) {
+    const memoryTargets = [...this.memoryFallback.values()].filter(
+      (metadata) => metadata.deviceId === deviceId && (!tenantId || metadata.tenantId === tenantId)
+    );
+    const memoryInvalidationResults = await this.runBoundedAllSettled(
+      memoryTargets,
+      BULK_OPERATION_CONCURRENCY,
+      async (metadata) => {
         await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
-        invalidatedSessionIds.add(metadata.sessionId);
+        return metadata.sessionId;
+      }
+    );
+    for (const result of memoryInvalidationResults) {
+      if (result.status === 'fulfilled') {
+        invalidatedSessionIds.add(result.value);
       }
     }
 
@@ -397,13 +446,16 @@ export class RedisSessionStore {
       if (this.redisAvailable) {
         const redis = await this.getRedis();
         const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
-
-        for (const sessionId of sessionIds) {
-          const metadata = await this.get(sessionId, tenantId);
-          if (metadata) {
-            sessions.push(metadata);
-          }
-        }
+        const sessionResults = await this.runBoundedAllSettled(
+          sessionIds,
+          BULK_OPERATION_CONCURRENCY,
+          async (sessionId) => this.get(sessionId, tenantId)
+        );
+        const resolvedSessions = sessionResults
+          .filter((result): result is PromiseFulfilledResult<SessionMetadata | undefined> => result.status === 'fulfilled')
+          .map((result) => result.value)
+          .filter((metadata): metadata is SessionMetadata => Boolean(metadata));
+        sessions.push(...resolvedSessions);
 
         if (sessions.length > 0) {
           return sessions;
@@ -479,6 +531,23 @@ export class RedisSessionStore {
   private async getRedis() {
     const redis = await getRedisClient();
     return redis;
+  }
+
+  private async runBoundedAllSettled<TInput, TOutput>(
+    items: TInput[],
+    concurrency: number,
+    operation: (item: TInput, index: number) => Promise<TOutput>
+  ): Promise<Array<PromiseSettledResult<TOutput>>> {
+    const settled: Array<PromiseSettledResult<TOutput>> = [];
+    for (let i = 0; i < items.length; i += concurrency) {
+      const chunk = items.slice(i, i + concurrency);
+      const chunkSettled = await Promise.allSettled(
+        chunk.map((item, chunkIndex) => Promise.resolve().then(() => operation(item, i + chunkIndex)))
+      );
+      settled.push(...chunkSettled);
+    }
+
+    return settled;
   }
 
   private async indexSession(redis: Awaited<ReturnType<RedisSessionStore['getRedis']>>, metadata: SessionMetadata, ttl: number): Promise<void> {

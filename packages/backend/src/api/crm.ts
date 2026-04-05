@@ -29,8 +29,16 @@ import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { crmConnectionService } from "../services/crm/CrmConnectionService";
 import { crmHealthService } from "../services/crm/CrmHealthService";
 import { crmIntegrationService } from "../services/crm/CRMIntegrationService";
-import { getCrmProvider, getProviderCapabilityRegistry } from "../services/crm/CrmProviderRegistry";
-import { crmWebhookService } from "../services/crm/CrmWebhookService";
+import {
+  getCrmProvider,
+  getProviderCapabilityRegistry,
+} from "../services/crm/CrmProviderRegistry";
+import {
+  CrmWebhookIngestError,
+  crmWebhookService,
+  type WebhookFailureClassification,
+  type WebhookFailureDetails,
+} from "../services/crm/CrmWebhookService";
 import { consumeOAuthState } from "../services/crm/OAuthStateStore";
 import { CrmProviderSchema } from "../services/crm/types";
 import { auditLogService } from "../services/security/AuditLogService";
@@ -79,6 +87,59 @@ function parseWebhookJsonBody(
   }
 }
 
+function classifyWebhookHttpStatus(
+  classification: WebhookFailureClassification
+): number {
+  switch (classification) {
+    case "security":
+      return 401;
+    case "validation":
+      return 400;
+    case "permanent":
+      return 422;
+    case "transient":
+      return 503;
+    default:
+      return 500;
+  }
+}
+
+async function emitWebhookFailureAudit(params: {
+  req: Request;
+  provider: string;
+  failure: WebhookFailureDetails;
+  httpStatus: number;
+}): Promise<void> {
+  const { req, provider, failure, httpStatus } = params;
+  await auditLogService.logAudit({
+    userId: "system",
+    userName: "System",
+    userEmail: "system@valueos.io",
+    action:
+      failure.classification === "security"
+        ? "webhook_signature_rejected"
+        : "webhook_ingest_failed",
+    tenantId: req.tenantId ?? "system",
+    resourceType: "crm_webhook",
+    resourceId: provider,
+    details: {
+      provider,
+      classification: failure.classification,
+      reason: failure.reason,
+      retryable: failure.retryable,
+      httpStatus,
+      ip: req.ip,
+      requestId: req.requestId,
+      userAgent: req.get("user-agent"),
+      path: req.originalUrl,
+      method: req.method,
+    },
+    status: "failed",
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+}
+
 const HealthTimelineQuerySchema = z.object({
   lookbackDays: z.coerce.number().int().min(1).max(90).default(14),
 });
@@ -104,7 +165,9 @@ async function logCrmAdminAudit(params: {
   outcome: "success" | "failed";
   details?: Record<string, unknown>;
 }): Promise<void> {
-  const actor = params.req ? getActor(params.req) : { id: "system", email: "system@valueos.io", name: "System" };
+  const actor = params.req
+    ? getActor(params.req)
+    : { id: "system", email: "system@valueos.io", name: "System" };
   await auditLogService.logAudit({
     tenantId: params.tenantId,
     userId: actor.id,
@@ -225,7 +288,9 @@ router.post(
           provider,
           action: "crm_oauth_started",
           outcome: "failed",
-          details: { error: error instanceof Error ? error.message : String(error) },
+          details: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       }
       if (error instanceof z.ZodError) {
@@ -371,7 +436,9 @@ router.get(
           provider,
           action: "crm_connected",
           outcome: "failed",
-          details: { error: error instanceof Error ? error.message : String(error) },
+          details: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       }
       logger.error(
@@ -423,7 +490,9 @@ router.post(
           provider: req.params.provider,
           action: "crm_disconnected",
           outcome: "failed",
-          details: { error: error instanceof Error ? error.message : String(error) },
+          details: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       }
       logger.error(
@@ -500,47 +569,97 @@ router.post(
       const result = await crmWebhookService.ingestWebhook(provider, req);
 
       if (!result.accepted) {
-        if (!result.duplicate) {
-          // Log security event for signature failures
-          logger.warn("Webhook signature verification failed", {
-            provider,
-            ip: req.ip,
-            userAgent: req.get("user-agent"),
+        if (result.duplicate) {
+          return res.status(200).json({
+            ok: true,
+            duplicate: true,
+            message: "Duplicate event, already processed",
+            eventId: result.eventId,
           });
-          await auditLogService
-            .logAudit({
-              userId: "system",
-              userName: "System",
-              userEmail: "system@valueos.io",
-              action: "webhook_signature_rejected",
-              resourceType: "crm_webhook",
-              resourceId: provider,
-              details: {
-                provider,
-                ip: req.ip,
-                reason: "signature_verification_failed",
-              },
-              status: "failed",
-            })
-            .catch(() => {}); // non-blocking
         }
-        return res.status(result.duplicate ? 200 : 401).json({
-          ok: result.duplicate,
-          message: result.duplicate
-            ? "Duplicate event, already processed"
-            : "Invalid signature",
+
+        const failure =
+          result.failure ??
+          ({
+            classification: "transient",
+            reason: "unexpected_exception",
+            retryable: true,
+            message: "Webhook ingestion failed",
+          } as const);
+        const httpStatus = classifyWebhookHttpStatus(failure.classification);
+
+        await emitWebhookFailureAudit({
+          req,
+          provider,
+          failure,
+          httpStatus,
+        }).catch(() => undefined);
+        logger.warn("Webhook rejected", {
+          provider,
+          classification: failure.classification,
+          reason: failure.reason,
+          retryable: failure.retryable,
+          httpStatus,
+          requestId: req.requestId,
+        });
+
+        if (failure.retryable) {
+          res.set("Retry-After", "5");
+        }
+
+        return res.status(httpStatus).json({
+          ok: false,
+          retryable: failure.retryable,
+          classification: failure.classification,
+          reason: failure.reason,
+          message: failure.message,
         });
       }
 
       // Respond 200 quickly — processing happens async via queue
       return res.status(200).json({ ok: true, eventId: result.eventId });
     } catch (error) {
+      const failure: WebhookFailureDetails =
+        error instanceof CrmWebhookIngestError
+          ? error.failure
+          : {
+              classification: "transient",
+              reason: "unexpected_exception",
+              retryable: true,
+              message: "Unexpected webhook ingestion failure",
+            };
+      const httpStatus = classifyWebhookHttpStatus(failure.classification);
+
       logger.error(
         "Webhook ingestion failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? error : undefined,
+        {
+          provider: req.params.provider,
+          classification: failure.classification,
+          reason: failure.reason,
+          retryable: failure.retryable,
+          httpStatus,
+          requestId: req.requestId,
+        }
       );
-      // Return 200 to prevent CRM from retrying on our errors
-      return res.status(200).json({ ok: false });
+      await emitWebhookFailureAudit({
+        req,
+        provider: req.params.provider,
+        failure,
+        httpStatus,
+      }).catch(() => undefined);
+
+      if (failure.retryable) {
+        res.set("Retry-After", "5");
+      }
+
+      return res.status(httpStatus).json({
+        ok: false,
+        retryable: failure.retryable,
+        classification: failure.classification,
+        reason: failure.reason,
+        message: failure.message,
+      });
     }
   }
 );
@@ -581,12 +700,10 @@ router.get(
       const tenantId = getTenantId(req);
       const parsed = dealSearchSchema.safeParse(req.query);
       if (!parsed.success) {
-        return res
-          .status(400)
-          .json({
-            error: "Invalid search params",
-            details: parsed.error.flatten(),
-          });
+        return res.status(400).json({
+          error: "Invalid search params",
+          details: parsed.error.flatten(),
+        });
       }
 
       const { q, page, pageSize, company } = parsed.data;
@@ -673,7 +790,6 @@ router.get(
   }
 );
 
-
 /**
  * GET /api/crm/health/timeline
  * Returns per-provider incident/recovery timeline and SLO status.
@@ -687,17 +803,24 @@ router.get(
       const tenantId = getTenantId(req);
       const { lookbackDays } = HealthTimelineQuerySchema.parse(req.query);
 
-      const timeline = await crmHealthService.getHealthTimeline(tenantId, lookbackDays);
+      const timeline = await crmHealthService.getHealthTimeline(
+        tenantId,
+        lookbackDays
+      );
       return res.json(timeline);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid health timeline query parameters" });
+        return res
+          .status(400)
+          .json({ error: "Invalid health timeline query parameters" });
       }
       logger.error(
         "Health timeline check failed",
         error instanceof Error ? error : undefined
       );
-      return res.status(500).json({ error: "Failed to get health timeline status" });
+      return res
+        .status(500)
+        .json({ error: "Failed to get health timeline status" });
     }
   }
 );
@@ -751,7 +874,9 @@ router.post(
           provider: req.params.provider,
           action: "crm_sync_triggered",
           outcome: "failed",
-          details: { error: error instanceof Error ? error.message : String(error) },
+          details: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       }
       logger.error(

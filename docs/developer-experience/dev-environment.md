@@ -112,6 +112,7 @@ Responsibility
 Invariants
 
 - `pnpm-lock.yaml` is committed and authoritative.
+- pnpm version authority flows from `.devcontainer/versions.json` (`pnpm`) and must be propagated to `.tool-versions` (`pnpm`) and `package.json` (`packageManager`) when changed.
 - `pnpm install --frozen-lockfile` succeeds in CI.
 - `preinstall` guard prevents npm/yarn usage if required.
 

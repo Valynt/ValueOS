@@ -72,7 +72,10 @@ router.get(
   requirePermission("integrations:view"),
   async (_req: Request, res: Response) => {
     const providers = getIntegrationCapabilityRegistry();
-    return res.json({ providers });
+    return res.json({
+      generatedAt: new Date().toISOString(),
+      providers,
+    });
   }
 );
 

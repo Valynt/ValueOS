@@ -13,7 +13,7 @@
     "./context-ledger": "./context-ledger/index.ts"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project tsconfig.json --outDir dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run packages/memory/**/*.test.ts"
   },
