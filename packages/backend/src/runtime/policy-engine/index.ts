@@ -508,12 +508,37 @@ export class PolicyEngine {
   }
 
   async validateRejectionAuthority(input: RejectionAuthorityValidationInput): Promise<void> {
+    const typedInput = input as RejectionAuthorityValidationInput & {
+      ownerType?: "user" | "team" | "role";
+      authorizedActorPrincipals?: string[];
+    };
+
     if (!input.actorPrincipal || !input.ownerPrincipal) {
       throw new Error("actorPrincipal and ownerPrincipal are required");
     }
 
-    if (input.actorPrincipal !== input.ownerPrincipal) {
-      throw new Error(`Principal ${input.actorPrincipal} is not authorized to reject checkpoint owned by ${input.ownerPrincipal}`);
+    const ownerType = typedInput.ownerType ?? "user";
+
+    if (ownerType === "user") {
+      if (input.actorPrincipal !== input.ownerPrincipal) {
+        throw new Error(`Principal ${input.actorPrincipal} is not authorized to reject checkpoint owned by ${input.ownerPrincipal}`);
+      }
+
+      return;
     }
+
+    if (ownerType === "team" || ownerType === "role") {
+      const authorizedActorPrincipals = typedInput.authorizedActorPrincipals ?? [];
+
+      if (!authorizedActorPrincipals.includes(input.actorPrincipal)) {
+        throw new Error(
+          `Principal ${input.actorPrincipal} is not authorized to reject checkpoint owned by ${ownerType} ${input.ownerPrincipal}`,
+        );
+      }
+
+      return;
+    }
+
+    throw new Error(`Unsupported owner type: ${ownerType}`);
   }
 }
