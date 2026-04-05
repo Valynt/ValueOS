@@ -23,7 +23,7 @@ export interface IntegrationConfigField {
 }
 
 export interface IntegrationCredentialsInput {
-  accessToken: string;
+  accessToken?: string;
   refreshToken?: string;
   instanceUrl?: string;
 }
@@ -35,6 +35,8 @@ export interface IntegrationProvider {
   description: string;
   icon: string;
   authType: "oauth" | "apikey" | "basic";
+  connectLabel: string;
+  reconnectLabel: string;
   fields: IntegrationConfigField[];
 }
 
@@ -47,29 +49,9 @@ export const PROVIDERS: IntegrationProvider[] = [
     description: "Connect your Salesforce CRM",
     icon: "SF",
     authType: "oauth",
-    fields: [
-      {
-        key: "accessToken",
-        label: "Access Token",
-        type: "password",
-        placeholder: "Paste Salesforce access token",
-        required: true,
-      },
-      {
-        key: "refreshToken",
-        label: "Refresh Token (optional)",
-        type: "password",
-        placeholder: "Paste refresh token if available",
-        required: false,
-      },
-      {
-        key: "instanceUrl",
-        label: "Instance URL",
-        type: "url",
-        placeholder: "https://your-instance.my.salesforce.com",
-        required: true,
-      },
-    ],
+    connectLabel: "Connect with Salesforce",
+    reconnectLabel: "Reconnect Salesforce",
+    fields: [],
   },
   {
     id: "hubspot",
@@ -77,15 +59,9 @@ export const PROVIDERS: IntegrationProvider[] = [
     name: "HubSpot",
     description: "Connect your HubSpot CRM",
     icon: "HS",
-    authType: "apikey",
-    fields: [
-      {
-        key: "accessToken",
-        label: "Private App Token",
-        type: "password",
-        placeholder: "Paste HubSpot private app token",
-        required: true,
-      },
-    ],
+    authType: "oauth",
+    connectLabel: "Connect with HubSpot",
+    reconnectLabel: "Reconnect HubSpot",
+    fields: [],
   },
 ];

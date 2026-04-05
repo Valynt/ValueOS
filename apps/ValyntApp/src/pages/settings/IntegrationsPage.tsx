@@ -27,6 +27,9 @@ import type {
   IntegrationProvider,
 } from "@/integrations/types";
 
+const isCrmOAuthProvider = (provider: IntegrationProvider) =>
+  provider.type === "crm" && provider.authType === "oauth";
+
 const statusBadge = (status: IntegrationConnection["status"]) => {
   switch (status) {
     case "connected":
@@ -91,6 +94,10 @@ export function IntegrationsPage() {
   };
 
   const validateForm = (provider: IntegrationProvider): IntegrationCredentialsInput | null => {
+    if (isCrmOAuthProvider(provider)) {
+      return {};
+    }
+
     const errors: string[] = [];
     provider.fields.forEach((field) => {
       if (field.required && !formValues[field.key]?.trim()) {
@@ -104,7 +111,7 @@ export function IntegrationsPage() {
     }
 
     const payload: IntegrationCredentialsInput = {
-      accessToken: formValues.accessToken?.trim() || "",
+      accessToken: formValues.accessToken?.trim() || undefined,
       refreshToken: formValues.refreshToken?.trim() || undefined,
       instanceUrl: formValues.instanceUrl?.trim() || undefined,
     };
@@ -163,7 +170,6 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
-
     const StatusIcon = status === "connected" ? Check : XCircle;
 
     return (
@@ -201,7 +207,7 @@ export function IntegrationsPage() {
                 disabled={actionProvider === provider.id}
               >
                 <Settings2 className="h-3 w-3 mr-2" />
-                Configure
+                {provider.reconnectLabel}
               </Button>
               <Button
                 variant="ghost"
@@ -238,7 +244,7 @@ export function IntegrationsPage() {
               onClick={() => openDialog(provider)}
               disabled={actionProvider === provider.id}
             >
-              Connect
+              {provider.connectLabel}
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
           )}
@@ -274,11 +280,16 @@ export function IntegrationsPage() {
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>
-              {activeProvider ? `Connect ${activeProvider.name}` : "Connect integration"}
+              {activeProvider
+                ? integrationMap.get(activeProvider.id)
+                  ? activeProvider.reconnectLabel
+                  : activeProvider.connectLabel
+                : "Connect integration"}
             </DialogTitle>
             <DialogDescription>
-              Enter credentials for the selected provider. Tokens are stored securely and never
-              shown again.
+              {activeProvider && isCrmOAuthProvider(activeProvider)
+                ? "Continue to secure OAuth authorization. Direct bearer token entry is no longer supported."
+                : "Enter credentials for the selected provider. Tokens are stored securely and never shown again."}
             </DialogDescription>
           </DialogHeader>
 
@@ -298,6 +309,11 @@ export function IntegrationsPage() {
                 )}
               </div>
             ))}
+            {activeProvider && isCrmOAuthProvider(activeProvider) && (
+              <p className="text-sm text-muted-foreground">
+                Select continue to start {activeProvider.name} OAuth connection.
+              </p>
+            )}
             {formError && <p className="text-sm text-rose-600">{formError}</p>}
           </div>
 
@@ -306,7 +322,11 @@ export function IntegrationsPage() {
               Cancel
             </Button>
             <Button onClick={handleConnect} disabled={!!actionProvider || isLoading}>
-              Connect
+              {activeProvider
+                ? integrationMap.get(activeProvider.id)
+                  ? activeProvider.reconnectLabel
+                  : activeProvider.connectLabel
+                : "Connect"}
             </Button>
           </DialogFooter>
         </DialogContent>

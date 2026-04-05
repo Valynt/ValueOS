@@ -26,6 +26,7 @@ const mapStatus = (status?: string): IntegrationStatus => {
 };
 
 const providerIds = new Set(PROVIDERS.map((provider) => provider.id));
+const providerMap = new Map(PROVIDERS.map((provider) => [provider.id, provider]));
 
 interface RawIntegration {
   id: string;
@@ -90,12 +91,27 @@ export function useIntegrations() {
     async (providerId: IntegrationProviderId, credentials: IntegrationCredentialsInput) => {
       try {
         setError(null);
-        const response = await api.createIntegration({
-          provider: providerId,
-          accessToken: credentials.accessToken,
-          refreshToken: credentials.refreshToken,
-          instanceUrl: credentials.instanceUrl,
-        });
+        const provider = providerMap.get(providerId);
+        if (!provider) {
+          throw new Error("Unsupported integration provider");
+        }
+
+        const payload: Record<string, string> = { provider: providerId };
+        const isCrmOAuthProvider = provider.type === "crm" && provider.authType === "oauth";
+
+        if (!isCrmOAuthProvider) {
+          if (credentials.accessToken) {
+            payload.accessToken = credentials.accessToken;
+          }
+          if (credentials.refreshToken) {
+            payload.refreshToken = credentials.refreshToken;
+          }
+          if (credentials.instanceUrl) {
+            payload.instanceUrl = credentials.instanceUrl;
+          }
+        }
+
+        const response = await api.createIntegration(payload);
 
         if (!response.success) {
           throw new Error(response.error?.message || "Failed to connect integration");
