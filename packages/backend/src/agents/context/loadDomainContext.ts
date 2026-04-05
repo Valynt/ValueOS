@@ -14,7 +14,7 @@ import type {
   DomainPackAssumption,
   DomainPackKpi,
   EffectiveDomainPack,
-} from '../../api/domainPacks/types.js';
+} from '../../api/domain-packs/types.js';
 import { logger } from '../../lib/logger.js';
 import { DomainPackService } from '../../services/domain-packs/DomainPackService.js';
 import {

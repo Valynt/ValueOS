@@ -13,7 +13,7 @@ import type {
   DomainPackAssumption,
   DomainPackKpi,
   EffectiveDomainPack,
-} from '../../api/domainPacks/types.js';
+} from '../../api/domain-packs/types.js';
 
 import { mergePack, packToEffective } from './merge.js';
 

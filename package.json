@@ -18,7 +18,7 @@
     "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
+    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -67,7 +67,8 @@
     "report:required-check-compliance": "node scripts/ci/report-required-check-compliance.mjs",
     "validate:devcontainer": "bash scripts/validate-devcontainer.sh",
     "typecheck:turbo:all": "node scripts/dx/typecheck-via-turbo-all.mjs",
-    "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs"
+    "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs",
+    "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
