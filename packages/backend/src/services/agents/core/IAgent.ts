@@ -7,33 +7,62 @@
  * Replaces fragmented agent patterns across the codebase with a unified approach.
  */
 
+import type { ZodType } from "zod";
+
 import { ConfidenceLevel } from "../../../types/agent";
 import { AgentType } from "../../agent-types.js";
+
+import type {
+  AgentExecutionContext,
+  AgentPolicy,
+  AgentResult,
+} from "./AgentContract.js";
+
+export type {
+  AgentContract,
+  AgentExecutionContext,
+  AgentPolicy,
+  AgentResult,
+  AgentResultMeta,
+} from "./AgentContract.js";
 
 // ============================================================================
 // Core Types
 // ============================================================================
 
-export interface AgentRequest {
+export interface AgentRequest<
+  TInput = unknown,
+  TContext = unknown,
+  TParameters = unknown,
+> extends AgentExecutionContext<TContext, TParameters> {
   /** Agent type to invoke */
   agentType: AgentType;
   /** Query or prompt for the agent */
   query: string;
-  /** Session ID for tracking and context */
-  sessionId?: string;
-  /** User ID making the request */
-  userId?: string;
-  /** Organization ID */
-  organizationId?: string;
-  /** Additional context data */
-  context?: Record<string, any>;
-  /** Request parameters */
-  parameters?: Record<string, unknown>;
+  /**
+   * Raw input payload for this invocation.
+   * Must be validated by `inputSchema` before use.
+   */
+  input?: unknown;
+  /** Zod schema used to validate and narrow `input`. */
+  inputSchema?: ZodType<TInput>;
+  /**
+   * @deprecated Migration note: legacy adapters still read `context` directly.
+   * New implementations should use `executionContext.contextSchema` parsing.
+   */
+  context?: unknown;
+  /**
+   * @deprecated Migration note: legacy adapters still read `parameters` directly.
+   * New implementations should use `executionContext.parametersSchema` parsing.
+   */
+  parameters?: unknown;
   /** Request timeout in milliseconds */
   timeout?: number;
+  /** Optional execution policies for resiliency and tracing. */
+  policy?: AgentPolicy;
 }
 
-export interface AgentResponse<T = unknown> {
+export interface AgentResponse<T = unknown> extends AgentResult<T> {
   /** Response success status */
   success: boolean;
   /** Response data */
@@ -88,7 +117,7 @@ export interface AgentError {
   /** Human-readable error message */
   message: string;
   /** Detailed error information */
-  details?: Record<string, unknown>;
+  details?: unknown;
   /** Stack trace for debugging */
   stack?: string;
   /** Whether the error is retryable */
@@ -155,7 +184,7 @@ export interface AgentNextAction {
   /** Action description */
   description: string;
   /** Parameters for the action */
-  parameters?: Record<string, unknown>;
+  parameters?: unknown;
   /** Priority of the action */
   priority: "low" | "medium" | "high" | "critical";
 }
@@ -213,9 +242,9 @@ export interface AgentMetadata {
   /** Agent capabilities */
   capabilities: AgentCapability[];
   /** Supported input schemas */
-  inputSchemas: Record<string, unknown>;
+  inputSchemas: Record<string, ZodType<unknown>>;
   /** Supported output schemas */
-  outputSchemas: Record<string, unknown>;
+  outputSchemas: Record<string, ZodType<unknown>>;
   /** Agent configuration */
   configuration: AgentConfiguration;
   /** Health status */
@@ -335,7 +364,7 @@ export interface IAgent {
    * @param request - The agent request
    * @returns Promise resolving to agent response
    */
-  execute<T = unknown>(request: AgentRequest): Promise<AgentResponse<T>>;
+  execute<T = unknown>(request: AgentRequest<T>): Promise<AgentResponse<T>>;
 
   /**
    * Get the agent's capabilities
@@ -415,14 +444,14 @@ export interface IAgent {
    *
    * @returns Input schema
    */
-  getInputSchema(): Record<string, unknown>;
+  getInputSchema(): ZodType<unknown>;
 
   /**
    * Get the agent's output schema
    *
    * @returns Output schema
    */
-  getOutputSchema(): Record<string, unknown>;
+  getOutputSchema(): ZodType<unknown>;
 }
 
 // ============================================================================
