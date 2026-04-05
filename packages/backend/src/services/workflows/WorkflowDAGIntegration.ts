@@ -1,19 +1,14 @@
 /**
- * Workflow DAG Integration with AgentOrchestrator
+ * @deprecated Non-runtime legacy integration.
  *
- * Integrates canonical workflow DAGs with the AgentOrchestrator service,
- * providing:
- * - Compensation logic for incomplete stages
- * - Idempotent retry mechanisms
- * - Circuit breaker integration
- * - Stage execution tracking
- * - Error recovery strategies
+ * This module is retained only for historical reference/testing and must not be
+ * used by API/runtime execution paths. The canonical workflow engine is
+ * `src/runtime/execution-runtime/WorkflowExecutor.ts`.
  */
 
 import { logger } from "../../lib/logger.js";
 import { supabase } from "../../lib/supabase.js";
 import {
-  ExecutedStep,
   RetryConfig,
   WorkflowDAG,
   WorkflowExecution,
@@ -30,6 +25,8 @@ import {
   getWorkflowById,
   validateWorkflowDAG,
 } from "./WorkflowDAGDefinitions";
+
+const WORKFLOW_DAG_INTEGRATION_DEPRECATION_MESSAGE = "WorkflowDAGIntegration is deprecated and non-runtime. Use runtime/execution-runtime/WorkflowExecutor.ts.";
 
 // ============================================================================
 // Types
@@ -63,9 +60,14 @@ export interface CompensationContext {
 // Workflow DAG Executor
 // ============================================================================
 
+/** @deprecated Use runtime/execution-runtime/WorkflowExecutor instead. */
 export class WorkflowDAGExecutor {
   private circuitBreakers = new CircuitBreakerManager();
   private agentAPI = getAgentAPI();
+
+  constructor() {
+    logger.warn(WORKFLOW_DAG_INTEGRATION_DEPRECATION_MESSAGE);
+  }
 
   /**
    * Register all workflow definitions in the database.
@@ -730,12 +732,6 @@ export class WorkflowDAGExecutor {
 }
 
 // ============================================================================
-// Singleton Instance
-// ============================================================================
-
-export const workflowDAGExecutor = new WorkflowDAGExecutor();
-
-// ============================================================================
 // Utility Functions
 // ============================================================================
 
@@ -802,58 +798,11 @@ export async function getWorkflowExecutionLogs(
 }
 
 /**
- * Retry failed workflow from last successful stage
+ * Legacy retry helper intentionally removed from exports.
+ * Keep this local sentinel so accidental in-module use fails loudly.
  */
-export async function retryWorkflowFromLastStage(
-  executionId: string,
-  organizationId: string,
-  userId: string
-): Promise<string> {
-  if (!organizationId) {
-    throw new Error(
-      "organizationId is required for tenant-scoped workflow retry"
-    );
-  }
-
-  const execution = await getWorkflowExecutionStatus(
-    executionId,
-    organizationId
-  );
-  if (!execution) {
-    throw new Error("Execution not found");
-  }
-
-  if (execution.status !== "failed") {
-    throw new Error("Can only retry failed workflows");
-  }
-
-  // Create new execution with same context
-  const workflowDefId = execution.workflow_definition_id;
-  if (!workflowDefId) {
-    throw new Error("Execution missing workflow_definition_id");
-  }
-  const workflow = getWorkflowById(workflowDefId);
-  if (!workflow) {
-    throw new Error("Workflow definition not found");
-  }
-
-  // Start from last successful stage or initial stage
-  const executedStepsFromContext: ExecutedStep[] =
-    execution.context?.executed_steps ?? [];
-  const entryStage = workflow.initial_stage ?? workflow.entry_stage ?? "";
-  const lastSuccessfulStage =
-    executedStepsFromContext.length > 0
-      ? (executedStepsFromContext[executedStepsFromContext.length - 1]
-          ?.stage_id ?? entryStage)
-      : entryStage;
-
-  return workflowDAGExecutor.executeWorkflow(
-    workflowDefId,
-    {
-      ...execution.context,
-      retry_from_stage: lastSuccessfulStage,
-      original_execution_id: executionId,
-    } as Record<string, unknown>,
-    userId
-  );
+async function retryWorkflowFromLastStageDeprecated(): Promise<never> {
+  throw new Error(WORKFLOW_DAG_INTEGRATION_DEPRECATION_MESSAGE);
 }
+
+void retryWorkflowFromLastStageDeprecated;

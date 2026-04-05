@@ -125,6 +125,8 @@ export interface PolicyCheckDetails {
   rule_id: string;
   /** Confidence score that triggered the check (if applicable). */
   confidence_score?: number;
+  /** Evidence coverage score that triggered the check (if applicable). */
+  evidence_coverage_score?: number;
   /** Whether the action was flagged as external-facing. */
   is_external_artifact_action: boolean;
   /** Lifecycle stage at the time of the check. */
@@ -142,6 +144,8 @@ export interface PolicyCheckDetails {
  * Sprint 5.5 requirement: trigger HITL if confidenceScore < 0.6.
  */
 export const HITL_CONFIDENCE_THRESHOLD = 0.6;
+export const HIGH_IMPACT_MIN_CONFIDENCE_THRESHOLD = 0.75;
+export const HIGH_IMPACT_MIN_EVIDENCE_COVERAGE_THRESHOLD = 0.7;
 
 // ============================================================================
 // PolicyEngine
@@ -442,24 +446,54 @@ export class PolicyEngine {
       },
     }, () => {
       const opportunityConfidence = context.opportunity?.confidence_score;
+      const confidenceScore = opportunityConfidence;
       const isExternalArtifact = context.is_external_artifact_action;
       const lifecycleStage = context.opportunity?.lifecycle_stage;
+      const isHighImpactDecision = context.is_high_impact_decision;
+      const evidenceCoverageScore = context.evidence_coverage_score;
+
+      if (isHighImpactDecision) {
+        const confidenceFails =
+          confidenceScore !== undefined &&
+          confidenceScore < HIGH_IMPACT_MIN_CONFIDENCE_THRESHOLD;
+        const evidenceFails =
+          evidenceCoverageScore !== undefined &&
+          evidenceCoverageScore < HIGH_IMPACT_MIN_EVIDENCE_COVERAGE_THRESHOLD;
+
+        if (confidenceFails || evidenceFails) {
+          return {
+            allowed: false,
+            hitl_required: true,
+            hitl_reason:
+              `High-impact decision is below trust thresholds (confidence >= ${HIGH_IMPACT_MIN_CONFIDENCE_THRESHOLD.toFixed(2)}, ` +
+              `evidence coverage >= ${HIGH_IMPACT_MIN_EVIDENCE_COVERAGE_THRESHOLD.toFixed(2)}). ` +
+              `Human approval is required before proceeding.`,
+            details: {
+              rule_id: "HITL-02",
+              confidence_score: confidenceScore,
+              evidence_coverage_score: evidenceCoverageScore,
+              is_external_artifact_action: isExternalArtifact,
+              lifecycle_stage: lifecycleStage,
+            },
+          };
+        }
+      }
 
       if (
         isExternalArtifact &&
-        opportunityConfidence !== undefined &&
-        opportunityConfidence < HITL_CONFIDENCE_THRESHOLD
+        confidenceScore !== undefined &&
+        confidenceScore < HITL_CONFIDENCE_THRESHOLD
       ) {
         return {
           allowed: false,
           hitl_required: true,
           hitl_reason:
-            `Opportunity confidence score is ${opportunityConfidence.toFixed(2)} ` +
+            `Opportunity confidence score is ${confidenceScore.toFixed(2)} ` +
             `(below the ${HITL_CONFIDENCE_THRESHOLD} threshold). ` +
             `Human approval is required before generating an external-facing artifact.`,
           details: {
             rule_id: "HITL-01",
-            confidence_score: opportunityConfidence,
+            confidence_score: confidenceScore,
             is_external_artifact_action: isExternalArtifact,
             lifecycle_stage: lifecycleStage,
           },
@@ -471,7 +505,8 @@ export class PolicyEngine {
         hitl_required: false,
         details: {
           rule_id: "HITL-01",
-          confidence_score: opportunityConfidence,
+          confidence_score: confidenceScore,
+          evidence_coverage_score: evidenceCoverageScore,
           is_external_artifact_action: isExternalArtifact,
           lifecycle_stage: lifecycleStage,
         },

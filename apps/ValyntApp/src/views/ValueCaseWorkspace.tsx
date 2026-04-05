@@ -12,14 +12,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { CanvasHost, type SDUIWidget } from "@/components/canvas";
 import { AgentInsightCard } from "@/components/orchestration/AgentInsightCard";
 import { AgentStatusIndicator } from "@/components/orchestration/AgentStatusIndicator";
+import { DegradedStatusBanner } from "@/components/orchestration/DegradedStatusBanner";
 import { PipelineCompletionSummary } from "@/components/orchestration/PipelineCompletionSummary";
 import { PipelineProgressBar } from "@/components/orchestration/PipelineProgressBar";
 import { PipelineStepper } from "@/components/orchestration/PipelineStepper";
+import { RemediationActionPanel } from "@/components/orchestration/RemediationActionPanel";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
@@ -58,6 +60,7 @@ function buildDefaultWidgets(
 
 export function ValueCaseWorkspace() {
   const { caseId } = useParams<{ caseId: string }>();
+  const navigate = useNavigate();
   const { currentTenant } = useTenant();
 
   // Canvas state (artifact persistence + undo/redo)
@@ -91,6 +94,7 @@ export function ValueCaseWorkspace() {
   } = useValueCaseStream({
     onComplete: () => calculateMetrics(),
   });
+  const runtimeFailure = pipeline.runtimeFailure;
 
   const hasPipelineActivity = pipeline.steps.some((s) => s.status !== "pending");
 
@@ -157,6 +161,12 @@ export function ValueCaseWorkspace() {
               {pipeline.error}
             </div>
           )}
+
+          {runtimeFailure && (
+            <div className="mx-6 mb-3">
+              <DegradedStatusBanner runtimeFailure={runtimeFailure} />
+            </div>
+          )}
         </div>
       )}
 
@@ -204,6 +214,13 @@ export function ValueCaseWorkspace() {
                   <AgentInsightCard key={`${s.step}-${pipeline.revisionCycle}`} step={s} />
                 ))}
             </div>
+          )}
+
+          {runtimeFailure && (
+            <RemediationActionPanel
+              runtimeFailure={runtimeFailure}
+              onOpenApprovalInbox={() => navigate("/billing?tab=approvals")}
+            />
           )}
 
           {/* SDUI Canvas */}

@@ -56,6 +56,7 @@ import {
 } from '../../domain/economic-kernel/economic_kernel.js';
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
+import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -94,6 +95,10 @@ export type Scenario = z.infer<typeof ScenarioSchema>;
 export interface ScenarioBuildInput {
   organizationId: string;
   caseId: string;
+  /** Bypass cache and force deterministic rebuild of scenarios. */
+  forceRebuild?: boolean;
+  /** Snake-case alias accepted for API parity. */
+  force_rebuild?: boolean;
   /** Human-readable label for the scenario set (stored in assumptions_snapshot_json). */
   name?: string;
   /** Optional description (stored in assumptions_snapshot_json). */
@@ -140,12 +145,61 @@ const DEFAULT_TIMELINE_YEARS = 3;
 // ---------------------------------------------------------------------------
 
 export class ScenarioBuilder {
+  private static readonly SCENARIO_BUILD_CACHE_NAMESPACE = "scenario-build";
+  private static readonly SCENARIO_BUILD_CACHE_SCOPE = "build";
+
+  private static buildScenarioCacheEndpoint(caseId: string): string {
+    return `scenario-build:${caseId}`;
+  }
+
+  static async invalidateScenarioBuildCache(
+    organizationId: string,
+    caseId: string,
+  ): Promise<number> {
+    return ReadThroughCacheService.invalidateEndpoint(
+      organizationId,
+      ScenarioBuilder.buildScenarioCacheEndpoint(caseId),
+    );
+  }
+
   /**
    * Build three scenarios from accepted hypotheses.
    *
    * Throws if cost cannot be resolved from explicit input or assumptions register.
    */
   async buildScenarios(input: ScenarioBuildInput): Promise<ScenarioBuildResult> {
+    const forceRebuild = input.forceRebuild === true || input.force_rebuild === true;
+    if (forceRebuild) {
+      return this.buildScenariosDeterministically(input);
+    }
+
+    const cacheKeyPayload = {
+      caseId: input.caseId,
+      acceptedHypotheses: input.acceptedHypotheses,
+      assumptions: input.assumptions,
+      estimatedCostUsd: input.estimatedCostUsd ?? null,
+      timelineYears: input.timelineYears ?? null,
+      discountRate: input.discountRate ?? null,
+      name: input.name ?? null,
+      description: input.description ?? null,
+    };
+
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ScenarioBuilder.buildScenarioCacheEndpoint(input.caseId),
+        namespace: ScenarioBuilder.SCENARIO_BUILD_CACHE_NAMESPACE,
+        tenantId: input.organizationId,
+        scope: ScenarioBuilder.SCENARIO_BUILD_CACHE_SCOPE,
+        tier: "warm",
+        keyPayload: cacheKeyPayload,
+      },
+      async () => this.buildScenariosDeterministically(input),
+    );
+  }
+
+  private async buildScenariosDeterministically(
+    input: ScenarioBuildInput,
+  ): Promise<ScenarioBuildResult> {
     logger.info(`Building financial scenarios for case ${input.caseId}`);
 
     // Resolve cost, timeline, discount rate with explicit precedence

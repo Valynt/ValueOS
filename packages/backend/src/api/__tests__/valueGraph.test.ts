@@ -90,7 +90,15 @@ vi.mock("../../middleware/validateOpportunityAccess.js", () => ({
   validateOpportunityAccess: mockValidateOpportunityAccess,
 }));
 
-const { mockGetGraphForOpportunity, mockGetValuePaths, mockWriteEdge, MOCK_GRAPH } = vi.hoisted(() => {
+const {
+  mockGetClaimCentricView,
+  mockGetConfidenceDrift,
+  mockGetEvidenceCentricView,
+  mockGetGraphForOpportunity,
+  mockGetValuePaths,
+  mockWriteEdge,
+  MOCK_GRAPH,
+} = vi.hoisted(() => {
   const MOCK_GRAPH = {
     nodes: [
       { id: "cap-1", entity_type: "vg_capability", name: "Automation" },
@@ -103,6 +111,9 @@ const { mockGetGraphForOpportunity, mockGetValuePaths, mockWriteEdge, MOCK_GRAPH
   };
   return {
     MOCK_GRAPH,
+    mockGetClaimCentricView: vi.fn().mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", claims: [] }),
+    mockGetConfidenceDrift: vi.fn().mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", generated_at: "2026-01-01T00:00:00.000Z", claims: [] }),
+    mockGetEvidenceCentricView: vi.fn().mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", evidence: [] }),
     mockGetGraphForOpportunity: vi.fn().mockResolvedValue(MOCK_GRAPH),
     mockGetValuePaths: vi.fn().mockResolvedValue([]),
     mockWriteEdge: vi.fn().mockResolvedValue({ id: "edge-new" }),
@@ -118,6 +129,14 @@ vi.mock("../../services/value-graph/ValueGraphService.js", () => ({
   ValueGraphService: class {},
 }));
 
+
+vi.mock("../../services/value-graph/ClaimEvidenceGraphService.js", () => ({
+  claimEvidenceGraphService: {
+    getClaimCentricView: mockGetClaimCentricView,
+    getEvidenceCentricView: mockGetEvidenceCentricView,
+    getConfidenceDrift: mockGetConfidenceDrift,
+  },
+}));
 vi.mock("../../services/security/AuditLogService.js", () => ({
   auditLogService: {
     logAudit: vi.fn().mockResolvedValue(undefined),
@@ -168,6 +187,9 @@ describe("Value Graph API", () => {
     mockGetGraphForOpportunity.mockResolvedValue(MOCK_GRAPH);
     mockGetValuePaths.mockResolvedValue([]);
     mockWriteEdge.mockResolvedValue({ id: "edge-new" });
+    mockGetClaimCentricView.mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", claims: [] });
+    mockGetEvidenceCentricView.mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", evidence: [] });
+    mockGetConfidenceDrift.mockResolvedValue({ opportunity_id: "550e8400-e29b-41d4-a716-446655440000", organization_id: "tenant-abc", generated_at: "2026-01-01T00:00:00.000Z", claims: [] });
     mockRequireAuth.mockImplementation((_req: unknown, _res: unknown, next: () => void) => next());
     mockValidateOpportunityAccess.mockImplementation(
       (req: Record<string, unknown>, _res: unknown, next: () => void) => {
@@ -546,4 +568,31 @@ describe("Value Graph API", () => {
       });
     });
   });
+
+  describe("GET /api/v1/opportunities/:opportunityId/claim-evidence/*", () => {
+    it("returns claim-centric view", async () => {
+      const res = await request(app).get(`/api/v1/opportunities/${VALID_UUID}/claim-evidence/claims`);
+      expect(res.status).toBe(200);
+      expect(mockGetClaimCentricView).toHaveBeenCalledWith(VALID_UUID, "tenant-abc", undefined);
+    });
+
+    it("returns evidence-centric view", async () => {
+      const res = await request(app).get(`/api/v1/opportunities/${VALID_UUID}/claim-evidence/evidence`);
+      expect(res.status).toBe(200);
+      expect(mockGetEvidenceCentricView).toHaveBeenCalledWith(VALID_UUID, "tenant-abc", undefined);
+    });
+
+    it("returns confidence drift view", async () => {
+      const res = await request(app).get(`/api/v1/opportunities/${VALID_UUID}/claim-evidence/confidence-drift`);
+      expect(res.status).toBe(200);
+      expect(mockGetConfidenceDrift).toHaveBeenCalledWith(VALID_UUID, "tenant-abc", undefined);
+    });
+
+    it("validates claim_id query parameter", async () => {
+      const res = await request(app).get(`/api/v1/opportunities/${VALID_UUID}/claim-evidence/claims?claim_id=not-uuid`);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("VALIDATION_ERROR");
+    });
+  });
+
 });

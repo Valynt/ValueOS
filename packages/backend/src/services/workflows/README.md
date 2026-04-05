@@ -14,34 +14,34 @@ Opportunity → Target → Realization → Expansion → Integrity
 
 ### Components
 
-1. **WorkflowDAGDefinitions.ts** - Canonical workflow definitions
-2. **WorkflowDAGIntegration.ts** - Integration with AgentOrchestrator
-3. **WorkflowCompensation.ts** - Compensation logic for rollbacks
-4. **CircuitBreaker.ts** - Circuit breaker protection
-5. **AgentAPI.ts** - Agent invocation layer
+1. **WorkflowDAGDefinitions.ts** - Canonical workflow definitions and stage metadata
+2. **runtime/execution-runtime/WorkflowExecutor.ts** - Canonical runtime workflow engine
+3. **WorkflowExecutionStore.ts** - Workflow execution persistence/read model
+4. **SagaAdapters.ts** - Provenance and compensation adapters
+5. **WorkflowDAGIntegration.ts (deprecated, non-runtime)** - Legacy compatibility artifact only
 
 ### Data Flow
 
 ```
-User Request
+User/API Request
     ↓
-AgentOrchestrator.executeWorkflowDAG()
+ExecutionRuntime / runtime/execution-runtime/WorkflowExecutor.executeWorkflow()
     ↓
-WorkflowDAGExecutor.executeWorkflow()
+Load canonical DAG definition (WorkflowDAGDefinitions.ts)
     ↓
-Create Execution Record (Supabase)
+Create/Update execution state (WorkflowExecutionStore + Supabase)
     ↓
-Execute DAG Stages (Sequential/Parallel)
+Execute DAG stages (sequential + parallel branches)
     ↓
-For Each Stage:
-    ├─ Check Circuit Breaker
-    ├─ Execute with Retry Logic
-    ├─ Record Executed Step (Idempotency)
-    ├─ Log Events
-    └─ Transition to Next Stage
+For each stage:
+    ├─ Evaluate policy / guardrails
+    ├─ Invoke agent with retry manager
+    ├─ Persist stage result + telemetry
+    ├─ Record provenance / workflow events
+    └─ Transition next executable stages
     ↓
-On Success: Complete Workflow
-On Failure: Trigger Compensation
+On success: mark workflow completed
+On failure: persist failed state and trigger compensation/saga hooks
 ```
 
 ## Workflow Definitions
