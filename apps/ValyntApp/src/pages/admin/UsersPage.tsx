@@ -1,6 +1,8 @@
 import { Mail, MoreHorizontal, Plus, Search, Shield } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/contexts/AuthContext";
+import { resolveTenantRole, useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -36,6 +38,10 @@ const statusColors = {
 };
 
 export function UsersPage() {
+  const { userClaims } = useAuth();
+  const { hasPermission } = useAdminPermissions(resolveTenantRole(userClaims?.roles));
+  const canManageUsers = hasPermission("identity.write");
+
   const [search, setSearch] = useState("");
   const [users] = useState<User[]>(mockUsers);
 
@@ -52,10 +58,12 @@ export function UsersPage() {
           <h1 className="text-2xl font-bold">Users</h1>
           <p className="text-muted-foreground">Manage user accounts and permissions</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Invite User
-        </Button>
+        {canManageUsers ? (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
+        ) : null}
       </div>
 
       <Card>
@@ -97,7 +105,12 @@ export function UsersPage() {
                   </Badge>
                   <Badge className={statusColors[user.status]}>{user.status}</Badge>
                   <span className="text-sm text-muted-foreground w-24">{user.lastActive}</span>
-                  <Button variant="ghost" size="icon" aria-label="More actions">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="More actions"
+                    disabled={!canManageUsers}
+                  >
                     <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>

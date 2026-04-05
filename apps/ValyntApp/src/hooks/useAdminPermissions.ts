@@ -23,7 +23,7 @@ type TenantRole = 'owner' | 'admin' | 'member' | 'viewer';
  * are implemented, this mapping should be replaced with a
  * database-driven permission set per user.
  */
-const ROLE_PERMISSIONS: Record<TenantRole, AdminPermission[]> = {
+export const ROLE_PERMISSIONS: Record<TenantRole, AdminPermission[]> = {
   owner: [
     'governance.read', 'governance.write',
     'identity.read', 'identity.write',
@@ -67,6 +67,16 @@ interface UseAdminPermissionsResult {
   hasPermission: (permission: AdminPermission) => boolean;
   canWrite: (section: string) => boolean;
   isPlatformAdmin: boolean;
+}
+
+export function resolveTenantRole(roles: string[] | undefined): TenantRole {
+  if (!roles || roles.length === 0) return 'viewer';
+
+  const normalizedRoles = roles.map((role) => role.toLowerCase());
+  if (normalizedRoles.includes('owner')) return 'owner';
+  if (normalizedRoles.includes('admin')) return 'admin';
+  if (normalizedRoles.includes('member')) return 'member';
+  return 'viewer';
 }
 
 /**

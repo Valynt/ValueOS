@@ -8,7 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
-import { ProtectedRoute } from "./app/routes/route-guards";
+import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -222,16 +222,48 @@ export function AppRoutes() {
                                         <Route path="models/:id" element={<ModelDetail />} />
                                         <Route path="agents" element={<Agents />} />
                                         <Route path="agents/:id" element={<AgentDetail />} />
-                                        <Route path="admin/agents" element={<AgentAdminPage />} />
-                                        <Route path="integrations" element={<Integrations />} />
-                                        <Route path="settings" element={<SettingsPage />} />
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.ADMIN_AGENTS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="admin/agents" element={<AgentAdminPage />} />
+                                        </Route>
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.INTEGRATIONS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="integrations" element={<Integrations />} />
+                                        </Route>
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.SETTINGS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="settings" element={<SettingsPage />} />
+                                        </Route>
                                         <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
                                         <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
                                         <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
                                         <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
                                         <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
                                         <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
-                                        <Route path="billing" element={<BillingPortal />} />
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.BILLING}
+                                            />
+                                          }
+                                        >
+                                          <Route path="billing" element={<BillingPortal />} />
+                                        </Route>
                                         <Route path="company" element={<CompanyKnowledge />} />
                                         <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
                                         <Route path="academy/*" element={<AcademyV2Routes />} />

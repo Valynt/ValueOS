@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/contexts/AuthContext";
+import { resolveTenantRole, useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { apiClient } from "@/api/client/unified-api-client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +77,10 @@ interface DashboardData {
 }
 
 export function SecurityDashboard() {
+  const { userClaims } = useAuth();
+  const { hasPermission } = useAdminPermissions(resolveTenantRole(userClaims?.roles));
+  const canManageSecurity = hasPermission("security.write");
+
   const [selectedTimeframe, _setSelectedTimeframe] = useState<"1h" | "24h" | "7d">("24h");
   const queryClient = useQueryClient();
 
@@ -192,14 +198,16 @@ export function SecurityDashboard() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => resetMetricsMutation.mutate()}
-            disabled={resetMetricsMutation.isPending}
-          >
-            Reset Metrics
-          </Button>
+          {canManageSecurity ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => resetMetricsMutation.mutate()}
+              disabled={resetMetricsMutation.isPending}
+            >
+              Reset Metrics
+            </Button>
+          ) : null}
         </div>
       </div>
 
