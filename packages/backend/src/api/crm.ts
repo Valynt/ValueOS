@@ -79,6 +79,10 @@ function parseWebhookJsonBody(
   }
 }
 
+const HealthTimelineQuerySchema = z.object({
+  lookbackDays: z.coerce.number().int().min(1).max(90).default(14),
+});
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -604,6 +608,35 @@ router.get(
         error instanceof Error ? error : undefined
       );
       return res.status(500).json({ error: "Failed to get health status" });
+    }
+  }
+);
+
+
+/**
+ * GET /api/crm/health/timeline
+ * Returns per-provider incident/recovery timeline and SLO status.
+ */
+router.get(
+  "/health/timeline",
+  ...authMiddleware,
+  requirePermission("integrations:manage"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const { lookbackDays } = HealthTimelineQuerySchema.parse(req.query);
+
+      const timeline = await crmHealthService.getHealthTimeline(tenantId, lookbackDays);
+      return res.json(timeline);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid health timeline query parameters" });
+      }
+      logger.error(
+        "Health timeline check failed",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({ error: "Failed to get health timeline status" });
     }
   }
 );
