@@ -19,7 +19,7 @@ import {
   SystemResources,
 } from "./monitoring/SystemResourceMonitor.js";
 import { getSecureSharedContext } from "./SecureSharedContext.js";
-import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
+import { getUnifiedAgentAPI } from "../value/UnifiedAgentAPI.js";
 
 // ============================================================================
 // Utility Classes

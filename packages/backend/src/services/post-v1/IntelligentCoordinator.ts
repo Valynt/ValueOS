@@ -11,7 +11,7 @@ import { logger } from "../../lib/logger.js";
 import { getMessageBus } from "../realtime/MessageBus.js";
 
 import { AgentType } from "./agent-types.js";
-import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
+import { getUnifiedAgentAPI } from "../value/UnifiedAgentAPI.js";
 
 // ============================================================================
 // Types
