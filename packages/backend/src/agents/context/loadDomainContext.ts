@@ -20,14 +20,14 @@ import { DomainPackService } from '../../services/domain-packs/DomainPackService
 import {
   effectiveFromSnapshot,
   isDomainPackSnapshot,
-} from '../../services/domainPacks/snapshot.js';
-import type { DomainPackSnapshot } from '../../services/domainPacks/snapshot.js';
+} from '../../services/domain-packs/snapshot.js';
+import type { DomainPackSnapshot } from '../../services/domain-packs/snapshot.js';
 import {
   estimateTokens,
   LLM_LIMITS,
   sanitizeAssumptionForPrompt,
   sanitizeKpiForPrompt,
-} from '../../services/domainPacks/validate.js';
+} from '../../services/domain-packs/validate.js';
 
 // ============================================================================
 // Types
