@@ -27,7 +27,7 @@ These will be absorbed into the `PolicyEngine` runtime service in Sprint 4 when 
 |---|---|---|
 | `packages/mcp/ground-truth` | Experimental | Absorb validators into `PolicyEngine` in Sprint 4; delete package. |
 | `packages/mcp/crm` | Experimental | Evaluate whether CRM integration belongs in `packages/integrations/`; migrate or delete in Sprint 6. |
-| `packages/mcp/common` | Experimental | Delete after ground-truth and CRM are migrated. |
+| `packages/mcp/common` | Canonical shared contracts/utilities | Keep as the ownership root for MCP common contracts used by adapters and runtimes. |
 
 ## Demotion target
 
