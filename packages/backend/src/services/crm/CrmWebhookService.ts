@@ -12,6 +12,10 @@ import { createLogger } from '../../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { getCrmWebhookQueue } from '../../workers/crmWorker.js';
+import {
+  logIntegrationEvent,
+  withIntegrationTrace,
+} from './integrationObservability.js';
 
 import { getCrmProvider } from './CrmProviderRegistry.js';
 import { redactSecrets } from './secretsRedaction.js';
@@ -76,100 +80,167 @@ export class CrmWebhookService {
     provider: CrmProvider,
     req: Request,
   ): Promise<WebhookIngestResult> {
-    const impl = getCrmProvider(provider);
+    const correlationId = req.requestId || `crm-webhook-${Date.now()}`;
+    const startedAt = Date.now();
 
-    // 1. Verify signature
-    const verification = await impl.verifyWebhookSignature(req);
-    if (!verification.valid) {
-      logger.warn('Webhook signature verification failed', { provider });
-      return { accepted: false, duplicate: false };
-    }
-
-    // 2. Validate payload structure and size
-    const payloadResult = WebhookPayloadSchema.safeParse(req.body);
-    if (!payloadResult.success) {
-      logger.warn('Webhook payload validation failed', {
+    return withIntegrationTrace(
+      'crm.webhook.ingest',
+      {
         provider,
-        error: payloadResult.error.message,
-      });
-      return { accepted: false, duplicate: false };
-    }
-    const payload = payloadResult.data;
+        tenant_id: req.tenantId || 'unknown',
+        operation: 'webhook_ingest',
+        correlation_id: correlationId,
+      },
+      async () => {
+        const impl = getCrmProvider(provider);
 
-    // 3. Extract idempotency key
-    const idempotencyKey = impl.extractIdempotencyKey(payload);
+        // 1. Verify signature
+        const verification = await impl.verifyWebhookSignature(req);
+        if (!verification.valid) {
+          logger.warn('Webhook signature verification failed', { provider });
+          logIntegrationEvent({
+            service: 'crm',
+            provider,
+            tenant_id: 'unknown',
+            operation: 'webhook_ingest',
+            correlation_id: correlationId,
+            outcome: 'rejected',
+            event_name: 'webhook_rejected',
+            reason: 'signature_verification_failed',
+          });
+          return { accepted: false, duplicate: false };
+        }
 
-    // 4. Check for duplicate
-    const { data: existing } = await this.supabase
-      .from('crm_webhook_events')
-      .select('id')
-      .eq('idempotency_key', idempotencyKey)
-      .maybeSingle();
+        // 2. Validate payload structure and size
+        const payloadResult = WebhookPayloadSchema.safeParse(req.body);
+        if (!payloadResult.success) {
+          logger.warn('Webhook payload validation failed', {
+            provider,
+            error: payloadResult.error.message,
+          });
+          logIntegrationEvent({
+            service: 'crm',
+            provider,
+            tenant_id: 'unknown',
+            operation: 'webhook_ingest',
+            correlation_id: correlationId,
+            outcome: 'rejected',
+            event_name: 'webhook_rejected',
+            reason: 'payload_validation_failed',
+          });
+          return { accepted: false, duplicate: false };
+        }
+        const payload = payloadResult.data;
 
-    if (existing) {
-      logger.info('Duplicate webhook event, skipping', { provider, idempotencyKey });
-      return { accepted: false, duplicate: true, eventId: existing.id };
-    }
+        // 3. Extract idempotency key
+        const idempotencyKey = impl.extractIdempotencyKey(payload);
 
-    // 5. Determine tenant_id from webhook payload or connection lookup
-    const tenantId = await this.resolveTenantId(provider, payload, verification.tenantId);
-    if (!tenantId) {
-      logger.warn('Could not resolve tenant for webhook', { provider, idempotencyKey });
-      return { accepted: false, duplicate: false };
-    }
+        // 4. Check for duplicate
+        const { data: existing } = await this.supabase
+          .from('crm_webhook_events')
+          .select('id')
+          .eq('idempotency_key', idempotencyKey)
+          .maybeSingle();
 
-    // 6. Validate event type against allowlist
-    const eventType = this.extractEventType(provider, payload);
-    const allowed = ALLOWED_EVENT_TYPES[provider];
-    if (allowed && !allowed.has(eventType)) {
-      logger.warn('Webhook event type not in allowlist', { provider, eventType });
-      return { accepted: false, duplicate: false };
-    }
+        if (existing) {
+          logger.info('Duplicate webhook event, skipping', { provider, idempotencyKey });
+          return { accepted: false, duplicate: true, eventId: existing.id };
+        }
 
-    // 7. Strip sensitive fields from payload before storage
-    const sanitizedPayload = redactSecrets(payload) as Record<string, unknown>;
+        // 5. Determine tenant_id from webhook payload or connection lookup
+        const tenantId = await this.resolveTenantId(provider, payload, verification.tenantId);
+        if (!tenantId) {
+          logger.warn('Could not resolve tenant for webhook', { provider, idempotencyKey });
+          logIntegrationEvent({
+            service: 'crm',
+            provider,
+            tenant_id: 'unknown',
+            operation: 'webhook_ingest',
+            correlation_id: correlationId,
+            outcome: 'rejected',
+            event_name: 'webhook_rejected',
+            reason: 'tenant_resolution_failed',
+          });
+          return { accepted: false, duplicate: false };
+        }
 
-    const { data: event, error } = await this.supabase
-      .from('crm_webhook_events')
-      .insert({
-        tenant_id: tenantId,
-        provider,
-        idempotency_key: idempotencyKey,
-        event_type: eventType,
-        payload: sanitizedPayload,
-        process_status: 'pending',
-      })
-      .select('id')
-      .single();
+        // 6. Validate event type against allowlist
+        const eventType = this.extractEventType(provider, payload);
+        const allowed = ALLOWED_EVENT_TYPES[provider];
+        if (allowed && !allowed.has(eventType)) {
+          logger.warn('Webhook event type not in allowlist', { provider, eventType });
+          logIntegrationEvent({
+            service: 'crm',
+            provider,
+            tenant_id: tenantId,
+            operation: 'webhook_ingest',
+            correlation_id: correlationId,
+            outcome: 'rejected',
+            event_name: 'webhook_rejected',
+            reason: `event_type_not_allowlisted:${eventType}`,
+          });
+          return { accepted: false, duplicate: false };
+        }
 
-    if (error) {
-      // Unique constraint violation = duplicate (race condition)
-      if (error.code === '23505') {
-        return { accepted: false, duplicate: true };
-      }
-      logger.error('Failed to store webhook event', error, { provider });
-      throw error;
-    }
+        // 7. Strip sensitive fields from payload before storage
+        const sanitizedPayload = redactSecrets(payload) as Record<string, unknown>;
 
-    // 8. Enqueue for async processing
-    const queue = getCrmWebhookQueue();
-    await queue.add('crm:webhook:process', {
-      eventId: event.id,
-      tenantId,
-      provider,
-    }, {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 3000 },
-    });
+        const { data: event, error } = await this.supabase
+          .from('crm_webhook_events')
+          .insert({
+            tenant_id: tenantId,
+            provider,
+            idempotency_key: idempotencyKey,
+            event_type: eventType,
+            payload: sanitizedPayload,
+            process_status: 'pending',
+          })
+          .select('id')
+          .single();
 
-    logger.info('Webhook event ingested', {
-      provider,
-      eventId: event.id,
-      eventType,
-      tenantId,
-    });
+        if (error) {
+          // Unique constraint violation = duplicate (race condition)
+          if (error.code === '23505') {
+            return { accepted: false, duplicate: true };
+          }
+          logger.error('Failed to store webhook event', error, { provider });
+          throw error;
+        }
 
-    return { accepted: true, duplicate: false, eventId: event.id };
+        // 8. Enqueue for async processing
+        const queue = getCrmWebhookQueue();
+        await queue.add('crm:webhook:process', {
+          eventId: event.id,
+          tenantId,
+          provider,
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 3000 },
+        });
+
+        const latencyMs = Date.now() - startedAt;
+        logger.info('Webhook event ingested', {
+          provider,
+          eventId: event.id,
+          eventType,
+          tenantId,
+          correlationId,
+          latencyMs,
+        });
+
+        logIntegrationEvent({
+          service: 'crm',
+          provider,
+          tenant_id: tenantId,
+          operation: 'webhook_ingest',
+          correlation_id: correlationId,
+          outcome: 'success',
+          latency_ms: latencyMs,
+        });
+
+        return { accepted: true, duplicate: false, eventId: event.id };
+      },
+    );
   }
 
   /**

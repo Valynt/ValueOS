@@ -15,6 +15,7 @@ import { createLogger } from '../lib/logger.js';
 import { tenantContextStorage } from '../middleware/tenantContext.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
+import { logIntegrationEvent } from '../services/crm/integrationObservability.js';
 import { RedisCircuitBreaker } from '../services/post-v1/RedisCircuitBreaker.js';
 
 const logger = createLogger({ component: 'CrmWorker' });
@@ -181,11 +182,24 @@ export function initCrmSyncWorker(): Worker {
           trace_id: String(job.data?.traceId ?? job.id ?? 'unknown'),
           attributes: { queue: CRM_SYNC_QUEUE, provider: String(provider ?? 'unknown') },
         }, async () => {
+          const queueLagMs = Math.max(0, Date.now() - (job.timestamp ?? Date.now()));
           logger.info(`[crm-sync] Processing ${job.name}`, {
             tenantId,
             provider,
             jobId: job.id,
             attempt: job.attemptsMade + 1,
+            queueLagMs,
+          });
+
+          logIntegrationEvent({
+            service: 'crm',
+            provider: String(provider ?? 'unknown'),
+            tenant_id: String(tenantId),
+            operation: 'queue_crm_sync_consume',
+            correlation_id: String(job.data?.traceId ?? job.id ?? 'unknown'),
+            outcome: 'started',
+            queue_lag_ms: queueLagMs,
+            retry_count: Number(job.attemptsMade ?? 0),
           });
 
           return withCrmCircuit(tenantId, provider, async () => {
@@ -250,10 +264,23 @@ export function initCrmWebhookWorker(): Worker {
           trace_id: String(job.data?.traceId ?? eventId ?? job.id ?? 'unknown'),
           attributes: { queue: CRM_WEBHOOK_QUEUE, provider: String(provider ?? 'unknown') },
         }, async () => {
+          const queueLagMs = Math.max(0, Date.now() - (job.timestamp ?? Date.now()));
           logger.info(`[crm-webhook] Processing event`, {
             eventId,
             jobId: job.id,
             attempt: job.attemptsMade + 1,
+            queueLagMs,
+          });
+
+          logIntegrationEvent({
+            service: 'crm',
+            provider: String(provider ?? 'unknown'),
+            tenant_id: String(tenantId),
+            operation: 'queue_crm_webhook_consume',
+            correlation_id: String(job.data?.traceId ?? eventId ?? job.id ?? 'unknown'),
+            outcome: 'started',
+            queue_lag_ms: queueLagMs,
+            retry_count: Number(job.attemptsMade ?? 0),
           });
 
           await withCrmCircuit(tenantId, provider, async () => {

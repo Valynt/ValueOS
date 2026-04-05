@@ -15,6 +15,7 @@ import {
   ParallelInitializer,
 } from "../../mcp-common";
 import { CRMConfigManager } from "../config/CRMConfigManager";
+import { recordMCPIntegrationTelemetry } from "./integrationTelemetry";
 import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
 import {
@@ -645,6 +646,14 @@ export class MCPCRMServer {
       requestId
     );
 
+    recordMCPIntegrationTelemetry({
+      provider: "unknown",
+      tenant_id: this.config.tenantId,
+      operation: toolName,
+      correlation_id: requestId,
+      outcome: "started",
+    });
+
     try {
       // Get the first available module (prefer HubSpot for now)
       const module =
@@ -732,6 +741,15 @@ export class MCPCRMServer {
         "CRM tool execution failed",
         error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
+      recordMCPIntegrationTelemetry({
+        provider: "unknown",
+        tenant_id: this.config.tenantId,
+        operation: toolName,
+        correlation_id: requestId,
+        outcome: "failure",
+        latency_ms: Date.now() - startTime,
+        reason: error instanceof Error ? error.message : "unknown",
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -831,6 +849,15 @@ export class MCPCRMServer {
           : `Rate limit exceeded for ${module.provider}`,
       });
 
+      recordMCPIntegrationTelemetry({
+        provider,
+        tenant_id: this.config.tenantId,
+        operation: toolName,
+        correlation_id: `crm-${startTime}`,
+        outcome: 'degraded',
+        reason: rateLimitResult.circuitBreakerOpen ? 'circuit_breaker_open' : 'rate_limit_exceeded',
+      });
+
       return {
         success: false,
         error: rateLimitResult.circuitBreakerOpen
@@ -889,6 +916,14 @@ export class MCPCRMServer {
 
       // Record successful request
       mcpRateLimiter.recordSuccess(module.provider, Date.now() - startTime);
+      recordMCPIntegrationTelemetry({
+        provider,
+        tenant_id: this.config.tenantId,
+        operation: toolName,
+        correlation_id: `crm-${startTime}`,
+        outcome: 'success',
+        latency_ms: duration,
+      });
 
       return {
         success: true,
@@ -944,6 +979,15 @@ export class MCPCRMServer {
         module.provider,
         error instanceof Error ? error : undefined
       );
+      recordMCPIntegrationTelemetry({
+        provider,
+        tenant_id: this.config.tenantId,
+        operation: toolName,
+        correlation_id: `crm-${startTime}`,
+        outcome: 'failure',
+        latency_ms: duration,
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
 
       return {
         success: false,

@@ -1,0 +1,51 @@
+groups:
+  - name: integration-connection-health
+    rules:
+      - alert: IntegrationConnectFailureSpike
+        expr: |
+          sum by (provider, tenant_id) (
+            increase(integration_operation_total{service="crm",operation="connect_start",outcome="failure"}[15m])
+          ) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "CRM connect failures are spiking"
+          description: "Provider {{ $labels.provider }} for tenant {{ $labels.tenant_id }} had repeated connect failures in the last 15 minutes."
+
+  - name: integration-sync-health
+    rules:
+      - alert: IntegrationSyncDegraded
+        expr: |
+          increase(integration_operation_total{service="crm",event_name="sync_degraded"}[30m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "CRM sync degraded"
+          description: "CRM sync is degraded for provider {{ $labels.provider }} tenant {{ $labels.tenant_id }}."
+
+      - alert: IntegrationReauthRequired
+        expr: |
+          increase(integration_operation_total{service="crm",event_name="reauth_required"}[30m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: integrations
+        annotations:
+          summary: "CRM re-authentication required"
+          description: "OAuth token expired or expiring for provider {{ $labels.provider }} tenant {{ $labels.tenant_id }}."
+
+  - name: integration-webhook-backlog
+    rules:
+      - alert: IntegrationWebhookBacklogHigh
+        expr: integration_webhook_backlog > 200
+        for: 10m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "Webhook backlog is high"
+          description: "Webhook backlog for provider {{ $labels.provider }} tenant {{ $labels.tenant_id }} is {{ $value }} events."

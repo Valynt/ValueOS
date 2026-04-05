@@ -5,13 +5,15 @@
  * data for CRM integrations per tenant/provider.
  */
 
-import { createLogger } from '../../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 
+import {
+  logIntegrationEvent,
+  setWebhookBacklog,
+  withIntegrationTrace,
+} from './integrationObservability.js';
 import type { CrmProvider } from './types.js';
-
-const logger = createLogger({ component: 'CrmHealthService' });
 
 export interface SyncHealthStatus {
   tenantId: string;
@@ -45,6 +47,16 @@ export class CrmHealthService {
    * Get sync health for a specific tenant/provider.
    */
   async getHealth(tenantId: string, provider: CrmProvider): Promise<SyncHealthStatus | null> {
+    const correlationId = `crm-health-${tenantId}-${provider}-${Date.now()}`;
+    return withIntegrationTrace(
+      'crm.health.read',
+      {
+        provider,
+        tenant_id: tenantId,
+        operation: 'health_check',
+        correlation_id: correlationId,
+      },
+      async () => {
     const { data, error } = await this.supabase
       .from('crm_sync_health')
       .select('*')
@@ -55,6 +67,45 @@ export class CrmHealthService {
     if (error || !data) return null;
 
     const alerts = this.computeAlerts(data);
+
+    const webhookBacklog = await this.getWebhookBacklog(tenantId, provider);
+    setWebhookBacklog(tenantId, provider, webhookBacklog);
+
+    if (alerts.some((a) => a.code.includes('SYNC_LAG') || a.code.includes('ERROR_RATE'))) {
+      logIntegrationEvent({
+        service: 'crm',
+        provider,
+        tenant_id: tenantId,
+        operation: 'health_check',
+        correlation_id: correlationId,
+        outcome: 'degraded',
+        event_name: 'sync_degraded',
+        reason: alerts.map((a) => a.code).join(','),
+      });
+    } else {
+      logIntegrationEvent({
+        service: 'crm',
+        provider,
+        tenant_id: tenantId,
+        operation: 'health_check',
+        correlation_id: correlationId,
+        outcome: 'recovered',
+        event_name: 'sync_recovered',
+      });
+    }
+
+    if (data.token_health === 'expired' || data.token_health === 'expiring_soon') {
+      logIntegrationEvent({
+        service: 'crm',
+        provider,
+        tenant_id: tenantId,
+        operation: 'health_check',
+        correlation_id: correlationId,
+        outcome: 'degraded',
+        event_name: 'reauth_required',
+        reason: String(data.token_health),
+      });
+    }
 
     return {
       tenantId: data.tenant_id,
@@ -68,6 +119,7 @@ export class CrmHealthService {
       webhookThroughput1h: data.webhook_throughput_1h,
       alerts,
     };
+  });
   }
 
   /**
@@ -93,6 +145,19 @@ export class CrmHealthService {
       webhookThroughput1h: row.webhook_throughput_1h,
       alerts: this.computeAlerts(row),
     }));
+  }
+
+
+
+  private async getWebhookBacklog(tenantId: string, provider: CrmProvider): Promise<number> {
+    const { count } = await this.supabase
+      .from('crm_webhook_events')
+      .select('id', { head: true, count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .eq('process_status', 'pending');
+
+    return count ?? 0;
   }
 
   private computeAlerts(data: Record<string, unknown>): HealthAlert[] {

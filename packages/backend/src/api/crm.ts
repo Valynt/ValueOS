@@ -15,6 +15,7 @@
 
 import { Request, Response, Router } from "express";
 import express from "express";
+import crypto from "node:crypto";
 import { z } from "zod";
 
 import { createLogger } from "../lib/logger";
@@ -34,7 +35,11 @@ import { crmWebhookService } from "../services/crm/CrmWebhookService";
 import { consumeOAuthState } from "../services/crm/OAuthStateStore";
 import { CrmProviderSchema } from "../services/crm/types";
 import { auditLogService } from "../services/security/AuditLogService";
-import { getCrmSyncQueue, getCrmWebhookQueue } from "../workers/crmWorker";
+import { getCrmSyncQueue } from "../workers/crmWorker";
+import {
+  logIntegrationEvent,
+  withIntegrationTrace,
+} from "../services/crm/integrationObservability";
 
 const logger = createLogger({ component: "CrmAPI" });
 const router = Router();
@@ -82,6 +87,38 @@ function getRedirectUri(req: Request, provider: string): string {
   return `${baseUrl}/api/crm/${provider}/connect/callback`;
 }
 
+
+
+async function writeAdminAudit(params: {
+  req: Request;
+  tenantId: string;
+  provider: string;
+  action: string;
+  outcome: "success" | "failed";
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  const actor = getActor(params.req);
+  await auditLogService.logAudit({
+    tenantId: params.tenantId,
+    userId: actor.id,
+    userName: actor.name,
+    userEmail: actor.email,
+    action: params.action,
+    resourceType: "crm_connection",
+    resourceId: params.provider,
+    details: {
+      actor: actor.id,
+      tenantId: params.tenantId,
+      targetProvider: params.provider,
+      outcome: params.outcome,
+      ...(params.details ?? {}),
+    },
+    ipAddress: params.req.ip,
+    userAgent: params.req.get("user-agent"),
+    status: params.outcome === "success" ? "success" : "failed",
+  });
+}
+
 function sendOAuthCallbackErrorHtml(
   res: Response,
   options: { status: number; message: string; appOrigin?: string }
@@ -126,24 +163,34 @@ router.post(
       const tenantId = getTenantId(req);
       const redirectUri = getRedirectUri(req, provider);
 
-      const result = await crmConnectionService.startOAuth(
-        tenantId,
-        provider,
-        redirectUri
+      const correlationId = req.requestId || crypto.randomUUID();
+      const result = await withIntegrationTrace(
+        "crm.connect.start",
+        {
+          provider,
+          tenant_id: tenantId,
+          operation: "connect_start",
+          correlation_id: correlationId,
+        },
+        () => crmConnectionService.startOAuth(tenantId, provider, redirectUri),
       );
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "connect_start",
+        correlation_id: correlationId,
+        outcome: "started",
+        event_name: "connect_started",
+      });
+
+      await writeAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_oauth_started",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
       });
 
       return res.json({ authUrl: result.authUrl, state: result.state });
@@ -153,6 +200,31 @@ router.post(
           provider: req.params.provider,
         });
         return res.status(400).json({ error: "Unsupported provider" });
+      }
+      const provider = req.params.provider;
+      const tenantId = req.tenantId || req.user?.tenant_id || "unknown";
+      const correlationId = req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "connect_start",
+        correlation_id: correlationId,
+        outcome: "failure",
+        event_name: "connect_failed",
+        reason: error instanceof Error ? error.message : "unknown_error",
+      });
+      if (tenantId !== "unknown") {
+        await writeAdminAudit({
+          req,
+          tenantId,
+          provider,
+          action: "crm_oauth_started",
+          outcome: "failed",
+          details: {
+            error: error instanceof Error ? error.message : "Failed to start OAuth",
+          },
+        });
       }
       logger.error(
         "Failed to start OAuth",
@@ -244,7 +316,17 @@ router.get(
           "oauth-callback"
         );
 
-      // Audit log
+      const correlationId = req.requestId || state;
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "connect_callback",
+        correlation_id: correlationId,
+        outcome: "success",
+        event_name: "connect_succeeded",
+      });
+
       await auditLogService.logAudit({
         tenantId,
         userId: "system",
@@ -253,7 +335,14 @@ router.get(
         action: "crm_connected",
         resourceType: "crm_connection",
         resourceId: connection.id,
-        details: { provider, status: connection.status },
+        details: {
+          provider,
+          status: connection.status,
+          actor: "system",
+          tenantId,
+          targetProvider: provider,
+          outcome: "success",
+        },
       });
 
       // Trigger initial sync
@@ -287,6 +376,18 @@ router.get(
         </body></html>
       `);
     } catch (error) {
+      const provider = req.params.provider || "unknown";
+      const correlationId = (req.query.state as string | undefined) || req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: "unknown",
+        operation: "connect_callback",
+        correlation_id: correlationId,
+        outcome: "failure",
+        event_name: "connect_failed",
+        reason: error instanceof Error ? error.message : "unknown_error",
+      });
       logger.error(
         "OAuth callback failed",
         error instanceof Error ? error : undefined
@@ -319,22 +420,48 @@ router.post(
 
       await crmConnectionService.disconnect(tenantId, provider);
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      const correlationId = req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "disconnect",
+        correlation_id: correlationId,
+        outcome: "success",
+      });
+
+      await writeAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_disconnected",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
       });
 
       return res.json({ success: true });
     } catch (error) {
+      const provider = req.params.provider || "unknown";
+      const tenantId = req.tenantId || req.user?.tenant_id || "unknown";
+      const correlationId = req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "disconnect",
+        correlation_id: correlationId,
+        outcome: "failure",
+        reason: error instanceof Error ? error.message : "unknown_error",
+      });
+      if (tenantId !== "unknown") {
+        await writeAdminAudit({
+          req,
+          tenantId,
+          provider,
+          action: "crm_disconnected",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : "disconnect_failed" },
+        });
+      }
       logger.error(
         "Disconnect failed",
         error instanceof Error ? error : undefined
@@ -414,8 +541,19 @@ router.post(
             ip: req.ip,
             userAgent: req.get("user-agent"),
           });
+          logIntegrationEvent({
+            service: "crm",
+            provider,
+            tenant_id: "unknown",
+            operation: "webhook_ingest",
+            correlation_id: req.requestId || crypto.randomUUID(),
+            outcome: "rejected",
+            event_name: "webhook_rejected",
+            reason: "signature_verification_failed",
+          });
           await auditLogService
             .logAudit({
+              tenantId: "system",
               userId: "system",
               userName: "System",
               userEmail: "system@valueos.io",
@@ -611,22 +749,51 @@ router.post(
         }
       );
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      const correlationId = req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "sync_trigger",
+        correlation_id: correlationId,
+        outcome: "started",
+        event_name: "sync_started",
+      });
+
+      await writeAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_sync_triggered",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider, jobId: job.id },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
+        details: { jobId: job.id },
       });
 
       return res.json({ success: true, jobId: job.id });
     } catch (error) {
+      const provider = req.params.provider || "unknown";
+      const tenantId = req.tenantId || req.user?.tenant_id || "unknown";
+      const correlationId = req.requestId || crypto.randomUUID();
+      logIntegrationEvent({
+        service: "crm",
+        provider,
+        tenant_id: tenantId,
+        operation: "sync_trigger",
+        correlation_id: correlationId,
+        outcome: "failure",
+        event_name: "sync_failed",
+        reason: error instanceof Error ? error.message : "unknown_error",
+      });
+      if (tenantId !== "unknown") {
+        await writeAdminAudit({
+          req,
+          tenantId,
+          provider,
+          action: "crm_sync_triggered",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : "sync_trigger_failed" },
+        });
+      }
       logger.error(
         "Sync trigger failed",
         error instanceof Error ? error : undefined

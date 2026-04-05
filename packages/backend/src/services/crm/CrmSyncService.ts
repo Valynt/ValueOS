@@ -12,6 +12,10 @@ import { createLogger } from '../../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { auditLogService } from '../AuditLogService.js';
+import {
+  logIntegrationEvent,
+  withIntegrationTrace,
+} from './integrationObservability.js';
 
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
@@ -100,6 +104,18 @@ export class CrmSyncService {
     processed: number;
     errors: number;
   }> {
+    const correlationId = `crm-sync-${tenantId}-${Date.now()}`;
+    const startedAt = Date.now();
+
+    return withIntegrationTrace(
+      'crm.sync.delta',
+      {
+        provider,
+        tenant_id: tenantId,
+        operation: 'delta_sync',
+        correlation_id: correlationId,
+      },
+      async () => {
     const tokens = await crmConnectionService.getTokens(tenantId, provider);
     if (!tokens) {
       throw new Error(`No valid tokens for ${provider} on tenant ${tenantId}`);
@@ -113,6 +129,16 @@ export class CrmSyncService {
     let totalErrors = 0;
     let currentCursor = cursor;
     let hasMore = true;
+
+    logIntegrationEvent({
+      service: 'crm',
+      provider,
+      tenant_id: tenantId,
+      operation: 'delta_sync',
+      correlation_id: correlationId,
+      outcome: 'started',
+      event_name: 'sync_started',
+    });
 
     try {
       while (hasMore) {
@@ -168,7 +194,18 @@ export class CrmSyncService {
         },
       });
 
-      logger.info('Delta sync completed', { tenantId, provider, totalProcessed, totalErrors });
+      const latencyMs = Date.now() - startedAt;
+      logIntegrationEvent({
+        service: 'crm',
+        provider,
+        tenant_id: tenantId,
+        operation: 'delta_sync',
+        correlation_id: correlationId,
+        outcome: totalErrors > 0 ? 'degraded' : 'success',
+        event_name: totalErrors > 0 ? 'sync_degraded' : 'sync_succeeded',
+        latency_ms: latencyMs,
+      });
+      logger.info('Delta sync completed', { tenantId, provider, totalProcessed, totalErrors, correlationId, latencyMs });
       return { processed: totalProcessed, errors: totalErrors };
     } catch (err) {
       await crmConnectionService.recordSyncError(
@@ -192,8 +229,21 @@ export class CrmSyncService {
         status: 'failed',
       });
 
+      logIntegrationEvent({
+        service: 'crm',
+        provider,
+        tenant_id: tenantId,
+        operation: 'delta_sync',
+        correlation_id: correlationId,
+        outcome: 'failure',
+        event_name: 'sync_failed',
+        latency_ms: Date.now() - startedAt,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+
       throw err;
     }
+  });
   }
 
   /**

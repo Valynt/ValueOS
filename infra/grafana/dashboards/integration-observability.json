@@ -1,0 +1,58 @@
+{
+  "title": "Integration Observability by Tenant/Provider",
+  "uid": "integration-observability",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["integrations", "crm", "mcp"],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Connection Health (success vs failure)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (provider, tenant_id, outcome) (rate(integration_operation_total{service=\"crm\",operation=\"connect_start\"}[5m]))",
+          "legendFormat": "{{tenant_id}}/{{provider}} {{outcome}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sync Health Events",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (provider, tenant_id, event_name) (increase(integration_operation_total{service=\"crm\",event_name=~\"sync_degraded|sync_recovered|sync_failed|sync_succeeded\"}[30m]))",
+          "legendFormat": "{{tenant_id}}/{{provider}} {{event_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook Backlog",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "integration_webhook_backlog",
+          "legendFormat": "{{tenant_id}}/{{provider}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Lag (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "max by (tenant_id, provider, operation) (integration_queue_lag_ms{service=\"crm\"})",
+          "legendFormat": "{{tenant_id}}/{{provider}} {{operation}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
