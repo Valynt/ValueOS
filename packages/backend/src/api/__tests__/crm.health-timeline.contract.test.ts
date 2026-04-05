@@ -63,6 +63,7 @@ vi.mock('../../services/crm/CRMIntegrationService', () => ({
 
 vi.mock('../../services/crm/CrmProviderRegistry', () => ({
   getCrmProvider: vi.fn(),
+  getProviderCapabilityRegistry: vi.fn(() => []),
 }));
 
 vi.mock('../../services/crm/CrmWebhookService', () => ({

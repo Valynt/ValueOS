@@ -96,6 +96,14 @@ const COMPANY_PROPERTIES = 'name,domain,industry,numberofemployees,annualrevenue
 
 export class HubSpotProvider implements CrmProviderInterface {
   readonly provider = 'hubspot' as const;
+  readonly capabilities = {
+    oauth: true,
+    webhookSupport: true,
+    deltaSync: true,
+    manualSync: true,
+    fieldMapping: true,
+    backfill: true,
+  } as const;
 
   // ============================================================================
   // OAuth

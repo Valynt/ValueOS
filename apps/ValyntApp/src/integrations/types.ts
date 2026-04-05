@@ -2,6 +2,15 @@ export type IntegrationType = "crm" | "communication" | "storage" | "analytics" 
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "pending";
 export type IntegrationProviderId = "hubspot" | "salesforce";
 
+export interface IntegrationCapabilities {
+  oauth: boolean;
+  webhookSupport: boolean;
+  deltaSync: boolean;
+  manualSync: boolean;
+  fieldMapping: boolean;
+  backfill: boolean;
+}
+
 export interface IntegrationConnection {
   id: string;
   provider: IntegrationProviderId;
@@ -36,6 +45,7 @@ export interface IntegrationProvider {
   icon: string;
   authType: "oauth" | "apikey" | "basic";
   fields: IntegrationConfigField[];
+  capabilities: IntegrationCapabilities;
 }
 
 export interface IntegrationOperationEntry {
@@ -69,6 +79,14 @@ export const PROVIDERS: IntegrationProvider[] = [
     icon: "SF",
     authType: "oauth",
     fields: [],
+    capabilities: {
+      oauth: true,
+      webhookSupport: true,
+      deltaSync: true,
+      manualSync: true,
+      fieldMapping: true,
+      backfill: true,
+    },
   },
   {
     id: "hubspot",
@@ -78,5 +96,13 @@ export const PROVIDERS: IntegrationProvider[] = [
     icon: "HS",
     authType: "oauth",
     fields: [],
+    capabilities: {
+      oauth: true,
+      webhookSupport: true,
+      deltaSync: true,
+      manualSync: true,
+      fieldMapping: true,
+      backfill: true,
+    },
   },
 ];

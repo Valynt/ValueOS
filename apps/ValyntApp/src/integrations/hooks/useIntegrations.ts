@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  IntegrationCapabilities,
   IntegrationConnection,
   IntegrationCredentialsInput,
   IntegrationOperationsResponse,
+  IntegrationProvider,
   IntegrationProviderId,
   IntegrationStatus,
 } from "../types";
@@ -50,6 +52,13 @@ interface RawResponseData {
   authUrl?: string;
 }
 
+interface ProviderCapabilityResponse {
+  providers?: Array<{
+    provider: IntegrationProviderId;
+    capabilities: IntegrationCapabilities;
+  }>;
+}
+
 interface CrmStatusResponse {
   connected?: boolean;
   status?: string;
@@ -77,18 +86,54 @@ const emptyOperations: IntegrationOperationsResponse = {
   webhookFailures: [],
   syncFailures: [],
   lifecycleHistory: [],
-const isCrmOAuthProvider = (providerId: IntegrationProviderId): boolean => {
-  const provider = PROVIDERS.find((item) => item.id === providerId);
-  return provider?.type === "crm" && provider.authType === "oauth";
+};
+
+const deriveProviderConfig = (
+  provider: IntegrationProvider,
+  capabilities?: IntegrationCapabilities
+): IntegrationProvider => {
+  if (!capabilities) {
+    return provider;
+  }
+
+  const authType: IntegrationProvider["authType"] = capabilities.oauth ? "oauth" : provider.authType;
+
+  return {
+    ...provider,
+    authType,
+    capabilities,
+  };
 };
 
 export function useIntegrations() {
+  const [providers, setProviders] = useState<IntegrationProvider[]>(PROVIDERS);
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthInProgressProvider, setOauthInProgressProvider] =
     useState<IntegrationProviderId | null>(null);
   const [operations, setOperations] = useState<IntegrationOperationsResponse>(emptyOperations);
+
+  const fetchProviderCapabilities = useCallback(async () => {
+    try {
+      const response = await api.getCrmProviderCapabilities() as { success: boolean; data?: ProviderCapabilityResponse };
+      if (!response.success) {
+        return;
+      }
+
+      const capabilityMap = new Map(
+        (response.data?.providers ?? []).map((entry) => [entry.provider, entry.capabilities])
+      );
+
+      setProviders(
+        PROVIDERS.map((provider) =>
+          deriveProviderConfig(provider, capabilityMap.get(provider.id))
+        )
+      );
+    } catch {
+      // Keep static defaults when capability registry is unavailable.
+    }
+  }, []);
 
   const fetchIntegrations = useCallback(async () => {
     setIsLoading(true);
@@ -186,11 +231,12 @@ export function useIntegrations() {
       try {
         setError(null);
         const provider = PROVIDERS.find((item) => item.id === providerId);
-        if (!provider) {
+        const providerConfig = providers.find((item) => item.id === providerId) ?? provider;
+        if (!providerConfig) {
           throw new Error("Unsupported integration provider");
         }
 
-        if (isCrmOAuthProvider(providerId)) {
+        if (providerConfig.capabilities.oauth) {
           const response = await apiClient.post(`/api/crm/${providerId}/connect/start`);
           if (!response.success) {
             throw new Error(response.error?.message || "Failed to start OAuth flow");
@@ -217,7 +263,7 @@ export function useIntegrations() {
           throw new Error("Credentials are required for manual integrations");
         }
 
-        if (provider.type === "crm" && provider.authType === "oauth") {
+        if (providerConfig.type === "crm" && providerConfig.capabilities.oauth) {
           throw new Error("CRM OAuth providers do not accept direct token payloads.");
         }
 
@@ -263,7 +309,7 @@ export function useIntegrations() {
         setError(err instanceof Error ? err.message : "Failed to connect");
       }
     },
-    []
+    [providers]
   );
 
   const disconnect = useCallback(async (integrationId: string) => {
@@ -380,6 +426,10 @@ export function useIntegrations() {
   }, []);
 
   useEffect(() => {
+    void fetchProviderCapabilities();
+  }, [fetchProviderCapabilities]);
+
+  useEffect(() => {
     const onOAuthMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; provider?: string; error?: string };
       if (!data || typeof data !== "object") {
@@ -418,7 +468,7 @@ export function useIntegrations() {
 
   return {
     integrations,
-    providers: PROVIDERS,
+    providers,
     isLoading,
     error,
     oauthInProgressProvider,

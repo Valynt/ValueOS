@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetIntegrations,
+  mockGetCrmProviderCapabilities,
   mockCreateIntegration,
   mockApiClientGet,
   mockApiClientPost,
@@ -10,6 +11,7 @@ const {
 } = vi.hoisted(
   () => ({
     mockGetIntegrations: vi.fn(),
+    mockGetCrmProviderCapabilities: vi.fn(),
     mockCreateIntegration: vi.fn(),
     mockApiClientGet: vi.fn(),
     mockApiClientPost: vi.fn(),
@@ -20,6 +22,7 @@ const {
 vi.mock("@/api/client/unified-api-client", () => ({
   api: {
     getIntegrations: mockGetIntegrations,
+    getCrmProviderCapabilities: mockGetCrmProviderCapabilities,
     createIntegration: mockCreateIntegration,
     deleteIntegration: vi.fn(),
     testIntegration: vi.fn(),
@@ -37,6 +40,35 @@ describe("useIntegrations OAuth flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("open", mockWindowOpen);
+    mockGetCrmProviderCapabilities.mockResolvedValue({
+      success: true,
+      data: {
+        providers: [
+          {
+            provider: "salesforce",
+            capabilities: {
+              oauth: true,
+              webhookSupport: true,
+              deltaSync: true,
+              manualSync: true,
+              fieldMapping: true,
+              backfill: true,
+            },
+          },
+          {
+            provider: "hubspot",
+            capabilities: {
+              oauth: true,
+              webhookSupport: true,
+              deltaSync: true,
+              manualSync: true,
+              fieldMapping: true,
+              backfill: true,
+            },
+          },
+        ],
+      },
+    });
   });
 
   it("surfaces popup blocked errors when OAuth popup cannot open", async () => {
