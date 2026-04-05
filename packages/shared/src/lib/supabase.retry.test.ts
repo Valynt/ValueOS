@@ -143,7 +143,6 @@ describe('createRequestSupabaseClient', () => {
 
   it('rejects requests that do not provide a user token', async () => {
     // Arrange
-    process.env.ALLOW_INSECURE_ANON_SERVER_CLIENT = 'true';
     const { createRequestSupabaseClient } = await loadSupabaseModule();
 
     // Act + Assert
