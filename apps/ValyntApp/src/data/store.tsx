@@ -1,8 +1,19 @@
-// /workspaces/ValueOS/src/data/store.ts
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { z } from 'zod';
 
 import * as fixtures from './fixtures';
-import { Artifact, AuditEvent, Benchmark, Deal, Hypothesis, ROIModel, Stakeholder, User, ValueDriver, ValueRealization } from './types';
+import {
+  Artifact,
+  AuditEvent,
+  Benchmark,
+  Deal,
+  Hypothesis,
+  ROIModel,
+  Stakeholder,
+  User,
+  ValueDriver,
+  ValueRealization,
+} from './types';
 
 interface State {
   users: User[];
@@ -37,7 +48,148 @@ type Action =
   | { type: 'UPDATE_VALUE_REALIZATION'; payload: ValueRealization }
   | { type: 'ADD_AUDIT_EVENT'; payload: AuditEvent };
 
-const initialState: State = {
+const PERSISTED_STATE_KEY = 'valueos-state';
+
+const roleSchema = z.enum(['admin', 'revops', 'field']);
+const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: roleSchema,
+});
+
+const dealSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  stage: z.string(),
+  amount: z.number(),
+  closeDate: z.string(),
+  contacts: z.array(z.string()),
+});
+
+const stakeholderSchema = z.object({
+  id: z.string(),
+  dealId: z.string(),
+  name: z.string(),
+  role: z.string(),
+  influence: z.number(),
+  priorities: z.array(z.string()),
+});
+
+const valueDriverSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  personaTags: z.array(z.string()),
+  motionTags: z.array(z.string()),
+  formula: z.string(),
+  defaultAssumptions: z.record(z.string(), z.number()),
+  narrativePitch: z.string(),
+  status: z.enum(['draft', 'published', 'archived']),
+  version: z.number(),
+});
+
+const benchmarkSchema = z.object({
+  id: z.string(),
+  industry: z.string(),
+  metric: z.string(),
+  baselineMin: z.number(),
+  baselineMax: z.number(),
+  source: z.string(),
+  confidence: z.number(),
+});
+
+const hypothesisSchema = z.object({
+  id: z.string(),
+  dealId: z.string(),
+  driverId: z.string(),
+  inputs: z.record(z.string(), z.number()),
+  outputs: z.record(z.string(), z.number()),
+});
+
+const roiModelSchema = z.object({
+  id: z.string(),
+  dealId: z.string(),
+  components: z.object({
+    revenueUplift: z.number(),
+    costSavings: z.number(),
+    riskReduction: z.number(),
+  }),
+  paybackMonths: z.number(),
+  scenarios: z.array(
+    z.object({
+      name: z.string(),
+      multiplier: z.number(),
+    }),
+  ),
+});
+
+const artifactSchema = z.object({
+  id: z.string(),
+  dealId: z.string(),
+  type: z.enum(['exec-summary', 'one-page', 'qbr-report']),
+  content: z.string(),
+});
+
+const valueRealizationSchema = z.object({
+  id: z.string(),
+  dealId: z.string(),
+  committed: z.record(z.string(), z.number()),
+  actual: z.record(z.string(), z.number()),
+  variance: z.record(z.string(), z.number()),
+  rootCause: z.string(),
+  actions: z.array(z.string()),
+});
+
+const auditEventSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  action: z.string(),
+  entity: z.string(),
+  entityId: z.string(),
+  timestamp: z.string(),
+  before: z.unknown(),
+  after: z.unknown(),
+});
+
+const stateSchema = z.object({
+  users: z.array(userSchema),
+  deals: z.array(dealSchema),
+  stakeholders: z.array(stakeholderSchema),
+  valueDrivers: z.array(valueDriverSchema),
+  benchmarks: z.array(benchmarkSchema),
+  hypotheses: z.array(hypothesisSchema),
+  roiModels: z.array(roiModelSchema),
+  artifacts: z.array(artifactSchema),
+  valueRealizations: z.array(valueRealizationSchema),
+  auditEvents: z.array(auditEventSchema),
+  currentUser: userSchema.nullable(),
+});
+
+type PersistedStateKey =
+  | 'deals'
+  | 'stakeholders'
+  | 'valueDrivers'
+  | 'benchmarks'
+  | 'hypotheses'
+  | 'roiModels'
+  | 'artifacts'
+  | 'valueRealizations';
+
+const persistedStateSchemas: { [K in PersistedStateKey]: z.ZodType<State[K]> } = {
+  deals: stateSchema.shape.deals,
+  stakeholders: stateSchema.shape.stakeholders,
+  valueDrivers: stateSchema.shape.valueDrivers,
+  benchmarks: stateSchema.shape.benchmarks,
+  hypotheses: stateSchema.shape.hypotheses,
+  roiModels: stateSchema.shape.roiModels,
+  artifacts: stateSchema.shape.artifacts,
+  valueRealizations: stateSchema.shape.valueRealizations,
+};
+
+const persistedStateKeys = Object.keys(persistedStateSchemas) as PersistedStateKey[];
+
+const createInitialState = (): State => ({
   users: fixtures.users,
   deals: fixtures.deals,
   stakeholders: fixtures.stakeholders,
@@ -49,7 +201,9 @@ const initialState: State = {
   valueRealizations: fixtures.valueRealizations,
   auditEvents: fixtures.auditEvents,
   currentUser: fixtures.users[0], // Default to admin
-};
+});
+
+const defaultState = createInitialState();
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -92,25 +246,49 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+const sanitizePersistedState = (parsed: unknown): Partial<Pick<State, PersistedStateKey>> => {
+  if (!parsed || typeof parsed !== 'object') {
+    return {};
+  }
+
+  const parsedRecord = parsed as Record<string, unknown>;
+  return persistedStateKeys.reduce<Partial<Pick<State, PersistedStateKey>>>((accumulator, key) => {
+    const validated = persistedStateSchemas[key].safeParse(parsedRecord[key]);
+    if (validated.success) {
+      accumulator[key] = validated.data;
+    }
+    return accumulator;
+  }, {});
+};
+
+export const hydrateInitialState = (state: State = createInitialState(), serializedState: string | null): State => {
+  if (!serializedState) {
+    return state;
+  }
+
+  try {
+    const parsed = JSON.parse(serializedState);
+    const hydratedSlices = sanitizePersistedState(parsed);
+    return { ...state, ...hydratedSlices };
+  } catch {
+    return state;
+  }
+};
+
+const initState = (baseState: State): State => hydrateInitialState(baseState, localStorage.getItem(PERSISTED_STATE_KEY));
+
 const DataContext = createContext<{ state: State; dispatch: React.Dispatch<Action> } | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, defaultState, initState);
 
   useEffect(() => {
-    const stored = localStorage.getItem('valueos-state');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      Object.keys(parsed).forEach(key => {
-        if (key !== 'currentUser') {
-          state[key as keyof State] = parsed[key];
-        }
-      });
-    }
-  }, []);
+    const persistedState = persistedStateKeys.reduce<Partial<Pick<State, PersistedStateKey>>>((accumulator, key) => {
+      accumulator[key] = state[key];
+      return accumulator;
+    }, {});
 
-  useEffect(() => {
-    localStorage.setItem('valueos-state', JSON.stringify(state));
+    localStorage.setItem(PERSISTED_STATE_KEY, JSON.stringify(persistedState));
   }, [state]);
 
   return (
