@@ -118,7 +118,7 @@ export class WorkflowExecutionStore implements IWorkflowExecutionStore {
     }
 
     if (input.ownerTeam) {
-      query = query.or(`owner_type.eq.team,owner_principal.eq.${input.ownerTeam}`);
+      query = query.eq("owner_type", "team").eq("owner_principal", input.ownerTeam);
     }
 
     if (input.states && input.states.length > 0) {
