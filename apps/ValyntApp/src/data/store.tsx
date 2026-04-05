@@ -168,4 +168,13 @@ export const useData = () => {
   return context;
 };
 
-export { buildPersistedState, initState, initialState, reducer, SAVE_DELAY_MS, STORAGE_KEY };
+const __testing = {
+  buildPersistedState,
+  initState,
+  initialState,
+  reducer,
+  SAVE_DELAY_MS,
+  STORAGE_KEY,
+};
+
+export { __testing };
