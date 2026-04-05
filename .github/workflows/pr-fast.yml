@@ -278,6 +278,8 @@ jobs:
         run: node scripts/ci/docs-integrity.mjs
       - name: Docs canonical facts consistency
         run: pnpm run check:docs:consistency
+      - name: Docs workspace topology guard
+        run: node scripts/ci/check-docs-workspace-topology.mjs
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
 

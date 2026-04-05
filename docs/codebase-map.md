@@ -22,7 +22,7 @@
 
 ```
 ValueOS/
-├── apps/                    # 3 frontend applications
+├── apps/                    # 3 applications
 ├── packages/                # 12 shared packages
 ├── client/                  # Secondary frontend (Drizzle/MySQL, tRPC)
 ├── drizzle/                 # Drizzle ORM schema + 5 migrations (MySQL, client/ only)
@@ -45,7 +45,7 @@ ValueOS/
 | App | Files | Description |
 |-----|-------|-------------|
 | `ValyntApp/` | 797 | Main React + Vite frontend. Feature-module architecture. |
-| `VOSAcademy/` | ~50 | VOS Academy training platform (separate Vite app). |
+| `agentic-ui-pro/` | ~20 | Agentic UI prototype app. |
 | `mcp-dashboard/` | ~50 | MCP monitoring dashboard (React + Vite, 8 pages). |
 
 ### ValyntApp Feature Modules (`apps/ValyntApp/src/features/`)
