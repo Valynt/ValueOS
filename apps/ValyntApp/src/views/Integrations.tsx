@@ -1,34 +1,110 @@
-import { AlertTriangle, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  RefreshCw,
+  ShieldAlert,
+  Wrench,
+  XCircle,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
+
+type HealthState = "connected" | "degraded" | "disconnected" | "error";
+
+interface IntegrationIncident {
+  id: string;
+  kind: "incident" | "recovery";
+  timestamp: string;
+  summary: string;
+}
 
 interface Integration {
   name: string;
   category: string;
   description: string;
-  status: "connected" | "disconnected" | "error";
+  status: HealthState;
+  healthBadge: "healthy" | "degraded" | "critical" | "disconnected";
   lastSync?: string;
   errorCount?: number;
   icon: string;
+  remediationHints?: string[];
+  timeline?: IntegrationIncident[];
 }
 
 const integrations: Integration[] = [
-  { name: "Salesforce", category: "CRM", description: "Bi-directional opportunity and account sync", status: "connected", lastSync: "5m ago", icon: "SF" },
-  { name: "HubSpot", category: "CRM", description: "Contact and deal pipeline sync", status: "disconnected", icon: "HS" },
-  { name: "Slack", category: "Communications", description: "Agent notifications and checkpoint alerts", status: "connected", lastSync: "1m ago", icon: "SL" },
-  { name: "ServiceNow", category: "Communications", description: "Ticket creation and status tracking", status: "disconnected", icon: "SN" },
-  { name: "SharePoint", category: "Communications", description: "Document storage and artifact sharing", status: "error", errorCount: 3, lastSync: "2h ago", icon: "SP" },
-  { name: "EDGAR / XBRL", category: "Ground Truth", description: "SEC filings and financial data (always-on)", status: "connected", lastSync: "Real-time", icon: "ED" },
-  { name: "Market Data", category: "Ground Truth", description: "Industry benchmarks and market intelligence", status: "connected", lastSync: "15m ago", icon: "MD" },
-  { name: "Together.ai", category: "LLM Gateway", description: "Primary LLM inference provider", status: "connected", lastSync: "Active", icon: "TG" },
-  { name: "Stripe", category: "Billing", description: "Subscription management and usage metering", status: "connected", lastSync: "Real-time", icon: "ST" },
+  {
+    name: "Salesforce",
+    category: "CRM",
+    description: "Bi-directional opportunity and account sync",
+    status: "connected",
+    healthBadge: "healthy",
+    lastSync: "5m ago",
+    icon: "SF",
+    timeline: [
+      { id: "sf-r-1", kind: "recovery", timestamp: "2h ago", summary: "Recovered from webhook timeout incident" },
+      { id: "sf-i-1", kind: "incident", timestamp: "3h ago", summary: "Spike in consecutive webhook failures" },
+    ],
+    remediationHints: [
+      "No action required. Continue monitoring webhook latency.",
+    ],
+  },
+  {
+    name: "HubSpot",
+    category: "CRM",
+    description: "Contact and deal pipeline sync",
+    status: "degraded",
+    healthBadge: "degraded",
+    lastSync: "38m ago",
+    errorCount: 4,
+    icon: "HS",
+    timeline: [
+      { id: "hs-i-2", kind: "incident", timestamp: "12m ago", summary: "OAuth token expiring soon" },
+      { id: "hs-i-1", kind: "incident", timestamp: "42m ago", summary: "Failed webhook processing retries" },
+    ],
+    remediationHints: [
+      "Reconnect OAuth credentials to refresh the expiring token.",
+      "Validate HubSpot webhook signature secret in integration settings.",
+    ],
+  },
+  { name: "Slack", category: "Communications", description: "Agent notifications and checkpoint alerts", status: "connected", healthBadge: "healthy", lastSync: "1m ago", icon: "SL" },
+  { name: "ServiceNow", category: "Communications", description: "Ticket creation and status tracking", status: "disconnected", healthBadge: "disconnected", icon: "SN" },
+  {
+    name: "SharePoint",
+    category: "Communications",
+    description: "Document storage and artifact sharing",
+    status: "error",
+    healthBadge: "critical",
+    errorCount: 3,
+    lastSync: "2h ago",
+    icon: "SP",
+    timeline: [
+      { id: "sp-i-1", kind: "incident", timestamp: "2h ago", summary: "Connector API rate limit exceeded" },
+    ],
+    remediationHints: [
+      "Reduce polling frequency to remain within Microsoft API quotas.",
+      "Retry the connection after the current quota window resets.",
+    ],
+  },
+  { name: "EDGAR / XBRL", category: "Ground Truth", description: "SEC filings and financial data (always-on)", status: "connected", healthBadge: "healthy", lastSync: "Real-time", icon: "ED" },
+  { name: "Market Data", category: "Ground Truth", description: "Industry benchmarks and market intelligence", status: "connected", healthBadge: "healthy", lastSync: "15m ago", icon: "MD" },
+  { name: "Together.ai", category: "LLM Gateway", description: "Primary LLM inference provider", status: "connected", healthBadge: "healthy", lastSync: "Active", icon: "TG" },
+  { name: "Stripe", category: "Billing", description: "Subscription management and usage metering", status: "connected", healthBadge: "healthy", lastSync: "Real-time", icon: "ST" },
 ];
 
 const statusConfig = {
   connected: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", label: "Connected" },
+  degraded: { icon: Clock3, color: "text-amber-600", bg: "bg-amber-50", label: "Degraded" },
   disconnected: { icon: XCircle, color: "text-zinc-400", bg: "bg-zinc-100", label: "Not Connected" },
   error: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", label: "Error" },
-};
+} as const;
+
+const healthBadgeConfig = {
+  healthy: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  degraded: "bg-amber-100 text-amber-700 border-amber-200",
+  critical: "bg-red-100 text-red-700 border-red-200",
+  disconnected: "bg-zinc-100 text-zinc-500 border-zinc-200",
+} as const;
 
 const categories = ["CRM", "Communications", "Ground Truth", "LLM Gateway", "Billing"];
 
@@ -71,9 +147,49 @@ export function Integrations() {
                           </div>
                         </div>
                       </div>
+                      <span className={cn(
+                        "text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full border",
+                        healthBadgeConfig[integration.healthBadge]
+                      )}>
+                        {integration.healthBadge}
+                      </span>
                     </div>
 
-                    <p className="text-[12px] text-zinc-500 mb-4 leading-relaxed">{integration.description}</p>
+                    <p className="text-[12px] text-zinc-500 mb-3 leading-relaxed">{integration.description}</p>
+
+                    {integration.timeline && integration.timeline.length > 0 && (
+                      <div className="mb-3 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500 mb-2">Recent health timeline</div>
+                        <ul className="space-y-1.5">
+                          {integration.timeline.slice(0, 3).map((event) => (
+                            <li key={event.id} className="text-[11px] text-zinc-600 flex items-start gap-1.5">
+                              {event.kind === "incident" ? (
+                                <ShieldAlert className="w-3 h-3 text-red-500 mt-[2px]" />
+                              ) : (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-[2px]" />
+                              )}
+                              <span>
+                                <span className="font-medium">{event.timestamp}:</span> {event.summary}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {integration.remediationHints && integration.remediationHints.length > 0 && (
+                      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700 mb-2 flex items-center gap-1">
+                          <Wrench className="w-3 h-3" />
+                          Remediation hints
+                        </div>
+                        <ul className="space-y-1">
+                          {integration.remediationHints.slice(0, 2).map((hint) => (
+                            <li key={hint} className="text-[11px] text-amber-800 leading-relaxed">• {hint}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
                       <div>
@@ -89,7 +205,7 @@ export function Integrations() {
                         )}
                       </div>
                       <div className="flex gap-1.5">
-                        {integration.status === "connected" && (
+                        {(integration.status === "connected" || integration.status === "degraded") && (
                           <button className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
                             <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
                           </button>

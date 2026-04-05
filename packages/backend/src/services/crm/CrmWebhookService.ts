@@ -209,6 +209,8 @@ export class CrmWebhookService {
         })
         .eq('id', eventId);
 
+      await this.resolveOpenIncidents(row.tenant_id, row.provider);
+
       logger.info('Webhook event processed', { eventId, eventType: row.event_type });
     } catch (err) {
       // Mark as failed
@@ -223,11 +225,58 @@ export class CrmWebhookService {
         })
         .eq('id', eventId);
 
+      await this.recordIncident(row.tenant_id, row.provider, err);
+
       throw err;
     }
   }
 
   // ---- Private helpers ----
+
+
+
+  private async recordIncident(tenantId: string, provider: CrmProvider, err: unknown): Promise<void> {
+    const { data: existingIncident } = await this.supabase
+      .from('crm_health_incidents')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .is('resolved_at', null)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingIncident) {
+      return;
+    }
+
+    const summary = err instanceof Error ? err.message : 'CRM webhook processing failure';
+
+    await this.supabase
+      .from('crm_health_incidents')
+      .insert({
+        tenant_id: tenantId,
+        provider,
+        severity: 'critical',
+        reason_code: 'WEBHOOK_PROCESSING_FAILED',
+        summary: summary.slice(0, 512),
+        metadata: {
+          source: 'CrmWebhookService.processEvent',
+        },
+      });
+  }
+
+  private async resolveOpenIncidents(tenantId: string, provider: CrmProvider): Promise<void> {
+    await this.supabase
+      .from('crm_health_incidents')
+      .update({
+        resolved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .is('resolved_at', null);
+  }
 
   /**
    * Resolve tenant_id from webhook data or by looking up the CRM org ID.
