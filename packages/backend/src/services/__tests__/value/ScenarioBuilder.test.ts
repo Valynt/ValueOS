@@ -3,10 +3,21 @@ import { ScenarioBuilder } from "../../value/ScenarioBuilder.js";
 import { supabase } from "../../../lib/supabase.js";
 import { createMockSupabase } from "../helpers/testHelpers.js";
 
+const { getOrLoadMock } = vi.hoisted(() => ({
+  getOrLoadMock: vi.fn(async (_config: unknown, loader: () => Promise<unknown>) => loader()),
+}));
+
 vi.mock("../../../lib/supabase.js", async () => {
   const { createMockSupabase } = await import("../helpers/testHelpers.js");
   return { supabase: createMockSupabase() };
 });
+
+vi.mock("../../value/ReadThroughCacheService.js", () => ({
+  ReadThroughCacheService: {
+    getOrLoad: getOrLoadMock,
+    invalidateEndpoint: vi.fn(),
+  },
+}));
 
 const BASE_HYPOTHESES = [
   {
@@ -38,6 +49,7 @@ describe("ScenarioBuilder", () => {
     mockSupabase._clearMocks();
     builder = new ScenarioBuilder();
     vi.clearAllMocks();
+    getOrLoadMock.mockImplementation(async (_config: unknown, loader: () => Promise<unknown>) => loader());
   });
 
   afterEach(() => {
@@ -352,6 +364,36 @@ describe("ScenarioBuilder", () => {
       expect(result1.base.roi).toBe(result2.base.roi);
       expect(result1.base.npv).toBe(result2.base.npv);
       expect(result1.conservative.payback_months).toBe(result2.conservative.payback_months);
+    });
+
+    it("uses tenant-aware cache key payload with case context", async () => {
+      await builder.buildScenarios({
+        organizationId: "org-tenant-1",
+        caseId: "case-cache-1",
+        acceptedHypotheses: BASE_HYPOTHESES,
+        assumptions: BASE_ASSUMPTIONS,
+        estimatedCostUsd: 100_000,
+      });
+
+      expect(getOrLoadMock).toHaveBeenCalledTimes(1);
+      const [config] = getOrLoadMock.mock.calls[0] as [Record<string, unknown>, unknown];
+      expect(config.tenantId).toBe("org-tenant-1");
+      expect(config.endpoint).toBe("scenario-build:case-cache-1");
+      expect(config.keyPayload).toMatchObject({ caseId: "case-cache-1" });
+    });
+
+    it("force_rebuild bypasses cache and rebuilds deterministically", async () => {
+      const result = await builder.buildScenarios({
+        organizationId: "org-1",
+        caseId: "case-1",
+        force_rebuild: true,
+        acceptedHypotheses: BASE_HYPOTHESES,
+        assumptions: BASE_ASSUMPTIONS,
+        estimatedCostUsd: 100_000,
+      });
+
+      expect(getOrLoadMock).not.toHaveBeenCalled();
+      expect(result.base.scenario_type).toBe("base");
     });
   });
 });

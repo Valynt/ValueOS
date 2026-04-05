@@ -1,5 +1,6 @@
 import type { WorkflowDAG, WorkflowStage } from "../workflow";
 import type { WorkflowExecutionRecord } from "../workflowExecution";
+import type { RuntimeFailureDetails } from "@valueos/shared";
 
 export interface WorkflowStageContextDTO extends Record<string, unknown> {
   organizationId?: string;
@@ -16,9 +17,10 @@ export interface StageRouteDTO {
 }
 
 export interface StageExecutionResultDTO {
-  status: "completed" | "failed" | "waiting_approval";
+  status: "completed" | "failed" | "waiting_approval" | "pending_approval";
   output?: Record<string, unknown>;
   error?: string;
+  runtimeFailure?: RuntimeFailureDetails;
 }
 
 export interface StagePredictionDTO {

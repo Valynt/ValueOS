@@ -36,6 +36,7 @@ import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
 import { validateOpportunityAccess } from "../middleware/validateOpportunityAccess.js";
 import { auditLogService } from "../services/security/AuditLogService.js";
+import { claimEvidenceGraphService } from "../services/value-graph/ClaimEvidenceGraphService.js";
 import {
   valueGraphService,
   type WriteEdgeInput,
@@ -559,6 +560,109 @@ opportunityValueGraphRouter.get(
         organizationId,
         error: err instanceof Error ? err.message : String(err),
       });
+      next(err);
+    }
+  },
+);
+
+
+opportunityValueGraphRouter.get(
+  "/:opportunityId/claim-evidence/claims",
+  requireAuth,
+  tenantContextMiddleware(),
+  validateOpportunityAccess,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const { opportunityId } = req.params;
+    const organizationId = req.tenantId;
+    const claimId = typeof req.query["claim_id"] === "string" ? req.query["claim_id"] : undefined;
+
+    if (!isValidUuid(opportunityId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      return;
+    }
+
+    if (claimId && !isValidUuid(claimId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "claim_id must be a valid UUID" });
+      return;
+    }
+
+    if (!organizationId) {
+      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      return;
+    }
+
+    try {
+      const view = await claimEvidenceGraphService.getClaimCentricView(opportunityId, organizationId, claimId);
+      res.json(view);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+opportunityValueGraphRouter.get(
+  "/:opportunityId/claim-evidence/evidence",
+  requireAuth,
+  tenantContextMiddleware(),
+  validateOpportunityAccess,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const { opportunityId } = req.params;
+    const organizationId = req.tenantId;
+    const evidenceId = typeof req.query["evidence_id"] === "string" ? req.query["evidence_id"] : undefined;
+
+    if (!isValidUuid(opportunityId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      return;
+    }
+
+    if (evidenceId && !isValidUuid(evidenceId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "evidence_id must be a valid UUID" });
+      return;
+    }
+
+    if (!organizationId) {
+      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      return;
+    }
+
+    try {
+      const view = await claimEvidenceGraphService.getEvidenceCentricView(opportunityId, organizationId, evidenceId);
+      res.json(view);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+opportunityValueGraphRouter.get(
+  "/:opportunityId/claim-evidence/confidence-drift",
+  requireAuth,
+  tenantContextMiddleware(),
+  validateOpportunityAccess,
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const { opportunityId } = req.params;
+    const organizationId = req.tenantId;
+    const claimId = typeof req.query["claim_id"] === "string" ? req.query["claim_id"] : undefined;
+
+    if (!isValidUuid(opportunityId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      return;
+    }
+
+    if (claimId && !isValidUuid(claimId)) {
+      res.status(400).json({ error: "VALIDATION_ERROR", message: "claim_id must be a valid UUID" });
+      return;
+    }
+
+    if (!organizationId) {
+      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      return;
+    }
+
+    try {
+      const drift = await claimEvidenceGraphService.getConfidenceDrift(opportunityId, organizationId, claimId);
+      res.json(drift);
+    } catch (err) {
       next(err);
     }
   },

@@ -241,6 +241,87 @@ Observations: {{observations}}
 Return JSON with summary, control_gaps, control_coverage_score, recommended_actions.`,
     }),
   }),
+  value_modeling_baseline_establishment: Object.freeze({
+    '1.0.0': Object.freeze({
+      created_at: '2026-04-05T00:00:00.000Z',
+      template: `You are simulating the "baseline establishment" stage in ValueOS value modeling.
+
+Contract requirements:
+- Every baseline metric must include an evidence tier tag (tier_1 | tier_2 | tier_3).
+- Every baseline metric must include a source tag (system_of_record | benchmark | stakeholder_input | inferred_estimate).
+- Prefer primary telemetry and audited systems of record when available.
+- Flag missing provenance as a risk in output.risks.
+
+Return strict JSON:
+{
+  "success": boolean,
+  "baselines": [{ "metric": string, "value": number, "evidence_tier": string, "source_tag": string }],
+  "risks": string[],
+  "next_actions": string[]
+}`,
+    }),
+  }),
+  value_modeling_assumption_registration: Object.freeze({
+    '1.0.0': Object.freeze({
+      created_at: '2026-04-05T00:00:00.000Z',
+      template: `You are simulating the "assumption registration" stage in ValueOS value modeling.
+
+Contract requirements:
+- Each assumption must include a plausibility score in [0,1].
+- Each assumption must include an unsupported flag when direct evidence is missing.
+- Unsupported assumptions must include an explicit validation plan.
+- Reject assumptions that are contradictory or economically incoherent.
+
+Return strict JSON:
+{
+  "success": boolean,
+  "assumptions": [{ "name": string, "value": number | string, "plausibility": number, "unsupported": boolean, "validation_plan"?: string }],
+  "risks": string[],
+  "next_actions": string[]
+}`,
+    }),
+  }),
+  value_modeling_scenario_building: Object.freeze({
+    '1.0.0': Object.freeze({
+      created_at: '2026-04-05T00:00:00.000Z',
+      template: `You are simulating the "scenario building" stage in ValueOS value modeling.
+
+Contract requirements:
+- Build conservative, base, and upside scenarios.
+- Each scenario MUST include EVF decomposition with keys:
+  revenueUplift, costReduction, riskMitigation, efficiencyGain.
+- EVF components must be economically consistent with total value and assumptions.
+- Flag any scenario with incomplete EVF decomposition as unsuccessful.
+
+Return strict JSON:
+{
+  "success": boolean,
+  "scenarios": [{ "name": "conservative" | "base" | "upside", "evf": { "revenueUplift": number, "costReduction": number, "riskMitigation": number, "efficiencyGain": number } }],
+  "risks": string[],
+  "next_actions": string[]
+}`,
+    }),
+  }),
+  value_modeling_sensitivity_analysis: Object.freeze({
+    '1.0.0': Object.freeze({
+      created_at: '2026-04-05T00:00:00.000Z',
+      template: `You are simulating the "sensitivity analysis" stage in ValueOS value modeling.
+
+Contract requirements:
+- Produce leverage-ranking output sorted by highest leverage first.
+- Include assumption identifier, impact_on_npv, and leverage_score for each ranked item.
+- Explain if leverage ranking confidence is reduced by unsupported assumptions.
+- Cap ranking to top 3 assumptions.
+
+Return strict JSON:
+{
+  "success": boolean,
+  "leverage_ranking": [{ "assumption_id": string, "impact_on_npv": number, "leverage_score": number }],
+  "risks": string[],
+  "next_actions": string[]
+}`,
+    }),
+  }),
 });
 
 const PROMPT_ACTIVATIONS: Readonly<Record<string, Readonly<PromptActivationRecord>>> = Object.freeze({
@@ -259,6 +340,10 @@ const PROMPT_ACTIVATIONS: Readonly<Record<string, Readonly<PromptActivationRecor
   expansion_user: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-113', risk_class: 'medium', approved_at: '2026-03-01T00:00:00.000Z' } }),
   narrative_system: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-114', risk_class: 'high', approved_at: '2026-03-01T00:00:00.000Z' } }),
   compliance_auditor_system: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-115', risk_class: 'critical', approved_at: '2026-03-01T00:00:00.000Z' } }),
+  value_modeling_baseline_establishment: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-116', risk_class: 'high', approved_at: '2026-04-05T00:00:00.000Z' } }),
+  value_modeling_assumption_registration: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-117', risk_class: 'high', approved_at: '2026-04-05T00:00:00.000Z' } }),
+  value_modeling_scenario_building: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-118', risk_class: 'high', approved_at: '2026-04-05T00:00:00.000Z' } }),
+  value_modeling_sensitivity_analysis: Object.freeze({ version: '1.0.0', approval: { owner: 'agent-fabric-team', ticket: 'PROMPT-119', risk_class: 'high', approved_at: '2026-04-05T00:00:00.000Z' } }),
 });
 
 export interface ResolvedPromptTemplate {

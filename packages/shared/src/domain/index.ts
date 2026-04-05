@@ -49,3 +49,6 @@ export * from "./ReasoningTrace.js";
 // Experience Model — Sprint 55
 // Bridging layer: maps backend agent state → user-perceivable experience.
 export * from "./ExperienceModel.js";
+
+// Runtime orchestration failure taxonomy
+export * from "./RuntimeFailureTaxonomy.js";

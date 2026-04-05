@@ -15,37 +15,38 @@ vi.mock('./env', () => ({
   }),
 }));
 
-describe('shared supabase auth guards', () => {
+describe('Supabase auth guard behavior', () => {
   beforeEach(() => {
     createClientSpy.mockClear();
     delete process.env.ALLOW_INSECURE_ANON_SERVER_CLIENT;
   });
 
-  it('rejects server-side RLS client creation when no bearer token is present', async () => {
+  it.each([
+    {
+      caseName: 'authorization header is missing',
+      request: { headers: {} },
+    },
+    {
+      caseName: 'authorization header has an empty bearer token',
+      request: { headers: { authorization: 'Bearer   ' } },
+    },
+  ])('rejects request-scoped client creation when $caseName', async ({ request }) => {
+    // Arrange
     const { createRequestSupabaseClient } = await import('./supabase');
 
-    expect(() => createRequestSupabaseClient({ headers: {} })).toThrow(
+    // Act + Assert
+    expect(() => createRequestSupabaseClient(request)).toThrow(
       /Authorization bearer token or session access token required for request-scoped Supabase client/,
     );
     expect(createClientSpy).not.toHaveBeenCalled();
   });
 
-  it('rejects server-side RLS client creation when the bearer token is blank', async () => {
-    const { createRequestSupabaseClient } = await import('./supabase');
-
-    expect(() =>
-      createRequestSupabaseClient({ headers: { authorization: 'Bearer   ' } }),
-    ).toThrow(/Authorization bearer token or session access token required for request-scoped Supabase client/);
-    expect(createClientSpy).not.toHaveBeenCalled();
-  });
-
-  it('rejects service-role client creation when the service role key is missing even if insecure fallback env is set', async () => {
-    process.env.ALLOW_INSECURE_ANON_SERVER_CLIENT = 'true';
+  it('rejects service-role client creation when service credentials are unavailable', async () => {
+    // Arrange
     const { createServiceRoleSupabaseClient } = await import('./supabase');
 
-    expect(() => createServiceRoleSupabaseClient()).toThrow(
-      /Missing required Supabase runtime configuration/,
-    );
+    // Act + Assert
+    expect(() => createServiceRoleSupabaseClient()).toThrow(/Missing required Supabase runtime configuration/);
     expect(createClientSpy).not.toHaveBeenCalled();
   });
 });

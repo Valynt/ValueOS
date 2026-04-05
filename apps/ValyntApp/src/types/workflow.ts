@@ -13,7 +13,7 @@ export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity
 
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
 
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "degraded" | "cancelled";
 
 export type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 

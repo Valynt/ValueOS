@@ -142,6 +142,27 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/api/**/*.ts", "src/runtime/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/services/workflows/WorkflowDAGIntegration",
+                "**/services/workflows/WorkflowDAGIntegration.js",
+              ],
+              message:
+                "WorkflowDAGIntegration is deprecated non-runtime code. Use runtime/execution-runtime/WorkflowExecutor.ts.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     files: [
       "src/api/auth.ts",
       "src/api/services/ReferralService.ts",

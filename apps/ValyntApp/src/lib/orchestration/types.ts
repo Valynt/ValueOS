@@ -11,6 +11,7 @@ export type WorkflowStatus =
   | "running"
   | "completed"
   | "failed"
+  | "degraded"
   | "cancelled"
   | "paused"
   | "error"

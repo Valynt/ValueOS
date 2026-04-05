@@ -1,4 +1,5 @@
 import type { WorkflowStatus } from "../workflow";
+import type { RuntimeFailureDetails } from "@valueos/shared";
 
 export interface WorkflowExecutionStatusDTO {
   id: string;
@@ -7,6 +8,7 @@ export interface WorkflowExecutionStatusDTO {
   current_stage: string | null;
   updated_at?: string;
   execution_record?: Record<string, unknown>;
+  runtime_failure?: RuntimeFailureDetails | null;
 }
 
 export interface WorkflowExecutionLogDTO {

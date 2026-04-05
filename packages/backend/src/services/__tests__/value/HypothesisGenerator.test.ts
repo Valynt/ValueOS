@@ -3,6 +3,16 @@ import { HypothesisGenerator } from "../../value/HypothesisGenerator.js";
 import { createMockSupabase, createMockLogger, factories, securityAssertions } from "../helpers/testHelpers.js";
 import { SQL_INJECTION_PAYLOADS, TENANT_ISOLATION_SCENARIOS, MALFORMED_UUIDS } from "../fixtures/securityFixtures.js";
 
+const { invalidateScenarioBuildCacheMock } = vi.hoisted(() => ({
+  invalidateScenarioBuildCacheMock: vi.fn(async () => 1),
+}));
+
+vi.mock("../../value/ScenarioBuilder.js", () => ({
+  ScenarioBuilder: {
+    invalidateScenarioBuildCache: invalidateScenarioBuildCacheMock,
+  },
+}));
+
 describe("HypothesisGenerator", () => {
   let generator: HypothesisGenerator;
   let mockSupabase: ReturnType<typeof createMockSupabase>;
@@ -26,6 +36,7 @@ describe("HypothesisGenerator", () => {
       llmGateway: mockLLM as never,
     });
     vi.clearAllMocks();
+    invalidateScenarioBuildCacheMock.mockClear();
   });
 
   afterEach(() => {
@@ -144,6 +155,21 @@ describe("HypothesisGenerator", () => {
 
       // All should succeed without data corruption
       expect(results.every((r) => r.hypotheses.length === 1)).toBe(true);
+    });
+
+    it("invalidates scenario-build cache after hypothesis writes", async () => {
+      const input = {
+        tenantId: "tenant-1",
+        caseId: "case-1",
+        dealContextId: "ctx-1",
+        valueDriverCandidates: [
+          { id: "drv-1", name: "Driver A", description: "Test", signal_strength: 0.8, evidence_count: 2 },
+        ],
+      };
+
+      await generator.generate(input);
+
+      expect(invalidateScenarioBuildCacheMock).toHaveBeenCalledWith("tenant-1", "case-1");
     });
   });
 

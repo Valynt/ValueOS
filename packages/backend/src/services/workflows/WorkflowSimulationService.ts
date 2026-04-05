@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
+import { resolvePromptTemplate } from "../../lib/agent-fabric/promptRegistry.js";
 import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { logger } from "../../lib/logger";
 import type { SimulationResult } from "../../types/orchestration.js";
@@ -15,6 +16,36 @@ export interface WorkflowSimulationService {
     options?: { maxSteps?: number; stopOnFailure?: boolean }
   ): Promise<SimulationResult>;
   predictStageOutcome(stage: WorkflowStage, context: WorkflowStageContextDTO, similarEpisodes: unknown[]): Promise<StagePredictionDTO>;
+}
+
+export function resolveWorkflowSimulationPromptKey(stage: WorkflowStage): string | null {
+  const stagePromptMap: Record<string, string> = {
+    baseline_establishment: "value_modeling_baseline_establishment",
+    assumption_registration: "value_modeling_assumption_registration",
+    scenario_building: "value_modeling_scenario_building",
+    sensitivity_analysis: "value_modeling_sensitivity_analysis",
+  };
+
+  const capabilityPromptMap: Record<string, string> = {
+    source_priority: "value_modeling_baseline_establishment",
+    source_tagging: "value_modeling_assumption_registration",
+    evf_decomposition: "value_modeling_scenario_building",
+    leverage_ranking: "value_modeling_sensitivity_analysis",
+  };
+
+  const fromStage = stagePromptMap[stage.id];
+  if (fromStage) {
+    return fromStage;
+  }
+
+  for (const capability of stage.required_capabilities ?? []) {
+    const fromCapability = capabilityPromptMap[capability];
+    if (fromCapability) {
+      return fromCapability;
+    }
+  }
+
+  return null;
 }
 
 export class DefaultWorkflowSimulationService implements WorkflowSimulationService {
@@ -91,12 +122,15 @@ export class DefaultWorkflowSimulationService implements WorkflowSimulationServi
   }
 
   async predictStageOutcome(stage: WorkflowStage, context: WorkflowStageContextDTO, similarEpisodes: unknown[]): Promise<StagePredictionDTO> {
-    const prompt = `Predict the outcome of workflow stage: ${stage.name}`;
+    const promptKey = resolveWorkflowSimulationPromptKey(stage);
+    const stagePrompt = promptKey
+      ? resolvePromptTemplate(promptKey).template
+      : `Predict the outcome of workflow stage: ${stage.name}`;
     try {
       const organizationId = String(context.organizationId ?? context.organization_id ?? "");
       const response = await secureLLMComplete(
         this.llmGateway,
-        [{ role: "user", content: `${prompt}\nContext: ${JSON.stringify(context)}` }],
+        [{ role: "user", content: `${stagePrompt}\nContext: ${JSON.stringify(context)}` }],
         {
           organizationId,
           max_tokens: 500,

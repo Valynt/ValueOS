@@ -1,193 +1,261 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * Integration test for Value Modeling Engine
- * Tests the complete flow: DealContext → hypotheses → baselines → scenarios → persisted output
- */
+const { db, replaceNodesForCaseMock, deleteNodesForCaseMock, updateStatusMock, updateWorkflowStateMock, rollbackExecutionMock } =
+  vi.hoisted(() => {
+    type Row = Record<string, unknown>;
+
+    const db = {
+      workflow_executions: [] as Row[],
+      workflow_events: [] as Row[],
+      value_scenarios: [] as Row[],
+    };
+
+    const applyFilters = (rows: Row[], filters: Array<{ column: string; value: unknown }>) =>
+      rows.filter((row) => filters.every((f) => row[f.column] === f.value));
+
+    const createQuery = (table: keyof typeof db) => {
+      const filters: Array<{ column: string; value: unknown }> = [];
+      let selectedColumns: string | null = null;
+
+      const query = {
+        select: vi.fn((columns?: string) => {
+          selectedColumns = columns ?? null;
+          return query;
+        }),
+        insert: vi.fn((payload: Row | Row[]) => {
+          const rows = Array.isArray(payload) ? payload : [payload];
+          rows.forEach((row) => db[table].push({ ...row }));
+          return query;
+        }),
+        update: vi.fn((payload: Row) => {
+          const targetRows = applyFilters(db[table], filters);
+          targetRows.forEach((row) => Object.assign(row, payload));
+          return query;
+        }),
+        delete: vi.fn(() => {
+          const toDelete = new Set(applyFilters(db[table], filters));
+          db[table] = db[table].filter((row) => !toDelete.has(row));
+          return { error: null };
+        }),
+        eq: vi.fn((column: string, value: unknown) => {
+          filters.push({ column, value });
+          return query;
+        }),
+        single: vi.fn(async () => {
+          const rows = applyFilters(db[table], filters);
+          const row = rows[0] ?? null;
+          if (!row) {
+            return { data: null, error: { message: "not found" } };
+          }
+          if (selectedColumns === "context") {
+            return { data: { context: row.context }, error: null };
+          }
+          return { data: row, error: null };
+        }),
+      };
+
+      return query;
+    };
+
+    const supabaseMock = {
+      from: vi.fn((table: keyof typeof db) => createQuery(table)),
+    };
+
+    const replaceNodesForCaseMock = vi.fn(async () => undefined);
+    const deleteNodesForCaseMock = vi.fn(async () => undefined);
+    const updateStatusMock = vi.fn(async () => undefined);
+    const updateWorkflowStateMock = vi.fn(async () => undefined);
+    const rollbackExecutionMock = vi.fn(async () => undefined);
+
+    vi.mock("../../../lib/supabase.js", () => ({
+      supabase: supabaseMock,
+      createServerSupabaseClient: vi.fn(() => supabaseMock),
+    }));
+
+    vi.mock("../../../lib/logger.js", () => ({
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
+    }));
+
+    vi.mock("../../../repositories/ValueTreeRepository.js", () => ({
+      valueTreeRepository: {
+        replaceNodesForCase: replaceNodesForCaseMock,
+        deleteNodesForCase: deleteNodesForCaseMock,
+      },
+    }));
+
+    vi.mock("../../../repositories/WorkflowStateRepository.js", () => ({
+      workflowStateRepository: {
+        updateStatus: updateStatusMock,
+        update: updateWorkflowStateMock,
+      },
+    }));
+
+    vi.mock("../../AgentAPI.js", () => ({
+      getAgentAPI: vi.fn(() => ({
+        invokeAgent: vi.fn(async ({ context }: { context: Record<string, unknown> }) => {
+          const stageId = String(context.stageId);
+          const behavior = (context.__stageBehavior as Record<string, { success: boolean; data?: Record<string, unknown>; error?: string }>)?.[stageId];
+          if (behavior) {
+            return behavior;
+          }
+          return { success: true, data: { [stageId]: { persisted: true } } };
+        }),
+      })),
+    }));
+
+    vi.mock("../../workflow/WorkflowCompensation.js", () => ({
+      workflowCompensation: {
+        rollbackExecution: rollbackExecutionMock,
+      },
+    }));
+
+    return {
+      db,
+      replaceNodesForCaseMock,
+      deleteNodesForCaseMock,
+      updateStatusMock,
+      updateWorkflowStateMock,
+      rollbackExecutionMock,
+    };
+  });
+
+import {
+  VALUE_MODELING_WORKFLOW,
+  compensateValueModelingWorkflow,
+} from "../../workflows/WorkflowDAGDefinitions.js";
+import { WorkflowDAGExecutor } from "../../workflows/WorkflowDAGIntegration.js";
 
 describe("Value Modeling Engine Integration", () => {
-  // This would be a full integration test in a real implementation
-  // For now, we describe the expected behavior
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.workflow_executions.length = 0;
+    db.workflow_events.length = 0;
+    db.value_scenarios.length = 0;
+  });
 
-  describe("End-to-End Flow", () => {
-    it("should process DealContext through entire pipeline", async () => {
-      // Step 1: DealContext is assembled from CRM, transcripts, notes, public data
-      const dealContext = {
-        organizationId: "org-test-123",
-        caseId: "case-test-456",
-        crmData: { annualRevenue: 10000000, employees: 500 },
-        transcripts: [{ signals: ["reduce churn", "improve onboarding"] }],
-        notes: [{ keyPoints: ["NPS currently 30", "target 50+"] }],
-        publicData: { industry: "SaaS", benchmarks: { churn: 0.05, nps: 40 } },
-      };
+  it("executes value-modeling-v1 end-to-end and persists stage outputs", async () => {
+    const executionId = "exec-happy";
+    const organizationId = "org-test-123";
 
-      expect(dealContext).toBeDefined();
-      expect(dealContext.crmData).toBeDefined();
-      expect(dealContext.transcripts.length).toBeGreaterThan(0);
+    db.workflow_executions.push({
+      id: executionId,
+      organization_id: organizationId,
+      status: "initiated",
+      current_stage: VALUE_MODELING_WORKFLOW.initial_stage,
+      context: {
+        organizationId,
+        caseId: "case-1",
+        executed_steps: [],
+        __stageBehavior: {
+          hypothesis_generation: { success: true, data: { hypotheses: [{ id: "h1" }] } },
+          baseline_establishment: { success: true, data: { baselines: [{ metric: "churn" }] } },
+          assumption_registration: { success: true, data: { assumptions: [{ id: "a1" }] } },
+          scenario_building: {
+            success: true,
+            data: {
+              scenarios: [
+                { type: "conservative", npv: 100_000 },
+                { type: "base", npv: 250_000 },
+                { type: "upside", npv: 400_000 },
+              ],
+            },
+          },
+          sensitivity_analysis: { success: true, data: { sensitivity: [{ assumption: "churn", leverage: 1.7 }] } },
+        },
+      },
     });
 
-    it("should generate value hypotheses from DealContext", async () => {
-      // Value drivers extracted from DealContext
-      const valueDrivers = [
-        { name: "Reduce Churn", impact: { low: 200000, high: 500000 }, confidence: 0.8 },
-        { name: "Improve NPS", impact: { low: 100000, high: 300000 }, confidence: 0.7 },
-        { name: "Onboarding Efficiency", impact: { low: 50000, high: 150000 }, confidence: 0.6 },
-      ];
+    const executor = new WorkflowDAGExecutor() as unknown as {
+      executeDAG: (executionId: string, workflow: typeof VALUE_MODELING_WORKFLOW, organizationId: string) => Promise<void>;
+    };
 
-      // HypothesisGenerator produces 3-5 hypotheses
-      const hypotheses = valueDrivers.slice(0, 3).map((driver) => ({
-        id: `hypo-${driver.name.toLowerCase().replace(/\s+/g, "-")}`,
-        valueDriver: driver.name,
-        estimatedImpactMin: driver.impact.low,
-        estimatedImpactMax: driver.impact.high,
-        confidenceScore: driver.confidence,
-        evidenceTier: driver.confidence > 0.75 ? 1 : driver.confidence > 0.6 ? 2 : 3,
-      }));
+    await executor.executeDAG(executionId, VALUE_MODELING_WORKFLOW, organizationId);
 
-      expect(hypotheses.length).toBeGreaterThanOrEqual(3);
-      expect(hypotheses.length).toBeLessThanOrEqual(5);
-    });
+    const execution = db.workflow_executions.find((row) => row.id === executionId);
+    expect(execution?.status).toBe("completed");
 
-    it("should establish baselines for each value driver", async () => {
-      // Baseline sources from various origins
-      const baselineSources = [
-        { metricName: "Churn", value: 0.08, source: "customer-confirmed", confidence: 0.95 },
-        { metricName: "NPS", value: 32, source: "crm-derived", confidence: 0.8 },
-        { metricName: "Onboarding Time", value: 45, source: "call-derived", confidence: 0.7 },
-      ];
+    const persistedContext = execution?.context as Record<string, unknown>;
+    expect((persistedContext.hypotheses as unknown[])?.length).toBe(1);
+    expect((persistedContext.baselines as unknown[])?.length).toBe(1);
+    expect((persistedContext.assumptions as unknown[])?.length).toBe(1);
+    expect((persistedContext.scenarios as unknown[])?.length).toBe(3);
+    expect((persistedContext.sensitivity as unknown[])?.length).toBe(1);
 
-      // BaselineEstablisher selects highest priority source
-      const baselines = baselineSources.map((source) => ({
-        metricName: source.metricName,
-        currentValue: source.value,
-        sourceType: source.source,
-        sourceClassification: source.confidence > 0.9 ? "tier-1" : source.confidence > 0.7 ? "tier-2" : "tier-3",
-        requiresConfirmation: ["benchmark-derived", "inferred"].includes(source.source),
-      }));
+    const executedSteps = persistedContext.executed_steps as Array<{ stage_id: string }>;
+    expect(executedSteps.map((step) => step.stage_id)).toEqual([
+      "hypothesis_generation",
+      "baseline_establishment",
+      "assumption_registration",
+      "scenario_building",
+      "sensitivity_analysis",
+    ]);
+  });
 
-      expect(baselines.length).toBe(3);
-      baselines.forEach((baseline) => {
-        expect(baseline.sourceClassification).toBeDefined();
-      });
-    });
+  it("handles scenario_building failure with compensation + rollback semantics and policy-vetoed malformed output", async () => {
+    const executionId = "exec-failure";
+    const organizationId = "org-test-123";
+    const caseId = "case-2";
 
-    it("should build three scenarios with EVF decomposition", async () => {
-      const scenarios = [
-        {
-          scenarioType: "conservative",
-          roi: 0.15,
-          npv: 450000,
-          paybackMonths: 18,
-          evfDecomposition: {
-            revenueUplift: 150000,
-            costReduction: 200000,
-            riskMitigation: 50000,
-            efficiencyGain: 100000,
+    db.workflow_executions.push({
+      id: executionId,
+      organization_id: organizationId,
+      status: "initiated",
+      current_stage: VALUE_MODELING_WORKFLOW.initial_stage,
+      context: {
+        organizationId,
+        caseId,
+        workflowStateId: "state-1",
+        preModelingSnapshot: [{ id: "node-1", label: "Restored Root" }],
+        executed_steps: [],
+        __stageBehavior: {
+          hypothesis_generation: { success: true, data: { hypotheses: [{ id: "h1" }] } },
+          baseline_establishment: { success: true, data: { baselines: [{ metric: "nps" }] } },
+          assumption_registration: { success: true, data: { assumptions: [{ id: "a1" }] } },
+          scenario_building: {
+            success: false,
+            error: "policy veto: malformed scenario output (missing EVF decomposition)",
           },
         },
-        {
-          scenarioType: "base",
-          roi: 0.25,
-          npv: 750000,
-          paybackMonths: 12,
-          evfDecomposition: {
-            revenueUplift: 250000,
-            costReduction: 300000,
-            riskMitigation: 100000,
-            efficiencyGain: 150000,
-          },
-        },
-        {
-          scenarioType: "upside",
-          roi: 0.35,
-          npv: 1050000,
-          paybackMonths: 9,
-          evfDecomposition: {
-            revenueUplift: 350000,
-            costReduction: 400000,
-            riskMitigation: 150000,
-            efficiencyGain: 200000,
-          },
-        },
-      ];
-
-      expect(scenarios).toHaveLength(3);
-      expect(scenarios.map((s) => s.scenarioType)).toContain("conservative");
-      expect(scenarios.map((s) => s.scenarioType)).toContain("base");
-      expect(scenarios.map((s) => s.scenarioType)).toContain("upside");
-
-      scenarios.forEach((scenario) => {
-        expect(scenario.roi).toBeGreaterThan(0);
-        expect(scenario.npv).toBeGreaterThan(0);
-        expect(scenario.evfDecomposition.revenueUplift).toBeGreaterThan(0);
-        expect(scenario.evfDecomposition.costReduction).toBeGreaterThan(0);
-      });
+      },
     });
 
-    it("should persist all outputs to database", async () => {
-      // Verify data is persisted to:
-      // - value_hypotheses table
-      // - baselines table
-      // - assumptions table
-      // - scenarios table
-      // - financial_model_snapshots table
-      // - sensitivity_analyses table
+    db.value_scenarios.push(
+      { id: "vs-1", case_id: caseId, organization_id: organizationId, source: "value_modeling" },
+      { id: "vs-2", case_id: caseId, organization_id: organizationId, source: "value_modeling" }
+    );
 
-      const persistedTables = [
-        "value_hypotheses",
-        "baselines",
-        "assumptions",
-        "scenarios",
-        "financial_model_snapshots",
-        "sensitivity_analyses",
-      ];
-
-      persistedTables.forEach((table) => {
-        expect(table).toBeDefined();
-      });
+    rollbackExecutionMock.mockImplementationOnce(async () => {
+      const execution = db.workflow_executions.find((row) => row.id === executionId);
+      const context = (execution?.context ?? {}) as Record<string, unknown>;
+      await compensateValueModelingWorkflow("scenario_building", context);
     });
 
-    it("should trigger recalculation when assumptions change", async () => {
-      const changeEvent = {
-        caseId: "case-test-456",
-        changeType: "assumption_updated",
-        changedEntityId: "asm-churn-rate",
-        previousValue: 0.08,
-        newValue: 0.06,
-      };
+    const executor = new WorkflowDAGExecutor() as unknown as {
+      executeDAG: (executionId: string, workflow: typeof VALUE_MODELING_WORKFLOW, organizationId: string) => Promise<void>;
+    };
 
-      expect(changeEvent.changeType).toBe("assumption_updated");
+    await executor.executeDAG(executionId, VALUE_MODELING_WORKFLOW, organizationId);
 
-      // Recalculation should:
-      // 1. Recompute all three scenarios
-      // 2. Flag narrative components for refresh
-      // 3. Emit saga.state.transitioned event
+    const execution = db.workflow_executions.find((row) => row.id === executionId);
+    expect(execution?.status).toBe("failed");
+    expect(String(execution?.error_message)).toContain("policy veto");
 
-      const recalculationResult = {
-        scenariosRecalculated: ["conservative", "base", "upside"],
-        narrativeRefreshFlags: [
-          { component: "kpi_card", priority: "high" },
-          { component: "scenario_comparison", priority: "high" },
-        ],
-        eventEmitted: true,
-      };
+    expect(rollbackExecutionMock).toHaveBeenCalledWith(executionId);
+    expect(replaceNodesForCaseMock).toHaveBeenCalledWith(
+      caseId,
+      organizationId,
+      [{ id: "node-1", label: "Restored Root" }]
+    );
+    expect(deleteNodesForCaseMock).not.toHaveBeenCalled();
 
-      expect(recalculationResult.scenariosRecalculated).toHaveLength(3);
-      expect(recalculationResult.narrativeRefreshFlags.length).toBeGreaterThan(0);
-      expect(recalculationResult.eventEmitted).toBe(true);
-    });
+    expect(db.value_scenarios).toHaveLength(0);
+    expect(updateStatusMock).toHaveBeenCalledWith("state-1", organizationId, "rolled_back");
+    expect(updateWorkflowStateMock).not.toHaveBeenCalled();
 
-    it("should surface sensitivity analysis in SDUI", async () => {
-      const topLeverageAssumptions = [
-        { name: "Churn Rate", leverageScore: 2500, impactOnNpv: 50000 },
-        { name: "ARPU Growth", leverageScore: 1800, impactOnNpv: 36000 },
-        { name: "Sales Cycle", leverageScore: 1200, impactOnNpv: 24000 },
-      ];
-
-      expect(topLeverageAssumptions).toHaveLength(3);
-      expect(topLeverageAssumptions[0].leverageScore).toBeGreaterThan(
-        topLeverageAssumptions[1].leverageScore
-      );
-    });
+    const failedEvent = db.workflow_events.find(
+      (event) => event.execution_id === executionId && event.event_type === "workflow_failed"
+    );
+    expect(String((failedEvent?.metadata as Record<string, unknown>)?.error)).toContain("policy veto");
   });
 });
