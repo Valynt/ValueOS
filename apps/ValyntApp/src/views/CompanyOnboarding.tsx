@@ -266,7 +266,7 @@ export default function CompanyOnboarding() {
       {/* Left: progress rail */}
       <div className="w-64 bg-white border-r border-zinc-200 p-8 flex-shrink-0">
         <div className="mb-10">
-          <h1 className="text-[18px] font-black text-zinc-950 tracking-[-0.05em]">VALYNT</h1>
+          <h1 className="text-[18px] font-black text-zinc-950 tracking-[-0.05em]">ValueOS</h1>
           <p className="text-[11px] text-zinc-400 mt-1">Value Intelligence Setup</p>
         </div>
 
