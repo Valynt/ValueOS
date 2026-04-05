@@ -23,6 +23,7 @@ import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 import { publicRoutePaths } from "./routes/routeConfig";
+import { settingsNavItems } from "./pages/settings/settingsNavigation";
 
 // Lazy load auth pages (public routes) - Modern design
 const LoginPage = lazy(() =>
@@ -69,7 +70,9 @@ const ModelDetail = lazy(() => import("./views/ModelDetail"));
 const Agents = lazy(() => import("./views/Agents"));
 const AgentDetail = lazy(() => import("./views/AgentDetail"));
 const Integrations = lazy(() => import("./views/Integrations"));
-const SettingsPage = lazy(() => import("./views/SettingsPage"));
+const SettingsLayout = lazy(() =>
+  import("./pages/settings/SettingsLayout").then((m) => ({ default: m.SettingsLayout }))
+);
 const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
 const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
@@ -224,7 +227,13 @@ export function AppRoutes() {
                                         <Route path="agents/:id" element={<AgentDetail />} />
                                         <Route path="admin/agents" element={<AgentAdminPage />} />
                                         <Route path="integrations" element={<Integrations />} />
-                                        <Route path="settings" element={<SettingsPage />} />
+                                        <Route path="settings" element={<Navigate to="profile" replace />} />
+                                        <Route path="settings/*" element={<SettingsLayout />}>
+                                          {settingsNavItems.map((item) => (
+                                            <Route key={item.path} path={item.path} element={item.element} />
+                                          ))}
+                                          <Route path="*" element={<Navigate to="profile" replace />} />
+                                        </Route>
                                         <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
                                         <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
                                         <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
