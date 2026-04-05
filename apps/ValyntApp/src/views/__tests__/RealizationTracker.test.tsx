@@ -101,8 +101,8 @@ describe("RealizationTracker", () => {
 
     expect(screen.getByText("Baseline Scenario")).toBeInTheDocument();
     expect(screen.getByText(/^base$/i)).toBeInTheDocument();
-    // Check that Approved text with date exists (date format varies by locale)
-    expect(screen.getByText(/Approved/i)).toBeInTheDocument();
+    // Check that Approved text includes the baseline year (date format varies by locale)
+    expect(screen.getByText(/Approved.*2024/i)).toBeInTheDocument();
   });
 
   it("displays KPI target cards", () => {
