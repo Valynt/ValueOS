@@ -66,4 +66,14 @@ export {
   FinancialModelSchema,
   IntegrityAssessmentSchema,
   ExecutiveNarrativeSchema,
+  ValueLifecycleSchema,
+} from "./agent-schemas";
+
+export type {
+  OpportunityContext,
+  ValueHypothesisDraft,
+  FinancialModel,
+  IntegrityAssessment,
+  ExecutiveNarrative,
+  ValueLifecycle,
 } from "./agent-schemas";
