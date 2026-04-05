@@ -354,6 +354,8 @@ jobs:
         run: pnpm check:backend-service-role-boundaries
       - name: Guard deprecated Supabase imports
         run: node scripts/ci/check-deprecated-supabase-imports.mjs
+      - name: Guard stale agent type shim claims
+        run: node scripts/ci/check-agent-type-shim-claims.mjs
 
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift

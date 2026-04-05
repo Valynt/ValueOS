@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentState } from "../../lib/agent/types";
+import type { AgentEvent, AgentState } from "../../types/agent";
 import { getIoRedisClient } from "../../lib/ioredisClient.js";
 
 const redis = getIoRedisClient();
