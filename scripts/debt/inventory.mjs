@@ -6,6 +6,7 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const args = new Set(process.argv.slice(2));
 const writeBaseline = args.has("--write-baseline");
+const reportOnly = args.has("--report-only");
 const baselinePath = path.join(repoRoot, "config/debt-baseline.json");
 const strictZonesConfigPath = path.join(repoRoot, "config/debt-strict-zones.json");
 
@@ -81,9 +82,10 @@ function collectDeadExports(strictZones) {
 const strictZones = loadStrictZones();
 const todoStats = collectTodoStats(strictZones);
 const deadExportStats = collectDeadExports(strictZones);
+const generatedAt = new Date().toISOString();
 
 const report = {
-  generated_at: new Date().toISOString(),
+  generated_at: generatedAt,
   strict_zones: strictZones,
   todo_fixme: todoStats,
   dead_exports: deadExportStats,
@@ -98,10 +100,13 @@ const top20Md = [
   "# Top 20 dead/unused export candidates",
   "",
   "Source: `npx ts-prune -p packages/backend/tsconfig.json`.",
+  `Generated at: \`${generatedAt}\`.`,
   "",
-  ...deadExportStats.top20.map(
-    (entry, index) => `${index + 1}. \`${entry.location}\` — \`${entry.symbol}\``
-  ),
+  ...(deadExportStats.top20.length > 0
+    ? deadExportStats.top20.map(
+        (entry, index) => `${index + 1}. \`${entry.location}\` — \`${entry.symbol}\``
+      )
+    : ["0 findings."]),
   "",
 ].join("\n");
 fs.writeFileSync(path.join(repoRoot, "docs/debt/top-20-dead-exports.md"), top20Md);
@@ -115,6 +120,12 @@ if (writeBaseline) {
   };
   fs.writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(`Wrote baseline to ${path.relative(repoRoot, baselinePath)}`);
+  process.exit(0);
+}
+
+if (reportOnly) {
+  console.log(`TODO/FIXME total=${todoStats.total}, strict=${todoStats.strict}`);
+  console.log(`Dead exports total=${deadExportStats.total}, strict=${deadExportStats.strict}`);
   process.exit(0);
 }
 
