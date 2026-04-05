@@ -1,29 +1,32 @@
 /**
- * MCP Financial Ground Truth Server - Main Export
+ * ValyntApp MCP Ground Truth compatibility layer.
  *
- * Central export point for the MCP Financial Ground Truth Server.
- * Provides easy access to all modules, types, and the main server class.
+ * Canonical implementation ownership lives in packages/mcp/ground-truth.
+ * This adapter preserves app-local import paths while delegating runtime behavior.
  */
 
-// Core exports
-export { MCPFinancialGroundTruthServer } from "./core/MCPServer";
-export { UnifiedTruthLayer } from "./core/UnifiedTruthLayer";
-export { BaseModule } from "./core/BaseModule";
+import {
+  createDevServer as createCanonicalDevServer,
+  createMCPServer as createCanonicalMCPServer,
+  type MCPFinancialGroundTruthServer,
+} from "../../../../packages/mcp/ground-truth/index.ts";
 
-// Module exports
-export { EDGARModule } from "./modules/EDGARModule";
-export { XBRLModule } from "./modules/XBRLModule";
-export { MarketDataModule } from "./modules/MarketDataModule";
-export { PrivateCompanyModule } from "./modules/PrivateCompanyModule";
-export { IndustryBenchmarkModule } from "./modules/IndustryBenchmarkModule";
-// Fix: Import from StructuralTruthModule which contains the ESOModule class
-export { ESOModule } from "./modules/StructuralTruthModule";
+export {
+  BaseModule,
+  EDGARModule,
+  ESOModule,
+  EntityMappingModule,
+  IndustryBenchmarkModule,
+  MarketDataModule,
+  MCPFinancialGroundTruthServer,
+  PrivateCompanyModule,
+  UnifiedTruthLayer,
+  XBRLModule,
+} from "../../../../packages/mcp/ground-truth/index.ts";
 
-// Type exports
-export * from "./types";
+export * from "../../../../packages/mcp/ground-truth/types/index.ts";
 
-// Utility function to create a configured server instance
-export async function createMCPServer(config: {
+export interface AppGroundTruthServerConfig {
   edgar?: {
     userAgent: string;
     rateLimit?: number;
@@ -59,70 +62,33 @@ export async function createMCPServer(config: {
     enableRateLimiting?: boolean;
     enableAuditLogging?: boolean;
   };
-}) {
-  const { MCPFinancialGroundTruthServer } = await import("./core/MCPServer");
-
-  // Set defaults
-  const serverConfig = {
-    edgar: config.edgar || {
-      userAgent: "ValueCanvas contact@valuecanvas.com",
-      rateLimit: 10,
-    },
-    xbrl: config.xbrl || {
-      userAgent: "ValueCanvas contact@valuecanvas.com",
-      rateLimit: 10,
-    },
-    marketData: config.marketData || {
-      provider: "alphavantage" as const,
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "",
-      rateLimit: 5,
-    },
-    privateCompany: config.privateCompany || {
-      enableWebScraping: false,
-    },
-    industryBenchmark: config.industryBenchmark || {
-      enableStaticData: true,
-    },
-    truthLayer: config.truthLayer || {
-      enableFallback: true,
-      strictMode: true,
-      maxResolutionTime: 30000,
-      parallelQuery: false,
-    },
-    security: config.security || {
-      enableWhitelist: true,
-      enableRateLimiting: true,
-      enableAuditLogging: true,
-    },
-  };
-
-  const server = new MCPFinancialGroundTruthServer(serverConfig);
-  await server.initialize();
-
-  return server;
 }
 
-/**
- * Quick start function for development/testing
- */
-export async function createDevServer() {
-  return createMCPServer({
-    edgar: {
-      userAgent: "ValueCanvas Development contact@valuecanvas.com",
-    },
-    xbrl: {
-      userAgent: "ValueCanvas Development contact@valuecanvas.com",
-    },
+const DEFAULT_MARKET_DATA_PROVIDER = "alphavantage" as const;
+const DEFAULT_MARKET_DATA_RATE_LIMIT = 5;
+const DEFAULT_MARKET_DATA_API_KEY = "demo";
+
+function withCompatibilityDefaults(config: AppGroundTruthServerConfig): AppGroundTruthServerConfig {
+  if (config.marketData?.apiKey) {
+    return config;
+  }
+
+  return {
+    ...config,
     marketData: {
-      provider: "alphavantage",
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "demo",
+      provider: config.marketData?.provider ?? DEFAULT_MARKET_DATA_PROVIDER,
+      rateLimit: config.marketData?.rateLimit ?? DEFAULT_MARKET_DATA_RATE_LIMIT,
+      apiKey: process.env.ALPHA_VANTAGE_API_KEY || DEFAULT_MARKET_DATA_API_KEY,
     },
-    industryBenchmark: {
-      enableStaticData: true,
-    },
-    truthLayer: {
-      enableFallback: true,
-      strictMode: false, // More lenient for development
-    },
-  });
+  };
+}
+
+export async function createMCPServer(
+  config: AppGroundTruthServerConfig
+): Promise<MCPFinancialGroundTruthServer> {
+  return createCanonicalMCPServer(withCompatibilityDefaults(config));
+}
+
+export async function createDevServer(): Promise<MCPFinancialGroundTruthServer> {
+  return createCanonicalDevServer();
 }
