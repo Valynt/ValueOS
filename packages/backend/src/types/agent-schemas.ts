@@ -6,10 +6,37 @@ import {
   StakeholderSchema,
 } from "./domain-primitives";
 
+export const AgentMetaSchema = z.object({
+  traceId: z.string().min(1),
+  agentId: z.string().min(1),
+}).strict();
+
+const AgentMetaEventSchema = z.object({
+  trace_id: z.string().min(1),
+  agent_id: z.string().min(1),
+}).strict();
+
+export type AgentMeta = z.infer<typeof AgentMetaSchema>;
+export type AgentMetaEvent = z.infer<typeof AgentMetaEventSchema>;
+
+export function toAgentMetaEvent(meta: AgentMeta): AgentMetaEvent {
+  return AgentMetaEventSchema.parse({
+    trace_id: meta.traceId,
+    agent_id: meta.agentId,
+  });
+}
+
+export function fromAgentMetaEvent(meta: AgentMetaEvent): AgentMeta {
+  return AgentMetaSchema.parse({
+    traceId: meta.trace_id,
+    agentId: meta.agent_id,
+  });
+}
+
 /**
  * INITIATED
  */
-export const OpportunityContextSchema = z.object({
+const OpportunityContextBaseSchema = z.object({
   stage: z.literal("INITIATED"),
 
   organizationId: z.string().uuid(),
@@ -39,12 +66,16 @@ export const OpportunityContextSchema = z.object({
   createdAt: z.string().datetime(),
 }).strict();
 
+export const OpportunityContextSchema = OpportunityContextBaseSchema.merge(AgentMetaSchema);
 export type OpportunityContext = z.infer<typeof OpportunityContextSchema>;
+export function buildOpportunityContext(payload: OpportunityContext): OpportunityContext {
+  return OpportunityContextSchema.parse(payload);
+}
 
 /**
  * DRAFTING
  */
-export const ValueHypothesisDraftSchema = z.object({
+const ValueHypothesisDraftBaseSchema = z.object({
   stage: z.literal("DRAFTING"),
 
   organizationId: z.string().uuid(),
@@ -71,12 +102,16 @@ export const ValueHypothesisDraftSchema = z.object({
   draftedAt: z.string().datetime(),
 }).strict();
 
+export const ValueHypothesisDraftSchema = ValueHypothesisDraftBaseSchema.merge(AgentMetaSchema);
 export type ValueHypothesisDraft = z.infer<typeof ValueHypothesisDraftSchema>;
+export function buildValueHypothesisDraft(payload: ValueHypothesisDraft): ValueHypothesisDraft {
+  return ValueHypothesisDraftSchema.parse(payload);
+}
 
 /**
  * FINANCIAL / MODELING
  */
-export const FinancialModelSchema = z.object({
+const FinancialModelBaseSchema = z.object({
   stage: z.literal("FINANCIAL"),
 
   organizationId: z.string().uuid(),
@@ -105,12 +140,16 @@ export const FinancialModelSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
+export const FinancialModelSchema = FinancialModelBaseSchema.merge(AgentMetaSchema);
 export type FinancialModel = z.infer<typeof FinancialModelSchema>;
+export function buildFinancialModel(payload: FinancialModel): FinancialModel {
+  return FinancialModelSchema.parse(payload);
+}
 
 /**
  * VALIDATING
  */
-export const IntegrityAssessmentSchema = z.object({
+const IntegrityAssessmentBaseSchema = z.object({
   stage: z.literal("VALIDATING"),
 
   organizationId: z.string().uuid(),
@@ -138,12 +177,16 @@ export const IntegrityAssessmentSchema = z.object({
   assessedAt: z.string().datetime(),
 }).strict();
 
+export const IntegrityAssessmentSchema = IntegrityAssessmentBaseSchema.merge(AgentMetaSchema);
 export type IntegrityAssessment = z.infer<typeof IntegrityAssessmentSchema>;
+export function buildIntegrityAssessment(payload: IntegrityAssessment): IntegrityAssessment {
+  return IntegrityAssessmentSchema.parse(payload);
+}
 
 /**
  * COMPOSING
  */
-export const ExecutiveNarrativeSchema = z.object({
+const ExecutiveNarrativeBaseSchema = z.object({
   stage: z.literal("COMPOSING"),
 
   organizationId: z.string().uuid(),
@@ -172,4 +215,8 @@ export const ExecutiveNarrativeSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
+export const ExecutiveNarrativeSchema = ExecutiveNarrativeBaseSchema.merge(AgentMetaSchema);
 export type ExecutiveNarrative = z.infer<typeof ExecutiveNarrativeSchema>;
+export function buildExecutiveNarrative(payload: ExecutiveNarrative): ExecutiveNarrative {
+  return ExecutiveNarrativeSchema.parse(payload);
+}
