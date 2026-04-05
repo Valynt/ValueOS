@@ -257,6 +257,44 @@ describe('HubSpotProvider', () => {
       const key = provider.extractIdempotencyKey(payload);
       expect(key).toContain('hs:batch:');
     });
+
+    it('returns identical keys for duplicate payloads', () => {
+      const payload = {
+        eventId: 'evt-hs-dup-001',
+        subscriptionId: 99,
+        objectId: 42,
+        subscriptionType: 'deal.propertyChange',
+        occurredAt: 1700000000000,
+        portalId: 12345,
+      };
+
+      const key1 = provider.extractIdempotencyKey(payload);
+      const key2 = provider.extractIdempotencyKey(payload);
+
+      expect(key1).toBe(key2);
+    });
+
+    it('returns distinct keys for distinct payload identity fields', () => {
+      const base = {
+        subscriptionType: 'deal.propertyChange',
+        subscriptionId: 99,
+        objectId: 42,
+        portalId: 12345,
+      };
+
+      const key1 = provider.extractIdempotencyKey({
+        ...base,
+        eventId: 'evt-hs-identity-001',
+        occurredAt: 1700000000000,
+      });
+      const key2 = provider.extractIdempotencyKey({
+        ...base,
+        eventId: 'evt-hs-identity-002',
+        occurredAt: 1700000000000,
+      });
+
+      expect(key1).not.toBe(key2);
+    });
   });
 
   // ==========================================================================
