@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 > **Superseded by [Production Readiness spec](../../openspec/specs/production-readiness/spec.md)**. Retained for task-level detail reference.
 
 # Spec: Production Readiness Sprint Plan
