@@ -1,16 +1,5 @@
 {
-  "legacyZones": [
-    {
-      "name": "ValyntApp Legacy Routes",
-      "path": "apps/ValyntApp/src/routes/_legacy",
-      "characterizationPatterns": [
-        "apps/ValyntApp/src/routes/_legacy/**/*.test.ts",
-        "apps/ValyntApp/src/routes/_legacy/**/*.test.tsx",
-        "apps/ValyntApp/src/__tests__/**/*.test.ts",
-        "apps/ValyntApp/src/__tests__/**/*.test.tsx"
-      ]
-    }
-  ],
+  "legacyZones": [],
   "debtHeavyModules": [
     {
       "name": "ValyntApp Services",

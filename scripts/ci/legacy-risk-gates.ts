@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 type LegacyZone = {
   name: string;
@@ -63,6 +64,10 @@ function toPosix(value: string): string {
 
 function loadConfig(): Config {
   return JSON.parse(fs.readFileSync(configPath, "utf8")) as Config;
+}
+
+export function getMissingLegacyZonePaths(config: Config, rootDir: string): LegacyZone[] {
+  return config.legacyZones.filter((zone) => !fs.existsSync(path.join(rootDir, zone.path)));
 }
 
 function getArg(name: string): string | null {
@@ -202,6 +207,13 @@ function main(): void {
   const numstat = parseNumstat(base, head);
 
   const failures: string[] = [];
+
+  const missingLegacyZonePaths = getMissingLegacyZonePaths(config, repoRoot);
+  for (const zone of missingLegacyZonePaths) {
+    failures.push(
+      `Legacy zone '${zone.name}' is configured with missing path '${zone.path}'. Remove or relocate this legacy zone configuration.`
+    );
+  }
 
   const legacySourceFiles = changedFiles.filter((file) =>
     config.legacyZones.some((zone) => file.startsWith(toPosix(zone.path)))
@@ -346,6 +358,10 @@ function main(): void {
     base,
     head,
     changedFiles,
+    missingLegacyZonePaths: missingLegacyZonePaths.map((zone) => ({
+      name: zone.name,
+      path: zone.path,
+    })),
     debtDeltas,
     perService,
     strictViolations,
@@ -362,4 +378,6 @@ function main(): void {
   console.log(markdown);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
