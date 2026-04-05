@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { logger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js'
 
@@ -19,12 +21,35 @@ export interface CheckpointDecision {
   timestamp: Date;
 }
 
+interface WorkflowCheckpointRow {
+  execution_id: string;
+}
+
+export interface PendingCheckpoint {
+  id: string;
+  execution_id: string;
+  stage_id: string;
+  agent_id: string;
+  action: string;
+  risk_level: 'low' | 'medium' | 'high';
+  confidence: number | null;
+  reasoning: string | null;
+  status: 'pending';
+  created_at: string;
+}
+
+interface PendingCheckpointRow extends PendingCheckpoint {
+  workflow_executions: {
+    organization_id: string;
+  };
+}
+
 export class HumanCheckpointService {
   /**
    * Request human approval for a workflow stage
    */
   async requestApproval(request: CheckpointRequest): Promise<string> {
-    const checkpointId = `checkpoint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const checkpointId = `checkpoint_${randomUUID()}`;
 
     const { error } = await supabase
       .from('workflow_checkpoints')
@@ -48,7 +73,7 @@ export class HumanCheckpointService {
     }
 
     // Pause workflow execution
-    await supabase
+    const { error: pauseError } = await supabase
       .from('workflow_executions')
       .update({
         status: 'waiting_approval',
@@ -58,6 +83,11 @@ export class HumanCheckpointService {
         },
       })
       .eq('id', request.executionId);
+
+    if (pauseError) {
+      logger.error('Failed to pause workflow for checkpoint', pauseError);
+      throw new Error('Failed to pause workflow after creating human checkpoint');
+    }
 
     logger.info('Human checkpoint created', { checkpointId, executionId: request.executionId });
     return checkpointId;
@@ -72,9 +102,9 @@ export class HumanCheckpointService {
   ): Promise<void> {
     const { data: checkpoint, error: fetchError } = await supabase
       .from('workflow_checkpoints')
-      .select('*')
+      .select('execution_id')
       .eq('id', checkpointId)
-      .single();
+      .single<WorkflowCheckpointRow>();
 
     if (fetchError || !checkpoint) {
       throw new Error('Checkpoint not found');
@@ -102,13 +132,18 @@ export class HumanCheckpointService {
       ? { pending_checkpoint: null, approval_granted: true }
       : { pending_checkpoint: null, rejection_reason: decision.reasoning };
 
-    await supabase
+    const { error: resumeError } = await supabase
       .from('workflow_executions')
       .update({
         status: newStatus,
         context: contextUpdate,
       })
       .eq('id', checkpoint.execution_id);
+
+    if (resumeError) {
+      logger.error('Failed to update workflow execution after checkpoint decision', resumeError);
+      throw new Error('Failed to update workflow state after checkpoint decision');
+    }
 
     logger.info('Checkpoint decision recorded', {
       checkpointId,
@@ -120,22 +155,39 @@ export class HumanCheckpointService {
   /**
    * Get pending checkpoints for an organization
    */
-  async getPendingCheckpoints(organizationId: string): Promise<any[]> {
+  async getPendingCheckpoints(organizationId: string): Promise<PendingCheckpoint[]> {
     const { data, error } = await supabase
       .from('workflow_checkpoints')
       .select(`
-        *,
+        id,
+        execution_id,
+        stage_id,
+        agent_id,
+        action,
+        risk_level,
+        confidence,
+        reasoning,
+        status,
+        created_at,
         workflow_executions!inner(organization_id)
       `)
       .eq('status', 'pending')
-      .eq('workflow_executions.organization_id', organizationId);
+      .eq('workflow_executions.organization_id', organizationId)
+      .returns<PendingCheckpointRow[]>();
 
     if (error) {
       logger.error('Failed to fetch pending checkpoints', error);
       return [];
     }
 
-    return data || [];
+    if (!data) {
+      return [];
+    }
+
+    return data.map(({ workflow_executions: _workflowExecutions, ...checkpoint }) => ({
+      ...checkpoint,
+      status: 'pending',
+    }));
   }
 
   /**

@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { logger } from "@/lib/logger";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -48,7 +50,6 @@ export function useAsyncState<T>(
     onError,
     retryAttempts = 3,
     retryDelay = 1000,
-    cacheTime = 300000, // 5 minutes
   } = options;
 
   // State management
@@ -63,7 +64,7 @@ export function useAsyncState<T>(
   const mountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
-  const lastArgsRef = useRef<any[] | null>(null);
+  const lastArgsRef = useRef<unknown[] | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -165,7 +166,7 @@ export function useAsyncState<T>(
     if (lastArgsRef.current) {
       try {
         await execute(...lastArgsRef.current);
-      } catch (error) {
+      } catch (_error) {
         // Error is already handled in execute
       }
     }
@@ -247,7 +248,7 @@ export function useCachedData<T>(
           // Cache expired, fetch fresh data
           actions.execute();
         }
-      } catch (error) {
+      } catch (_error) {
         // Invalid cache, fetch fresh data
         actions.execute();
       }
