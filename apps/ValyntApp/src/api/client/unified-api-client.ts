@@ -549,6 +549,13 @@ export const api = {
 
   getWorkflowStatus: (id: string) => apiClient.get(`/api/workflows/${id}/status`),
 
+  getWorkflowHandoffCardsByRun: (runId: string) => apiClient.get(`/api/workflows/${runId}/handoff-cards`),
+
+  getWorkflowHandoffCardsByStage: (runId: string, stageId: string) => apiClient.get(`/api/workflows/${runId}/stages/${stageId}/handoff-cards`),
+
+  appendWorkflowHandoffAddendum: (runId: string, stageId: string, eventId: string, data: { comment: string }) =>
+    apiClient.post(`/api/workflows/${runId}/stages/${stageId}/handoff-cards/${eventId}/addenda`, data),
+
   // Integrations
   getIntegrations: () => apiClient.get("/api/integrations"),
 

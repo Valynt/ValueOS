@@ -37,6 +37,7 @@ import type {
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
+import { HandoffCardBuilder } from '../../services/workflows/HandoffCardBuilder.js';
 import { ScenarioSchema } from '../../services/value/ScenarioBuilder.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
@@ -95,6 +96,7 @@ const ScenarioBuildOutputSchema = z.object({
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionStore: WorkflowExecutionStore;
+  private readonly handoffCardBuilder: HandoffCardBuilder;
 
   private lastDegradedState: RuntimeFailureDetails | null = null;
 
@@ -109,6 +111,7 @@ export class WorkflowExecutor {
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
   ) {
     this.executionStore = new WorkflowExecutionStore(supabase);
+    this.handoffCardBuilder = new HandoffCardBuilder();
   }
 
   private buildStageContext(
@@ -453,6 +456,17 @@ export class WorkflowExecutor {
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed', stageDiagnostic ?? undefined);
           await this.executionStore.recordStageRun({ executionId, organizationId, stage, executionRecord: recordSnapshot, startedAt: stageStart, completedAt: stageCompleted, output: stageOutput });
           completed.add(stage.id);
+
+          await this._buildAndPersistHandoffCards({
+            executionId,
+            organizationId,
+            dag,
+            completedStages: completed,
+            fromStage: stage,
+            stageOutput,
+            timestamp: stageCompleted.toISOString(),
+            actor: executionContext.userId ?? executionContext.actorId ?? 'workflow-orchestrator',
+          });
         } else {
           const errMsg = result.result?.stageResult.error ?? result.error ?? 'Unknown stage error';
           const failureDetails = this.classifyStageFailure(errMsg);
@@ -819,80 +833,185 @@ export class WorkflowExecutor {
     };
   }
 
-  private _withRuntimeFailure(snapshot: WorkflowExecutionRecord, runtimeFailure: RuntimeFailureDetails): WorkflowExecutionRecord {
-    return {
-      ...snapshot,
-      io: {
-        ...(snapshot.io && typeof snapshot.io === 'object' ? snapshot.io as Record<string, unknown> : {}),
-        runtime_failure: runtimeFailure,
-      },
-    };
+// --- Handoff card builder (from codex branch) ---
+private async _buildAndPersistHandoffCards(input: {
+  executionId: string;
+  organizationId: string;
+  dag: WorkflowDAG;
+  completedStages: Set<string>;
+  fromStage: WorkflowStage;
+  stageOutput: Record<string, unknown>;
+  timestamp: string;
+  actor: string;
+}): Promise<void> {
+  const outgoingTransitions = (input.dag.transitions ?? []).filter((transition) => {
+    const fromStageId = transition.from_stage ?? transition.from;
+    return fromStageId === input.fromStage.id;
+  });
+
+  if (outgoingTransitions.length === 0) {
+    return;
   }
 
-  private buildFailureDetails(input: {
-    failureClass: RuntimeFailureDetails['class'];
-    severity: RuntimeFailureDetails['severity'];
-    machineReasonCode: string;
-    diagnosis: string;
-    confidence: number;
-    blastRadiusEstimate: RuntimeFailureDetails['blastRadiusEstimate'];
-    recommendedNextActions?: RuntimeFailureDetails['recommendedNextActions'];
-  }): RuntimeFailureDetails {
-    return buildRuntimeFailureDetails({
-      class: input.failureClass,
-      severity: input.severity,
-      machineReasonCode: input.machineReasonCode,
-      diagnosis: input.diagnosis,
-      confidence: input.confidence,
-      blastRadiusEstimate: input.blastRadiusEstimate,
-      recommendedNextActions: input.recommendedNextActions,
+  const getDependencies = (stageId: string): string[] =>
+    (input.dag.transitions ?? [])
+      .filter((transition) => (transition.to_stage ?? transition.to) === stageId)
+      .map((transition) => transition.from_stage ?? transition.from)
+      .filter((dependency): dependency is string => typeof dependency === 'string' && dependency.length > 0);
+
+  for (const transition of outgoingTransitions) {
+    const toStageId = transition.to_stage ?? transition.to;
+    if (!toStageId) continue;
+
+    const toStage = input.dag.stages.find((stage) => stage.id === toStageId);
+    if (!toStage) continue;
+
+    const dependencies = getDependencies(toStage.id);
+    const dependenciesMet =
+      dependencies.length === 0 ||
+      dependencies.every((dependency) => input.completedStages.has(dependency));
+
+    if (!dependenciesMet) continue;
+
+    const hitlResult = this.policy.checkHITL(
+      this._buildStageDecisionContext(toStage, {
+        organizationId: input.organizationId,
+        organization_id: input.organizationId,
+        tenantId: input.organizationId,
+        confidence_score:
+          typeof input.stageOutput.confidence_score === 'number'
+            ? input.stageOutput.confidence_score
+            : 0.5,
+      })
+    );
+
+    const policyConstraints = [
+      `hitl_required=${String(hitlResult.hitl_required)}`,
+      ...(hitlResult.hitl_reason ? [String(hitlResult.hitl_reason)] : []),
+      ...(typeof hitlResult.details?.rule_id === 'string'
+        ? [hitlResult.details.rule_id]
+        : []),
+    ];
+
+    const handoffCard = this.handoffCardBuilder.build({
+      runId: input.executionId,
+      fromStage: input.fromStage,
+      toStage,
+      actor: input.actor,
+      timestamp: input.timestamp,
+      dag: input.dag,
+      stageOutput: input.stageOutput,
+      policyConstraints,
+    });
+
+    await this.executionStore.recordWorkflowEvent({
+      executionId: input.executionId,
+      organizationId: input.organizationId,
+      eventType: 'stage_transition_handoff_created',
+      stageId: toStage.id,
+      metadata: {
+        run_id: input.executionId,
+        stage_id: toStage.id,
+        from_stage: input.fromStage.id,
+        transition_timestamp: input.timestamp,
+        handoff_card: handoffCard,
+        addendum_comments: [],
+      },
+    });
+  }
+}
+
+// --- Runtime failure handling (from main branch) ---
+private _withRuntimeFailure(
+  snapshot: WorkflowExecutionRecord,
+  runtimeFailure: RuntimeFailureDetails
+): WorkflowExecutionRecord {
+  return {
+    ...snapshot,
+    io: {
+      ...(snapshot.io && typeof snapshot.io === 'object'
+        ? (snapshot.io as Record<string, unknown>)
+        : {}),
+      runtime_failure: runtimeFailure,
+    },
+  };
+}
+
+private buildFailureDetails(input: {
+  failureClass: RuntimeFailureDetails['class'];
+  severity: RuntimeFailureDetails['severity'];
+  machineReasonCode: string;
+  diagnosis: string;
+  confidence: number;
+  blastRadiusEstimate: RuntimeFailureDetails['blastRadiusEstimate'];
+  recommendedNextActions?: RuntimeFailureDetails['recommendedNextActions'];
+}): RuntimeFailureDetails {
+  return buildRuntimeFailureDetails({
+    class: input.failureClass,
+    severity: input.severity,
+    machineReasonCode: input.machineReasonCode,
+    diagnosis: input.diagnosis,
+    confidence: input.confidence,
+    blastRadiusEstimate: input.blastRadiusEstimate,
+    recommendedNextActions: input.recommendedNextActions,
+  });
+}
+
+private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
+  const msg = errorMessage.toLowerCase();
+
+  if (msg.includes('policy') || msg.includes('veto') || msg.includes('approval')) {
+    return this.buildFailureDetails({
+      failureClass: 'policy-blocked',
+      severity: 'failed',
+      machineReasonCode: 'POLICY_BLOCKED',
+      diagnosis: errorMessage,
+      confidence: 0.9,
+      blastRadiusEstimate: 'workflow',
     });
   }
 
-  private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
-    const msg = errorMessage.toLowerCase();
-    if (msg.includes('policy') || msg.includes('veto') || msg.includes('approval')) {
-      return this.buildFailureDetails({
-        failureClass: 'policy-blocked',
-        severity: 'failed',
-        machineReasonCode: 'POLICY_BLOCKED',
-        diagnosis: errorMessage,
-        confidence: 0.9,
-        blastRadiusEstimate: 'workflow',
-      });
-    }
-
-    if (msg.includes('missing') || msg.includes('not found') || msg.includes('artifact') || msg.includes('required')) {
-      return this.buildFailureDetails({
-        failureClass: 'data-missing',
-        severity: 'failed',
-        machineReasonCode: 'DATA_MISSING',
-        diagnosis: errorMessage,
-        confidence: 0.85,
-        blastRadiusEstimate: 'single-stage',
-      });
-    }
-
-    if (msg.includes('timeout') || msg.includes('unavailable') || msg.includes('connection') || msg.includes('service')) {
-      return this.buildFailureDetails({
-        failureClass: 'dependency-unavailable',
-        severity: 'failed',
-        machineReasonCode: 'DEPENDENCY_UNAVAILABLE',
-        diagnosis: errorMessage,
-        confidence: 0.81,
-        blastRadiusEstimate: 'workflow',
-      });
-    }
-
+  if (
+    msg.includes('missing') ||
+    msg.includes('not found') ||
+    msg.includes('artifact') ||
+    msg.includes('required')
+  ) {
     return this.buildFailureDetails({
-      failureClass: 'execution-failed',
+      failureClass: 'data-missing',
       severity: 'failed',
-      machineReasonCode: 'EXECUTION_FAILED',
+      machineReasonCode: 'DATA_MISSING',
       diagnosis: errorMessage,
-      confidence: 0.78,
+      confidence: 0.85,
       blastRadiusEstimate: 'single-stage',
     });
   }
+
+  if (
+    msg.includes('timeout') ||
+    msg.includes('unavailable') ||
+    msg.includes('connection') ||
+    msg.includes('service')
+  ) {
+    return this.buildFailureDetails({
+      failureClass: 'dependency-unavailable',
+      severity: 'failed',
+      machineReasonCode: 'DEPENDENCY_UNAVAILABLE',
+      diagnosis: errorMessage,
+      confidence: 0.81,
+      blastRadiusEstimate: 'workflow',
+    });
+  }
+
+  return this.buildFailureDetails({
+    failureClass: 'execution-failed',
+    severity: 'failed',
+    machineReasonCode: 'EXECUTION_FAILED',
+    diagnosis: errorMessage,
+    confidence: 0.78,
+    blastRadiusEstimate: 'single-stage',
+  });
+}
 
   private _buildStageDecisionContext(stage: WorkflowStage, context: WorkflowStageContextDTO): import('@shared/domain/DecisionContext.js').DecisionContext {
     const confidence = typeof context.opportunity_confidence_score === 'number'
