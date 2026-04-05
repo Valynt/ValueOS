@@ -43,7 +43,15 @@ export class ApprovalInbox {
     }
 
     this.unsubscribe = stageTransitionEventBus.subscribe((event) => {
-      void this.handleStageTransition(event);
+      void this.handleStageTransition(event).catch((error: unknown) => {
+        logger.error("Failed to handle stage transition event in approval inbox", {
+          error,
+          runId: event.runId,
+          stageId: event.stageId,
+          organizationId: event.organizationId,
+          transition: event.transition,
+        });
+      });
     });
   }
 
