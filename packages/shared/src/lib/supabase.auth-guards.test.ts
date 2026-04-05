@@ -43,7 +43,6 @@ describe('Supabase auth guard behavior', () => {
 
   it('rejects service-role client creation when service credentials are unavailable', async () => {
     // Arrange
-    process.env.ALLOW_INSECURE_ANON_SERVER_CLIENT = 'true';
     const { createServiceRoleSupabaseClient } = await import('./supabase');
 
     // Act + Assert
