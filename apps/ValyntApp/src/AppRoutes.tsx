@@ -218,6 +218,7 @@ export function AppRoutes() {
                                         <Route path="opportunities" element={<Opportunities />} />
                                         <Route path="opportunities/:id" element={<OpportunityDetail />} />
                                         <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                        <Route path="opportunities/:oppId/cases/:caseId/:stage" element={<ValueCaseCanvas />} />
                                         <Route path="models" element={<Models />} />
                                         <Route path="models/:id" element={<ModelDetail />} />
                                         <Route path="agents" element={<Agents />} />
@@ -243,6 +244,7 @@ export function AppRoutes() {
                                     <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/opportunities/:oppId/cases/:caseId/:stage" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/models" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/agents" element={<LegacyTenantRouteBridge />} />
