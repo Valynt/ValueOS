@@ -5,14 +5,17 @@ import { apiClient } from "@/api/client/unified-api-client";
 import { useToast } from "@/components/common/Toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useTeam } from "@/features/team";
+import { resolveTenantRole, useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { useBillingSummary } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import type { AdminPermission } from "@/lib/adminNavigation";
 
 const tabs = [
-  { key: "org", label: "Organization", icon: Building2 },
-  { key: "users", label: "Users & Roles", icon: Users },
-  { key: "api-keys", label: "API Keys", icon: Key },
-  { key: "billing", label: "Billing", icon: CreditCard },
+  { key: "org", label: "Organization", icon: Building2, requiredPermission: "governance.write" },
+  { key: "users", label: "Users & Roles", icon: Users, requiredPermission: "identity.write" },
+  { key: "api-keys", label: "API Keys", icon: Key, requiredPermission: "security.write" },
+  { key: "billing", label: "Billing", icon: CreditCard, requiredPermission: "billing.read" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -52,7 +55,7 @@ function OrgTab() {
   );
 }
 
-function UsersTab() {
+function UsersTab({ canManageUsers }: { canManageUsers: boolean }) {
   const { members, invites, isLoading, inviteMember, isInviting } = useTeam();
   const { success, error } = useToast();
 
@@ -75,7 +78,9 @@ function UsersTab() {
 
   return (
     <div className="space-y-4">
-      <button type="button" onClick={onInvite} disabled={isInviting} className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium"><Plus className="w-3.5 h-3.5" />Invite User</button>
+      {canManageUsers ? (
+        <button type="button" onClick={onInvite} disabled={isInviting} className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium"><Plus className="w-3.5 h-3.5" />Invite User</button>
+      ) : null}
       <div className="space-y-2">
         {members.map((u) => (
           <div key={u.id} className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between">
@@ -92,7 +97,7 @@ function UsersTab() {
 }
 
 interface ApiKeyRow { id: string; name: string; prefix: string; lastUsedAt?: string }
-function ApiKeysTab() {
+function ApiKeysTab({ canManageApiKeys }: { canManageApiKeys: boolean }) {
   const { error, success } = useToast();
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +136,9 @@ function ApiKeysTab() {
   if (loading) return <SkeletonRows />;
   return (
     <div className="space-y-4">
-      <button type="button" onClick={() => void onCreate()} className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium"><Plus className="w-3.5 h-3.5" />Create Key</button>
+      {canManageApiKeys ? (
+        <button type="button" onClick={() => void onCreate()} className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium"><Plus className="w-3.5 h-3.5" />Create Key</button>
+      ) : null}
       {keys.length === 0 ? <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">No API keys created.</div> : (
         <div className="space-y-2">{keys.map((k) => <div key={k.id} className="bg-card border border-border rounded-2xl p-4"><p className="text-sm font-medium text-foreground">{k.name}</p><p className="text-xs text-muted-foreground font-mono">{k.prefix}********</p></div>)}</div>
       )}
@@ -153,15 +160,39 @@ function BillingTab() {
 }
 
 export function SettingsPage() {
+  const { userClaims } = useAuth();
+  const { hasPermission } = useAdminPermissions(resolveTenantRole(userClaims?.roles));
+
   const [activeTab, setActiveTab] = useState<TabKey>("org");
-  const tabContent = useMemo<Record<TabKey, React.ReactNode>>(() => ({ org: <OrgTab />, users: <UsersTab />, "api-keys": <ApiKeysTab />, billing: <BillingTab /> }), []);
+  const canManageUsers = hasPermission("identity.write");
+  const canManageApiKeys = hasPermission("security.write");
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => hasPermission(tab.requiredPermission as AdminPermission)),
+    [hasPermission]
+  );
+  const tabContent = useMemo<Record<TabKey, React.ReactNode>>(
+    () => ({
+      org: <OrgTab />,
+      users: <UsersTab canManageUsers={canManageUsers} />,
+      "api-keys": <ApiKeysTab canManageApiKeys={canManageApiKeys} />,
+      billing: <BillingTab />,
+    }),
+    [canManageApiKeys, canManageUsers]
+  );
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.key === activeTab)) {
+      const fallbackTab = visibleTabs[0]?.key ?? "billing";
+      setActiveTab(fallbackTab);
+    }
+  }, [activeTab, visibleTabs]);
 
   return (
     <div className="p-6 lg:p-10 max-w-[1200px] mx-auto">
       <h1 className="text-2xl font-black text-foreground tracking-[-0.05em] mb-6">Settings</h1>
       <div className="flex gap-8">
         <nav className="w-48 flex-shrink-0 space-y-1" aria-label="Settings navigation">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} type="button" className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors text-left", activeTab === tab.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <tab.icon className="w-[18px] h-[18px]" aria-hidden="true" />
               {tab.label}

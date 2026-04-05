@@ -38,7 +38,7 @@ afterAll(async () => {
 describe('Integration: /api/agents/execute -> realtime broadcast', () => {
   it('sends integrity.issue.resolved to websocket subscribers', async () => {
     // Mock unified agent API to return resolution immediately
-    vi.mock('../../services/UnifiedAgentAPI', () => ({
+    vi.mock('../../services/value/UnifiedAgentAPI.js', () => ({
       getUnifiedAgentAPI: () => ({
         invoke: vi.fn().mockResolvedValue({
           data: { resolvedIssueId: 'issue-xyz', resolution: 'accept' },

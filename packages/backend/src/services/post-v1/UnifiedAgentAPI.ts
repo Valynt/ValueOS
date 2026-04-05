@@ -1,3 +1,5 @@
-// Re-export shim
-export * from "../agents/UnifiedAgentAPI.js";
-export * from "../value/UnifiedAgentAPI.js"; // shim for getUnifiedAgentAPI
+/**
+ * @deprecated Canonical module moved to `../value/UnifiedAgentAPI`.
+ * Keep this shim only during staged migration of legacy post-v1 imports.
+ */
+export * from "../value/UnifiedAgentAPI.js";

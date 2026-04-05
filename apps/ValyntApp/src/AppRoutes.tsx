@@ -8,7 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
-import { ProtectedRoute } from "./app/routes/route-guards";
+import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -153,6 +153,7 @@ export function AppRoutes() {
     "/auth/callback": <AuthCallback />,
     "/guest/access": <GuestAccessPage />,
   };
+
   const resolvePublicElement = (path: string) => {
     const element = publicRouteElements[path];
     if (!element) {
@@ -221,28 +222,72 @@ export function AppRoutes() {
                                         <Route path="opportunities" element={<Opportunities />} />
                                         <Route path="opportunities/:id" element={<OpportunityDetail />} />
                                         <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                        <Route path="opportunities/:oppId/cases/:caseId/:stage" element={<ValueCaseCanvas />} />
                                         <Route path="models" element={<Models />} />
                                         <Route path="models/:id" element={<ModelDetail />} />
                                         <Route path="agents" element={<Agents />} />
                                         <Route path="agents/:id" element={<AgentDetail />} />
-                                        <Route path="admin/agents" element={<AgentAdminPage />} />
-                                        <Route path="integrations" element={<Integrations />} />
-                                        <Route path="settings" element={<Navigate to="profile" replace />} />
-                                        <Route path="settings/*" element={<SettingsLayout />}>
-                                          {settingsNavItems.map((item) => (
-                                            <Route key={item.path} path={item.path} element={item.element} />
-                                          ))}
-                                          <Route path="*" element={<Navigate to="profile" replace />} />
+
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.ADMIN_AGENTS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="admin/agents" element={<AgentAdminPage />} />
                                         </Route>
+
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.INTEGRATIONS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="integrations" element={<Integrations />} />
+                                        </Route>
+
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.SETTINGS}
+                                            />
+                                          }
+                                        >
+                                          <Route path="settings" element={<Navigate to="profile" replace />} />
+                                          <Route path="settings/*" element={<SettingsLayout />}>
+                                            {settingsNavItems.map((item) => (
+                                              <Route
+                                                key={item.path}
+                                                path={item.path}
+                                                element={item.element}
+                                              />
+                                            ))}
+                                            <Route path="*" element={<Navigate to="profile" replace />} />
+                                          </Route>
+                                        </Route>
+
                                         <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
                                         <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
                                         <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
                                         <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
                                         <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
                                         <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
-                                        <Route path="billing" element={<BillingPortal />} />
+                                        <Route
+                                          element={
+                                            <PermissionRoute
+                                              requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.BILLING}
+                                            />
+                                          }
+                                        >
+                                          <Route path="billing" element={<BillingPortal />} />
+                                        </Route>
                                         <Route path="company" element={<CompanyKnowledge />} />
-                                        <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
+                                        <Route
+                                          path="living-value-graph/:opportunityId?/:caseId?"
+                                          element={<LivingValueGraphPage />}
+                                        />
                                         <Route path="academy/*" element={<AcademyV2Routes />} />
                                       </Route>
                                     </Route>
@@ -252,6 +297,7 @@ export function AppRoutes() {
                                     <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/opportunities/:oppId/cases/:caseId/:stage" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/models" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/agents" element={<LegacyTenantRouteBridge />} />

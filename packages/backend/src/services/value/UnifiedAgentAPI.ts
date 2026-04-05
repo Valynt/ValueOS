@@ -20,8 +20,8 @@ import { v4 as uuidv4 } from "uuid";
 
 import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
 import { logger } from "../lib/logger.js"
-import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import type { LifecycleContext } from "../types/agent.js";
+import { AgentHealthStatus, ConfidenceLevel } from "../../types/agent.js";
+import type { LifecycleContext } from "../../types/agent.js";
 import { AgentCache } from "../cache/AgentCache.js";
 import { normalizeCacheKeyPayload } from "../cache/CachePolicy.js";
 

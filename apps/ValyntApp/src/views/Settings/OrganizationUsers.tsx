@@ -14,6 +14,8 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 
 import { apiClient } from "../../api/client/unified-api-client";
+import { ConfirmationModal } from "../../components/common/ConfirmationModal";
+import { useToast } from "../../components/common/Toast";
 import { SettingsSection } from "../../components/settings";
 import { useAuth } from "../../contexts/AuthContext";
 import { analyticsClient } from "../../lib/analyticsClient";
@@ -45,8 +47,11 @@ const ROLE_OPTIONS = [
 type TenantRoleValue = (typeof ROLE_OPTIONS)[number]["value"];
 
 export const OrganizationUsers: React.FC = () => {
+  const { success, error: showErrorToast } = useToast();
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [userPendingRemoval, setUserPendingRemoval] = useState<OrganizationUser | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -193,14 +198,20 @@ export const OrganizationUsers: React.FC = () => {
   };
 
   const handleRemoveUser = async (userId: string) => {
+    setDeletingUserId(userId);
     try {
       const response = await apiClient.delete(`/api/admin/users/${userId}`);
       if (!response.success) {
         throw new Error(response.error?.message || "Removal failed");
       }
       setUsers((current) => current.filter((user) => user.userUuid !== userId));
+      success("User removed successfully.");
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Failed to remove user");
+      const message = error instanceof Error ? error.message : "Failed to remove user";
+      setLoadError(message);
+      showErrorToast(message);
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -420,10 +431,11 @@ export const OrganizationUsers: React.FC = () => {
                             <MoreVertical className="h-5 w-5 text-gray-400" />
                           </button>
                           <button
-                            className="text-xs text-red-600 hover:text-red-700"
-                            onClick={() => handleRemoveUser(user.userUuid)}
+                            className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => setUserPendingRemoval(user)}
+                            disabled={deletingUserId === user.userUuid}
                           >
-                            Remove
+                            {deletingUserId === user.userUuid ? "Removing..." : "Remove"}
                           </button>
                         </div>
                       </td>
@@ -550,6 +562,24 @@ export const OrganizationUsers: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={userPendingRemoval !== null}
+        onClose={() => setUserPendingRemoval(null)}
+        onConfirm={() =>
+          userPendingRemoval ? handleRemoveUser(userPendingRemoval.userUuid) : Promise.resolve()
+        }
+        title="Permanently remove user"
+        message={
+          userPendingRemoval
+            ? `This action permanently removes ${userPendingRemoval.email} from your organization. Type "${userPendingRemoval.email}" to confirm.`
+            : ""
+        }
+        confirmText="Remove user"
+        requireTypedConfirmation
+        confirmationPhrase={userPendingRemoval?.email ?? ""}
+        isDangerous
+      />
     </div>
   );
 };

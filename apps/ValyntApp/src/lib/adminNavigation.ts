@@ -699,6 +699,13 @@ export function filterByPermissions(
     .filter((section) => section.items.length > 0);
 }
 
+export function buildPermissionAwareAdminNavigation(
+  permissions: Set<AdminPermission>,
+  planTier?: "free" | "basic" | "pro" | "enterprise"
+): AdminNavSection[] {
+  return filterByPermissions(permissions, planTier);
+}
+
 /**
  * Search nav items by query string
  */

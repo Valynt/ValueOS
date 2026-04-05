@@ -124,7 +124,7 @@ export class ValidationError extends LibValidationError {
 }
 
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
-import { AgentConfig } from "../types/agent";
+import { AgentConfig } from "../../types/agent.js";
 
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
 

@@ -2,11 +2,13 @@ import React, { useCallback, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { ScopeBadge } from "../../components/admin/ScopeBadge";
+import { useAuth } from "../../contexts/AuthContext";
+import { resolveTenantRole, useAdminPermissions } from "../../hooks/useAdminPermissions";
 import {
   type AdminNavSection,
   type AdminPermission,
+  buildPermissionAwareAdminNavigation,
   buildBreadcrumbs,
-  filterByPermissions,
   findNavItemByPath,
   getAccessibleNavItems,
   searchNavItems,
@@ -33,31 +35,20 @@ interface AdminLayoutProps {
  * Replaces the flat tab-based SettingsLayout for org-level and platform-level settings.
  */
 export const AdminLayout: React.FC<AdminLayoutProps> = ({
-  permissions = new Set<AdminPermission>([
-    "governance.read",
-    "governance.write",
-    "identity.read",
-    "identity.write",
-    "security.read",
-    "security.write",
-    "agents.read",
-    "agents.write",
-    "data.read",
-    "data.write",
-    "compliance.read",
-    "compliance.write",
-    "billing.read",
-    "billing.write",
-  ]),
+  permissions,
   planTier = "pro",
 }) => {
+  const { userClaims } = useAuth();
+  const derivedRole = resolveTenantRole(userClaims?.roles);
+  const { permissions: derivedPermissions } = useAdminPermissions(derivedRole);
+  const effectivePermissions = permissions ?? derivedPermissions;
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const filteredSections = useMemo(
-    () => filterByPermissions(permissions, planTier),
-    [permissions, planTier]
+    () => buildPermissionAwareAdminNavigation(effectivePermissions, planTier),
+    [effectivePermissions, planTier]
   );
 
   const currentItem = useMemo(() => findNavItemByPath(location.pathname), [location.pathname]);
@@ -65,8 +56,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const breadcrumbs = useMemo(() => buildBreadcrumbs(location.pathname), [location.pathname]);
 
   const searchableItems = useMemo(
-    () => getAccessibleNavItems(permissions, planTier),
-    [permissions, planTier]
+    () => getAccessibleNavItems(effectivePermissions, planTier),
+    [effectivePermissions, planTier]
   );
 
   const searchResults = useMemo(() => {

@@ -9,7 +9,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { AgentThread } from "./canvas/AgentThread";
 import { EvidenceDrawer } from "./canvas/EvidenceDrawer";
@@ -31,7 +31,7 @@ import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
 interface StageDefinition {
-  key: string;
+  key: StageKey;
   label: string;
   color: string;
   description: string;
@@ -60,6 +60,8 @@ interface MilestoneDefinition {
 
 type ExecutionState = "pending" | "in_progress" | "blocked" | "complete";
 
+type StageKey = "hypothesis" | "model" | "integrity" | "narrative" | "realization" | "expansion" | "value-graph";
+
 const stages: StageDefinition[] = [
   { key: "hypothesis", label: "Hypothesis", color: "bg-blue-500", description: "Discovery & claims" },
   { key: "model", label: "Model", color: "bg-violet-500", description: "Value architecture" },
@@ -69,6 +71,25 @@ const stages: StageDefinition[] = [
   { key: "expansion", label: "Expansion", color: "bg-violet-400", description: "Grow & expand" },
   { key: "value-graph", label: "Value Graph", color: "bg-orange-500", description: "Causal graph" },
 ];
+
+
+const stageKeySet = new Set<StageKey>(stages.map((stage) => stage.key));
+
+function normalizeStage(value: string | null | undefined): StageKey {
+  if (!value) return "hypothesis";
+  const normalized = value.trim().toLowerCase();
+  return stageKeySet.has(normalized as StageKey) ? (normalized as StageKey) : "hypothesis";
+}
+
+function isKnownStage(value: string | null | undefined): value is StageKey {
+  if (!value) return false;
+  return stageKeySet.has(value.trim().toLowerCase() as StageKey);
+}
+
+function resolveStageFromUrl(stageParam: string | undefined, stageQueryParam: string | null): StageKey {
+  if (isKnownStage(stageParam)) return normalizeStage(stageParam);
+  return normalizeStage(stageQueryParam);
+}
 
 const milestones: MilestoneDefinition[] = [
   {
@@ -163,8 +184,11 @@ function normalizePrerequisiteStageKey(prerequisite: string): string | null {
 }
 
 export function ValueCaseCanvas() {
-  const { oppId, caseId } = useParams();
-  const [activeStage, setActiveStage] = useState("hypothesis");
+  const { oppId, caseId, stage: stageParam } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [activeStage, setActiveStage] = useState<StageKey>(() => resolveStageFromUrl(stageParam, searchParams.get("stage")));
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeDirectResult, setActiveDirectResult] = useState<AgentJobResult | null>(null);
@@ -274,6 +298,50 @@ const { toast } = useToast();
 
   const currentStage = stages.find((s) => s.key === activeStage);
 
+  const canvasBasePath = useMemo(() => {
+    const marker = `/opportunities/${oppId}/cases/${caseId}`;
+    const markerIndex = location.pathname.indexOf(marker);
+    if (markerIndex === -1) {
+      return location.pathname;
+    }
+
+    return location.pathname.slice(0, markerIndex + marker.length);
+  }, [caseId, location.pathname, oppId]);
+
+  useEffect(() => {
+    const stageFromUrl = resolveStageFromUrl(stageParam, searchParams.get("stage"));
+    if (stageFromUrl !== activeStage) {
+      setActiveStage(stageFromUrl);
+    }
+
+    const stageParamProvided = typeof stageParam === "string";
+    const stageQueryProvided = searchParams.get("stage") !== null;
+    const stageParamKnown = isKnownStage(stageParam);
+    const stageQueryKnown = isKnownStage(searchParams.get("stage"));
+
+    if ((stageParamProvided && !stageParamKnown) || (!stageParamProvided && stageQueryProvided && !stageQueryKnown)) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete("stage");
+      const nextSearch = nextSearchParams.toString();
+
+      navigate(
+        { pathname: `${canvasBasePath}/${stageFromUrl}`, search: nextSearch ? `?${nextSearch}` : "" },
+        { replace: true }
+      );
+    }
+  }, [activeStage, canvasBasePath, navigate, searchParams, stageParam]);
+
+  const persistStageToUrl = (targetStage: StageKey) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("stage");
+    const nextSearch = nextSearchParams.toString();
+
+    navigate(
+      { pathname: `${canvasBasePath}/${targetStage}`, search: nextSearch ? `?${nextSearch}` : "" },
+      { replace: false }
+    );
+  };
+
   const tryEnterStage = (targetStage: StageDefinition) => {
     const stageStatus = stageStatuses[targetStage.key];
     const stageMetadata = workflowExecution.stages?.[targetStage.key];
@@ -288,6 +356,7 @@ const { toast } = useToast();
     if (stageStatus !== "blocked" && unmetPrerequisites.length === 0) {
       setGuardMessage(null);
       setActiveStage(targetStage.key);
+      persistStageToUrl(targetStage.key);
       return;
     }
 

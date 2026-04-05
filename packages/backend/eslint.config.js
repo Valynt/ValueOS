@@ -63,6 +63,31 @@ export default tseslint.config(
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
       "@typescript-eslint/no-unsafe-assignment": "warn",
       "@typescript-eslint/no-unsafe-member-access": "warn",
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/services/types/agent",
+                "**/services/types/agent.js",
+              ],
+              message:
+                "Deprecated shim import. Use canonical `src/types/agent`.",
+            },
+            {
+              group: [
+                "**/services/UnifiedAgentAPI",
+                "**/services/UnifiedAgentAPI.js",
+                "**/services/post-v1/UnifiedAgentAPI",
+                "**/services/post-v1/UnifiedAgentAPI.js",
+              ],
+              message:
+                "Deprecated UnifiedAgentAPI shim import. Use canonical `services/value/UnifiedAgentAPI`.",
+            },
+          ],
+        },
+      ],
       "no-restricted-syntax": [
         "error",
         {

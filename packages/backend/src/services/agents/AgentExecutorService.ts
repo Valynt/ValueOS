@@ -23,7 +23,7 @@ import { createEventConsumer, EventConsumer } from "../realtime/EventConsumer.js
 import { AgentType } from "./agent-types.js"
 import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { isKafkaEnabled } from "./kafkaConfig.js"
-import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
+import { getUnifiedAgentAPI } from "../value/UnifiedAgentAPI.js"
 
 // AgentResponseEvent is not in shared types; define locally
 interface AgentResponseEvent extends BaseEvent {

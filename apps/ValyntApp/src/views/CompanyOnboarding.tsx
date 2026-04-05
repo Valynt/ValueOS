@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 
 import { Phase1Company } from "./onboarding/Phase1Company";
@@ -41,8 +41,44 @@ const phases = [
   { key: "review", label: "Review", step: 5 },
 ];
 
+interface OnboardingHistoryState {
+  companyOnboarding?: {
+    phase: number;
+    contextId: string | null;
+    researchJobId: string | null;
+    phase1Data: OnboardingPhase1Input | null;
+    phase2Data: OnboardingPhase2Input | null;
+    phase3Data: OnboardingPhase3Input | null;
+    phase4Data: OnboardingPhase4Input | null;
+  };
+}
+
+const parsePhaseFromSearch = (search: string): number | null => {
+  const params = new URLSearchParams(search);
+  const rawPhase = params.get("phase");
+  if (!rawPhase) return null;
+  const numericPhase = Number.parseInt(rawPhase, 10);
+  if (!Number.isFinite(numericPhase)) return null;
+  if (numericPhase < 1 || numericPhase > 5) return null;
+  return numericPhase;
+};
+
+const canEnterPhase = (
+  phase: number,
+  snapshot: OnboardingHistoryState["companyOnboarding"] | null
+): boolean => {
+  const currentPhase = snapshot?.phase ?? 1;
+  if (phase <= 1) return true;
+  if (phase === 2) return true;
+  if (phase === 3) return currentPhase >= 2 || !!snapshot?.phase2Data;
+  if (phase === 4) return currentPhase >= 3 || !!snapshot?.phase3Data;
+  if (phase === 5) return currentPhase >= 4 || !!snapshot?.phase4Data || !!snapshot?.phase1Data;
+  return false;
+};
+
 export default function CompanyOnboarding() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentTenant } = useTenant();
   const tenantId = currentTenant?.id ?? "default";
 
@@ -71,6 +107,67 @@ export default function CompanyOnboarding() {
   const { data: researchJob } = useResearchJobStatus(researchJobId);
   const { data: researchSuggestions } = useResearchSuggestions(researchJobId);
 
+  useEffect(() => {
+    const locationState = (location.state ?? null) as OnboardingHistoryState | null;
+    const onboardingState = locationState?.companyOnboarding ?? null;
+    const localSnapshot: OnboardingHistoryState["companyOnboarding"] = {
+      phase,
+      contextId,
+      researchJobId,
+      phase1Data,
+      phase2Data,
+      phase3Data,
+      phase4Data,
+    };
+
+    const statePhase = onboardingState?.phase ?? null;
+    const queryPhase = parsePhaseFromSearch(location.search);
+    const candidatePhase = statePhase ?? queryPhase ?? 1;
+    const validationSnapshot = onboardingState ?? localSnapshot;
+    const resolvedPhase = canEnterPhase(candidatePhase, validationSnapshot) ? candidatePhase : 1;
+
+    if (onboardingState) {
+      setContextId(onboardingState.contextId ?? null);
+      setResearchJobId(onboardingState.researchJobId ?? null);
+      setPhase1Data(onboardingState.phase1Data ?? null);
+      setPhase2Data(onboardingState.phase2Data ?? null);
+      setPhase3Data(onboardingState.phase3Data ?? null);
+      setPhase4Data(onboardingState.phase4Data ?? null);
+    }
+
+    setPhase(resolvedPhase);
+  }, [location.key, location.search, location.state, contextId, phase1Data, phase2Data, phase3Data, phase4Data, researchJobId]);
+
+  const navigateToPhase = (
+    nextPhase: number,
+    options?: {
+      replace?: boolean;
+      contextId?: string | null;
+      researchJobId?: string | null;
+      phase1Data?: OnboardingPhase1Input | null;
+      phase2Data?: OnboardingPhase2Input | null;
+      phase3Data?: OnboardingPhase3Input | null;
+      phase4Data?: OnboardingPhase4Input | null;
+    }
+  ) => {
+    setPhase(nextPhase);
+    const nextState: OnboardingHistoryState = {
+      companyOnboarding: {
+        phase: nextPhase,
+        contextId: options?.contextId ?? contextId,
+        researchJobId: options?.researchJobId ?? researchJobId,
+        phase1Data: options?.phase1Data ?? phase1Data,
+        phase2Data: options?.phase2Data ?? phase2Data,
+        phase3Data: options?.phase3Data ?? phase3Data,
+        phase4Data: options?.phase4Data ?? phase4Data,
+      },
+    };
+
+    const params = new URLSearchParams(location.search);
+    params.set("phase", String(nextPhase));
+    navigate(`${location.pathname}?${params.toString()}`, { replace: options?.replace ?? false, state: nextState });
+  };
+
   const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null, ticker?: string) => {
     if (!contextId) {
       // Create context first if not yet created
@@ -95,6 +192,7 @@ export default function CompanyOnboarding() {
         if (ticker) jobInput.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput);
         setResearchJobId(job.id);
+        navigateToPhase(phase, { replace: true, contextId: ctx.id, researchJobId: job.id });
       } catch {
         // Silently fail — user can continue manually
       }
@@ -110,6 +208,7 @@ export default function CompanyOnboarding() {
         if (ticker) jobInput2.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput2);
         setResearchJobId(job.id);
+        navigateToPhase(phase, { replace: true, researchJobId: job.id });
       } catch {
         // Silently fail
       }
@@ -192,11 +291,11 @@ export default function CompanyOnboarding() {
             );
           }
         }
-        setPhase(shouldFastTrack ? 5 : 2);
+        navigateToPhase(shouldFastTrack ? 5 : 2, { phase1Data: data });
       } else {
         const ctx = await createContext.mutateAsync(data);
         setContextId(ctx.id);
-        setPhase(shouldFastTrack ? 5 : 2);
+        navigateToPhase(shouldFastTrack ? 5 : 2, { contextId: ctx.id, phase1Data: data });
       }
     } catch {
       setSubmissionError("We couldn't save company details. Please retry before continuing.");
@@ -214,7 +313,7 @@ export default function CompanyOnboarding() {
         return;
       }
     }
-    setPhase(3);
+    navigateToPhase(3, { phase2Data: data });
   };
 
   const handlePhase3 = async (data: OnboardingPhase3Input) => {
@@ -228,7 +327,7 @@ export default function CompanyOnboarding() {
         return;
       }
     }
-    setPhase(4);
+    navigateToPhase(4, { phase3Data: data });
   };
 
   const handlePhase4 = async (data: OnboardingPhase4Input) => {
@@ -242,7 +341,7 @@ export default function CompanyOnboarding() {
         return;
       }
     }
-    setPhase(5);
+    navigateToPhase(5, { phase4Data: data });
   };
 
   const handleConfirm = async () => {
@@ -328,14 +427,14 @@ export default function CompanyOnboarding() {
           {phase === 2 && (
             <Phase2Competitors
               onNext={handlePhase2}
-              onBack={() => setPhase(1)}
+              onBack={() => navigateToPhase(1)}
               researchJobId={researchJobId}
             />
           )}
           {phase === 3 && (
             <Phase3Personas
               onNext={handlePhase3}
-              onBack={() => setPhase(2)}
+              onBack={() => navigateToPhase(2)}
               researchJobId={researchJobId}
             />
           )}
@@ -343,7 +442,7 @@ export default function CompanyOnboarding() {
             <Phase4Claims
               companyName={phase1Data.company_name}
               onNext={handlePhase4}
-              onBack={() => setPhase(3)}
+              onBack={() => navigateToPhase(3)}
               researchJobId={researchJobId}
             />
           )}
@@ -354,7 +453,7 @@ export default function CompanyOnboarding() {
               phase3={phase3Data ?? { personas: [] }}
               phase4={phase4Data ?? { claim_governance: [] }}
               onConfirm={handleConfirm}
-              onBack={() => setPhase(4)}
+              onBack={() => navigateToPhase(4)}
               isSubmitting={isSubmitting}
               researchJobId={researchJobId}
               researchSuggestions={researchSuggestions ?? []}
