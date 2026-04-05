@@ -48,7 +48,6 @@ const PERSISTED_STATE_KEYS = [
   'artifacts',
   'valueRealizations',
   'auditEvents',
-  'currentUser',
 ] as const satisfies ReadonlyArray<keyof State>;
 
 const initialState: State = {
