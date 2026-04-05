@@ -289,7 +289,7 @@ jobs:
       - name: TypeScript any-count gate
         run: |
           node scripts/ci/any-ratchet.mjs
-          node scripts/ci/check-non-test-any-ratchet.mjs
+          node scripts/ci/check-explicit-any-budget-consistency.mjs
           node scripts/ci/check-strict-exception-budgets.mjs
           bash scripts/check-any-count.sh
       - name: ValyntApp unused locals/parameters rollout gate
