@@ -31,41 +31,56 @@ function buildApprovalInbox(req: Request): ApprovalInbox {
 }
 
 router.get("/my", requirePermission("approvals:view"), async (req: Request, res: Response) => {
-  const organizationId = req.tenantId;
-  const principal = req.user?.id;
+  try {
+    const organizationId = req.tenantId;
+    const principal = req.user?.id;
 
-  if (!organizationId || !principal) {
-    return res.status(400).json({ error: "Tenant and user principal are required" });
+    if (!organizationId || !principal) {
+      return res.status(400).json({ error: "Tenant and user principal are required" });
+    }
+
+    const approvalInbox = buildApprovalInbox(req);
+    const approvals = await approvalInbox.getMyApprovals(organizationId, principal);
+    return res.json({ approvals });
+  } catch (error: unknown) {
+    console.error("Failed to fetch my approvals", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  const approvalInbox = buildApprovalInbox(req);
-  const approvals = await approvalInbox.getMyApprovals(organizationId, principal);
-  return res.json({ approvals });
 });
 
 router.get("/team/:teamPrincipal", requirePermission("approvals:view"), async (req: Request, res: Response) => {
-  const organizationId = req.tenantId;
-  const teamPrincipal = req.params.teamPrincipal;
+  try {
+    const organizationId = req.tenantId;
+    const teamPrincipal = req.params.teamPrincipal;
 
-  if (!organizationId || !teamPrincipal) {
-    return res.status(400).json({ error: "Tenant and team principal are required" });
+    if (!organizationId || !teamPrincipal) {
+      return res.status(400).json({ error: "Tenant and team principal are required" });
+    }
+
+    const approvalInbox = buildApprovalInbox(req);
+    const approvals = await approvalInbox.getTeamApprovals(organizationId, teamPrincipal);
+    return res.json({ approvals });
+  } catch (error: unknown) {
+    console.error("Failed to fetch team approvals", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  const approvalInbox = buildApprovalInbox(req);
-  const approvals = await approvalInbox.getTeamApprovals(organizationId, teamPrincipal);
-  return res.json({ approvals });
 });
 
 router.get("/overdue-escalated", requirePermission("approvals:manage"), async (req: Request, res: Response) => {
-  const organizationId = req.tenantId;
+  try {
+    const organizationId = req.tenantId;
 
-  if (!organizationId) {
-    return res.status(400).json({ error: "Tenant is required" });
+    if (!organizationId) {
+      return res.status(400).json({ error: "Tenant is required" });
+    }
+
+    const approvalInbox = buildApprovalInbox(req);
+    const approvals = await approvalInbox.getOverdueOrEscalatedApprovals(organizationId);
+    return res.json({ approvals });
+  } catch (error: unknown) {
+    console.error("Failed to fetch overdue or escalated approvals", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  const approvalInbox = buildApprovalInbox(req);
-  const approvals = await approvalInbox.getOverdueOrEscalatedApprovals(organizationId);
-  return res.json({ approvals });
 });
 
 export { router as approvalInboxRouter };
