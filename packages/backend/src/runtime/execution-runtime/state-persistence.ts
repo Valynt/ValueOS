@@ -1,11 +1,22 @@
 import { logger } from '../../lib/logger.js';
-import { supabase } from '../../lib/supabase.js';
 import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type { WorkflowEvent } from '../../types/workflow.js';
 import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
 
+import { WorkflowFailureSupabaseAdapter } from './adapters/WorkflowFailureSupabaseAdapter.js';
+import { composeAdapter, withRetry, withStructuredLogging, withTenantScopeGuard } from '../ports/decorators/adapterDecorators.js';
+
 export class WorkflowStatePersistence {
+  private readonly workflowFailureAdapter = composeAdapter(
+    new WorkflowFailureSupabaseAdapter(),
+    [
+      withRetry,
+      withStructuredLogging,
+      withTenantScopeGuard,
+    ],
+  );
+
   constructor(private readonly executionStore: WorkflowExecutionStore) {}
 
   async persistAndUpdate(
@@ -40,12 +51,32 @@ export class WorkflowStatePersistence {
   }
 
   async handleWorkflowFailure(executionId: string, organizationId: string, errorMessage: string): Promise<void> {
-    await supabase
-      .from('workflow_executions')
-      .update({ status: 'failed', error_message: errorMessage, completed_at: new Date().toISOString() })
-      .eq('id', executionId)
-      .eq('organization_id', organizationId);
+    const result = await this.workflowFailureAdapter.execute(
+      { executionId, organizationId, errorMessage },
+      {
+        tenantId: organizationId,
+        authMode: 'user-scoped-rls',
+        retryPolicy: {
+          strategy: 'exponential',
+          maxAttempts: 3,
+          initialDelayMs: 100,
+          maxDelayMs: 1000,
+          multiplier: 2,
+          jitter: false,
+        },
+        logSchema: {
+          schema: 'valueos.adapter.log.v1',
+          operation: 'workflow_failure_update',
+          component: 'execution-runtime',
+        },
+      },
+    );
 
-    logger.error('Workflow failed', undefined, { executionId, errorMessage });
+    logger.error('Workflow failed', undefined, {
+      executionId,
+      errorMessage,
+      persisted: result.ok,
+      failureCode: result.ok ? undefined : result.failure.code,
+    });
   }
 }
