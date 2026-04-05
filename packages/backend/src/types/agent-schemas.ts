@@ -34,7 +34,8 @@ export function fromAgentEventMetadata(metadata: { trace_id: string; agent_id: s
 }
 
 export const VALUE_LIFECYCLE_SCHEMA_VERSION = "v1" as const;
-export type ValueLifecycleSchemaVersion = typeof VALUE_LIFECYCLE_SCHEMA_VERSION;
+export type ValueLifecycleSchemaVersionLiteral = typeof VALUE_LIFECYCLE_SCHEMA_VERSION;
+export type ValueLifecycleSchemaVersion = ValueLifecycleSchemaVersionLiteral;
 export const ValueLifecycleSchemaVersionLiteral = z.literal(VALUE_LIFECYCLE_SCHEMA_VERSION);
 
 const SourceReferenceSchema = EvidenceRefSchema;
@@ -288,6 +289,10 @@ export const ValueLifecycleV1Schema = z.union([
   ExecutiveNarrativeV1Schema,
 ]);
 
+export const ValueLifecycleSchemasByVersion = {
+  v1: ValueLifecycleV1Schema,
+} as const;
+
 // Backward-compatible aliases (existing imports remain stable).
 export const OpportunityContextSchema = OpportunityContextV1Schema;
 export const ValueHypothesisDraftSchema = ValueHypothesisDraftV1Schema;
@@ -307,21 +312,29 @@ export type ValueLifecycleV1 = z.infer<typeof ValueLifecycleV1Schema>;
 export type ValueLifecycle = ValueLifecycleV1;
 
 export type ValueLifecycleEventPayload = Omit<ValueLifecycle, "schemaVersion"> & {
+  schemaVersion: ValueLifecycleSchemaVersion;
   schema_version: ValueLifecycleSchemaVersion;
 };
 
 export function toValueLifecycleEventPayload(payload: ValueLifecycle): ValueLifecycleEventPayload {
-  const { schemaVersion, ...rest } = payload;
+  const { schemaVersion, ...rest } = ValueLifecycleSchema.parse(payload);
   return {
     ...rest,
+    schemaVersion,
     schema_version: schemaVersion,
   };
 }
 
-export function fromValueLifecycleEventPayload(payload: ValueLifecycleEventPayload): ValueLifecycle {
-  const { schema_version, ...rest } = payload;
+export type ValueLifecycleEventPayloadInput = Omit<ValueLifecycle, "schemaVersion"> & {
+  schemaVersion?: ValueLifecycleSchemaVersion;
+  schema_version?: ValueLifecycleSchemaVersion;
+};
+
+export function fromValueLifecycleEventPayload(payload: ValueLifecycleEventPayloadInput): ValueLifecycle {
+  const { schema_version, schemaVersion, ...rest } = payload;
+  const resolvedSchemaVersion = schemaVersion ?? schema_version;
   return ValueLifecycleSchema.parse({
     ...rest,
-    schemaVersion: schema_version,
+    schemaVersion: resolvedSchemaVersion,
   });
 }
