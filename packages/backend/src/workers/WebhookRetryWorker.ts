@@ -16,11 +16,12 @@
  * This prevents duplicate enqueue on worker restart.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { billingWebhookExhaustedTotal, webhookDlqSize, webhookCircuitBreakerRejectedTotal } from '../metrics/billingMetrics.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { WebhookRetryService } from '../services/billing/WebhookRetryService.js';
@@ -122,19 +123,6 @@ export async function enqueueWebhookRetry(
     attemptNumber: payload.attemptNumber,
     delayMs,
   });
-}
-
-// ---------------------------------------------------------------------------
-// Supabase service-role client
-// ---------------------------------------------------------------------------
-
-function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for the webhook retry worker');
-  }
-  return createClient(url, key);
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +291,9 @@ let _worker: Worker<WebhookRetryJobPayload> | null = null;
 export function initWebhookRetryWorker(): Worker<WebhookRetryJobPayload> {
   if (_worker) return _worker;
 
-  const supabase = getServiceSupabase();
+  const supabase = createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified webhook retry worker processes failed webhook deliveries',
+  });
 
   _worker = new Worker<WebhookRetryJobPayload>(
     WEBHOOK_RETRY_QUEUE_NAME,

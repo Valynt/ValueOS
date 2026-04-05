@@ -17,7 +17,7 @@ import { logger } from "../../lib/logger.js";
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 
-export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
+export type ComplianceFramework = "SOC2" | "GDPR" | "ISO27001" | "ISO27001";
 export type ControlStatus = "pass" | "warn" | "fail";
 
 export interface ControlStatusRecord {
@@ -65,7 +65,7 @@ export interface ComplianceTechnicalSignalStatus {
 }
 
 export interface FrameworkControlVerificationStatus {
-  framework: "GDPR" | "HIPAA" | "CCPA" | "SOC2" | "ISO27001";
+  framework: "GDPR" | "ISO27001" | "CCPA" | "SOC2" | "ISO27001";
   declared: boolean;
   verified: boolean;
   missingPrerequisites: string[];
@@ -75,7 +75,7 @@ export interface FrameworkControlVerificationStatus {
 
 const FRAMEWORK_SIGNAL_REQUIREMENTS: Record<FrameworkControlVerificationStatus["framework"], ComplianceTechnicalSignalKey[]> = {
   GDPR: ["tests_passed", "policies_deployed", "encryption_config_active"],
-  HIPAA: ["tests_passed", "policies_deployed", "retention_jobs_healthy", "encryption_config_active"],
+  ISO27001: ["tests_passed", "policies_deployed", "retention_jobs_healthy", "encryption_config_active"],
   CCPA: ["tests_passed", "retention_jobs_healthy", "policies_deployed"],
   SOC2: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
   ISO27001: ["tests_passed", "encryption_config_active", "retention_jobs_healthy"],

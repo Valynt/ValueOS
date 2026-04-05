@@ -33,7 +33,7 @@ spec:
                   value: "365"
                 - name: PRIMARY_WINDOW_DAYS_GDPR
                   value: "180"
-                - name: PRIMARY_WINDOW_DAYS_HIPAA
+                - name: PRIMARY_WINDOW_DAYS_ISO27001
                   value: "730"
               command: ["/bin/sh", "-c"]
               args:

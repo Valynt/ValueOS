@@ -18,7 +18,7 @@ ValueOS is a well-architected pnpm monorepo powering a multi-tenant B2B SaaS pla
 1. **Tenant isolation is a first-class concern.** RLS enforcement at the database level, static + runtime CI gates, dedicated tenant-isolation test suites, and architectural decision records (ADR-0006) all reinforce this.
 2. **Security pipeline is enterprise-grade.** The CI pipeline includes Semgrep SAST, Gitleaks secret scanning, Trivy container/filesystem scanning, CodeQL, CycloneDX SBOM generation, and pnpm audit -- all blocking PR merge.
 3. **Agent system is well-structured.** Eight lifecycle agents extend a `BaseAgent` with `secureInvoke` (circuit breaker + Zod validation + hallucination detection), kill switches, and tenant-scoped memory.
-4. **Compliance documentation is extensive.** SOC 2, HIPAA applicability profiles, GDPR DSR workflows, penetration test programs, and control traceability matrices are documented and CI-enforced.
+4. **Compliance documentation is extensive.** SOC 2, ISO27001 applicability profiles, GDPR DSR workflows, penetration test programs, and control traceability matrices are documented and CI-enforced.
 5. **CI is lane-based and gated.** Six CI lanes (unit/schema, tenant-isolation-static, tenant-isolation-runtime, critical-workflows, accessibility, security) with a PR-blocking aggregation gate.
 
 ### Major Risks
@@ -191,7 +191,7 @@ All modules show zero delta from baseline -- burn-down has not started. The any-
 | ----------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
 | **SOC 2 Type II** | Documented     | `docs/security-compliance/compliance-guide.md` (policy documentation, control summaries, evidence index) |
 | **GDPR**          | Implemented    | DSR workflow tests in CI, consent middleware, PII detection                                              |
-| **HIPAA**         | Conditional    | Applicability profile documented; in-scope only when tenant handles PHI                                  |
+| **ISO27001**         | Conditional    | Applicability profile documented; in-scope only when tenant handles PHI                                  |
 | **PCI DSS**       | Not applicable | Stripe handles payment processing; no card data stored                                                   |
 
 **Finding:** The compliance documentation is thorough. The main gap is the lack of evidence that a third-party penetration test has been completed (the program is documented but no test report is referenced).

@@ -15,7 +15,7 @@ describe("ComplianceFrameworkCapabilityGate", () => {
           signalStatuses: [],
         },
         {
-          framework: "HIPAA",
+          framework: "ISO27001",
           declared: true,
           verified: false,
           missingPrerequisites: ["Most recent automated technical compliance test run is passing."],
@@ -49,17 +49,17 @@ describe("ComplianceFrameworkCapabilityGate", () => {
       ],
     });
 
-    const hipaa = await gate.getCapabilityStatus("tenant-1", "HIPAA");
-    expect(hipaa.supported).toBe(false);
-    expect(hipaa.verified).toBe(false);
-    expect(hipaa.availability).toBe("gated");
+    const iso27001 = await gate.getCapabilityStatus("tenant-1", "ISO27001");
+    expect(iso27001.supported).toBe(false);
+    expect(iso27001.verified).toBe(false);
+    expect(iso27001.availability).toBe("gated");
   });
 
   it("exposes verified frameworks as supported", async () => {
     const gate = new ComplianceFrameworkCapabilityGate({
       getFrameworkVerificationStatuses: async () => [
         { framework: "GDPR", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
-        { framework: "HIPAA", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
+        { framework: "ISO27001", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
         { framework: "CCPA", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
         { framework: "SOC2", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
         { framework: "ISO27001", declared: true, verified: true, missingPrerequisites: [], requiredSignals: [], signalStatuses: [] },
@@ -67,6 +67,6 @@ describe("ComplianceFrameworkCapabilityGate", () => {
     });
 
     const supported = await gate.getSupportedFrameworks("tenant-1");
-    expect(supported).toContain("HIPAA");
+    expect(supported).toContain("ISO27001");
   });
 });

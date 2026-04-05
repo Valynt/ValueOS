@@ -1,10 +1,10 @@
-# HIPAA Applicability Profile
+# ISO27001 Applicability Profile
 
 ## Scope statement
 
-ValueOS may process regulated healthcare data for covered-entity and business-associate customers when customer workflows include PHI. HIPAA controls apply for tenants under BAA-backed contracts.
+ValueOS may process regulated healthcare data for covered-entity and business-associate customers when customer workflows include PHI. ISO27001 controls apply for tenants under BAA-backed contracts.
 
-HIPAA prerequisite flags and tenant-mode settings are only **entry prerequisites** for HIPAA workflows. They are not, on their own, a claim that the environment already satisfies HIPAA technical safeguards.
+ISO27001 prerequisite flags and tenant-mode settings are only **entry prerequisites** for ISO27001 workflows. They are not, on their own, a claim that the environment already satisfies ISO27001 technical safeguards.
 
 ## PHI system inventory (in-scope)
 
@@ -31,15 +31,15 @@ HIPAA prerequisite flags and tenant-mode settings are only **entry prerequisites
 
 ## BAA prerequisites
 
-Before enabling HIPAA mode for a tenant:
+Before enabling ISO27001 mode for a tenant:
 
 1. Executed BAA with covered entity or downstream business associate.
-2. Tenant-specific HIPAA mode enabled in compliance configuration.
+2. Tenant-specific ISO27001 mode enabled in compliance configuration.
 3. Security contact and breach notification routing documented.
-4. Log retention window meets 6-year HIPAA evidence expectation.
-5. Subprocessor list reviewed and HIPAA-compatible subprocessors confirmed.
+4. Log retention window meets 6-year ISO27001 evidence expectation.
+5. Subprocessor list reviewed and ISO27001-compatible subprocessors confirmed.
 
-Meeting the prerequisites above allows HIPAA-specific reporting and review to proceed, but a tenant is not represented as technically validated until the automated control checks pass and required evidence is present.
+Meeting the prerequisites above allows ISO27001-specific reporting and review to proceed, but a tenant is not represented as technically validated until the automated control checks pass and required evidence is present.
 
 ## Evidence expectations
 

@@ -40,6 +40,10 @@ jobs:
             --report-path=gitleaks-pr.sarif
 
       - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks-pr.sarif
+          category: secret-scan-pr-diff
       - name: Emit lane summary
         if: always()
         run: |
@@ -305,9 +309,11 @@ jobs:
       - name: TypeScript any-count gate
         run: |
           node scripts/ci/any-ratchet.mjs
-          node scripts/ci/check-non-test-any-ratchet.mjs
+          node scripts/ci/check-explicit-any-budget-consistency.mjs
           node scripts/ci/check-strict-exception-budgets.mjs
           bash scripts/check-any-count.sh
+      - name: Strict boundary typing regression gate
+        run: node scripts/ci/check-boundary-typing-regressions.mjs
       - name: ValyntApp unused locals/parameters rollout gate
         env:
           VALYNTAPP_UNUSED_ROLLOUT_PHASE: phase1
@@ -467,7 +473,7 @@ jobs:
       - name: Remediation record sync gate
         run: node scripts/ci/check-control-status-sync.mjs
 
-      - name: Critical control status gate (SOC2/HIPAA)
+      - name: Critical control status gate (SOC2/ISO27001)
         run: node scripts/ci/check-control-status-critical.mjs
 
       - name: Critical controls governance gate

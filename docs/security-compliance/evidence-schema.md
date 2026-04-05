@@ -28,7 +28,7 @@ interface EvidenceRecord {
   control_id: string;
 
   /** Compliance framework this evidence satisfies. */
-  framework: "SOC2" | "ISO27001" | "FedRAMP" | "GDPR" | "HIPAA";
+  framework: "SOC2" | "ISO27001" | "FedRAMP" | "GDPR" | "ISO27001";
 
   /**
    * Event type describing what happened.

@@ -14,7 +14,7 @@
 4. [Epic 6 Compliance and Governance Gap Closure](#epic-6-compliance-and-governance-gap-closure)
 5. [Compliance checklists](#compliance-checklists)
 6. [ValueCanvas Compliance & Security Audit](#valuecanvas-compliance-&-security-audit)
-7. [HIPAA Applicability and Control Mapping](#hipaa-applicability-and-control-mapping)
+7. [ISO27001 Applicability and Control Mapping](#iso27001-applicability-and-control-mapping)
 8. [Third-Party Penetration Test Program](#third-party-penetration-test-program)
 
 ---
@@ -45,16 +45,16 @@ For each annual test cycle, retain the following evidence artifacts in the compl
 Evidence retention should follow the policy baseline used for audit artifacts and remain accessible for customer and auditor review.
 
 
-## HIPAA Applicability and Control Mapping
+## ISO27001 Applicability and Control Mapping
 
 ### Applicability by Product Use Case and Environment
 
-- **Default platform posture**: HIPAA is **not required** for standard ValueOS workloads that exclude protected health information (PHI).
-- **HIPAA-triggering posture**: HIPAA Security Rule controls become **in-scope** when a tenant stores, processes, transmits, or supports workflows containing PHI (for example: patient identifiers, treatment context, claims, or clinical operations data).
-- **Prerequisite gating is not an attestation**: enabling HIPAA prerequisite flags only exposes HIPAA reporting paths; it does **not** by itself prove that HIPAA technical safeguards are configured, validated, or evidenced for a tenant.
+- **Default platform posture**: ISO27001 is **not required** for standard ValueOS workloads that exclude protected health information (PHI).
+- **ISO27001-triggering posture**: ISO27001 Security Rule controls become **in-scope** when a tenant stores, processes, transmits, or supports workflows containing PHI (for example: patient identifiers, treatment context, claims, or clinical operations data).
+- **Prerequisite gating is not an attestation**: enabling ISO27001 prerequisite flags only exposes ISO27001 reporting paths; it does **not** by itself prove that ISO27001 technical safeguards are configured, validated, or evidenced for a tenant.
 - **Environment scoping**:
-  - **Production** handling PHI: in-scope for HIPAA administrative, technical, and physical safeguards.
-  - **Staging/non-production**: must use de-identified/synthetic data unless explicitly designated as HIPAA in-scope and covered by equivalent safeguards.
+  - **Production** handling PHI: in-scope for ISO27001 administrative, technical, and physical safeguards.
+  - **Staging/non-production**: must use de-identified/synthetic data unless explicitly designated as ISO27001 in-scope and covered by equivalent safeguards.
   - **Developer local environments**: out-of-scope for PHI; PHI is prohibited outside approved managed environments.
 
 Reference architecture and environment controls:
@@ -63,9 +63,9 @@ Reference architecture and environment controls:
 - [Infrastructure Architecture](../architecture/infrastructure-architecture.md)
 - [Production Environment](../environments/production-environment.md)
 
-### HIPAA Security Rule Safeguard Mapping
+### ISO27001 Security Rule Safeguard Mapping
 
-| Safeguard domain | HIPAA reference | ValueOS control implementation |
+| Safeguard domain | ISO27001 reference | ValueOS control implementation |
 | --- | --- | --- |
 | Administrative safeguards | 45 CFR §164.308 | Security governance ownership, workforce security responsibilities, and documented response workflows in [Incident Response Runbook](../operations/incident-response.md) and [Emergency Procedures](../runbooks/emergency-procedures.md). |
 | Technical safeguards: access controls | 45 CFR §164.312(a) | Tenant-scoped authorization, role-based access patterns, and least-privilege service access; see [Security Overview](./security-overview.md) and [Audit Logging](./audit-logging.md). |
@@ -81,7 +81,7 @@ Reference architecture and environment controls:
   - **Confidential**: sensitive non-PHI business data.
   - **Internal/Public**: non-sensitive operational and published content.
 - **Storage and processing boundaries**:
-  - PHI is only permitted in approved production data stores and services that are explicitly designated HIPAA-capable.
+  - PHI is only permitted in approved production data stores and services that are explicitly designated ISO27001-capable.
   - PHI is excluded from analytics, observability, and debugging sinks unless those sinks are approved and contractually covered.
   - Backups containing PHI must follow encrypted storage, strict access review, and restore test procedures documented in [Disaster Recovery Runbook](../runbooks/disaster-recovery.md).
 - **Operational linkage**:
@@ -93,7 +93,7 @@ Reference architecture and environment controls:
 - Any vendor that stores, processes, transmits, or can access PHI on behalf of ValueOS or a tenant must have a signed **Business Associate Agreement (BAA)** before PHI onboarding.
 - Vendor onboarding for PHI-enabled tenants must include:
   - Security review and risk classification.
-  - Verification of HIPAA support and breach-notification terms.
+  - Verification of ISO27001 support and breach-notification terms.
   - Evidence of encryption, access controls, and auditability.
 - No PHI-enabled integration may be promoted to production without BAA confirmation and legal/compliance sign-off.
 
@@ -102,7 +102,7 @@ Reference architecture and environment controls:
 - Compliance reports distinguish four separate dimensions for each framework: **declared capability** (prerequisite gate), **configured controls**, **technically validated controls**, and **missing evidence**.
 - A report can still be **failed** when evidence artifacts exist if technical control assertions fail (for example: RLS missing, immutable audit protections incomplete, production MFA not enforced, or service identity not configured).
 - **Monthly**: Access review and audit-log sampling for PHI-enabled tenants.
-- **Quarterly**: HIPAA safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
+- **Quarterly**: ISO27001 safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
 - **Annually**: Full policy review, risk assessment refresh, and training attestation.
 
 
@@ -113,11 +113,11 @@ Use this checklist at the end of each quarter to assemble and attest the evidenc
 - [ ] Confirm the latest successful `Compliance Evidence Export` workflow run for the quarter.
   - Remediation Record: `CR-001` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.
-  - Remediation Record: `CR-002` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
+  - Remediation Record: `CR-002` | Framework: ISO27001 | Owner: compliance-iso27001@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate immutable metadata fields: commit SHA, run ID, run attempt, ref, and UTC export timestamp.
   - Remediation Record: `CR-003` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.
-  - Remediation Record: `CR-004` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
+  - Remediation Record: `CR-004` | Framework: ISO27001 | Owner: compliance-iso27001@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Review security scan outputs for unresolved critical findings and document approved exceptions.
   - Remediation Record: `CR-005` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Attach the artifact link and manifest to quarterly governance review records.
@@ -137,7 +137,7 @@ Evidence checkpoints are tracked in CI/governance workflows:
 - Canonical control remediation source: `docs/security-compliance/control-status.json`.
 - Each unchecked control in this guide must include a `Remediation Record` (`CR-###`) with owner, target date, status, and evidence location.
 - CI sync enforcement (`scripts/ci/check-control-status-sync.mjs`) parses `CR-*` remediation records from this guide and verifies they match `control-status.json`.
-- CI gate enforcement (`scripts/ci/check-control-status-critical.mjs`) fails when SOC2/HIPAA critical controls are past due, unowned, or missing evidence links.
+- CI gate enforcement (`scripts/ci/check-control-status-critical.mjs`) fails when SOC2/ISO27001 critical controls are past due, unowned, or missing evidence links.
 
 ---
 
@@ -501,7 +501,7 @@ Collection → Processing → Storage → Access → Disposal
 
 - **SOC 2 CC6.1**: Logical and physical access controls
 - **GDPR Article 32**: Security of processing
-- **HIPAA §164.312**: Technical safeguards
+- **ISO27001 §164.312**: Technical safeguards
 
 ---
 
@@ -1036,7 +1036,7 @@ Detect security incidents and maintain audit trail for compliance.
 - Passwords or secrets
 - Full credit card numbers
 - Unencrypted PII
-- Health information (HIPAA)
+- Health information (ISO27001)
 
 ### Log Retention
 
@@ -1265,7 +1265,7 @@ Add a mandatory, append-only compliance stamp to every system output (UI payload
 - [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results and any manual steps in the incident log.
   - Remediation Record: `CR-046` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.
-  - Remediation Record: `CR-047` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
+  - Remediation Record: `CR-047` | Framework: ISO27001 | Owner: compliance-iso27001@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Run `scripts/backup-database.sh` daily via cron or CI with S3 credentials and confirm successful uploads.
   - Remediation Record: `CR-048` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Ensure `infra/infra/k8s/security-audit-retention-cronjob.yaml` is applied with the `valuecanvas-database` secret and `audit-ops` service account bound.
@@ -1275,7 +1275,7 @@ Add a mandatory, append-only compliance stamp to every system output (UI payload
 - [ ] Perform quarterly restore dry-runs using `scripts/restore-database.sh` in staging and record RPO/RTO results in the incident log.
   - Remediation Record: `CR-051` | Framework: SOC2 | Owner: compliance-ops@valueos | Target date: 2026-08-15 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.
-  - Remediation Record: `CR-052` | Framework: HIPAA | Owner: compliance-hipaa@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
+  - Remediation Record: `CR-052` | Framework: ISO27001 | Owner: compliance-iso27001@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 - [ ] Keep onboarding training updated with locations of PII-bearing tables and the audit/retention flows documented in `docs/data-protection-overview.md`.
   - Remediation Record: `CR-053` | Framework: SOC2 | Owner: team-security@valueos | Target date: 2026-06-30 | Status: planned | Evidence location: `docs/security-compliance/evidence-index.md`
 
@@ -1619,7 +1619,7 @@ npm run security-scan
 | ---------------- | -------------- | --------------------------- |
 | **SOC 2 Type I** | Ready          | Q1 2026                     |
 | **ISO 27001**    | Preparation    | Q3 2026                     |
-| **HIPAA**        | Conditional    | Required for PHI in-scope tenants |
+| **ISO27001**        | Conditional    | Required for PHI in-scope tenants |
 | **PCI DSS**      | Not applicable | N/A (no payment processing) |
 
 ---
@@ -1657,7 +1657,7 @@ npm run security-scan
 
 ## Security audit retention and immutable archive (v1)
 - The retention source of truth is now versioned at `infra/retention/security-audit-retention-policy.v1.json` and exposed via `/api/admin/compliance/retention`.
-- Retention is framework-specific (SOC2/GDPR/HIPAA/ISO27001/NIST/PCI-DSS) per data class rather than a single 180-day global rule.
+- Retention is framework-specific (SOC2/GDPR/ISO27001/ISO27001/NIST/PCI-DSS) per data class rather than a single 180-day global rule.
 - `rotate_security_audit_logs` now stages immutable archive segments with hash-chain checksums in `security_audit_archive_segment`, while preserving an operational query window in the primary DB.
 - Long-term archive exports are written to object storage with object-lock + legal-hold semantics (WORM), with a SHA-256 manifest per batch.
 - Integrity verification runs on schedule and raises alerts on checksum mismatch or missing archive metadata.

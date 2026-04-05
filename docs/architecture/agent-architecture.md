@@ -328,7 +328,7 @@ Identify vulnerabilities, enforce security policies, and ensure compliance with 
 - Authentication and authorization patterns
 - Cryptography and secrets management
 - Input validation and output encoding
-- Compliance (SOC2, GDPR, HIPAA)
+- Compliance (SOC2, GDPR, ISO27001)
 - Dependency vulnerability scanning
 
 ## Key Capabilities

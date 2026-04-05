@@ -1,4 +1,4 @@
-export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001" | "CCPA";
+export type ComplianceFramework = "SOC2" | "GDPR" | "ISO27001" | "ISO27001" | "CCPA";
 export type ControlHealthStatus = "pass" | "warn" | "fail";
 export type ComplianceFrameworkAvailability = "available" | "gated";
 

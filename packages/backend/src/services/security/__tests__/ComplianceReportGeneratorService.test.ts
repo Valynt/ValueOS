@@ -22,7 +22,7 @@ interface MockInsertResult {
 
 const FRAMEWORK_CAPABILITIES = [
   { framework: "GDPR", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
-  { framework: "HIPAA", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
+  { framework: "ISO27001", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
   { framework: "CCPA", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
   { framework: "SOC2", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
   { framework: "ISO27001", declared: true, verified: true, supported: true, prerequisites_met: true, availability: "available", gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
@@ -110,12 +110,12 @@ function buildControlStatuses(): ControlStatusRecord[] {
       metric_unit: "percent",
     },
     {
-      control_id: "hipaa_164_312_b_audit_controls",
-      framework: "HIPAA",
+      control_id: "iso27001_164_312_b_audit_controls",
+      framework: "ISO27001",
       status: "pass",
       evidence_ts: "2026-01-01T00:00:00.000Z",
       tenant_id: "tenant-a",
-      evidence_pointer: "audit://hipaa",
+      evidence_pointer: "audit://iso27001",
       metric_value: 99,
       metric_unit: "percent",
     },
@@ -142,7 +142,7 @@ function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlC
     failing_checks: status === "fail" ? 1 : 0,
     declared_capability: [
       { framework: "GDPR", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
-      { framework: "HIPAA", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
+      { framework: "ISO27001", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
       { framework: "SOC2", supported: true, missing_prerequisites: [], gating_label: "prerequisite_gate" },
     ],
     configured_controls: [
@@ -154,8 +154,8 @@ function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlC
         message: "TLS and encryption-required settings are configured.",
       },
       {
-        framework: "HIPAA",
-        control_id: "hipaa_mfa_enforced_in_production",
+        framework: "ISO27001",
+        control_id: "iso27001_mfa_enforced_in_production",
         source: "tenant_config",
         status: status === "fail" ? "missing" : "configured",
         message: status === "fail" ? "Production MFA is not configured." : "Production MFA is configured.",
@@ -175,8 +175,8 @@ function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlC
         assertion_id: "gdpr_required_tables_rls_enabled",
       },
       {
-        framework: "HIPAA",
-        control_id: "hipaa_164_312_c_integrity",
+        framework: "ISO27001",
+        control_id: "iso27001_164_312_c_integrity",
         evidence_type: "control_status",
         status,
         message: status === "fail" ? "MFA not enforced." : "MFA enforced.",
@@ -184,7 +184,7 @@ function buildCheckSnapshot(status: "pass" | "fail" = "pass"): AutomatedControlC
         max_age_minutes: 0,
         freshness_minutes: null,
         check_kind: "technical_validation",
-        assertion_id: "hipaa_mfa_enforced_in_production",
+        assertion_id: "iso27001_mfa_enforced_in_production",
       },
       {
         framework: "SOC2",
@@ -234,7 +234,7 @@ describe("ComplianceReportGeneratorService", () => {
 
     const report = await service.generateReport({
       tenantId: "tenant-a",
-      frameworks: ["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"],
+      frameworks: ["GDPR", "ISO27001", "CCPA", "SOC2", "ISO27001"],
       startAt: "2026-01-01T00:00:00.000Z",
       endAt: "2026-01-02T00:00:00.000Z",
       generatedBy: "user-1",
@@ -248,7 +248,7 @@ describe("ComplianceReportGeneratorService", () => {
     expect(report.declared_capability.length).toBeGreaterThan(0);
     expect(report.configured_controls.length).toBeGreaterThan(0);
     expect(report.technically_validated_controls.length).toBeGreaterThan(0);
-    expect(report.framework_breakdown.some((framework) => framework.framework === "HIPAA")).toBe(true);
+    expect(report.framework_breakdown.some((framework) => framework.framework === "ISO27001")).toBe(true);
     expect(report.missing_evidence).toHaveLength(0);
   });
 
@@ -264,7 +264,7 @@ describe("ComplianceReportGeneratorService", () => {
         audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
       }) as never,
       {
-        getLatestControlStatus: async () => buildControlStatuses().filter((control) => control.framework !== "HIPAA"),
+        getLatestControlStatus: async () => buildControlStatuses().filter((control) => control.framework !== "ISO27001"),
       },
       {
         runChecksForTenant: async () => buildCheckSnapshot("pass"),
@@ -274,7 +274,7 @@ describe("ComplianceReportGeneratorService", () => {
     await expect(() =>
       service.generateReport({
         tenantId: "tenant-a",
-        frameworks: ["HIPAA"],
+        frameworks: ["ISO27001"],
         startAt: "2026-01-01T00:00:00.000Z",
         endAt: "2026-01-02T00:00:00.000Z",
         generatedBy: "user-1",
@@ -311,7 +311,7 @@ describe("ComplianceReportGeneratorService", () => {
 
     const report = await service.generateReport({
       tenantId: "tenant-a",
-      frameworks: ["HIPAA"],
+      frameworks: ["ISO27001"],
       startAt: "2026-01-01T00:00:00.000Z",
       endAt: "2026-01-02T00:00:00.000Z",
       generatedBy: "user-1",
@@ -323,10 +323,10 @@ describe("ComplianceReportGeneratorService", () => {
     expect(report.technically_validated_controls.some((control) => control.status === "fail")).toBe(true);
   });
 
-  it("rejects HIPAA report generation when PHI-specific prerequisites are not configured", async () => {
+  it("rejects ISO27001 report generation when PHI-specific prerequisites are not configured", async () => {
     setManifestSigningKey(true);
     vi.spyOn(complianceFrameworkCapabilityGate, "assertFrameworksSupported").mockRejectedValue(
-      new Error("unsupported compliance frameworks requested: HIPAA"),
+      new Error("unsupported compliance frameworks requested: ISO27001"),
     );
     vi.spyOn(complianceFrameworkCapabilityGate, "getCapabilityStatuses").mockResolvedValue(
       FRAMEWORK_CAPABILITIES.map((item) => ({ ...item })),
@@ -347,13 +347,13 @@ describe("ComplianceReportGeneratorService", () => {
     await expect(() =>
       service.generateReport({
         tenantId: "tenant-a",
-        frameworks: ["HIPAA"],
+        frameworks: ["ISO27001"],
         startAt: "2026-01-01T00:00:00.000Z",
         endAt: "2026-01-02T00:00:00.000Z",
         generatedBy: "user-1",
         mode: "scheduled",
         strict: true,
       }),
-    ).rejects.toThrow(/unsupported compliance frameworks requested: HIPAA/i);
+    ).rejects.toThrow(/unsupported compliance frameworks requested: ISO27001/i);
   });
 });

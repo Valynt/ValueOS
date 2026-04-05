@@ -74,7 +74,7 @@ export * from "./ComplianceControlStatusService.js";
 export type { FrameworkCapabilityStatus } from "./ComplianceFrameworkCapabilityGate.js";
 export {
   ALL_COMPLIANCE_FRAMEWORKS,
-  HIPAA_REQUIREMENTS,
+  ISO27001_REQUIREMENTS,
   ComplianceFrameworkCapabilityGate,
   complianceFrameworkCapabilityGate,
   UnsupportedComplianceFrameworkError,

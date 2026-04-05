@@ -9,7 +9,7 @@ related_controls: CC6.8, CC9.1, P1.1
 
 # Evidence Retention Policy
 
-Defines retention periods for all compliance evidence classes stored in `compliance_control_evidence` and related audit stores. Retention periods are set to satisfy SOC 2, ISO 27001:2022, GDPR, and HIPAA requirements.
+Defines retention periods for all compliance evidence classes stored in `compliance_control_evidence` and related audit stores. Retention periods are set to satisfy SOC 2, ISO 27001:2022, GDPR, and ISO27001 requirements.
 
 ## Retention Schedule
 
@@ -19,7 +19,7 @@ Defines retention periods for all compliance evidence classes stored in `complia
 | ISO 27001 control evidence | 3 years | Yes | ISO 27001:2022 §9.1 monitoring and measurement records |
 | Incident forensic bundles | 5 years | Yes — indefinite until released | Litigation hold and regulatory investigation window |
 | GDPR data subject request records | 5 years | Yes | GDPR Art. 5(2) accountability; statute of limitations |
-| HIPAA audit controls evidence | 6 years | Yes | 45 CFR §164.530(j) — 6-year retention from creation or last effective date |
+| ISO27001 audit controls evidence | 6 years | Yes | 45 CFR §164.530(j) — 6-year retention from creation or last effective date |
 | Key rotation records | 7 years | Yes | Cryptographic audit trail for SOC 2 CC6.7 |
 | Routine telemetry (automated control checks) | 90 days | No | Operational monitoring; no regulatory requirement beyond 90 days |
 | Deployment approval records | 3 years | No | Change management audit trail (CC8.1) |

@@ -189,7 +189,7 @@ export const configurationTemplates: ConfigurationTemplate[] = [
         },
         dataResidency: {
           primaryRegion: 'us-east-1',
-          complianceRequirements: ['GDPR', 'HIPAA', 'SOC2']
+          complianceRequirements: ['GDPR', 'ISO27001', 'SOC2']
         }
       },
       ai: {

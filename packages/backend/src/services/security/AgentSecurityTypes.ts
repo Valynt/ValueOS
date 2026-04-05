@@ -220,7 +220,7 @@ export type PolicyType =
 export type ComplianceFramework =
   | "SOC2"
   | "GDPR"
-  | "HIPAA"
+  | "ISO27001"
   | "PCI_DSS"
   | "ISO27001"
   | "NIST"

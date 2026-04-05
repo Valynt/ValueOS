@@ -17,13 +17,13 @@
  *   webhook_reconciliation_drift_count{tenant_id}
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Queue, Worker, type Job } from 'bullmq';
 import Redis from 'ioredis';
 import Stripe from 'stripe';
 
 import { STRIPE_CONFIG } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import {
   subscriptionCreationReconciliationResolved,
   webhookReconciliationDriftCount,
@@ -102,17 +102,6 @@ export async function scheduleReconciliationJob(): Promise<void> {
   });
 }
 
-// ── Supabase service client ──────────────────────────────────────────────────
-
-function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 // ── Stripe client ────────────────────────────────────────────────────────────
 
 function getStripe(): Stripe {
@@ -132,7 +121,9 @@ function getStripe(): Stripe {
  * Returns the number of events backfilled.
  */
 export async function reconcileStripeEvents(windowHours: number): Promise<number> {
-  const supabase = getServiceSupabase();
+  const supabase = createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified stripe reconciliation compares and backfills webhook events',
+  });
   const stripe = getStripe();
 
   const windowStart = Math.floor((Date.now() - windowHours * 60 * 60 * 1000) / 1000);

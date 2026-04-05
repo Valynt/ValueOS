@@ -29,6 +29,8 @@ import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import { getApprovalInbox } from '../approval-inbox/index.js';
+import { createSupabaseRuntimePorts, type SupabaseRuntimePorts } from '../adapters/SupabaseRuntimePorts.js';
+import type { RuntimeMigrationPathTag } from '../ports/runtimePorts.js';
 
 import { QueryExecutor, type QueryExecutorConfig } from './QueryExecutor.js';
 import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecutor.js';
@@ -55,9 +57,16 @@ const DEFAULT_CONFIG: ExecutionRuntimeConfig = {
   maxRetryAttempts: 3,
 };
 
+
+export interface ExecutionRuntimeDependencies {
+  runtimePorts: Pick<SupabaseRuntimePorts, 'workflowExecution'>;
+  runtimePathTag?: RuntimeMigrationPathTag;
+}
+
 export class ExecutionRuntime implements IExecutionRuntime {
   private readonly queryExecutor: QueryExecutor;
   private readonly workflowExecutor: WorkflowExecutor;
+  private readonly runtimePathTag: RuntimeMigrationPathTag;
 
   constructor(
     policy: PolicyEngine,
@@ -71,8 +80,10 @@ export class ExecutionRuntime implements IExecutionRuntime {
       { max_memories: 1000, enable_persistence: true },
       new SupabaseMemoryBackend(),
     ),
+    dependencies: ExecutionRuntimeDependencies,
   ) {
     const cfg = { ...DEFAULT_CONFIG, ...config };
+    this.runtimePathTag = dependencies.runtimePathTag ?? 'new_path';
 
     this.queryExecutor = new QueryExecutor(policy, router, circuitBreakers, agentMessageQueue, cfg);
 
@@ -85,6 +96,10 @@ export class ExecutionRuntime implements IExecutionRuntime {
       memorySystem,
       (agentType: AgentType) => this.queryExecutor.checkAgentRateLimit(agentType),
       cfg,
+      {
+        executionPersistence: dependencies.runtimePorts.workflowExecution,
+        runtimePathTag: this.runtimePathTag,
+      },
     );
   }
 
@@ -98,6 +113,7 @@ export class ExecutionRuntime implements IExecutionRuntime {
       env: process.env.NODE_ENV || 'development',
       tenant_id: envelope.tenant_id,
       trace_id: traceId || envelope.trace_id,
+      runtime_path: this.runtimePathTag,
     }, async () => this.queryExecutor.processQuery(envelope, query, currentState, userId, sessionId, traceId));
   }
 
@@ -119,7 +135,7 @@ export class ExecutionRuntime implements IExecutionRuntime {
       env: process.env.NODE_ENV || 'development',
       tenant_id: envelope.tenant_id,
       trace_id: envelope.trace_id,
-      attributes: { workflow_definition_id: workflowDefinitionId },
+      attributes: { workflow_definition_id: workflowDefinitionId, runtime_path: this.runtimePathTag },
     }, async () => this.workflowExecutor.executeWorkflow(envelope, workflowDefinitionId, context, userId));
   }
 
@@ -153,7 +169,24 @@ import { createServerSupabaseClient } from '../../lib/supabase.js';
  * Create an ExecutionRuntime with production-default dependencies.
  * Use this in API routes and services that don't need custom wiring.
  */
-export function createExecutionRuntime(config: Partial<ExecutionRuntimeConfig> = {}): ExecutionRuntime {
+export function createExecutionRuntime(
+  config: Partial<ExecutionRuntimeConfig> = {},
+  dependencies?: Partial<ExecutionRuntimeDependencies>,
+): ExecutionRuntime {
+  if (dependencies?.runtimePorts) {
+    return createExecutionRuntimeWithPorts(config, {
+      runtimePorts: dependencies.runtimePorts,
+      runtimePathTag: dependencies.runtimePathTag ?? 'new_path',
+    });
+  }
+
+  return createExecutionRuntimeWithLegacyFallback(config);
+}
+
+export function createExecutionRuntimeWithPorts(
+  config: Partial<ExecutionRuntimeConfig>,
+  dependencies: ExecutionRuntimeDependencies,
+): ExecutionRuntime {
   const supabase = createServerSupabaseClient();
   const registry = new AgentRegistry();
   const policy = new PolicyEngineImpl({
@@ -168,5 +201,32 @@ export function createExecutionRuntime(config: Partial<ExecutionRuntimeConfig> =
     }),
   });
   getApprovalInbox().start();
-  return new ExecutionRuntime(policy, decisionRouter, config);
+
+  return new ExecutionRuntime(
+    policy,
+    decisionRouter,
+    config,
+    new CircuitBreakerManager(),
+    registry,
+    new AgentMessageBroker(),
+    new AgentMessageQueue(),
+    new MemorySystem(
+      { max_memories: 1000, enable_persistence: true },
+      new SupabaseMemoryBackend(),
+    ),
+    dependencies,
+  );
+}
+
+/**
+ * Temporary fallback for legacy call sites while runtime ports migration is in progress.
+ */
+export function createExecutionRuntimeWithLegacyFallback(
+  config: Partial<ExecutionRuntimeConfig> = {},
+): ExecutionRuntime {
+  const runtimePorts = createSupabaseRuntimePorts(createServerSupabaseClient());
+  return createExecutionRuntimeWithPorts(config, {
+    runtimePorts: { workflowExecution: runtimePorts.workflowExecution },
+    runtimePathTag: 'old_path',
+  });
 }

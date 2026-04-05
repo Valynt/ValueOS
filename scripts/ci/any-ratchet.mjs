@@ -1,47 +1,48 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
+import {
+  buildExplicitAnyRatchetViews,
+  loadExplicitAnyBudgetEntries,
+} from "./lib/explicit-any-budgets.mjs";
 
 const repoRoot = process.cwd();
-const budgetPath = path.join(repoRoot, ".github/any-ratchet-budgets.json");
-
-if (!fs.existsSync(budgetPath)) {
-  console.error(`Missing any ratchet budget file: ${budgetPath}`);
-  process.exit(1);
-}
-
-const config = JSON.parse(fs.readFileSync(budgetPath, "utf8"));
-const packageBudgets = config.packageBudgets ?? {};
-const bucketBudgets = config.bucketBudgets ?? {};
-
-const TEST_EXCLUDES = [
+const pattern = "(:\\s*any\\b|as\\s+any\\b|<\\s*any\\s*>)";
+const declarationExcludes = ["--glob", "!**/*.d.ts"];
+const testExcludes = [
   "--glob",
   "!**/*.test.*",
   "--glob",
   "!**/*.spec.*",
   "--glob",
+  "!**/*.bench.*",
+  "--glob",
   "!**/__tests__/**",
+  "--glob",
+  "!**/tests/**",
 ];
-const PATTERN = "(:\\s*any\\b|as\\s+any\\b|<any>)";
-const DECLARATION_EXCLUDE = ["--glob", "!**/*.d.ts"];
+
+const { budgetPath, entries } = loadExplicitAnyBudgetEntries(repoRoot);
+if (entries.length === 0) {
+  console.log(`No explicit-any budget entries found in ${budgetPath}; skipping ratchet.`);
+  process.exit(0);
+}
+
+const { packageBudgets, bucketBudgets } = buildExplicitAnyRatchetViews(entries);
 
 function countAny(paths, options = {}) {
-  const { excludeTests = true } = options;
   const normalizedPaths = Array.isArray(paths) ? paths : [paths];
-  const args = ["-n", PATTERN, ...normalizedPaths, ...DECLARATION_EXCLUDE];
-  if (excludeTests) {
-    args.push(...TEST_EXCLUDES);
-  }
-  const result = spawnSync("rg", args, { encoding: "utf8" });
+  const args = ["-n", pattern, ...normalizedPaths, ...declarationExcludes];
 
+  if (options.excludeTests !== false) {
+    args.push(...testExcludes);
+  }
+
+  const result = spawnSync("rg", args, { encoding: "utf8" });
   if (result.status === 1) {
     return 0;
   }
-
   if (result.status !== 0) {
-    const stderr = result.stderr || "unknown ripgrep error";
-    throw new Error(`Failed to scan ${normalizedPaths.join(", ")}: ${stderr}`);
+    throw new Error(`Failed to scan ${normalizedPaths.join(", ")}: ${result.stderr || "unknown ripgrep error"}`);
   }
 
   return result.stdout
@@ -50,28 +51,15 @@ function countAny(paths, options = {}) {
     .filter(Boolean).length;
 }
 
-function getBudgetPaths(name, cfg) {
-  if (Array.isArray(cfg.paths) && cfg.paths.length > 0) {
-    return cfg.paths;
-  }
-
-  if (name.startsWith("apps/") || name.startsWith("packages/")) {
-    return [`${name}/src`];
-  }
-
-  return [name];
-}
-
 function evaluateBudgets(title, budgets) {
   let regressions = 0;
   console.log(title);
 
-  for (const [name, cfg] of Object.entries(budgets)) {
-    const paths = getBudgetPaths(name, cfg);
+  for (const [name, cfg] of budgets.entries()) {
+    const paths = [...cfg.paths];
     const current = countAny(paths, { excludeTests: cfg.excludeTests !== false });
     const baseline = Number(cfg.baseline ?? 0);
-    const nextTarget =
-      cfg.nextTarget === undefined ? undefined : Number(cfg.nextTarget);
+    const nextTarget = Number(cfg.nextTarget ?? baseline);
 
     if (current > baseline) {
       regressions += 1;
@@ -80,7 +68,7 @@ function evaluateBudgets(title, budgets) {
       console.log(`✅ ${name}: ${current} <= baseline ${baseline}`);
     }
 
-    if (typeof nextTarget === "number" && current > nextTarget) {
+    if (current > nextTarget) {
       console.warn(`⚠️ ${name}: ${current} is above next target ${nextTarget}`);
     }
   }
@@ -89,15 +77,13 @@ function evaluateBudgets(title, budgets) {
 }
 
 let regressions = 0;
-regressions += evaluateBudgets("TypeScript any-usage ratchet status by package", packageBudgets);
-if (Object.keys(bucketBudgets).length > 0) {
-  console.log("");
-  regressions += evaluateBudgets("TypeScript any-usage ratchet status by debt bucket", bucketBudgets);
-}
+regressions += evaluateBudgets("TypeScript explicit-any ratchet status by package", packageBudgets);
+console.log("");
+regressions += evaluateBudgets("TypeScript explicit-any ratchet status by debt bucket", bucketBudgets);
 
 if (regressions > 0) {
-  console.error(`Any-usage ratchet regression in ${regressions} package(s).`);
+  console.error(`Explicit-any ratchet regression in ${regressions} package/bucket check(s).`);
   process.exit(1);
 }
 
-console.log("Any-usage ratchet check passed (no regressions).");
+console.log("Explicit-any ratchet check passed (no regressions).");

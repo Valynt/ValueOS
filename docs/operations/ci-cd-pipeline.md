@@ -74,7 +74,7 @@ Governance review owners must attach the latest weekly artifact to the recurring
 
 ## Compliance Evidence Checkpoints (Governance)
 
-For regulated workloads (including HIPAA in-scope tenants), CI and governance checkpoints must preserve evidence required for periodic compliance reviews.
+For regulated workloads (including ISO27001 in-scope tenants), CI and governance checkpoints must preserve evidence required for periodic compliance reviews.
 
 - **Per PR / Merge**:
   - Preserve lint/typecheck/test/build outputs from `pnpm run ci:verify`.

@@ -270,7 +270,7 @@ Observability Layer
 
 - **Zero Trust Architecture**: Implementation of zero trust security principles
 - **AI-powered Security**: Machine learning for advanced threat detection
-- **Regulatory Compliance**: Support for additional compliance frameworks (GDPR, HIPAA)
+- **Regulatory Compliance**: Support for additional compliance frameworks (GDPR, ISO27001)
 - **Global Expansion**: Multi-region deployment with data residency compliance
 - **Advanced Analytics**: Enterprise business intelligence and predictive analytics
 - **Integration Hub**: Enterprise system integrations and API marketplace

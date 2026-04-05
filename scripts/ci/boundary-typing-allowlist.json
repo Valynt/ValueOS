@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-05T23:14:10.319Z",
+  "strictBoundaryGlobs": [
+    "packages/backend/src/api/**/*.ts",
+    "packages/backend/src/services/auth/**/*.ts",
+    "packages/backend/src/services/security/**/*.ts",
+    "packages/backend/src/services/tenant/**/*.ts"
+  ],
+  "entries": [
+    {
+      "path": "packages/backend/src/api/academy/routers/quiz.router.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/academy/routers/simulations.router.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/admin.ts",
+      "rule": "no-non-null-assertion",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/api/agents.ts",
+      "rule": "no-explicit-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/api/artifacts/index.ts",
+      "rule": "no-non-null-assertion",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/api/artifacts/index.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/auth.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/billing/plans.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/billing/webhooks.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/compliance.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/conversations/index.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/crm.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/dataSubjectRequests.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/dealAssembly.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/dealAssembly.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/documents.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/domain-packs/index.ts",
+      "rule": "no-non-null-assertion",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/api/domain-packs/index.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/initiatives/index.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/projects.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/api/services/ReferralAnalyticsService.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/backHalf.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/crud.routes.ts",
+      "rule": "no-non-null-assertion",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/economic.routes.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/index.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/middleware.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueCases/valueTree.routes.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/api/valueDrivers/index.ts",
+      "rule": "no-non-null-assertion",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/api/valueDrivers/index.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/api/valueGraph.ts",
+      "rule": "no-non-null-assertion",
+      "count": 7
+    },
+    {
+      "path": "packages/backend/src/api/workflow.ts",
+      "rule": "no-non-null-assertion",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/auth/AdminRoleService.ts",
+      "rule": "no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/auth/AdminUserService.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/auth/PermissionService.ts",
+      "rule": "no-explicit-any",
+      "count": 6
+    },
+    {
+      "path": "packages/backend/src/services/auth/SecureSharedContext.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/auth/SessionManager.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/auditLogger.ts",
+      "rule": "no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/AuditLogService.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/AuditLogService.ts",
+      "rule": "unsafe-cast-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/ComplianceControlStatusService.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/ComplianceReportGeneratorService.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/security/InputValidation.ts",
+      "rule": "no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/InputValidation.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityAnomalyService.ts",
+      "rule": "no-explicit-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityAnomalyService.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 10
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityAnomalyService.ts",
+      "rule": "unsafe-cast-any",
+      "count": 3
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityIncidentService.ts",
+      "rule": "no-non-null-assertion",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityMonitor.ts",
+      "rule": "no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/security/SecurityMonitor.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/base-tenant-service.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/tenant-performance-defaults.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantArchivalService.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 4
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantBillingProvisioning.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 5
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantIsolationService.ts",
+      "rule": "no-explicit-any",
+      "count": 2
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantOrganizationProvisioning.ts",
+      "rule": "unsafe-broad-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantPerformanceManager.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantPerformanceManager.ts",
+      "rule": "no-non-null-assertion",
+      "count": 1
+    },
+    {
+      "path": "packages/backend/src/services/tenant/TenantProvisioningTypes.ts",
+      "rule": "no-explicit-any",
+      "count": 1
+    }
+  ]
+}
