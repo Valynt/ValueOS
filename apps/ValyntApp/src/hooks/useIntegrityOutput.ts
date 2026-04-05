@@ -18,12 +18,15 @@ import { apiClient } from "@/api/client/unified-api-client";
 // ---------------------------------------------------------------------------
 
 export interface IntegrityClaim {
-  claim_id: string;
+  claim_id?: string;
   text: string;
-  confidence_score: number;
+  confidence_score?: number;
   evidence_tier?: number;
   flagged: boolean;
   flag_reason?: string;
+  source_url?: string;
+  source_urls?: string[];
+  provenance?: unknown;
 }
 
 export interface IntegrityOutput {
