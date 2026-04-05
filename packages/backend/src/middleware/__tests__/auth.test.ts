@@ -18,6 +18,11 @@ vi.mock('../../lib/supabase.js', () => ({
   getRequestSupabaseClient: vi.fn(),
 }));
 
+vi.mock('@shared/lib/supabase', () => ({
+  getRequestSupabaseClient: vi.fn(() => ({
+    from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })),
+  })),
+}));
 // Prevent real Redis connection attempts in isTokenRevoked
 vi.mock('@shared/lib/redisClient', () => ({
   getRedisClient: vi.fn().mockResolvedValue(null),
