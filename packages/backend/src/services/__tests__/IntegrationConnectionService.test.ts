@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthorizationError, ValidationError } from "../errors.js";
-import { IntegrationConnectionService } from "../IntegrationConnectionService.js";
+import { IntegrationConnectionService } from "../crm/IntegrationConnectionService.js";
 
 const mockLogger = {
   info: vi.fn(),
@@ -14,6 +14,14 @@ vi.mock("@shared/lib/logger", () => ({
   createLogger: () => mockLogger,
 }));
 
+vi.mock("@valueos/integrations", () => ({
+  HubSpotAdapter: class {},
+  SalesforceAdapter: class {},
+  ServiceNowAdapter: class {},
+  SharePointAdapter: class {},
+  SlackAdapter: class {},
+}));
+
 const mockSupabase = vi.hoisted(() => ({
   from: vi.fn(),
 }));
@@ -21,6 +29,19 @@ const mockSupabase = vi.hoisted(() => ({
 vi.mock("../../lib/supabase", () => ({
   createServerSupabaseClient: () => mockSupabase,
   supabase: mockSupabase,
+}));
+
+const mockSecretBroker = vi.hoisted(() => ({
+  upsertSecret: vi.fn(async (input: { integration: string; secretName: string }) => ({
+    id: `secret-${input.integration}-${input.secretName}`,
+  })),
+  resolve: vi.fn(),
+  rotateSecret: vi.fn(),
+  getAuditLog: vi.fn(async () => []),
+}));
+
+vi.mock("../secrets/SecretBrokerService.js", () => ({
+  getSecretBrokerService: () => mockSecretBroker,
 }));
 
 const buildUserTenantsQuery = (data: any[] = []) => ({
@@ -128,5 +149,6 @@ describe("IntegrationConnectionService", () => {
     expect(result.provider).toBe("hubspot");
     expect(result.status).toBe("active");
     expect(result.tenantId).toBe("tenant-1");
+    expect(mockSecretBroker.upsertSecret).toHaveBeenCalled();
   });
 });

@@ -64,6 +64,8 @@ export const PERMISSIONS = {
 
   INTEGRATIONS_VIEW: "integrations:view" as Permission,
   INTEGRATIONS_MANAGE: "integrations:manage" as Permission,
+  INTEGRATIONS_DISCONNECT: "integrations:disconnect" as Permission,
+  SECRETS_ROTATE: "secrets:rotate" as Permission,
 
   ADMIN_ACCESS: "admin:view" as Permission,
   ADMIN_MANAGE: "admin:manage" as Permission,

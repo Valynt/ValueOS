@@ -9,10 +9,9 @@ import { Counter, metrics } from "@opentelemetry/api";
 import { createLogger } from "@shared/lib/logger";
 import { HubSpotAdapter, SalesforceAdapter, ServiceNowAdapter, SharePointAdapter, SlackAdapter } from "@valueos/integrations";
 
+import { getSecretBrokerService } from "../secrets/SecretBrokerService.js";
 import { TenantAwareService } from "../auth/TenantAwareService.js";
 import { AuthorizationError, NotFoundError, ValidationError } from "../errors.js";
-
-import { decryptToken, encryptToken } from "./tokenEncryption.js";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
 
@@ -46,6 +45,16 @@ export interface IntegrationTestResult {
   ok: boolean;
   status: IntegrationStatus;
   message: string;
+}
+
+export interface IntegrationAuditEvent {
+  id: string;
+  timestamp: string;
+  source: "integration_usage_log" | "secret_access_audits";
+  action: string;
+  decision?: "allow" | "deny";
+  reason?: string;
+  userId?: string;
 }
 
 const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "servicenow", "sharepoint", "slack"];
@@ -92,8 +101,8 @@ interface TenantIntegrationRow {
   tenant_id: string;
   provider: IntegrationProvider;
   status: IntegrationStatus;
-  access_token?: string | null;
-  refresh_token?: string | null;
+  access_token_secret_id?: string | null;
+  refresh_token_secret_id?: string | null;
   token_expires_at?: string | null;
   instance_url?: string | null;
   scopes?: string[] | null;
@@ -105,6 +114,7 @@ interface TenantIntegrationRow {
 
 export class IntegrationConnectionService extends TenantAwareService {
   private meter = metrics.getMeter("integration-connections");
+  private readonly secretBroker = getSecretBrokerService();
   private adapterCounter: Counter = this.meter.createCounter("integration_adapter_test_total", {
     description: "Count of adapter-backed integration connection tests",
   });
@@ -152,12 +162,41 @@ export class IntegrationConnectionService extends TenantAwareService {
     this.validatePayload(payload);
 
     const now = new Date().toISOString();
+    const environment = this.getSecretEnvironment();
+
+    const accessSecret = await this.secretBroker.upsertSecret({
+      tenantId,
+      integration: payload.provider,
+      secretName: "access_token",
+      plaintextValue: payload.accessToken,
+      environment,
+      allowedAgents: [userId],
+      allowedTools: ["integration_connection_service"],
+      allowedPurposes: ["integration.connection.validate", "integration.connection.sync"],
+      actorId: userId,
+    });
+
+    const refreshSecret = payload.refreshToken
+      ? await this.secretBroker.upsertSecret({
+          tenantId,
+          integration: payload.provider,
+          secretName: "refresh_token",
+          plaintextValue: payload.refreshToken,
+          environment,
+          allowedAgents: [userId],
+          allowedTools: ["integration_connection_service"],
+          allowedPurposes: ["integration.connection.validate", "integration.connection.sync"],
+          actorId: userId,
+        })
+      : null;
+
     const upsertPayload = {
       tenant_id: tenantId,
       provider: payload.provider,
-      // Encrypt OAuth tokens at rest; decrypted only when needed for outbound calls.
-      access_token: encryptToken(payload.accessToken),
-      refresh_token: payload.refreshToken ? encryptToken(payload.refreshToken) : null,
+      access_token: null,
+      refresh_token: null,
+      access_token_secret_id: accessSecret.id,
+      refresh_token_secret_id: refreshSecret?.id ?? null,
       token_expires_at: payload.tokenExpiresAt ?? null,
       instance_url: payload.instanceUrl ?? null,
       scopes: payload.scopes ?? [],
@@ -212,6 +251,8 @@ export class IntegrationConnectionService extends TenantAwareService {
         status: "revoked",
         access_token: null,
         refresh_token: null,
+        access_token_secret_id: null,
+        refresh_token_secret_id: null,
         token_expires_at: null,
         instance_url: null,
         error_message: null,
@@ -289,12 +330,83 @@ export class IntegrationConnectionService extends TenantAwareService {
     return this.toConnection(data);
   }
 
+  async rotateCredentials(
+    userId: string,
+    tenantId: string,
+    integrationId: string,
+    payload: Pick<IntegrationConnectPayload, "accessToken" | "refreshToken" | "tokenExpiresAt">
+  ): Promise<IntegrationConnection> {
+    const integration = await this.fetchIntegrationById(integrationId);
+    if (integration.tenant_id !== tenantId) {
+      throw new AuthorizationError("Integration does not belong to the active tenant");
+    }
+    await this.validateTenantAccess(userId, integration.tenant_id);
+    this.assertProvider(integration.provider);
+
+    const environment = this.getSecretEnvironment();
+    await this.secretBroker.rotateSecret({
+      tenantId,
+      integration: integration.provider,
+      secretName: "access_token",
+      environment,
+      newPlaintextValue: payload.accessToken,
+      actorId: userId,
+    });
+
+    if (payload.refreshToken) {
+      await this.secretBroker.rotateSecret({
+        tenantId,
+        integration: integration.provider,
+        secretName: "refresh_token",
+        environment,
+        newPlaintextValue: payload.refreshToken,
+        actorId: userId,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .from("tenant_integrations")
+      .update({
+        status: "active",
+        token_expires_at: payload.tokenExpiresAt ?? null,
+        last_refreshed_at: now,
+        last_used_at: now,
+        updated_at: now,
+      })
+      .eq("id", integrationId)
+      .select(
+        [
+          "id",
+          "tenant_id",
+          "provider",
+          "status",
+          "connected_at",
+          "last_used_at",
+          "last_refreshed_at",
+          "token_expires_at",
+          "instance_url",
+          "scopes",
+          "error_message",
+        ].join(",")
+      )
+      .single();
+
+    if (error || !data) {
+      logger.error("Failed to update integration after credential rotation", error, { integrationId, tenantId });
+      throw error || new Error("Failed to rotate integration credentials");
+    }
+
+    await this.recordUsage(integrationId, userId, "rotate_credentials");
+    return this.toConnection(data);
+  }
+
   async testConnection(
     userId: string,
     tenantId: string,
     integrationId: string
   ): Promise<IntegrationTestResult> {
-    const integration = await this.fetchIntegrationById(integrationId, true);
+    const integration = await this.fetchIntegrationById(integrationId);
     if (integration.tenant_id !== tenantId) {
       throw new AuthorizationError("Integration does not belong to the active tenant");
     }
@@ -305,10 +417,8 @@ export class IntegrationConnectionService extends TenantAwareService {
 
     const provider = integration.provider;
     this.assertProvider(provider);
-
-    if (!integration.access_token) {
-      throw new ValidationError("Access token is missing for this integration");
-    }
+    const credentials = await this.resolveRuntimeCredentials(tenantId, userId, provider);
+    const accessToken = credentials.accessToken;
 
     let ok = false;
     let message = "Unknown error";
@@ -318,7 +428,7 @@ export class IntegrationConnectionService extends TenantAwareService {
       if (adapterBackedEnabled && provider !== "dynamics") {
         const adapter = this.createAdapter(provider, integration);
         await adapter.connect({
-          accessToken: integration.access_token,
+          accessToken,
           tenantId,
         });
         ok = await adapter.validate();
@@ -331,7 +441,7 @@ export class IntegrationConnectionService extends TenantAwareService {
             "https://api.hubapi.com/integrations/v1/me",
             {
               headers: {
-                Authorization: `Bearer ${integration.access_token}`,
+                Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
               },
             }
@@ -352,7 +462,7 @@ export class IntegrationConnectionService extends TenantAwareService {
           const instanceUrl = integration.instance_url.replace(/\/+$/, "");
           const response = await this.fetchWithTimeout(`${instanceUrl}/services/data`, {
             headers: {
-              Authorization: `Bearer ${integration.access_token}`,
+              Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
             },
           });
@@ -437,37 +547,22 @@ export class IntegrationConnectionService extends TenantAwareService {
 
   private async fetchIntegrationById(
     integrationId: string,
-    includeSecrets = false
   ): Promise<TenantIntegrationRow> {
-    const fields = includeSecrets
-      ? [
-          "id",
-          "tenant_id",
-          "provider",
-          "status",
-          "access_token",
-          "refresh_token",
-          "token_expires_at",
-          "instance_url",
-          "scopes",
-          "connected_at",
-          "last_used_at",
-          "last_refreshed_at",
-          "error_message",
-        ]
-      : [
-          "id",
-          "tenant_id",
-          "provider",
-          "status",
-          "token_expires_at",
-          "instance_url",
-          "scopes",
-          "connected_at",
-          "last_used_at",
-          "last_refreshed_at",
-          "error_message",
-        ];
+    const fields = [
+      "id",
+      "tenant_id",
+      "provider",
+      "status",
+      "access_token_secret_id",
+      "refresh_token_secret_id",
+      "token_expires_at",
+      "instance_url",
+      "scopes",
+      "connected_at",
+      "last_used_at",
+      "last_refreshed_at",
+      "error_message",
+    ];
 
     const { data, error } = await this.supabase
       .from("tenant_integrations")
@@ -480,27 +575,47 @@ export class IntegrationConnectionService extends TenantAwareService {
       throw new NotFoundError("Integration");
     }
 
-    // Decrypt tokens before returning so callers always work with plaintext.
-    if (includeSecrets) {
-      if (data.access_token) {
-        try {
-          data.access_token = decryptToken(data.access_token);
-        } catch (err) {
-          logger.error("Failed to decrypt access_token", err instanceof Error ? err : undefined, { integrationId });
-          throw new Error("Failed to decrypt integration credentials");
-        }
-      }
-      if (data.refresh_token) {
-        try {
-          data.refresh_token = decryptToken(data.refresh_token);
-        } catch (err) {
-          logger.error("Failed to decrypt refresh_token", err instanceof Error ? err : undefined, { integrationId });
-          throw new Error("Failed to decrypt integration credentials");
-        }
-      }
+    return data;
+  }
+
+  private getSecretEnvironment(): "development" | "staging" | "production" {
+    if (process.env.NODE_ENV === "production") return "production";
+    if (process.env.NODE_ENV === "staging") return "staging";
+    return "development";
+  }
+
+  private async resolveRuntimeCredentials(
+    tenantId: string,
+    userId: string,
+    provider: IntegrationProvider
+  ): Promise<{ accessToken: string; refreshToken?: string }> {
+    const environment = this.getSecretEnvironment();
+    const accessDecision = await this.secretBroker.resolve({
+      tenantId,
+      agentId: userId,
+      capability: `${provider}.access_token`,
+      purpose: "integration.connection.validate",
+      toolName: "integration_connection_service",
+      environment,
+    });
+
+    if (accessDecision.decision === "deny") {
+      throw new AuthorizationError(`Credential access denied: ${accessDecision.reason}`);
     }
 
-    return data;
+    const refreshDecision = await this.secretBroker.resolve({
+      tenantId,
+      agentId: userId,
+      capability: `${provider}.refresh_token`,
+      purpose: "integration.connection.validate",
+      toolName: "integration_connection_service",
+      environment,
+    });
+
+    return {
+      accessToken: accessDecision.grant.decryptedValue,
+      refreshToken: refreshDecision.decision === "allow" ? refreshDecision.grant.decryptedValue : undefined,
+    };
   }
 
   private toConnection(row: TenantIntegrationRow): IntegrationConnection {
@@ -534,6 +649,59 @@ export class IntegrationConnectionService extends TenantAwareService {
     if (error) {
       logger.warn("Failed to record integration usage", { integrationId, action, error });
     }
+  }
+
+  async getAuditHistory(
+    userId: string,
+    tenantId: string,
+    integrationId: string,
+    limit = 50
+  ): Promise<IntegrationAuditEvent[]> {
+    const integration = await this.fetchIntegrationById(integrationId);
+    if (integration.tenant_id !== tenantId) {
+      throw new AuthorizationError("Integration does not belong to the active tenant");
+    }
+    await this.validateTenantAccess(userId, integration.tenant_id);
+    this.assertProvider(integration.provider);
+
+    const { data: usageRows, error: usageError } = await this.supabase
+      .from("integration_usage_log")
+      .select("id, action, user_id, created_at")
+      .eq("integration_id", integrationId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (usageError) {
+      logger.error("Failed to read integration usage audit history", usageError, { integrationId, tenantId });
+      throw usageError;
+    }
+
+    const secretAudits = await this.secretBroker.getAuditLog(tenantId, { limit: limit * 2 });
+    const providerPrefix = `${integration.provider}.`;
+
+    const mappedUsage: IntegrationAuditEvent[] = (usageRows ?? []).map((row) => ({
+      id: row.id as string,
+      timestamp: row.created_at as string,
+      source: "integration_usage_log",
+      action: row.action as string,
+      userId: row.user_id as string | undefined,
+    }));
+
+    const mappedSecretAudits: IntegrationAuditEvent[] = secretAudits
+      .filter((audit) => audit.capability.startsWith(providerPrefix))
+      .map((audit) => ({
+        id: audit.id,
+        timestamp: audit.created_at,
+        source: "secret_access_audits",
+        action: `secret_access:${audit.capability}`,
+        decision: audit.decision,
+        reason: audit.reason,
+        userId: audit.agent_id,
+      }));
+
+    return [...mappedUsage, ...mappedSecretAudits]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, limit);
   }
 
   private async fetchWithTimeout(
