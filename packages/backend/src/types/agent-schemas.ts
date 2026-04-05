@@ -6,6 +6,33 @@ import {
   StakeholderSchema,
 } from "./domain-primitives";
 
+export const AgentMetaSchema = z.object({
+  traceId: z.string().min(1),
+  agentId: z.string().min(1),
+}).strict();
+const AgentMetaShape = AgentMetaSchema.shape;
+
+export type AgentMetadata = z.infer<typeof AgentMetaSchema>;
+
+/**
+ * Canonical translation adapter:
+ * - Payloads and API contracts use camelCase (`traceId`, `agentId`)
+ * - Logs/events use snake_case (`trace_id`, `agent_id`)
+ */
+export function toAgentEventMetadata(metadata: AgentMetadata): { trace_id: string; agent_id: string } {
+  return {
+    trace_id: metadata.traceId,
+    agent_id: metadata.agentId,
+  };
+}
+
+export function fromAgentEventMetadata(metadata: { trace_id: string; agent_id: string }): AgentMetadata {
+  return {
+    traceId: metadata.trace_id,
+    agentId: metadata.agent_id,
+  };
+}
+
 const SourceReferenceSchema = EvidenceRefSchema;
 const LinkedEvidenceRefsSchema = z.array(SourceReferenceSchema).min(1, "assumptions require at least one linked evidence reference");
 
@@ -64,6 +91,7 @@ function validateAssumptionEvidenceLinkage(
  * INITIATED
  */
 export const OpportunityContextSchema = z.object({
+  ...AgentMetaShape,
   stage: z.literal("INITIATED"),
 
   organizationId: z.string().uuid(),
@@ -99,6 +127,7 @@ export type OpportunityContext = z.infer<typeof OpportunityContextSchema>;
  * DRAFTING
  */
 export const ValueHypothesisDraftSchema = z.object({
+  ...AgentMetaShape,
   stage: z.literal("DRAFTING"),
 
   organizationId: z.string().uuid(),
@@ -133,6 +162,7 @@ export type ValueHypothesisDraft = z.infer<typeof ValueHypothesisDraftSchema>;
  * FINANCIAL / MODELING
  */
 export const FinancialModelSchema = z.object({
+  ...AgentMetaShape,
   stage: z.literal("FINANCIAL"),
 
   organizationId: z.string().uuid(),
@@ -169,6 +199,7 @@ export type FinancialModel = z.infer<typeof FinancialModelSchema>;
  * VALIDATING
  */
 export const IntegrityAssessmentSchema = z.object({
+  ...AgentMetaShape,
   stage: z.literal("VALIDATING"),
 
   organizationId: z.string().uuid(),
@@ -202,6 +233,7 @@ export type IntegrityAssessment = z.infer<typeof IntegrityAssessmentSchema>;
  * COMPOSING
  */
 export const ExecutiveNarrativeSchema = z.object({
+  ...AgentMetaShape,
   stage: z.literal("COMPOSING"),
 
   organizationId: z.string().uuid(),
@@ -232,7 +264,7 @@ export const ExecutiveNarrativeSchema = z.object({
 
 export type ExecutiveNarrative = z.infer<typeof ExecutiveNarrativeSchema>;
 
-export const ValueLifecycleSchema = z.discriminatedUnion("stage", [
+export const ValueLifecycleSchema = z.union([
   OpportunityContextSchema,
   ValueHypothesisDraftSchema,
   FinancialModelSchema,
