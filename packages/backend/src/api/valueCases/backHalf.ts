@@ -579,11 +579,21 @@ backHalfRouter.post(
         });
       }
     } catch (integrityErr) {
-      // If integrity check fails, log but allow export (fail-open for UX)
-      logger.warn("Integrity check failed during PDF export, allowing export", {
+      const requestId = req.requestId;
+      logger.error("Integrity check failed during PDF export; fail-closed", {
         caseId,
         tenantId,
+        requestId,
+        failClosed: true,
+        exportBlocked: true,
         error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+      });
+
+      return res.status(503).json({
+        success: false,
+        error: "Integrity service unavailable",
+        code: "INTEGRITY_UNAVAILABLE",
+        ...(requestId ? { requestId } : {}),
       });
     }
 
