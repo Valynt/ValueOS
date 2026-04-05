@@ -109,7 +109,11 @@ export async function enqueueWebhookRetry(
 ): Promise<void> {
   const queue = getWebhookRetryQueue();
   const jobId = `webhook:${payload.eventId}:${payload.attemptNumber}`;
-  const delayMs = BACKOFF_DELAYS_MS[payload.attemptNumber - 1] ?? BACKOFF_DELAYS_MS.at(-1)!;
+  const fallbackDelayMs = BACKOFF_DELAYS_MS.at(-1);
+  if (fallbackDelayMs === undefined) {
+    throw new Error('BACKOFF_DELAYS_MS must include at least one delay value');
+  }
+  const delayMs = BACKOFF_DELAYS_MS[payload.attemptNumber - 1] ?? fallbackDelayMs;
 
   await queue.add(WEBHOOK_RETRY_QUEUE_NAME, payload, {
     jobId,
@@ -180,7 +184,7 @@ async function processWebhookRetryJob(
   }
 
   // Handle failure
-  const err = result.error!;
+  const err = result.error ?? new Error('Webhook delivery failed without error details');
 
   // If circuit is now open, fast-fail remaining attempts
   if (result.circuitOpen) {

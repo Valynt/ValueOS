@@ -8,6 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const reqAsAnyMessage =
   "Do not cast req to any. Use typed Express.Request properties from src/types/express.d.ts (e.g., req.tenantId, req.userId, req.sessionId, req.user, req.db).";
+const nonNullAssertionBoundaryGrandfatheredFiles = [
+  // Keep this allowlist restricted to explicitly-tracked debt items.
+  // TODO(valueos-eslint/non-null-assertion): remove file entries after migrating assertions to guarded branches.
+];
 
 export default tseslint.config(
   { ignores: ["dist", "node_modules"] },
@@ -111,6 +115,13 @@ export default tseslint.config(
             "TaskContext must be imported as a named type export. Use: import type { TaskContext } from '.../TaskContext'.",
         },
       ],
+    },
+  },
+  {
+    files: ["src/workers/**/*.ts", "src/runtime/**/*.ts"],
+    ignores: nonNullAssertionBoundaryGrandfatheredFiles,
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
     },
   },
   {

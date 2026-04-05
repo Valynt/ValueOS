@@ -183,7 +183,11 @@ describe('ArtifactGenerationWorker — payload-based tenant scoping', () => {
 
     const tenantFilter = eqCalls.find(([col]) => col === 'tenant_id');
     expect(tenantFilter).toBeDefined();
-    expect(tenantFilter![1]).toBe(JOB_TENANT);
+    if (!tenantFilter) {
+      throw new Error('Expected tenant_id filter in query builder');
+    }
+    const [, tenantFilterValue] = tenantFilter;
+    expect(tenantFilterValue).toBe(JOB_TENANT);
   });
 
   it('does not use a different tenant when ambient context differs', async () => {
@@ -202,8 +206,12 @@ describe('ArtifactGenerationWorker — payload-based tenant scoping', () => {
       builder.eq('tenant_id', jobTenantId);
 
       const tenantFilter = eqCalls.find(([col]) => col === 'tenant_id');
-      expect(tenantFilter![1]).toBe(JOB_TENANT);
-      expect(tenantFilter![1]).not.toBe(AMBIENT_TENANT);
+      if (!tenantFilter) {
+        throw new Error('Expected tenant_id filter in query builder');
+      }
+      const [, tenantFilterValue] = tenantFilter;
+      expect(tenantFilterValue).toBe(JOB_TENANT);
+      expect(tenantFilterValue).not.toBe(AMBIENT_TENANT);
     });
   });
 
