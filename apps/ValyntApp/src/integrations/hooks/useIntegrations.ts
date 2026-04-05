@@ -56,6 +56,14 @@ interface ProviderCapabilityResponse {
   providers?: Array<{
     provider: IntegrationProviderId;
     capabilities: IntegrationCapabilities;
+    capabilityFlags?: {
+      oauth?: boolean;
+      webhook_support?: boolean;
+      delta_sync?: boolean;
+      manual_sync?: boolean;
+      field_mapping?: boolean;
+      backfill?: boolean;
+    };
   }>;
 }
 
@@ -105,6 +113,28 @@ const deriveProviderConfig = (
   };
 };
 
+const toIntegrationCapabilities = (
+  capabilities?: IntegrationCapabilities,
+  capabilityFlags?: ProviderCapabilityResponse["providers"][number]["capabilityFlags"]
+): IntegrationCapabilities | undefined => {
+  if (capabilities) {
+    return capabilities;
+  }
+
+  if (!capabilityFlags) {
+    return undefined;
+  }
+
+  return {
+    oauth: capabilityFlags.oauth ?? false,
+    webhookSupport: capabilityFlags.webhook_support ?? false,
+    deltaSync: capabilityFlags.delta_sync ?? false,
+    manualSync: capabilityFlags.manual_sync ?? false,
+    fieldMapping: capabilityFlags.field_mapping ?? false,
+    backfill: capabilityFlags.backfill ?? false,
+  };
+};
+
 export function useIntegrations() {
   const [providers, setProviders] = useState<IntegrationProvider[]>(PROVIDERS);
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
@@ -116,13 +146,16 @@ export function useIntegrations() {
 
   const fetchProviderCapabilities = useCallback(async () => {
     try {
-      const response = await api.getCrmProviderCapabilities() as { success: boolean; data?: ProviderCapabilityResponse };
+      const response = await api.getIntegrationCapabilities() as { success: boolean; data?: ProviderCapabilityResponse };
       if (!response.success) {
         return;
       }
 
       const capabilityMap = new Map(
-        (response.data?.providers ?? []).map((entry) => [entry.provider, entry.capabilities])
+        (response.data?.providers ?? []).map((entry) => [
+          entry.provider,
+          toIntegrationCapabilities(entry.capabilities, entry.capabilityFlags),
+        ])
       );
 
       setProviders(
