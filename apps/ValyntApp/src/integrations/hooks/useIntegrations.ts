@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  IntegrationCapabilityMap,
   IntegrationConnection,
   IntegrationCredentialsInput,
+  IntegrationProvider,
   IntegrationProviderId,
   IntegrationStatus,
 } from "../types";
@@ -49,6 +51,20 @@ interface RawResponseData {
   authUrl?: string;
 }
 
+interface RawCapability {
+  supported?: boolean;
+  reason?: string;
+}
+
+interface RawProviderCapabilities {
+  provider: string;
+  capabilities?: Partial<Record<keyof IntegrationCapabilityMap, RawCapability>>;
+}
+
+interface RawCapabilitiesResponse {
+  providers?: RawProviderCapabilities[];
+}
+
 interface CrmStatusResponse {
   connected?: boolean;
   status?: string;
@@ -70,6 +86,7 @@ interface CrmHealthResponse {
 
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
+  const [providers, setProviders] = useState<IntegrationProvider[]>(PROVIDERS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthInProgressProvider, setOauthInProgressProvider] =
@@ -105,6 +122,47 @@ export function useIntegrations() {
       setError(err instanceof Error ? err.message : "Failed to fetch integrations");
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchProviderCapabilities = useCallback(async () => {
+    try {
+      const response = await api.getIntegrationCapabilities();
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to fetch integration capabilities");
+      }
+
+      const rawData = (response.data ?? {}) as RawCapabilitiesResponse;
+      const byProvider = new Map(
+        (rawData.providers ?? []).map((provider) => [provider.provider, provider.capabilities])
+      );
+
+      setProviders(
+        PROVIDERS.map((provider) => {
+          const rawCapabilities = byProvider.get(provider.id);
+          if (!rawCapabilities) {
+            return provider;
+          }
+
+          const mergedCapabilities = { ...provider.capabilities };
+          for (const [key, capability] of Object.entries(rawCapabilities)) {
+            if (!capability || !(key in mergedCapabilities)) {
+              continue;
+            }
+            mergedCapabilities[key as keyof IntegrationCapabilityMap] = {
+              supported: capability.supported === true,
+              reason: capability.reason,
+            };
+          }
+
+          return {
+            ...provider,
+            capabilities: mergedCapabilities,
+          };
+        })
+      );
+    } catch {
+      setProviders(PROVIDERS);
     }
   }, []);
 
@@ -312,6 +370,10 @@ export function useIntegrations() {
   }, []);
 
   useEffect(() => {
+    void fetchProviderCapabilities();
+  }, [fetchProviderCapabilities]);
+
+  useEffect(() => {
     const onOAuthMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; provider?: string; error?: string };
       if (!data || typeof data !== "object") {
@@ -350,7 +412,7 @@ export function useIntegrations() {
 
   return {
     integrations,
-    providers: PROVIDERS,
+    providers,
     isLoading,
     error,
     oauthInProgressProvider,

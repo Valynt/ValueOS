@@ -17,6 +17,27 @@ const logger = createLogger({ component: "IntegrationConnectionService" });
 
 export type IntegrationProvider = "hubspot" | "salesforce" | "dynamics" | "servicenow" | "sharepoint" | "slack";
 export type IntegrationStatus = "active" | "expired" | "revoked" | "error";
+export type IntegrationCapabilityKey =
+  | "oauth"
+  | "webhook_support"
+  | "delta_sync"
+  | "manual_sync"
+  | "field_mapping"
+  | "backfill"
+  | "test_connection"
+  | "credential_rotation";
+
+export interface IntegrationCapability {
+  supported: boolean;
+  reason?: string;
+}
+
+export type IntegrationCapabilityMap = Record<IntegrationCapabilityKey, IntegrationCapability>;
+
+export interface IntegrationProviderCapabilities {
+  provider: IntegrationProvider;
+  capabilities: IntegrationCapabilityMap;
+}
 
 export interface IntegrationConnection {
   id: string;
@@ -58,6 +79,74 @@ export interface IntegrationAuditEvent {
 }
 
 const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "servicenow", "sharepoint", "slack"];
+
+const DEFAULT_CAPABILITIES: IntegrationCapabilityMap = {
+  oauth: { supported: false },
+  webhook_support: { supported: false },
+  delta_sync: { supported: false },
+  manual_sync: { supported: false },
+  field_mapping: { supported: false },
+  backfill: { supported: false },
+  test_connection: { supported: true },
+  credential_rotation: { supported: true },
+};
+
+const PROVIDER_CAPABILITIES: Record<IntegrationProvider, IntegrationCapabilityMap> = {
+  hubspot: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: true },
+    webhook_support: { supported: true },
+    delta_sync: { supported: true },
+    manual_sync: { supported: true },
+    field_mapping: { supported: true },
+    backfill: { supported: true },
+  },
+  salesforce: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: true },
+    webhook_support: { supported: true },
+    delta_sync: { supported: true },
+    manual_sync: { supported: true },
+    field_mapping: { supported: true },
+    backfill: { supported: true },
+  },
+  dynamics: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: false, reason: "Dynamics OAuth is not enabled in this workspace." },
+    manual_sync: { supported: true },
+    webhook_support: { supported: false, reason: "Webhook subscriptions are not configured yet." },
+    delta_sync: { supported: false, reason: "Delta sync is not configured yet." },
+    field_mapping: { supported: false, reason: "Field mapping UI is not configured yet." },
+    backfill: { supported: false, reason: "Backfill jobs are not configured yet." },
+  },
+  servicenow: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: false, reason: "ServiceNow OAuth is not enabled in this workspace." },
+    manual_sync: { supported: true },
+    webhook_support: { supported: false, reason: "Webhook subscriptions are not configured yet." },
+    delta_sync: { supported: false, reason: "Delta sync is not configured yet." },
+    field_mapping: { supported: false, reason: "Field mapping UI is not configured yet." },
+    backfill: { supported: false, reason: "Backfill jobs are not configured yet." },
+  },
+  sharepoint: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: false, reason: "SharePoint OAuth is not enabled in this workspace." },
+    manual_sync: { supported: true },
+    webhook_support: { supported: false, reason: "Webhook subscriptions are not configured yet." },
+    delta_sync: { supported: false, reason: "Delta sync is not configured yet." },
+    field_mapping: { supported: false, reason: "Field mapping UI is not configured yet." },
+    backfill: { supported: false, reason: "Backfill jobs are not configured yet." },
+  },
+  slack: {
+    ...DEFAULT_CAPABILITIES,
+    oauth: { supported: false, reason: "Slack OAuth is not enabled in this workspace." },
+    manual_sync: { supported: false, reason: "Slack does not support manual data sync in this flow." },
+    webhook_support: { supported: true },
+    delta_sync: { supported: false, reason: "Slack delta sync is not supported." },
+    field_mapping: { supported: false, reason: "Field mapping is not applicable for Slack." },
+    backfill: { supported: false, reason: "Backfill is not supported for Slack in this flow." },
+  },
+};
 
 /**
  * Allowlisted hostname patterns for Salesforce instance URLs.
@@ -151,6 +240,13 @@ export class IntegrationConnectionService extends TenantAwareService {
     }
 
     return (data || []).map(this.toConnection);
+  }
+
+  getProviderCapabilities(): IntegrationProviderCapabilities[] {
+    return SUPPORTED_PROVIDERS.map((provider) => ({
+      provider,
+      capabilities: PROVIDER_CAPABILITIES[provider],
+    }));
   }
 
   async connect(

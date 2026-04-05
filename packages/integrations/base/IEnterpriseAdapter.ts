@@ -14,8 +14,18 @@ import type {
   SyncResult,
 } from "./types.js";
 
+export interface AdapterCapabilities {
+  oauth: boolean;
+  webhook_support: boolean;
+  delta_sync: boolean;
+  manual_sync: boolean;
+  field_mapping: boolean;
+  backfill: boolean;
+}
+
 export interface IEnterpriseAdapter {
   readonly provider: string;
+  readonly capabilities: AdapterCapabilities;
 
   connect(credentials: IntegrationCredentials): Promise<void>;
 

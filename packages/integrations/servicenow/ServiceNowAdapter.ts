@@ -99,6 +99,17 @@ export class ServiceNowAdapter extends EnterpriseAdapter {
     }));
   }
 
+  protected override buildCapabilities() {
+    return {
+      oauth: true,
+      webhook_support: false,
+      delta_sync: false,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Connection lifecycle
   // -------------------------------------------------------------------------

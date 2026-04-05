@@ -126,6 +126,17 @@ export class SlackAdapter extends EnterpriseAdapter {
     }));
   }
 
+  protected override buildCapabilities() {
+    return {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: false,
+      manual_sync: false,
+      field_mapping: false,
+      backfill: false,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Connection lifecycle
   // -------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetIntegrations, mockApiClientGet, mockApiClientPost, mockWindowOpen } = vi.hoisted(
+const { mockGetIntegrations, mockGetIntegrationCapabilities, mockApiClientGet, mockApiClientPost, mockWindowOpen } = vi.hoisted(
   () => ({
     mockGetIntegrations: vi.fn(),
+    mockGetIntegrationCapabilities: vi.fn(),
     mockApiClientGet: vi.fn(),
     mockApiClientPost: vi.fn(),
     mockWindowOpen: vi.fn(),
@@ -13,6 +14,7 @@ const { mockGetIntegrations, mockApiClientGet, mockApiClientPost, mockWindowOpen
 vi.mock("@/api/client/unified-api-client", () => ({
   api: {
     getIntegrations: mockGetIntegrations,
+    getIntegrationCapabilities: mockGetIntegrationCapabilities,
     createIntegration: vi.fn(),
     deleteIntegration: vi.fn(),
     testIntegration: vi.fn(),
@@ -30,6 +32,10 @@ describe("useIntegrations OAuth flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("open", mockWindowOpen);
+    mockGetIntegrationCapabilities.mockResolvedValue({
+      success: true,
+      data: { providers: [] },
+    });
   });
 
   it("surfaces popup blocked errors when OAuth popup cannot open", async () => {

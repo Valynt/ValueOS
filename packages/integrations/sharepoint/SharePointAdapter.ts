@@ -112,6 +112,17 @@ export class SharePointAdapter extends EnterpriseAdapter {
     }));
   }
 
+  protected override buildCapabilities() {
+    return {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Connection lifecycle
   // -------------------------------------------------------------------------

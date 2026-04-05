@@ -8,6 +8,7 @@
 
 import { ConnectionError, IntegrationError, RateLimitError } from "./errors.js";
 import type {
+  AdapterCapabilities,
   FetchOptions,
   IEnterpriseAdapter,
 } from "./IEnterpriseAdapter.js";
@@ -21,6 +22,7 @@ import type {
 
 export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
   abstract readonly provider: string;
+  readonly capabilities: AdapterCapabilities;
 
   protected credentials: IntegrationCredentials | null = null;
   protected readonly rateLimiter: RateLimiter;
@@ -29,6 +31,7 @@ export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
   constructor(config: IntegrationConfig, rateLimiter: RateLimiter) {
     this.config = config;
     this.rateLimiter = rateLimiter;
+    this.capabilities = this.buildCapabilities();
   }
 
   async connect(credentials: IntegrationCredentials): Promise<void> {
@@ -134,5 +137,16 @@ export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  protected buildCapabilities(): AdapterCapabilities {
+    return {
+      oauth: false,
+      webhook_support: false,
+      delta_sync: false,
+      manual_sync: true,
+      field_mapping: false,
+      backfill: false,
+    };
   }
 }

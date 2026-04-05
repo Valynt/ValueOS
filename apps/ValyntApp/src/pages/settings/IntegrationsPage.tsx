@@ -3,7 +3,7 @@
  */
 
 import { formatDistanceToNow } from "date-fns";
-import { Check, ExternalLink, RefreshCw, Settings2, XCircle } from "lucide-react";
+import { Check, ExternalLink, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { SettingsAlert, SettingsSection } from "@/components/settings";
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useIntegrations } from "@/integrations";
 import type {
+  IntegrationCapabilityKey,
   IntegrationConfigField,
   IntegrationConnection,
   IntegrationCredentialsInput,
@@ -44,6 +45,16 @@ const formatTimestamp = (value?: string) => {
   if (!value) return "Never";
   return formatDistanceToNow(new Date(value), { addSuffix: true });
 };
+
+interface IntegrationAction {
+  key: string;
+  label: string;
+  icon?: typeof ExternalLink;
+  variant?: "ghost" | "outline";
+  requiresConnection?: boolean;
+  capability?: IntegrationCapabilityKey;
+  onClick: () => void;
+}
 
 export function IntegrationsPage() {
   const {
@@ -182,12 +193,89 @@ export function IntegrationsPage() {
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
-    const isOAuth = provider.authType === "oauth";
+    const supportsOAuth = provider.capabilities.oauth.supported;
+    const connectActionText = supportsOAuth ? "Connect" : "Configure";
 
     const StatusIcon = status === "connected" ? Check : XCircle;
+    const actions: IntegrationAction[] = hasActiveConnection
+      ? [
+          {
+            key: "reconnect",
+            label: "Reconnect",
+            icon: ExternalLink,
+            requiresConnection: true,
+            capability: "oauth",
+            onClick: () => {
+              void handleOAuthConnect(provider);
+            },
+          },
+          {
+            key: "test",
+            label: "Test",
+            icon: RefreshCw,
+            requiresConnection: true,
+            capability: "test_connection",
+            onClick: () => {
+              if (connection) {
+                void handleTest(connection);
+              }
+            },
+          },
+          {
+            key: "sync",
+            label: "Sync",
+            requiresConnection: true,
+            capability: "manual_sync",
+            onClick: () => {
+              if (connection) {
+                void handleSync(connection);
+              }
+            },
+          },
+          {
+            key: "disconnect",
+            label: "Disconnect",
+            icon: XCircle,
+            requiresConnection: true,
+            variant: "ghost",
+            onClick: () => {
+              if (connection) {
+                void handleDisconnect(connection);
+              }
+            },
+          },
+        ]
+      : [
+          {
+            key: "connect",
+            label: connectActionText,
+            icon: ExternalLink,
+            variant: "outline",
+            capability: supportsOAuth ? "oauth" : undefined,
+            onClick: () => {
+              if (supportsOAuth) {
+                void handleOAuthConnect(provider);
+                return;
+              }
+              openDialog(provider);
+            },
+          },
+        ];
+
+    const disabledActions = actions
+      .filter((action) => action.capability)
+      .map((action) => {
+        const key = action.capability as IntegrationCapabilityKey;
+        const descriptor = provider.capabilities[key];
+        if (descriptor.supported) {
+          return null;
+        }
+        return descriptor.reason ?? `${action.label} is not supported for ${provider.name}.`;
+      })
+      .filter((value): value is string => Boolean(value));
 
     return (
-      <div className="flex items-center justify-between gap-4 p-4 border-b border-border last:border-b-0">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border last:border-b-0">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
             {provider.icon}
@@ -212,72 +300,39 @@ export function IntegrationsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {hasActiveConnection ? (
-            <>
-              {!isOAuth && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openDialog(provider)}
-                  disabled={actionProvider === provider.id}
-                >
-                  <Settings2 className="h-3 w-3 mr-2" />
-                  Configure
-                </Button>
-              )}
-              {isOAuth && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOAuthConnect(provider)}
-                  disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-                >
-                  <ExternalLink className="h-3 w-3 mr-2" />
-                  Reconnect
-                </Button>
-              )}
+          {actions.map((action) => {
+            const capability = action.capability ? provider.capabilities[action.capability] : undefined;
+            const capabilityUnsupported = capability ? !capability.supported : false;
+            const isBusy = actionProvider === provider.id || oauthInProgressProvider === provider.id;
+            const disabled =
+              isBusy
+              || capabilityUnsupported
+              || (action.requiresConnection && !hasActiveConnection);
+
+            const Icon = action.icon;
+
+            return (
               <Button
-                variant="ghost"
+                key={action.key}
+                variant={action.variant ?? "ghost"}
                 size="sm"
-                onClick={() => handleTest(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
+                onClick={action.onClick}
+                disabled={disabled}
+                className={action.key === "disconnect" ? "text-destructive hover:text-destructive" : undefined}
               >
-                <RefreshCw className="h-3 w-3 mr-2" />
-                Test
+                {action.key === "connect" && oauthInProgressProvider === provider.id
+                  ? "Connecting..."
+                  : action.label}
+                {Icon && <Icon className="h-3 w-3 ml-2" />}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSync(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-              >
-                Sync
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => handleDisconnect(connection)}
-                disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-              >
-                <XCircle className="h-3 w-3 mr-1" />
-                Disconnect
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                provider.authType === "oauth" ? handleOAuthConnect(provider) : openDialog(provider)
-              }
-              disabled={actionProvider === provider.id || oauthInProgressProvider === provider.id}
-            >
-              {oauthInProgressProvider === provider.id ? "Connecting..." : "Connect"}
-              <ExternalLink className="h-3 w-3 ml-2" />
-            </Button>
-          )}
+            );
+          })}
         </div>
+        {disabledActions.length > 0 && (
+          <div className="basis-full text-xs text-muted-foreground">
+            Unsupported actions: {disabledActions.join(" ")}
+          </div>
+        )}
       </div>
     );
   };

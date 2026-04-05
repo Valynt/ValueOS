@@ -82,6 +82,19 @@ router.get(
   }
 );
 
+router.get(
+  "/capabilities",
+  requirePermission("integrations:view"),
+  async (_req: Request, res: Response) => {
+    try {
+      const providers = integrationConnectionService.getProviderCapabilities();
+      return res.json({ providers });
+    } catch (error) {
+      return handleError(res, error, "Failed to load integration capabilities");
+    }
+  }
+);
+
 router.post(
   "/",
   requirePermission("integrations:manage"),

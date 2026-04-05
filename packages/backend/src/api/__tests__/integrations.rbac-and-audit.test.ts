@@ -58,6 +58,21 @@ const mockConnectionService = vi.hoisted(() => ({
     },
   ]),
   sync: vi.fn(async () => ({ id: "int-1", provider: "hubspot", status: "active" })),
+  getProviderCapabilities: vi.fn(() => [
+    {
+      provider: "hubspot",
+      capabilities: {
+        oauth: { supported: true },
+        webhook_support: { supported: true },
+        delta_sync: { supported: true },
+        manual_sync: { supported: true },
+        field_mapping: { supported: true },
+        backfill: { supported: true },
+        test_connection: { supported: true },
+        credential_rotation: { supported: true },
+      },
+    },
+  ]),
 }));
 
 vi.mock("../../services/crm/IntegrationConnectionService", () => ({
@@ -119,6 +134,29 @@ describe("Integrations API RBAC + audit history", () => {
           source: "secret_access_audits",
           decision: "deny",
           reason: "AGENT_NOT_ALLOWED",
+        }),
+      ])
+    );
+  });
+
+  it("returns provider capabilities for UI consumption", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/integrations", integrationsRouter);
+
+    const res = await request(app)
+      .get("/api/integrations/capabilities")
+      .expect(200);
+
+    expect(res.headers["x-required-permission"]).toBe("integrations:view");
+    expect(res.body.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "hubspot",
+          capabilities: expect.objectContaining({
+            oauth: expect.objectContaining({ supported: true }),
+            manual_sync: expect.objectContaining({ supported: true }),
+          }),
         }),
       ])
     );

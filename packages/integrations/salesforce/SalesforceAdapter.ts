@@ -84,6 +84,17 @@ export class SalesforceAdapter extends EnterpriseAdapter {
     this.loginBaseUrl = config.baseUrl ?? DEFAULT_SF_LOGIN_URL;
   }
 
+  protected override buildCapabilities() {
+    return {
+      oauth: true,
+      webhook_support: true,
+      delta_sync: true,
+      manual_sync: true,
+      field_mapping: true,
+      backfill: true,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Connection lifecycle
   // -------------------------------------------------------------------------
