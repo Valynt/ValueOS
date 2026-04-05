@@ -45,6 +45,7 @@ const buildSession = (refreshToken: string, accessToken: string) =>
   ({
     access_token: accessToken,
     refresh_token: refreshToken,
+    token_type: "bearer",
     expires_at: 1735689600,
     user: {
       id: "user-123",
@@ -65,6 +66,7 @@ describe("ValyntApp secureTokenManager", () => {
 
     vi.clearAllMocks();
     mockRpc.mockResolvedValue({ data: { trusted: true }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
     vi.resetModules();
     ({ secureTokenManager } = await import("./SecureTokenManager"));
   });
@@ -72,7 +74,9 @@ describe("ValyntApp secureTokenManager", () => {
   it("does not persist raw session token material to localStorage", async () => {
     const setItemSpy = vi.spyOn(sessionStorage, "setItem");
 
-    await secureTokenManager.storeSession(buildSession("refresh-token-secret", "access-token-secret"));
+    await secureTokenManager.storeSession(
+      buildSession("refresh-token-secret", "access-token-secret"),
+    );
 
     expect(localStorage.getItem("supabase.auth.token") ?? null).toBeNull();
     expect(setItemSpy).toHaveBeenCalledTimes(2);
@@ -86,6 +90,59 @@ describe("ValyntApp secureTokenManager", () => {
     expect(storedValue).toContain("user-123");
     expect(storedValue).not.toContain("access-token-secret");
     expect(storedValue).not.toContain("refresh-token-secret");
+  });
+
+  it("never restores a session from sb-*-auth-token localStorage blobs", () => {
+    const sbTokenKey = "sb-fakeproject-auth-token";
+
+    localStorage.setItem(
+      sbTokenKey,
+      JSON.stringify({
+        currentSession: {
+          access_token: "attacker-access-token",
+          refresh_token: "attacker-refresh-token",
+          token_type: "bearer",
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: { id: "attacker", email: "attacker@example.com" },
+        },
+      }),
+    );
+
+    const getItemSpy = vi.spyOn(localStorage, "getItem");
+
+    const restored = secureTokenManager.getStoredSession();
+
+    expect(restored).toBeNull();
+    expect(getItemSpy).not.toHaveBeenCalledWith(sbTokenKey);
+  });
+
+  it("returns null and clears metadata when metadata contains token-like payload", () => {
+    sessionStorage.setItem(
+      "valynt.auth.state",
+      JSON.stringify({
+        userId: "user-123",
+        refresh_token: "should-never-be-here",
+      }),
+    );
+
+    const removeItemSpy = vi.spyOn(sessionStorage, "removeItem");
+
+    const restored = secureTokenManager.getStoredSession();
+
+    expect(restored).toBeNull();
+    expect(removeItemSpy).toHaveBeenCalledWith("valynt.auth.state");
+  });
+
+  it("uses backend getSession as the only restore path", async () => {
+    const serverSession = buildSession("server-refresh-token", "server-access-token");
+    mockGetSession.mockResolvedValue({ data: { session: serverSession }, error: null });
+
+    const optimistic = secureTokenManager.getStoredSession();
+    const restored = await secureTokenManager.getCurrentSession();
+
+    expect(optimistic).toBeNull();
+    expect(restored).toEqual(serverSession);
+    expect(mockGetSession).toHaveBeenCalledTimes(1);
   });
 
   it("accepts legitimate refresh rotation on TOKEN_REFRESHED", async () => {
