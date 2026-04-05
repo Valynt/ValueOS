@@ -15,6 +15,7 @@ import { SecurityGovernanceManager } from '@/lib/configuration/managers/Security
 import { BillingUsageManager } from '@/lib/configuration/managers/BillingUsageManager';
 import { createClient } from '@/lib/supabase/server';
 import type { ConfigurationAccessLevel } from '@/lib/configuration/types/settings-matrix';
+import { z } from 'zod';
 
 // Simple logger for API routes
 const logger = {
@@ -32,11 +33,38 @@ const opsManager = new OperationalSettingsManager(configManager);
 const securityManager = new SecurityGovernanceManager(configManager);
 const billingManager = new BillingUsageManager(configManager);
 
+type SupabaseUserRecord = {
+  id: string;
+  role: string;
+  organization_id: string | null;
+};
+
+type ConfigurationScope = {
+  type: 'tenant';
+  tenantId: string;
+};
+
+const configurationCategorySchema = z.enum([
+  'organization',
+  'iam',
+  'ai',
+  'operational',
+  'security',
+  'billing'
+]);
+
+const updateRequestSchema = z.object({
+  organizationId: z.string().min(1, 'organizationId is required'),
+  category: configurationCategorySchema,
+  setting: z.string().min(1, 'setting is required'),
+  value: z.unknown()
+});
+
 /**
  * Verify user has admin access
  */
 async function verifyAdminAccess(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string
 ): Promise<{ authorized: boolean; accessLevel: ConfigurationAccessLevel; userId: string }> {
   const {
@@ -53,7 +81,7 @@ async function verifyAdminAccess(
     .from('users')
     .select('role, organization_id')
     .eq('id', user.id)
-    .single();
+    .single<SupabaseUserRecord>();
 
   if (roleError || !userData) {
     return { authorized: false, accessLevel: 'tenant_admin', userId: user.id };
@@ -137,22 +165,21 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const body = await request.json();
-    const { organizationId, category, setting, value } = body;
-
-    if (!organizationId || !category || !setting || value === undefined) {
+    const parseResult = updateRequestSchema.safeParse(await request.json());
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'organizationId, category, setting, and value are required' },
+        { error: parseResult.error.issues[0]?.message ?? 'Invalid request payload' },
         { status: 400 }
       );
     }
+    const { organizationId, category, setting, value } = parseResult.data;
 
     const { authorized, accessLevel } = await verifyAdminAccess(supabase, organizationId);
     if (!authorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const scope = { type: 'tenant' as const, tenantId: organizationId };
+    const scope: ConfigurationScope = { type: 'tenant', tenantId: organizationId };
     let result;
 
     // Route to appropriate manager based on category
@@ -235,8 +262,8 @@ export async function DELETE(request: NextRequest) {
 
 async function handleOrganizationUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
@@ -257,8 +284,8 @@ async function handleOrganizationUpdate(
 
 async function handleIAMUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
@@ -277,8 +304,8 @@ async function handleIAMUpdate(
 
 async function handleAIUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
@@ -301,8 +328,8 @@ async function handleAIUpdate(
 
 async function handleOperationalUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
@@ -323,8 +350,8 @@ async function handleOperationalUpdate(
 
 async function handleSecurityUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
@@ -345,8 +372,8 @@ async function handleSecurityUpdate(
 
 async function handleBillingUpdate(
   setting: string,
-  value: any,
-  scope: any,
+  value: unknown,
+  scope: ConfigurationScope,
   accessLevel: ConfigurationAccessLevel
 ) {
   switch (setting) {
