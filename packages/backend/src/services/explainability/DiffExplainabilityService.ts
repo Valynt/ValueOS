@@ -264,7 +264,7 @@ export class DiffExplainabilityService {
         continue;
       }
 
-      if (leftEntity && rightEntity && leftEntity.content !== rightEntity.content) {
+      if (leftEntity && rightEntity && !this.deepEqualPlain(leftEntity.raw, rightEntity.raw)) {
         diffs.push(this.buildDiff("modified", leftEntity, rightEntity));
       }
     }
@@ -399,14 +399,74 @@ export class DiffExplainabilityService {
 
     let changed = 0;
     for (const key of allKeys) {
+      const leftHasKey = Object.prototype.hasOwnProperty.call(left, key);
+      const rightHasKey = Object.prototype.hasOwnProperty.call(right, key);
       const leftValue = left[key];
       const rightValue = right[key];
-      if (JSON.stringify(leftValue) !== JSON.stringify(rightValue)) {
+      if (leftHasKey !== rightHasKey || !this.deepEqualPlain(leftValue, rightValue)) {
         changed += 1;
       }
     }
 
     return Number((changed / allKeys.size).toFixed(3));
+  }
+
+  private deepEqualPlain(left: unknown, right: unknown): boolean {
+    if (Object.is(left, right)) {
+      return true;
+    }
+
+    if (left === null || right === null) {
+      return left === right;
+    }
+
+    if (Array.isArray(left) || Array.isArray(right)) {
+      if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+        return false;
+      }
+
+      for (let i = 0; i < left.length; i += 1) {
+        if (!this.deepEqualPlain(left[i], right[i])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    if (this.isPlainObject(left) && this.isPlainObject(right)) {
+      const leftKeys = Object.keys(left).sort();
+      const rightKeys = Object.keys(right).sort();
+
+      if (leftKeys.length !== rightKeys.length) {
+        return false;
+      }
+
+      for (let i = 0; i < leftKeys.length; i += 1) {
+        const leftKey = leftKeys[i];
+        const rightKey = rightKeys[i];
+        if (leftKey !== rightKey) {
+          return false;
+        }
+
+        if (!this.deepEqualPlain(left[leftKey], right[rightKey])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return false;
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
   }
 
   private inferChangeReason(
