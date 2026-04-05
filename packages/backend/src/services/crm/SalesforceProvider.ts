@@ -222,12 +222,17 @@ export class SalesforceProvider implements CrmProviderInterface {
       return { valid: false };
     }
 
-    const rawBody = typeof req.body === 'string'
-      ? req.body
-      : JSON.stringify(req.body);
+    const rawBodyBuffer = req.rawBody
+      ? req.rawBody
+      : Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(
+            typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}),
+            'utf8',
+          );
 
     const expected = createHmac('sha256', config.webhookSecret)
-      .update(rawBody)
+      .update(rawBodyBuffer)
       .digest('base64');
 
     // Timing-safe comparison to prevent timing attacks
@@ -243,8 +248,17 @@ export class SalesforceProvider implements CrmProviderInterface {
     }
 
     // Timestamp tolerance: reject events older than 5 minutes if timestamp present
-    if (valid && req.body?.timestamp) {
-      const eventTime = new Date(req.body.timestamp as string).getTime();
+    let parsedPayload: Record<string, unknown> | undefined;
+    try {
+      parsedPayload = Buffer.isBuffer(req.body)
+        ? JSON.parse(rawBodyBuffer.toString('utf8')) as Record<string, unknown>
+        : req.body as Record<string, unknown>;
+    } catch {
+      parsedPayload = undefined;
+    }
+
+    if (valid && parsedPayload?.timestamp) {
+      const eventTime = new Date(parsedPayload.timestamp as string).getTime();
       const now = Date.now();
       const toleranceMs = 5 * 60 * 1000;
       if (Math.abs(now - eventTime) > toleranceMs) {
@@ -258,8 +272,8 @@ export class SalesforceProvider implements CrmProviderInterface {
 
     // Extract tenant from the webhook payload's org ID
     let tenantId: string | undefined;
-    if (valid && req.body?.organizationId) {
-      tenantId = req.body.organizationId;
+    if (valid && parsedPayload?.organizationId) {
+      tenantId = parsedPayload.organizationId as string;
     }
 
     return { valid, tenantId };

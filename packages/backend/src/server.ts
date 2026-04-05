@@ -468,6 +468,8 @@ const jsonParser = express.json();
 app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
     stripeRawParser(req, _res, next);
+  } else if (/^\/api\/crm\/[^/]+\/webhook(?:\/)?$/.test(req.path)) {
+    next();
   } else {
     jsonParser(req, _res, next);
   }

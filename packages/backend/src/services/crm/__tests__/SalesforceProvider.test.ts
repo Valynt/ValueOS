@@ -121,13 +121,15 @@ describe('SalesforceProvider', () => {
     it('accepts requests with valid HMAC signature (timing-safe)', async () => {
       const { createHmac } = await import('node:crypto');
       const body = JSON.stringify({ organizationId: 'org-123', test: true });
+      const rawBody = Buffer.from(body, 'utf8');
       const expected = createHmac('sha256', 'test-webhook-secret')
-        .update(body)
+        .update(rawBody)
         .digest('base64');
 
       const req = {
         headers: { 'x-sfdc-signature': expected },
         body: JSON.parse(body),
+        rawBody,
       } as any;
 
       const result = await provider.verifyWebhookSignature(req);
@@ -142,13 +144,33 @@ describe('SalesforceProvider', () => {
         organizationId: 'org-123',
         timestamp: staleTimestamp,
       });
+      const rawBody = Buffer.from(body, 'utf8');
       const sig = createHmac('sha256', 'test-webhook-secret')
-        .update(body)
+        .update(rawBody)
         .digest('base64');
 
       const req = {
         headers: { 'x-sfdc-signature': sig },
         body: JSON.parse(body),
+        rawBody,
+      } as any;
+
+      const result = await provider.verifyWebhookSignature(req);
+      expect(result.valid).toBe(false);
+    });
+
+    it('rejects signature when parsed payload is tampered after signing', async () => {
+      const { createHmac } = await import('node:crypto');
+      const signedBody = JSON.stringify({ organizationId: 'org-123', test: true });
+      const tamperedBody = JSON.stringify({ organizationId: 'org-999', test: true });
+      const signature = createHmac('sha256', 'test-webhook-secret')
+        .update(Buffer.from(signedBody, 'utf8'))
+        .digest('base64');
+
+      const req = {
+        headers: { 'x-sfdc-signature': signature },
+        body: JSON.parse(tamperedBody),
+        rawBody: Buffer.from(tamperedBody, 'utf8'),
       } as any;
 
       const result = await provider.verifyWebhookSignature(req);
