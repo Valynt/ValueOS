@@ -193,7 +193,7 @@ describe("agent assumption evidence linkage", () => {
 
     const serialized = toValueLifecycleEventPayload(lifecyclePayload);
     expect(serialized.schema_version).toBe("v1");
-    expect(serialized).not.toHaveProperty("schemaVersion");
+    expect(serialized.schemaVersion).toBe("v1");
 
     const deserialized = fromValueLifecycleEventPayload(serialized);
     expect(deserialized.schemaVersion).toBe("v1");

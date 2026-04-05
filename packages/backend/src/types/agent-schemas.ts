@@ -35,7 +35,18 @@ export function fromAgentEventMetadata(metadata: { trace_id: string; agent_id: s
 
 export const VALUE_LIFECYCLE_SCHEMA_VERSION = "v1" as const;
 export type ValueLifecycleSchemaVersion = typeof VALUE_LIFECYCLE_SCHEMA_VERSION;
+export type ValueLifecycleSchemaVersionV1 = ValueLifecycleSchemaVersion;
+
+/**
+ * Shared version literal alias for lifecycle schemas.
+ * Keep stage schemas bound to this alias so a future v2 upgrade remains centralized.
+ */
 export const ValueLifecycleSchemaVersionLiteral = z.literal(VALUE_LIFECYCLE_SCHEMA_VERSION);
+export const ValueLifecycleSchemaVersionV1Literal = ValueLifecycleSchemaVersionLiteral;
+
+const LifecycleSchemaVersionShape = {
+  schemaVersion: ValueLifecycleSchemaVersionV1Literal,
+} as const;
 
 const SourceReferenceSchema = EvidenceRefSchema;
 const LinkedEvidenceRefsSchema = z.array(SourceReferenceSchema).min(1, "assumptions require at least one linked evidence reference");
@@ -96,7 +107,7 @@ function validateAssumptionEvidenceLinkage(
  */
 export const OpportunityContextV1Schema = z.object({
   ...AgentMetaShape,
-  schemaVersion: ValueLifecycleSchemaVersionLiteral,
+  ...LifecycleSchemaVersionShape,
   stage: z.literal("INITIATED"),
 
   organizationId: z.string().uuid(),
@@ -133,7 +144,7 @@ export type OpportunityContextV1 = z.infer<typeof OpportunityContextV1Schema>;
  */
 export const ValueHypothesisDraftV1Schema = z.object({
   ...AgentMetaShape,
-  schemaVersion: ValueLifecycleSchemaVersionLiteral,
+  ...LifecycleSchemaVersionShape,
   stage: z.literal("DRAFTING"),
 
   organizationId: z.string().uuid(),
@@ -169,7 +180,7 @@ export type ValueHypothesisDraftV1 = z.infer<typeof ValueHypothesisDraftV1Schema
  */
 export const FinancialModelV1Schema = z.object({
   ...AgentMetaShape,
-  schemaVersion: ValueLifecycleSchemaVersionLiteral,
+  ...LifecycleSchemaVersionShape,
   stage: z.literal("FINANCIAL"),
 
   organizationId: z.string().uuid(),
@@ -207,7 +218,7 @@ export type FinancialModelV1 = z.infer<typeof FinancialModelV1Schema>;
  */
 export const IntegrityAssessmentV1Schema = z.object({
   ...AgentMetaShape,
-  schemaVersion: ValueLifecycleSchemaVersionLiteral,
+  ...LifecycleSchemaVersionShape,
   stage: z.literal("VALIDATING"),
 
   organizationId: z.string().uuid(),
@@ -242,7 +253,7 @@ export type IntegrityAssessmentV1 = z.infer<typeof IntegrityAssessmentV1Schema>;
  */
 export const ExecutiveNarrativeV1Schema = z.object({
   ...AgentMetaShape,
-  schemaVersion: ValueLifecycleSchemaVersionLiteral,
+  ...LifecycleSchemaVersionShape,
   stage: z.literal("COMPOSING"),
 
   organizationId: z.string().uuid(),
@@ -288,6 +299,14 @@ export const ValueLifecycleV1Schema = z.union([
   ExecutiveNarrativeV1Schema,
 ]);
 
+
+
+/**
+ * Reserved extension point for future lifecycle versions.
+ * Add `ValueLifecycleV2Schema` and widen `ValueLifecycleSchema`/`ValueLifecycle` when v2 lands.
+ */
+// export const ValueLifecycleV2Schema = z.union([]);
+
 // Backward-compatible aliases (existing imports remain stable).
 export const OpportunityContextSchema = OpportunityContextV1Schema;
 export const ValueHypothesisDraftSchema = ValueHypothesisDraftV1Schema;
@@ -306,22 +325,21 @@ export type ExecutiveNarrative = ExecutiveNarrativeV1;
 export type ValueLifecycleV1 = z.infer<typeof ValueLifecycleV1Schema>;
 export type ValueLifecycle = ValueLifecycleV1;
 
-export type ValueLifecycleEventPayload = Omit<ValueLifecycle, "schemaVersion"> & {
+export type ValueLifecycleEventPayload = ValueLifecycle & {
   schema_version: ValueLifecycleSchemaVersion;
 };
 
 export function toValueLifecycleEventPayload(payload: ValueLifecycle): ValueLifecycleEventPayload {
-  const { schemaVersion, ...rest } = payload;
   return {
-    ...rest,
-    schema_version: schemaVersion,
+    ...payload,
+    schema_version: payload.schemaVersion,
   };
 }
 
 export function fromValueLifecycleEventPayload(payload: ValueLifecycleEventPayload): ValueLifecycle {
-  const { schema_version, ...rest } = payload;
+  const { schema_version, schemaVersion, ...rest } = payload;
   return ValueLifecycleSchema.parse({
     ...rest,
-    schemaVersion: schema_version,
+    schemaVersion: schemaVersion ?? schema_version,
   });
 }
