@@ -76,7 +76,15 @@ class CircuitBreaker {
       case "open":
         if (now >= this.nextRetryTime) {
           this.state = "half-open";
-          logger.info(`Circuit breaker transitioning to half-open for provider: ${this.provider}`);
+          logger.info("mcp_rate_limiter_transition", {
+            provider: this.provider,
+            tenant_id: "unknown",
+            operation: "rate_limit.check",
+            correlation_id: "circuit_breaker_transition",
+            event: "mcp_rate_limiter_transition",
+            outcome: "unknown",
+            next_state: "half-open",
+          });
           return { allowed: true, state: "half-open" };
         }
         return { allowed: false, state: "open" };
@@ -109,7 +117,13 @@ class CircuitBreaker {
   private trip(): void {
     this.state = "open";
     this.nextRetryTime = Date.now() + this.config.recoveryTimeout;
-    logger.warn(`Circuit breaker tripped for provider: ${this.provider}`, {
+    logger.warn("mcp_rate_limiter_transition", {
+      provider: this.provider,
+      tenant_id: "unknown",
+      operation: "rate_limit.check",
+      correlation_id: "circuit_breaker_trip",
+      event: "mcp_rate_limiter_transition",
+      outcome: "failure",
       failureCount: this.failureCount,
       nextRetryTime: new Date(this.nextRetryTime),
     });
@@ -120,7 +134,15 @@ class CircuitBreaker {
     this.failureCount = 0;
     this.lastFailureTime = 0;
     this.nextRetryTime = 0;
-    logger.info(`Circuit breaker reset for provider: ${this.provider}`);
+    logger.info("mcp_rate_limiter_transition", {
+      provider: this.provider,
+      tenant_id: "unknown",
+      operation: "rate_limit.check",
+      correlation_id: "circuit_breaker_reset",
+      event: "mcp_rate_limiter_transition",
+      outcome: "success",
+      next_state: "closed",
+    });
   }
 
   getState(): MCPRateLimitState["circuitBreakerState"] {
@@ -257,7 +279,13 @@ export class MCPRateLimiter extends EventEmitter {
       circuitBreakerState: "closed",
     });
 
-    logger.info(`Rate limiter registered for provider: ${config.provider}`, {
+    logger.info("mcp_rate_limiter_provider_registered", {
+      provider: config.provider,
+      tenant_id: "unknown",
+      operation: "rate_limit.register_provider",
+      correlation_id: `provider:${config.provider}`,
+      event: "mcp_rate_limiter_provider_registered",
+      outcome: "success",
       requestsPerSecond: config.requestsPerSecond,
       burstCapacity: config.burstCapacity,
       circuitBreakerEnabled: config.circuitBreaker.enabled,

@@ -104,3 +104,7 @@ export type {
   CRMModule,
   MCPCRMConfig,
 } from "./contracts/crm";
+export {
+  MCP_INTEGRATION_EVENTS,
+  type MCPIntegrationEvent,
+} from "./contracts/integrationEvents";
