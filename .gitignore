@@ -140,3 +140,13 @@ dump.rdb
 ts-*-baseline.json
 ts-signal-report.json
 quality-baselines.json
+
+# Prevent generated artifacts under source-like package directories
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
+packages/*/lib/**/*.js.map
+packages/*/lib/**/*.d.ts.map
+packages/*/config/**/*.js.map
+packages/*/config/**/*.d.ts.map
+packages/*/components/**/*.js.map
+packages/*/components/**/*.d.ts.map
