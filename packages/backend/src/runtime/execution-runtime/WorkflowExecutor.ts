@@ -8,6 +8,7 @@
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { buildRuntimeFailureDetails, type RuntimeFailureDetails } from '@valueos/shared';
+import { z } from 'zod';
 import { securityLogger } from '../../services/core/SecurityLogger.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,6 +18,7 @@ import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 import { recordAgentInvocation, recordLoopCompletion, recordWorkflowDeadlineViolation, recordWorkflowExecutionActive } from '../../observability/valueLoopMetrics.js';
+import { valueTreeRepository, type ValueTreeNodeRow, type ValueTreeNodeWrite } from '../../repositories/ValueTreeRepository.js';
 import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
@@ -35,6 +37,7 @@ import type {
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
+import { ScenarioSchema } from '../../services/value/ScenarioBuilder.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
   ExecutionEnvelope,
@@ -75,12 +78,19 @@ export interface WorkflowExecutorConfig {
 }
 
 const DEFAULT_WORKFLOW_DEADLINE_MINUTES = 30;
+const VALUE_MODELING_WORKFLOW_ID = 'value-modeling-v1';
 
 const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   enableWorkflows: true,
   maxRetryAttempts: 3,
   maxAgentInvocationsPerMinute: 20,
 };
+
+const ScenarioBuildOutputSchema = z.object({
+  conservative: ScenarioSchema,
+  base: ScenarioSchema,
+  upside: ScenarioSchema,
+});
 
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
@@ -258,6 +268,14 @@ export class WorkflowExecutor {
       outputs: Array.isArray(defaultRecord.outputs) ? [...defaultRecord.outputs] : [],
     };
 
+    ({ executionContext, recordSnapshot } = await this.capturePreModelingSnapshotIfNeeded(
+      executionId,
+      organizationId,
+      dag,
+      executionContext,
+      recordSnapshot,
+    ));
+
     const dependencies = new Map<string, Set<string>>();
     const inProgress = new Set<string>();
     const completed = new Set<string>();
@@ -265,6 +283,7 @@ export class WorkflowExecutor {
     const stageStartTimes = new Map<string, Date>();
     const executor = getEnhancedParallelExecutor();
     let integrityVetoed = false;
+    let schemaValidationFailed = false;
 
     for (const stage of dag.stages) dependencies.set(stage.id, new Set());
     for (const t of dag.transitions) {
@@ -369,6 +388,23 @@ export class WorkflowExecutor {
             });
           }
 
+          const schemaValidationResult = this._validateStageOutputSchema(stage, stageOutput);
+          if (!schemaValidationResult.valid) {
+            const msg = `Output failed ${schemaValidationResult.schemaName} schema validation.`;
+            failed.set(stage.id, msg);
+            schemaValidationFailed = true;
+            const metadata = {
+              reason: 'schema_violation',
+              schema: schemaValidationResult.schemaName,
+              stageId: stage.id,
+              issues: schemaValidationResult.issues,
+            };
+            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata }, 'failed');
+            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, metadata);
+            await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'failed', stage.id);
+            break;
+          }
+
           const structuralCheck = await this.policy.evaluateStructuralTruthVeto(stageOutput, { traceId, agentType: stage.agent_type as AgentType, query: stage.description ?? stage.id, stageId: stage.id });
           if (structuralCheck.vetoed) {
             const msg = 'Output failed structural truth validation against expected schema.';
@@ -432,7 +468,7 @@ export class WorkflowExecutor {
         await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'in_progress', stage.id);
       }
 
-      if (integrityVetoed) break;
+      if (integrityVetoed || schemaValidationFailed) break;
     }
 
     // Mark blocked stages as failed
@@ -469,6 +505,100 @@ export class WorkflowExecutor {
       null,
       this.lastDegradedState ? this._withRuntimeFailure(recordSnapshot, this.lastDegradedState) : recordSnapshot,
     );
+  }
+
+  private async capturePreModelingSnapshotIfNeeded(
+    executionId: string,
+    organizationId: string,
+    dag: WorkflowDAG,
+    executionContext: WorkflowStageContextDTO,
+    recordSnapshot: WorkflowExecutionRecord,
+  ): Promise<{ executionContext: WorkflowStageContextDTO; recordSnapshot: WorkflowExecutionRecord }> {
+    if (dag.id !== VALUE_MODELING_WORKFLOW_ID) {
+      return { executionContext, recordSnapshot };
+    }
+
+    const caseId = String(executionContext.caseId ?? executionContext.case_id ?? '');
+    if (!caseId) {
+      throw new Error('Value modeling workflow requires caseId to capture pre-modeling snapshot');
+    }
+
+    try {
+      const existingNodes = await valueTreeRepository.getNodesForCase(caseId, organizationId);
+      const preModelingSnapshot = this.toValueTreeSnapshot(existingNodes);
+
+      const nextContext = this.buildStageContext(
+        organizationId,
+        {
+          ...executionContext,
+          caseId,
+          case_id: caseId,
+          preModelingSnapshot,
+        },
+        'WorkflowExecutor.capturePreModelingSnapshotIfNeeded',
+      );
+
+      const nextRecordSnapshot: WorkflowExecutionRecord = {
+        ...recordSnapshot,
+        context: {
+          ...(recordSnapshot.context && typeof recordSnapshot.context === 'object'
+            ? (recordSnapshot.context as Record<string, unknown>)
+            : {}),
+          caseId,
+          case_id: caseId,
+          organizationId,
+          organization_id: organizationId,
+          tenantId: organizationId,
+          preModelingSnapshot,
+        },
+      };
+
+      await supabase
+        .from('workflow_executions')
+        .update({ context: nextContext })
+        .eq('id', executionId)
+        .eq('organization_id', organizationId);
+
+      await this.executionStore.persistExecutionRecord(executionId, organizationId, nextRecordSnapshot);
+
+      return { executionContext: nextContext, recordSnapshot: nextRecordSnapshot };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to capture pre-modeling snapshot: ${message}`);
+    }
+  }
+
+  private toValueTreeSnapshot(nodes: ValueTreeNodeRow[]): ValueTreeNodeWrite[] {
+    const orderedNodes = [...nodes].sort((a, b) => {
+      if (a.sort_order !== b.sort_order) {
+        return a.sort_order - b.sort_order;
+      }
+      const aKey = a.node_key ?? '';
+      const bKey = b.node_key ?? '';
+      if (aKey !== bKey) {
+        return aKey.localeCompare(bKey);
+      }
+      return a.id.localeCompare(b.id);
+    });
+    const keyById = new Map<string, string>();
+    for (const row of orderedNodes) {
+      if (row.node_key) {
+        keyById.set(row.id, row.node_key);
+      }
+    }
+
+    return orderedNodes.map((row, index) => ({
+      node_key: row.node_key ?? `snapshot-node-${index}`,
+      label: row.label,
+      description: row.description ?? undefined,
+      driver_type: (row.driver_type as ValueTreeNodeWrite['driver_type']) ?? undefined,
+      impact_estimate: row.impact_estimate ?? undefined,
+      confidence: row.confidence ?? undefined,
+      parent_node_key: row.parent_id ? keyById.get(row.parent_id) : undefined,
+      sort_order: row.sort_order,
+      source_agent: row.source_agent ?? undefined,
+      metadata: row.metadata ?? {},
+    }));
   }
 
   // --------------------------------------------------------------------------
@@ -783,6 +913,26 @@ export class WorkflowExecutor {
         value_maturity: 'low',
       },
       is_external_artifact_action: isExternalArtifactWorkflowStage(stage),
+    };
+  }
+
+  private _validateStageOutputSchema(
+    stage: WorkflowStage,
+    stageOutput: unknown,
+  ): { valid: true } | { valid: false; schemaName: string; issues: string[] } {
+    if (stage.id !== 'scenario_building') {
+      return { valid: true };
+    }
+
+    const parsedOutput = ScenarioBuildOutputSchema.safeParse(stageOutput);
+    if (parsedOutput.success) {
+      return { valid: true };
+    }
+
+    return {
+      valid: false,
+      schemaName: 'ScenarioBuildOutputSchema',
+      issues: parsedOutput.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
     };
   }
 

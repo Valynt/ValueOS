@@ -131,6 +131,11 @@ vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
     };
   }),
 }));
+vi.mock('../../../repositories/ValueTreeRepository.js', () => ({
+  valueTreeRepository: {
+    getNodesForCase: vi.fn().mockResolvedValue([]),
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -428,6 +433,37 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
     expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
+  it('fails scenario_building stage when output violates canonical scenario schema', async () => {
+    const executor = await makeExecutor();
+    const malformedScenarioOutput = {
+      conservative: { scenario_type: 'conservative' },
+      base: { scenario_type: 'base' },
+      upside: { scenario_type: 'upside' },
+    };
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: malformedScenarioOutput }, attempts: 1 });
+
+    await executor.executeDAGAsync(
+      'exec-1',
+      'org-1',
+      makeDAG({ stages: [makeStage({ id: 'scenario_building', name: 'Build Scenarios' })] }) as never,
+      makeCtx(),
+      'trace-1',
+    );
+
+    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'stage_failed',
+      stageId: 'scenario_building',
+      metadata: expect.objectContaining({
+        reason: 'schema_violation',
+        schema: 'ScenarioBuildOutputSchema',
+        stageId: 'scenario_building',
+        issues: expect.any(Array),
+      }),
+    }));
+    expect((executor as never).executionStore.recordStageRun).not.toHaveBeenCalled();
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
   it('calls assertTenantExecutionAllowed on each DAG iteration', async () => {
     const policy = makePolicyMock();
     const executor = await makeExecutor(policy);
@@ -435,6 +471,98 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+  });
+
+  it('fails fast before any stage execution when value-modeling snapshot capture fails', async () => {
+    const executor = await makeExecutor();
+    const { valueTreeRepository } = await import('../../../repositories/ValueTreeRepository.js');
+    vi.mocked(valueTreeRepository.getNodesForCase).mockRejectedValueOnce(new Error('snapshot unavailable'));
+    const stageSpy = vi.spyOn(executor, 'executeStageWithRetry');
+
+    await expect(
+      executor.executeDAGAsync(
+        'exec-1',
+        'org-1',
+        makeDAG({ id: 'value-modeling-v1' }) as never,
+        { ...makeCtx(), caseId: 'case-1' } as never,
+        'trace-1',
+      ),
+    ).rejects.toThrow('Failed to capture pre-modeling snapshot');
+
+    expect(stageSpy).not.toHaveBeenCalled();
+  });
+
+  it('persists preModelingSnapshot into workflow execution context for value-modeling workflow', async () => {
+    const executor = await makeExecutor();
+    const { valueTreeRepository } = await import('../../../repositories/ValueTreeRepository.js');
+    vi.mocked(valueTreeRepository.getNodesForCase).mockResolvedValueOnce([
+      {
+        id: 'node-1',
+        case_id: 'case-1',
+        organization_id: 'org-1',
+        parent_id: null,
+        node_key: 'root',
+        label: 'Root Node',
+        description: null,
+        driver_type: 'revenue',
+        impact_estimate: 100,
+        confidence: 0.9,
+        sort_order: 0,
+        source_agent: 'opportunity',
+        metadata: { seeded: true },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ]);
+
+    const { supabase } = await import('../../../lib/supabase.js');
+    const defaultFrom = vi.mocked(supabase.from).getMockImplementation();
+    const updateMock = vi.fn().mockReturnThis();
+    const eqMock = vi.fn().mockReturnThis();
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'workflow_executions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: updateMock,
+          eq: eqMock,
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return defaultFrom ? defaultFrom(table) : ({
+        select: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      });
+    });
+
+    await executor.executeDAGAsync(
+      'exec-2',
+      'org-1',
+      makeDAG({ id: 'value-modeling-v1' }) as never,
+      { ...makeCtx(), caseId: 'case-1' } as never,
+      'trace-2',
+    );
+
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({
+      context: expect.objectContaining({
+        preModelingSnapshot: expect.arrayContaining([
+          expect.objectContaining({
+            node_key: 'root',
+            label: 'Root Node',
+          }),
+        ]),
+      }),
+    }));
   });
 
   it('marks execution pending_approval and halts when stage HITL is required', async () => {

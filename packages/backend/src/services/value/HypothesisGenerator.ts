@@ -13,6 +13,7 @@ import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
+import { ScenarioBuilder } from "./ScenarioBuilder.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -424,6 +425,23 @@ Respond with a JSON object matching this schema exactly:
     if (error) {
       logger.error(`Failed to persist hypotheses: ${error.message}`);
       throw new Error(`Failed to persist hypotheses: ${error.message}`);
+    }
+
+    const [first] = hypotheses;
+    try {
+      await ScenarioBuilder.invalidateScenarioBuildCache(
+        first.tenant_id,
+        first.case_id,
+      );
+    } catch (invalidationError) {
+      logger.warn("Failed to invalidate scenario-build cache after hypothesis mutation", {
+        tenantId: first.tenant_id,
+        caseId: first.case_id,
+        error:
+          invalidationError instanceof Error
+            ? invalidationError.message
+            : String(invalidationError),
+      });
     }
   }
 }

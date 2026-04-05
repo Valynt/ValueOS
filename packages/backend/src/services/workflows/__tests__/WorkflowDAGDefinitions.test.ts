@@ -17,6 +17,7 @@ import {
   PARALLEL_LIFECYCLE_WORKFLOW,
   REALIZATION_WORKFLOW,
   TARGET_WORKFLOW,
+  VALUE_MODELING_WORKFLOW,
   validateWorkflowDAG,
 } from '../WorkflowDAGDefinitions';
 
@@ -64,11 +65,18 @@ describe('Workflow DAG Definitions', () => {
       expect(PARALLEL_LIFECYCLE_WORKFLOW.id).toBe('parallel-value-lifecycle-v1');
       expect(PARALLEL_LIFECYCLE_WORKFLOW.stages.length).toBeGreaterThan(0);
     });
+
+    it('should have valid value modeling workflow', () => {
+      expect(VALUE_MODELING_WORKFLOW).toBeDefined();
+      expect(VALUE_MODELING_WORKFLOW.id).toBe('value-modeling-v1');
+      expect(VALUE_MODELING_WORKFLOW.stages.length).toBe(5);
+      expect(VALUE_MODELING_WORKFLOW.transitions.length).toBe(5);
+    });
   });
 
   describe('Workflow Registry', () => {
     it('should contain all workflow definitions', () => {
-      expect(ALL_WORKFLOW_DEFINITIONS.length).toBe(7);
+      expect(ALL_WORKFLOW_DEFINITIONS.length).toBe(9);
     });
 
     it('should get workflow by ID', () => {
@@ -140,6 +148,12 @@ describe('Workflow DAG Definitions', () => {
 
     it('should validate parallel lifecycle workflow', () => {
       const result = validateWorkflowDAG(PARALLEL_LIFECYCLE_WORKFLOW);
+      expect(result.valid).toBe(true);
+      expect(result.errors.length).toBe(0);
+    });
+
+    it('should validate value modeling workflow', () => {
+      const result = validateWorkflowDAG(VALUE_MODELING_WORKFLOW);
       expect(result.valid).toBe(true);
       expect(result.errors.length).toBe(0);
     });
@@ -245,11 +259,41 @@ describe('Workflow DAG Definitions', () => {
     });
 
     it('should have all stages reachable', () => {
-      ALL_WORKFLOW_DEFINITIONS.forEach(workflow => {
+      const workflowsWithSingleEntry = ALL_WORKFLOW_DEFINITIONS.filter(
+        workflow => workflow.id !== 'deal-assembly-v1'
+      );
+
+      workflowsWithSingleEntry.forEach(workflow => {
         const result = validateWorkflowDAG(workflow);
         const unreachableWarnings = result.warnings.filter(w => w.includes('unreachable'));
         expect(unreachableWarnings.length).toBe(0);
       });
+    });
+
+    it('should require baseline and assumptions before scenario building in value modeling workflow', () => {
+      const predecessors = VALUE_MODELING_WORKFLOW.transitions
+        .filter(transition => transition.to_stage === 'scenario_building')
+        .map(transition => transition.from_stage);
+
+      expect(predecessors).toHaveLength(2);
+      expect(predecessors).toContain('baseline_establishment');
+      expect(predecessors).toContain('assumption_registration');
+    });
+
+    it('should fork from hypothesis generation and re-join before sensitivity analysis in value modeling workflow', () => {
+      const forkTargets = VALUE_MODELING_WORKFLOW.transitions
+        .filter(transition => transition.from_stage === 'hypothesis_generation')
+        .map(transition => transition.to_stage);
+
+      expect(forkTargets).toHaveLength(2);
+      expect(forkTargets).toContain('baseline_establishment');
+      expect(forkTargets).toContain('assumption_registration');
+
+      const scenarioOutgoing = VALUE_MODELING_WORKFLOW.transitions
+        .filter(transition => transition.from_stage === 'scenario_building')
+        .map(transition => transition.to_stage);
+
+      expect(scenarioOutgoing).toEqual(['sensitivity_analysis']);
     });
   });
 });

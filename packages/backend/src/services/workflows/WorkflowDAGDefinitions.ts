@@ -566,7 +566,7 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
     createStage(
       'hypothesis_generation',
       'Generate Value Hypotheses',
-      'opportunity',
+      'groundtruth',
       90,
       RETRY_CONFIGS.STANDARD,
       'compensateHypothesisGeneration',
@@ -575,7 +575,7 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
     createStage(
       'baseline_establishment',
       'Establish Baseline Metrics',
-      'target',
+      'groundtruth',
       60,
       RETRY_CONFIGS.STANDARD,
       'compensateBaselineEstablishment',
@@ -584,7 +584,7 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
     createStage(
       'assumption_registration',
       'Register Assumptions',
-      'target',
+      'value-eval',
       45,
       RETRY_CONFIGS.STANDARD,
       'compensateAssumptionRegistration',
@@ -593,7 +593,7 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
     createStage(
       'scenario_building',
       'Build Three Scenarios',
-      'target',
+      'financial-modeling',
       120,
       RETRY_CONFIGS.AGGRESSIVE,
       'compensateScenarioBuilding',
@@ -602,7 +602,7 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
     createStage(
       'sensitivity_analysis',
       'Run Sensitivity Analysis',
-      'target',
+      'value-eval',
       75,
       RETRY_CONFIGS.STANDARD,
       'compensateSensitivityAnalysis',
@@ -611,7 +611,8 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
   ],
   transitions: [
     { from_stage: 'hypothesis_generation', to_stage: 'baseline_establishment' },
-    { from_stage: 'baseline_establishment', to_stage: 'assumption_registration' },
+    { from_stage: 'hypothesis_generation', to_stage: 'assumption_registration' },
+    { from_stage: 'baseline_establishment', to_stage: 'scenario_building' },
     { from_stage: 'assumption_registration', to_stage: 'scenario_building' },
     { from_stage: 'scenario_building', to_stage: 'sensitivity_analysis' },
   ],
@@ -745,24 +746,6 @@ export async function compensateValueModelingWorkflow(
     }
   }
 }
-
-// ============================================================================
-// Workflow Registry (Updated with Value Modeling)
-// ============================================================================
-
-export const WORKFLOW_REGISTRY = {
-  OPPORTUNITY: OPPORTUNITY_WORKFLOW,
-  TARGET: TARGET_WORKFLOW,
-  REALIZATION: REALIZATION_WORKFLOW,
-  EXPANSION: EXPANSION_WORKFLOW,
-  INTEGRITY: INTEGRITY_WORKFLOW,
-  COMPLETE_LIFECYCLE: COMPLETE_LIFECYCLE_WORKFLOW,
-  PARALLEL_LIFECYCLE: PARALLEL_LIFECYCLE_WORKFLOW,
-  DEAL_ASSEMBLY: DEAL_ASSEMBLY_WORKFLOW,
-  VALUE_MODELING: VALUE_MODELING_WORKFLOW,
-} as const;
-
-export const ALL_WORKFLOW_DEFINITIONS = Object.values(WORKFLOW_REGISTRY);
 
 // ============================================================================
 // Workflow Lookup Functions
@@ -994,6 +977,24 @@ export const DEAL_ASSEMBLY_WORKFLOW: WorkflowDAG = {
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
+
+// ============================================================================
+// Workflow Registry (Updated with Value Modeling)
+// ============================================================================
+
+export const WORKFLOW_REGISTRY = {
+  OPPORTUNITY: OPPORTUNITY_WORKFLOW,
+  TARGET: TARGET_WORKFLOW,
+  REALIZATION: REALIZATION_WORKFLOW,
+  EXPANSION: EXPANSION_WORKFLOW,
+  INTEGRITY: INTEGRITY_WORKFLOW,
+  COMPLETE_LIFECYCLE: COMPLETE_LIFECYCLE_WORKFLOW,
+  PARALLEL_LIFECYCLE: PARALLEL_LIFECYCLE_WORKFLOW,
+  DEAL_ASSEMBLY: DEAL_ASSEMBLY_WORKFLOW,
+  VALUE_MODELING: VALUE_MODELING_WORKFLOW,
+} as const;
+
+export const ALL_WORKFLOW_DEFINITIONS = Object.values(WORKFLOW_REGISTRY);
 
 // ============================================================================
 // Export All
