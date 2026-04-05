@@ -18,6 +18,7 @@ import {
   RateLimitError,
   ValidationError,
 } from "../base/index.js";
+import { getProviderCapabilities } from "../base/capabilities.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,7 @@ interface SalesforceConfigCredentials {
 
 export class SalesforceAdapter extends EnterpriseAdapter {
   readonly provider = "salesforce";
+  readonly capabilities = getProviderCapabilities("salesforce");
 
   private accessToken: string | null = null;
   private refreshToken: string | null = null;

@@ -20,6 +20,7 @@ import {
   integrationConnectionService,
   type IntegrationConnectPayload,
 } from "../services/crm/IntegrationConnectionService";
+import { getIntegrationCapabilityRegistry } from "../services/crm/IntegrationCapabilityRegistry";
 import { integrationControlService } from "../services/crm/IntegrationControlService";
 import { integrationOperationsService } from "../services/crm/IntegrationOperationsService";
 import { handleServiceError } from "../services/errors";
@@ -67,6 +68,15 @@ function handleError(res: Response, error: unknown, message: string) {
 }
 
 router.get(
+  "/capabilities",
+  requirePermission("integrations:view"),
+  async (_req: Request, res: Response) => {
+    const providers = getIntegrationCapabilityRegistry();
+    return res.json({ providers });
+  }
+);
+
+router.get(
   "/operations",
   requirePermission("integrations:view"),
   async (req: Request, res: Response) => {
@@ -78,7 +88,10 @@ router.get(
 
       const parsed = operationsQuerySchema.safeParse(req.query);
       if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid operations query", details: parsed.error.flatten() });
+        return res.status(400).json({
+          error: "Invalid operations query",
+          details: parsed.error.flatten(),
+        });
       }
 
       const operations = await integrationOperationsService.getOperations(
@@ -148,7 +161,11 @@ router.post(
         return res.status(400).json({ error: "Unsupported provider" });
       }
 
-      const result = await integrationOperationsService.retrySync(tenantId, providerParse.data);
+      const result = await integrationOperationsService.retrySync(
+        tenantId,
+        providerParse.data
+      );
+
       const actor = getActor(req);
       await auditLogService.logAudit({
         tenantId,
@@ -293,7 +310,10 @@ router.post(
     try {
       const { userId, tenantId } = getAuthContext(req);
       const integrationId = req.params.integrationId;
-      const payload = req.body as Pick<IntegrationConnectPayload, "accessToken" | "refreshToken" | "tokenExpiresAt">;
+      const payload = req.body as Pick<
+        IntegrationConnectPayload,
+        "accessToken" | "refreshToken" | "tokenExpiresAt"
+      >;
 
       if (!tenantId || !userId) {
         return res.status(400).json({ error: "Tenant context is required" });
@@ -303,7 +323,13 @@ router.post(
         return res.status(400).json({ error: "accessToken is required" });
       }
 
-      const integration = await integrationConnectionService.rotateCredentials(userId, tenantId, integrationId, payload);
+      const integration = await integrationConnectionService.rotateCredentials(
+        userId,
+        tenantId,
+        integrationId,
+        payload
+      );
+
       const actor = getActor(req);
       await auditLogService.logAudit({
         userId: actor.id,
@@ -380,7 +406,12 @@ router.get(
         return res.status(400).json({ error: "Tenant context is required" });
       }
 
-      const history = await integrationConnectionService.getAuditHistory(userId, tenantId, integrationId);
+      const history = await integrationConnectionService.getAuditHistory(
+        userId,
+        tenantId,
+        integrationId
+      );
+
       return res.json({ history });
     } catch (error) {
       return handleError(res, error, "Failed to load integration audit history");

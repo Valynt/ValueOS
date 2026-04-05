@@ -18,6 +18,19 @@ export interface IntegrationConfig {
   credentials?: Record<string, unknown>;
 }
 
+export const INTEGRATION_CAPABILITY_KEYS = [
+  "oauth",
+  "webhookSupport",
+  "deltaSync",
+  "manualSync",
+  "fieldMapping",
+  "backfill",
+] as const;
+
+export type IntegrationCapabilityKey = (typeof INTEGRATION_CAPABILITY_KEYS)[number];
+
+export type IntegrationCapabilities = Record<IntegrationCapabilityKey, boolean>;
+
 export interface NormalizedEntity {
   id: string;
   externalId: string;

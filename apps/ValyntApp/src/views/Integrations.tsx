@@ -1,16 +1,22 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
   RefreshCw,
   ShieldAlert,
+  SlidersHorizontal,
   Wrench,
   XCircle,
 } from "lucide-react";
 
+import { api } from "@/api/client/unified-api-client";
 import { cn } from "@/lib/utils";
 
 type HealthState = "connected" | "degraded" | "disconnected" | "error";
+type IntegrationProvider = "hubspot" | "salesforce" | "servicenow" | "sharepoint" | "slack";
+type CapabilityKey = "oauth" | "webhookSupport" | "deltaSync" | "manualSync" | "fieldMapping" | "backfill";
+type IntegrationCapabilities = Record<CapabilityKey, boolean>;
 
 interface IntegrationIncident {
   id: string;
@@ -19,7 +25,8 @@ interface IntegrationIncident {
   summary: string;
 }
 
-interface Integration {
+interface IntegrationCard {
+  provider: IntegrationProvider;
   name: string;
   category: string;
   description: string;
@@ -32,8 +39,15 @@ interface Integration {
   timeline?: IntegrationIncident[];
 }
 
-const integrations: Integration[] = [
+interface CapabilityRegistryEntry {
+  provider: IntegrationProvider;
+  displayName: string;
+  capabilities: IntegrationCapabilities;
+}
+
+const integrations: IntegrationCard[] = [
   {
+    provider: "salesforce",
     name: "Salesforce",
     category: "CRM",
     description: "Bi-directional opportunity and account sync",
@@ -45,11 +59,10 @@ const integrations: Integration[] = [
       { id: "sf-r-1", kind: "recovery", timestamp: "2h ago", summary: "Recovered from webhook timeout incident" },
       { id: "sf-i-1", kind: "incident", timestamp: "3h ago", summary: "Spike in consecutive webhook failures" },
     ],
-    remediationHints: [
-      "No action required. Continue monitoring webhook latency.",
-    ],
+    remediationHints: ["No action required. Continue monitoring webhook latency."],
   },
   {
+    provider: "hubspot",
     name: "HubSpot",
     category: "CRM",
     description: "Contact and deal pipeline sync",
@@ -67,9 +80,27 @@ const integrations: Integration[] = [
       "Validate HubSpot webhook signature secret in integration settings.",
     ],
   },
-  { name: "Slack", category: "Communications", description: "Agent notifications and checkpoint alerts", status: "connected", healthBadge: "healthy", lastSync: "1m ago", icon: "SL" },
-  { name: "ServiceNow", category: "Communications", description: "Ticket creation and status tracking", status: "disconnected", healthBadge: "disconnected", icon: "SN" },
   {
+    provider: "slack",
+    name: "Slack",
+    category: "Communications",
+    description: "Agent notifications and checkpoint alerts",
+    status: "connected",
+    healthBadge: "healthy",
+    lastSync: "1m ago",
+    icon: "SL",
+  },
+  {
+    provider: "servicenow",
+    name: "ServiceNow",
+    category: "Communications",
+    description: "Ticket creation and status tracking",
+    status: "disconnected",
+    healthBadge: "disconnected",
+    icon: "SN",
+  },
+  {
+    provider: "sharepoint",
     name: "SharePoint",
     category: "Communications",
     description: "Document storage and artifact sharing",
@@ -78,18 +109,40 @@ const integrations: Integration[] = [
     errorCount: 3,
     lastSync: "2h ago",
     icon: "SP",
-    timeline: [
-      { id: "sp-i-1", kind: "incident", timestamp: "2h ago", summary: "Connector API rate limit exceeded" },
-    ],
+    timeline: [{ id: "sp-i-1", kind: "incident", timestamp: "2h ago", summary: "Connector API rate limit exceeded" }],
     remediationHints: [
       "Reduce polling frequency to remain within Microsoft API quotas.",
       "Retry the connection after the current quota window resets.",
     ],
   },
-  { name: "EDGAR / XBRL", category: "Ground Truth", description: "SEC filings and financial data (always-on)", status: "connected", healthBadge: "healthy", lastSync: "Real-time", icon: "ED" },
-  { name: "Market Data", category: "Ground Truth", description: "Industry benchmarks and market intelligence", status: "connected", healthBadge: "healthy", lastSync: "15m ago", icon: "MD" },
-  { name: "Together.ai", category: "LLM Gateway", description: "Primary LLM inference provider", status: "connected", healthBadge: "healthy", lastSync: "Active", icon: "TG" },
-  { name: "Stripe", category: "Billing", description: "Subscription management and usage metering", status: "connected", healthBadge: "healthy", lastSync: "Real-time", icon: "ST" },
+];
+
+const fallbackCapabilityRegistry: CapabilityRegistryEntry[] = [
+  {
+    provider: "hubspot",
+    displayName: "HubSpot",
+    capabilities: { oauth: true, webhookSupport: true, deltaSync: true, manualSync: true, fieldMapping: true, backfill: true },
+  },
+  {
+    provider: "salesforce",
+    displayName: "Salesforce",
+    capabilities: { oauth: true, webhookSupport: true, deltaSync: true, manualSync: true, fieldMapping: true, backfill: true },
+  },
+  {
+    provider: "servicenow",
+    displayName: "ServiceNow",
+    capabilities: { oauth: true, webhookSupport: true, deltaSync: true, manualSync: true, fieldMapping: true, backfill: false },
+  },
+  {
+    provider: "sharepoint",
+    displayName: "SharePoint",
+    capabilities: { oauth: true, webhookSupport: false, deltaSync: true, manualSync: true, fieldMapping: false, backfill: false },
+  },
+  {
+    provider: "slack",
+    displayName: "Slack",
+    capabilities: { oauth: true, webhookSupport: true, deltaSync: false, manualSync: true, fieldMapping: false, backfill: false },
+  },
 ];
 
 const statusConfig = {
@@ -106,9 +159,59 @@ const healthBadgeConfig = {
   disconnected: "bg-zinc-100 text-zinc-500 border-zinc-200",
 } as const;
 
-const categories = ["CRM", "Communications", "Ground Truth", "LLM Gateway", "Billing"];
+const categories = ["CRM", "Communications"];
+
+const actionLabels: Record<CapabilityKey, string> = {
+  oauth: "Connect",
+  webhookSupport: "Configure webhooks",
+  deltaSync: "Delta sync",
+  manualSync: "Sync now",
+  fieldMapping: "Field mapping",
+  backfill: "Run backfill",
+};
+
+const capabilityDisabledReason: Record<CapabilityKey, string> = {
+  oauth: "This provider does not support OAuth in ValueOS yet.",
+  webhookSupport: "Webhook subscriptions are not available for this provider.",
+  deltaSync: "Delta sync is not available for this provider.",
+  manualSync: "Manual sync is not available for this provider.",
+  fieldMapping: "Field mapping is not supported for this provider.",
+  backfill: "Backfill is not supported for this provider.",
+};
+
+function actionBlockedByStatus(action: CapabilityKey, status: HealthState): string | null {
+  if (action === "oauth" && status !== "disconnected") {
+    return "Already connected. Use Configure actions instead.";
+  }
+  if (action !== "oauth" && status === "disconnected") {
+    return "Connect this integration first to enable this action.";
+  }
+  return null;
+}
 
 export function Integrations() {
+  const [capabilityRegistry, setCapabilityRegistry] = useState<CapabilityRegistryEntry[]>(fallbackCapabilityRegistry);
+
+  useEffect(() => {
+    const loadCapabilities = async () => {
+      try {
+        const response = await api.getIntegrationCapabilities() as { providers?: CapabilityRegistryEntry[] };
+        if (Array.isArray(response.providers) && response.providers.length > 0) {
+          setCapabilityRegistry(response.providers);
+        }
+      } catch {
+        // Fall back to static registry when the API endpoint is unavailable.
+      }
+    };
+
+    void loadCapabilities();
+  }, []);
+
+  const capabilitiesByProvider = useMemo(
+    () => new Map(capabilityRegistry.map((entry) => [entry.provider, entry.capabilities])),
+    [capabilityRegistry]
+  );
+
   return (
     <div className="p-6 lg:p-10 max-w-[1400px] mx-auto space-y-8">
       <div>
@@ -117,7 +220,7 @@ export function Integrations() {
       </div>
 
       {categories.map((cat) => {
-        const items = integrations.filter((i) => i.category === cat);
+        const items = integrations.filter((integration) => integration.category === cat);
         if (items.length === 0) return null;
         return (
           <div key={cat}>
@@ -126,6 +229,12 @@ export function Integrations() {
               {items.map((integration) => {
                 const st = statusConfig[integration.status];
                 const StIcon = st.icon;
+                const providerCapabilities = capabilitiesByProvider.get(integration.provider);
+                const supportedActions = (Object.keys(actionLabels) as CapabilityKey[])
+                  .filter((action) => providerCapabilities?.[action]);
+                const unsupportedActions = (Object.keys(actionLabels) as CapabilityKey[])
+                  .filter((action) => !providerCapabilities?.[action]);
+
                 return (
                   <div
                     key={integration.name}
@@ -133,10 +242,12 @@ export function Integrations() {
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center text-[12px] font-black",
-                          integration.status === "connected" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-400"
-                        )}>
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center text-[12px] font-black",
+                            integration.status === "connected" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-400"
+                          )}
+                        >
                           {integration.icon}
                         </div>
                         <div>
@@ -147,10 +258,7 @@ export function Integrations() {
                           </div>
                         </div>
                       </div>
-                      <span className={cn(
-                        "text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full border",
-                        healthBadgeConfig[integration.healthBadge]
-                      )}>
+                      <span className={cn("text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full border", healthBadgeConfig[integration.healthBadge])}>
                         {integration.healthBadge}
                       </span>
                     </div>
@@ -191,35 +299,48 @@ export function Integrations() {
                       </div>
                     )}
 
+                    <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500 mb-2 flex items-center gap-1">
+                        <SlidersHorizontal className="w-3 h-3" />
+                        Actions by capability
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {supportedActions.map((action) => {
+                          const statusDisabledReason = actionBlockedByStatus(action, integration.status);
+                          const isDisabled = statusDisabledReason !== null;
+                          return (
+                            <button
+                              key={`${integration.provider}-${action}`}
+                              disabled={isDisabled}
+                              className={cn(
+                                "px-2.5 py-1.5 rounded-lg text-[11px] border transition-colors",
+                                isDisabled
+                                  ? "border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed"
+                                  : "border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-100"
+                              )}
+                              title={statusDisabledReason ?? undefined}
+                            >
+                              {action === "manualSync" && <RefreshCw className="w-3 h-3 inline mr-1" />}
+                              {actionLabels[action]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {unsupportedActions.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {unsupportedActions.map((action) => (
+                            <li key={`${integration.provider}-${action}-unsupported`} className="text-[10px] text-zinc-400">
+                              {actionLabels[action]}: {capabilityDisabledReason[action]}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
                     <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
                       <div>
-                        {integration.lastSync && (
-                          <span className="text-[11px] text-zinc-400">
-                            Last sync: {integration.lastSync}
-                          </span>
-                        )}
-                        {integration.errorCount && (
-                          <span className="text-[11px] text-red-500 ml-2">
-                            {integration.errorCount} errors
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-1.5">
-                        {(integration.status === "connected" || integration.status === "degraded") && (
-                          <button className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
-                            <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
-                          </button>
-                        )}
-                        <button
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
-                            integration.status === "disconnected"
-                              ? "bg-zinc-950 text-white hover:bg-zinc-800"
-                              : "border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                          )}
-                        >
-                          {integration.status === "disconnected" ? "Connect" : "Configure"}
-                        </button>
+                        {integration.lastSync && <span className="text-[11px] text-zinc-400">Last sync: {integration.lastSync}</span>}
+                        {integration.errorCount && <span className="text-[11px] text-red-500 ml-2">{integration.errorCount} errors</span>}
                       </div>
                     </div>
                   </div>

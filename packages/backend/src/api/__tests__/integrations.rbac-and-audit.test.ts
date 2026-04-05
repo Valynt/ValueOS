@@ -141,6 +141,29 @@ describe("Integrations API RBAC + audit history", () => {
     );
   });
 
+ it("returns provider capability registry for UI consumption", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/integrations", integrationsRouter);
+
+    const res = await request(app)
+      .get("/api/integrations/capabilities")
+      .expect(200);
+
+    expect(res.headers["x-required-permission"]).toBe("integrations:view");
+    expect(res.body.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "hubspot",
+          capabilities: expect.objectContaining({
+            oauth: true,
+            manualSync: true,
+          }),
+        }),
+      ])
+    );
+  });
+
   it("requires integrations:view for operations query", async () => {
     const app = express();
     app.use(express.json());

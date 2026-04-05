@@ -19,6 +19,7 @@ import {
   RateLimitError,
   ValidationError,
 } from "../base/index.js";
+import { getProviderCapabilities } from "../base/capabilities.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,7 @@ const slackBaseSchema = z.object({
 
 export class SlackAdapter extends EnterpriseAdapter {
   readonly provider = "slack";
+  readonly capabilities = getProviderCapabilities("slack");
 
   private botToken: string | null = null;
   private adapterConfig: SlackAdapterConfig | null = null;
