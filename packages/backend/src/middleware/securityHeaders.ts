@@ -2,6 +2,11 @@ import crypto from "node:crypto";
 
 import { NextFunction, Request, Response } from "express";
 
+import {
+  CANONICAL_CSP_BASELINE_DIRECTIVES,
+  buildCanonicalPermissionsPolicy,
+  getCanonicalSecurityHeaderValue,
+} from "../config/securityConfig.js";
 import { logger } from "../lib/logger.js";
 import { securityEvents } from "../security/securityLogger.js";
 
@@ -109,8 +114,11 @@ export interface SecurityHeadersOptions {
   isDevelopment?: boolean;
 }
 
-export function getSecurityHeaders(options: SecurityHeadersOptions = {}): Record<string, string> {
-  const isDevelopment = options.isDevelopment ?? process.env.NODE_ENV === "development";
+export function getSecurityHeaders(
+  options: SecurityHeadersOptions = {}
+): Record<string, string> {
+  const isDevelopment =
+    options.isDevelopment ?? process.env.NODE_ENV === "development";
   const baseCSP = isDevelopment ? developmentCSP : productionCSP;
   const nonce = options.nonce;
 
@@ -122,15 +130,25 @@ export function getSecurityHeaders(options: SecurityHeadersOptions = {}): Record
       }
     : baseCSP;
 
+  const cspHeader = buildCSPString(cspConfig);
+  if (!isDevelopment) {
+    for (const requiredDirective of CANONICAL_CSP_BASELINE_DIRECTIVES) {
+      if (!cspHeader.includes(requiredDirective)) {
+        throw new Error(`CSP baseline directive missing: ${requiredDirective}`);
+      }
+    }
+  }
+
   return {
-    "Content-Security-Policy": buildCSPString(cspConfig),
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": cspHeader,
+    "Strict-Transport-Security": getCanonicalSecurityHeaderValue(
+      "Strict-Transport-Security"
+    ),
+    "X-Frame-Options": getCanonicalSecurityHeaderValue("X-Frame-Options"),
     "X-Content-Type-Options": "nosniff",
     "X-XSS-Protection": "1; mode=block",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy":
-      "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()",
+    "Referrer-Policy": getCanonicalSecurityHeaderValue("Referrer-Policy"),
+    "Permissions-Policy": buildCanonicalPermissionsPolicy(),
     "Cross-Origin-Embedder-Policy": "require-corp",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": "same-origin",
@@ -144,7 +162,11 @@ export function getSecurityHeaders(options: SecurityHeadersOptions = {}): Record
  * Modern security headers middleware for production environments.
  * Implements CSP, HSTS, X-Frame-Options, NoSniff, and other protections.
  */
-export function cspNonceMiddleware(_req: Request, res: Response, next: NextFunction): void {
+export function cspNonceMiddleware(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
   const isDevelopment = process.env.NODE_ENV === "development";
   if (!isDevelopment) {
     res.locals.cspNonce = crypto.randomBytes(16).toString("base64");
@@ -152,8 +174,13 @@ export function cspNonceMiddleware(_req: Request, res: Response, next: NextFunct
   next();
 }
 
-export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  const nonce = typeof res.locals.cspNonce === "string" ? res.locals.cspNonce : undefined;
+export function securityHeadersMiddleware(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const nonce =
+    typeof res.locals.cspNonce === "string" ? res.locals.cspNonce : undefined;
   const headers = getSecurityHeaders({ nonce });
   for (const [key, value] of Object.entries(headers)) {
     res.setHeader(key, value);

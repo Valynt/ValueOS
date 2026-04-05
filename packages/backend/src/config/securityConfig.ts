@@ -8,6 +8,58 @@ import * as net from "node:net";
 
 import { Request, Response } from "express";
 
+export type SecurityHeaderOwner = "edge" | "app" | "both";
+
+export interface CanonicalSecurityHeaderEntry {
+  value: string;
+  owner: SecurityHeaderOwner;
+}
+
+export const CANONICAL_SECURITY_HEADER_MATRIX: Record<
+  | "Strict-Transport-Security"
+  | "X-Frame-Options"
+  | "Referrer-Policy"
+  | "Permissions-Policy",
+  CanonicalSecurityHeaderEntry
+> = {
+  "Strict-Transport-Security": {
+    value: "max-age=31536000; includeSubDomains; preload",
+    owner: "edge",
+  },
+  "X-Frame-Options": {
+    value: "DENY",
+    owner: "both",
+  },
+  "Referrer-Policy": {
+    value: "strict-origin-when-cross-origin",
+    owner: "both",
+  },
+  "Permissions-Policy": {
+    value:
+      "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()",
+    owner: "app",
+  },
+};
+
+export const CANONICAL_CSP_BASELINE_DIRECTIVES: readonly string[] = [
+  "default-src 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+];
+
+export function buildCanonicalPermissionsPolicy(): string {
+  return CANONICAL_SECURITY_HEADER_MATRIX["Permissions-Policy"].value;
+}
+
+export function getCanonicalSecurityHeaderValue(
+  header: keyof typeof CANONICAL_SECURITY_HEADER_MATRIX
+): string {
+  return CANONICAL_SECURITY_HEADER_MATRIX[header].value;
+}
+
 // Security Headers Configuration
 export interface SecurityHeadersConfig {
   // Content Security Policy
@@ -130,7 +182,10 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     preload: true,
   },
 
-  xFrameOptions: "DENY",
+  xFrameOptions: getCanonicalSecurityHeaderValue("X-Frame-Options") as
+    | "DENY"
+    | "SAMEORIGIN"
+    | "ALLOW-FROM",
 
   xContentTypeOptions: "nosniff",
 
@@ -139,18 +194,23 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     mode: "block",
   },
 
-  referrerPolicy: "strict-origin-when-cross-origin",
+  referrerPolicy: getCanonicalSecurityHeaderValue("Referrer-Policy"),
 
   permissionsPolicy: {
     camera: [],
     microphone: [],
     geolocation: [],
     "interest-cohort": [],
-    magnetometer: [],
-    gyroscope: [],
-    accelerometer: [],
     payment: [],
     usb: [],
+    magnetometer: [],
+    accelerometer: [],
+    gyroscope: [],
+    "ambient-light-sensor": [],
+    autoplay: [],
+    "encrypted-media": [],
+    fullscreen: [],
+    "picture-in-picture": [],
   },
 
   dnsPrefetchControl: "off",
@@ -158,7 +218,12 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
   cors: {
     origins: process.env.CORS_ALLOWED_ORIGINS?.split(",") || [],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    headers: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Requested-With"],
+    headers: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+      "X-Requested-With",
+    ],
     credentials: true,
     maxAge: 86400, // 24 hours
   },
@@ -220,7 +285,11 @@ export const developmentSecurityConfig: SecurityHeadersConfig = {
   },
   cors: {
     ...productionSecurityConfig.cors,
-    origins: ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
+    origins: process.env.CORS_ALLOWED_ORIGINS?.split(",") || [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://localhost:8080",
+    ],
   },
 };
 
@@ -229,7 +298,21 @@ export const developmentSecurityConfig: SecurityHeadersConfig = {
  */
 export function getSecurityConfig(): SecurityHeadersConfig {
   const isProduction = process.env.NODE_ENV === "production";
-  return isProduction ? productionSecurityConfig : developmentSecurityConfig;
+  const baseConfig = isProduction
+    ? productionSecurityConfig
+    : developmentSecurityConfig;
+  const envOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(",");
+
+  return {
+    ...baseConfig,
+    cors: {
+      ...baseConfig.cors,
+      origins:
+        envOrigins && envOrigins.length > 0
+          ? envOrigins
+          : baseConfig.cors.origins,
+    },
+  };
 }
 
 /**
@@ -279,15 +362,13 @@ export function applySecurityHeaders(_req: Request, res: Response): void {
   res.setHeader("Referrer-Policy", config.referrerPolicy);
 
   // Permissions-Policy
-  const permissions = Object.entries(config.permissionsPolicy)
-    .map(([feature, allowlist]) => `${feature}=(${allowlist.join(" ")})`)
-    .join(", ");
-  res.setHeader("Permissions-Policy", permissions);
+  res.setHeader("Permissions-Policy", buildCanonicalPermissionsPolicy());
 
   // X-DNS-Prefetch-Control
   res.setHeader("X-DNS-Prefetch-Control", config.dnsPrefetchControl);
 
   // Additional security headers
+  res.setHeader("X-Download-Options", "noopen");
   res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
@@ -370,13 +451,15 @@ export async function validateSSRFUrl(
     const host = parsedUrl.hostname.split("%")[0].toLowerCase();
 
     // Check blocked hosts
-    if (config.blockedHosts.some((rule) => hostMatchesRule(host, rule))) {
+    if (config.blockedHosts.some(rule => hostMatchesRule(host, rule))) {
       return { valid: false, error: "URL blocked by SSRF protection" };
     }
 
     // Check allowed hosts (if whitelist is enabled)
     if (config.allowedHosts.length > 0) {
-      const isAllowed = config.allowedHosts.some((rule) => hostMatchesRule(host, rule));
+      const isAllowed = config.allowedHosts.some(rule =>
+        hostMatchesRule(host, rule)
+      );
 
       if (!isAllowed) {
         return { valid: false, error: "URL not in allowed hosts list" };
@@ -405,7 +488,7 @@ export async function validateSSRFUrl(
     if (!records.length) {
       return { valid: false, error: "DNS returned no records" };
     }
-    if (records.some((record) => isPrivateOrReservedIp(record.address))) {
+    if (records.some(record => isPrivateOrReservedIp(record.address))) {
       return { valid: false, error: "DNS resolves to private or reserved IP" };
     }
 
@@ -423,7 +506,9 @@ function hostMatchesRule(host: string, rule: string): boolean {
   }
 
   const suffix = normalizedRule.slice(1); // ".example.com"
-  return normalizedHost.endsWith(suffix) && normalizedHost.length > suffix.length;
+  return (
+    normalizedHost.endsWith(suffix) && normalizedHost.length > suffix.length
+  );
 }
 
 function isPrivateOrReservedIp(ip: string): boolean {
@@ -471,8 +556,8 @@ function isPrivateOrReservedIp(ip: string): boolean {
 }
 
 function isPrivateOrReservedIpv4(ip: string): boolean {
-  const octets = ip.split(".").map((part) => Number(part));
-  if (octets.length !== 4 || octets.some((part) => Number.isNaN(part))) {
+  const octets = ip.split(".").map(part => Number(part));
+  if (octets.length !== 4 || octets.some(part => Number.isNaN(part))) {
     return true;
   }
   const [a, b, c, d] = octets;
@@ -496,11 +581,13 @@ function isPrivateOrReservedIpv4(ip: string): boolean {
 
 function inRange(value: number, base: string, mask: number): boolean {
   const baseValue = ipToInt(base);
-  const maskValue = mask === 0 ? 0 : (~((1 << (32 - mask)) - 1) >>> 0);
+  const maskValue = mask === 0 ? 0 : ~((1 << (32 - mask)) - 1) >>> 0;
   return (value & maskValue) === (baseValue & maskValue);
 }
 
 function ipToInt(ip: string): number {
-  const parts = ip.split(".").map((part) => Number(part));
-  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  const parts = ip.split(".").map(part => Number(part));
+  return (
+    ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
+  );
 }
