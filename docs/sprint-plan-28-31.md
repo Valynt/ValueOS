@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 # Sprint Plan — Sprints 28–31: Type Safety Completion, Tenant Onboarding, and Integration Depth
 
 **Author:** Ona (AI Engineering Agent)

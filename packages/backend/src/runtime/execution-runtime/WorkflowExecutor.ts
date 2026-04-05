@@ -53,6 +53,9 @@ import type { PolicyEngine } from '../policy-engine/index.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
 
 import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
+import { validateWorkflowDAG } from './dag-validator.js';
+import { WorkflowStatePersistence } from './state-persistence.js';
+import { buildRetryOptions, buildStageRetryConfig } from './retry-policy.js';
 import { stageTransitionEventBus } from '../approval-inbox/StageTransitionEventBus.js';
 
 // ============================================================================
@@ -98,6 +101,7 @@ export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionStore: WorkflowExecutionStore;
   private readonly handoffCardBuilder: HandoffCardBuilder;
+  private readonly statePersistence: WorkflowStatePersistence;
 
   private lastDegradedState: RuntimeFailureDetails | null = null;
 
@@ -113,6 +117,7 @@ export class WorkflowExecutor {
   ) {
     this.executionStore = new WorkflowExecutionStore(supabase);
     this.handoffCardBuilder = new HandoffCardBuilder();
+    this.statePersistence = new WorkflowStatePersistence(this.executionStore);
   }
 
   private buildStageContext(
@@ -174,7 +179,7 @@ export class WorkflowExecutor {
         throw new Error('Workflow not authorized for this organization');
       }
 
-      const dag = this._validateWorkflowDAG(definition.dag_schema);
+      const dag = validateWorkflowDAG(definition.dag_schema);
       const executionId = uuidv4();
       const initialStageExecutionId = uuidv4();
 
@@ -979,27 +984,14 @@ private toValueTreeSnapshot(nodes: ValueTreeNodeRow[]): ValueTreeNodeWrite[] {
         };
       }
 
-      const rc = {
-        max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
-        initial_delay_ms: stage.retry_config?.initial_delay_ms ?? 1000,
-        max_delay_ms: stage.retry_config?.max_delay_ms ?? 10000,
-        multiplier: stage.retry_config?.multiplier ?? 2,
-        jitter: stage.retry_config?.jitter ?? true,
-      };
-
-      const retryOptions: Partial<RetryOptions> = {
-        maxRetries: Math.max(rc.max_attempts - 1, 0),
-        strategy: 'exponential_backoff',
-        baseDelay: rc.initial_delay_ms,
-        maxDelay: rc.max_delay_ms,
-        backoffMultiplier: rc.multiplier,
-        jitterFactor: rc.jitter ? 0.1 : 0,
-        fallbackAgents: [],
-        fallbackStrategy: 'none',
-        attemptTimeout: (stage.timeout_seconds ?? 30) * 1000,
-        overallTimeout: (stage.timeout_seconds ?? 30) * 1000 * rc.max_attempts,
-        context: { requestId: traceId, sessionId: context.sessionId, userId: context.userId, organizationId: context.organizationId, priority: 'medium', source: 'execution-runtime', metadata: { executionId, stageId: stage.id } },
-      };
+      const stageRetryConfig = buildStageRetryConfig(stage, this.config.maxRetryAttempts);
+      const retryOptions: Partial<RetryOptions> = buildRetryOptions(
+        stage,
+        context,
+        traceId,
+        executionId,
+        stageRetryConfig,
+      );
 
       const stageAgent = {
         execute: async (): Promise<RetryAgentResponse<Record<string, unknown>>> => {
@@ -1376,87 +1368,22 @@ private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
   }
 
   private async _persistAndUpdate(executionId: string, organizationId: string, record: WorkflowExecutionRecord, status: WorkflowStatus, stageId: string | null): Promise<void> {
-    await this.executionStore.persistExecutionRecord(executionId, organizationId, record);
-    await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
+    await this.statePersistence.persistAndUpdate(executionId, organizationId, record, status, stageId);
   }
 
   private async _updateStatus(executionId: string, organizationId: string, status: WorkflowStatus, stageId: string | null, record: WorkflowExecutionRecord): Promise<void> {
-    await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
+    await this.statePersistence.updateStatus(executionId, organizationId, status, stageId, record);
   }
 
   private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval' | 'stage_hitl_pending_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
-    await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
+    await this.statePersistence.recordWorkflowEvent(executionId, organizationId, eventType, stageId, metadata);
   }
 
   private async _handleWorkflowFailure(executionId: string, organizationId: string, errorMessage: string): Promise<void> {
-    await supabase.from('workflow_executions').update({ status: 'failed', error_message: errorMessage, completed_at: new Date().toISOString() }).eq('id', executionId).eq('organization_id', organizationId);
-    logger.error('Workflow failed', undefined, { executionId, errorMessage });
+    await this.statePersistence.handleWorkflowFailure(executionId, organizationId, errorMessage);
   }
 
   private _validateWorkflowDAG(rawDag: unknown): WorkflowDAG {
-    if (!rawDag || typeof rawDag !== 'object') throw new Error('Invalid workflow DAG: must be an object');
-    const dag = rawDag as WorkflowDAG;
-    if (!Array.isArray(dag.stages) || dag.stages.length === 0) throw new Error('Invalid workflow DAG: stages must be a non-empty array');
-    if (!dag.initial_stage) throw new Error('Invalid workflow DAG: initial_stage is required');
-    if (!Array.isArray(dag.final_stages) || dag.final_stages.length === 0) throw new Error('Invalid workflow DAG: final_stages must be a non-empty array');
-    const stageIds = new Set(dag.stages.map((s) => s.id));
-    if (!stageIds.has(dag.initial_stage)) throw new Error('Workflow DAG initial_stage must reference an existing stage');
-    const missingFinals = dag.final_stages.filter((s) => !stageIds.has(s));
-    if (missingFinals.length > 0) throw new Error(`Workflow DAG final_stages reference missing stages: ${missingFinals.join(', ')}`);
-
-    const adjacency = new Map<string, string[]>();
-    for (const stageId of stageIds) {
-      adjacency.set(stageId, []);
-    }
-
-    for (const transition of dag.transitions ?? []) {
-      const fromStage = transition.from_stage;
-      const toStage = transition.to_stage;
-      if (!fromStage || !toStage || !stageIds.has(fromStage) || !stageIds.has(toStage)) {
-        continue;
-      }
-      const nextStages = adjacency.get(fromStage);
-      if (nextStages) {
-        nextStages.push(toStage);
-      }
-    }
-
-    const visited = new Set<string>();
-    const recursionStack = new Set<string>();
-    const traversalPath: string[] = [];
-
-    const detectCycle = (stageId: string): string[] | null => {
-      visited.add(stageId);
-      recursionStack.add(stageId);
-      traversalPath.push(stageId);
-
-      for (const nextStage of adjacency.get(stageId) ?? []) {
-        if (!visited.has(nextStage)) {
-          const cycle = detectCycle(nextStage);
-          if (cycle) {
-            return cycle;
-          }
-        } else if (recursionStack.has(nextStage)) {
-          const cycleStart = traversalPath.indexOf(nextStage);
-          return [...traversalPath.slice(cycleStart), nextStage];
-        }
-      }
-
-      traversalPath.pop();
-      recursionStack.delete(stageId);
-      return null;
-    };
-
-    for (const stageId of stageIds) {
-      if (visited.has(stageId)) {
-        continue;
-      }
-      const cycle = detectCycle(stageId);
-      if (cycle) {
-        throw new Error(`Workflow DAG contains cycle: ${cycle.join(' -> ')}`);
-      }
-    }
-
-    return dag;
+    return validateWorkflowDAG(rawDag);
   }
 }

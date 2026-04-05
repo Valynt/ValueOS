@@ -56,7 +56,7 @@ export const workspaceVitestProjects = [
   {
     id: 'packages-services-domain-validator',
     dir: 'packages/services/domain-validator',
-    label: '@valuecanvas/domain-validator',
+    label: '@valueos/domain-validator',
     coverageDir: 'coverage/packages-services-domain-validator',
   },
   {

@@ -166,8 +166,7 @@ app.get("/dashboard", (req, res) => {
                                     optimizationsContainer.appendChild(card);
                                 });
                             }
-                        } catch (e) {
-                            logger.info('No optimizations for', repo.fullName);
+                        } catch {
                         }
                     }
                     if (!hasOptimizations) {

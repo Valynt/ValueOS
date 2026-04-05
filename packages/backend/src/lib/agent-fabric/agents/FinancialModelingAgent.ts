@@ -43,47 +43,18 @@ import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
 import { mapCategoryToValueDriverType, mapUnitToVgMetricUnit } from '../../../services/value-graph/valueDriverUtils.js';
-
-// ---------------------------------------------------------------------------
-// Zod schemas for LLM output validation
-// ---------------------------------------------------------------------------
-
-const CashFlowProjectionSchema = z.object({
-  hypothesis_id: z.string(),
-  hypothesis_description: z.string(),
-  category: z.enum([
-    'cost_reduction',
-    'revenue_growth',
-    'risk_mitigation',
-    'efficiency',
-    'productivity',
-  ]),
-  assumptions: z.array(z.string()).min(1),
-  /** Period 0 = initial investment (negative), periods 1..n = projected returns */
-  cash_flows: z.array(z.number()).min(2),
-  currency: z.string().default('USD'),
-  period_type: z.enum(['monthly', 'quarterly', 'annual']).default('annual'),
-  discount_rate: z.number().min(0).max(1),
-  total_investment: z.number(),
-  total_benefit: z.number(),
-  confidence: z.number().min(0).max(1),
-  risk_factors: z.array(z.string()),
-  data_sources: z.array(z.string()),
-});
-
-const FinancialModelingOutputSchema = z.object({
-  projections: z.array(CashFlowProjectionSchema).min(1),
-  portfolio_summary: z.string(),
-  key_assumptions: z.array(z.string()),
-  sensitivity_parameters: z.array(z.object({
-    name: z.string(),
-    base_value: z.number(),
-    perturbations: z.array(z.number()).min(2),
-  })).optional(),
-  recommended_next_steps: z.array(z.string()),
-});
+import {
+  FinancialModelingInputSchema,
+  FinancialModelingOutputSchema,
+  runEvidenceConfidenceGovernance,
+} from './agent-schemas.js';
 
 type FinancialModelingOutput = z.infer<typeof FinancialModelingOutputSchema>;
+
+const FINANCIAL_MODELING_AGENT_CONTRACT = Object.freeze({
+  inputSchema: FinancialModelingInputSchema,
+  outputSchema: FinancialModelingOutputSchema,
+});
 
 // ---------------------------------------------------------------------------
 // Computed financial model (after economic kernel processing)
@@ -141,6 +112,10 @@ export class FinancialModelingAgent extends BaseAgent {
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
+    const contractInput = FINANCIAL_MODELING_AGENT_CONTRACT.inputSchema.safeParse(context);
+    if (!contractInput.success) {
+      throw new Error('Invalid input context');
+    }
     const isValid = await this.validateInput(context);
     if (!isValid) {
       throw new Error('Invalid input context');
@@ -165,6 +140,27 @@ export class FinancialModelingAgent extends BaseAgent {
       return this.buildOutput(
         { error: 'Financial projection generation failed.' },
         'failure', 'low', startTime,
+      );
+    }
+    const averageConfidence = llmOutput.projections.reduce((sum, projection) => sum + projection.confidence, 0)
+      / llmOutput.projections.length;
+    const evidenceCoverage = llmOutput.projections.filter((projection) => projection.data_sources.length > 0).length
+      / llmOutput.projections.length;
+    const complianceDecision = runEvidenceConfidenceGovernance({
+      averageConfidence,
+      evidenceCoverage,
+      minimumConfidence: 0.7,
+      minimumEvidenceCoverage: 1,
+    });
+    if (!complianceDecision.approved) {
+      return this.buildOutput(
+        {
+          error: 'Financial model rejected by compliance engine.',
+          reason: complianceDecision.reason,
+        },
+        'failure',
+        'low',
+        startTime,
       );
     }
 
@@ -294,14 +290,16 @@ export class FinancialModelingAgent extends BaseAgent {
       [systemPromptTemplate.approval, userPromptTemplate.approval],
     );
 
-    const systemPrompt = renderTemplate(systemPromptTemplate.template, { domainContext });
+    const systemPrompt = `${renderTemplate(systemPromptTemplate.template, { domainContext })}
+
+JSON-only mode: Respond with a single strict JSON object that matches the contract exactly. Do not emit markdown, commentary, or code fences.`;
     const userPrompt = renderTemplate(userPromptTemplate.template, { hypothesisContext });
 
     try {
       return await this.secureInvoke<FinancialModelingOutput>(
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
-        FinancialModelingOutputSchema,
+        FINANCIAL_MODELING_AGENT_CONTRACT.outputSchema,
 
         {
           trackPrediction: true,

@@ -11,6 +11,7 @@ import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
 import { createLogger } from "../lib/logger";
+import { AuthRateLimitError, parseAuthLockoutMetadata } from "../lib/rateLimiter";
 import { supabase } from "../lib/supabase";
 import { computePermissions, UserClaims } from "../types/security";
 
@@ -274,12 +275,21 @@ const useAuthMethods = ({
       loginLogger(`📡 Supabase response received in ${elapsed}ms`);
 
       if (error) {
+        const status = typeof error.status === "number" ? error.status : undefined;
+        const lockoutMetadata =
+          parseAuthLockoutMetadata(error) ??
+          (status === 429 ? { locked: true } : undefined);
+
         loginLogger("❌ Supabase auth error", {
-          code: error.status,
+          code: status,
           message: error.message,
           name: error.name,
+          lockoutMetadata,
         });
         logger.error("Login failed", error);
+        if (lockoutMetadata?.locked) {
+          throw new AuthRateLimitError("Too many login attempts. Please try again later.", lockoutMetadata, status);
+        }
         throw new Error("Invalid credentials");
       }
       if (!data.user || !data.session) {

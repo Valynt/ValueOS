@@ -202,3 +202,73 @@ describe("AgentRetryManager.getRetryStatistics", () => {
     flatMapSpy.mockRestore();
   });
 });
+
+describe("AgentRetryManager.executeContractAwareRetry", () => {
+  const manager = AgentRetryManager.getInstance();
+
+  beforeEach(() => {
+    manager.reset();
+  });
+
+  it("retries parse/schema failures and returns approved output", async () => {
+    const generator = vi
+      .fn<({ prompt }: { prompt: string; attempt: number }) => Promise<string>>()
+      .mockResolvedValueOnce("not-json")
+      .mockResolvedValueOnce('{"fixed": true}');
+
+    const validate = vi
+      .fn<
+        (
+          rawOutput: string,
+          payload: { outputSchema: unknown; originalSchema: unknown }
+        ) => Promise<{ approved: boolean; output?: { fixed: boolean }; failureType?: "parse" }>
+      >()
+      .mockResolvedValueOnce({
+        approved: false,
+        failureType: "parse",
+        details: "JSON parse error",
+      })
+      .mockResolvedValueOnce({
+        approved: true,
+        output: { fixed: true },
+      });
+
+    const result = await manager.executeContractAwareRetry({
+      generator,
+      complianceEngine: { validate },
+      outputSchema: { type: "object", properties: { fixed: { type: "boolean" } } },
+      initialPrompt: "Generate output",
+      agentPolicy: { maxRetries: 2 },
+    });
+
+    expect(result.approved).toBe(true);
+    expect(result.output).toEqual({ fixed: true });
+    expect(result.retryCount).toBe(1);
+    expect(generator).toHaveBeenCalledTimes(2);
+    expect(generator.mock.calls[1]?.[0].prompt).toContain("Violations to fix");
+    expect(validate).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns terminal non-retryable error for business-rule failures", async () => {
+    const generator = vi.fn().mockResolvedValue('{"confidence": 0.95}');
+    const validate = vi.fn().mockResolvedValue({
+      approved: false,
+      failureType: "business_rule",
+      details: "High confidence output requires evidence references.",
+      violations: [{ path: "evidence", message: "Missing supporting evidence" }],
+    });
+
+    const result = await manager.executeContractAwareRetry({
+      generator,
+      complianceEngine: { validate },
+      outputSchema: { type: "object" },
+      initialPrompt: "Generate output",
+      agentPolicy: { maxRetries: 3 },
+    });
+
+    expect(result.approved).toBe(false);
+    expect(result.error?.code).toBe("BUSINESS_RULE_VALIDATION_FAILED");
+    expect(result.error?.retryable).toBe(false);
+    expect(generator).toHaveBeenCalledTimes(1);
+  });
+});

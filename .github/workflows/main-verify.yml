@@ -70,7 +70,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: artifacts/secret-scan/gitleaks-history.sarif
           category: gitleaks-history
@@ -212,8 +212,13 @@ jobs:
       - name: TypeScript any-count gate
         run: |
           node scripts/ci/any-ratchet.mjs
+          node scripts/ci/check-non-test-any-ratchet.mjs
           node scripts/ci/check-strict-exception-budgets.mjs
           bash scripts/check-any-count.sh
+      - name: ValyntApp unused locals/parameters rollout gate
+        env:
+          VALYNTAPP_UNUSED_ROLLOUT_PHASE: phase1
+        run: node scripts/ci/check-valyntapp-unused-rollout.mjs
       - name: Backend debt summary artifact
         if: always()
         run: pnpm --filter @valueos/backend run debt:summary
@@ -683,6 +688,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_VERSION: "8.18.2"
         with:
           args: >-
             detect

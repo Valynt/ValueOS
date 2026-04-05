@@ -12,6 +12,7 @@ vi.mock("../../../lib/logger.js", () => ({
 }));
 
 import { createServerSupabaseClient } from "../../../lib/supabase.js";
+import { logger } from "../../../lib/logger.js";
 import { ComplianceControlStatusService } from "../ComplianceControlStatusService.js";
 
 const TENANT_ID = "tenant-abc-123";
@@ -46,6 +47,7 @@ interface OtherScenario {
   auditLogError?: boolean;
   integrityFailures?: number;
   integrityError?: boolean;
+  insertErrors?: Partial<Record<"compliance_control_evidence" | "compliance_control_audit" | "compliance_control_status", string>>;
 }
 
 function buildSupabaseMock(mfa: MfaScenario = {}, other: OtherScenario = {}) {
@@ -67,8 +69,23 @@ function buildSupabaseMock(mfa: MfaScenario = {}, other: OtherScenario = {}) {
   const auditLogError = other.auditLogError ?? false;
   const integrityFailures = other.integrityFailures ?? 2;
   const integrityError = other.integrityError ?? false;
+  const insertErrors = other.insertErrors ?? {};
 
-  const insertMock = vi.fn().mockResolvedValue({ error: null });
+  const complianceEvidenceInsertMock = vi.fn().mockResolvedValue({
+    error: insertErrors.compliance_control_evidence
+      ? { message: insertErrors.compliance_control_evidence }
+      : null,
+  });
+  const complianceAuditInsertMock = vi.fn().mockResolvedValue({
+    error: insertErrors.compliance_control_audit
+      ? { message: insertErrors.compliance_control_audit }
+      : null,
+  });
+  const complianceStatusInsertMock = vi.fn().mockResolvedValue({
+    error: insertErrors.compliance_control_status
+      ? { message: insertErrors.compliance_control_status }
+      : null,
+  });
 
   // user_tenants is called twice: first for count, then for list
   let userTenantsCallCount = 0;
@@ -174,9 +191,34 @@ function buildSupabaseMock(mfa: MfaScenario = {}, other: OtherScenario = {}) {
       };
     }
 
-    // compliance_control_* tables
+    if (table === "compliance_control_evidence") {
+      return {
+        insert: complianceEvidenceInsertMock,
+      };
+    }
+
+    if (table === "compliance_control_audit") {
+      return {
+        insert: complianceAuditInsertMock,
+      };
+    }
+
+    if (table === "compliance_control_status") {
+      return {
+        insert: complianceStatusInsertMock,
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        }),
+      };
+    }
+
+    // fallback table shape
     return {
-      insert: insertMock,
+      insert: vi.fn().mockResolvedValue({ error: null }),
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           order: vi.fn().mockReturnValue({
@@ -187,7 +229,14 @@ function buildSupabaseMock(mfa: MfaScenario = {}, other: OtherScenario = {}) {
     };
   });
 
-  return { from: fromMock, insert: insertMock };
+  return {
+    from: fromMock,
+    inserts: {
+      complianceEvidenceInsertMock,
+      complianceAuditInsertMock,
+      complianceStatusInsertMock,
+    },
+  };
 }
 
 type ControlRecord = { control_id: string; metric_value: number; status: string; tenant_id: string };
@@ -451,5 +500,87 @@ describe("ComplianceControlStatusService — other controls", () => {
     for (const control of controls) {
       expect(control.tenant_id).toBe(TENANT_ID);
     }
+  });
+});
+
+describe("ComplianceControlStatusService — refreshControlStatus persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("writes one bulk insert per compliance_control_* table with unchanged payload shape", async () => {
+    const mockClient = buildSupabaseMock();
+    vi.mocked(createServerSupabaseClient).mockReturnValue(
+      mockClient as ReturnType<typeof createServerSupabaseClient>
+    );
+
+    const controls = await new ComplianceControlStatusService().refreshControlStatus(TENANT_ID);
+
+    expect(mockClient.inserts.complianceEvidenceInsertMock).toHaveBeenCalledTimes(1);
+    expect(mockClient.inserts.complianceAuditInsertMock).toHaveBeenCalledTimes(1);
+    expect(mockClient.inserts.complianceStatusInsertMock).toHaveBeenCalledTimes(1);
+
+    const evidenceRows = mockClient.inserts.complianceEvidenceInsertMock.mock.calls[0]?.[0] as Array<Record<string, unknown>>;
+    const auditRows = mockClient.inserts.complianceAuditInsertMock.mock.calls[0]?.[0] as Array<Record<string, unknown>>;
+    const statusRows = mockClient.inserts.complianceStatusInsertMock.mock.calls[0]?.[0] as Array<Record<string, unknown>>;
+
+    expect(evidenceRows).toHaveLength(controls.length);
+    expect(auditRows).toHaveLength(controls.length);
+    expect(statusRows).toHaveLength(controls.length);
+
+    expect(evidenceRows[0]).toMatchObject({
+      tenant_id: controls[0]?.tenant_id,
+      control_id: controls[0]?.control_id,
+      framework: controls[0]?.framework,
+      evidence_pointer: controls[0]?.evidence_pointer,
+      evidence_ts: controls[0]?.evidence_ts,
+      evidence_payload: {
+        metric_value: controls[0]?.metric_value,
+        metric_unit: controls[0]?.metric_unit,
+      },
+    });
+
+    expect(auditRows[0]).toMatchObject({
+      tenant_id: controls[0]?.tenant_id,
+      control_id: controls[0]?.control_id,
+      event_type: "control_status_updated",
+      evidence_ts: controls[0]?.evidence_ts,
+      event_payload: {
+        status: controls[0]?.status,
+        framework: controls[0]?.framework,
+        evidence_pointer: controls[0]?.evidence_pointer,
+      },
+    });
+
+    expect(statusRows[0]).toMatchObject(controls[0] ?? {});
+    for (const control of controls) {
+      expect(control.evidence_pointer).toContain(`audit://controls/${TENANT_ID}/`);
+    }
+  });
+
+  it("logs partial insert failures with tenant and control context while still returning controls", async () => {
+    const mockClient = buildSupabaseMock({}, { insertErrors: { compliance_control_audit: "audit insert failed" } });
+    vi.mocked(createServerSupabaseClient).mockReturnValue(
+      mockClient as ReturnType<typeof createServerSupabaseClient>
+    );
+
+    const controls = await new ComplianceControlStatusService().refreshControlStatus(TENANT_ID);
+
+    expect(controls.length).toBeGreaterThan(0);
+    expect(mockClient.inserts.complianceEvidenceInsertMock).toHaveBeenCalledTimes(1);
+    expect(mockClient.inserts.complianceAuditInsertMock).toHaveBeenCalledTimes(1);
+    expect(mockClient.inserts.complianceStatusInsertMock).toHaveBeenCalledTimes(1);
+
+    const warnCalls = vi.mocked(logger.warn).mock.calls;
+    const partialFailureCall = warnCalls.find(([msg]) =>
+      typeof msg === "string" && msg.includes("partial insert failure on compliance_control_audit")
+    );
+
+    expect(partialFailureCall).toBeDefined();
+    expect(partialFailureCall?.[1]).toMatchObject({
+      tenantId: TENANT_ID,
+      controlIds: expect.arrayContaining(["mfa_coverage", "encryption_at_rest_coverage", "key_rotation_freshness", "audit_integrity_checks"]),
+      error: "audit insert failed",
+    });
   });
 });

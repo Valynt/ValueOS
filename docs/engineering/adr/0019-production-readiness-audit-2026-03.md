@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 # ADR-0019: Production Readiness Audit Controls (March 27, 2026)
 
 - Status: Accepted

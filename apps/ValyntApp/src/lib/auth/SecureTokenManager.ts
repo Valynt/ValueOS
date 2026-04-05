@@ -14,6 +14,62 @@ interface NonSensitiveAuthState {
   expiresAt?: number;
 }
 
+const isTokenLikePayload = (value: unknown): boolean => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.access_token === "string" ||
+    typeof candidate.refresh_token === "string" ||
+    "currentSession" in candidate
+  );
+};
+
+const parseNonSensitiveAuthState = (): NonSensitiveAuthState | null => {
+  const stored = sessionStorage.getItem(NON_SENSITIVE_STATE_KEY);
+
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(stored) as unknown;
+
+    if (isTokenLikePayload(parsed)) {
+      sessionStorage.removeItem(NON_SENSITIVE_STATE_KEY);
+      return null;
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    const candidate = parsed as Record<string, unknown>;
+    if (typeof candidate.userId !== "string") {
+      return null;
+    }
+
+    if (candidate.email !== undefined && typeof candidate.email !== "string") {
+      return null;
+    }
+
+    if (candidate.expiresAt !== undefined && typeof candidate.expiresAt !== "number") {
+      return null;
+    }
+
+    return {
+      userId: candidate.userId,
+      email: typeof candidate.email === "string" ? candidate.email : undefined,
+      expiresAt:
+        typeof candidate.expiresAt === "number" ? candidate.expiresAt : undefined,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const persistNonSensitiveAuthState = (session: Session) => {
   const state: NonSensitiveAuthState = {
     userId: session.user.id,
@@ -187,53 +243,18 @@ export const secureTokenManager = {
     authSubscription = data.subscription;
   },
   getStoredSession: (): Session | null => {
-    // Read the Supabase-managed session from localStorage for optimistic UI restore.
-    // This prevents ProtectedRoute from redirecting to /login during the async
-    // getCurrentSession() background check. The session is validated server-side
-    // by getCurrentSession() immediately after — this is only for unblocking the UI.
-    try {
-      const keys = Object.keys(localStorage);
-      const sbKeys = keys.filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
-      // If there is no clear unique Supabase auth token key, avoid guessing.
-      if (sbKeys.length !== 1) {
-        return null;
-      }
-
-      const sbKey = sbKeys[0];
-      const raw = localStorage.getItem(sbKey);
-      if (!raw) return null;
-
-      const parsed = JSON.parse(raw) as unknown;
-
-      // Supabase typically stores { currentSession, expiresAt } under the sb-* key.
-      // Validate that we have something that looks like a full Session before returning it.
-      const isValidSessionLike = (value: unknown): value is Session => {
-        return (
-          !!value &&
-          typeof value === "object" &&
-          typeof value.access_token === "string" &&
-          typeof value.token_type === "string" &&
-          typeof value.expires_at === "number" &&
-          typeof value.refresh_token === "string" &&
-          value.user != null
-        );
-      };
-
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        "currentSession" in parsed &&
-        isValidSessionLike((parsed as { currentSession?: unknown }).currentSession)
-      ) {
-        return (parsed as { currentSession: Session }).currentSession;
-      }
-
-      if (isValidSessionLike(parsed)) {
-        return parsed;
-      }
-    } catch {
-      // localStorage unavailable or malformed — fall through
+    // Hardened behavior: never restore session tokens from browser storage.
+    // We only inspect non-sensitive metadata for an optimistic auth hint.
+    const state = parseNonSensitiveAuthState();
+    if (!state) {
+      return null;
     }
+
+    if (state.expiresAt && state.expiresAt <= Math.floor(Date.now() / 1000)) {
+      sessionStorage.removeItem(NON_SENSITIVE_STATE_KEY);
+      return null;
+    }
+
     return null;
   },
   storeSession: async (session: Session) => {

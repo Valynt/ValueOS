@@ -11,6 +11,7 @@ import { logger } from '../../lib/logger.js'
 import { AgentOutput } from '../../types/agent-output';
 import { canvasSchemaService } from '../sdui/CanvasSchemaService.js'
 import { getComponentMutationService } from '../sdui/ComponentMutationService.js'
+import { AgentResult } from './core/AgentContract.js';
 
 import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
 
@@ -112,7 +113,10 @@ export class AgentOutputListener extends EventEmitter {
       });
 
       // Emit error event
-      this.emit('agent:error', { output, error });
+      this.emit('agent:error', {
+        output,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -152,10 +156,37 @@ export class AgentOutputListener extends EventEmitter {
    */
   private async processForSDUI(output: AgentOutput): Promise<void> {
     try {
+      const legacyData: unknown = output.result?.data;
+      const resultData =
+        legacyData && typeof legacyData === 'object'
+          ? (legacyData as Record<string, unknown>)
+          : {};
       // Generate SDUI update from agent output
+      const mappedResult: AgentResult<Record<string, unknown>> = {
+        success: output.status === 'success' || output.status === 'partial_success',
+        output: {
+          ...resultData,
+          agentId: output.agent_id,
+          agentType: output.agent_type,
+        },
+        error: output.result?.errors?.map((entry) => entry.message).join('; ') || undefined,
+        meta: {
+          traceId: output.execution_id,
+          contractVersion: 'legacy-agent-output.v1',
+          durationMs: output.metadata?.execution_time_ms ?? 0,
+          validation: {
+            passed: (output.result?.errors?.length ?? 0) === 0,
+            errors: output.result?.errors?.map((entry) => entry.message),
+            warnings: output.result?.warnings,
+          },
+          retry: {
+            count: output.metadata?.retry_count ?? 0,
+          },
+        },
+      };
       const sduiUpdate = await agentSDUIAdapter.processAgentOutputWithIntents(
         output.agent_id,
-        output,
+        mappedResult,
         output.workspaceId
       );
 

@@ -1,3 +1,10 @@
+---
+owner: team-platform
+generated_at: 2026-04-05
+source_commit: fe8b2fb54a61
+status: active
+---
+
 # Release Readiness SWAT Team Checklist
 
 **Purpose:** Multi-agent SWAT review for a multitenant enterprise SaaS release.  

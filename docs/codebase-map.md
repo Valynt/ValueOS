@@ -54,7 +54,7 @@ ValueOS/
 
 ### ValyntApp Source Directories
 
-`app/`, `features/`, `views/`, `pages/`, `components/`, `hooks/`, `lib/`, `stores/`, `contexts/`, `types/`, `utils/`, `mcp-common/`, `mcp-crm/`, `mcp-ground-truth/`, `repositories/`, `security/`, `observability/`, `i18n/`, `adapters/`, `causal/`, `dashboards/`, `data/`, `integrations/`, `layouts/`, `legacy-migrated/`
+`app/`, `features/`, `views/`, `pages/`, `components/`, `hooks/`, `lib/`, `stores/`, `contexts/`, `types/`, `utils/`, `mcp-common/` (adapter imports from `packages/mcp/common`), `mcp-crm/` (adapter surface over `packages/mcp/crm`), `mcp-ground-truth/`, `repositories/`, `security/`, `observability/`, `i18n/`, `adapters/`, `causal/`, `dashboards/`, `data/`, `integrations/`, `layouts/`, `legacy-migrated/`
 
 ---
 

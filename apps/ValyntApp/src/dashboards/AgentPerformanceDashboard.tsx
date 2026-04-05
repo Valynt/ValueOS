@@ -5,7 +5,7 @@
  * Source: supabase/migrations/20241127_agent_predictions.sql
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -187,6 +187,32 @@ export function AgentPerformanceDashboard() {
   const formatCost = (cost: number) => `$${cost.toFixed(4)}`;
   const formatLatency = (ms: number) => `${ms}ms`;
 
+  const alertsByCategory = useMemo(() => {
+    const highLatency: AgentMetrics[] = [];
+    const lowConfidence: AgentMetrics[] = [];
+    const highError: AgentMetrics[] = [];
+
+    for (const metric of metrics) {
+      if (metric.avg_latency_ms > 2000) {
+        highLatency.push(metric);
+      }
+
+      if (metric.avg_confidence < 0.7) {
+        lowConfidence.push(metric);
+      }
+
+      if (metric.error_rate > 5) {
+        highError.push(metric);
+      }
+    }
+
+    return {
+      highLatency,
+      lowConfidence,
+      highError
+    };
+  }, [metrics]);
+
   if (loading && metrics.length === 0) {
     return <div className="p-4">Loading agent metrics...</div>;
   }
@@ -344,22 +370,22 @@ export function AgentPerformanceDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {metrics.filter(m => m.avg_latency_ms > 2000).map(m => (
-              <Alert key={m.agent_type} variant="destructive">
+            {alertsByCategory.highLatency.map(m => (
+              <Alert key={`${m.agent_type}-high-latency`} variant="destructive">
                 <AlertDescription>
                   ⚠️ {m.agent_type}: High latency ({formatLatency(m.avg_latency_ms)})
                 </AlertDescription>
               </Alert>
             ))}
-            {metrics.filter(m => m.avg_confidence < 0.7).map(m => (
-              <Alert key={m.agent_type}>
+            {alertsByCategory.lowConfidence.map(m => (
+              <Alert key={`${m.agent_type}-low-confidence`}>
                 <AlertDescription>
                   ⚠️ {m.agent_type}: Low confidence ({(m.avg_confidence * 100).toFixed(1)}%)
                 </AlertDescription>
               </Alert>
             ))}
-            {metrics.filter(m => m.error_rate > 5).map(m => (
-              <Alert key={m.agent_type} variant="destructive">
+            {alertsByCategory.highError.map(m => (
+              <Alert key={`${m.agent_type}-high-error`} variant="destructive">
                 <AlertDescription>
                   🚨 {m.agent_type}: High error rate ({m.error_rate.toFixed(1)}%)
                 </AlertDescription>

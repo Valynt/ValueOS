@@ -43,34 +43,22 @@ import { ReadinessScorer } from '../../../services/integrity/ReadinessScorer.js'
 
 import { BaseAgent } from './BaseAgent.js';
 import type { GraphIntegrityGap } from '@valueos/shared';
+import {
+  ClaimValidationSchema,
+  IntegrityAgentInputSchema,
+  IntegrityAnalysisSchema,
+  runEvidenceConfidenceGovernance,
+} from './agent-schemas.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
 // ---------------------------------------------------------------------------
 
-const ClaimValidationSchema = z.object({
-  claim_id: z.string(),
-  claim_text: z.string(),
-  verdict: z.enum(['supported', 'partially_supported', 'unsupported', 'insufficient_evidence']),
-  confidence: z.number().min(0).max(1),
-  evidence_assessment: z.string(),
-  issues: z.array(z.object({
-    type: z.enum(['hallucination', 'data_integrity', 'logic_error', 'unsupported_assumption', 'stale_data']),
-    severity: z.enum(['low', 'medium', 'high', 'critical']),
-    description: z.string(),
-  })),
-  suggested_fix: z.string().optional(),
-});
-
-const IntegrityAnalysisSchema = z.object({
-  claim_validations: z.array(ClaimValidationSchema).min(1),
-  overall_assessment: z.string(),
-  data_quality_score: z.number().min(0).max(1),
-  logical_consistency_score: z.number().min(0).max(1),
-  evidence_coverage_score: z.number().min(0).max(1),
-});
-
 type IntegrityAnalysis = z.infer<typeof IntegrityAnalysisSchema>;
+const INTEGRITY_AGENT_CONTRACT = Object.freeze({
+  inputSchema: IntegrityAgentInputSchema,
+  outputSchema: IntegrityAnalysisSchema,
+});
 
 interface IntegrityClaim {
   id: string;
@@ -136,6 +124,10 @@ export class IntegrityAgent extends BaseAgent {
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
+    const contractInput = INTEGRITY_AGENT_CONTRACT.inputSchema.safeParse(context);
+    if (!contractInput.success) {
+      throw new Error('Invalid input context');
+    }
     const isValid = await this.validateInput(context);
     if (!isValid) {
       throw new Error('Invalid input context');
@@ -168,6 +160,24 @@ export class IntegrityAgent extends BaseAgent {
     // Step 5: Compute integrity result and veto decision from deterministic policy output
     const integrityResult = this.computeIntegrityResult(analysis);
     const vetoDecision = IntegrityAgent.evaluateVetoDecision(integrityResult, deterministicPolicy.policyTrace);
+    const complianceDecision = runEvidenceConfidenceGovernance({
+      averageConfidence: integrityResult.confidence,
+      evidenceCoverage: analysis.evidence_coverage_score,
+      minimumConfidence: 0.85,
+      minimumEvidenceCoverage: 0.75,
+    });
+    if (!complianceDecision.approved) {
+      return this.buildOutput(
+        {
+          validated: false,
+          error: 'Integrity output rejected by compliance engine.',
+          reason: complianceDecision.reason,
+        },
+        'failure',
+        'low',
+        startTime,
+      );
+    }
 
     // Step 5: Store validation results in memory
     await this.storeValidationInMemory(context, analysis, vetoDecision);
@@ -449,7 +459,8 @@ Also provide:
 - logical_consistency_score: 0.0-1.0 for internal logical consistency
 - evidence_coverage_score: 0.0-1.0 for how well evidence covers claims
 
-Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fences.${domainFragment}`;
+Be strict. Flag unsupported assumptions.
+JSON-only mode is mandatory: return a single strict JSON object, no markdown, no prose, no code fences.${domainFragment}`;
 
     const userPrompt = `Validate these ${claims.length} value claims:\n\n${claimsContext}`;
 
@@ -457,7 +468,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
       return await this.secureInvoke<IntegrityAnalysis>(
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
-        IntegrityAnalysisSchema,
+        INTEGRITY_AGENT_CONTRACT.outputSchema,
 
         {
           trackPrediction: true,
@@ -1105,4 +1116,3 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     }
   }
 }
-

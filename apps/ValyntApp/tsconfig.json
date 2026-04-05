@@ -107,6 +107,9 @@
     /* Strict TypeScript Configuration */
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    // Staged rollout:
+    // - Phase 1 (current): lint warning via @typescript-eslint/no-unused-vars.
+    // - Phase 2 (CI gate): enabled in tsconfig.unused-ci.json after baseline cleanup.
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,

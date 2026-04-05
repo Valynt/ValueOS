@@ -183,4 +183,170 @@ describe("DiffExplainabilityService", () => {
     expect(eqOrg).toHaveBeenCalledWith("organization_id", "f9f76855-a51f-4f7e-8ce3-36a14e8f53cf");
     expect(eqStable).toHaveBeenCalledWith("stable_id", "dxs_20260405_123456abcdef");
   });
+
+  it("keeps structural score parity for current fixtures", async () => {
+    let insertedPayload: Record<string, unknown> | undefined;
+    const tableChain = {
+      insert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+        insertedPayload = payload;
+        return {
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: "9da7fdeb-18d2-4acd-a578-bce50ff8d305",
+                stable_id: "dxs_20260405_fixtureparity",
+                organization_id: payload.organization_id,
+                case_id: payload.case_id,
+                run_a_id: payload.run_a_id,
+                run_b_id: payload.run_b_id,
+                human_decision_path_id: payload.human_decision_path_id,
+                agent_decision_path_id: payload.agent_decision_path_id,
+                created_by_user_id: payload.created_by_user_id,
+                created_at: new Date().toISOString(),
+                diff_payload: payload.diff_payload,
+                narrative_summary: payload.narrative_summary,
+                references_json: payload.references_json,
+              },
+              error: null,
+            }),
+          }),
+        };
+      }),
+    };
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(tableChain),
+    } as unknown as SupabaseClient;
+
+    const service = new DiffExplainabilityService(supabase);
+
+    await service.createSnapshot({
+      organizationId: "2d0f2ec4-f2c4-4f65-a59f-6701ea0ecf3e",
+      runA: {
+        id: "run-a",
+        output: {
+          claims: [{ id: "claim-1", statement: "Uplift 5%" }],
+          evidence_links: [{ id: "ev-1", source: "Gartner" }],
+          approvals: [{ id: "ap-1", owner: "CFO" }],
+          outcomes: [{ id: "out-1", metric: "ARR", value: 300000 }],
+        },
+      },
+      runB: {
+        id: "run-b",
+        output: {
+          claims: [{ id: "claim-1", statement: "Uplift 7%" }],
+          evidence_links: [{ id: "ev-1", source: "Gartner" }, { id: "ev-2", source: "Forrester" }],
+          approvals: [{ id: "ap-1", owner: "VP Finance" }],
+          outcomes: [{ id: "out-1", metric: "ARR", value: 340000 }],
+        },
+      },
+      humanDecisionPath: {
+        id: "human-path-1",
+        payload: {
+          policy_checks: [{ id: "pc-1", policy: "RiskGate", status: "pass" }],
+          approvals: [{ id: "ap-1", owner: "CFO" }],
+        },
+      },
+      agentDecisionPath: {
+        id: "agent-path-1",
+        payload: {
+          policy_checks: [{ id: "pc-1", policy: "RiskGate", status: "fail" }],
+          approvals: [{ id: "ap-1", owner: "Controller" }],
+        },
+      },
+    });
+
+    const diffs = (insertedPayload?.diff_payload as { diffs: Array<{ entity_key: string; structural_change_score: number }> }).diffs;
+    const claimDiff = diffs.find((diff) => diff.entity_key === "claim-1");
+    const approvalDiff = diffs.find((diff) => diff.entity_key === "ap-1");
+    const outcomeDiff = diffs.find((diff) => diff.entity_key === "out-1");
+    const policyDiff = diffs.find((diff) => diff.entity_key === "pc-1");
+
+    expect(claimDiff?.structural_change_score).toBe(0.5);
+    expect(approvalDiff?.structural_change_score).toBe(0.5);
+    expect(outcomeDiff?.structural_change_score).toBe(0.333);
+    expect(policyDiff?.structural_change_score).toBe(0.333);
+  });
+
+  it("handles structural score edge cases with stable deep comparison", async () => {
+    let insertedPayload: Record<string, unknown> | undefined;
+    const tableChain = {
+      insert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+        insertedPayload = payload;
+        return {
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: "8f35d0d0-cbc3-4f50-bf7c-9d4ef16d9ef3",
+                stable_id: "dxs_20260405_edgecases",
+                organization_id: payload.organization_id,
+                case_id: payload.case_id,
+                run_a_id: payload.run_a_id,
+                run_b_id: payload.run_b_id,
+                human_decision_path_id: payload.human_decision_path_id,
+                agent_decision_path_id: payload.agent_decision_path_id,
+                created_by_user_id: payload.created_by_user_id,
+                created_at: new Date().toISOString(),
+                diff_payload: payload.diff_payload,
+                narrative_summary: payload.narrative_summary,
+                references_json: payload.references_json,
+              },
+              error: null,
+            }),
+          }),
+        };
+      }),
+    };
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(tableChain),
+    } as unknown as SupabaseClient;
+
+    const service = new DiffExplainabilityService(supabase);
+
+    await service.createSnapshot({
+      organizationId: "3e4d53f1-33a7-4ac4-a765-2c7b1f70d58e",
+      runA: {
+        id: "run-a",
+        output: {
+          claims: [
+            {
+              id: "edge-1",
+              obj: { a: 1, b: [1, { c: "x", d: [1, 2] }] },
+              key_ordered: { a: 1, b: 2 },
+              nullish: null,
+              primitive: "alpha",
+            },
+          ],
+        },
+      },
+      runB: {
+        id: "run-b",
+        output: {
+          claims: [
+            {
+              id: "edge-1",
+              obj: { a: 1, b: [1, { c: "y", d: [1, 2] }] },
+              key_ordered: { b: 2, a: 1 },
+              nullish: undefined,
+              primitive: "beta",
+            },
+          ],
+        },
+      },
+      humanDecisionPath: {
+        id: "human-path",
+        payload: {},
+      },
+      agentDecisionPath: {
+        id: "agent-path",
+        payload: {},
+      },
+    });
+
+    const diffs = (insertedPayload?.diff_payload as { diffs: Array<{ entity_key: string; structural_change_score: number }> }).diffs;
+    const edgeDiff = diffs.find((diff) => diff.entity_key === "edge-1");
+
+    expect(edgeDiff?.structural_change_score).toBe(0.6);
+  });
 });

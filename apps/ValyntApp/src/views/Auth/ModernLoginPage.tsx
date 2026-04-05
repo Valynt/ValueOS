@@ -17,6 +17,7 @@ import { getSupportedLocales } from '@/i18n';
 import type { LocaleCode } from '@/i18n/config';
 import { useI18n } from '@/i18n/I18nProvider';
 import { logger } from '@/lib/logger';
+import { authRateLimiter, AuthRateLimitError, parseAuthLockoutMetadata } from '@/lib/rateLimiter';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { floatingBadge } from '@/lib/animations';
@@ -46,13 +47,45 @@ export function ModernLoginPage() {
     const logPrefix = '[LoginPage]';
     logger.info(`${logPrefix} Form submitted`);
 
+    // UX-only local hint. Do not block auth attempts based on local storage data.
+    const localStatus = authRateLimiter.canAttemptAuth(email.toLowerCase());
+    if (!localStatus.allowed && typeof localStatus.lockoutRemaining === 'number') {
+      setError(
+        `Too many local attempts on this browser. Verifying server lockout status... (~${localStatus.lockoutRemaining}m)`,
+      );
+    }
+
     try {
       await login({ email, password });
+      authRateLimiter.recordSuccessfulAttempt(email.toLowerCase());
       logger.info(`${logPrefix} Login successful, navigating to: ${from}`);
       navigate(from, { replace: true });
     } catch (err: unknown) {
       logger.error(`${logPrefix} Login error:`, err);
+      const serverLockout =
+        err instanceof AuthRateLimitError
+          ? err.lockout
+          : parseAuthLockoutMetadata(err);
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+
+      if (serverLockout?.locked) {
+        const retryAfterSeconds = serverLockout.retryAfterSeconds;
+        if (typeof retryAfterSeconds === 'number') {
+          const retryMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+          setError(`Too many login attempts. Try again in about ${retryMinutes} minute${retryMinutes === 1 ? '' : 's'}.`);
+        } else {
+          setError('Too many login attempts. Please try again later.');
+        }
+        return;
+      }
+
+      const localAttempt = authRateLimiter.recordFailedAttempt(email.toLowerCase());
+      if (localAttempt.isLocked && typeof localAttempt.lockoutRemaining === 'number') {
+        setError(
+          `Too many login attempts. Please try again in about ${localAttempt.lockoutRemaining} minute${localAttempt.lockoutRemaining === 1 ? '' : 's'}.`,
+        );
+        return;
+      }
 
       if (errorMessage?.trim()) {
         if (errorMessage.includes('rate limit')) {
