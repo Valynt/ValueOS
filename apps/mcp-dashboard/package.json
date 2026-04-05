@@ -5,16 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/security/validate-browser-api-key-governance.mjs --app=mcp-dashboard && echo 'mcp-dashboard: skipped (has unresolved source errors, see tsErrorBaseline)'",
+    "build": "node -e \"console.error('mcp-dashboard build is disabled for release contexts. Run pnpm --filter mcp-dashboard run build:disabled for explicit no-op governance checks.'); process.exit(1);\"",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:disabled": "node ../../scripts/security/validate-browser-api-key-governance.mjs --app=mcp-dashboard && node -e \"console.log('mcp-dashboard build intentionally disabled: experimental app excluded from release/root CI.');\""
   },
   "dependencies": {
-    "@types/node": "^20.19.0",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
     "autoprefixer": "^10.4.16",
     "axios": "^1.13.5",
     "clsx": "^2.0.0",
