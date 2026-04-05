@@ -1,55 +1,94 @@
-/**
- * Usage Cache Tests
- */
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, expect, it, vi } from 'vitest';
+import { BILLING_METRICS } from "../../../config/billing.js";
+import UsageCache from "../UsageCache.js";
 
-describe('UsageCache', () => {
-  it('should cache usage with TTL', () => {
-    const cache = new Map();
-    const key = 'usage:tenant-1:llm_tokens';
-    const value = 1000;
-    const ttl = 60;
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
-    cache.set(key, {
-      value,
-      expiresAt: Date.now() + ttl * 1000,
-    });
+vi.mock("../../../lib/logger.js", () => ({
+  createLogger: vi.fn(() => mockLogger),
+}));
 
-    expect(cache.has(key)).toBe(true);
+vi.mock("ioredis", () => ({
+  default: vi.fn().mockImplementation(() => ({
+    isReady: false,
+    on: vi.fn(),
+    get: vi.fn(),
+    setex: vi.fn(),
+    del: vi.fn(),
+  })),
+}));
+
+describe("UsageCache.refreshCache", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('should expire old cache entries', () => {
-    const now = Date.now();
-    const entry = {
-      value: 100,
-      expiresAt: now - 1000, // Expired
-    };
+  it("attempts all metrics even when one metric refresh fails", async () => {
+    const cache = new UsageCache({} as never);
+    const tenantId = "tenant-1";
+    const failingMetric = BILLING_METRICS[1];
 
-    const isExpired = entry.expiresAt < now;
-    expect(isExpired).toBe(true);
+    const fetchUsageSpy = vi
+      .spyOn(cache as object, "fetchUsageFromDB" as never)
+      .mockImplementation(async (_tenantId: string, metric: string) => {
+        if (metric === failingMetric) {
+          throw new Error("usage fetch failed");
+        }
+        return 10;
+      });
+
+    const fetchQuotaSpy = vi
+      .spyOn(cache as object, "fetchQuotaFromDB" as never)
+      .mockResolvedValue(100);
+
+    const setSpy = vi
+      .spyOn(cache as object, "set" as never)
+      .mockResolvedValue(undefined);
+
+    await expect(cache.refreshCache(tenantId)).resolves.toBeUndefined();
+
+    expect(fetchUsageSpy).toHaveBeenCalledTimes(BILLING_METRICS.length);
+    expect(fetchQuotaSpy).toHaveBeenCalledTimes(BILLING_METRICS.length);
+    expect(setSpy).toHaveBeenCalledTimes((BILLING_METRICS.length - 1) * 2);
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "Error refreshing cache",
+      expect.any(Error),
+      { tenantId, metric: failingMetric }
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith("Cache refreshed", { tenantId });
   });
 
-  it('should calculate quota correctly', () => {
-    const usage = 8500;
-    const quota = 10000;
-    const percentage = Math.round((usage / quota) * 100);
+  it("preserves success logging and cache write behavior for each metric", async () => {
+    const cache = new UsageCache({} as never);
+    const tenantId = "tenant-2";
 
-    expect(percentage).toBe(85);
-  });
+    vi.spyOn(cache as object, "fetchUsageFromDB" as never).mockResolvedValue(21);
+    vi.spyOn(cache as object, "fetchQuotaFromDB" as never).mockResolvedValue(84);
+    const setSpy = vi
+      .spyOn(cache as object, "set" as never)
+      .mockResolvedValue(undefined);
 
-  it('should handle unlimited quota', () => {
-    const usage = 1000000;
-    const quota = Infinity;
-    const isOverQuota = usage >= quota;
+    await expect(cache.refreshCache(tenantId)).resolves.toBeUndefined();
 
-    expect(isOverQuota).toBe(false);
-  });
+    expect(setSpy).toHaveBeenCalledTimes(BILLING_METRICS.length * 2);
+    for (const metric of BILLING_METRICS) {
+      expect(setSpy).toHaveBeenCalledWith(`usage:${tenantId}:${metric}`, 21);
+      expect(setSpy).toHaveBeenCalledWith(`quota:${tenantId}:${metric}`, 84);
+    }
 
-  it('should fall back to database on cache miss', async () => {
-    const fetchFromDB = async () => 1500;
-    const usage = await fetchFromDB();
-    
-    expect(usage).toBe(1500);
+    expect(mockLogger.error).not.toHaveBeenCalledWith(
+      "Error refreshing cache",
+      expect.anything(),
+      expect.anything()
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith("Cache refreshed", { tenantId });
   });
 });
