@@ -317,6 +317,8 @@ jobs:
         run: node scripts/ci/docs-integrity.mjs
       - name: Docs canonical facts consistency
         run: pnpm run check:docs:consistency
+      - name: Docs workspace topology guard
+        run: node scripts/ci/check-docs-workspace-topology.mjs
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
 
@@ -401,6 +403,8 @@ jobs:
         run: node scripts/ci/check-deprecated-supabase-imports.mjs
       - name: Guard stale agent type shim claims
         run: node scripts/ci/check-agent-type-shim-claims.mjs
+      - name: Guard dead shim exports
+        run: node scripts/ci/check-shim-dead-exports.mjs
 
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift

@@ -249,9 +249,15 @@ export class HubSpotProvider implements CrmProviderInterface {
       return { valid: false };
     }
 
-    const rawBody = typeof req.body === 'string'
-      ? req.body
-      : JSON.stringify(req.body);
+    const rawBodyBuffer = req.rawBody
+      ? req.rawBody
+      : Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(
+            typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}),
+            'utf8',
+          );
+    const rawBody = rawBodyBuffer.toString('utf8');
 
     let valid = false;
 
@@ -311,11 +317,17 @@ export class HubSpotProvider implements CrmProviderInterface {
     // Extract portal ID from payload
     let tenantId: string | undefined;
     if (valid) {
-      const payload = req.body;
-      if (Array.isArray(payload) && payload.length > 0) {
-        tenantId = payload[0].portalId ? String(payload[0].portalId) : undefined;
-      } else if (payload?.portalId) {
-        tenantId = String(payload.portalId);
+      try {
+        const payload = Buffer.isBuffer(req.body)
+          ? JSON.parse(rawBody) as unknown
+          : req.body;
+        if (Array.isArray(payload) && payload.length > 0) {
+          tenantId = payload[0].portalId ? String(payload[0].portalId) : undefined;
+        } else if (payload?.portalId) {
+          tenantId = String(payload.portalId);
+        }
+      } catch {
+        tenantId = undefined;
       }
     }
 
@@ -323,18 +335,27 @@ export class HubSpotProvider implements CrmProviderInterface {
   }
 
   extractIdempotencyKey(payload: Record<string, unknown>): string {
-    // HubSpot webhook payloads are arrays of subscription events.
-    // Each event has: eventId, subscriptionId, portalId, occurredAt
+    // HubSpot payload identity is derived from immutable event fields so
+    // duplicate deliveries produce the same key without wall-clock entropy.
+    const buildEventIdentity = (event: Record<string, unknown>): string => {
+      const eventType = String(event.subscriptionType ?? event.eventType ?? 'unknown');
+      const eventId = String(event.eventId ?? event.subscriptionId ?? event.objectId ?? 'unknown');
+      const objectId = String(event.objectId ?? 'na');
+      const subscriptionId = String(event.subscriptionId ?? 'na');
+      const occurredAt = String(event.occurredAt ?? event.occurredAtMs ?? event.timestamp ?? 'na');
+      const portalId = String(event.portalId ?? 'na');
+
+      return `${eventType}:${eventId}:${objectId}:${subscriptionId}:${occurredAt}:${portalId}`;
+    };
+
     if (Array.isArray(payload)) {
-      // Batch: use first event's ID
-      const first = payload[0] as Record<string, unknown> | undefined;
-      const eventId = first?.eventId || first?.subscriptionId;
-      return `hs:batch:${eventId}:${Date.now()}`;
+      const identities = payload
+        .map((raw) => (raw && typeof raw === 'object' ? buildEventIdentity(raw as Record<string, unknown>) : 'invalid'))
+        .join('|');
+      return `hs:batch:${identities || 'empty'}`;
     }
 
-    const eventId = payload.eventId || payload.subscriptionId || payload.objectId;
-    const eventType = payload.subscriptionType || payload.eventType || 'unknown';
-    return `hs:${eventType}:${eventId}:${Date.now()}`;
+    return `hs:${buildEventIdentity(payload)}`;
   }
 
   // ============================================================================

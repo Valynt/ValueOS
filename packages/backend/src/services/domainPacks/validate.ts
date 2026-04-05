@@ -8,7 +8,7 @@
 import type {
   DomainPackAssumption,
   DomainPackKpi,
-} from '../../api/domainPacks/types.js';
+} from '../../api/domain-packs/types.js';
 
 // ============================================================================
 // Validation Result

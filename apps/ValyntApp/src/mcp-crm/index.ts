@@ -1,51 +1,25 @@
 /**
- * MCP CRM Server
- * 
- * Provides LLM tool access to CRM data via tenant-level OAuth connections.
- * Supports HubSpot and Salesforce with bi-directional sync.
- * 
- * Usage:
- * ```typescript
- * import { getMCPCRMServer, getContextInjectionBridge, CRM_TOOLS } from './mcp-crm';
- * 
- * // Get server instance for a tenant
- * const crmServer = await getMCPCRMServer(tenantId, userId);
- * 
- * // Check if connected
- * if (crmServer.isConnected()) {
- *   // Get available tools for LLM
- *   const tools = crmServer.getTools();
- *   
- *   // Execute a tool
- *   const result = await crmServer.executeTool('crm_search_deals', {
- *     company_name: 'Acme Corp'
- *   });
- * }
- * 
- * // Context Injection - Connect CRM to Financial Templates
- * const bridge = await getContextInjectionBridge(tenantId, userId);
- * const templateData = await bridge.injectIntoTemplate(dealId);
- * // templateData.dataSource is ready for Trinity Dashboard, Impact Cascade, etc.
- * ```
+ * ValyntApp MCP CRM surface.
+ *
+ * Canonical MCP CRM runtime now lives under packages/mcp/crm.
  */
 
-// Core
-export { MCPCRMServer, getMCPCRMServer, CRM_TOOLS } from './core/MCPCRMServer';
+// App adapter around canonical core runtime
+export { MCPCRMServer, getMCPCRMServer, CRM_TOOLS } from "./core/MCPCRMServer";
 
-// Context Injection Bridge (CRM → Ground Truth Engine → Templates)
-export { 
-  ContextInjectionBridge, 
+// Canonical bridge implementation
+export {
+  ContextInjectionBridge,
   getContextInjectionBridge,
   type NormalizedDealContext,
   type ContextInjectionOptions,
   type InjectedTemplateData,
-} from './core/ContextInjectionBridge';
+} from "../../../../packages/mcp/crm/index.ts";
 
-// Modules
-export { HubSpotModule } from './modules/HubSpotModule';
-export { SalesforceModule } from './modules/SalesforceModule';
+// Canonical modules
+export { HubSpotModule, SalesforceModule } from "../../../../packages/mcp/crm/index.ts";
 
-// Types
+// Canonical shared types
 export type {
   CRMProvider,
   CRMConnection,
@@ -58,5 +32,4 @@ export type {
   MCPCRMToolResult,
   DealSearchParams,
   DealSearchResult,
-} from './types';
-
+} from "../mcp-common";

@@ -257,6 +257,44 @@ describe('HubSpotProvider', () => {
       const key = provider.extractIdempotencyKey(payload);
       expect(key).toContain('hs:batch:');
     });
+
+    it('returns identical keys for duplicate payloads', () => {
+      const payload = {
+        eventId: 'evt-hs-dup-001',
+        subscriptionId: 99,
+        objectId: 42,
+        subscriptionType: 'deal.propertyChange',
+        occurredAt: 1700000000000,
+        portalId: 12345,
+      };
+
+      const key1 = provider.extractIdempotencyKey(payload);
+      const key2 = provider.extractIdempotencyKey(payload);
+
+      expect(key1).toBe(key2);
+    });
+
+    it('returns distinct keys for distinct payload identity fields', () => {
+      const base = {
+        subscriptionType: 'deal.propertyChange',
+        subscriptionId: 99,
+        objectId: 42,
+        portalId: 12345,
+      };
+
+      const key1 = provider.extractIdempotencyKey({
+        ...base,
+        eventId: 'evt-hs-identity-001',
+        occurredAt: 1700000000000,
+      });
+      const key2 = provider.extractIdempotencyKey({
+        ...base,
+        eventId: 'evt-hs-identity-002',
+        occurredAt: 1700000000000,
+      });
+
+      expect(key1).not.toBe(key2);
+    });
   });
 
   // ==========================================================================
@@ -299,6 +337,7 @@ describe('HubSpotProvider', () => {
       const { createHmac } = await import('node:crypto');
       const timestamp = String(Date.now());
       const body = JSON.stringify([{ portalId: 12345, eventId: 'evt-1' }]);
+      const rawBody = Buffer.from(body, 'utf8');
       const method = 'POST';
       const url = 'https://app.test/api/crm/hubspot/webhook';
 
@@ -313,6 +352,7 @@ describe('HubSpotProvider', () => {
           'x-hubspot-request-timestamp': timestamp,
         },
         body: JSON.parse(body),
+        rawBody,
         method,
         protocol: 'https',
         get: (h: string) => h === 'host' ? 'app.test' : undefined,
@@ -327,6 +367,7 @@ describe('HubSpotProvider', () => {
     it('accepts requests with valid v2 fallback signature', async () => {
       const { createHash } = await import('node:crypto');
       const body = JSON.stringify({ portalId: 67890, test: true });
+      const rawBody = Buffer.from(body, 'utf8');
       const expected = createHash('sha256')
         .update('test-hs-webhook-secret' + body)
         .digest('hex');
@@ -336,6 +377,7 @@ describe('HubSpotProvider', () => {
           'x-hubspot-signature': expected,
         },
         body: JSON.parse(body),
+        rawBody,
         method: 'POST',
         protocol: 'https',
         get: () => 'app.test',
@@ -400,9 +442,39 @@ describe('HubSpotProvider', () => {
           'x-hubspot-signature': 'deadbeef00112233445566778899aabbccddeeff00112233445566778899aabbcc',
         },
         body: { portalId: 12345, test: true },
+        rawBody: Buffer.from('{"portalId":12345,"test":true}', 'utf8'),
         method: 'POST',
         protocol: 'https',
         get: () => 'app.test',
+        originalUrl: '/api/crm/hubspot/webhook',
+      } as any;
+
+      const result = await provider.verifyWebhookSignature(req);
+      expect(result.valid).toBe(false);
+    });
+
+    it('rejects v3 signature when parsed body is tampered after signing', async () => {
+      const { createHmac } = await import('node:crypto');
+      const timestamp = String(Date.now());
+      const signedBody = JSON.stringify([{ portalId: 12345, eventId: 'evt-1' }]);
+      const tamperedBody = JSON.stringify([{ portalId: 54321, eventId: 'evt-1' }]);
+      const method = 'POST';
+      const url = 'https://app.test/api/crm/hubspot/webhook';
+      const sourceString = `${method}${url}${signedBody}${timestamp}`;
+      const signature = createHmac('sha256', 'test-hs-webhook-secret')
+        .update(sourceString)
+        .digest('base64');
+
+      const req = {
+        headers: {
+          'x-hubspot-signature-v3': signature,
+          'x-hubspot-request-timestamp': timestamp,
+        },
+        body: JSON.parse(tamperedBody),
+        rawBody: Buffer.from(tamperedBody, 'utf8'),
+        method,
+        protocol: 'https',
+        get: (h: string) => h === 'host' ? 'app.test' : undefined,
         originalUrl: '/api/crm/hubspot/webhook',
       } as any;
 

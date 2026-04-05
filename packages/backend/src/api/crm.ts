@@ -51,7 +51,33 @@ const webhookRateLimiter = createRateLimiter("strict", {
 });
 
 // Payload size limit for webhooks: 512KB
-const webhookBodyLimit = express.json({ limit: "512kb" });
+const webhookBodyLimit = "512kb";
+const webhookRawBodyParser = express.raw({
+  type: "*/*",
+  limit: webhookBodyLimit,
+});
+
+function parseWebhookJsonBody(
+  req: Request,
+  res: Response,
+  next: express.NextFunction
+): void {
+  if (!Buffer.isBuffer(req.body)) {
+    req.rawBody = Buffer.alloc(0);
+    next();
+    return;
+  }
+
+  req.rawBody = req.body;
+
+  try {
+    const parsed = JSON.parse(req.rawBody.toString("utf8")) as unknown;
+    req.body = parsed;
+    next();
+  } catch {
+    res.status(400).json({ ok: false, message: "Invalid JSON payload" });
+  }
+}
 
 // ============================================================================
 // Helpers
@@ -400,6 +426,8 @@ router.get(
 router.post(
   "/:provider/webhook",
   webhookRateLimiter,
+  webhookRawBodyParser,
+  parseWebhookJsonBody,
   async (req: Request, res: Response) => {
     try {
       const provider = CrmProviderSchema.parse(req.params.provider);

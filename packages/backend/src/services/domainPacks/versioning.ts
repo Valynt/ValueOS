@@ -9,7 +9,7 @@ import type {
   DomainPackAssumption,
   DomainPackKpi,
   PackStatus,
-} from '../../api/domainPacks/types.js';
+} from '../../api/domain-packs/types.js';
 
 // ============================================================================
 // Semver Helpers

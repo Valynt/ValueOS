@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
+import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domain-packs/types.js';
 import {
   ALLOWED_ASSUMPTION_UNITS,
   ALLOWED_KPI_UNITS,

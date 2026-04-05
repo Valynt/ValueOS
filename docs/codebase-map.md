@@ -22,7 +22,7 @@
 
 ```
 ValueOS/
-├── apps/                    # 3 frontend applications
+├── apps/                    # 3 applications
 ├── packages/                # 12 shared packages
 ├── client/                  # Secondary frontend (Drizzle/MySQL, tRPC)
 ├── drizzle/                 # Drizzle ORM schema + 5 migrations (MySQL, client/ only)
@@ -39,16 +39,23 @@ ValueOS/
 ```
 
 ---
-
 ## apps/ — 3 Applications
 
-| App | Files | Lifecycle | Owner | Support expectation | Default quality gates |
-|-----|-------|-----------|-------|---------------------|-----------------------|
-| `ValyntApp/` | 797 | `active` | `team-frontend` | Customer-critical supported surface. | Included (`lint/typecheck/build/security` in PR + main workflows). |
-| `mcp-dashboard/` | ~50 | `experimental` | `team-ai-platform` | Prototype support only; best-effort and non-SLA. | Intentionally excluded from default workspace quality gates. |
-| `agentic-ui-pro/` | ~50 | `archived` | `team-frontend` | Reference-only; no active maintenance commitment. | Intentionally excluded from default workspace quality gates. |
+| App | Files | Lifecycle | Owner | Description | Support expectation | Quality gates |
+|-----|-------|-----------|-------|-------------|---------------------|---------------|
+| `ValyntApp/` | 797 | `active` | `team-frontend` | Main React + Vite frontend. Feature-module architecture. | Customer-critical supported surface. | Included (`lint`, `typecheck`, `build`, `security` in PR + main workflows) |
+| `mcp-dashboard/` | ~50 | `experimental` | `team-ai-platform` | MCP monitoring dashboard (React + Vite, 8 pages). | Prototype support only; best-effort, non-SLA. | Excluded from default workspace quality gates |
+| `agentic-ui-pro/` | ~50 | `archived` | `team-frontend` | Agentic UI prototype app. Reference implementation. | Reference-only; no active maintenance. | Excluded from default workspace quality gates |
 
-Lifecycle source of truth: `config/ci/workspace-package-policy.json` + each app `package.json` `valueos.lifecycle`. CI rejects any workspace app without explicit lifecycle metadata.
+**Lifecycle governance**
+- Source of truth: `config/ci/workspace-package-policy.json`
+- Each app must define: `package.json → valueos.lifecycle`
+- CI enforcement: any workspace app without lifecycle metadata is rejected
+
+**Lifecycle definitions**
+- `active` → Production surface, fully supported, must pass all quality gates
+- `experimental` → Rapid iteration, relaxed guarantees, excluded from strict CI gates
+- `archived` → Frozen reference, no changes expected, excluded from CI
 
 ### ValyntApp Feature Modules (`apps/ValyntApp/src/features/`)
 
@@ -56,7 +63,7 @@ Lifecycle source of truth: `config/ci/workspace-package-policy.json` + each app 
 
 ### ValyntApp Source Directories
 
-`app/`, `features/`, `views/`, `pages/`, `components/`, `hooks/`, `lib/`, `stores/`, `contexts/`, `types/`, `utils/`, `mcp-common/`, `mcp-crm/`, `mcp-ground-truth/`, `repositories/`, `security/`, `observability/`, `i18n/`, `adapters/`, `causal/`, `dashboards/`, `data/`, `integrations/`, `layouts/`, `legacy-migrated/`
+`app/`, `features/`, `views/`, `pages/`, `components/`, `hooks/`, `lib/`, `stores/`, `contexts/`, `types/`, `utils/`, `mcp-common/` (adapter imports from `packages/mcp/common`), `mcp-crm/` (adapter surface over `packages/mcp/crm`), `mcp-ground-truth/`, `repositories/`, `security/`, `observability/`, `i18n/`, `adapters/`, `causal/`, `dashboards/`, `data/`, `integrations/`, `layouts/`, `legacy-migrated/`
 
 ---
 
