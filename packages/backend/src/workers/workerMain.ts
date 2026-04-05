@@ -29,6 +29,13 @@ import {
   initCrmWorkers,
 } from './crmWorker.js';
 import {
+  getMcpSyncQueue,
+  getMcpValidationQueue,
+  initMcpIntegrationWorkers,
+  MCP_SYNC_QUEUE,
+  MCP_VALIDATION_QUEUE,
+} from './mcpIntegrationWorker.js';
+import {
   getCertificateGenerationQueue,
   getCertificateGenerationWorker,
 } from './CertificateGenerationWorker.js';
@@ -74,6 +81,15 @@ try {
   logger.info('CRM workers initialized');
 } catch (err) {
   logger.warn('CRM workers failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+try {
+  initMcpIntegrationWorkers();
+  logger.info('MCP integration workers initialized');
+} catch (err) {
+  logger.warn('MCP integration workers failed to start', {
     error: err instanceof Error ? err.message : String(err),
   });
 }
@@ -144,6 +160,8 @@ const queueHealthSamplers = [
   { queue: getCrmSyncQueue, queueName: CRM_SYNC_QUEUE, workerClass: 'crm-sync-worker' },
   { queue: getCrmWebhookQueue, queueName: CRM_WEBHOOK_QUEUE, workerClass: 'crm-webhook-worker' },
   { queue: getPrefetchQueue, queueName: CRM_PREFETCH_QUEUE, workerClass: 'crm-prefetch-worker' },
+  { queue: getMcpValidationQueue, queueName: MCP_VALIDATION_QUEUE, workerClass: 'mcp-validation-worker' },
+  { queue: getMcpSyncQueue, queueName: MCP_SYNC_QUEUE, workerClass: 'mcp-sync-worker' },
   {
     queue: getArtifactGenerationQueue,
     queueName: ARTIFACT_GENERATION_QUEUE_NAME,
