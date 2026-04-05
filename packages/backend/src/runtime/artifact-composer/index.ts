@@ -361,10 +361,14 @@ const lobStrategy: PersonaStrategy = {
                 (a.estimated_value?.timeframe_months ?? 0) -
                 (b.estimated_value?.timeframe_months ?? 0),
             )
-            .map(
-              (h) =>
-                `• ${h.description.slice(0, 80)}… — ${h.estimated_value!.timeframe_months} months`,
-            )
+            .map((h) => {
+              const timeframeMonths = h.estimated_value?.timeframe_months;
+              if (timeframeMonths == null) {
+                return null;
+              }
+              return `• ${h.description.slice(0, 80)}… — ${timeframeMonths} months`;
+            })
+            .filter((line): line is string => line !== null)
             .join("\n") || "Timeframes not yet estimated.",
       },
       {

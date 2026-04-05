@@ -323,11 +323,16 @@ export class QueryExecutor {
     };
 
     if (result.data) {
-      nextState.context!.conversationHistory = [
-        ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
-        { role: 'user', content: 'Async query', timestamp: new Date().toISOString() },
-        { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
-      ];
+      const context = nextState.context ?? {};
+      const conversationHistory = Array.isArray(context.conversationHistory) ? context.conversationHistory : [];
+      nextState.context = {
+        ...context,
+        conversationHistory: [
+          ...conversationHistory,
+          { role: 'user', content: 'Async query', timestamp: new Date().toISOString() },
+          { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
+        ],
+      };
     }
     nextState.status = 'running';
 
@@ -397,11 +402,16 @@ export class QueryExecutor {
 
     const nextState: WorkflowState = { ...currentState, context: { ...(currentState.context ?? {}) }, completed_steps: [...currentState.completed_steps] };
     if (result.data) {
-      nextState.context!.conversationHistory = [
-        ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
-        { role: 'user', content: query, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
-      ];
+      const context = nextState.context ?? {};
+      const conversationHistory = Array.isArray(context.conversationHistory) ? context.conversationHistory : [];
+      nextState.context = {
+        ...context,
+        conversationHistory: [
+          ...conversationHistory,
+          { role: 'user', content: query, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
+        ],
+      };
     }
     nextState.status = 'running';
     return { response: { type: 'message', payload: { message: typeof result.data === 'string' ? result.data : JSON.stringify(result.data) } }, nextState, traceId: result.traceId };
@@ -516,11 +526,16 @@ export class QueryExecutor {
         }
 
         if (agentResponse.success && agentResponse.data) {
-          nextState.context!.conversationHistory = [
-            ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
-            { role: 'user', content: query, timestamp: new Date().toISOString() },
-            { role: 'assistant', content: typeof agentResponse.data === 'string' ? agentResponse.data : JSON.stringify(agentResponse.data), timestamp: new Date().toISOString() },
-          ];
+          const context = nextState.context ?? {};
+          const conversationHistory = Array.isArray(context.conversationHistory) ? context.conversationHistory : [];
+          nextState.context = {
+            ...context,
+            conversationHistory: [
+              ...conversationHistory,
+              { role: 'user', content: query, timestamp: new Date().toISOString() },
+              { role: 'assistant', content: typeof agentResponse.data === 'string' ? agentResponse.data : JSON.stringify(agentResponse.data), timestamp: new Date().toISOString() },
+            ],
+          };
         }
         nextState.status = agentResponse.success ? 'running' : 'completed';
 

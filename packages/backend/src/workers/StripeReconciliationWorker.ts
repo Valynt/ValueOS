@@ -160,7 +160,11 @@ export async function reconcileStripeEvents(windowHours: number): Promise<number
 
     hasMore = page.has_more;
     if (page.data.length > 0) {
-      startingAfter = page.data[page.data.length - 1]!.id;
+      const lastEvent = page.data[page.data.length - 1];
+      if (!lastEvent?.id) {
+        throw new Error('Stripe event page returned an invalid trailing event without an id');
+      }
+      startingAfter = lastEvent.id;
     }
   }
 

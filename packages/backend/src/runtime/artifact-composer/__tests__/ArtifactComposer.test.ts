@@ -293,16 +293,22 @@ describe("composeStakeholderView", () => {
     const cto = composeStakeholderView("cto", input);
     const evidenceSection = cto.sections.find((s) => s.heading === "Evidence Quality");
     expect(evidenceSection).toBeDefined();
-    expect(evidenceSection!.content).toContain("92%");
-    expect(evidenceSection!.content).toContain("PLATINUM");
+    if (!evidenceSection) {
+      throw new Error("Expected Evidence Quality section in CTO view");
+    }
+    expect(evidenceSection.content).toContain("92%");
+    expect(evidenceSection.content).toContain("PLATINUM");
   });
 
   it("CFO view Risk Factors section lists unvalidated assumptions", () => {
     const cfo = composeStakeholderView("cfo", input);
     const riskSection = cfo.sections.find((s) => s.heading === "Risk Factors");
     expect(riskSection).toBeDefined();
-    expect(riskSection!.content).toContain("Headcount reduction");
-    expect(riskSection!.content).toContain("unvalidated");
+    if (!riskSection) {
+      throw new Error("Expected Risk Factors section in CFO view");
+    }
+    expect(riskSection.content).toContain("Headcount reduction");
+    expect(riskSection.content).toContain("unvalidated");
   });
 
   it("sections are ordered by priority ascending", () => {

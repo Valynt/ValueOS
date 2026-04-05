@@ -78,7 +78,11 @@ describe('withIdempotency', () => {
 
     const markCall = mockRpc.mock.calls.find(([fn]) => fn === 'mark_job_processed');
     expect(markCall).toBeDefined();
-    expect(markCall![1]).toMatchObject({ p_result_status: 'completed' });
+    if (!markCall) {
+      throw new Error('Expected mark_job_processed call after successful execution');
+    }
+    const [, markPayload] = markCall;
+    expect(markPayload).toMatchObject({ p_result_status: 'completed' });
   });
 
   it('does NOT mark job processed when processor throws — allows BullMQ retry', async () => {
@@ -146,7 +150,11 @@ describe('IdempotentJobProcessor.handleJob', () => {
 
     const markCall = mockRpc.mock.calls.find(([fn]) => fn === 'mark_job_processed');
     expect(markCall).toBeDefined();
-    expect(markCall![1]).toMatchObject({ p_result_status: 'completed' });
+    if (!markCall) {
+      throw new Error('Expected mark_job_processed call after successful execution');
+    }
+    const [, markPayload] = markCall;
+    expect(markPayload).toMatchObject({ p_result_status: 'completed' });
   });
 
   it('does NOT mark job processed when processJob throws — allows BullMQ retry', async () => {

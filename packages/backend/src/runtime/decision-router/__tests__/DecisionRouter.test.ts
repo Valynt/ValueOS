@@ -60,6 +60,14 @@ function makeHypothesis(
   };
 }
 
+function expectDecision(result: ReturnType<DecisionRouter['evaluate']>) {
+  expect(result).not.toBeNull();
+  if (!result) {
+    throw new Error('Expected DecisionRouter to return a decision');
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -76,10 +84,9 @@ describe('DecisionRouter', () => {
       const ctx = makeContext({
         opportunity: makeOpportunity('drafting', { value_maturity: 'low' }),
       });
-      const result = router.evaluate(ctx);
-      expect(result).not.toBeNull();
-      expect(result!.action).toBe('generateBusinessCase');
-      expect(result!.agent).toBe('financial-modeling');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('generateBusinessCase');
+      expect(result.agent).toBe('financial-modeling');
     });
 
     it('does not fire when value_maturity is medium', () => {
@@ -116,10 +123,9 @@ describe('DecisionRouter', () => {
         opportunity: makeOpportunity('validating', { value_maturity: 'high' }),
         hypothesis: makeHypothesis({ confidence: 'low', confidence_score: 0.3 }),
       });
-      const result = router.evaluate(ctx);
-      expect(result).not.toBeNull();
-      expect(result!.action).toBe('gatherEvidence');
-      expect(result!.agent).toBe('integrity');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('gatherEvidence');
+      expect(result.agent).toBe('integrity');
     });
 
     it('returns gatherEvidence at exactly the boundary (0.39)', () => {
@@ -127,8 +133,8 @@ describe('DecisionRouter', () => {
         opportunity: makeOpportunity('validating', { value_maturity: 'high' }),
         hypothesis: makeHypothesis({ confidence: 'low', confidence_score: 0.39 }),
       });
-      const result = router.evaluate(ctx);
-      expect(result!.action).toBe('gatherEvidence');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('gatherEvidence');
     });
 
     it('does not fire when confidence_score === 0.4', () => {
@@ -146,8 +152,8 @@ describe('DecisionRouter', () => {
         hypothesis: makeHypothesis({ confidence: 'low', confidence_score: undefined }),
       });
       // 'low' enum maps to 0.35 < 0.4 → should fire
-      const result = router.evaluate(ctx);
-      expect(result!.action).toBe('gatherEvidence');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('gatherEvidence');
     });
 
     it('does not fire when hypothesis is absent', () => {
@@ -173,9 +179,9 @@ describe('DecisionRouter', () => {
           evidence_count: 0,
         }),
       });
-      const result = router.evaluate(ctx);
-      expect(result!.action).toBe('validateHypotheses');
-      expect(result!.agent).toBe('integrity');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('validateHypotheses');
+      expect(result.agent).toBe('integrity');
     });
 
     it('does not fire the P30 rule when evidence_count > 0 (falls through to lifecycle rule)', () => {
@@ -209,9 +215,9 @@ describe('DecisionRouter', () => {
           stakeholder_count: 1,
         },
       });
-      const result = router.evaluate(ctx);
-      expect(result!.action).toBe('mapStakeholders');
-      expect(result!.agent).toBe('opportunity');
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('mapStakeholders');
+      expect(result.agent).toBe('opportunity');
     });
 
     it('does not fire when economic buyer is present', () => {
@@ -262,10 +268,9 @@ describe('DecisionRouter', () => {
         const ctx = makeContext({
           opportunity: makeOpportunity(stage, { value_maturity: 'high', confidence_score: 0.9 }),
         });
-        const result = router.evaluate(ctx);
-        expect(result).not.toBeNull();
-        expect(result!.agent).toBe(expectedAgent);
-        expect(result!.action).toBe(expectedAction);
+        const result = expectDecision(router.evaluate(ctx));
+        expect(result.agent).toBe(expectedAgent);
+        expect(result.action).toBe(expectedAction);
       }
     );
   });
@@ -282,10 +287,10 @@ describe('DecisionRouter', () => {
           confidence_score: 0.9,
         }),
       });
-      const result = router.evaluate(ctx);
+      const result = expectDecision(router.evaluate(ctx));
       // P10 fires before P50
-      expect(result!.action).toBe('generateBusinessCase');
-      expect(result!.rule_priority).toBe(10);
+      expect(result.action).toBe('generateBusinessCase');
+      expect(result.rule_priority).toBe(10);
     });
 
     it('gatherEvidence (P20) beats lifecycleStage (P50)', () => {
@@ -296,9 +301,9 @@ describe('DecisionRouter', () => {
         }),
         hypothesis: makeHypothesis({ confidence: 'low', confidence_score: 0.2 }),
       });
-      const result = router.evaluate(ctx);
-      expect(result!.action).toBe('gatherEvidence');
-      expect(result!.rule_priority).toBe(20);
+      const result = expectDecision(router.evaluate(ctx));
+      expect(result.action).toBe('gatherEvidence');
+      expect(result.rule_priority).toBe(20);
     });
   });
 
