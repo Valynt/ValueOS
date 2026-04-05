@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { JsonObjectSchema } from "./json";
+
 /**
  * ESO (External Service Orchestration) Types
  *
@@ -41,7 +44,7 @@ export interface CircuitBreakerConfig {
 export interface ESORequest {
   service_id: string;
   operation: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   idempotency_key?: string;
   timeout_ms?: number;
 }
@@ -50,7 +53,7 @@ export interface ESOResponse {
   service_id: string;
   operation: string;
   status: 'success' | 'failure' | 'timeout';
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   error?: ESOError;
   metadata: ESOMetadata;
 }
@@ -59,7 +62,7 @@ export interface ESOError {
   code: string;
   message: string;
   retryable: boolean;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ESOMetadata {
@@ -157,6 +160,54 @@ export interface ESOPersonaValueMap {
 // ============================================================================
 
 export type CompanySize = "smb" | "mid_market" | "enterprise";
+
+export const ESORequestSchema = z
+  .object({
+    service_id: z.string(),
+    operation: z.string(),
+    parameters: z.record(z.string(), z.unknown()),
+    idempotency_key: z.string().optional(),
+    timeout_ms: z.number().optional(),
+  })
+  .strict();
+
+export const ESOResponseSchema = z
+  .object({
+    service_id: z.string(),
+    operation: z.string(),
+    status: z.enum(["success", "failure", "timeout"]),
+    data: JsonObjectSchema.optional(),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        retryable: z.boolean(),
+        details: JsonObjectSchema.optional(),
+      })
+      .optional(),
+    metadata: z
+      .object({
+        request_id: z.string(),
+        duration_ms: z.number(),
+        attempt_number: z.number(),
+        timestamp: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type ESORequestDTO = z.infer<typeof ESORequestSchema>;
+export type ESOResponseDTO = z.infer<typeof ESOResponseSchema>;
+
+export function parseESORequestDTO(value: unknown): ESORequestDTO {
+  return ESORequestSchema.parse(value);
+}
+
+export function parseESOResponseDTO(value: unknown): ESOResponseDTO {
+  return ESOResponseSchema.parse(value);
+}
+
+// typed-debt-boundary-migration: eso.ts migrated ESO request/response any maps and added DTO boundary parsing helpers; owner=@integrations, remaining debt=wire parseESORequestDTO/parseESOResponseDTO into all provider adapters.
 
 export interface SizeMultiplier {
   smb: number;

@@ -1,3 +1,5 @@
+import type { JsonObject } from "./json";
+
 /**
  * Workflow-SDUI Bridge Types
  * 
@@ -24,7 +26,7 @@ export type WorkflowSDUIEventType =
 export interface SDUIUpdate {
   target: string;
   operation: 'create' | 'update' | 'delete';
-  payload: Record<string, any>;
+  payload: JsonObject;
 }
 
 export interface StageCompletionEvent {
@@ -32,9 +34,11 @@ export interface StageCompletionEvent {
   stage_id: string;
   lifecycle_stage: string;
   status: 'completed' | 'failed' | 'skipped';
-  output_data: Record<string, any>;
+  output_data: JsonObject;
   timestamp: string;
 }
+
+// typed-debt-boundary-migration: workflow-sdui.ts migrated event payload/output contracts to JsonObject; owner=@workflow-runtime, remaining debt=codify event-type-specific payload schemas.
 
 export interface WorkflowProgress {
   workspace_id: string;

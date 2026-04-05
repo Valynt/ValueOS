@@ -29,7 +29,7 @@ export type AgentOutputStatus =
   | 'timeout';
 
 export interface AgentResult {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   confidence: number;
   reasoning?: string;
   suggestions?: string[];
@@ -65,3 +65,5 @@ export interface AgentOutputValidation {
   validation_errors: string[];
   validated_at: string;
 }
+
+// typed-debt-boundary-migration: agent-output.ts migrated legacy AgentResult data bag from any→unknown; owner=@agent-fabric, remaining debt=retire legacy adapter shape in favor of canonical agent output contracts.

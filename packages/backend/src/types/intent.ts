@@ -30,7 +30,7 @@ export interface IntentRecognitionResult {
   intent_name: string;
   confidence: number;
   entities: ExtractedEntity[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
 }
 
 export interface ExtractedEntity {
@@ -45,7 +45,7 @@ export interface IntentRoutingDecision {
   target_agent?: string;
   target_workflow?: string;
   target_service?: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   priority: 'low' | 'normal' | 'high';
 }
 
@@ -146,3 +146,5 @@ export function createIntent(
     data: { ...data, source },
   };
 }
+
+// typed-debt-boundary-migration: intent.ts migrated recognition/routing context bags from any→unknown; owner=@intent-routing, remaining debt=replace free-form context/parameters with intent-specific discriminated DTOs plus boundary parsing.
