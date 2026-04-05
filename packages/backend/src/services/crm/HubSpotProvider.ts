@@ -249,9 +249,15 @@ export class HubSpotProvider implements CrmProviderInterface {
       return { valid: false };
     }
 
-    const rawBody = typeof req.body === 'string'
-      ? req.body
-      : JSON.stringify(req.body);
+    const rawBodyBuffer = req.rawBody
+      ? req.rawBody
+      : Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(
+            typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}),
+            'utf8',
+          );
+    const rawBody = rawBodyBuffer.toString('utf8');
 
     let valid = false;
 
@@ -311,11 +317,17 @@ export class HubSpotProvider implements CrmProviderInterface {
     // Extract portal ID from payload
     let tenantId: string | undefined;
     if (valid) {
-      const payload = req.body;
-      if (Array.isArray(payload) && payload.length > 0) {
-        tenantId = payload[0].portalId ? String(payload[0].portalId) : undefined;
-      } else if (payload?.portalId) {
-        tenantId = String(payload.portalId);
+      try {
+        const payload = Buffer.isBuffer(req.body)
+          ? JSON.parse(rawBody) as unknown
+          : req.body;
+        if (Array.isArray(payload) && payload.length > 0) {
+          tenantId = payload[0].portalId ? String(payload[0].portalId) : undefined;
+        } else if (payload?.portalId) {
+          tenantId = String(payload.portalId);
+        }
+      } catch {
+        tenantId = undefined;
       }
     }
 
