@@ -46,12 +46,52 @@ interface RawResponseData {
   integrations?: RawIntegration[];
   integration?: RawIntegration;
   result?: { status?: string };
+  operations?: {
+    connectionEvents?: IntegrationOperationEvent[];
+    webhookFailures?: IntegrationWebhookFailure[];
+    syncFailures?: IntegrationOperationEvent[];
+    lifecycleHistory?: IntegrationOperationEvent[];
+  };
+}
+
+export interface IntegrationOperationEvent {
+  id: string;
+  category: "connection" | "webhook_failure" | "sync_failure" | "lifecycle";
+  action: string;
+  provider: IntegrationProviderId;
+  status: string;
+  timestamp: string;
+  correlationId: string | null;
+  resourceId: string;
+  details?: Record<string, unknown>;
+}
+
+export interface IntegrationWebhookFailure {
+  id: string;
+  provider: IntegrationProviderId;
+  eventType: string;
+  processStatus: string;
+  timestamp: string;
+  lastError: Record<string, unknown> | null;
+  correlationId: string | null;
 }
 
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [operationsLoading, setOperationsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [operations, setOperations] = useState<{
+    connectionEvents: IntegrationOperationEvent[];
+    webhookFailures: IntegrationWebhookFailure[];
+    syncFailures: IntegrationOperationEvent[];
+    lifecycleHistory: IntegrationOperationEvent[];
+  }>({
+    connectionEvents: [],
+    webhookFailures: [],
+    syncFailures: [],
+    lifecycleHistory: [],
+  });
 
   const fetchIntegrations = useCallback(async () => {
     setIsLoading(true);
@@ -122,9 +162,7 @@ export function useIntegrations() {
           };
 
           if (existingIndex >= 0) {
-            const clone = [...prev];
-            clone[existingIndex] = updated;
-            return clone;
+            return prev.map((item, index) => (index === existingIndex ? updated : item));
           }
           return [...prev, updated];
         });
@@ -199,15 +237,64 @@ export function useIntegrations() {
     }
   }, []);
 
+  const fetchOperations = useCallback(async (provider?: IntegrationProviderId) => {
+    setOperationsLoading(true);
+    setError(null);
+    try {
+      const response = await api.getIntegrationOperations(provider);
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to load integration operations");
+      }
+
+      const data = response.data as unknown;
+      const rawData = data as RawResponseData;
+      const nextOperations = rawData.operations;
+
+      setOperations({
+        connectionEvents: nextOperations?.connectionEvents ?? [],
+        webhookFailures: nextOperations?.webhookFailures ?? [],
+        syncFailures: nextOperations?.syncFailures ?? [],
+        lifecycleHistory: nextOperations?.lifecycleHistory ?? [],
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load operations");
+    } finally {
+      setOperationsLoading(false);
+    }
+  }, []);
+
+  const retrySyncFailure = useCallback(async (provider: IntegrationProviderId) => {
+    setError(null);
+    const response = await api.retryIntegrationSync(provider);
+    if (!response.success) {
+      throw new Error(response.error?.message || "Failed to retry sync");
+    }
+    await fetchOperations(provider);
+  }, [fetchOperations]);
+
+  const replayWebhookFailure = useCallback(async (provider: IntegrationProviderId, eventId: string) => {
+    setError(null);
+    const response = await api.replayIntegrationWebhook(provider, eventId);
+    if (!response.success) {
+      throw new Error(response.error?.message || "Failed to replay webhook");
+    }
+    await fetchOperations(provider);
+  }, [fetchOperations]);
+
   return {
     integrations,
     providers: PROVIDERS,
     isLoading,
+    operationsLoading,
     error,
+    operations,
     fetchIntegrations,
+    fetchOperations,
     connect,
     disconnect,
     testConnection,
     sync,
+    retrySyncFailure,
+    replayWebhookFailure,
   };
 }

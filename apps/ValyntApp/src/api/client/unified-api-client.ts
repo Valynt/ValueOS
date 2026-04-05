@@ -567,6 +567,15 @@ export const api = {
 
   deleteIntegration: (id: string) => apiClient.delete(`/api/integrations/${id}`),
 
+  getIntegrationOperations: (provider?: string) =>
+    apiClient.get("/api/integrations/operations", provider ? { provider } : undefined),
+
+  retryIntegrationSync: (provider: string) =>
+    apiClient.post(`/api/integrations/operations/${provider}/sync/retry`),
+
+  replayIntegrationWebhook: (provider: string, eventId: string) =>
+    apiClient.post(`/api/integrations/operations/${provider}/webhook/${eventId}/replay`),
+
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 

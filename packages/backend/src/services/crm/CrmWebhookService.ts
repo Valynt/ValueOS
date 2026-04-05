@@ -55,10 +55,25 @@ const ALLOWED_EVENT_TYPES: Record<CrmProvider, Set<string>> = {
   ]),
 };
 
+function getAllowedEventTypes(provider: CrmProvider): Set<string> {
+  if (provider === 'hubspot') return ALLOWED_EVENT_TYPES.hubspot;
+  return ALLOWED_EVENT_TYPES.salesforce;
+}
+
 export interface WebhookIngestResult {
   accepted: boolean;
   duplicate: boolean;
   eventId?: string;
+}
+
+export interface FailedWebhookEvent {
+  id: string;
+  provider: CrmProvider;
+  eventType: string;
+  processStatus: string;
+  timestamp: string;
+  lastError: Record<string, unknown> | null;
+  correlationId: string | null;
 }
 
 export class CrmWebhookService {
@@ -120,7 +135,7 @@ export class CrmWebhookService {
 
     // 6. Validate event type against allowlist
     const eventType = this.extractEventType(provider, payload);
-    const allowed = ALLOWED_EVENT_TYPES[provider];
+    const allowed = getAllowedEventTypes(provider);
     if (allowed && !allowed.has(eventType)) {
       logger.warn('Webhook event type not in allowlist', { provider, eventType });
       return { accepted: false, duplicate: false };
@@ -225,6 +240,99 @@ export class CrmWebhookService {
 
       throw err;
     }
+  }
+
+  async listFailedEvents(
+    tenantId: string,
+    provider?: CrmProvider | null,
+    limit: number = 100,
+  ): Promise<FailedWebhookEvent[]> {
+    let query = this.supabase
+      .from('crm_webhook_events')
+      .select('id, provider, event_type, process_status, created_at, updated_at, last_error, payload')
+      .eq('tenant_id', tenantId)
+      .eq('process_status', 'failed')
+      .order('updated_at', { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 500));
+
+    if (provider) {
+      query = query.eq('provider', provider);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) {
+      logger.error('Failed to query CRM webhook failures', error ?? undefined, { tenantId, provider });
+      return [];
+    }
+
+    return data.map((row: Record<string, unknown>) => {
+      const payload = (row.payload ?? {}) as Record<string, unknown>;
+      const correlationCandidate =
+        payload.trace_id ??
+        payload.traceId ??
+        payload.correlation_id ??
+        payload.correlationId;
+      return {
+        id: String(row.id),
+        provider: String(row.provider) as CrmProvider,
+        eventType: String(row.event_type ?? 'unknown'),
+        processStatus: String(row.process_status ?? 'failed'),
+        timestamp: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
+        lastError: (row.last_error as Record<string, unknown> | null) ?? null,
+        correlationId: typeof correlationCandidate === 'string' ? correlationCandidate : null,
+      };
+    });
+  }
+
+  async replayFailedEvent(
+    tenantId: string,
+    provider: CrmProvider,
+    eventId: string,
+    correlationId?: string | null,
+  ): Promise<{ replayJobId: string | null; eventId: string; provider: CrmProvider; replayedAt: string }> {
+    const { data: existing, error } = await this.supabase
+      .from('crm_webhook_events')
+      .select('id, process_status')
+      .eq('id', eventId)
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .maybeSingle();
+
+    if (error || !existing) {
+      throw new Error('Webhook event not found for replay');
+    }
+
+    if (existing.process_status !== 'failed') {
+      throw new Error('Only failed webhook events can be replayed');
+    }
+
+    await this.supabase
+      .from('crm_webhook_events')
+      .update({
+        process_status: 'pending',
+        processed_at: null,
+        last_error: null,
+      })
+      .eq('id', eventId)
+      .eq('tenant_id', tenantId);
+
+    const queue = getCrmWebhookQueue();
+    const job = await queue.add('crm:webhook:replay', {
+      eventId,
+      tenantId,
+      provider,
+      traceId: correlationId ?? eventId,
+    }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 3000 },
+    });
+
+    return {
+      replayJobId: job.id ? String(job.id) : null,
+      eventId,
+      provider,
+      replayedAt: new Date().toISOString(),
+    };
   }
 
   // ---- Private helpers ----

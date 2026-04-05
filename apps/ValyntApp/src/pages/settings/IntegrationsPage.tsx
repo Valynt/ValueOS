@@ -3,7 +3,7 @@
  */
 
 import { formatDistanceToNow } from "date-fns";
-import { Check, ExternalLink, RefreshCw, Settings2, XCircle } from "lucide-react";
+import { AlertTriangle, Check, ExternalLink, RefreshCw, Settings2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { SettingsAlert, SettingsSection } from "@/components/settings";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIntegrations } from "@/integrations";
 import type {
   IntegrationConfigField,
@@ -56,6 +57,11 @@ export function IntegrationsPage() {
     disconnect,
     testConnection,
     sync,
+    operations,
+    operationsLoading,
+    fetchOperations,
+    retrySyncFailure,
+    replayWebhookFailure,
   } = useIntegrations();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,6 +73,10 @@ export function IntegrationsPage() {
   useEffect(() => {
     fetchIntegrations();
   }, [fetchIntegrations]);
+
+  useEffect(() => {
+    void fetchOperations();
+  }, [fetchOperations]);
 
   const integrationMap = useMemo(() => {
     return new Map(integrations.map((item) => [item.provider, item]));
@@ -261,14 +271,150 @@ export function IntegrationsPage() {
         />
       )}
 
-      <SettingsSection
-        title="CRM"
-        description="Connect your CRM to sync opportunities and contacts"
-      >
-        {providers.map((provider) => (
-          <IntegrationCard key={provider.id} provider={provider} />
-        ))}
-      </SettingsSection>
+      <Tabs defaultValue="connections">
+        <TabsList className="mb-4">
+          <TabsTrigger value="connections">Connections</TabsTrigger>
+          <TabsTrigger value="operations">Operations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="connections">
+          <SettingsSection
+            title="CRM"
+            description="Connect your CRM to sync opportunities and contacts"
+          >
+            {providers.map((provider) => (
+              <IntegrationCard key={provider.id} provider={provider} />
+            ))}
+          </SettingsSection>
+        </TabsContent>
+
+        <TabsContent value="operations">
+          <SettingsSection
+            title="Operations"
+            description="Operational timeline for connection events, failed jobs, and recovery actions."
+          >
+            <div className="p-4 border-b border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchOperations()}
+                disabled={operationsLoading}
+              >
+                <RefreshCw className="h-3 w-3 mr-2" />
+                Refresh operations
+              </Button>
+            </div>
+
+            <div className="p-4 border-b border-border">
+              <h4 className="font-medium mb-2">Connection events</h4>
+              {operations.connectionEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No connection events yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {operations.connectionEvents.slice(0, 10).map((event) => (
+                    <div key={event.id} className="rounded border p-3 text-sm">
+                      <p className="font-medium">
+                        {event.provider} · {event.action}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {formatTimestamp(event.timestamp)} · correlation: {event.correlationId ?? "n/a"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-b border-border">
+              <h4 className="font-medium mb-2">Webhook failures</h4>
+              {operations.webhookFailures.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No failed webhook jobs.</p>
+              ) : (
+                <div className="space-y-2">
+                  {operations.webhookFailures.slice(0, 10).map((failure) => (
+                    <div key={failure.id} className="rounded border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {failure.provider} · {failure.eventType}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {formatTimestamp(failure.timestamp)} · correlation: {failure.correlationId ?? "n/a"}
+                          </p>
+                          {failure.lastError?.message && (
+                            <p className="text-rose-600 mt-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {String(failure.lastError.message)}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => replayWebhookFailure(failure.provider, failure.id)}
+                        >
+                          Replay
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-b border-border">
+              <h4 className="font-medium mb-2">Sync failures</h4>
+              {operations.syncFailures.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No failed sync jobs.</p>
+              ) : (
+                <div className="space-y-2">
+                  {operations.syncFailures.slice(0, 10).map((failure) => (
+                    <div key={failure.id} className="rounded border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {failure.provider} · {failure.action}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {formatTimestamp(failure.timestamp)} · correlation: {failure.correlationId ?? "n/a"}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => retrySyncFailure(failure.provider)}
+                        >
+                          Retry sync
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4">
+              <h4 className="font-medium mb-2">Reauth / disable / disconnect history</h4>
+              {operations.lifecycleHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No lifecycle events recorded yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {operations.lifecycleHistory.slice(0, 15).map((event) => (
+                    <div key={event.id} className="rounded border p-3 text-sm">
+                      <p className="font-medium">
+                        {event.provider} · {event.action}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {formatTimestamp(event.timestamp)} · correlation: {event.correlationId ?? "n/a"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </SettingsSection>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-[480px]">
