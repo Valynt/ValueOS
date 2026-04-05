@@ -10,13 +10,14 @@
  * Or call initResearchWorker() from the server boot sequence.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/createWorkerServiceSupabaseClient.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
@@ -71,12 +72,9 @@ export function getResearchQueue(): Queue<ResearchJobInput> {
 // ---------------------------------------------------------------------------
 
 function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for the research worker');
-  }
-  return createClient(url, key);
+  return createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified research worker onboarding enrichment',
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -15,11 +15,12 @@
  * Metrics: alert_rule_evaluation_total, alert_rule_evaluation_failures_total
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Queue, Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 
 import { createLogger } from "../lib/logger.js";
+import { createWorkerServiceSupabaseClient } from "../lib/supabase/privileged/createWorkerServiceSupabaseClient.js";
 import {
   AlertingService,
   type AlertRule,
@@ -100,12 +101,9 @@ export async function scheduleAlertRuleJobs(rules: AlertRule[]): Promise<void> {
 // ── Supabase service client ──────────────────────────────────────────────────
 
 function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified alerting worker rule evaluation',
+  });
 }
 
 // ── Worker ───────────────────────────────────────────────────────────────────

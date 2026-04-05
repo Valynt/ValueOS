@@ -21,11 +21,12 @@
  *   workflow_watchdog_failures_total
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Queue, Worker, type Job } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/createWorkerServiceSupabaseClient.js';
 import { getMetricsRegistry } from '../middleware/metricsMiddleware.js';
 import { Counter } from 'prom-client';
 
@@ -116,12 +117,9 @@ export async function scheduleWatchdogJob(): Promise<void> {
 // ── Supabase service client ──────────────────────────────────────────────────
 
 function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_KEY;
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified workflow watchdog worker stuck execution recovery',
+  });
 }
 
 // ── Core watchdog logic ──────────────────────────────────────────────────────
