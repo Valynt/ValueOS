@@ -10,7 +10,6 @@ import { randomUUID } from "node:crypto";
 import {
   AgentRequestEvent,
   BaseEvent,
-  createBaseEvent,
   Event,
   EVENT_TOPICS,
 } from "@shared/types/events";
@@ -24,6 +23,7 @@ import { AgentType } from "./agent-types.js"
 import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { isKafkaEnabled } from "./kafkaConfig.js"
 import { getUnifiedAgentAPI } from "../value/UnifiedAgentAPI.js"
+import { AgentResult, AgentResultMeta } from "./core/AgentContract.js"
 
 // AgentResponseEvent is not in shared types; define locally
 interface AgentResponseEvent extends BaseEvent {
@@ -37,7 +37,30 @@ interface AgentResponseEvent extends BaseEvent {
     success: boolean;
     error?: string;
     duration_ms: number;
+    traceId: string;
+    contractVersion: string;
+    resultMeta: AgentResultMeta;
   };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
+
+function toStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = value.filter((item): item is string => typeof item === "string");
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 
@@ -78,6 +101,63 @@ export class AgentExecutorService {
     return this._eventSourcing;
   }
   private unifiedAgentAPI = getUnifiedAgentAPI();
+
+  private buildAgentResult(
+    response: Record<string, unknown>,
+    fallbackTraceId: string,
+    latency: number
+  ): AgentResult<unknown> {
+    const responseMetadata = asRecord(response.metadata);
+    const responseOutput = response.data ?? response;
+    const outputRecord = asRecord(responseOutput);
+    const outputMeta = asRecord(outputRecord?.meta);
+    const outputValidation = asRecord(outputMeta?.validation);
+    const outputRetry = asRecord(outputMeta?.retry);
+
+    const traceId =
+      (typeof responseMetadata?.traceId === "string" && responseMetadata.traceId) ||
+      (typeof outputMeta?.traceId === "string" && outputMeta.traceId) ||
+      fallbackTraceId;
+    const contractVersion =
+      (typeof outputMeta?.contractVersion === "string" && outputMeta.contractVersion) ||
+      (typeof outputRecord?.contractVersion === "string" && outputRecord.contractVersion) ||
+      "legacy-unversioned";
+    const validationPassed =
+      toOptionalBoolean(outputValidation?.passed) ??
+      toOptionalBoolean(outputMeta?.validationPassed) ??
+      true;
+    const retryCount =
+      toOptionalNumber(outputRetry?.count) ??
+      toOptionalNumber(outputMeta?.retryCount) ??
+      0;
+
+    const meta: AgentResultMeta = {
+      traceId,
+      contractVersion,
+      durationMs: latency,
+      validation: {
+        passed: validationPassed,
+        errors: toStringArray(outputValidation?.errors) ?? toStringArray(outputMeta?.validationErrors),
+        warnings: toStringArray(outputValidation?.warnings),
+      },
+      retry: {
+        count: retryCount,
+        maxRetries: toOptionalNumber(outputRetry?.maxRetries),
+        exhausted: toOptionalBoolean(outputRetry?.exhausted),
+        lastError:
+          (typeof outputRetry?.lastError === "string" && outputRetry.lastError) ||
+          (typeof outputMeta?.lastRetryError === "string" && outputMeta.lastRetryError) ||
+          undefined,
+      },
+    };
+
+    return {
+      success: response.success !== false,
+      output: responseOutput ?? null,
+      error: typeof response.error === "string" ? response.error : undefined,
+      meta,
+    };
+  }
 
   /**
    * Start the agent executor service.
@@ -133,6 +213,11 @@ export class AgentExecutorService {
       });
 
       const latency = Date.now() - startTime;
+      const normalizedResult = this.buildAgentResult(
+        response as unknown as Record<string, unknown>,
+        event.correlationId ?? randomUUID(),
+        latency
+      );
 
       // Create agent response event
       const responsePayload = {
@@ -140,10 +225,13 @@ export class AgentExecutorService {
         userId: payload.userId,
         sessionId: payload.sessionId,
         tenantId: payload.tenantId,
-        response: response.data || response,
-        success: response.success !== false,
-        error: response.success === false ? response.error : undefined,
+        response: normalizedResult.output,
+        success: normalizedResult.success,
+        error: normalizedResult.error,
         duration_ms: latency,
+        traceId: normalizedResult.meta.traceId,
+        contractVersion: normalizedResult.meta.contractVersion,
+        resultMeta: normalizedResult.meta,
       };
 
       const agentResponseEvent: AgentResponseEvent = {
@@ -167,6 +255,10 @@ export class AgentExecutorService {
             sessionId: responsePayload.sessionId,
             response: responsePayload.response,
             success: responsePayload.success,
+            traceId: responsePayload.traceId,
+            contractVersion: responsePayload.contractVersion,
+            validation: responsePayload.resultMeta.validation,
+            retry: responsePayload.resultMeta.retry,
             correlationId: agentResponseEvent.correlationId,
             timestamp: agentResponseEvent.meta?.timestamp || new Date().toISOString(),
           }
@@ -202,6 +294,10 @@ export class AgentExecutorService {
         agentId: payload.agentId,
         correlationId: event.correlationId,
         latency,
+        traceId: normalizedResult.meta.traceId,
+        contractVersion: normalizedResult.meta.contractVersion,
+        retryCount: normalizedResult.meta.retry.count,
+        validationPassed: normalizedResult.meta.validation.passed,
         tokens: response.metadata?.tokens?.total,
       });
     } catch (error) {
@@ -212,6 +308,7 @@ export class AgentExecutorService {
         correlationId: event.correlationId,
         latency,
       });
+      const errorTraceId = event.correlationId ?? randomUUID();
 
       // Create error response event
       const errorResponseEvent: AgentResponseEvent = {
@@ -225,6 +322,20 @@ export class AgentExecutorService {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
           duration_ms: latency,
+          traceId: errorTraceId,
+          contractVersion: "agent-result.v1",
+          resultMeta: {
+            traceId: errorTraceId,
+            contractVersion: "agent-result.v1",
+            durationMs: latency,
+            validation: {
+              passed: false,
+              errors: [error instanceof Error ? error.message : "Unknown error"],
+            },
+            retry: {
+              count: 0,
+            },
+          },
         },
         correlationId: event.correlationId,
         meta: { eventId: randomUUID(), timestamp: new Date().toISOString(), source: "agent-executor" },
@@ -244,6 +355,10 @@ export class AgentExecutorService {
             response: null,
             success: false,
             error: errorResponseEvent.payload.error,
+            traceId: errorResponseEvent.payload.traceId,
+            contractVersion: errorResponseEvent.payload.contractVersion,
+            validation: errorResponseEvent.payload.resultMeta.validation,
+            retry: errorResponseEvent.payload.resultMeta.retry,
           }
         );
       } catch (err) {
