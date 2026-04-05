@@ -34,6 +34,15 @@ export interface AgentConfig {
 
 // LifecycleStage re-exported at top of file.
 
+
+export type AgentState = 'idle' | 'planning' | 'executing' | 'waiting' | 'completed' | 'error';
+
+export interface AgentEvent {
+  type: 'state_change' | 'message' | 'error' | 'action';
+  timestamp: string;
+  data: unknown;
+}
+
 export interface ModelConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
   model_name: string;
