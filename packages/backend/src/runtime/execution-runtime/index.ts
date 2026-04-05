@@ -28,6 +28,7 @@ import type { WorkflowDAG, WorkflowStage } from '../../types/workflow.js';
 import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
+import { getApprovalInbox } from '../approval-inbox/index.js';
 
 import { QueryExecutor, type QueryExecutorConfig } from './QueryExecutor.js';
 import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecutor.js';
@@ -166,5 +167,6 @@ export function createExecutionRuntime(config: Partial<ExecutionRuntimeConfig> =
       circuit_breaker_ready: true,
     }),
   });
+  getApprovalInbox().start();
   return new ExecutionRuntime(policy, decisionRouter, config);
 }

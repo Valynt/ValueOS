@@ -19,6 +19,26 @@ export interface RecordWorkflowEventInput {
   metadata: Record<string, unknown>;
 }
 
+export type ApprovalCheckpointState =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "escalated"
+  | "expired";
+
+export interface ApprovalCheckpointRecord {
+  checkpoint_id: string;
+  run_id: string;
+  stage_id: string;
+  organization_id: string;
+  owner_principal: string;
+  owner_type: "user" | "team" | "role";
+  due_at: string;
+  escalation_policy_id: string;
+  state: ApprovalCheckpointState;
+  updated_at?: string;
+}
+
 export interface RecordStageRunInput {
   executionId: string;
   organizationId: string;
@@ -38,6 +58,15 @@ export interface WorkflowExecutionStore {
   updateExecutionStatus(input: UpdateExecutionStatusInput): Promise<void>;
   recordStageRun(input: RecordStageRunInput): Promise<void>;
   recordWorkflowEvent(input: RecordWorkflowEventInput): Promise<void>;
+  upsertApprovalCheckpoint(record: ApprovalCheckpointRecord): Promise<void>;
+  listApprovalCheckpoints(input: {
+    organizationId: string;
+    ownerPrincipal?: string;
+    ownerTeam?: string;
+    states?: ApprovalCheckpointState[];
+    overdueOnly?: boolean;
+  }): Promise<ApprovalCheckpointRecord[]>;
+  listOrganizationsWithPendingApprovalCheckpoints(): Promise<string[]>;
   getExecutionStatus(executionId: string, organizationId: string): Promise<WorkflowExecutionStatusDTO | null>;
   getExecutionLogs(executionId: string, organizationId: string): Promise<WorkflowExecutionLogDTO[]>;
 }
