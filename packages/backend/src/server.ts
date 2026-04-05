@@ -59,6 +59,7 @@ import groundtruthRouter from "./api/groundtruth.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
+import mcpIntegrationsRouter from "./api/mcp-integrations.js";
 import llmRouter from "./api/llm.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
@@ -99,6 +100,7 @@ import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookServ
 import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
 import { EntitlementsService } from "./services/billing/EntitlementsService.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
+import { initMcpIntegrationWorkers } from "./workers/mcpIntegrationWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
 import { createVersionedApiRouter } from "./versioning.js";
@@ -604,6 +606,7 @@ app.use("/api/analytics", analyticsRouter);
 app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/mcp-integrations", mcpIntegrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/value-drivers", valueDriversRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
@@ -882,6 +885,13 @@ async function startServer(): Promise<void> {
       logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
     } catch (workerErr) {
       logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+    }
+
+    try {
+      initMcpIntegrationWorkers();
+      logger.info("[Instrumentation] MCP integration workers initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] MCP integration workers failed to start:", { error: workerErr });
     }
 
     try {
