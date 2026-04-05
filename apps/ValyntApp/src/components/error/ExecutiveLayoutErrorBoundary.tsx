@@ -9,6 +9,8 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { cn } from '@/lib/utils';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
+import { analyticsClient } from '@/lib/analyticsClient';
+import { RequestIdContext, type RequestIdContextValue } from '@valueos/sdui';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +28,9 @@ interface State {
 }
 
 export class ExecutiveLayoutErrorBoundary extends Component<Props, State> {
+  static override contextType = RequestIdContext;
+  declare context: RequestIdContextValue;
+
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -36,23 +41,28 @@ export class ExecutiveLayoutErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log to console
-    console.error(
-      `[${this.props.boundaryName}] Error caught:`,
-      error,
-      errorInfo
-    );
+    const route = typeof window !== 'undefined' ? window.location.pathname : 'unknown';
+    const correlationId = this.context?.lastFailedRequestId ?? undefined;
+    const payload = {
+      boundary_name: this.sanitizeTelemetryField(this.props.boundaryName),
+      error_message: this.sanitizeTelemetryField(error.message),
+      component_stack: this.sanitizeTelemetryField(errorInfo.componentStack),
+      route: this.sanitizeTelemetryField(route),
+      ...(correlationId ? { correlation_id: this.sanitizeTelemetryField(correlationId) } : {}),
+    };
 
-    // TODO: Send to error tracking service (Sentry, PostHog, etc.)
-    // Example:
-    // if (typeof window !== 'undefined' && window.posthog) {
-    //   window.posthog.capture('react_error_boundary_triggered', {
-    //     boundary_name: this.props.boundaryName,
-    //     error_message: error.message,
-    //     error_stack: error.stack,
-    //     component_stack: errorInfo.componentStack,
-    //   });
-    // }
+    // Keep console logging minimal to avoid leaking sensitive payloads.
+    console.error(`[${this.props.boundaryName}] Error caught`, {
+      error_message: payload.error_message,
+      route: payload.route,
+      ...(correlationId ? { correlation_id: payload.correlation_id } : {}),
+    });
+
+    analyticsClient.track('react_error_boundary_triggered', payload);
+  }
+
+  private sanitizeTelemetryField(value: string, maxLength = 2000): string {
+    return value.replace(/[\r\n\t]+/g, ' ').slice(0, maxLength);
   }
 
   resetErrorBoundary = () => {
