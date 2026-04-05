@@ -365,6 +365,8 @@ jobs:
 
       - name: Workspace package governance inventory
         run: pnpm run check:workspace-package-governance
+      - name: App Vite/Vitest baseline guard
+        run: pnpm run check:app-test-toolchain-baseline
 
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs

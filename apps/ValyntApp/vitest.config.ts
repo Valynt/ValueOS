@@ -4,7 +4,6 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  // @ts-expect-error — @vitejs/plugin-react targets vite 6, vitest/config resolves vite 7
   plugins: [react()],
   test: {
     globals: true,
