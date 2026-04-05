@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-crm-integration-alerts
+  namespace: monitoring
+data:
+  crm-integration-alerts.yaml: |
+    groups:
+    - name: crm_integration_health
+      interval: 30s
+      rules:
+      - alert: CRMConnectionFailureRateHigh
+        expr: sum by (tenant_id, provider) (rate(crm_integration_operation_failure_total{operation=~"connect.*"}[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: crm
+        annotations:
+          summary: "CRM connection failures elevated for {{ $labels.tenant_id }}/{{ $labels.provider }}"
+          description: "Connection failure rate exceeded threshold over 10 minutes."
+
+      - alert: CRMSyncHealthDegraded
+        expr: sum by (tenant_id, provider) (rate(crm_integration_operation_failure_total{operation="sync.delta"}[10m])) > 0.02
+        for: 15m
+        labels:
+          severity: critical
+          component: crm
+        annotations:
+          summary: "CRM sync degraded for {{ $labels.tenant_id }}/{{ $labels.provider }}"
+          description: "Delta sync failures sustained for at least 15 minutes."
+
+      - alert: CRMWebhookBacklogHigh
+        expr: crm_webhook_backlog > 200
+        for: 10m
+        labels:
+          severity: warning
+          component: crm
+        annotations:
+          summary: "Webhook backlog high for {{ $labels.tenant_id }}/{{ $labels.provider }}"
+          description: "Pending CRM webhook events exceeded 200."
+
+      - alert: CRMWebhookQueueLagHigh
+        expr: crm_queue_lag_seconds{queue="webhook"} > 600
+        for: 10m
+        labels:
+          severity: critical
+          component: crm
+        annotations:
+          summary: "Webhook queue lag high for {{ $labels.tenant_id }}/{{ $labels.provider }}"
+          description: "Oldest pending webhook event is older than 10 minutes."

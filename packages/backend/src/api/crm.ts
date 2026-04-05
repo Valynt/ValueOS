@@ -96,6 +96,35 @@ function getActor(req: Request) {
   };
 }
 
+async function logCrmAdminAudit(params: {
+  req?: Request;
+  tenantId: string;
+  provider: string;
+  action: string;
+  outcome: "success" | "failed";
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  const actor = params.req ? getActor(params.req) : { id: "system", email: "system@valueos.io", name: "System" };
+  await auditLogService.logAudit({
+    tenantId: params.tenantId,
+    userId: actor.id,
+    userName: actor.name,
+    userEmail: actor.email,
+    action: params.action,
+    resourceType: "crm_connection",
+    resourceId: params.provider,
+    details: {
+      tenantId: params.tenantId,
+      provider: params.provider,
+      outcome: params.outcome,
+      ...(params.details ?? {}),
+    },
+    status: params.outcome === "success" ? "success" : "failed",
+    ipAddress: params.req?.ip,
+    userAgent: params.req?.get("user-agent"),
+  });
+}
+
 function getTenantId(req: Request): string {
   const tenantId = req.tenantId;
   if (!tenantId) throw new Error("Tenant context required");
@@ -162,22 +191,28 @@ router.post(
         redirectUri
       );
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      await logCrmAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_oauth_started",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
       });
 
       return res.json({ authUrl: result.authUrl, state: result.state });
     } catch (error) {
+      const tenantId = req.tenantId;
+      const provider = req.params.provider;
+      if (tenantId && provider) {
+        await logCrmAdminAudit({
+          req,
+          tenantId,
+          provider,
+          action: "crm_oauth_started",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
       if (error instanceof z.ZodError) {
         logger.warn("OAuth start rejected: unsupported provider", {
           provider: req.params.provider,
@@ -275,15 +310,12 @@ router.get(
         );
 
       // Audit log
-      await auditLogService.logAudit({
+      await logCrmAdminAudit({
         tenantId,
-        userId: "system",
-        userName: "System",
-        userEmail: "system@valueos.io",
+        provider,
         action: "crm_connected",
-        resourceType: "crm_connection",
-        resourceId: connection.id,
-        details: { provider, status: connection.status },
+        outcome: "success",
+        details: { connectionId: connection.id, status: connection.status },
       });
 
       // Trigger initial sync
@@ -317,6 +349,16 @@ router.get(
         </body></html>
       `);
     } catch (error) {
+      const provider = req.params.provider;
+      if (provider) {
+        await logCrmAdminAudit({
+          tenantId: req.tenantId ?? "unknown",
+          provider,
+          action: "crm_connected",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
       logger.error(
         "OAuth callback failed",
         error instanceof Error ? error : undefined
@@ -349,22 +391,26 @@ router.post(
 
       await crmConnectionService.disconnect(tenantId, provider);
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      await logCrmAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_disconnected",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
       });
 
       return res.json({ success: true });
     } catch (error) {
+      if (req.tenantId && req.params.provider) {
+        await logCrmAdminAudit({
+          req,
+          tenantId: req.tenantId,
+          provider: req.params.provider,
+          action: "crm_disconnected",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
       logger.error(
         "Disconnect failed",
         error instanceof Error ? error : undefined
@@ -672,22 +718,27 @@ router.post(
         }
       );
 
-      const actor = getActor(req);
-      await auditLogService.logAudit({
+      await logCrmAdminAudit({
+        req,
         tenantId,
-        userId: actor.id,
-        userName: actor.name,
-        userEmail: actor.email,
+        provider,
         action: "crm_sync_triggered",
-        resourceType: "crm_connection",
-        resourceId: provider,
-        details: { provider, jobId: job.id },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        outcome: "success",
+        details: { jobId: job.id },
       });
 
       return res.json({ success: true, jobId: job.id });
     } catch (error) {
+      if (req.tenantId && req.params.provider) {
+        await logCrmAdminAudit({
+          req,
+          tenantId: req.tenantId,
+          provider: req.params.provider,
+          action: "crm_sync_triggered",
+          outcome: "failed",
+          details: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
       logger.error(
         "Sync trigger failed",
         error instanceof Error ? error : undefined
