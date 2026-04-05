@@ -61,7 +61,7 @@ describe("ComplianceModePage", () => {
     mockGet.mockReset();
   });
 
-  it("renders selectable frameworks exactly from /api/admin/compliance/mode and shows HIPAA gating reasons", async () => {
+  it("renders selectable frameworks exactly from /api/admin/compliance/mode and shows ISO27001 gating reasons", async () => {
     const modeResponse: ComplianceModeStatus = {
       tenant_id: "tenant-1",
       active_modes: ["GDPR", "SOC2", "ISO27001"],
@@ -93,7 +93,7 @@ describe("ComplianceModePage", () => {
           missing_prerequisites: [],
         },
         {
-          framework: "HIPAA",
+          framework: "ISO27001",
           availability: "gated",
           selectable: false,
           prerequisites_met: false,
@@ -117,7 +117,7 @@ describe("ComplianceModePage", () => {
 
     expect(screen.getAllByText("SOC2").length).toBeGreaterThan(0);
     expect(screen.getAllByText("ISO27001").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("HIPAA")).toHaveLength(1);
+    expect(screen.getAllByText("ISO27001")).toHaveLength(1);
     expect(screen.getByText("Gated / unavailable until prerequisites are met.")).toBeInTheDocument();
     expect(screen.getByText("Data classification for PHI-bearing assets")).toBeInTheDocument();
     expect(screen.getByText("Break-glass access logging")).toBeInTheDocument();

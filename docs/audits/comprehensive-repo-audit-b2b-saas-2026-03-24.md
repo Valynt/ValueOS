@@ -17,7 +17,7 @@ ValueOS is a well-architected B2B SaaS platform with strong security fundamental
 
 - **Exceptional tenant isolation posture.** Postgres RLS on 121+ migration files, dedicated CI gates (`tenant-isolation-gate`, `tenant-isolation-static-gate`), ESLint rules blocking `service_role` misuse, and runtime tests validating cross-tenant boundaries.
 - **Mature CI/CD pipeline.** 19 GitHub Actions workflows covering unit tests, SAST (Semgrep + CodeQL), SCA (pnpm audit + Trivy), DAST (OWASP ZAP), SBOM generation (CycloneDX), secret scanning (gitleaks), accessibility audits, and supply-chain verification (Cosign).
-- **Strong security governance.** Pre-commit gitleaks hooks, ESLint security plugin, egress allowlist enforcement (`egressFetch`), LLM call guardrails (`secureInvoke` mandate), and dedicated compliance documentation (SOC2, FedRAMP, HIPAA mappings).
+- **Strong security governance.** Pre-commit gitleaks hooks, ESLint security plugin, egress allowlist enforcement (`egressFetch`), LLM call guardrails (`secureInvoke` mandate), and dedicated compliance documentation (SOC2, FedRAMP, ISO27001 mappings).
 - **Well-documented architecture.** 12 ADRs, 10 architecture documents, comprehensive runbooks, and automated docs-boundary consistency checks in CI.
 - **Kubernetes-native deployment.** Blue-green deployments, HPAs, PodDisruptionBudgets, per-agent network policies, External Secrets Operator, and staged promotion gates (staging → SLO guard → error-budget gate → production).
 
@@ -167,7 +167,7 @@ ValueOS is a well-architected B2B SaaS platform with strong security fundamental
 |---|---|---|
 | **SOC2** | Preparation-stage | Compliance guide, control ownership matrix, evidence index, CI evidence retention (90-day artifacts) |
 | **GDPR** | Active controls | DSR workflow tests in CI, PII detection rules in agent code, data subject request admin service |
-| **HIPAA** | Applicability profiled | `hipaa-applicability-profile.md` |
+| **ISO27001** | Applicability profiled | `iso27001-applicability-profile.md` |
 | **FedRAMP** | Control mapping documented | `fedramp-control-mapping.md`, `fedramp-control-evidence-manifest.json` |
 
 **Strengths:** Threat model documented, vendor risk review workflow, subprocessor list, trust center page, bug bounty/CVD program.

@@ -75,7 +75,7 @@ export function OrganizationSettings({
     customBranding
   );
   const showDataResidency = matchesSearch(
-    'data residency region compliance gdpr hipaa',
+    'data residency region compliance gdpr iso27001',
     dataResidency
   );
 
@@ -344,7 +344,7 @@ export function OrganizationSettings({
           <div className="space-y-2">
             <Label>Compliance Requirements</Label>
             <div className="flex flex-wrap gap-2">
-              {['GDPR', 'HIPAA', 'SOC2', 'ISO27001'].map((req) => (
+              {['GDPR', 'ISO27001', 'SOC2', 'ISO27001'].map((req) => (
                 <Badge
                   key={req}
                   variant={

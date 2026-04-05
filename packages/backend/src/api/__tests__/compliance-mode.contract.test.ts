@@ -42,7 +42,7 @@ vi.mock("../../services/integrity/ComplianceControlStatusService.js", () => ({
         signalStatuses: [],
       },
       {
-        framework: "HIPAA",
+        framework: "ISO27001",
         declared: true,
         verified: false,
         missingPrerequisites: ["Most recent automated technical compliance test run is passing."],
@@ -89,7 +89,7 @@ vi.mock("../../services/security/ComplianceControlStatusService.js", () => ({
         signalStatuses: [],
       },
       {
-        framework: "HIPAA",
+        framework: "ISO27001",
         declared: true,
         verified: false,
         missingPrerequisites: ["Most recent automated technical compliance test run is passing."],
@@ -148,13 +148,13 @@ vi.mock("../../services/security/ComplianceControlCheckService.js", () => ({
 }));
 
 vi.mock("../../services/security/ComplianceFrameworkCapabilityGate.js", () => ({
-  ALL_COMPLIANCE_FRAMEWORKS: ["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"],
+  ALL_COMPLIANCE_FRAMEWORKS: ["GDPR", "ISO27001", "CCPA", "SOC2", "ISO27001"],
   UnsupportedComplianceFrameworkError: class UnsupportedComplianceFrameworkError extends Error {},
   complianceFrameworkCapabilityGate: {
-    isKnownFramework: (framework: string) => ["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"].includes(framework),
+    isKnownFramework: (framework: string) => ["GDPR", "ISO27001", "CCPA", "SOC2", "ISO27001"].includes(framework),
     getCapabilityStatuses: vi.fn().mockResolvedValue([
       { framework: "GDPR", availability: "available", supported: true, declared: true, verified: true, prerequisites_met: true, gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
-      { framework: "HIPAA", availability: "gated", supported: false, declared: true, verified: false, prerequisites_met: false, gate_label: "prerequisite_gating", missingPrerequisites: ["Most recent automated technical compliance test run is passing."], required_signals: [], signal_statuses: [] },
+      { framework: "ISO27001", availability: "gated", supported: false, declared: true, verified: false, prerequisites_met: false, gate_label: "prerequisite_gating", missingPrerequisites: ["Most recent automated technical compliance test run is passing."], required_signals: [], signal_statuses: [] },
       { framework: "CCPA", availability: "available", supported: true, declared: true, verified: true, prerequisites_met: true, gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
       { framework: "SOC2", availability: "available", supported: true, declared: true, verified: true, prerequisites_met: true, gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
       { framework: "ISO27001", availability: "available", supported: true, declared: true, verified: true, prerequisites_met: true, gate_label: "prerequisite_gating", missingPrerequisites: [], required_signals: [], signal_statuses: [] },
@@ -173,14 +173,14 @@ describe("GET /api/admin/compliance/mode contract", () => {
     const response = await request(app).get("/api/admin/compliance/mode");
 
     expect(response.status).toBe(200);
-    expect(response.body.active_modes).not.toContain("HIPAA");
+    expect(response.body.active_modes).not.toContain("ISO27001");
 
-    const hipaaStatus = response.body.framework_statuses.find(
-      (status: { framework: string }) => status.framework === "HIPAA",
+    const iso27001Status = response.body.framework_statuses.find(
+      (status: { framework: string }) => status.framework === "ISO27001",
     );
 
-    expect(hipaaStatus).toMatchObject({
-      framework: "HIPAA",
+    expect(iso27001Status).toMatchObject({
+      framework: "ISO27001",
       availability: "gated",
       selectable: false,
       declared: true,

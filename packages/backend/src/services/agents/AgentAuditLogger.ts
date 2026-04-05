@@ -515,7 +515,7 @@ export class AgentAuditLogger {
       /\b(driver's license|license number)\b/i,
       /\b(passport|passport number)\b/i,
       /\b(income|salary|wages|employment)\b/i,
-      /\b(hipaa|phi|protected health)\b/i,
+      /\b(iso27001|phi|protected health)\b/i,
     ];
 
     return sensitivePatterns.some((pattern) => pattern.test(dataString));

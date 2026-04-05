@@ -18,25 +18,25 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 113,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
       "id": "CR-002",
       "control": "Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.",
       "frameworks": [
-        "HIPAA"
+        "ISO27001"
       ],
       "domain": "privacy-phi",
       "severity": "high",
       "status": "planned",
-      "owner": "compliance-hipaa@valueos",
+      "owner": "compliance-iso27001@valueos",
       "targetDate": "2026-08-15",
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 115,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -54,25 +54,25 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 117,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
       "id": "CR-004",
       "control": "Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.",
       "frameworks": [
-        "HIPAA"
+        "ISO27001"
       ],
       "domain": "privacy-phi",
       "severity": "high",
       "status": "planned",
-      "owner": "compliance-hipaa@valueos",
+      "owner": "compliance-iso27001@valueos",
       "targetDate": "2026-08-15",
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 119,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -90,7 +90,7 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 121,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -108,7 +108,7 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 123,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -126,7 +126,7 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 125,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -144,7 +144,7 @@
       "source": {
         "file": "docs/security-compliance/compliance-guide.md",
         "line": 127,
-        "section": "HIPAA Applicability and Control Mapping"
+        "section": "ISO27001 Applicability and Control Mapping"
       }
     },
     {
@@ -950,12 +950,12 @@
       "id": "CR-047",
       "control": "Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries and the audit log should be reviewed for the expected request ID.",
       "frameworks": [
-        "HIPAA"
+        "ISO27001"
       ],
       "domain": "audit-logging",
       "severity": "critical",
       "status": "planned",
-      "owner": "compliance-hipaa@valueos",
+      "owner": "compliance-iso27001@valueos",
       "targetDate": "2026-06-30",
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
@@ -964,7 +964,7 @@
         "section": "Operational checklist"
       },
       "remediation": {
-        "owner": "compliance-hipaa@valueos",
+        "owner": "compliance-iso27001@valueos",
         "targetDate": "2026-06-30",
         "status": "in-progress"
       }
@@ -1055,12 +1055,12 @@
       "id": "CR-052",
       "control": "Validate DSR automation monthly using a test account; export and anonymize flows should both write audit entries.",
       "frameworks": [
-        "HIPAA"
+        "ISO27001"
       ],
       "domain": "audit-logging",
       "severity": "critical",
       "status": "planned",
-      "owner": "compliance-hipaa@valueos",
+      "owner": "compliance-iso27001@valueos",
       "targetDate": "2026-06-30",
       "evidenceLocation": "docs/security-compliance/evidence-index.md",
       "source": {
@@ -1069,7 +1069,7 @@
         "section": "Operational checklist"
       },
       "remediation": {
-        "owner": "compliance-hipaa@valueos",
+        "owner": "compliance-iso27001@valueos",
         "targetDate": "2026-06-30",
         "status": "in-progress"
       }

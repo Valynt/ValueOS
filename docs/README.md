@@ -270,7 +270,7 @@ Debt inventory source of truth:
 - [Control Traceability Matrix](./security-compliance/control-traceability-matrix.md)
 - [Data Ownership Statement](./security-compliance/data-ownership-statement.md)
 - [Evidence Index](./security-compliance/evidence-index.md)
-- [HIPAA Applicability Profile](./security-compliance/hipaa-applicability-profile.md)
+- [ISO27001 Applicability Profile](./security-compliance/iso27001-applicability-profile.md)
 - [Observability Controls and Evidence](./security-compliance/observability-controls-and-evidence.md)
 - [Production Contract](./security-compliance/production-contract.md)
 - [RBAC Role Taxonomy](./security-compliance/rbac-role-taxonomy.md)

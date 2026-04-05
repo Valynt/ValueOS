@@ -63,26 +63,26 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
       },
     ],
   },
-  HIPAA: {
-    framework: "HIPAA",
+  ISO27001: {
+    framework: "ISO27001",
     controls: [
       {
-        control_id: "hipaa_164_312_b_audit_controls",
+        control_id: "iso27001_164_312_b_audit_controls",
         required_evidence_types: ["security_audit_log", "security_audit_log_archive", "control_status"],
         technical_signals: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
         retention_requirement: {
           minimum_days: 2190,
-          policy_source: "policy://hipaa/164.316",
+          policy_source: "policy://iso27001/164.316",
           legal_hold_supported: true,
         },
       },
       {
-        control_id: "hipaa_164_312_c_integrity",
+        control_id: "iso27001_164_312_c_integrity",
         required_evidence_types: ["audit_logs", "control_status"],
         technical_signals: ["tests_passed", "encryption_config_active"],
         retention_requirement: {
           minimum_days: 2190,
-          policy_source: "policy://hipaa/164.316",
+          policy_source: "policy://iso27001/164.316",
           legal_hold_supported: true,
         },
       },

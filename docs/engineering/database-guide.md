@@ -2026,7 +2026,7 @@ CREATE TRIGGER update_semantic_memory_updated_at
 - ⚠️ Service role access needs documented justification
 - ✅ Audit trail preserved
 
-### HIPAA Readiness
+### ISO27001 Readiness
 - ✅ Data isolation enforced
 - ⚠️ Service role needs additional access controls
 - ✅ Immutable audit log supports compliance

@@ -30,13 +30,13 @@
 
 ---
 
-### 2) **High** — Compliance artifacts show unresolved SOC2/HIPAA control gaps in tenant isolation and agent boundaries
+### 2) **High** — Compliance artifacts show unresolved SOC2/ISO27001 control gaps in tenant isolation and agent boundaries
 
 **What we observed**
 - The compliance guide contains multiple unchecked controls with remediation records (e.g., explicit admin exceptions, agent execution scoping, API key organization scoping, query hardening, and agent prompt/context tenant boundaries).
 
 **Risk**
-- Cross-tenant leakage, unauthorized access, and failed attestations during SOC2/HIPAA review.
+- Cross-tenant leakage, unauthorized access, and failed attestations during SOC2/ISO27001 review.
 
 **Recommended remediation**
 1. Promote all open CR-009+ security records into engineering sprint gates with due dates and owners in active backlog.
@@ -160,7 +160,7 @@
 **Recommended remediation**
 1. Add automated checks for required encryption env vars in production deploy gates.
 2. Emit periodic cryptographic posture report (active KEK version, rotation age, encryption-required flags).
-3. Tie encryption evidence artifacts directly to SOC2/HIPAA control IDs.
+3. Tie encryption evidence artifacts directly to SOC2/ISO27001 control IDs.
 
 **Evidence**
 - `packages/backend/src/utils/encryption.ts`
@@ -202,9 +202,9 @@
 - Strengths: tiered limiter with risk-aware fail-closed behavior for sensitive paths, CSRF handling, audit middleware.  
 - Priority risks: public telemetry abuse path and fallback governance.
 
-### SOC2 / GDPR / HIPAA
+### SOC2 / GDPR / ISO27001
 - Strengths: mature compliance documentation, control registries, evidence workflows.  
-- Priority risks: open remediation records and HIPAA readiness depending on technical validation completion.
+- Priority risks: open remediation records and ISO27001 readiness depending on technical validation completion.
 
 ### Secrets Management & Env Handling
 - Strengths: secrets manager, rotation log, scanning and policy documentation.  
@@ -229,6 +229,6 @@
 - Add outage/chaos tests for rate limiter backend and fail-closed guarantees.
 
 ### 61–90 days
-- Full control-evidence traceability automation for SOC2/GDPR/HIPAA control IDs.
+- Full control-evidence traceability automation for SOC2/GDPR/ISO27001 control IDs.
 - Quarterly independent security control effectiveness review with red-team scenarios around tenant isolation and service-role misuse.
 

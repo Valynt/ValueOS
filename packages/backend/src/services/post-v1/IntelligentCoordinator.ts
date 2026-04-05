@@ -321,7 +321,7 @@ export class IntelligentCoordinator {
       );
 
     // Check for compliance requirements
-    const complianceKeywords = ["compliance", "audit", "regulation", "sox", "hipaa", "gdpr"];
+    const complianceKeywords = ["compliance", "audit", "regulation", "sox", "iso27001", "gdpr"];
     const hasCompliance = complianceKeywords.some((keyword) => query.includes(keyword));
 
     // Check for financial data
