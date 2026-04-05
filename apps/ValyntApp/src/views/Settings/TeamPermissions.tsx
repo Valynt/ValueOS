@@ -1,5 +1,5 @@
 import { AlertCircle, Check, Crown, Info, Shield, User, Users, X } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { SettingsSection } from '../../components/settings';
 
@@ -116,13 +116,27 @@ export const TeamPermissions: React.FC = () => {
     { value: 'guest', label: 'Guest', icon: <User className="h-4 w-4" />, color: 'text-green-700' },
   ];
 
-  const categories = [
+  const categories: Array<{ id: Permission['category']; label: string }> = [
     { id: 'workspace', label: 'Workspace Management' },
     { id: 'content', label: 'Content & Projects' },
     { id: 'members', label: 'Member Management' },
     { id: 'integrations', label: 'Integrations' },
     { id: 'billing', label: 'Billing & Plans' },
   ];
+
+  const permissionsByCategory = useMemo(() => {
+    const grouped: Partial<Record<Permission['category'], Permission[]>> = {};
+
+    PERMISSIONS.forEach((permission) => {
+      if (!grouped[permission.category]) {
+        grouped[permission.category] = [];
+      }
+
+      grouped[permission.category]?.push(permission);
+    });
+
+    return grouped;
+  }, []);
 
   const togglePermission = (role: TeamMemberRole, permissionId: string) => {
     if (role === 'owner') return;
@@ -221,7 +235,7 @@ export const TeamPermissions: React.FC = () => {
                           </span>
                         </td>
                       </tr>
-                      {PERMISSIONS.filter(p => p.category === category.id).map((permission) => (
+                      {(permissionsByCategory[category.id] ?? []).map((permission) => (
                         <tr key={permission.id} className="border-b border-border hover:bg-accent/40">
                           <td className="sticky left-0 bg-card hover:bg-accent/40 px-6 py-3">
                             <div>
