@@ -406,6 +406,8 @@ jobs:
 
       - name: Guard backend service-role boundaries
         run: pnpm check:backend-service-role-boundaries
+      - name: Guard orchestration/runtime infra boundaries
+        run: node scripts/ci/check-orchestration-infra-boundaries.mjs
       - name: Guard deprecated Supabase imports
         run: node scripts/ci/check-deprecated-supabase-imports.mjs
       - name: Guard stale agent type shim claims
