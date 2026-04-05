@@ -2,20 +2,15 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { Permission, PERMISSIONS } from "../../lib/permissions";
+import { hasAllPermissions, hasAnyPermission } from "../../lib/permissions/types";
 
 const ADMIN_ROLES = new Set(["ADMIN", "admin"]);
 
 interface PermissionRouteProps {
-  requiredPermissions: Permission[];
+  requiredPermissions?: Permission[];
+  requireAnyPermissions?: Permission[];
   fallbackPath?: string;
-}
-
-function hasRequiredPermissions(userPermissions: string[], requiredPermissions: Permission[]) {
-  if (requiredPermissions.length === 0) {
-    return true;
-  }
-
-  return requiredPermissions.every((permission) => userPermissions.includes(permission));
+  allowAdminBypass?: boolean;
 }
 
 export function ProtectedRoute() {
@@ -56,8 +51,10 @@ export function PublicOnlyRoute() {
 }
 
 export function PermissionRoute({
-  requiredPermissions,
+  requiredPermissions = [],
+  requireAnyPermissions = [],
   fallbackPath = "/dashboard",
+  allowAdminBypass = true,
 }: PermissionRouteProps) {
   const { user, userClaims, loading } = useAuth();
   const location = useLocation();
@@ -76,9 +73,13 @@ export function PermissionRoute({
 
   const effectivePermissions = userClaims?.permissions ?? [];
   const roles = userClaims?.roles ?? [];
-  const isAdmin = roles.some((role) => ADMIN_ROLES.has(role));
+  const isAdmin = allowAdminBypass && roles.some((role) => ADMIN_ROLES.has(role));
+  const hasEveryRequiredPermission = hasAllPermissions(effectivePermissions, requiredPermissions);
+  const hasAnyRequiredPermission =
+    requireAnyPermissions.length === 0 ||
+    hasAnyPermission(effectivePermissions, requireAnyPermissions);
 
-  if (!isAdmin && !hasRequiredPermissions(effectivePermissions, requiredPermissions)) {
+  if (!isAdmin && (!hasEveryRequiredPermission || !hasAnyRequiredPermission)) {
     return <Navigate to={fallbackPath} replace />;
   }
 
@@ -86,6 +87,8 @@ export function PermissionRoute({
 }
 
 export const SENSITIVE_ROUTE_PERMISSIONS = {
-  INTEGRATIONS: [PERMISSIONS.ADMIN_ACCESS] as Permission[],
+  ADMIN_AGENTS: [PERMISSIONS.ADMIN_MANAGE] as Permission[],
+  INTEGRATIONS: [PERMISSIONS.SETTINGS_EDIT] as Permission[],
   SETTINGS: [PERMISSIONS.SETTINGS_EDIT] as Permission[],
+  BILLING: [PERMISSIONS.BILLING_MANAGE] as Permission[],
 };
