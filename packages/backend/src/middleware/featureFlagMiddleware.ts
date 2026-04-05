@@ -17,9 +17,28 @@ export function featureFlagContext() {
     const userId = req.user?.id || 'anonymous';
     const userTier = req.user?.tier;
     const country = req.headers['cf-ipcountry'] as string; // Cloudflare header
+    const featureFlagCache = new Map<string, { variant: string | null; config: Record<string, unknown> | null }>();
+
+    const getCachedFlagVariant = async (key: string) => {
+      const cachedResult = featureFlagCache.get(key);
+      if (cachedResult) {
+        return cachedResult;
+      }
+
+      const evaluation = await featureFlags.getVariant(key, {
+        userId,
+        userTier,
+        country
+      });
+
+      featureFlagCache.set(key, evaluation);
+      return evaluation;
+    };
 
     req.featureFlags = {
       isEnabled: async (key: string) => {
+        // Tracking remains scoped to explicit isEnabled calls so
+        // getVariant/getConfig lookups stay side-effect free.
         const evaluation = await featureFlags.isEnabled(key, {
           userId,
           userTier,
@@ -38,20 +57,12 @@ export function featureFlagContext() {
       },
 
       getVariant: async (key: string) => {
-        const { variant } = await featureFlags.getVariant(key, {
-          userId,
-          userTier,
-          country
-        });
+        const { variant } = await getCachedFlagVariant(key);
         return variant;
       },
 
       getConfig: async (key: string) => {
-        const { config } = await featureFlags.getVariant(key, {
-          userId,
-          userTier,
-          country
-        });
+        const { config } = await getCachedFlagVariant(key);
         return config;
       }
     };
