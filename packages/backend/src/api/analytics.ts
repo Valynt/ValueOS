@@ -110,8 +110,16 @@ analyticsRouter.use(publicTelemetryRouter);
 analyticsRouter.use("/value-loop", requireAuth, tenantContextMiddleware(), tenantAnalyticsRouter);
 
 function getTelemetryHashSalt(): string {
-  return process.env.TELEMETRY_LOG_HASH_SALT
-    ?? process.env.TCT_SECRET
+  const telemetryHashSalt = process.env.TELEMETRY_LOG_HASH_SALT?.trim();
+  if (telemetryHashSalt) {
+    return telemetryHashSalt;
+  }
+
+  if (isSecureTelemetryEnvironment()) {
+    throw new Error("TELEMETRY_LOG_HASH_SALT must be configured in staging/production.");
+  }
+
+  return process.env.TCT_SECRET
     ?? "valueos-public-telemetry";
 }
 
