@@ -53,7 +53,7 @@ import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
 import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
-import domainPacksRouter from "./api/domainPacks.js";
+import domainPacksRouter from "./api/domain-packs/index.js";
 import { opportunityValueGraphRouter, valueGraphRouter } from "./api/valueGraph.js";
 import groundtruthRouter from "./api/groundtruth.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
