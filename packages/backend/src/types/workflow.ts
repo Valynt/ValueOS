@@ -13,7 +13,15 @@
 // Re-exported here for backward compatibility. ADR-0010.
 export type { LifecycleStage } from '@valueos/shared';
 
-export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion" | "integrity";
+export type WorkflowStageType =
+  | "opportunity"
+  | "target"
+  | "realization"
+  | "expansion"
+  | "integrity"
+  | "groundtruth"
+  | "financial-modeling"
+  | "value-eval";
 
 export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "waiting_approval";
 export type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
