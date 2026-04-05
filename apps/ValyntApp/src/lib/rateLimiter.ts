@@ -1,6 +1,12 @@
 /**
  * Rate Limiter for Authentication Attempts
- * Prevents brute force attacks by limiting authentication attempts
+ * Prevents brute force attacks by limiting authentication attempts.
+ *
+ * IMPORTANT: Browser-side counters are UX-only hints. They are easy to clear
+ * and must never be treated as authoritative security enforcement.
+ *
+ * Authoritative lockout and retry policy MUST come from backend responses
+ * (for example HTTP 429 plus retry metadata).
  */
 
 import { logger } from "@/lib/logger";
@@ -13,6 +19,64 @@ interface RateLimitEntry {
   lockUntil?: number;
 }
 
+/**
+ * API contract for backend-provided lockout metadata.
+ *
+ * This is the authoritative source for lockout messaging/state in UI flows.
+ * LocalStorage-based values are only a fallback when backend metadata is absent.
+ */
+export interface AuthLockoutMetadata {
+  locked: boolean;
+  retryAfterSeconds?: number;
+  remainingAttempts?: number;
+}
+
+export class AuthRateLimitError extends Error {
+  readonly status?: number;
+  readonly lockout: AuthLockoutMetadata;
+
+  constructor(message: string, lockout: AuthLockoutMetadata, status?: number) {
+    super(message);
+    this.name = "AuthRateLimitError";
+    this.lockout = lockout;
+    this.status = status;
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const asOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+const asOptionalBoolean = (value: unknown): boolean | undefined =>
+  typeof value === "boolean" ? value : undefined;
+
+/**
+ * Extracts lockout metadata from backend error-like objects.
+ *
+ * Supports either top-level fields or nested `{ lockout: { ... } }`.
+ */
+export const parseAuthLockoutMetadata = (
+  value: unknown,
+): AuthLockoutMetadata | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const candidate = isRecord(value.lockout) ? value.lockout : value;
+  const locked = asOptionalBoolean(candidate.locked);
+  if (typeof locked !== "boolean") {
+    return undefined;
+  }
+
+  return {
+    locked,
+    retryAfterSeconds: asOptionalNumber(candidate.retryAfterSeconds),
+    remainingAttempts: asOptionalNumber(candidate.remainingAttempts),
+  };
+};
+
 class AuthRateLimiter {
   private readonly storageKey = "auth_rate_limit";
   private readonly maxAttempts = 5; // Maximum failed attempts
@@ -21,6 +85,8 @@ class AuthRateLimiter {
 
   /**
    * Get rate limit data for an identifier (email/IP)
+   *
+   * NOTE: data is local and mutable by the user; this is not an enforcement source.
    */
   private getRateLimitData(identifier: string): RateLimitEntry {
     try {
@@ -45,6 +111,8 @@ class AuthRateLimiter {
 
   /**
    * Save rate limit data for an identifier
+   *
+   * NOTE: writes to localStorage can fail and are not security guarantees.
    */
   private setRateLimitData(identifier: string, data: RateLimitEntry): void {
     try {
@@ -56,6 +124,8 @@ class AuthRateLimiter {
 
   /**
    * Check if authentication is allowed for an identifier
+   *
+   * NOTE: this should only be used for non-authoritative UX guidance.
    */
   canAttemptAuth(identifier: string): {
     allowed: boolean;
@@ -95,6 +165,8 @@ class AuthRateLimiter {
 
   /**
    * Record a failed authentication attempt
+   *
+   * NOTE: local tracking is a fallback for messaging only.
    */
   recordFailedAttempt(identifier: string): { isLocked: boolean; lockoutRemaining?: number } {
     const data = this.getRateLimitData(identifier);
@@ -129,6 +201,8 @@ class AuthRateLimiter {
 
   /**
    * Record a successful authentication attempt (reset counter)
+   *
+   * NOTE: clearing local data does not override backend lockout state.
    */
   recordSuccessfulAttempt(identifier: string): void {
     try {
@@ -140,6 +214,8 @@ class AuthRateLimiter {
 
   /**
    * Get rate limit status for UI display
+   *
+   * NOTE: do not treat this as security state; backend state is authoritative.
    */
   getRateLimitStatus(identifier: string): {
     attempts: number;

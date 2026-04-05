@@ -82,6 +82,12 @@ PR size guideline:
 - Prefer < 500 changed lines (excluding generated files/tests) when practical.
 - Split larger work into reviewable increments.
 
+## Repository hygiene
+
+- Do not commit placeholder files or scratch artifacts (for example `some-file.*`, `temp.*`, `scratch.*`).
+- Do not leave files whose entire contents are placeholder text such as `// Test change`.
+- CI enforces this via `pnpm run check:repo-hygiene-placeholders` across tracked files.
+
 ## Required local checks before opening a PR
 
 Run these locally from repo root before requesting review:
