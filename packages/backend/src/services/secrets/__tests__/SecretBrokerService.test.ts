@@ -98,6 +98,18 @@ describe('SecretBrokerService', () => {
       }
     });
 
+    it('denies access when a secret from another tenant is returned', async () => {
+      vi.mocked(repo.findSecret).mockResolvedValue({
+        ...baseRecord,
+        organization_id: 'tenant-other',
+      });
+      const result = await broker.resolve(baseRequest);
+      expect(result.decision).toBe('deny');
+      if (result.decision === 'deny') {
+        expect(result.reason).toBe('TENANT_MISMATCH');
+      }
+    });
+
     it('denies access if environment mismatches', async () => {
       vi.mocked(repo.findSecret).mockResolvedValue({ ...baseRecord, environment: 'staging' });
       const result = await broker.resolve(baseRequest);
@@ -145,6 +157,12 @@ describe('SecretBrokerService', () => {
       }
       expect(repo.appendAudit).toHaveBeenCalledWith(
         expect.objectContaining({ decision: 'allow' })
+      );
+      expect(repo.findSecret).toHaveBeenCalledWith(
+        'tenant-123',
+        'salesforce',
+        'read',
+        'production'
       );
     });
   });

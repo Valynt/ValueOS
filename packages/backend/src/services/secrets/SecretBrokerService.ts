@@ -112,6 +112,11 @@ export class SecretBrokerService implements ISecretBrokerService {
       return this.deny('SECRET_NOT_FOUND', `No secret found for capability '${capability}'`);
     }
 
+    if (record.organization_id !== tenantId) {
+      await this.audit(request, 'deny', 'TENANT_MISMATCH', 'Resolved secret belongs to another tenant');
+      return this.deny('TENANT_MISMATCH', 'Resolved secret belongs to another tenant');
+    }
+
     // Step 3 — policy enforcement (deny-by-default)
     const policyDeny = this.enforcePolicy(record, request);
     if (policyDeny) {

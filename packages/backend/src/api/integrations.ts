@@ -7,7 +7,6 @@
 import { createLogger } from "@shared/lib/logger";
 import type { Request, Response, Router } from "express";
 
-import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
 import {
   validateRequest,
@@ -30,11 +29,11 @@ const router: Router = createSecureRouter("strict");
 router.use(requireAuth, tenantContextMiddleware());
 
 function getActor(req: Request) {
-  const user = (req as AuthenticatedRequest).user;
+  const user = req.user;
   const userMetadata = user?.user_metadata as Record<string, unknown> | undefined;
   const userName =
-    (typeof userMetadata?.full_name === 'string' ? userMetadata.full_name : undefined) ||
-    (typeof userMetadata?.name === 'string' ? userMetadata.name : undefined) ||
+    (typeof userMetadata?.full_name === "string" ? userMetadata.full_name : undefined) ||
+    (typeof userMetadata?.name === "string" ? userMetadata.name : undefined) ||
     user?.email ||
     "Unknown";
 
@@ -42,6 +41,13 @@ function getActor(req: Request) {
     id: user?.id || "",
     email: user?.email || "",
     name: userName,
+  };
+}
+
+function getAuthContext(req: Request): { tenantId?: string; userId?: string } {
+  return {
+    tenantId: req.tenantId,
+    userId: req.user?.id,
   };
 }
 
@@ -59,12 +65,7 @@ router.get(
   requirePermission("integrations:view"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as
-        | string
-        | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as
-        | string
-        | undefined;
+      const { userId, tenantId } = getAuthContext(req);
 
       if (!tenantId || !userId) {
         return res.status(400).json({ error: "Tenant context is required" });
@@ -87,12 +88,7 @@ router.post(
   validateRequest(ValidationSchemas.integrationConnect),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as
-        | string
-        | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as
-        | string
-        | undefined;
+      const { userId, tenantId } = getAuthContext(req);
 
       if (!tenantId || !userId) {
         return res.status(400).json({ error: "Tenant context is required" });
@@ -138,15 +134,10 @@ router.post(
 
 router.delete(
   "/:integrationId",
-  requirePermission("integrations:manage"),
+  requirePermission("integrations:disconnect"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as
-        | string
-        | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as
-        | string
-        | undefined;
+      const { userId, tenantId } = getAuthContext(req);
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -183,16 +174,52 @@ router.delete(
 );
 
 router.post(
+  "/:integrationId/rotate-secret",
+  requirePermission("secrets:rotate"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      const integrationId = req.params.integrationId;
+      const payload = req.body as Pick<IntegrationConnectPayload, "accessToken" | "refreshToken" | "tokenExpiresAt">;
+
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      if (!payload.accessToken || payload.accessToken.trim().length < 10) {
+        return res.status(400).json({ error: "accessToken is required" });
+      }
+
+      const integration = await integrationConnectionService.rotateCredentials(userId, tenantId, integrationId, payload);
+      const actor = getActor(req);
+      await auditLogService.logAudit({
+        userId: actor.id,
+        userName: actor.name,
+        userEmail: actor.email,
+        action: "integration_secret_rotated",
+        resourceType: "integration",
+        resourceId: integration.id,
+        details: {
+          provider: integration.provider,
+          status: integration.status,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent") || undefined,
+      });
+
+      return res.json({ integration });
+    } catch (error) {
+      return handleError(res, error, "Failed to rotate integration credentials");
+    }
+  }
+);
+
+router.post(
   "/:integrationId/test",
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as
-        | string
-        | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as
-        | string
-        | undefined;
+      const { userId, tenantId } = getAuthContext(req);
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -228,17 +255,32 @@ router.post(
   }
 );
 
+router.get(
+  "/:integrationId/audit-history",
+  requirePermission("integrations:view"),
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = getAuthContext(req);
+      const integrationId = req.params.integrationId;
+
+      if (!tenantId || !userId) {
+        return res.status(400).json({ error: "Tenant context is required" });
+      }
+
+      const history = await integrationConnectionService.getAuditHistory(userId, tenantId, integrationId);
+      return res.json({ history });
+    } catch (error) {
+      return handleError(res, error, "Failed to load integration audit history");
+    }
+  }
+);
+
 router.post(
   "/:integrationId/sync",
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as AuthenticatedRequest).tenantId as
-        | string
-        | undefined;
-      const userId = (req as AuthenticatedRequest).user?.id as
-        | string
-        | undefined;
+      const { userId, tenantId } = getAuthContext(req);
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
