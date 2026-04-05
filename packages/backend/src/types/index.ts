@@ -62,6 +62,14 @@ export {
 
 export {
   AgentMetaSchema,
+  VALUE_LIFECYCLE_SCHEMA_VERSION,
+  ValueLifecycleSchemaVersionLiteral,
+  OpportunityContextV1Schema,
+  ValueHypothesisDraftV1Schema,
+  FinancialModelV1Schema,
+  IntegrityAssessmentV1Schema,
+  ExecutiveNarrativeV1Schema,
+  ValueLifecycleV1Schema,
   OpportunityContextSchema,
   ValueHypothesisDraftSchema,
   FinancialModelSchema,
@@ -70,14 +78,24 @@ export {
   ValueLifecycleSchema,
   toAgentEventMetadata,
   fromAgentEventMetadata,
+  toValueLifecycleEventPayload,
+  fromValueLifecycleEventPayload,
 } from "./agent-schemas";
 
 export type {
   AgentMetadata,
+  ValueLifecycleSchemaVersion,
+  OpportunityContextV1,
+  ValueHypothesisDraftV1,
+  FinancialModelV1,
+  IntegrityAssessmentV1,
+  ExecutiveNarrativeV1,
+  ValueLifecycleV1,
   OpportunityContext,
   ValueHypothesisDraft,
   FinancialModel,
   IntegrityAssessment,
   ExecutiveNarrative,
   ValueLifecycle,
+  ValueLifecycleEventPayload,
 } from "./agent-schemas";

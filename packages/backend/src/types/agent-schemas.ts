@@ -33,6 +33,10 @@ export function fromAgentEventMetadata(metadata: { trace_id: string; agent_id: s
   };
 }
 
+export const VALUE_LIFECYCLE_SCHEMA_VERSION = "v1" as const;
+export type ValueLifecycleSchemaVersion = typeof VALUE_LIFECYCLE_SCHEMA_VERSION;
+export const ValueLifecycleSchemaVersionLiteral = z.literal(VALUE_LIFECYCLE_SCHEMA_VERSION);
+
 const SourceReferenceSchema = EvidenceRefSchema;
 const LinkedEvidenceRefsSchema = z.array(SourceReferenceSchema).min(1, "assumptions require at least one linked evidence reference");
 
@@ -90,8 +94,9 @@ function validateAssumptionEvidenceLinkage(
 /**
  * INITIATED
  */
-export const OpportunityContextSchema = z.object({
+export const OpportunityContextV1Schema = z.object({
   ...AgentMetaShape,
+  schemaVersion: ValueLifecycleSchemaVersionLiteral,
   stage: z.literal("INITIATED"),
 
   organizationId: z.string().uuid(),
@@ -121,13 +126,14 @@ export const OpportunityContextSchema = z.object({
   createdAt: z.string().datetime(),
 }).strict();
 
-export type OpportunityContext = z.infer<typeof OpportunityContextSchema>;
+export type OpportunityContextV1 = z.infer<typeof OpportunityContextV1Schema>;
 
 /**
  * DRAFTING
  */
-export const ValueHypothesisDraftSchema = z.object({
+export const ValueHypothesisDraftV1Schema = z.object({
   ...AgentMetaShape,
+  schemaVersion: ValueLifecycleSchemaVersionLiteral,
   stage: z.literal("DRAFTING"),
 
   organizationId: z.string().uuid(),
@@ -156,13 +162,14 @@ export const ValueHypothesisDraftSchema = z.object({
   validateAssumptionEvidenceLinkage(payload.assumptions, ctx);
 });
 
-export type ValueHypothesisDraft = z.infer<typeof ValueHypothesisDraftSchema>;
+export type ValueHypothesisDraftV1 = z.infer<typeof ValueHypothesisDraftV1Schema>;
 
 /**
  * FINANCIAL / MODELING
  */
-export const FinancialModelSchema = z.object({
+export const FinancialModelV1Schema = z.object({
   ...AgentMetaShape,
+  schemaVersion: ValueLifecycleSchemaVersionLiteral,
   stage: z.literal("FINANCIAL"),
 
   organizationId: z.string().uuid(),
@@ -193,13 +200,14 @@ export const FinancialModelSchema = z.object({
   validateAssumptionEvidenceLinkage(payload.assumptions, ctx);
 });
 
-export type FinancialModel = z.infer<typeof FinancialModelSchema>;
+export type FinancialModelV1 = z.infer<typeof FinancialModelV1Schema>;
 
 /**
  * VALIDATING
  */
-export const IntegrityAssessmentSchema = z.object({
+export const IntegrityAssessmentV1Schema = z.object({
   ...AgentMetaShape,
+  schemaVersion: ValueLifecycleSchemaVersionLiteral,
   stage: z.literal("VALIDATING"),
 
   organizationId: z.string().uuid(),
@@ -227,13 +235,14 @@ export const IntegrityAssessmentSchema = z.object({
   assessedAt: z.string().datetime(),
 }).strict();
 
-export type IntegrityAssessment = z.infer<typeof IntegrityAssessmentSchema>;
+export type IntegrityAssessmentV1 = z.infer<typeof IntegrityAssessmentV1Schema>;
 
 /**
  * COMPOSING
  */
-export const ExecutiveNarrativeSchema = z.object({
+export const ExecutiveNarrativeV1Schema = z.object({
   ...AgentMetaShape,
+  schemaVersion: ValueLifecycleSchemaVersionLiteral,
   stage: z.literal("COMPOSING"),
 
   organizationId: z.string().uuid(),
@@ -262,14 +271,57 @@ export const ExecutiveNarrativeSchema = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
-export type ExecutiveNarrative = z.infer<typeof ExecutiveNarrativeSchema>;
+export type ExecutiveNarrativeV1 = z.infer<typeof ExecutiveNarrativeV1Schema>;
 
-export const ValueLifecycleSchema = z.union([
-  OpportunityContextSchema,
-  ValueHypothesisDraftSchema,
-  FinancialModelSchema,
-  IntegrityAssessmentSchema,
-  ExecutiveNarrativeSchema,
+/**
+ * Versioned schema composition pattern.
+ *
+ * - Keep per-version stage schemas exported (e.g., `OpportunityContextV1Schema`)
+ * - Build version-level lifecycle unions (e.g., `ValueLifecycleV1Schema`)
+ * - `ValueLifecycleSchema` can evolve into `z.union([ValueLifecycleV1Schema, ValueLifecycleV2Schema])`
+ */
+export const ValueLifecycleV1Schema = z.union([
+  OpportunityContextV1Schema,
+  ValueHypothesisDraftV1Schema,
+  FinancialModelV1Schema,
+  IntegrityAssessmentV1Schema,
+  ExecutiveNarrativeV1Schema,
 ]);
 
-export type ValueLifecycle = z.infer<typeof ValueLifecycleSchema>;
+// Backward-compatible aliases (existing imports remain stable).
+export const OpportunityContextSchema = OpportunityContextV1Schema;
+export const ValueHypothesisDraftSchema = ValueHypothesisDraftV1Schema;
+export const FinancialModelSchema = FinancialModelV1Schema;
+export const IntegrityAssessmentSchema = IntegrityAssessmentV1Schema;
+export const ExecutiveNarrativeSchema = ExecutiveNarrativeV1Schema;
+
+export const ValueLifecycleSchema = ValueLifecycleV1Schema;
+
+export type OpportunityContext = OpportunityContextV1;
+export type ValueHypothesisDraft = ValueHypothesisDraftV1;
+export type FinancialModel = FinancialModelV1;
+export type IntegrityAssessment = IntegrityAssessmentV1;
+export type ExecutiveNarrative = ExecutiveNarrativeV1;
+
+export type ValueLifecycleV1 = z.infer<typeof ValueLifecycleV1Schema>;
+export type ValueLifecycle = ValueLifecycleV1;
+
+export type ValueLifecycleEventPayload = Omit<ValueLifecycle, "schemaVersion"> & {
+  schema_version: ValueLifecycleSchemaVersion;
+};
+
+export function toValueLifecycleEventPayload(payload: ValueLifecycle): ValueLifecycleEventPayload {
+  const { schemaVersion, ...rest } = payload;
+  return {
+    ...rest,
+    schema_version: schemaVersion,
+  };
+}
+
+export function fromValueLifecycleEventPayload(payload: ValueLifecycleEventPayload): ValueLifecycle {
+  const { schema_version, ...rest } = payload;
+  return ValueLifecycleSchema.parse({
+    ...rest,
+    schemaVersion: schema_version,
+  });
+}
