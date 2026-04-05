@@ -10,13 +10,13 @@
  * Or call initResearchWorker() from the server boot sequence.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { runJobWithTenantContext } from './tenantContextBootstrap.js';
 import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
@@ -67,19 +67,6 @@ export function getResearchQueue(): Queue<ResearchJobInput> {
 }
 
 // ---------------------------------------------------------------------------
-// Supabase service-role client (for worker DB writes)
-// ---------------------------------------------------------------------------
-
-function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('Missing required environment variables for researchWorker: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
-  }
-  return createClient(url, key);
-}
-
-// ---------------------------------------------------------------------------
 // LLMGateway adapter
 //
 // The SuggestionExtractor expects { content, usage? } from complete().
@@ -120,7 +107,9 @@ let _worker: Worker<ResearchJobInput> | null = null;
 export function initResearchWorker(): Worker<ResearchJobInput> {
   if (_worker) return _worker;
 
-  const supabase = getServiceSupabase();
+  const supabase = createWorkerServiceSupabaseClient({
+    justification: 'service-role:justified research worker stores onboarding research job state',
+  });
   const llm = createLLMAdapter();
 
   _worker = new Worker<ResearchJobInput>(
