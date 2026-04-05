@@ -64,6 +64,23 @@ vi.mock("../../services/crm/IntegrationConnectionService", () => ({
   integrationConnectionService: mockConnectionService,
 }));
 
+const mockOperationsService = vi.hoisted(() => ({
+  getOperations: vi.fn(async () => ({
+    tenantId: "tenant-1",
+    generatedAt: new Date().toISOString(),
+    provider: "all",
+    connectionEvents: [],
+    webhookFailures: [],
+    syncFailures: [],
+    lifecycleHistory: [],
+  })),
+  replayWebhookFailure: vi.fn(async () => ({ eventId: "evt-1", jobId: "job-1" })),
+  retrySync: vi.fn(async () => ({ provider: "hubspot", jobId: "job-2" })),
+}));
+vi.mock("../../services/crm/IntegrationOperationsService", () => ({
+  integrationOperationsService: mockOperationsService,
+}));
+
 const mockAuditLog = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock("../../services/security/AuditLogService", () => ({
   auditLogService: {
@@ -124,7 +141,7 @@ describe("Integrations API RBAC + audit history", () => {
     );
   });
 
-  it("returns provider capability registry for UI consumption", async () => {
+ it("returns provider capability registry for UI consumption", async () => {
     const app = express();
     app.use(express.json());
     app.use("/api/integrations", integrationsRouter);
@@ -145,5 +162,36 @@ describe("Integrations API RBAC + audit history", () => {
         }),
       ])
     );
+  });
+
+  it("requires integrations:view for operations query", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/integrations", integrationsRouter);
+
+    const res = await request(app)
+      .get("/api/integrations/operations")
+      .expect(200);
+
+    expect(res.headers["x-required-permission"]).toBe("integrations:view");
+    expect(mockOperationsService.getOperations).toHaveBeenCalledWith("tenant-1", undefined, 25);
+  });
+
+  it("requires integrations:manage for replay and sync retry controls", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/integrations", integrationsRouter);
+
+    const replay = await request(app)
+      .post("/api/integrations/operations/webhooks/evt-1/replay")
+      .expect(200);
+    expect(replay.headers["x-required-permission"]).toBe("integrations:manage");
+    expect(mockOperationsService.replayWebhookFailure).toHaveBeenCalledWith("tenant-1", "evt-1");
+
+    const retry = await request(app)
+      .post("/api/integrations/operations/hubspot/sync/retry")
+      .expect(200);
+    expect(retry.headers["x-required-permission"]).toBe("integrations:manage");
+    expect(mockOperationsService.retrySync).toHaveBeenCalledWith("tenant-1", "hubspot");
   });
 });

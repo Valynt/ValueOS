@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   IntegrationConnection,
   IntegrationCredentialsInput,
+  IntegrationOperationsResponse,
   IntegrationProviderId,
   IntegrationStatus,
 } from "../types";
@@ -68,12 +69,26 @@ interface CrmHealthResponse {
   last_error?: string;
 }
 
+const emptyOperations: IntegrationOperationsResponse = {
+  tenantId: "",
+  generatedAt: "",
+  provider: "all",
+  connectionEvents: [],
+  webhookFailures: [],
+  syncFailures: [],
+  lifecycleHistory: [],
+const isCrmOAuthProvider = (providerId: IntegrationProviderId): boolean => {
+  const provider = PROVIDERS.find((item) => item.id === providerId);
+  return provider?.type === "crm" && provider.authType === "oauth";
+};
+
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthInProgressProvider, setOauthInProgressProvider] =
     useState<IntegrationProviderId | null>(null);
+  const [operations, setOperations] = useState<IntegrationOperationsResponse>(emptyOperations);
 
   const fetchIntegrations = useCallback(async () => {
     setIsLoading(true);
@@ -175,7 +190,7 @@ export function useIntegrations() {
           throw new Error("Unsupported integration provider");
         }
 
-        if (provider.authType === "oauth") {
+        if (isCrmOAuthProvider(providerId)) {
           const response = await apiClient.post(`/api/crm/${providerId}/connect/start`);
           if (!response.success) {
             throw new Error(response.error?.message || "Failed to start OAuth flow");
@@ -200,6 +215,10 @@ export function useIntegrations() {
 
         if (!credentials) {
           throw new Error("Credentials are required for manual integrations");
+        }
+
+        if (provider.type === "crm" && provider.authType === "oauth") {
+          throw new Error("CRM OAuth providers do not accept direct token payloads.");
         }
 
         const response = await api.createIntegration({
@@ -311,6 +330,55 @@ export function useIntegrations() {
     }
   }, []);
 
+  const fetchOperations = useCallback(
+    async (provider?: IntegrationProviderId) => {
+      try {
+        const response = await api.getIntegrationOperations({ provider, limit: 25 });
+        if (!response.success) {
+          throw new Error(response.error?.message || "Failed to load integration operations");
+        }
+
+        const data = (response.data ?? {}) as Partial<IntegrationOperationsResponse>;
+        setOperations({
+          tenantId: data.tenantId ?? "",
+          generatedAt: data.generatedAt ?? "",
+          provider: data.provider ?? (provider ?? "all"),
+          connectionEvents: data.connectionEvents ?? [],
+          webhookFailures: data.webhookFailures ?? [],
+          syncFailures: data.syncFailures ?? [],
+          lifecycleHistory: data.lifecycleHistory ?? [],
+        });
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load integration operations");
+      }
+    },
+    []
+  );
+
+  const replayWebhookFailure = useCallback(async (eventId: string) => {
+    try {
+      const response = await api.replayWebhookFailure(eventId);
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to replay webhook event");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to replay webhook event");
+      throw err;
+    }
+  }, []);
+
+  const retrySyncFailure = useCallback(async (provider: IntegrationProviderId) => {
+    try {
+      const response = await api.retryIntegrationSync(provider);
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to retry sync");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to retry sync");
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     const onOAuthMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; provider?: string; error?: string };
@@ -360,5 +428,9 @@ export function useIntegrations() {
     disconnect,
     testConnection,
     sync,
+    operations,
+    fetchOperations,
+    replayWebhookFailure,
+    retrySyncFailure,
   };
 }

@@ -12,6 +12,12 @@ import { createLogger } from '../../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { auditLogService } from '../AuditLogService.js';
+import {
+  CRM_INTEGRATION_EVENTS,
+  recordCrmIntegrationEvent,
+  runCrmOperation,
+  setCrmQueueLagSeconds,
+} from './CrmIntegrationObservability.js';
 
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
@@ -100,21 +106,42 @@ export class CrmSyncService {
     processed: number;
     errors: number;
   }> {
-    const tokens = await crmConnectionService.getTokens(tenantId, provider);
-    if (!tokens) {
-      throw new Error(`No valid tokens for ${provider} on tenant ${tenantId}`);
-    }
+    return runCrmOperation(
+      {
+        provider,
+        tenantId,
+        operation: 'sync.delta',
+        correlationId: `${provider}:${tenantId}:${Date.now()}`,
+      },
+      async () => {
+        const tokens = await crmConnectionService.getTokens(tenantId, provider);
+        if (!tokens) {
+          recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.REAUTH_REQUIRED, {
+            provider,
+            tenantId,
+            operation: 'sync.delta',
+            correlationId: `${provider}:${tenantId}`,
+          });
+          throw new Error(`No valid tokens for ${provider} on tenant ${tenantId}`);
+        }
 
-    const conn = await crmConnectionService.getConnection(tenantId, provider);
-    const cursor = conn?.sync_cursor || null;
+        const conn = await crmConnectionService.getConnection(tenantId, provider);
+        const cursor = conn?.sync_cursor || null;
+        setCrmQueueLagSeconds(
+          tenantId,
+          provider,
+          'sync',
+          conn?.last_sync_at
+            ? Math.max(0, Math.floor((Date.now() - new Date(conn.last_sync_at).getTime()) / 1000))
+            : 0
+        );
 
-    const impl = getCrmProvider(provider);
-    let totalProcessed = 0;
-    let totalErrors = 0;
-    let currentCursor = cursor;
-    let hasMore = true;
+        const impl = getCrmProvider(provider);
+        let totalProcessed = 0;
+        let totalErrors = 0;
+        let currentCursor = cursor;
+        let hasMore = true;
 
-    try {
       while (hasMore) {
         const result = await impl.fetchDeltaOpportunities(tokens, currentCursor);
 
@@ -147,37 +174,52 @@ export class CrmSyncService {
         hasMore = result.hasMore;
       }
 
-      // Update cursor
-      if (currentCursor) {
-        await crmConnectionService.updateSyncCursor(tenantId, provider, currentCursor, true);
-      }
+        // Update cursor
+        if (currentCursor) {
+          await crmConnectionService.updateSyncCursor(tenantId, provider, currentCursor, true);
+        }
 
-      // Audit log
-      await auditLogService.logAudit({
-        userId: 'system',
-        userName: 'System',
-        userEmail: 'system@valueos.io',
-        action: 'crm_sync_completed',
-        resourceType: 'crm_connection',
-        resourceId: provider,
-        details: {
+        // Audit log
+        await auditLogService.logAudit({
           tenantId,
-          provider,
-          processed: totalProcessed,
-          errors: totalErrors,
-        },
-      });
+          userId: 'system',
+          userName: 'System',
+          userEmail: 'system@valueos.io',
+          action: 'crm_sync_completed',
+          resourceType: 'crm_connection',
+          resourceId: provider,
+          details: {
+            tenantId,
+            provider,
+            processed: totalProcessed,
+            errors: totalErrors,
+            outcome: 'success',
+          },
+        });
+        if (totalErrors > 0) {
+          recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.SYNC_DEGRADED, {
+            provider,
+            tenantId,
+            operation: 'sync.delta',
+            correlationId: `${provider}:${tenantId}`,
+          }, { processed: totalProcessed, errors: totalErrors });
+        } else {
+          recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.SYNC_RECOVERED, {
+            provider,
+            tenantId,
+            operation: 'sync.delta',
+            correlationId: `${provider}:${tenantId}`,
+          }, { processed: totalProcessed });
+        }
 
-      logger.info('Delta sync completed', { tenantId, provider, totalProcessed, totalErrors });
-      return { processed: totalProcessed, errors: totalErrors };
-    } catch (err) {
-      await crmConnectionService.recordSyncError(
-        tenantId,
-        provider,
-        err instanceof Error ? err : new Error(String(err)),
-      );
+        logger.info('Delta sync completed', { tenantId, provider, totalProcessed, totalErrors });
+        return { processed: totalProcessed, errors: totalErrors };
+      }
+    ).catch(async (err) => {
+      await crmConnectionService.recordSyncError(tenantId, provider, err instanceof Error ? err : new Error(String(err)));
 
       await auditLogService.logAudit({
+        tenantId,
         userId: 'system',
         userName: 'System',
         userEmail: 'system@valueos.io',
@@ -188,12 +230,19 @@ export class CrmSyncService {
           tenantId,
           provider,
           error: err instanceof Error ? err.message : String(err),
+          outcome: 'failed',
         },
         status: 'failed',
       });
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.SYNC_DEGRADED, {
+        provider,
+        tenantId,
+        operation: 'sync.delta',
+        correlationId: `${provider}:${tenantId}`,
+      }, { error: err instanceof Error ? err.message : String(err) });
 
       throw err;
-    }
+    });
   }
 
   /**

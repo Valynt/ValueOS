@@ -29,9 +29,15 @@ const baseAssumption = {
   sourceType: "customer-confirmed" as const,
 };
 
+const agentMetadata = {
+  traceId: "trace-123",
+  agentId: "OpportunityAgent",
+};
+
 describe("agent assumption evidence linkage", () => {
   it("accepts supported assumptions with linked evidence refs", () => {
     const result = ValueHypothesisDraftSchema.safeParse({
+      ...agentMetadata,
       stage: "DRAFTING",
       organizationId: "00000000-0000-4000-8000-000000000101",
       opportunityId: "00000000-0000-4000-8000-000000000102",
@@ -61,6 +67,7 @@ describe("agent assumption evidence linkage", () => {
 
   it("rejects pending assumptions without pendingReason", () => {
     const result = FinancialModelSchema.safeParse({
+      ...agentMetadata,
       stage: "FINANCIAL",
       organizationId: "00000000-0000-4000-8000-000000000201",
       opportunityId: "00000000-0000-4000-8000-000000000202",
@@ -87,6 +94,35 @@ describe("agent assumption evidence linkage", () => {
       evidence: [validEvidenceRef],
       confidence: validConfidence,
       generatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires shared agent metadata on lifecycle payloads", () => {
+    const result = ValueHypothesisDraftSchema.safeParse({
+      stage: "DRAFTING",
+      organizationId: "00000000-0000-4000-8000-000000000101",
+      opportunityId: "00000000-0000-4000-8000-000000000102",
+      hypothesisId: "00000000-0000-4000-8000-000000000103",
+      title: "Automate onboarding",
+      statement: "Automation can reduce onboarding cycle time by 25%",
+      valueDriver: "Operational efficiency",
+      valueRange: {
+        low: 10000,
+        expected: 25000,
+        high: 40000,
+      },
+      assumptions: [
+        {
+          ...baseAssumption,
+          evidenceState: "supported",
+          evidenceRefs: [validEvidenceRef],
+        },
+      ],
+      evidence: [validEvidenceRef],
+      confidence: validConfidence,
+      draftedAt: "2026-01-01T00:00:00.000Z",
     });
 
     expect(result.success).toBe(false);

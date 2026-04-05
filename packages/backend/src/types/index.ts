@@ -61,15 +61,19 @@ export {
 } from "./domain-primitives";
 
 export {
+  AgentMetaSchema,
   OpportunityContextSchema,
   ValueHypothesisDraftSchema,
   FinancialModelSchema,
   IntegrityAssessmentSchema,
   ExecutiveNarrativeSchema,
   ValueLifecycleSchema,
+  toAgentEventMetadata,
+  fromAgentEventMetadata,
 } from "./agent-schemas";
 
 export type {
+  AgentMetadata,
   OpportunityContext,
   ValueHypothesisDraft,
   FinancialModel,

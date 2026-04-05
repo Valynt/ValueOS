@@ -14,6 +14,12 @@ import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { getCrmWebhookQueue } from '../../workers/crmWorker.js';
 
 import { getCrmProvider } from './CrmProviderRegistry.js';
+import {
+  CRM_INTEGRATION_EVENTS,
+  recordCrmIntegrationEvent,
+  setCrmQueueLagSeconds,
+  setCrmWebhookBacklog,
+} from './CrmIntegrationObservability.js';
 import { redactSecrets } from './secretsRedaction.js';
 import type { CrmProvider, WebhookEventRow } from './types.js';
 
@@ -81,6 +87,12 @@ export class CrmWebhookService {
     // 1. Verify signature
     const verification = await impl.verifyWebhookSignature(req);
     if (!verification.valid) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.WEBHOOK_REJECTED, {
+        provider,
+        tenantId: verification.tenantId ?? 'unknown',
+        operation: 'webhook.ingest',
+        correlationId: 'signature_verification',
+      }, { reason: 'signature_verification_failed' });
       logger.warn('Webhook signature verification failed', { provider });
       return { accepted: false, duplicate: false };
     }
@@ -88,6 +100,12 @@ export class CrmWebhookService {
     // 2. Validate payload structure and size
     const payloadResult = WebhookPayloadSchema.safeParse(req.body);
     if (!payloadResult.success) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.WEBHOOK_REJECTED, {
+        provider,
+        tenantId: verification.tenantId ?? 'unknown',
+        operation: 'webhook.ingest',
+        correlationId: 'payload_validation',
+      }, { reason: 'payload_validation_failed' });
       logger.warn('Webhook payload validation failed', {
         provider,
         error: payloadResult.error.message,
@@ -114,6 +132,12 @@ export class CrmWebhookService {
     // 5. Determine tenant_id from webhook payload or connection lookup
     const tenantId = await this.resolveTenantId(provider, payload, verification.tenantId);
     if (!tenantId) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.WEBHOOK_REJECTED, {
+        provider,
+        tenantId: 'unknown',
+        operation: 'webhook.ingest',
+        correlationId: idempotencyKey,
+      }, { reason: 'tenant_resolution_failed' });
       logger.warn('Could not resolve tenant for webhook', { provider, idempotencyKey });
       return { accepted: false, duplicate: false };
     }
@@ -122,6 +146,12 @@ export class CrmWebhookService {
     const eventType = this.extractEventType(provider, payload);
     const allowed = ALLOWED_EVENT_TYPES[provider];
     if (allowed && !allowed.has(eventType)) {
+      recordCrmIntegrationEvent(CRM_INTEGRATION_EVENTS.WEBHOOK_REJECTED, {
+        provider,
+        tenantId,
+        operation: 'webhook.ingest',
+        correlationId: idempotencyKey,
+      }, { reason: 'event_type_not_allowlisted', event_type: eventType });
       logger.warn('Webhook event type not in allowlist', { provider, eventType });
       return { accepted: false, duplicate: false };
     }
@@ -168,6 +198,7 @@ export class CrmWebhookService {
       eventType,
       tenantId,
     });
+    await this.refreshWebhookBacklogMetrics(tenantId, provider);
 
     return { accepted: true, duplicate: false, eventId: event.id };
   }
@@ -210,6 +241,7 @@ export class CrmWebhookService {
         .eq('id', eventId);
 
       await this.resolveOpenIncidents(row.tenant_id, row.provider);
+      await this.refreshWebhookBacklogMetrics(row.tenant_id, row.provider);
 
       logger.info('Webhook event processed', { eventId, eventType: row.event_type });
     } catch (err) {
@@ -226,6 +258,7 @@ export class CrmWebhookService {
         .eq('id', eventId);
 
       await this.recordIncident(row.tenant_id, row.provider, err);
+      await this.refreshWebhookBacklogMetrics(row.tenant_id, row.provider);
 
       throw err;
     }
@@ -314,6 +347,31 @@ export class CrmWebhookService {
     }
 
     return null;
+  }
+
+  private async refreshWebhookBacklogMetrics(tenantId: string, provider: CrmProvider): Promise<void> {
+    const { count } = await this.supabase
+      .from('crm_webhook_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .eq('process_status', 'pending');
+    setCrmWebhookBacklog(tenantId, provider, count ?? 0);
+
+    const { data: oldestPending } = await this.supabase
+      .from('crm_webhook_events')
+      .select('created_at')
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+      .eq('process_status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const lagSeconds = oldestPending?.created_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(oldestPending.created_at).getTime()) / 1000))
+      : 0;
+    setCrmQueueLagSeconds(tenantId, provider, 'webhook', lagSeconds);
   }
 
   private extractEventType(
