@@ -7,6 +7,7 @@
  */
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { z } from 'zod';
 import { securityLogger } from '../../services/core/SecurityLogger.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -34,6 +35,7 @@ import type {
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
+import { ScenarioSchema } from '../../services/value/ScenarioBuilder.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type {
   ExecutionEnvelope,
@@ -79,6 +81,12 @@ const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   maxRetryAttempts: 3,
   maxAgentInvocationsPerMinute: 20,
 };
+
+const ScenarioBuildOutputSchema = z.object({
+  conservative: ScenarioSchema,
+  base: ScenarioSchema,
+  upside: ScenarioSchema,
+});
 
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
@@ -261,6 +269,7 @@ export class WorkflowExecutor {
     const stageStartTimes = new Map<string, Date>();
     const executor = getEnhancedParallelExecutor();
     let integrityVetoed = false;
+    let schemaValidationFailed = false;
 
     for (const stage of dag.stages) dependencies.set(stage.id, new Set());
     for (const t of dag.transitions) {
@@ -333,6 +342,23 @@ export class WorkflowExecutor {
         if (result.success && result.result?.stageResult.status === 'completed') {
           const stageOutput = result.result.stageResult.output ?? {};
 
+          const schemaValidationResult = this._validateStageOutputSchema(stage, stageOutput);
+          if (!schemaValidationResult.valid) {
+            const msg = `Output failed ${schemaValidationResult.schemaName} schema validation.`;
+            failed.set(stage.id, msg);
+            schemaValidationFailed = true;
+            const metadata = {
+              reason: 'schema_violation',
+              schema: schemaValidationResult.schemaName,
+              stageId: stage.id,
+              issues: schemaValidationResult.issues,
+            };
+            recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: msg, metadata }, 'failed');
+            await this._recordWorkflowEvent(executionId, organizationId, 'stage_failed', stage.id, metadata);
+            await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'failed', stage.id);
+            break;
+          }
+
           const structuralCheck = await this.policy.evaluateStructuralTruthVeto(stageOutput, { traceId, agentType: stage.agent_type as AgentType, query: stage.description ?? stage.id, stageId: stage.id });
           if (structuralCheck.vetoed) {
             const msg = 'Output failed structural truth validation against expected schema.';
@@ -372,7 +398,7 @@ export class WorkflowExecutor {
         await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'in_progress', stage.id);
       }
 
-      if (integrityVetoed) break;
+      if (integrityVetoed || schemaValidationFailed) break;
     }
 
     // Mark blocked stages as failed
@@ -623,6 +649,26 @@ export class WorkflowExecutor {
         value_maturity: 'low',
       },
       is_external_artifact_action: isExternalArtifactWorkflowStage(stage),
+    };
+  }
+
+  private _validateStageOutputSchema(
+    stage: WorkflowStage,
+    stageOutput: unknown,
+  ): { valid: true } | { valid: false; schemaName: string; issues: string[] } {
+    if (stage.id !== 'scenario_building') {
+      return { valid: true };
+    }
+
+    const parsedOutput = ScenarioBuildOutputSchema.safeParse(stageOutput);
+    if (parsedOutput.success) {
+      return { valid: true };
+    }
+
+    return {
+      valid: false,
+      schemaName: 'ScenarioBuildOutputSchema',
+      issues: parsedOutput.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
     };
   }
 
