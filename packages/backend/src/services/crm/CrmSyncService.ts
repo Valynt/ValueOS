@@ -23,6 +23,7 @@ import type {
 } from './types.js';
 
 const logger = createLogger({ component: 'CrmSyncService' });
+const DELTA_SYNC_BATCH_SIZE = 10;
 
 /**
  * Compute a deterministic hash of the canonical CRM fields.
@@ -117,16 +118,27 @@ export class CrmSyncService {
       while (hasMore) {
         const result = await impl.fetchDeltaOpportunities(tokens, currentCursor);
 
-        for (const opp of result.opportunities) {
-          try {
-            await this.upsertOpportunity(tenantId, provider, opp);
-            totalProcessed++;
-          } catch (err) {
-            logger.error('Failed to upsert opportunity', err instanceof Error ? err : undefined, {
-              tenantId,
-              provider,
-              externalId: opp.externalId,
-            });
+        for (let i = 0; i < result.opportunities.length; i += DELTA_SYNC_BATCH_SIZE) {
+          const batch = result.opportunities.slice(i, i + DELTA_SYNC_BATCH_SIZE);
+          const settledBatch = await Promise.allSettled(
+            batch.map((opp) => this.upsertOpportunity(tenantId, provider, opp)),
+          );
+
+          for (const [index, settled] of settledBatch.entries()) {
+            if (settled.status === 'fulfilled') {
+              totalProcessed++;
+              continue;
+            }
+
+            logger.error(
+              'Failed to upsert opportunity',
+              settled.reason instanceof Error ? settled.reason : undefined,
+              {
+                tenantId,
+                provider,
+                externalId: batch[index]?.externalId,
+              },
+            );
             totalErrors++;
           }
         }

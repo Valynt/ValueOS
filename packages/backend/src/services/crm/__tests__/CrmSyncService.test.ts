@@ -7,6 +7,13 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockLogger = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}));
+
 // Mock Supabase
 const mockSupabase = {
   from: vi.fn(),
@@ -19,12 +26,7 @@ vi.mock('../../../lib/supabase.js', () => ({
 }));
 
 vi.mock('../../../lib/logger.js', () => ({
-  createLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }),
+  createLogger: () => mockLogger,
 }));
 
 // Mock connection service
@@ -406,6 +408,67 @@ describe('CrmSyncService', () => {
       expect(result.processed).toBe(2);
       expect(result.errors).toBe(0);
       expect(upsertSpy).toHaveBeenCalledTimes(2);
+
+      upsertSpy.mockRestore();
+    });
+
+    it('counts mixed upsert success/failure in a batch and logs rejected records', async () => {
+      const { crmConnectionService } = await import('../CrmConnectionService.js');
+      mockProvider.fetchDeltaOpportunities.mockResolvedValue({
+        opportunities: [
+          {
+            externalId: 'sf-001',
+            name: 'Deal 1',
+            amount: 10000,
+            currency: 'USD',
+            stage: 'Prospecting',
+            properties: {},
+          },
+          {
+            externalId: 'sf-002',
+            name: 'Deal 2',
+            amount: 20000,
+            currency: 'USD',
+            stage: 'Qualification',
+            properties: {},
+          },
+          {
+            externalId: 'sf-003',
+            name: 'Deal 3',
+            amount: 30000,
+            currency: 'USD',
+            stage: 'Qualification',
+            properties: {},
+          },
+        ],
+        nextCursor: '2026-01-16T00:00:00Z',
+        hasMore: false,
+      });
+
+      const upsertSpy = vi.spyOn(service, 'upsertOpportunity')
+        .mockResolvedValueOnce('opp-1')
+        .mockRejectedValueOnce(new Error('upsert failed'))
+        .mockResolvedValueOnce('opp-3');
+
+      const result = await service.runDeltaSync('tenant-1', 'salesforce');
+
+      expect(result.processed).toBe(2);
+      expect(result.errors).toBe(1);
+      expect(crmConnectionService.updateSyncCursor).toHaveBeenCalledWith(
+        'tenant-1',
+        'salesforce',
+        '2026-01-16T00:00:00Z',
+        true,
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to upsert opportunity',
+        expect.any(Error),
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          provider: 'salesforce',
+          externalId: 'sf-002',
+        }),
+      );
 
       upsertSpy.mockRestore();
     });
