@@ -88,3 +88,19 @@ export {
   type AgentDeploymentId,
   type KnownToolId,
 } from "./agentMcpCapabilities";
+
+
+// Canonical MCP CRM contracts
+export type {
+  CRMProvider,
+  CRMConnection,
+  CRMDeal,
+  CRMContact,
+  CRMCompany,
+  CRMActivity,
+  DealSearchParams,
+  DealSearchResult,
+  MCPCRMToolResult,
+  CRMModule,
+  MCPCRMConfig,
+} from "./contracts/crm";
