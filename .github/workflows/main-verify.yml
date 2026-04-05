@@ -274,6 +274,8 @@ jobs:
         run: pnpm check:backend-service-role-boundaries
       - name: Guard deprecated Supabase imports
         run: node scripts/ci/check-deprecated-supabase-imports.mjs
+      - name: Guard dead shim exports
+        run: node scripts/ci/check-shim-dead-exports.mjs
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
       - name: Required-check policy contract guard
