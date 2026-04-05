@@ -41,6 +41,19 @@ Before enabling HIPAA mode for a tenant:
 
 Meeting the prerequisites above allows HIPAA-specific reporting and review to proceed, but a tenant is not represented as technically validated until the automated control checks pass and required evidence is present.
 
+## Applicability statement by tenant / product tier
+
+HIPAA is **not globally enabled** across all ValueOS tenants. Applicability is contract- and tier-dependent:
+
+| Tenant / tier condition | HIPAA in scope? | Notes |
+|---|---|---|
+| No BAA executed | No | HIPAA controls are tracked as baseline security controls only; no HIPAA attestation represented. |
+| BAA executed + HIPAA mode disabled for tenant | Not yet | Tenant is contract-capable but not operationally in HIPAA mode until enablement and control evidence checks complete. |
+| BAA executed + HIPAA mode enabled + required control checks passing | Yes | Tenant is treated as in-scope for HIPAA Security Rule safeguards and monitoring. |
+| Lower-tier/self-serve plans without regulated healthcare workflows | No (default) | HIPAA mode must remain off unless contract/legal review and BAA are complete. |
+
+Per-tenant HIPAA scope must be explicitly recorded in compliance operations artifacts and reviewed during quarterly control attestations.
+
 ## Evidence expectations
 
 - Control status snapshots (`compliance_control_status`).

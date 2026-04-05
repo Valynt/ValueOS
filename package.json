@@ -61,6 +61,7 @@
     "check:k8s-ingress-security-annotations": "node scripts/ci/check-k8s-ingress-security-annotations.mjs",
     "check:docs:secrets": "node scripts/ci/check-docs-secrets.mjs",
     "check:docs:date-integrity": "node scripts/ci/check-docs-date-integrity.mjs",
+    "check:hipaa-traceability": "node scripts/ci/check-hipaa-traceability.mjs",
     "check:a11y-completeness": "node scripts/ci/check-async-view-completeness.mjs",
     "check:contrast": "node scripts/ci/check-design-token-contrast.mjs",
     "check:required-checks-policy": "node scripts/ci/check-required-checks-policy.mjs",

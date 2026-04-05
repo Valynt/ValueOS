@@ -1,0 +1,49 @@
+{
+  "version": "2026-04-05",
+  "owner": "security-compliance@valueos",
+  "workflows": [
+    {
+      "workflow_id": "hipaa-breach-gdpr-overlap",
+      "trigger": "confirmed-or-suspected-security-incident-impacting-phi-or-eu-personal-data",
+      "timers": {
+        "t0": "incident_declared",
+        "hipaa_breach_notice": "without_unreasonable_delay",
+        "gdpr_supervisory_notice": "within_72_hours_when_reportable"
+      },
+      "steps": [
+        "declare_incident_and_assign_commander",
+        "preserve_forensic_evidence_and_audit_chain",
+        "classify_data_impacted_phi_vs_personal_data",
+        "assess_notifiability_thresholds_hipaa_and_gdpr",
+        "issue_customer_regulator_notifications_per_contract_and_law",
+        "document_corrective_actions_and_post_incident_review"
+      ],
+      "evidence": [
+        "docs/operations/incident-response.md",
+        "docs/security-compliance/trust-center.md",
+        "docs/security-compliance/evidence-retention-policy.md"
+      ]
+    },
+    {
+      "workflow_id": "data-subject-rights-and-accounting-overlap",
+      "trigger": "validated_dsr_or_phi_disclosure_accounting_request",
+      "timers": {
+        "gdpr_dsr_response": "within_30_days_unless_extension_applies",
+        "hipaa_accounting": "within_60_days_with_allowed_extension"
+      },
+      "steps": [
+        "authenticate_requester_and_authority",
+        "scope_records_by_tenant_and_subject",
+        "export_or_anonymize_data_per_request_type",
+        "log_disclosure_or_erasure_actions_in_immutable_audit",
+        "deliver_response_and_retention_metadata",
+        "record_completion_in_compliance_evidence"
+      ],
+      "evidence": [
+        "tests/compliance/dsr-workflow.test.ts",
+        "docs/security-compliance/evidence-index.md",
+        "docs/security-compliance/audit-logging.md"
+      ]
+    }
+  ]
+}

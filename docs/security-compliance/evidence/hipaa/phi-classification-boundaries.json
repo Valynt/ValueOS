@@ -1,0 +1,53 @@
+{
+  "version": "2026-04-05",
+  "owner": "compliance-hipaa@valueos",
+  "scope": "hipaa-tenant-mode",
+  "classification": [
+    {
+      "data_class": "phi_direct_identifier",
+      "examples": ["full_name", "email", "dob", "healthcare_member_id"],
+      "storage_surfaces": ["supabase_postgres", "immutable_audit_logs"],
+      "required_controls": [
+        "tenant_scoped_rls",
+        "encryption_at_rest",
+        "audit_logging",
+        "retention_policy"
+      ]
+    },
+    {
+      "data_class": "phi_quasi_identifier",
+      "examples": ["encounter_dates", "device_id", "ip_address"],
+      "storage_surfaces": ["supabase_postgres", "operational_logs"],
+      "required_controls": [
+        "tenant_scoped_rls",
+        "least_privilege_access",
+        "audit_logging"
+      ]
+    }
+  ],
+  "access_boundaries": [
+    {
+      "boundary_id": "api-request-boundary",
+      "enforcement": [
+        "packages/backend/src/middleware/auth.ts",
+        "packages/backend/src/middleware/authorization.middleware.ts",
+        "packages/backend/src/types/express.d.ts"
+      ],
+      "ci_checks": [
+        "pnpm run test:rls",
+        "pnpm run check:backend-service-role-boundaries"
+      ]
+    },
+    {
+      "boundary_id": "service-role-boundary",
+      "enforcement": [
+        "scripts/ci/check-backend-service-role-boundaries.mjs",
+        "packages/backend/src/lib/supabase/privileged/authProvisioning.ts"
+      ],
+      "ci_checks": [
+        "pnpm run check:backend-service-role-boundaries",
+        "pnpm run check:hipaa-traceability"
+      ]
+    }
+  ]
+}
