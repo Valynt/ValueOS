@@ -68,6 +68,11 @@ interface CrmHealthResponse {
   last_error?: string;
 }
 
+const isCrmOAuthProvider = (providerId: IntegrationProviderId): boolean => {
+  const provider = PROVIDERS.find((item) => item.id === providerId);
+  return provider?.type === "crm" && provider.authType === "oauth";
+};
+
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -175,7 +180,7 @@ export function useIntegrations() {
           throw new Error("Unsupported integration provider");
         }
 
-        if (provider.authType === "oauth") {
+        if (isCrmOAuthProvider(providerId)) {
           const response = await apiClient.post(`/api/crm/${providerId}/connect/start`);
           if (!response.success) {
             throw new Error(response.error?.message || "Failed to start OAuth flow");
@@ -200,6 +205,10 @@ export function useIntegrations() {
 
         if (!credentials) {
           throw new Error("Credentials are required for manual integrations");
+        }
+
+        if (provider.type === "crm" && provider.authType === "oauth") {
+          throw new Error("CRM OAuth providers do not accept direct token payloads.");
         }
 
         const response = await api.createIntegration({

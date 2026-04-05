@@ -23,7 +23,7 @@ export interface IntegrationConfigField {
 }
 
 export interface IntegrationCredentialsInput {
-  accessToken: string;
+  accessToken?: string;
   refreshToken?: string;
   instanceUrl?: string;
 }
