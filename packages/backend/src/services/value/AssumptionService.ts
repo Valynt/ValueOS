@@ -4,6 +4,7 @@ import { vetoController } from '../integrity/VetoController.js';
 import { DomainSagaEventEmitter } from '../workflows/SagaAdapters.js';
 
 import { AuditLogService } from './AuditLogService.js';
+import { ScenarioBuilder } from './ScenarioBuilder.js';
 
 export interface AssumptionUpdateContext {
   userId?: string;
@@ -45,6 +46,25 @@ export interface Assumption {
 export class AssumptionService {
   private readonly sagaEventEmitter = new DomainSagaEventEmitter();
   private readonly auditLogService = new AuditLogService();
+  
+  private async invalidateScenarioBuildCache(
+    organizationId: string | undefined,
+    caseId: string | undefined,
+  ): Promise<void> {
+    if (!organizationId || !caseId) {
+      return;
+    }
+
+    try {
+      await ScenarioBuilder.invalidateScenarioBuildCache(organizationId, caseId);
+    } catch (error) {
+      logger.warn('Failed to invalidate scenario-build cache after assumption mutation', {
+        organizationId,
+        caseId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   /**
    * Create a new assumption with source tag validation
@@ -106,6 +126,7 @@ export class AssumptionService {
       },
       status: 'success',
     });
+    await this.invalidateScenarioBuildCache(input.organizationId, input.caseId);
 
     return {
       assumptionId,
@@ -144,6 +165,10 @@ export class AssumptionService {
   ): Promise<{ deleted: boolean }> {
     logger.info('Deleting assumption', { assumptionId });
 
+    const existing = await this.getAssumption(assumptionId) as Record<string, unknown>;
+    const organizationId = existing.organization_id as string | undefined;
+    const caseId = existing.case_id as string | undefined;
+
     const { error } = await supabase
       .from('assumptions')
       .delete()
@@ -164,6 +189,7 @@ export class AssumptionService {
       details: { deleted_at: new Date().toISOString() },
       status: 'success',
     });
+    await this.invalidateScenarioBuildCache(organizationId, caseId);
 
     return { deleted: true };
   }
@@ -221,6 +247,11 @@ export class AssumptionService {
       },
       status: 'success',
     });
+    const currentRecord = current as Record<string, unknown>;
+    await this.invalidateScenarioBuildCache(
+      currentRecord.organization_id as string | undefined,
+      currentRecord.case_id as string | undefined,
+    );
 
     return {
       assumptionId,
@@ -362,6 +393,10 @@ export class AssumptionService {
       logger.error('Failed to update assumption', { assumptionId, error });
       throw new Error(`Failed to update assumption: ${error.message}`);
     }
+    await this.invalidateScenarioBuildCache(
+      (data as Record<string, unknown>).organization_id as string | undefined,
+      (data as Record<string, unknown>).case_id as string | undefined,
+    );
 
     return {
       assumptionId,
