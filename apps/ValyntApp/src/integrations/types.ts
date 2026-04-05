@@ -11,6 +11,47 @@ export interface IntegrationCapabilities {
   backfill: boolean;
 }
 
+export interface IntegrationCapabilityFlags {
+  oauth: boolean;
+  webhook_support: boolean;
+  delta_sync: boolean;
+  manual_sync: boolean;
+  field_mapping: boolean;
+  backfill: boolean;
+}
+
+export type IntegrationCapabilityKey = keyof IntegrationCapabilities;
+
+export const INTEGRATION_CAPABILITY_META: Record<
+  IntegrationCapabilityKey,
+  { label: string; unsupportedText: string }
+> = {
+  oauth: {
+    label: "OAuth",
+    unsupportedText: "OAuth is not supported for this provider.",
+  },
+  webhookSupport: {
+    label: "Webhook ingestion",
+    unsupportedText: "Webhook ingestion is not supported for this provider.",
+  },
+  deltaSync: {
+    label: "Delta sync",
+    unsupportedText: "Delta sync is not supported for this provider.",
+  },
+  manualSync: {
+    label: "Manual sync",
+    unsupportedText: "Manual sync is not available for this provider.",
+  },
+  fieldMapping: {
+    label: "Field mapping",
+    unsupportedText: "Field mapping configuration is unavailable.",
+  },
+  backfill: {
+    label: "Historical backfill",
+    unsupportedText: "Historical backfill is unavailable.",
+  },
+};
+
 export interface IntegrationConnection {
   id: string;
   provider: IntegrationProviderId;

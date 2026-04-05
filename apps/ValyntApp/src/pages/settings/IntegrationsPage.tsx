@@ -21,12 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useIntegrations } from "@/integrations";
 import type {
+  IntegrationCapabilityKey,
   IntegrationConfigField,
   IntegrationConnection,
   IntegrationCredentialsInput,
   IntegrationOperationEntry,
   IntegrationProvider,
 } from "@/integrations/types";
+import { INTEGRATION_CAPABILITY_META } from "@/integrations/types";
 
 const statusBadge = (status: IntegrationConnection["status"]) => {
   switch (status) {
@@ -48,6 +50,17 @@ const formatTimestamp = (value?: string) => {
 
 const getConnectLabel = (provider: IntegrationProvider) => `Connect with ${provider.name}`;
 const getReconnectLabel = (provider: IntegrationProvider) => `Reconnect ${provider.name}`;
+const ACTION_CAPABILITY_REQUIREMENTS: Array<{
+  key: IntegrationCapabilityKey;
+  action: string;
+  unsupportedText: string;
+}> = [
+  {
+    key: "manualSync",
+    action: "Sync",
+    unsupportedText: "Manual sync is not available for this provider.",
+  },
+];
 
 export function IntegrationsPage() {
   const {
@@ -193,26 +206,19 @@ export function IntegrationsPage() {
     const badge = statusBadge(status);
     const hasActiveConnection = !!connection && status !== "disconnected";
     const isOAuth = provider.capabilities.oauth;
-    const canManualSync = provider.capabilities.manualSync;
-    const canFieldMap = provider.capabilities.fieldMapping;
-    const canBackfill = provider.capabilities.backfill;
-    const unsupportedMessages: string[] = [];
-
-    if (!canManualSync) {
-      unsupportedMessages.push("Manual sync is not available for this provider.");
-    }
-    if (!provider.capabilities.deltaSync) {
-      unsupportedMessages.push("Delta sync is not supported.");
-    }
-    if (!provider.capabilities.webhookSupport) {
-      unsupportedMessages.push("Webhook ingestion is not supported.");
-    }
-    if (!canFieldMap) {
-      unsupportedMessages.push("Field mapping configuration is unavailable.");
-    }
-    if (!canBackfill) {
-      unsupportedMessages.push("Historical backfill is unavailable.");
-    }
+    const capabilitySummary = (Object.keys(INTEGRATION_CAPABILITY_META) as IntegrationCapabilityKey[])
+      .map((key) => ({
+        key,
+        supported: provider.capabilities[key],
+        ...INTEGRATION_CAPABILITY_META[key],
+      }));
+    const unsupportedCapabilities = capabilitySummary.filter((item) => !item.supported);
+    const unsupportedActions = ACTION_CAPABILITY_REQUIREMENTS
+      .map((entry) => ({
+        ...entry,
+        supported: provider.capabilities[entry.key],
+      }))
+      .filter((entry) => !entry.supported);
 
     const StatusIcon = status === "connected" ? Check : XCircle;
 
@@ -239,9 +245,11 @@ export function IntegrationsPage() {
             {hasActiveConnection && connection?.errorMessage && status === "error" && (
               <p className="text-xs text-rose-600 mt-1">{connection.errorMessage}</p>
             )}
-            {unsupportedMessages.length > 0 ? (
-              <p className="text-xs text-muted-foreground mt-1">{unsupportedMessages[0]}</p>
-            ) : null}
+            {unsupportedCapabilities.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Unsupported: {unsupportedCapabilities.map((entry) => entry.label).join(", ")}.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -283,11 +291,15 @@ export function IntegrationsPage() {
                 size="sm"
                 onClick={() => handleSync(connection)}
                 disabled={
-                  !canManualSync ||
+                  !provider.capabilities.manualSync ||
                   actionProvider === provider.id ||
                   oauthInProgressProvider === provider.id
                 }
-                title={!canManualSync ? "Manual sync is not supported for this provider." : undefined}
+                title={
+                  !provider.capabilities.manualSync
+                    ? INTEGRATION_CAPABILITY_META.manualSync.unsupportedText
+                    : undefined
+                }
               >
                 Sync
               </Button>
@@ -315,6 +327,11 @@ export function IntegrationsPage() {
               <ExternalLink className="h-3 w-3 ml-2" />
             </Button>
           )}
+          {unsupportedActions.map((entry) => (
+            <span key={`${provider.id}-${entry.action}`} className="text-xs text-muted-foreground">
+              {entry.action} unavailable — {entry.unsupportedText}
+            </span>
+          ))}
           {!hasActiveConnection && !provider.capabilities.oauth && provider.fields.length === 0 ? (
             <span className="text-xs text-muted-foreground">
               Manual setup is not available for this provider yet.

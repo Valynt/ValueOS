@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetIntegrations,
-  mockGetCrmProviderCapabilities,
+  mockGetIntegrationCapabilities,
   mockCreateIntegration,
   mockApiClientGet,
   mockApiClientPost,
@@ -11,7 +11,7 @@ const {
 } = vi.hoisted(
   () => ({
     mockGetIntegrations: vi.fn(),
-    mockGetCrmProviderCapabilities: vi.fn(),
+    mockGetIntegrationCapabilities: vi.fn(),
     mockCreateIntegration: vi.fn(),
     mockApiClientGet: vi.fn(),
     mockApiClientPost: vi.fn(),
@@ -22,7 +22,7 @@ const {
 vi.mock("@/api/client/unified-api-client", () => ({
   api: {
     getIntegrations: mockGetIntegrations,
-    getCrmProviderCapabilities: mockGetCrmProviderCapabilities,
+    getIntegrationCapabilities: mockGetIntegrationCapabilities,
     createIntegration: mockCreateIntegration,
     deleteIntegration: vi.fn(),
     testIntegration: vi.fn(),
@@ -40,7 +40,7 @@ describe("useIntegrations OAuth flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("open", mockWindowOpen);
-    mockGetCrmProviderCapabilities.mockResolvedValue({
+    mockGetIntegrationCapabilities.mockResolvedValue({
       success: true,
       data: {
         providers: [
