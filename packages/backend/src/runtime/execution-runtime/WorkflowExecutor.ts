@@ -17,6 +17,7 @@ import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 import { recordAgentInvocation, recordLoopCompletion, recordWorkflowDeadlineViolation, recordWorkflowExecutionActive } from '../../observability/valueLoopMetrics.js';
+import { valueTreeRepository, type ValueTreeNodeRow, type ValueTreeNodeWrite } from '../../repositories/ValueTreeRepository.js';
 import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
@@ -75,6 +76,7 @@ export interface WorkflowExecutorConfig {
 }
 
 const DEFAULT_WORKFLOW_DEADLINE_MINUTES = 30;
+const VALUE_MODELING_WORKFLOW_ID = 'value-modeling-v1';
 
 const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   enableWorkflows: true,
@@ -262,6 +264,14 @@ export class WorkflowExecutor {
       outputs: Array.isArray(defaultRecord.outputs) ? [...defaultRecord.outputs] : [],
     };
 
+    ({ executionContext, recordSnapshot } = await this.capturePreModelingSnapshotIfNeeded(
+      executionId,
+      organizationId,
+      dag,
+      executionContext,
+      recordSnapshot,
+    ));
+
     const dependencies = new Map<string, Set<string>>();
     const inProgress = new Set<string>();
     const completed = new Set<string>();
@@ -423,6 +433,100 @@ export class WorkflowExecutor {
       completedStages: [...completed.keys()] as import('../../observability/valueLoopMetrics.js').ValueLoopStage[],
     });
     await this._updateStatus(executionId, organizationId, 'completed', null, recordSnapshot);
+  }
+
+  private async capturePreModelingSnapshotIfNeeded(
+    executionId: string,
+    organizationId: string,
+    dag: WorkflowDAG,
+    executionContext: WorkflowStageContextDTO,
+    recordSnapshot: WorkflowExecutionRecord,
+  ): Promise<{ executionContext: WorkflowStageContextDTO; recordSnapshot: WorkflowExecutionRecord }> {
+    if (dag.id !== VALUE_MODELING_WORKFLOW_ID) {
+      return { executionContext, recordSnapshot };
+    }
+
+    const caseId = String(executionContext.caseId ?? executionContext.case_id ?? '');
+    if (!caseId) {
+      throw new Error('Value modeling workflow requires caseId to capture pre-modeling snapshot');
+    }
+
+    try {
+      const existingNodes = await valueTreeRepository.getNodesForCase(caseId, organizationId);
+      const preModelingSnapshot = this.toValueTreeSnapshot(existingNodes);
+
+      const nextContext = this.buildStageContext(
+        organizationId,
+        {
+          ...executionContext,
+          caseId,
+          case_id: caseId,
+          preModelingSnapshot,
+        },
+        'WorkflowExecutor.capturePreModelingSnapshotIfNeeded',
+      );
+
+      const nextRecordSnapshot: WorkflowExecutionRecord = {
+        ...recordSnapshot,
+        context: {
+          ...(recordSnapshot.context && typeof recordSnapshot.context === 'object'
+            ? (recordSnapshot.context as Record<string, unknown>)
+            : {}),
+          caseId,
+          case_id: caseId,
+          organizationId,
+          organization_id: organizationId,
+          tenantId: organizationId,
+          preModelingSnapshot,
+        },
+      };
+
+      await supabase
+        .from('workflow_executions')
+        .update({ context: nextContext })
+        .eq('id', executionId)
+        .eq('organization_id', organizationId);
+
+      await this.executionStore.persistExecutionRecord(executionId, organizationId, nextRecordSnapshot);
+
+      return { executionContext: nextContext, recordSnapshot: nextRecordSnapshot };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to capture pre-modeling snapshot: ${message}`);
+    }
+  }
+
+  private toValueTreeSnapshot(nodes: ValueTreeNodeRow[]): ValueTreeNodeWrite[] {
+    const orderedNodes = [...nodes].sort((a, b) => {
+      if (a.sort_order !== b.sort_order) {
+        return a.sort_order - b.sort_order;
+      }
+      const aKey = a.node_key ?? '';
+      const bKey = b.node_key ?? '';
+      if (aKey !== bKey) {
+        return aKey.localeCompare(bKey);
+      }
+      return a.id.localeCompare(b.id);
+    });
+    const keyById = new Map<string, string>();
+    for (const row of orderedNodes) {
+      if (row.node_key) {
+        keyById.set(row.id, row.node_key);
+      }
+    }
+
+    return orderedNodes.map((row, index) => ({
+      node_key: row.node_key ?? `snapshot-node-${index}`,
+      label: row.label,
+      description: row.description ?? undefined,
+      driver_type: (row.driver_type as ValueTreeNodeWrite['driver_type']) ?? undefined,
+      impact_estimate: row.impact_estimate ?? undefined,
+      confidence: row.confidence ?? undefined,
+      parent_node_key: row.parent_id ? keyById.get(row.parent_id) : undefined,
+      sort_order: row.sort_order,
+      source_agent: row.source_agent ?? undefined,
+      metadata: row.metadata ?? {},
+    }));
   }
 
   // --------------------------------------------------------------------------
