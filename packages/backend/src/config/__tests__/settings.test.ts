@@ -76,3 +76,47 @@ describe("settings database pool sizing", () => {
     expect(settings.databasePool.max).toBe(6);
   });
 });
+
+describe("settings CORS allowlist requirements", () => {
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    vi.resetModules();
+  });
+
+  it("fails startup in prod when CORS_ALLOWED_ORIGINS is unset", async () => {
+    applyBaseEnv();
+    process.env.NODE_ENV = "production";
+    process.env.APP_ENV = "prod";
+    delete process.env.CORS_ALLOWED_ORIGINS;
+
+    await expect(import("../settings.js")).rejects.toThrow(
+      "CORS_ALLOWED_ORIGINS must be explicitly configured when APP_ENV=prod"
+    );
+  });
+
+  it("fails startup in staging when CORS_ALLOWED_ORIGINS is empty", async () => {
+    applyBaseEnv();
+    process.env.NODE_ENV = "staging";
+    process.env.APP_ENV = "staging";
+    process.env.CORS_ALLOWED_ORIGINS = "   ";
+
+    await expect(import("../settings.js")).rejects.toThrow(
+      "CORS_ALLOWED_ORIGINS must be explicitly configured when APP_ENV=staging"
+    );
+  });
+
+  it("keeps localhost fallback in local environments when CORS_ALLOWED_ORIGINS is unset", async () => {
+    applyBaseEnv();
+    process.env.NODE_ENV = "development";
+    process.env.APP_ENV = "local";
+    delete process.env.CORS_ALLOWED_ORIGINS;
+
+    const { settings } = await import("../settings.js");
+
+    expect(settings.security.corsOrigins).toEqual([
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ]);
+  });
+});
