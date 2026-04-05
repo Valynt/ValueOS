@@ -1,5 +1,5 @@
 {
-  "name": "@valuecanvas/domain-validator",
+  "name": "@valueos/domain-validator",
   "version": "1.0.0",
   "description": "Domain validation service for Caddy on-demand TLS",
   "main": "dist/server.js",
@@ -20,7 +20,7 @@
     "tls",
     "ssl"
   ],
-  "author": "ValueCanvas",
+  "author": "ValueOS",
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

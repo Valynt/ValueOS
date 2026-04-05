@@ -33,6 +33,7 @@ function main() {
     ['pnpm', ['run', 'ci:governance:self-check']],
     ['pnpm', ['check:runtime-sentinels']],
     ['pnpm', ['check:kong-cors-origins']],
+    ['pnpm', ['check:package-metadata-naming']],
     ['npx', ['turbo', 'run', 'typecheck']],
     ['pnpm', ['--filter', '@valueos/backend', 'exec', 'vitest', 'run', 'src/__tests__/req-as-any-guard.test.ts']],
     ['node', ['scripts/ci/check-generated-src-artifacts.mjs', `--base-sha=${baseSha}`, `--head-sha=${headSha}`]],
