@@ -37,6 +37,20 @@ type Action =
   | { type: 'UPDATE_VALUE_REALIZATION'; payload: ValueRealization }
   | { type: 'ADD_AUDIT_EVENT'; payload: AuditEvent };
 
+const STORAGE_KEY = 'valueos-state';
+const SAVE_DELAY_MS = 200;
+const PERSISTED_STATE_KEYS = [
+  'deals',
+  'stakeholders',
+  'valueDrivers',
+  'hypotheses',
+  'roiModels',
+  'artifacts',
+  'valueRealizations',
+  'auditEvents',
+  'currentUser',
+] as const satisfies ReadonlyArray<keyof State>;
+
 const initialState: State = {
   users: fixtures.users,
   deals: fixtures.deals,
@@ -92,25 +106,54 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+function buildPersistedState(state: State): Partial<State> {
+  return PERSISTED_STATE_KEYS.reduce<Partial<State>>((acc, key) => {
+    acc[key] = state[key];
+    return acc;
+  }, {});
+}
+
+function initState(baseState: State): State {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    return { ...baseState };
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ...baseState };
+    }
+
+    const hydratedState = PERSISTED_STATE_KEYS.reduce<Partial<State>>((acc, key) => {
+      if (key in parsed) {
+        const candidate = (parsed as Partial<State>)[key];
+        if (candidate !== undefined) {
+          acc[key] = candidate;
+        }
+      }
+      return acc;
+    }, {});
+
+    return { ...baseState, ...hydratedState };
+  } catch {
+    return { ...baseState };
+  }
+}
+
 const DataContext = createContext<{ state: State; dispatch: React.Dispatch<Action> } | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState, initState);
 
   useEffect(() => {
-    const stored = localStorage.getItem('valueos-state');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      Object.keys(parsed).forEach(key => {
-        if (key !== 'currentUser') {
-          state[key as keyof State] = parsed[key];
-        }
-      });
-    }
-  }, []);
+    const timerId = window.setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPersistedState(state)));
+    }, SAVE_DELAY_MS);
 
-  useEffect(() => {
-    localStorage.setItem('valueos-state', JSON.stringify(state));
+    return () => {
+      window.clearTimeout(timerId);
+    };
   }, [state]);
 
   return (
@@ -125,3 +168,5 @@ export const useData = () => {
   if (!context) throw new Error('useData must be used within DataProvider');
   return context;
 };
+
+export { buildPersistedState, initState, initialState, reducer, SAVE_DELAY_MS, STORAGE_KEY };
