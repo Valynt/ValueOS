@@ -15,11 +15,11 @@
  * Metrics: alert_rule_evaluation_total, alert_rule_evaluation_failures_total
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Queue, Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 
 import { createLogger } from "../lib/logger.js";
+import { createWorkerServiceSupabaseClient } from "../lib/supabase/privileged/index.js";
 import {
   AlertingService,
   type AlertRule,
@@ -97,17 +97,6 @@ export async function scheduleAlertRuleJobs(rules: AlertRule[]): Promise<void> {
   }
 }
 
-// ── Supabase service client ──────────────────────────────────────────────────
-
-function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('Missing required environment variables for alertingWorker: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
-  }
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 // ── Worker ───────────────────────────────────────────────────────────────────
 
 let _worker: Worker<AlertRuleEvaluationPayload> | null = null;
@@ -115,7 +104,9 @@ let _worker: Worker<AlertRuleEvaluationPayload> | null = null;
 export function initAlertingWorker(): Worker<AlertRuleEvaluationPayload> {
   if (_worker) return _worker;
 
-  const supabase = getServiceSupabase();
+  const supabase = createWorkerServiceSupabaseClient({
+    justification: "service-role:justified alerting worker evaluates billing alert rules",
+  });
   const alertingService = new AlertingService(supabase);
 
   _worker = new Worker<AlertRuleEvaluationPayload>(
