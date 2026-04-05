@@ -48,6 +48,7 @@ import type { PolicyEngine } from '../policy-engine/index.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
 
 import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
+import { stageTransitionEventBus } from '../approval-inbox/StageTransitionEventBus.js';
 
 // ============================================================================
 // Internal types
@@ -298,6 +299,14 @@ export class WorkflowExecutor {
           const startedAt = new Date();
           stageStartTimes.set(stage.id, startedAt);
           inProgress.add(stage.id);
+          stageTransitionEventBus.publish({
+            source: "execution-runtime",
+            organizationId,
+            runId: executionId,
+            stageId: stage.id,
+            transition: "stage_started",
+            metadata: { agent_type: stage.agent_type, trace_id: traceId },
+          });
           return { id: stage.id, priority: 'high', payload: { stage, route, context: this.buildStageContext(organizationId, executionContext, `WorkflowExecutor.executeDAGAsync.stage.${stage.id}`), startedAt } };
         });
 
@@ -318,15 +327,28 @@ export class WorkflowExecutor {
         const stageCompleted = new Date();
         inProgress.delete(stage.id);
 
-        if (result.success && result.result?.stageResult.status === 'waiting_approval') {
+        if (result.success && (result.result?.stageResult.status === 'waiting_approval' || result.result?.stageResult.status === 'pending_approval')) {
           const hitlMetadata = result.result.stageResult.output ?? {};
-          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'waiting_approval');
-          await this._recordWorkflowEvent(executionId, organizationId, 'stage_waiting_for_approval', stage.id, {
+          stageTransitionEventBus.publish({
+            source: "execution-runtime",
+            organizationId,
+            runId: executionId,
+            stageId: stage.id,
+            transition: "stage_waiting_approval",
+            metadata: {
+              ...hitlMetadata,
+              checkpoint_id: (hitlMetadata.checkpoint_id as string | undefined) ?? uuidv4(),
+            },
+          });
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'pending_approval');
+          const approvalEventMetadata = {
             reason: 'hitl_required',
             ...hitlMetadata,
             traceId,
-          });
-          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'waiting_approval', stage.id);
+          };
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_waiting_for_approval', stage.id, approvalEventMetadata);
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_hitl_pending_approval', stage.id, approvalEventMetadata);
+          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'pending_approval', stage.id);
           return;
         }
 
@@ -360,11 +382,27 @@ export class WorkflowExecutor {
             { ...executionContext, ...stageOutput },
             `WorkflowExecutor.executeDAGAsync.output.${stage.id}`,
           );
+          stageTransitionEventBus.publish({
+            source: "execution-runtime",
+            organizationId,
+            runId: executionId,
+            stageId: stage.id,
+            transition: "stage_completed",
+            metadata: { trace_id: traceId },
+          });
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed');
           await this.executionStore.recordStageRun({ executionId, organizationId, stage, executionRecord: recordSnapshot, startedAt: stageStart, completedAt: stageCompleted, output: stageOutput });
           completed.add(stage.id);
         } else {
           const errMsg = result.result?.stageResult.error ?? result.error ?? 'Unknown stage error';
+          stageTransitionEventBus.publish({
+            source: "execution-runtime",
+            organizationId,
+            runId: executionId,
+            stageId: stage.id,
+            transition: "stage_failed",
+            metadata: { error: errMsg, trace_id: traceId },
+          });
           failed.set(stage.id, errMsg);
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, { error: errMsg }, 'failed');
         }
@@ -635,7 +673,7 @@ export class WorkflowExecutor {
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
   }
 
-  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
+  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval' | 'stage_hitl_pending_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
     await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 

@@ -19,6 +19,7 @@ import { AgentRegistry, RoutingContext } from '../../services/agents/AgentRegist
 import { AgentRoutingLayer, StageRoute } from '../../services/agents/AgentRoutingLayer.js';
 import { AgentRoutingScorer } from '../../services/agents/AgentRoutingScorer.js';
 import { WorkflowDAG } from '../../types/workflow.js';
+import { stageTransitionEventBus } from '../approval-inbox/StageTransitionEventBus.js';
 
 import {
   DOMAIN_ROUTING_RULES,
@@ -60,7 +61,21 @@ export class DecisionRouter {
       tenant_id: context.organizationId || 'unknown',
       trace_id: context.sessionId || `decision-route-${stageId}`,
       attributes: { stage_id: stageId },
-    }, () => this.routingLayer.routeStage(dag, stageId, context));
+    }, () => {
+      const route = this.routingLayer.routeStage(dag, stageId, context);
+      stageTransitionEventBus.publish({
+        source: "decision-router",
+        organizationId: context.organizationId || "unknown",
+        runId: context.sessionId || `route-${stageId}`,
+        stageId,
+        transition: "stage_routed",
+        metadata: {
+          selected_agent_id: route.selected_agent?.id ?? null,
+          fallback_reason: route.fallback_reason ?? null,
+        },
+      });
+      return route;
+    });
   }
 
   /**

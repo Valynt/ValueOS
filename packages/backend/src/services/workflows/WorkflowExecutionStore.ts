@@ -1,7 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../../types/execution/workflowExecutionDtos";
-import { WorkflowExecutionStore as IWorkflowExecutionStore, RecordStageRunInput, RecordWorkflowEventInput, UpdateExecutionStatusInput } from "../../types/execution/workflowExecutionStore";
+import {
+  ApprovalCheckpointRecord,
+  ApprovalCheckpointState,
+  WorkflowExecutionStore as IWorkflowExecutionStore,
+  RecordStageRunInput,
+  RecordWorkflowEventInput,
+  UpdateExecutionStatusInput,
+} from "../../types/execution/workflowExecutionStore";
 import { WorkflowExecutionRecord } from "../../types/workflowExecution";
 
 export class WorkflowExecutionStore implements IWorkflowExecutionStore {
@@ -81,6 +88,66 @@ export class WorkflowExecutionStore implements IWorkflowExecutionStore {
     if (error) {
       throw new Error(`Failed to record workflow event: ${error.message}`);
     }
+  }
+
+  async upsertApprovalCheckpoint(record: ApprovalCheckpointRecord): Promise<void> {
+    const { error } = await this.supabase
+      .from("approval_checkpoints")
+      .upsert(record, { onConflict: "checkpoint_id" });
+
+    if (error) {
+      throw new Error(`Failed to upsert approval checkpoint: ${error.message}`);
+    }
+  }
+
+  async listApprovalCheckpoints(input: {
+    organizationId: string;
+    ownerPrincipal?: string;
+    ownerTeam?: string;
+    states?: ApprovalCheckpointState[];
+    overdueOnly?: boolean;
+  }): Promise<ApprovalCheckpointRecord[]> {
+    let query = this.supabase
+      .from("approval_checkpoints")
+      .select("*")
+      .eq("organization_id", input.organizationId)
+      .order("due_at", { ascending: true });
+
+    if (input.ownerPrincipal) {
+      query = query.eq("owner_principal", input.ownerPrincipal);
+    }
+
+    if (input.ownerTeam) {
+      query = query.or(`owner_type.eq.team,owner_principal.eq.${input.ownerTeam}`);
+    }
+
+    if (input.states && input.states.length > 0) {
+      query = query.in("state", input.states);
+    }
+
+    if (input.overdueOnly) {
+      query = query.lt("due_at", new Date().toISOString());
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Failed to list approval checkpoints: ${error.message}`);
+    }
+
+    return (data ?? []) as ApprovalCheckpointRecord[];
+  }
+
+  async listOrganizationsWithPendingApprovalCheckpoints(): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from("approval_checkpoints")
+      .select("organization_id")
+      .eq("state", "pending");
+
+    if (error) {
+      throw new Error(`Failed to list organizations with pending approval checkpoints: ${error.message}`);
+    }
+
+    return [...new Set((data ?? []).map((row) => String(row.organization_id)))];
   }
 
   async getExecutionStatus(executionId: string, organizationId: string): Promise<WorkflowExecutionStatusDTO | null> {

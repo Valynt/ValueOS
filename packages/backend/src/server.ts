@@ -43,6 +43,7 @@ import artifactsRouter from "./api/artifacts.js";
 import agentsRouter from "./api/agents.js";
 import analyticsRouter from "./api/analytics.js";
 import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
+import { approvalInboxRouter } from "./api/approvalInbox.js";
 import { auditLogsRouter } from "./api/auditLogs.js";
 import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
@@ -642,6 +643,7 @@ app.use("/api/v1/opportunities", opportunityValueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
+app.use("/api/approval-inbox", approvalInboxRouter);
 
 app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
 

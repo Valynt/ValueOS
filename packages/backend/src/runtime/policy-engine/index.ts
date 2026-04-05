@@ -69,6 +69,18 @@ export interface PolicyEngineOptions {
   integrityVetoService?: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto">;
 }
 
+export interface EscalationPathValidationInput {
+  organizationId: string;
+  escalationPolicyId: string;
+  currentOwnerPrincipal: string;
+}
+
+export interface RejectionAuthorityValidationInput {
+  organizationId: string;
+  actorPrincipal: string;
+  ownerPrincipal: string;
+}
+
 // ============================================================================
 // Types — HITL (Sprint 5)
 // ============================================================================
@@ -136,12 +148,14 @@ export const HITL_CONFIDENCE_THRESHOLD = 0.6;
 // ============================================================================
 
 export class PolicyEngine {
+  private readonly supabase: SupabaseClient;
   private readonly executionStateService: Pick<TenantExecutionStateService, "getActiveState">;
   private readonly registry: AgentRegistry;
   private readonly serviceReadiness: () => ServiceReadiness;
   private readonly integrityVetoService: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto"> | null;
 
   constructor(options: PolicyEngineOptions) {
+    this.supabase = options.supabase;
     this.executionStateService =
       options.executionStateService ?? new TenantExecutionStateService(options.supabase);
     this.registry = options.registry;
@@ -463,5 +477,43 @@ export class PolicyEngine {
         },
       };
     });
+  }
+
+  async validateEscalationPath(input: EscalationPathValidationInput): Promise<{ nextOwnerPrincipal: string }> {
+    if (!input.escalationPolicyId) {
+      throw new Error("Escalation policy is required");
+    }
+
+    const { data, error } = await this.supabase
+      .from("approval_escalation_policies")
+      .select("steps")
+      .eq("organization_id", input.organizationId)
+      .eq("id", input.escalationPolicyId)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error(`Escalation policy ${input.escalationPolicyId} is invalid for organization ${input.organizationId}`);
+    }
+
+    const steps = Array.isArray(data.steps) ? data.steps as Array<{ owner_principal?: string }> : [];
+    const currentIndex = steps.findIndex((step) => step.owner_principal === input.currentOwnerPrincipal);
+    const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+    const nextStep = steps[nextIndex];
+
+    if (!nextStep?.owner_principal) {
+      throw new Error(`Escalation path exhausted for policy ${input.escalationPolicyId}`);
+    }
+
+    return { nextOwnerPrincipal: nextStep.owner_principal };
+  }
+
+  async validateRejectionAuthority(input: RejectionAuthorityValidationInput): Promise<void> {
+    if (!input.actorPrincipal || !input.ownerPrincipal) {
+      throw new Error("actorPrincipal and ownerPrincipal are required");
+    }
+
+    if (input.actorPrincipal !== input.ownerPrincipal) {
+      throw new Error(`Principal ${input.actorPrincipal} is not authorized to reject checkpoint owned by ${input.ownerPrincipal}`);
+    }
   }
 }
