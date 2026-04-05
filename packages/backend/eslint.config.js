@@ -190,9 +190,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-member-access": "off",
     },
   },
-  // Disable no-explicit-any in types/ directory — type definitions need flexible typing for external API boundaries
+  // Keep legacy any tolerance only for generated and ambient declaration types
   {
-    files: ["src/types/**/*.ts"],
+    files: [
+      "src/types/**/*.d.ts",
+      "src/types/supabase-generated.ts",
+    ],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
     },
@@ -204,5 +207,25 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
     },
-  }
+  },
+
+  // Strict boundaries: enforce error-level type safety in DTO/domain/worker/repository zones
+  {
+    files: [
+      "src/types/**/*.ts",
+      "src/services/types/**/*.ts",
+      "src/workers/**/*.ts",
+      "src/repositories/**/*.ts",
+      "src/domain/**/adapters/**/*.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    },
+  },
 );
