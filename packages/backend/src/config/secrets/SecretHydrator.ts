@@ -22,6 +22,12 @@ const assertNoDeprecatedSecretAliases = (): void => {
   }
 };
 
+interface HydrationFailure {
+  envVar: string;
+  secretKey: string;
+  reason: 'provider_error' | 'empty_secret';
+}
+
 function normalizeSecret(secret: SecretValue, envKey: string): string | undefined {
   const preferredOrder = ['value', 'secret', envKey.toLowerCase()];
   for (const candidate of preferredOrder) {
@@ -31,6 +37,28 @@ function normalizeSecret(secret: SecretValue, envKey: string): string | undefine
     }
   }
   return undefined;
+}
+
+function resolveRuntimeEnvironment(): string {
+  const candidates = [getEnvVar('NODE_ENV'), getEnvVar('APP_ENV')]
+    .map((value) => value?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value))
+
+  for (const candidate of candidates) {
+    if (candidate === 'prod') {
+      return 'production'
+    }
+    if (candidate === 'stage') {
+      return 'staging'
+    }
+    return candidate
+  }
+
+  return 'development'
+}
+
+function isStrictHydrationEnvironment(environment: string): boolean {
+  return environment === 'staging' || environment === 'production'
 }
 
 export async function hydrateServerSecretsFromManager(): Promise<Record<string, string>> {
@@ -46,7 +74,10 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
   }
 
   const tenantId = getEnvVar('SECRETS_TENANT_ID') || 'platform';
+  const environment = resolveRuntimeEnvironment();
+  const strictHydration = isStrictHydrationEnvironment(environment)
   const hydrated: Record<string, string> = {};
+  const failedHydrations: HydrationFailure[] = [];
 
   for (const [envVar, secretKey] of Object.entries(SECRET_KEY_MAPPING)) {
     if (getEnvVar(envVar)) {
@@ -59,6 +90,7 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
 
       if (!normalized) {
         logger.warn('Secret found but empty; skipping hydration', { envVar, secretKey, tenantId });
+        failedHydrations.push({ envVar, secretKey, reason: 'empty_secret' });
         continue;
       }
 
@@ -70,8 +102,32 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
         provider: getEnvVar('SECRETS_PROVIDER') || 'aws',
       });
     } catch (error) {
+      failedHydrations.push({ envVar, secretKey, reason: 'provider_error' });
       logger.error('Failed to hydrate secret from manager', { envVar, tenantId, error });
     }
+  }
+
+  if (failedHydrations.length > 0) {
+    logger.error('Secret hydration failures detected', {
+      tenantId,
+      environment,
+      strictHydration,
+      failedCount: failedHydrations.length,
+      failedEnvVars: failedHydrations.map((failure) => failure.envVar),
+      failureReasons: failedHydrations.map((failure) => ({
+        envVar: failure.envVar,
+        reason: failure.reason,
+      })),
+      provider: getEnvVar('SECRETS_PROVIDER') || 'aws',
+    });
+  }
+
+  if (strictHydration && failedHydrations.length > 0) {
+    throw new Error(
+      `Secret hydration failed for required keys in ${environment}: ${failedHydrations
+        .map((failure) => failure.envVar)
+        .join(', ')}`
+    )
   }
 
   return hydrated;
