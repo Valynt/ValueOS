@@ -39,14 +39,23 @@ ValueOS/
 ```
 
 ---
-
 ## apps/ — 3 Applications
 
-| App | Files | Description |
-|-----|-------|-------------|
-| `ValyntApp/` | 797 | Main React + Vite frontend. Feature-module architecture. |
-| `agentic-ui-pro/` | ~20 | Agentic UI prototype app. |
-| `mcp-dashboard/` | ~50 | MCP monitoring dashboard (React + Vite, 8 pages). |
+| App | Files | Lifecycle | Owner | Description | Support expectation | Quality gates |
+|-----|-------|-----------|-------|-------------|---------------------|---------------|
+| `ValyntApp/` | 797 | `active` | `team-frontend` | Main React + Vite frontend. Feature-module architecture. | Customer-critical supported surface. | Included (`lint`, `typecheck`, `build`, `security` in PR + main workflows) |
+| `mcp-dashboard/` | ~50 | `experimental` | `team-ai-platform` | MCP monitoring dashboard (React + Vite, 8 pages). | Prototype support only; best-effort, non-SLA. | Excluded from default workspace quality gates |
+| `agentic-ui-pro/` | ~50 | `archived` | `team-frontend` | Agentic UI prototype app. Reference implementation. | Reference-only; no active maintenance. | Excluded from default workspace quality gates |
+
+**Lifecycle governance**
+- Source of truth: `config/ci/workspace-package-policy.json`
+- Each app must define: `package.json → valueos.lifecycle`
+- CI enforcement: any workspace app without lifecycle metadata is rejected
+
+**Lifecycle definitions**
+- `active` → Production surface, fully supported, must pass all quality gates
+- `experimental` → Rapid iteration, relaxed guarantees, excluded from strict CI gates
+- `archived` → Frozen reference, no changes expected, excluded from CI
 
 ### ValyntApp Feature Modules (`apps/ValyntApp/src/features/`)
 
@@ -258,6 +267,20 @@ Migration files in `supabase/migrations/`. RLS enforced on all tenant-scoped tab
 | `test.yml` | Manual | Full test suite |
 | `terraform.yml` | Push + PR | Terraform plan/apply |
 | `migration-chain-integrity.yml` | Migration file changes | Migration chain validation |
+
+### Active app quality lane policy
+
+- `ValyntApp` is the only app currently classified as `active`; PR and main verification run explicit app-level `lint`, `typecheck`, `build`, and browser-key governance checks.
+- `mcp-dashboard` (`experimental`) and `agentic-ui-pro` (`archived`) stay intentionally excluded from default PR/main workspace gates until lifecycle promotion.
+
+### Dependency convergence policy (if an experimental app is promoted to active)
+
+Before promoting any non-active app to `active`, align with `ValyntApp` baseline to reduce cross-app compatibility debt:
+
+- React major: `18.x`
+- Zod major: `3.x`
+- TypeScript major: `5.9.x` baseline
+- Vite/Vitest baseline: governed by `scripts/ci/check-app-test-toolchain-baseline.mjs`
 | `compliance-evidence-export.yml` | Scheduled | Compliance evidence export |
 | `access-review-automation.yml` | Scheduled | Access review |
 | `oncall-drill-scorecard.yml` | Scheduled | On-call drill scoring |

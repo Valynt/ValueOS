@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const POLICY_PATH = path.join(ROOT, "config/ci/workspace-package-policy.json");
@@ -9,6 +10,7 @@ const ALLOWED_CLASSIFICATIONS = new Set([
   "experimental",
   "archived",
 ]);
+const ALLOWED_APP_LIFECYCLES = new Set(["active", "experimental", "archived"]);
 const RELEASE_ELIGIBLE = "eligible";
 const ROOT_VITEST_COVERED = "covered";
 const ROOT_VITEST_EXCLUDED = "excluded";
@@ -123,13 +125,28 @@ for (const [packagePath, policyEntry] of policyEntries) {
     shipped: policyEntry.shipped,
     ci: policyEntry.ci,
   };
+  if (typeof policyEntry.lifecycle === "string") {
+    expectedMetadata.lifecycle = policyEntry.lifecycle;
+  }
 
-  if (JSON.stringify(packageMetadata) !== JSON.stringify(expectedMetadata)) {
+  if (!isDeepStrictEqual(packageMetadata, expectedMetadata)) {
     errors.push(`${packagePath}: package.json valueos metadata drifted from ${path.relative(ROOT, POLICY_PATH)}`);
   }
 
   if (packageJson.name !== policyEntry.name) {
     errors.push(`${packagePath}: policy name ${policyEntry.name} does not match package.json name ${packageJson.name}`);
+  }
+
+  const isWorkspaceApp = packagePath.startsWith("apps/");
+  if (isWorkspaceApp) {
+    if (!ALLOWED_APP_LIFECYCLES.has(policyEntry.lifecycle)) {
+      errors.push(`${packagePath}: app packages must declare lifecycle in policy as one of active|experimental|archived.`);
+    }
+
+    const packageLifecycle = packageMetadata?.lifecycle;
+    if (!ALLOWED_APP_LIFECYCLES.has(packageLifecycle)) {
+      errors.push(`${packagePath}: package.json valueos.lifecycle must be one of active|experimental|archived.`);
+    }
   }
 
   const { hasTestScript, hasBuildScript } = formatStatus(packageJson);

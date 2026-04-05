@@ -3,6 +3,7 @@
     "apps/ValyntApp": {
       "name": "valynt-app",
       "classification": "production-runtime",
+      "lifecycle": "active",
       "supportTier": "customer-critical",
       "owner": "team-frontend",
       "shipped": true,
@@ -20,6 +21,7 @@
     "apps/mcp-dashboard": {
       "name": "mcp-dashboard",
       "classification": "experimental",
+      "lifecycle": "experimental",
       "supportTier": "experimental",
       "owner": "team-ai-platform",
       "shipped": false,
@@ -31,6 +33,24 @@
         "release": {
           "status": "excluded",
           "justification": "Prototype-only dashboard; not part of the release train."
+        }
+      }
+    },
+    "apps/agentic-ui-pro": {
+      "name": "agentic-ui-pro",
+      "classification": "archived",
+      "lifecycle": "archived",
+      "supportTier": "experimental",
+      "owner": "team-frontend",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Archived incubation app retained for historical reference; excluded from default quality gates."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Archived app is not a release artifact and receives no active maintenance commitments."
         }
       }
     },
