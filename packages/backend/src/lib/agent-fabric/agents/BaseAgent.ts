@@ -43,6 +43,15 @@ import {
   ValueGraphService,
   valueGraphService as defaultValueGraphService,
 } from "../../../services/value-graph/ValueGraphService.js";
+import {
+  computeGroundingScore,
+  extractArrayLengths,
+  extractNumbers,
+  extractRanges,
+  REFUSAL_PATTERNS,
+  SELF_REFERENCE_PATTERNS,
+} from "./base-agent-hallucination-utils.js";
+import { extractNumericPaths } from "./base-agent-evidence-utils.js";
 
 // ---------------------------------------------------------------------------
 // Evidence Mapping Error (P0 Security Requirement)
@@ -787,17 +796,7 @@ export abstract class BaseAgent {
     const signals: HallucinationSignal[] = [];
 
     // 1. Refusal patterns
-    const refusalPatterns = [
-      /I'm sorry,? but I cannot/i,
-      /I don't have access to/i,
-      /As an AI,? I must/i,
-      /I cannot provide/i,
-      /I'm unable to/i,
-      /I apologize,? but/i,
-      /I need to clarify that/i,
-      /It's important to note that I/i,
-    ];
-    for (const pattern of refusalPatterns) {
+    for (const pattern of REFUSAL_PATTERNS) {
       if (pattern.test(rawContent)) {
         signals.push({
           type: "refusal_pattern",
@@ -809,15 +808,7 @@ export abstract class BaseAgent {
     }
 
     // 2. Self-reference patterns
-    const selfRefPatterns = [
-      /as an? (?:AI )?language model/i,
-      /as an AI assistant/i,
-      /my training data/i,
-      /I was trained/i,
-      /my knowledge cutoff/i,
-      /I don't have real-time/i,
-    ];
-    for (const pattern of selfRefPatterns) {
+    for (const pattern of SELF_REFERENCE_PATTERNS) {
       if (pattern.test(rawContent)) {
         signals.push({
           type: "self_reference",
@@ -841,16 +832,7 @@ export abstract class BaseAgent {
     this.checkConfidenceCalibration(parsedOutput, signals);
 
     // Compute grounding score
-    const severityWeights: Record<string, number> = {
-      low: 0.1,
-      medium: 0.25,
-      high: 0.5,
-    };
-    const totalPenalty = signals.reduce(
-      (sum, s) => sum + (severityWeights[s.severity] || 0.1),
-      0
-    );
-    const groundingScore = Math.max(0, Math.min(1, 1 - totalPenalty));
+    const groundingScore = computeGroundingScore(signals);
 
     const hasHighSeverity = signals.some(s => s.severity === "high");
     const requiresEscalation = hasHighSeverity || groundingScore < 0.5;
@@ -888,7 +870,7 @@ export abstract class BaseAgent {
       });
     }
 
-    const percentages = this.extractNumbers(parsedOutput, "percent");
+    const percentages = extractNumbers(parsedOutput, "percent");
     for (const pct of percentages) {
       if (pct > 1000 || pct < -100) {
         signals.push({
@@ -905,7 +887,7 @@ export abstract class BaseAgent {
     parsedOutput: Record<string, unknown>,
     signals: HallucinationSignal[]
   ): void {
-    const ranges = this.extractRanges(parsedOutput);
+    const ranges = extractRanges(parsedOutput);
     for (const range of ranges) {
       if (range.low > range.high) {
         signals.push({
@@ -916,7 +898,7 @@ export abstract class BaseAgent {
       }
     }
 
-    const confidences = this.extractNumbers(parsedOutput, "confidence");
+    const confidences = extractNumbers(parsedOutput, "confidence");
     for (const conf of confidences) {
       if (conf < 0 || conf > 1) {
         signals.push({
@@ -985,8 +967,8 @@ export abstract class BaseAgent {
     parsedOutput: Record<string, unknown>,
     signals: HallucinationSignal[]
   ): void {
-    const confidences = this.extractNumbers(parsedOutput, "confidence");
-    const evidenceArrays = this.extractArrayLengths(parsedOutput, "evidence");
+    const confidences = extractNumbers(parsedOutput, "confidence");
+    const evidenceArrays = extractArrayLengths(parsedOutput, "evidence");
 
     if (confidences.length > 0 && evidenceArrays.length > 0) {
       const avgConfidence =
@@ -1002,94 +984,6 @@ export abstract class BaseAgent {
         });
       }
     }
-  }
-
-  // -------------------------------------------------------------------------
-  // Utility methods
-  // -------------------------------------------------------------------------
-
-  private extractNumbers(
-    obj: unknown,
-    keyPattern: string,
-    results: number[] = []
-  ): number[] {
-    if (obj === null || obj === undefined) return results;
-    // A bare number is not keyed, so it cannot match keyPattern — skip it.
-    if (typeof obj === "number") return results;
-
-    if (Array.isArray(obj)) {
-      for (const item of obj) {
-        this.extractNumbers(item, keyPattern, results);
-      }
-    } else if (typeof obj === "object") {
-      for (const [key, value] of Object.entries(
-        obj as Record<string, unknown>
-      )) {
-        if (
-          key.toLowerCase().includes(keyPattern) &&
-          typeof value === "number"
-        ) {
-          results.push(value);
-        } else {
-          this.extractNumbers(value, keyPattern, results);
-        }
-      }
-    }
-    return results;
-  }
-
-  private extractRanges(
-    obj: unknown,
-    path: string = "",
-    results: Array<{ low: number; high: number; path: string }> = []
-  ): Array<{ low: number; high: number; path: string }> {
-    if (obj === null || obj === undefined || typeof obj !== "object")
-      return results;
-
-    if (Array.isArray(obj)) {
-      for (let i = 0; i < obj.length; i++) {
-        this.extractRanges(obj[i], `${path}[${i}]`, results);
-      }
-    } else {
-      const record = obj as Record<string, unknown>;
-      if (typeof record.low === "number" && typeof record.high === "number") {
-        results.push({
-          low: record.low,
-          high: record.high,
-          path: path || "root",
-        });
-      }
-      for (const [key, value] of Object.entries(record)) {
-        this.extractRanges(value, path ? `${path}.${key}` : key, results);
-      }
-    }
-    return results;
-  }
-
-  private extractArrayLengths(
-    obj: unknown,
-    keyPattern: string,
-    results: number[] = []
-  ): number[] {
-    if (obj === null || obj === undefined || typeof obj !== "object")
-      return results;
-
-    if (Array.isArray(obj)) {
-      for (const item of obj) {
-        this.extractArrayLengths(item, keyPattern, results);
-      }
-    } else {
-      for (const [key, value] of Object.entries(
-        obj as Record<string, unknown>
-      )) {
-        if (key.toLowerCase().includes(keyPattern) && Array.isArray(value)) {
-          results.push(value.length);
-        } else {
-          this.extractArrayLengths(value, keyPattern, results);
-        }
-      }
-    }
-    return results;
   }
 
   // -------------------------------------------------------------------------
@@ -1177,7 +1071,7 @@ export abstract class BaseAgent {
     result: Record<string, unknown>,
     links: EvidenceLink[]
   ): void {
-    const numericPaths = this.extractNumericPaths(result);
+    const numericPaths = extractNumericPaths(result);
     const evidencePaths = new Set(links.map((l) => l.path));
 
     const missing = numericPaths.filter((p) => !evidencePaths.has(p));
@@ -1197,28 +1091,6 @@ export abstract class BaseAgent {
    * @param path - Current path for recursion
    * @returns Array of paths to all numeric values
    */
-  private extractNumericPaths(obj: unknown, path = ""): string[] {
-    const paths: string[] = [];
-
-    if (typeof obj === "number") {
-      return [path];
-    }
-
-    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
-      for (const [key, value] of Object.entries(obj)) {
-        const currentPath = path ? `${path}.${key}` : key;
-        paths.push(...this.extractNumericPaths(value, currentPath));
-      }
-    } else if (Array.isArray(obj)) {
-      for (let i = 0; i < obj.length; i++) {
-        const currentPath = path ? `${path}[${i}]` : `[${i}]`;
-        paths.push(...this.extractNumericPaths(obj[i], currentPath));
-      }
-    }
-
-    return paths;
-  }
-
   /**
    * Finds evidence for a numeric value at a specific path.
    * Subclasses can override this to provide custom evidence lookup.
