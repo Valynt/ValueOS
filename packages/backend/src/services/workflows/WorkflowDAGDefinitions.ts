@@ -747,24 +747,6 @@ export async function compensateValueModelingWorkflow(
 }
 
 // ============================================================================
-// Workflow Registry (Updated with Value Modeling)
-// ============================================================================
-
-export const WORKFLOW_REGISTRY = {
-  OPPORTUNITY: OPPORTUNITY_WORKFLOW,
-  TARGET: TARGET_WORKFLOW,
-  REALIZATION: REALIZATION_WORKFLOW,
-  EXPANSION: EXPANSION_WORKFLOW,
-  INTEGRITY: INTEGRITY_WORKFLOW,
-  COMPLETE_LIFECYCLE: COMPLETE_LIFECYCLE_WORKFLOW,
-  PARALLEL_LIFECYCLE: PARALLEL_LIFECYCLE_WORKFLOW,
-  DEAL_ASSEMBLY: DEAL_ASSEMBLY_WORKFLOW,
-  VALUE_MODELING: VALUE_MODELING_WORKFLOW,
-} as const;
-
-export const ALL_WORKFLOW_DEFINITIONS = Object.values(WORKFLOW_REGISTRY);
-
-// ============================================================================
 // Workflow Lookup Functions
 // ============================================================================
 
@@ -994,6 +976,24 @@ export const DEAL_ASSEMBLY_WORKFLOW: WorkflowDAG = {
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
+
+// ============================================================================
+// Workflow Registry (Updated with Value Modeling)
+// ============================================================================
+
+export const WORKFLOW_REGISTRY = {
+  OPPORTUNITY: OPPORTUNITY_WORKFLOW,
+  TARGET: TARGET_WORKFLOW,
+  REALIZATION: REALIZATION_WORKFLOW,
+  EXPANSION: EXPANSION_WORKFLOW,
+  INTEGRITY: INTEGRITY_WORKFLOW,
+  COMPLETE_LIFECYCLE: COMPLETE_LIFECYCLE_WORKFLOW,
+  PARALLEL_LIFECYCLE: PARALLEL_LIFECYCLE_WORKFLOW,
+  DEAL_ASSEMBLY: DEAL_ASSEMBLY_WORKFLOW,
+  VALUE_MODELING: VALUE_MODELING_WORKFLOW,
+} as const;
+
+export const ALL_WORKFLOW_DEFINITIONS = Object.values(WORKFLOW_REGISTRY);
 
 // ============================================================================
 // Export All
