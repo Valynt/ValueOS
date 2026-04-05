@@ -86,4 +86,38 @@ describe("OrganizationRoles destructive confirmation", () => {
     });
     expect(deleteRoleMock).toHaveBeenCalledWith("role-1");
   });
+
+  it("keeps the confirmation modal open and allows retry when delete fails", async () => {
+    deleteRoleMock.mockReset();
+    deleteRoleMock.mockRejectedValueOnce(new Error("Delete failed"));
+    deleteRoleMock.mockResolvedValueOnce(undefined);
+
+    const confirmButton = await openDeleteFlow();
+
+    fireEvent.change(screen.getByLabelText(/Type\s+Finance Admin\s+to confirm/i), {
+      target: { value: "Finance Admin" },
+    });
+
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(deleteRoleMock).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(errorToastMock).toHaveBeenCalledTimes(1);
+    });
+
+    const retryButton = screen.getByRole("button", { name: "Delete role" });
+    expect(retryButton).toBeInTheDocument();
+    expect(retryButton).toBeEnabled();
+
+    fireEvent.click(retryButton);
+
+    await waitFor(() => {
+      expect(deleteRoleMock).toHaveBeenCalledTimes(2);
+    });
+    expect(deleteRoleMock).toHaveBeenNthCalledWith(1, "role-1");
+    expect(deleteRoleMock).toHaveBeenNthCalledWith(2, "role-1");
+  });
 });
