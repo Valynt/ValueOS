@@ -40,7 +40,7 @@ export interface SDUIPayload {
   state?: Partial<WorkspaceState>;
   validation?: ValidationResult;
   navigation?: NavigationUpdate;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface SDUIMetadata {
@@ -85,7 +85,7 @@ export interface ValidationRule {
 export interface ComponentEvent {
   name: string;
   action: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -118,14 +118,14 @@ export interface WorkspaceData {
   expansion?: ExpansionData;
   integrity?: IntegrityData;
   businessCase?: Record<string, unknown> | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
 export interface OpportunityData {
   problem_statement?: string;
   stakeholders?: string[];
-  initial_metrics?: Record<string, any>;
+  initial_metrics?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -158,7 +158,7 @@ export interface UIState {
   active_panel?: string;
   expanded_sections?: string[];
   selected_items?: string[];
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   sort?: { field: string; direction: "asc" | "desc" };
 }
 
@@ -203,7 +203,7 @@ export interface WorkspaceContext {
   lifecycle_stage: string;
   lifecycleStage?: string;
   permissions: WorkspacePermissions;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkspacePermissions {
@@ -252,7 +252,7 @@ export interface ActionContext {
 
 export interface ActionPayload {
   action: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   validation?: {
     schema?: string;
     rules?: ValidationRule[];
@@ -299,7 +299,7 @@ export interface ManifestoValidation {
 export interface NavigationUpdate {
   target_view: string;
   target_stage?: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
   transition?: "push" | "replace" | "back";
 }
 
@@ -324,7 +324,7 @@ export interface StageCompletionEvent {
   stage_id: string;
   lifecycle_stage: string;
   status: "completed" | "failed" | "skipped";
-  output_data: Record<string, any>;
+  output_data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -378,6 +378,8 @@ export interface ManifestoViolation {
   suggestion?: string;
   context?: Record<string, unknown>;
 }
+
+// typed-debt-boundary-migration: sdui-integration.ts migrated open SDUI payload maps from any→unknown; owner=@sdui-platform, remaining debt=define per-action/per-navigation schemas and enforce boundary parsers in API/event adapters.
 
 export interface SchemaCacheEntry {
   schema: Record<string, unknown>;

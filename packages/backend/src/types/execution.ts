@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { JsonObjectSchema, type JsonObject } from "./json";
+
 /**
  * Execution Type Definitions
  * 
@@ -15,9 +18,9 @@ export interface ExecutionRequest {
   workflow_id?: string;
   agent_id?: string;
   context: ExecutionContext;
-  input: Record<string, any>;
+  input: JsonObject;
   options?: ExecutionOptions;
-  metadata?: Record<string, any>;
+  metadata?: JsonObject;
   parameters?: Record<string, unknown>;
   intent?: string;
   environment?: string;
@@ -59,7 +62,7 @@ export type ExecutionPriority = 'low' | 'normal' | 'high' | 'critical';
 export interface ExecutionResponse {
   execution_id: string;
   status: ExecutionStatus;
-  result?: Record<string, any>;
+  result?: JsonObject;
   error?: ExecutionError;
   metadata: ExecutionMetadata;
 }
@@ -75,7 +78,7 @@ export type ExecutionStatus =
 export interface ExecutionError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: JsonObject;
   recoverable: boolean;
 }
 
@@ -104,8 +107,8 @@ export interface TaskExecution {
   execution_id: string;
   workflow_id?: string;
   status: ExecutionStatus;
-  input: Record<string, any>;
-  output?: Record<string, any>;
+  input: JsonObject;
+  output?: JsonObject;
   error?: ExecutionError;
   started_at: string;
   completed_at?: string;
@@ -201,5 +204,89 @@ export interface PipelineStage {
   execution_request: ExecutionRequest;
   depends_on?: string[];
   status: ExecutionStatus;
-  result?: Record<string, any>;
+  result?: JsonObject;
 }
+
+const ExecutionContextSchema = z.object({
+  workspace_id: z.string(),
+  organization_id: z.string(),
+  user_id: z.string(),
+  lifecycle_stage: z.string().optional(),
+  parent_execution_id: z.string().optional(),
+  correlation_id: z.string().optional(),
+});
+
+const ExecutionOptionsSchema = z
+  .object({
+    timeout_seconds: z.number().optional(),
+    max_retries: z.number().optional(),
+    retry_delay_ms: z.number().optional(),
+    enable_streaming: z.boolean().optional(),
+    callback_url: z.string().optional(),
+    idempotency_key: z.string().optional(),
+    priority: z.enum(["low", "normal", "high", "critical"]).optional(),
+    async_mode: z.boolean().optional(),
+  })
+  .strict();
+
+export const ExecutionRequestSchema = z
+  .object({
+    id: z.string().optional(),
+    type: z.enum(["workflow", "agent", "task", "pipeline", "batch"]),
+    workflow_id: z.string().optional(),
+    agent_id: z.string().optional(),
+    context: ExecutionContextSchema,
+    input: JsonObjectSchema,
+    options: ExecutionOptionsSchema.optional(),
+    metadata: JsonObjectSchema.optional(),
+    parameters: z.record(z.string(), z.unknown()).optional(),
+    intent: z.string().optional(),
+    environment: z.string().optional(),
+  })
+  .strict();
+
+export const ExecutionResponseSchema = z
+  .object({
+    execution_id: z.string(),
+    status: z.enum(["pending", "running", "completed", "failed", "cancelled", "timeout"]),
+    result: JsonObjectSchema.optional(),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        details: JsonObjectSchema.optional(),
+        recoverable: z.boolean(),
+      })
+      .optional(),
+    metadata: z
+      .object({
+        started_at: z.string(),
+        completed_at: z.string().optional(),
+        duration_ms: z.number().optional(),
+        retry_count: z.number().optional(),
+        resource_usage: z
+          .object({
+            cpu_ms: z.number().optional(),
+            memory_mb: z.number().optional(),
+            network_kb: z.number().optional(),
+            tokens_used: z.number().optional(),
+            cost_usd: z.number().optional(),
+          })
+          .optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type ExecutionRequestDTO = z.infer<typeof ExecutionRequestSchema>;
+export type ExecutionResponseDTO = z.infer<typeof ExecutionResponseSchema>;
+
+export function parseExecutionRequestDTO(value: unknown): ExecutionRequestDTO {
+  return ExecutionRequestSchema.parse(value);
+}
+
+export function parseExecutionResponseDTO(value: unknown): ExecutionResponseDTO {
+  return ExecutionResponseSchema.parse(value);
+}
+
+// typed-debt-boundary-migration: execution.ts migrated any-bearing execution contracts to JsonObject and introduced ingress/egress DTO parsing (ExecutionRequest/ExecutionResponse); owner=@workflow-runtime, remaining debt=adopt parseExecution*DTO at all transport boundaries.

@@ -394,7 +394,7 @@ export interface FieldMapping {
 export interface DataTransformation {
   type: 'map' | 'filter' | 'aggregate' | 'format' | 'custom';
   function_name: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 export interface ESODataBatch {
@@ -412,7 +412,7 @@ export interface ESODataBatch {
 
 export interface ESODataRecord {
   id: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
 }
@@ -425,3 +425,5 @@ export interface ESOSyncStatus {
   records_synced: number;
   errors: string[];
 }
+
+// typed-debt-boundary-migration: eso-data.ts migrated transformation/record payload maps from any→unknown; owner=@integrations, remaining debt=bind transformation parameters to discriminated unions by transformation type.

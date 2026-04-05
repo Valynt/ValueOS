@@ -1,3 +1,5 @@
+import type { JsonValue } from "./json";
+
 /**
  * VMRT (Value Metrics Reference Templates) Types
  * 
@@ -37,7 +39,7 @@ export interface FormulaTemplate {
   name: string;
   formula: string;
   variables: FormulaVariable[];
-  example_calculation: Record<string, any>;
+  example_calculation: Record<string, JsonValue>;
 }
 
 export interface FormulaVariable {
@@ -98,3 +100,5 @@ export interface VMRTAssumption {
   source?: string;
   validated?: boolean;
 }
+
+// typed-debt-boundary-migration: vmrt.ts migrated formula example payloads to JsonValue; owner=@ground-truth, remaining debt=replace open string-keyed VMRT extension slots with dedicated schema types.
