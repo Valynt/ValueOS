@@ -210,6 +210,7 @@ export const OrganizationUsers: React.FC = () => {
       const message = error instanceof Error ? error.message : "Failed to remove user";
       setLoadError(message);
       showErrorToast(message);
+      throw (error instanceof Error ? error : new Error(message));
     } finally {
       setDeletingUserId(null);
     }
