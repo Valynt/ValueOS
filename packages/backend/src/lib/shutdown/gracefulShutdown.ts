@@ -58,13 +58,30 @@ async function executeShutdown(signal: string): Promise<void> {
 process.on("SIGTERM", () => executeShutdown("SIGTERM"));
 process.on("SIGINT", () => executeShutdown("SIGINT"));
 
+function serializeShutdownError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    value: String(error),
+  };
+}
+
 // Handle uncaught errors
-process.on("uncaughtException", (error) => {
-  logger.error("[shutdown] Uncaught exception:", { error });
+process.on("uncaughtException", error => {
+  logger.error("[shutdown] Uncaught exception:", serializeShutdownError(error));
   executeShutdown("uncaughtException");
 });
 
-process.on("unhandledRejection", (reason) => {
-  logger.error("[shutdown] Unhandled rejection:", { reason });
+process.on("unhandledRejection", reason => {
+  logger.error(
+    "[shutdown] Unhandled rejection:",
+    serializeShutdownError(reason)
+  );
   executeShutdown("unhandledRejection");
 });

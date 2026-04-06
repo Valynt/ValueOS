@@ -15,22 +15,22 @@
  * failure and can retry according to the queue's retry policy.
  */
 
-import { Queue, Worker, type Job } from 'bullmq';
+import { Queue, Worker, type Job } from "bullmq";
 
-import { NarrativeAgent } from '../lib/agent-fabric/agents/NarrativeAgent.js';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
-import { MemorySystem } from '../lib/agent-fabric/MemorySystem.js';
-import { CircuitBreaker } from '../lib/resilience/CircuitBreaker.js';
-import { logger } from '../lib/logger.js';
+import { NarrativeAgent } from "../lib/agent-fabric/agents/NarrativeAgent.js";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { CircuitBreaker } from "../lib/resilience/CircuitBreaker.js";
+import { logger } from "../lib/logger.js";
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../lib/supabase.js';
-import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
-import { attachQueueMetrics } from '../observability/queueMetrics.js';
-import { ArtifactJobRepository } from '../services/artifacts/ArtifactJobRepository.js';
-import { runJobWithTenantContext } from './tenantContextBootstrap.js';
-import { ArtifactRepository } from '../services/artifacts/ArtifactRepository.js';
-import { withIdempotency } from './IdempotentJobProcessor.js';
-import type { LifecycleContext } from '../types/agent.js';
+import { createServerSupabaseClient } from "../lib/supabase.js";
+import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
+import { attachQueueMetrics } from "../observability/queueMetrics.js";
+import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository.js";
+import { runJobWithTenantContext } from "./tenantContextBootstrap.js";
+import { ArtifactRepository } from "../services/artifacts/ArtifactRepository.js";
+import { withIdempotency } from "./IdempotentJobProcessor.js";
+import type { LifecycleContext } from "../types/agent.js";
 
 // ---------------------------------------------------------------------------
 // Job payload type — must match what ArtifactsRoute enqueues
@@ -51,7 +51,7 @@ export interface ArtifactGenerationJobPayload {
 // Worker
 // ---------------------------------------------------------------------------
 
-const QUEUE_NAME = 'artifact-generation';
+const QUEUE_NAME = "artifact-generation";
 
 const jobRepo = new ArtifactJobRepository();
 const artifactRepo = new ArtifactRepository();
@@ -65,16 +65,18 @@ async function loadCaseContext(
   tenantId: string,
   organizationId: string,
   requestedBy: string,
-  artifactType: string,
+  artifactType: string
 ): Promise<LifecycleContext> {
   const supabase = createServerSupabaseClient();
 
   // Fetch the value case row.
   const { data: valueCase, error: caseError } = await supabase
-    .from('value_cases')
-    .select('id, name, company_name, description, lifecycle_stage, status, buyer_persona')
-    .eq('id', caseId)
-    .eq('tenant_id', tenantId)
+    .from("value_cases")
+    .select(
+      "id, name, company_name, description, lifecycle_stage, status, buyer_persona"
+    )
+    .eq("id", caseId)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (caseError) {
@@ -86,32 +88,32 @@ async function loadCaseContext(
 
   // Fetch the most recent integrity result.
   const { data: integrityRows } = await supabase
-    .from('integrity_results')
-    .select('claim_validations, scores, veto_decision, created_at')
-    .eq('case_id', caseId)
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
+    .from("integrity_results")
+    .select("claim_validations, scores, veto_decision, created_at")
+    .eq("case_id", caseId)
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
     .limit(1);
 
   const integrityResult = integrityRows?.[0] ?? null;
 
   // Fetch the most recent financial model snapshot.
   const { data: financialRows } = await supabase
-    .from('financial_model_snapshots')
-    .select('summary, roi_percentage, payback_months, npv, created_at')
-    .eq('case_id', caseId)
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
+    .from("financial_model_snapshots")
+    .select("summary, roi_percentage, payback_months, npv, created_at")
+    .eq("case_id", caseId)
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
     .limit(1);
 
   const financialSnapshot = financialRows?.[0] ?? null;
 
   // Fetch KPI targets.
   const { data: kpiRows } = await supabase
-    .from('kpi_targets')
-    .select('metric_name, target_value, unit, timeframe')
-    .eq('case_id', caseId)
-    .eq('tenant_id', tenantId);
+    .from("kpi_targets")
+    .select("metric_name, target_value, unit, timeframe")
+    .eq("case_id", caseId)
+    .eq("tenant_id", tenantId);
 
   const kpiTargets = kpiRows ?? [];
 
@@ -120,7 +122,7 @@ async function loadCaseContext(
     workspace_id: caseId,
     organization_id: organizationId,
     user_id: requestedBy,
-    lifecycle_stage: 'narrative',
+    lifecycle_stage: "narrative",
     user_inputs: {
       value_case_id: caseId,
       value_case_title: valueCase.name ?? caseId,
@@ -139,7 +141,8 @@ async function loadCaseContext(
         : undefined,
       modeling: financialSnapshot
         ? {
-            summary: financialSnapshot.summary ?? 'No financial model available.',
+            summary:
+              financialSnapshot.summary ?? "No financial model available.",
             roi_percentage: financialSnapshot.roi_percentage,
             payback_months: financialSnapshot.payback_months,
             npv: financialSnapshot.npv,
@@ -157,15 +160,25 @@ async function loadCaseContext(
 /**
  * Process a single artifact generation job.
  */
-async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void> {
-  const { jobId, tenantId, organizationId, caseId, artifactType, format, requestedBy, traceId } =
-    job.data;
+async function processJob(
+  job: Job<ArtifactGenerationJobPayload>
+): Promise<void> {
+  const {
+    jobId,
+    tenantId,
+    organizationId,
+    caseId,
+    artifactType,
+    format,
+    requestedBy,
+    traceId,
+  } = job.data;
 
   if (!tenantId) {
-    throw new Error('ArtifactGenerationWorker: job payload missing tenantId');
+    throw new Error("ArtifactGenerationWorker: job payload missing tenantId");
   }
 
-  logger.info('ArtifactGenerationWorker: starting job', {
+  logger.info("ArtifactGenerationWorker: starting job", {
     jobId,
     caseId,
     tenantId,
@@ -178,10 +191,16 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
 
   let context: LifecycleContext;
   try {
-    context = await loadCaseContext(caseId, tenantId, organizationId, requestedBy, artifactType);
+    context = await loadCaseContext(
+      caseId,
+      tenantId,
+      organizationId,
+      requestedBy,
+      artifactType
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('ArtifactGenerationWorker: failed to load case context', {
+    logger.error("ArtifactGenerationWorker: failed to load case context", {
       jobId,
       caseId,
       error: message,
@@ -193,20 +212,28 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
   // Instantiate NarrativeAgent.
   const llmGateway = new LLMGateway({ organizationId });
   const memorySystem = new MemorySystem({ organizationId });
-  const circuitBreaker = new CircuitBreaker(`narrative-agent-${organizationId}`, {
-    failureThreshold: 3,
-    successThreshold: 2,
-    timeout: 60_000,
-  });
+  const circuitBreaker = new CircuitBreaker(
+    `narrative-agent-${organizationId}`,
+    {
+      failureThreshold: 3,
+      successThreshold: 2,
+      timeout: 60_000,
+    }
+  );
 
-  const agent = new NarrativeAgent(organizationId, memorySystem, llmGateway, circuitBreaker);
+  const agent = new NarrativeAgent(
+    organizationId,
+    memorySystem,
+    llmGateway,
+    circuitBreaker
+  );
 
   let agentOutput: Awaited<ReturnType<typeof agent.execute>>;
   try {
     agentOutput = await agent.execute(context);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('ArtifactGenerationWorker: NarrativeAgent execution failed', {
+    logger.error("ArtifactGenerationWorker: NarrativeAgent execution failed", {
       jobId,
       caseId,
       error: message,
@@ -215,11 +242,11 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
     throw err;
   }
 
-  if (agentOutput.status === 'failure') {
+  if (agentOutput.status === "failure") {
     const message =
       (agentOutput.data as Record<string, unknown>)?.error?.toString() ??
-      'NarrativeAgent returned failure status';
-    logger.error('ArtifactGenerationWorker: NarrativeAgent returned failure', {
+      "NarrativeAgent returned failure status";
+    logger.error("ArtifactGenerationWorker: NarrativeAgent returned failure", {
       jobId,
       caseId,
       message,
@@ -238,25 +265,25 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
       organizationId,
       caseId,
       artifactType,
-      status: 'final',
+      status: "final",
       content: agentOutput.data,
       readinessScoreAtGeneration:
         (context.user_inputs?.readiness_score as number | undefined) ?? 0,
-      generatedByAgent: 'narrative',
+      generatedByAgent: "narrative",
       metadata: {
         jobId,
         traceId,
         format,
         requestedBy,
-        agentVersion: agentOutput.agent_version ?? 'unknown',
-        promptVersion: agentOutput.prompt_version ?? 'unknown',
+        agentVersion: agentOutput.agent_version ?? "unknown",
+        promptVersion: agentOutput.prompt_version ?? "unknown",
         generatedAt: new Date().toISOString(),
       },
     });
     artifactId = artifact.id;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('ArtifactGenerationWorker: failed to persist artifact', {
+    logger.error("ArtifactGenerationWorker: failed to persist artifact", {
       jobId,
       caseId,
       error: message,
@@ -268,7 +295,7 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
   // Mark completed.
   await jobRepo.markCompleted(jobId, tenantId, artifactId);
 
-  logger.info('ArtifactGenerationWorker: job completed', {
+  logger.info("ArtifactGenerationWorker: job completed", {
     jobId,
     caseId,
     artifactId,
@@ -286,50 +313,57 @@ async function processJob(job: Job<ArtifactGenerationJobPayload>): Promise<void>
  */
 export function createArtifactGenerationWorker(): Worker<ArtifactGenerationJobPayload> {
   const config = getAgentMessageQueueConfig();
-  const redisUrl = config.redis.url ?? 'redis://localhost:6379';
+  const redisUrl = config.redis.url ?? "redis://localhost:6379";
 
   const worker = new Worker<ArtifactGenerationJobPayload>(
     QUEUE_NAME,
-    async (job) => runJobWithTenantContext(
-      {
-        workerName: 'ArtifactGenerationWorker',
-        tenantId: job.data.tenantId,
-        organizationId: job.data.organizationId,
-      },
-      // S1-2: Wrap with idempotency to prevent duplicate job processing
-      withIdempotency(QUEUE_NAME, async () => processJob(job), {
-        enabled: true,
-        ttlHours: 168,
-        keyFields: ['jobId', 'tenantId', 'caseId', 'artifactType'],
-      })
-    ),
+    async job =>
+      runJobWithTenantContext(
+        {
+          workerName: "ArtifactGenerationWorker",
+          tenantId: job.data.tenantId,
+          organizationId: job.data.organizationId,
+        },
+        // S1-2: Wrap with idempotency to prevent duplicate job processing
+        withIdempotency(QUEUE_NAME, async () => processJob(job), {
+          enabled: true,
+          ttlHours: 168,
+          keyFields: ["jobId", "tenantId", "caseId", "artifactType"],
+        })
+      ),
     {
       connection: { url: redisUrl },
       concurrency: 3,
-    },
+    }
   );
 
-  worker.on('failed', (job, err) => {
-    logger.error('ArtifactGenerationWorker: job failed', {
+  worker.on("failed", (job, err) => {
+    logger.error("ArtifactGenerationWorker: job failed", {
       jobId: job?.data?.jobId,
       caseId: job?.data?.caseId,
       error: err.message,
     });
   });
 
-  worker.on('completed', (job) => {
-    logger.info('ArtifactGenerationWorker: job completed', {
+  worker.on("error", err => {
+    logger.error("ArtifactGenerationWorker: worker connection error", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
+  worker.on("completed", job => {
+    logger.info("ArtifactGenerationWorker: job completed", {
       jobId: job.data.jobId,
       caseId: job.data.caseId,
     });
   });
 
   attachQueueMetrics(worker, QUEUE_NAME, {
-    workerClass: 'artifact-generation-worker',
+    workerClass: "artifact-generation-worker",
     concurrency: 3,
   });
 
-  logger.info('ArtifactGenerationWorker: started', { queue: QUEUE_NAME });
+  logger.info("ArtifactGenerationWorker: started", { queue: QUEUE_NAME });
 
   return worker;
 }
@@ -339,7 +373,7 @@ let _queue: Queue<ArtifactGenerationJobPayload> | null = null;
 export function getArtifactGenerationQueue(): Queue<ArtifactGenerationJobPayload> {
   if (!_queue) {
     const config = getAgentMessageQueueConfig();
-    const redisUrl = config.redis.url ?? 'redis://localhost:6379';
+    const redisUrl = config.redis.url ?? "redis://localhost:6379";
     _queue = new Queue<ArtifactGenerationJobPayload>(QUEUE_NAME, {
       connection: { url: redisUrl },
     });

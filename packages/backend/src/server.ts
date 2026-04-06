@@ -54,14 +54,20 @@ import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domain-packs/index.js";
-import { opportunityValueGraphRouter, valueGraphRouter } from "./api/valueGraph.js";
+import {
+  opportunityValueGraphRouter,
+  valueGraphRouter,
+} from "./api/valueGraph.js";
 import groundtruthRouter from "./api/groundtruth.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import mcpIntegrationsRouter from "./api/mcp-integrations.js";
 import llmRouter from "./api/llm.js";
-import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
+import {
+  mcpDiscoveryRouter,
+  serveMcpCapabilitiesDocument,
+} from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
@@ -104,9 +110,15 @@ import { initMcpIntegrationWorkers } from "./workers/mcpIntegrationWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
 import { createVersionedApiRouter } from "./versioning.js";
-import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
-import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
-import { getBroadcastAdapter, initBroadcastAdapter } from "./services/realtime/WebSocketBroadcastAdapter.js";
+import {
+  assertDevRoutesConfiguration,
+  registerDevRoutes,
+} from "./routes/devRoutes.js";
+import { getAgentPolicyService } from "./services/policy/AgentPolicyService.js";
+import {
+  getBroadcastAdapter,
+  initBroadcastAdapter,
+} from "./services/realtime/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
 
 // Conditionally import telemetry modules
@@ -121,7 +133,9 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
   try {
     const telemetryModule = await import("./config/telemetry");
     tracingMiddleware = telemetryModule.tracingMiddleware;
-    telemetrySdk = (await telemetryModule.initializeTelemetry()) as { shutdown?: () => Promise<void> } | null;
+    telemetrySdk = (await telemetryModule.initializeTelemetry()) as {
+      shutdown?: () => Promise<void>;
+    } | null;
 
     const latencyModule = await import("./middleware/latencyMetricsMiddleware");
     latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
@@ -131,9 +145,12 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
-    logger.warn("Telemetry modules not available, running without observability", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn(
+      "Telemetry modules not available, running without observability",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
   }
 }
 
@@ -155,7 +172,10 @@ import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js"
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 import { registerSupabaseInstrumentation } from "./lib/supabaseInstrumentation.js";
-import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
+import {
+  recordDroppedFrame,
+  recordThrottledClient,
+} from "./metrics/websocketSecurityMetrics.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
 import {
@@ -167,9 +187,19 @@ import {
 } from "./middleware/globalErrorHandler.js";
 import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter.js";
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
-import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
-import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
-import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
+import {
+  cspNonceMiddleware,
+  cspReportHandler,
+  securityHeadersMiddleware,
+} from "./middleware/securityHeaders.js";
+import {
+  csrfProtectionMiddleware,
+  csrfTokenMiddleware,
+} from "./middleware/securityMiddleware.js";
+import {
+  serviceIdentityMiddleware,
+  validateServiceIdentityConfig,
+} from "./middleware/serviceIdentityMiddleware.js";
 import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
 import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 import {
@@ -178,21 +208,23 @@ import {
   parseBearerToken,
 } from "./server/websocket-request-auth.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
-const WS_MAX_MESSAGES_PER_SECOND = Number(process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30");
-const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536");
+const WS_MAX_MESSAGES_PER_SECOND = Number(
+  process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30"
+);
+const WS_MAX_PAYLOAD_BYTES = Number(
+  process.env.WS_MAX_PAYLOAD_BYTES ?? "65536"
+);
 
 getAgentPolicyService();
-logger.info('[Instrumentation] Agent policy validation passed');
+logger.info("[Instrumentation] Agent policy validation passed");
 
 // Register Supabase query instrumentation (metrics + slow-query logs).
 // Must run before any Supabase client is used.
 registerSupabaseInstrumentation();
-logger.info('[Instrumentation] Supabase query instrumentation registered');
-
-
+logger.info("[Instrumentation] Supabase query instrumentation registered");
 
 EntitlementsService.setInstance(new EntitlementsService(supabase));
-logger.info('[Instrumentation] EntitlementsService registered');
+logger.info("[Instrumentation] EntitlementsService registered");
 
 const app: Application = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
@@ -205,7 +237,7 @@ const PORT = settings.API_PORT;
 const apiRouter = createVersionedApiRouter();
 const agentExecutionLimiter = createRateLimiter("strict", {
   message: "Too many agent calls. Please wait before trying again.",
-  skip: (req) => req.method === "GET",
+  skip: req => req.method === "GET",
 });
 
 const billingAccessEnforcement = createBillingAccessEnforcement();
@@ -215,24 +247,30 @@ const agentsConcurrencyGuard = createConcurrencyBackpressure("/api/agents", {
   queueTimeoutMs: 12000,
   retryAfterSeconds: 2,
 });
-const groundtruthConcurrencyGuard = createConcurrencyBackpressure("/api/groundtruth", {
-  maxInFlight: 12,
-  maxQueueDepth: 60,
-  queueTimeoutMs: 10000,
-  retryAfterSeconds: 2,
-});
+const groundtruthConcurrencyGuard = createConcurrencyBackpressure(
+  "/api/groundtruth",
+  {
+    maxInFlight: 12,
+    maxQueueDepth: 60,
+    queueTimeoutMs: 10000,
+    retryAfterSeconds: 2,
+  }
+);
 const llmConcurrencyGuard = createConcurrencyBackpressure("/api/llm", {
   maxInFlight: 16,
   maxQueueDepth: 64,
   queueTimeoutMs: 8000,
   retryAfterSeconds: 1,
 });
-const onboardingConcurrencyGuard = createConcurrencyBackpressure("/api/onboarding", {
-  maxInFlight: 10,
-  maxQueueDepth: 40,
-  queueTimeoutMs: 15000,
-  retryAfterSeconds: 3,
-});
+const onboardingConcurrencyGuard = createConcurrencyBackpressure(
+  "/api/onboarding",
+  {
+    maxInFlight: 10,
+    maxQueueDepth: 40,
+    queueTimeoutMs: 15000,
+    retryAfterSeconds: 3,
+  }
+);
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -248,7 +286,10 @@ let websocketConnectionCounter = 0;
 
 const tenantResolver = new TenantContextResolver();
 
-async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
+async function authenticateWebSocket(
+  ws: WebSocket,
+  req: IncomingMessage
+): Promise<void> {
   const clientIp = req.socket.remoteAddress;
   const token = getWebSocketToken(req);
 
@@ -280,7 +321,10 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   if (!tenantId) {
     const requestedTenantId = getRequestedTenantId(req);
     if (requestedTenantId) {
-      const hasAccess = await tenantResolver.hasTenantAccess(userId, requestedTenantId);
+      const hasAccess = await tenantResolver.hasTenantAccess(
+        userId,
+        requestedTenantId
+      );
       if (!hasAccess) {
         logger.warn("WebSocket authentication failed: tenant access denied", {
           clientIp,
@@ -364,7 +408,11 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
             : Array.isArray(data)
               ? Buffer.concat(data).toString()
               : data.toString();
-      const message = JSON.parse(textPayload) as { type?: string; messageId?: string; payload?: unknown };
+      const message = JSON.parse(textPayload) as {
+        type?: string;
+        messageId?: string;
+        payload?: unknown;
+      };
       logger.debug("WebSocket message received", {
         type: message.type,
         messageId: message.messageId,
@@ -373,7 +421,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
       switch (message.type) {
         case "sdui_update": {
           const senderTenantId = authedSocket.tenantId;
-          wss.clients.forEach((client) => {
+          wss.clients.forEach(client => {
             const recipient = client as AuthenticatedWebSocket;
             if (
               client !== ws &&
@@ -405,12 +453,18 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
           logger.warn("Unknown WebSocket message type", { type: message.type });
       }
     } catch (error) {
-      logger.error("Error handling WebSocket message", error instanceof Error ? error : undefined);
+      logger.error(
+        "Error handling WebSocket message",
+        error instanceof Error ? error : undefined
+      );
     }
   });
 
   ws.on("close", () => {
-    websocketLimiter.releaseConnection(authedSocket.connectionId, authedSocket.tenantId);
+    websocketLimiter.releaseConnection(
+      authedSocket.connectionId,
+      authedSocket.tenantId
+    );
     logger.info("WebSocket client disconnected", {
       clientIp,
       userId,
@@ -419,7 +473,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
     });
   });
 
-  ws.on("error", (error) => {
+  ws.on("error", error => {
     logger.error("WebSocket error", error instanceof Error ? error : undefined);
   });
 }
@@ -430,11 +484,14 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 // Middleware
-const corsOrigins = parseCorsAllowlist(settings.security.corsOrigins.join(","), {
-  source: "settings.security.corsOrigins",
-  credentials: true,
-  requireNonEmpty: true,
-});
+const corsOrigins = parseCorsAllowlist(
+  settings.security.corsOrigins.join(","),
+  {
+    source: "settings.security.corsOrigins",
+    credentials: true,
+    requireNonEmpty: true,
+  }
+);
 app.use(
   cors({
     origin: corsOrigins,
@@ -445,7 +502,10 @@ app.use(compression());
 // Preserve the raw body buffer for Stripe webhook signature verification.
 // All other routes receive the normal JSON-parsed body.
 // Parsers are instantiated once and reused across requests.
-const stripeRawParser = express.raw({ type: "application/json", limit: "256kb" });
+const stripeRawParser = express.raw({
+  type: "application/json",
+  limit: "256kb",
+});
 const jsonParser = express.json();
 app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
@@ -470,7 +530,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   // Skip cookie-based CSRF checks only for Bearer-token requests that do not
   // carry cookies. If cookies are present, enforce CSRF protection.
   const authHeader = String(req.headers["authorization"] ?? "");
-  const hasCookieHeader = typeof req.headers.cookie === "string" && req.headers.cookie.trim().length > 0;
+  const hasCookieHeader =
+    typeof req.headers.cookie === "string" &&
+    req.headers.cookie.trim().length > 0;
   if (/^\s*Bearer\s+/i.test(authHeader) && !hasCookieHeader) {
     return next();
   }
@@ -508,15 +570,23 @@ if (getMetricsRegistry) {
 
 // Conditionally add latency metrics endpoint
 if (typeof getLatencySnapshot === "function") {
-  app.get("/metrics/latency", serviceIdentityMiddleware, (_req: Request, res: Response) => {
-    res.json({
-      routes: getLatencySnapshot(),
-      timestamp: new Date().toISOString(),
-    });
-  });
+  app.get(
+    "/metrics/latency",
+    serviceIdentityMiddleware,
+    (_req: Request, res: Response) => {
+      res.json({
+        routes: getLatencySnapshot(),
+        timestamp: new Date().toISOString(),
+      });
+    }
+  );
 }
 // CSP Reporting Endpoint
-app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
+app.post(
+  "/api/csp-report",
+  express.json({ type: "application/csp-report" }),
+  cspReportHandler
+);
 
 // Secret Health Check Endpoints
 app.get("/health/secrets/public", secretHealthMiddleware({ mode: "public" }));
@@ -537,7 +607,12 @@ app.use("/api/auth", rateLimiters.auth);
 
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/tenant/context", tenantContextRouter);
-apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
+apiRouter.use(
+  "/projects",
+  requireAuth,
+  tenantContextMiddleware(),
+  projectsRouter
+);
 apiRouter.use(
   "/initiatives",
   requireAuth,
@@ -588,12 +663,7 @@ app.use(
   documentRouter
 );
 app.use("/api/docs", docsApiRouter);
-app.use(
-  "/api",
-  requireAuth,
-  tenantContextMiddleware(),
-  artifactsRouter
-);
+app.use("/api", requireAuth, tenantContextMiddleware(), artifactsRouter);
 app.use("/api/referrals", referralsRouter);
 app.use(
   "/api/usage",
@@ -627,13 +697,23 @@ app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/opportunities", opportunityValueGraphRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
-app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
+app.use(
+  "/api/compliance/evidence",
+  requireAuth,
+  tenantContextMiddleware(),
+  complianceEvidenceRouter
+);
 app.use("/api/approval-inbox", approvalInboxRouter);
 
 app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
 
 // Academy tRPC endpoint (mounted under /api/academy)
-app.use("/api/academy", requireAuth, tenantContextMiddleware(), academyTrpcMiddleware);
+app.use(
+  "/api/academy",
+  requireAuth,
+  tenantContextMiddleware(),
+  academyTrpcMiddleware
+);
 
 // Mount checkpoint HITL endpoints
 // getCheckpointMiddleware() always returned null in the UAO facade; preserve that behaviour.
@@ -643,7 +723,7 @@ if (checkpointMiddleware) {
     "/api/checkpoints",
     requireAuth,
     tenantContextMiddleware(),
-    createCheckpointRouter(checkpointMiddleware),
+    createCheckpointRouter(checkpointMiddleware)
   );
 
   const approvalActionSecret = process.env.APPROVAL_ACTION_SECRET;
@@ -651,7 +731,7 @@ if (checkpointMiddleware) {
   if (!approvalActionSecret || !approvalWebhookSecret) {
     throw new Error(
       "APPROVAL_ACTION_SECRET and APPROVAL_WEBHOOK_SECRET must be set. " +
-      "These secrets protect approval webhook signatures and must not use defaults."
+        "These secrets protect approval webhook signatures and must not use defaults."
     );
   }
   const signer = new NotificationActionSigner({
@@ -662,7 +742,13 @@ if (checkpointMiddleware) {
     signer,
     checkpointMiddleware,
     webhookSigningSecret: approvalWebhookSecret,
-    transitionApprovalRequest: async ({ requestId, tenantId, approved, actorId, reason }) => {
+    transitionApprovalRequest: async ({
+      requestId,
+      tenantId,
+      approved,
+      actorId,
+      reason,
+    }) => {
       await supabaseClient
         .from("approval_requests")
         .update({
@@ -682,7 +768,10 @@ if (checkpointMiddleware) {
     },
   });
 
-  app.use("/api/approvals/webhooks", createApprovalWebhookRouter(webhookService));
+  app.use(
+    "/api/approvals/webhooks",
+    createApprovalWebhookRouter(webhookService)
+  );
 }
 
 await registerDevRoutes(app);
@@ -711,7 +800,7 @@ async function validateInfrastructureConnectivity(): Promise<void> {
   if (!redisUrl) {
     throw new Error(
       "Production startup failed: REDIS_URL is not set. " +
-      "Redis is required for rate limiting, caching, and job queues."
+        "Redis is required for rate limiting, caching, and job queues."
     );
   }
 
@@ -744,7 +833,10 @@ async function validateInfrastructureConnectivity(): Promise<void> {
       const nc = await Promise.race([
         nats.connect({ servers: natsUrl, timeout: 5000 }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("NATS connection timeout after 5s")), 5000)
+          setTimeout(
+            () => reject(new Error("NATS connection timeout after 5s")),
+            5000
+          )
         ),
       ]);
       await nc.close();
@@ -755,14 +847,18 @@ async function validateInfrastructureConnectivity(): Promise<void> {
       );
     }
   } else {
-    logger.info("[Startup] NATS_URL not set — skipping NATS connectivity check");
+    logger.info(
+      "[Startup] NATS_URL not set — skipping NATS connectivity check"
+    );
   }
 
   logger.info("[Startup] Infrastructure connectivity validated");
 }
 
 function validateAuditLogStartupConfig(): void {
-  const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(process.env);
+  const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(
+    process.env
+  );
 
   if (auditLogEncryptionErrors.length > 0) {
     throw new Error(auditLogEncryptionErrors.join(" "));
@@ -837,7 +933,7 @@ async function startServer(): Promise<void> {
   await initializeSecretVolumeWatcher();
 
   if (secretVolumeWatcher) {
-    secretVolumeWatcher.on("reload-required", (event) => {
+    secretVolumeWatcher.on("reload-required", event => {
       logger.warn("Graceful shutdown initiated due to secret change", {
         secretKey: event.secretKey,
       });
@@ -875,42 +971,65 @@ async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "development") {
     try {
       initResearchWorker();
-      logger.info("[Instrumentation] Research worker initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] Research worker initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] Research worker failed to start:", { error: workerErr });
+      logger.warn("[Instrumentation] Research worker failed to start:", {
+        error: workerErr,
+      });
     }
 
     try {
       initCrmWorkers();
-      logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] CRM workers initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+      logger.warn("[Instrumentation] CRM workers failed to start:", {
+        error: workerErr,
+      });
     }
 
     try {
       initMcpIntegrationWorkers();
-      logger.info("[Instrumentation] MCP integration workers initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] MCP integration workers initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] MCP integration workers failed to start:", { error: workerErr });
+      logger.warn(
+        "[Instrumentation] MCP integration workers failed to start:",
+        { error: workerErr }
+      );
     }
 
     try {
       createArtifactGenerationWorker();
-      logger.info("[Instrumentation] Artifact generation worker initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] Artifact generation worker initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] Artifact generation worker failed to start:", { error: workerErr });
+      logger.warn(
+        "[Instrumentation] Artifact generation worker failed to start:",
+        { error: workerErr }
+      );
     }
   } else {
-    logger.info("[Instrumentation] Workers run as separate process; skipping in-process init");
+    logger.info(
+      "[Instrumentation] Workers run as separate process; skipping in-process init"
+    );
   }
 
   server.listen(PORT, () => {
     logger.info(`[Instrumentation] Server listening on port ${PORT}`);
-    logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
-      url: `http://localhost:${PORT}`,
-      webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
-      healthCheck: `http://localhost:${PORT}/health`,
-    });
+    logger.info(
+      `Billing API server with WebSocket support running on port ${PORT}`,
+      {
+        url: `http://localhost:${PORT}`,
+        webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
+        healthCheck: `http://localhost:${PORT}/health`,
+      }
+    );
   });
 
   // 6. Start audit log DLQ retry loop
@@ -918,16 +1037,17 @@ async function startServer(): Promise<void> {
 
   // 7. Start compliance automated control check scheduler
   const shouldStartComplianceScheduler =
-    settings.NODE_ENV === "development" || process.env.COMPLIANCE_SCHEDULER_LEADER === "true";
+    settings.NODE_ENV === "development" ||
+    process.env.COMPLIANCE_SCHEDULER_LEADER === "true";
 
   if (shouldStartComplianceScheduler) {
     logger.info(
-      "[Instrumentation] Starting compliance automated control check scheduler on this instance",
+      "[Instrumentation] Starting compliance automated control check scheduler on this instance"
     );
     complianceControlCheckService.start();
   } else {
     logger.info(
-      "[Instrumentation] Skipping compliance automated control check scheduler; not leader instance",
+      "[Instrumentation] Skipping compliance automated control check scheduler; not leader instance"
     );
   }
 
@@ -965,10 +1085,12 @@ function registerGracefulShutdown(): void {
     permissionService.destroy().catch(() => {});
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
-    getBroadcastAdapter().shutdown().catch(() => {});
+    getBroadcastAdapter()
+      .shutdown()
+      .catch(() => {});
 
     // 3.5 Flush OpenTelemetry buffers
-    telemetrySdk?.shutdown?.().catch((error) => {
+    telemetrySdk?.shutdown?.().catch(error => {
       logger.warn("OpenTelemetry shutdown failed", {
         event: "telemetry.shutdown",
         error: error instanceof Error ? error.message : String(error),
@@ -976,7 +1098,7 @@ function registerGracefulShutdown(): void {
     });
 
     // 4. Close WebSocket connections
-    wss.clients.forEach((client) => {
+    wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1001, "Server shutting down");
       }
@@ -1000,7 +1122,9 @@ function registerGracefulShutdown(): void {
 }
 
 const isMainModule =
-  typeof require !== "undefined" && typeof module !== "undefined" && require.main === module;
+  typeof require !== "undefined" &&
+  typeof module !== "undefined" &&
+  require.main === module;
 
 // Start server when executed directly (or when running via tsx watch in development)
 if (isMainModule || settings.NODE_ENV === "development") {
@@ -1029,14 +1153,25 @@ function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
     getBroadcastAdapter().broadcast(tenantId, message);
   } catch {
     // Adapter not yet initialised (e.g. during tests) — fall back to local.
-    wss.clients.forEach((client) => {
+    wss.clients.forEach(client => {
       const authed = client as AuthenticatedWebSocket;
-      if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+      if (
+        authed.tenantId === tenantId &&
+        client.readyState === WebSocket.OPEN
+      ) {
         client.send(message);
       }
     });
   }
 }
 
-export { app, server, wss, broadcastReasoningUpdate, parseBearerToken, getWebSocketToken, getRequestedTenantId };
+export {
+  app,
+  server,
+  wss,
+  broadcastReasoningUpdate,
+  parseBearerToken,
+  getWebSocketToken,
+  getRequestedTenantId,
+};
 export default app;

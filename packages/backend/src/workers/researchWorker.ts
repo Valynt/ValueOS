@@ -10,26 +10,29 @@
  * Or call initResearchWorker() from the server boot sequence.
  */
 
-import { type Job, Queue, Worker } from 'bullmq';
-import Redis from 'ioredis';
+import { type Job, Queue, Worker } from "bullmq";
+import Redis from "ioredis";
 
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
-import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
-import { createLogger } from '../lib/logger.js';
-import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
-import { attachQueueMetrics } from '../observability/queueMetrics.js';
-import { runJobWithTenantContext } from './tenantContextBootstrap.js';
-import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
-import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
-import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../lib/llm/secureLLMWrapper.js";
+import { createLogger } from "../lib/logger.js";
+import { createWorkerServiceSupabaseClient } from "../lib/supabase/privileged/index.js";
+import { attachQueueMetrics } from "../observability/queueMetrics.js";
+import { runJobWithTenantContext } from "./tenantContextBootstrap.js";
+import { runInTelemetrySpanAsync } from "../observability/telemetryStandards.js";
+import {
+  processResearchJob,
+  type ResearchJobInput,
+} from "../services/onboarding/ResearchJobWorker.js";
+import type { LLMGatewayInterface } from "../services/onboarding/SuggestionExtractor.js";
 
-const logger = createLogger({ component: 'research-worker' });
+const logger = createLogger({ component: "research-worker" });
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const RESEARCH_QUEUE_NAME = 'onboarding-research';
+export const RESEARCH_QUEUE_NAME = "onboarding-research";
 
 // ---------------------------------------------------------------------------
 // Shared Redis connection (lazy)
@@ -38,7 +41,7 @@ export const RESEARCH_QUEUE_NAME = 'onboarding-research';
 let _redis: Redis | null = null;
 function getRedis(): Redis {
   if (!_redis) {
-    _redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    _redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
   }
@@ -57,9 +60,9 @@ export function getResearchQueue(): Queue<ResearchJobInput> {
       connection: getRedis(),
       defaultJobOptions: {
         attempts: 2,
-        backoff: { type: 'exponential', delay: 5_000 },
-        removeOnComplete: { age: 86_400 },   // keep 24 h
-        removeOnFail: { age: 7 * 86_400 },   // keep 7 d
+        backoff: { type: "exponential", delay: 5_000 },
+        removeOnComplete: { age: 86_400 }, // keep 24 h
+        removeOnFail: { age: 7 * 86_400 }, // keep 7 d
       },
     });
   }
@@ -76,22 +79,27 @@ export function getResearchQueue(): Queue<ResearchJobInput> {
 
 function createLLMAdapter(): LLMGatewayInterface {
   const gateway = new LLMGateway({
-    provider: (process.env.LLM_PROVIDER as 'openai' | 'anthropic' | 'together') || 'together',
-    model: process.env.LLM_MODEL || 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    provider:
+      (process.env.LLM_PROVIDER as "openai" | "anthropic" | "together") ||
+      "together",
+    model: process.env.LLM_MODEL || "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     temperature: 0.3,
     max_tokens: 4096,
   });
 
   return {
     async complete(request) {
-      const tenantId = request.metadata?.tenantId ?? request.metadata?.organizationId;
+      const tenantId =
+        request.metadata?.tenantId ?? request.metadata?.organizationId;
       if (!tenantId) {
-        throw new Error('researchWorker LLM adapter requires tenantId in metadata for tenant isolation');
+        throw new Error(
+          "researchWorker LLM adapter requires tenantId in metadata for tenant isolation"
+        );
       }
       return secureLLMComplete(gateway, request.messages, {
         tenantId: String(tenantId),
-        serviceName: 'researchWorker',
-        operation: 'processResearchJob',
+        serviceName: "researchWorker",
+        operation: "processResearchJob",
         ...request.metadata,
       });
     },
@@ -108,7 +116,8 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   if (_worker) return _worker;
 
   const supabase = createWorkerServiceSupabaseClient({
-    justification: 'service-role:justified research worker stores onboarding research job state',
+    justification:
+      "service-role:justified research worker stores onboarding research job state",
   });
   const llm = createLLMAdapter();
 
@@ -117,32 +126,44 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
     async (job: Job<ResearchJobInput>) => {
       const tenantId = job.data.tenantId;
       if (!tenantId) {
-        throw new Error('researchWorker: job payload missing tenantId — cannot establish tenant context');
+        throw new Error(
+          "researchWorker: job payload missing tenantId — cannot establish tenant context"
+        );
       }
       // Restore tenant context so CacheService, logger context, and audit hooks
       // operate with the correct tenant rather than falling back to tenant:global:.
       return runJobWithTenantContext(
         {
-          workerName: 'researchWorker',
+          workerName: "researchWorker",
           tenantId: job.data.tenantId,
           organizationId: job.data.organizationId,
         },
-        () => runInTelemetrySpanAsync('queue.research.consume', {
-          service: 'research-worker',
-          env: process.env.NODE_ENV || 'development',
-          tenant_id: tenantId,
-          trace_id: String(job.data.traceId ?? job.data.jobId ?? job.id ?? 'unknown'),
-          attributes: { queue: RESEARCH_QUEUE_NAME },
-        }, async () => {
-          logger.info('Processing job', { jobId: job.data.jobId, tenant_id: tenantId });
-          const result = await processResearchJob(job.data, supabase, llm);
+        () =>
+          runInTelemetrySpanAsync(
+            "queue.research.consume",
+            {
+              service: "research-worker",
+              env: process.env.NODE_ENV || "development",
+              tenant_id: tenantId,
+              trace_id: String(
+                job.data.traceId ?? job.data.jobId ?? job.id ?? "unknown"
+              ),
+              attributes: { queue: RESEARCH_QUEUE_NAME },
+            },
+            async () => {
+              logger.info("Processing job", {
+                jobId: job.data.jobId,
+                tenant_id: tenantId,
+              });
+              const result = await processResearchJob(job.data, supabase, llm);
 
-          if (result.status === 'failed') {
-            throw new Error(result.error ?? 'Research job failed');
-          }
+              if (result.status === "failed") {
+                throw new Error(result.error ?? "Research job failed");
+              }
 
-          return result;
-        }),
+              return result;
+            }
+          )
       );
     },
     {
@@ -152,23 +173,33 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
         max: 10,
         duration: 60_000, // max 10 jobs per minute
       },
-    },
+    }
   );
 
-  _worker.on('completed', (job) => {
-    logger.info('Job completed', { jobId: job.id });
+  _worker.on("completed", job => {
+    logger.info("Job completed", { jobId: job.id });
   });
 
-  _worker.on('failed', (job, err) => {
-    logger.error('Job failed', err, { jobId: job?.id });
+  _worker.on("failed", (job, err) => {
+    logger.error("Job failed", err, { jobId: job?.id });
+  });
+
+  _worker.on("error", err => {
+    logger.error(
+      "Research worker connection error",
+      err instanceof Error ? err : undefined,
+      {
+        queue: RESEARCH_QUEUE_NAME,
+      }
+    );
   });
 
   attachQueueMetrics(_worker, RESEARCH_QUEUE_NAME, {
-    workerClass: 'research-worker',
+    workerClass: "research-worker",
     concurrency: 3,
   });
 
-  logger.info('Listening on queue', { queue: RESEARCH_QUEUE_NAME });
+  logger.info("Listening on queue", { queue: RESEARCH_QUEUE_NAME });
   return _worker;
 }
 
@@ -176,10 +207,11 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
 // Standalone entry point
 // ---------------------------------------------------------------------------
 
-const isDirectRun = process.argv[1]?.endsWith('researchWorker.ts')
-  || process.argv[1]?.endsWith('researchWorker.js');
+const isDirectRun =
+  process.argv[1]?.endsWith("researchWorker.ts") ||
+  process.argv[1]?.endsWith("researchWorker.js");
 
 if (isDirectRun) {
-  logger.info('Starting as standalone process');
+  logger.info("Starting as standalone process");
   initResearchWorker();
 }

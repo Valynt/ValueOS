@@ -42,5 +42,7 @@ if [[ ! -f "$PROJECT_ROOT/node_modules/.modules.yaml" ]]; then
   )
 fi
 
+export SECRETS_PROVIDER="${SECRETS_PROVIDER:-infisical}"
+
 cd "$PROJECT_ROOT"
 exec "${CLI_CMD[@]}" run --env="$ENVIRONMENT" -- "$@"
