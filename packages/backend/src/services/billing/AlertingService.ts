@@ -5,26 +5,26 @@
  * Integrates with email and webhook notifications.
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from '@supabase/supabase-js';
 
-import { settings } from "../../config/settings.js";
-import { logger } from "../../lib/logger.js";
-import { emailService } from "../messaging/EmailService.js";
+import { settings } from '../../config/settings.js'
+import { logger } from '../../lib/logger.js'
+import { emailService } from '../messaging/EmailService.js'
 
-import { getMetricsCollector } from "./MetricsCollector.js";
+import { getMetricsCollector } from './MetricsCollector.js'
 
 export interface AlertThreshold {
   metricName: string;
-  operator: "gt" | "lt" | "gte" | "lte" | "eq";
+  operator: 'gt' | 'lt' | 'gte' | 'lte' | 'eq';
   threshold: number;
-  severity: "info" | "warning" | "critical";
+  severity: 'info' | 'warning' | 'critical';
   description: string;
 }
 
 export interface Alert {
   id: string;
   metricName: string;
-  severity: "info" | "warning" | "critical";
+  severity: 'info' | 'warning' | 'critical';
   message: string;
   currentValue: number;
   threshold: number;
@@ -38,7 +38,7 @@ export interface AlertRule {
   enabled: boolean;
   thresholds: AlertThreshold[];
   checkIntervalMinutes: number;
-  notificationChannels: ("log" | "email" | "webhook")[];
+  notificationChannels: ('log' | 'email' | 'webhook')[];
 }
 
 /**
@@ -47,129 +47,129 @@ export interface AlertRule {
  */
 export const DEFAULT_ALERT_RULES: AlertRule[] = [
   {
-    id: "high-error-rate",
-    name: "High Error Rate",
+    id: 'high-error-rate',
+    name: 'High Error Rate',
     enabled: true,
     thresholds: [
       {
-        metricName: "agent.error_rate",
-        operator: "gt",
+        metricName: 'agent.error_rate',
+        operator: 'gt',
         threshold: 0.05, // 5%
-        severity: "warning",
-        description: "Agent error rate exceeds 5%",
+        severity: 'warning',
+        description: 'Agent error rate exceeds 5%'
       },
       {
-        metricName: "agent.error_rate",
-        operator: "gt",
-        threshold: 0.1, // 10%
-        severity: "critical",
-        description: "Agent error rate exceeds 10%",
-      },
+        metricName: 'agent.error_rate',
+        operator: 'gt',
+        threshold: 0.10, // 10%
+        severity: 'critical',
+        description: 'Agent error rate exceeds 10%'
+      }
     ],
     checkIntervalMinutes: 5,
-    notificationChannels: ["log", "email"],
+    notificationChannels: ['log', 'email']
   },
   {
-    id: "high-hallucination-rate",
-    name: "High Hallucination Rate",
+    id: 'high-hallucination-rate',
+    name: 'High Hallucination Rate',
     enabled: true,
     thresholds: [
       {
-        metricName: "agent.hallucination_rate",
-        operator: "gt",
+        metricName: 'agent.hallucination_rate',
+        operator: 'gt',
         threshold: 0.15, // 15%
-        severity: "warning",
-        description: "Hallucination rate exceeds 15%",
+        severity: 'warning',
+        description: 'Hallucination rate exceeds 15%'
       },
       {
-        metricName: "agent.hallucination_rate",
-        operator: "gt",
+        metricName: 'agent.hallucination_rate',
+        operator: 'gt',
         threshold: 0.25, // 25%
-        severity: "critical",
-        description: "Hallucination rate exceeds 25%",
-      },
+        severity: 'critical',
+        description: 'Hallucination rate exceeds 25%'
+      }
     ],
     checkIntervalMinutes: 10,
-    notificationChannels: ["log"],
+    notificationChannels: ['log']
   },
   {
-    id: "low-confidence",
-    name: "Low Confidence Rate",
+    id: 'low-confidence',
+    name: 'Low Confidence Rate',
     enabled: true,
     thresholds: [
       {
-        metricName: "agent.low_confidence_rate",
-        operator: "gt",
-        threshold: 0.3, // 30%
-        severity: "warning",
-        description: "Low confidence rate exceeds 30%",
-      },
+        metricName: 'agent.low_confidence_rate',
+        operator: 'gt',
+        threshold: 0.30, // 30%
+        severity: 'warning',
+        description: 'Low confidence rate exceeds 30%'
+      }
     ],
     checkIntervalMinutes: 15,
-    notificationChannels: ["log"],
+    notificationChannels: ['log']
   },
   {
-    id: "slow-response-time",
-    name: "Slow Response Time",
+    id: 'slow-response-time',
+    name: 'Slow Response Time',
     enabled: true,
     thresholds: [
       {
-        metricName: "agent.p95_response_time",
-        operator: "gt",
+        metricName: 'agent.p95_response_time',
+        operator: 'gt',
         threshold: 5000, // 5 seconds
-        severity: "warning",
-        description: "P95 response time exceeds 5 seconds",
+        severity: 'warning',
+        description: 'P95 response time exceeds 5 seconds'
       },
       {
-        metricName: "agent.p99_response_time",
-        operator: "gt",
+        metricName: 'agent.p99_response_time',
+        operator: 'gt',
         threshold: 10000, // 10 seconds
-        severity: "critical",
-        description: "P99 response time exceeds 10 seconds",
-      },
+        severity: 'critical',
+        description: 'P99 response time exceeds 10 seconds'
+      }
     ],
     checkIntervalMinutes: 5,
-    notificationChannels: ["log"],
+    notificationChannels: ['log']
   },
   {
-    id: "high-llm-cost",
-    name: "High LLM Cost",
+    id: 'high-llm-cost',
+    name: 'High LLM Cost',
     enabled: true,
     thresholds: [
       {
-        metricName: "llm.hourly_cost",
-        operator: "gt",
+        metricName: 'llm.hourly_cost',
+        operator: 'gt',
         threshold: 10, // $10/hour
-        severity: "warning",
-        description: "LLM cost exceeds $10/hour",
+        severity: 'warning',
+        description: 'LLM cost exceeds $10/hour'
       },
       {
-        metricName: "llm.hourly_cost",
-        operator: "gt",
+        metricName: 'llm.hourly_cost',
+        operator: 'gt',
         threshold: 50, // $50/hour
-        severity: "critical",
-        description: "LLM cost exceeds $50/hour",
-      },
+        severity: 'critical',
+        description: 'LLM cost exceeds $50/hour'
+      }
     ],
     checkIntervalMinutes: 15,
-    notificationChannels: ["log", "email"],
+    notificationChannels: ['log', 'email']
   },
   {
-    id: "low-cache-hit-rate",
-    name: "Low Cache Hit Rate",
+    id: 'low-cache-hit-rate',
+    name: 'Low Cache Hit Rate',
     enabled: true,
     thresholds: [
       {
-        metricName: "cache.hit_rate",
-        operator: "lt",
-        threshold: 0.5, // 50%
-        severity: "warning",
-        description: "Cache hit rate below 50%",
-      },
+        metricName: 'cache.hit_rate',
+        operator: 'lt',
+        threshold: 0.50, // 50%
+        severity: 'warning',
+        description: 'Cache hit rate below 50%'
+      }
     ],
     checkIntervalMinutes: 30,
-    notificationChannels: ["log"],
-  },
+    notificationChannels: ['log']
+  }
 ];
 
 /**
@@ -230,9 +230,9 @@ export class AlertingService {
         }
       }
     } catch (error) {
-      logger.error("Failed to check alert rule", error as Error, {
+      logger.error('Failed to check alert rule', error as Error, {
         ruleId: rule.id,
-        ruleName: rule.name,
+        ruleName: rule.name
       });
     }
   }
@@ -241,50 +241,45 @@ export class AlertingService {
    * Get current value for a metric
    */
   private async getMetricValue(metricName: string): Promise<number> {
-    const [category, metric] = metricName.split(".");
+    const [category, metric] = metricName.split('.');
 
     switch (category) {
-      case "agent": {
-        const metrics = await this.metricsCollector.getAgentMetrics(
-          undefined,
-          "hour"
-        );
+      case 'agent': {
+        const metrics = await this.metricsCollector.getAgentMetrics(undefined, 'hour');
         const aggregated = this.aggregateAgentMetrics(metrics);
 
         switch (metric) {
-          case "error_rate":
+          case 'error_rate':
             return 1 - aggregated.successRate;
-          case "hallucination_rate":
+          case 'hallucination_rate':
             return aggregated.hallucinationRate;
-          case "low_confidence_rate":
+          case 'low_confidence_rate':
             return aggregated.lowConfidenceRate;
-          case "p95_response_time":
+          case 'p95_response_time':
             return aggregated.p95ResponseTime;
-          case "p99_response_time":
+          case 'p99_response_time':
             return aggregated.p99ResponseTime;
           default:
             return 0;
         }
       }
 
-      case "llm": {
-        const systemMetrics =
-          await this.metricsCollector.getSystemMetrics("hour");
+      case 'llm': {
+        const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
 
         switch (metric) {
-          case "hourly_cost":
+          case 'hourly_cost':
             return systemMetrics.totalCost;
           default:
             return 0;
         }
       }
 
-      case "cache": {
-        const systemMetrics =
-          await this.metricsCollector.getSystemMetrics("hour");
+      case 'cache': {
+        const systemMetrics = await this.metricsCollector.getSystemMetrics('hour');
 
         switch (metric) {
-          case "hit_rate":
+          case 'hit_rate':
             return systemMetrics.cacheHitRate;
           default:
             return 0;
@@ -312,24 +307,18 @@ export class AlertingService {
         hallucinationRate: 0,
         lowConfidenceRate: 0,
         p95ResponseTime: 0,
-        p99ResponseTime: 0,
+        p99ResponseTime: 0
       };
     }
 
-    const totalInvocations = metrics.reduce(
-      (sum, m) => sum + m.totalInvocations,
-      0
-    );
-    const successfulInvocations = metrics.reduce(
-      (sum, m) => sum + m.successfulInvocations,
-      0
-    );
+    const totalInvocations = metrics.reduce((sum, m) => sum + m.totalInvocations, 0);
+    const successfulInvocations = metrics.reduce((sum, m) => sum + m.successfulInvocations, 0);
     const hallucinationCount = metrics.reduce(
-      (sum, m) => sum + m.totalInvocations * m.hallucinationRate,
+      (sum, m) => sum + (m.totalInvocations * m.hallucinationRate),
       0
     );
     const lowConfidenceCount = metrics.reduce(
-      (sum, m) => sum + m.totalInvocations * (1 - m.avgConfidenceScore),
+      (sum, m) => sum + (m.totalInvocations * (1 - m.avgConfidenceScore)),
       0
     );
 
@@ -338,27 +327,24 @@ export class AlertingService {
       hallucinationRate: hallucinationCount / totalInvocations,
       lowConfidenceRate: lowConfidenceCount / totalInvocations,
       p95ResponseTime: Math.max(...metrics.map(m => m.p95ResponseTime)),
-      p99ResponseTime: Math.max(...metrics.map(m => m.p99ResponseTime)),
+      p99ResponseTime: Math.max(...metrics.map(m => m.p99ResponseTime))
     };
   }
 
   /**
    * Check if alert should be triggered
    */
-  private shouldAlert(
-    currentValue: number,
-    threshold: AlertThreshold
-  ): boolean {
+  private shouldAlert(currentValue: number, threshold: AlertThreshold): boolean {
     switch (threshold.operator) {
-      case "gt":
+      case 'gt':
         return currentValue > threshold.threshold;
-      case "lt":
+      case 'lt':
         return currentValue < threshold.threshold;
-      case "gte":
+      case 'gte':
         return currentValue >= threshold.threshold;
-      case "lte":
+      case 'lte':
         return currentValue <= threshold.threshold;
-      case "eq":
+      case 'eq':
         return currentValue === threshold.threshold;
       default:
         return false;
@@ -383,8 +369,8 @@ export class AlertingService {
       timestamp: new Date(),
       metadata: {
         ruleId: rule.id,
-        ruleName: rule.name,
-      },
+        ruleName: rule.name
+      }
     };
   }
 
@@ -393,26 +379,23 @@ export class AlertingService {
    */
   private async triggerAlert(
     alert: Alert,
-    channels: ("log" | "email" | "webhook")[]
+    channels: ('log' | 'email' | 'webhook')[]
   ): Promise<void> {
     // Check if alert is already active (debouncing)
     const existingAlert = this.activeAlerts.get(alert.metricName);
-    if (
-      existingAlert &&
-      Date.now() - existingAlert.timestamp.getTime() < 5 * 60 * 1000
-    ) {
+    if (existingAlert && Date.now() - existingAlert.timestamp.getTime() < 5 * 60 * 1000) {
       // Alert was triggered less than 5 minutes ago, skip
       return;
     }
 
     this.activeAlerts.set(alert.metricName, alert);
 
-    logger.warn("Alert triggered", {
+    logger.warn('Alert triggered', {
       alertId: alert.id,
       metricName: alert.metricName,
       severity: alert.severity,
       currentValue: alert.currentValue,
-      threshold: alert.threshold,
+      threshold: alert.threshold
     });
 
     // Store alert in database
@@ -420,13 +403,13 @@ export class AlertingService {
 
     // Send notifications
     await Promise.allSettled(
-      channels.map(async channel => {
+      channels.map(async (channel) => {
         try {
           await this.sendNotification(alert, channel);
         } catch (error) {
-          logger.error("Failed to send alert notification", error as Error, {
+          logger.error('Failed to send alert notification', error as Error, {
             channel,
-            alertId: alert.id,
+            alertId: alert.id
           });
         }
       })
@@ -438,7 +421,7 @@ export class AlertingService {
    */
   private async storeAlert(alert: Alert): Promise<void> {
     try {
-      await this.supabase.from("alerts").insert({
+      await this.supabase.from('alerts').insert({
         id: alert.id,
         metric_name: alert.metricName,
         severity: alert.severity,
@@ -446,11 +429,11 @@ export class AlertingService {
         current_value: alert.currentValue,
         threshold: alert.threshold,
         metadata: alert.metadata,
-        created_at: alert.timestamp.toISOString(),
+        created_at: alert.timestamp.toISOString()
       });
     } catch (error) {
-      logger.error("Failed to store alert", error as Error, {
-        alertId: alert.id,
+      logger.error('Failed to store alert', error as Error, {
+        alertId: alert.id
       });
     }
   }
@@ -460,21 +443,18 @@ export class AlertingService {
    */
   private async sendNotification(
     alert: Alert,
-    channel: "log" | "email" | "webhook"
+    channel: 'log' | 'email' | 'webhook'
   ): Promise<void> {
     switch (channel) {
-      case "log":
-        logger.warn(
-          `[ALERT][${alert.severity.toUpperCase()}] ${alert.message}`,
-          {
-            metricName: alert.metricName,
-            currentValue: alert.currentValue,
-            threshold: alert.threshold,
-          }
-        );
+      case 'log':
+        logger.warn(`[ALERT][${alert.severity.toUpperCase()}] ${alert.message}`, {
+          metricName: alert.metricName,
+          currentValue: alert.currentValue,
+          threshold: alert.threshold,
+        });
         break;
 
-      case "email":
+      case 'email':
         if (settings.ALERT_EMAIL_RECIPIENT) {
           const subject = `[Alert] ${alert.severity.toUpperCase()}: ${alert.metricName}`;
           const html = `
@@ -484,34 +464,28 @@ export class AlertingService {
             <p><strong>Current Value:</strong> ${alert.currentValue}</p>
             <p><strong>Threshold:</strong> ${alert.threshold}</p>
             <p><strong>Time:</strong> ${alert.timestamp.toISOString()}</p>
-            ${alert.metadata ? `<p><strong>Metadata:</strong> <pre>${JSON.stringify(alert.metadata, null, 2)}</pre></p>` : ""}
+            ${alert.metadata ? `<p><strong>Metadata:</strong> <pre>${JSON.stringify(alert.metadata, null, 2)}</pre></p>` : ''}
           `;
 
           await emailService.send({
             to: settings.ALERT_EMAIL_RECIPIENT,
             subject,
-            html,
+            html
           });
         } else {
-          logger.warn(
-            "Email notification skipped: ALERT_EMAIL_RECIPIENT not configured",
-            {
-              alertId: alert.id,
-            }
-          );
+          logger.warn('Email notification skipped: ALERT_EMAIL_RECIPIENT not configured', {
+            alertId: alert.id
+          });
         }
         break;
 
-      case "webhook":
+      case 'webhook':
         if (settings.ALERT_WEBHOOK_URL) {
           await this.sendWebhookWithRetry(alert, settings.ALERT_WEBHOOK_URL);
         } else {
-          logger.warn(
-            "Webhook notification skipped: ALERT_WEBHOOK_URL not configured",
-            {
-              alertId: alert.id,
-            }
-          );
+          logger.warn('Webhook notification skipped: ALERT_WEBHOOK_URL not configured', {
+            alertId: alert.id
+          });
         }
         break;
     }
@@ -520,17 +494,13 @@ export class AlertingService {
   /**
    * Send webhook notification with retry logic
    */
-  private async sendWebhookWithRetry(
-    alert: Alert,
-    url: string,
-    retries = 3
-  ): Promise<void> {
+  private async sendWebhookWithRetry(alert: Alert, url: string, retries = 3): Promise<void> {
     for (let i = 0; i < retries; i++) {
       try {
         const response = await fetch(url, {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify(alert),
         });
@@ -542,21 +512,15 @@ export class AlertingService {
         return;
       } catch (error) {
         if (i === retries - 1) {
-          logger.error(
-            "Failed to send webhook notification after retries",
-            error as Error,
-            {
-              alertId: alert.id,
-              url,
-            }
-          );
+          logger.error('Failed to send webhook notification after retries', error as Error, {
+            alertId: alert.id,
+            url
+          });
           throw error;
         }
 
         // Exponential backoff: 1s, 2s, 4s
-        await new Promise(resolve =>
-          setTimeout(resolve, Math.pow(2, i) * 1000)
-        );
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
       }
     }
   }
@@ -573,7 +537,7 @@ export class AlertingService {
    */
   clearAlert(metricName: string): void {
     this.activeAlerts.delete(metricName);
-    logger.info("Alert cleared", { metricName });
+    logger.info('Alert cleared', { metricName });
   }
 
   /**
@@ -586,9 +550,9 @@ export class AlertingService {
       this.startRuleMonitoring(rule);
     }
 
-    logger.info("Alert rule added", {
+    logger.info('Alert rule added', {
       ruleId: rule.id,
-      ruleName: rule.name,
+      ruleName: rule.name
     });
   }
 
@@ -604,7 +568,7 @@ export class AlertingService {
 
     this.alertRules = this.alertRules.filter(r => r.id !== ruleId);
 
-    logger.info("Alert rule removed", { ruleId });
+    logger.info('Alert rule removed', { ruleId });
   }
 }
 
