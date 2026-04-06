@@ -191,12 +191,14 @@ export class AlertingService {
    * `alerting:evaluate-rules` to avoid duplicate evaluation across pods.
    */
   async evaluateEnabledRules(): Promise<void> {
-    for (const rule of this.alertRules) {
-      if (!rule.enabled) {
-        continue;
-      }
-      await this.checkRule(rule);
-    }
+    await Promise.all(
+      this.alertRules.map(async (rule) => {
+        if (!rule.enabled) {
+          return;
+        }
+        await this.checkRule(rule);
+      })
+    );
   }
 
   /**
@@ -221,14 +223,16 @@ export class AlertingService {
    */
   private async checkRule(rule: AlertRule): Promise<void> {
     try {
-      for (const threshold of rule.thresholds) {
-        const currentValue = await this.getMetricValue(threshold.metricName);
+      await Promise.all(
+        rule.thresholds.map(async (threshold) => {
+          const currentValue = await this.getMetricValue(threshold.metricName);
 
-        if (this.shouldAlert(currentValue, threshold)) {
-          const alert = this.createAlert(rule, threshold, currentValue);
-          await this.triggerAlert(alert, rule.notificationChannels);
-        }
-      }
+          if (this.shouldAlert(currentValue, threshold)) {
+            const alert = this.createAlert(rule, threshold, currentValue);
+            await this.triggerAlert(alert, rule.notificationChannels);
+          }
+        })
+      );
     } catch (error) {
       logger.error('Failed to check alert rule', error as Error, {
         ruleId: rule.id,
