@@ -46,9 +46,6 @@ interface EnhancedBillingDashboardProps {
 export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> = ({
   organizationId,
 }) => {
-  // Phase 1 Fix 4: Memoize context (even if unused, keeping for potential future usage as per comments)
-  // const context = React.useMemo(() => ({ organizationId }), [organizationId]);
-
   const [currentSubscription, setCurrentSubscription] = React.useState<Subscription | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = React.useState(true);
   const [subscriptionError, setSubscriptionError] = React.useState<Error | null>(null);
