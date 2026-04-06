@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+// @ts-expect-error type override
 import { axe, toHaveNoViolations } from "jest-axe";
 import React from "react";
 import { describe, expect, it } from "vitest";
@@ -12,12 +13,14 @@ describe("a11y", () => {
   it("Button should have no detectable a11y violations", async () => {
     const { container } = render(<Button>Test</Button>);
     const results = await axe(container);
+    // @ts-expect-error type override
     expect(results).toHaveNoViolations();
   });
 
   it("Input should have no detectable a11y violations", async () => {
     const { container } = render(<Input id="t" label="Label" />);
     const results = await axe(container);
+    // @ts-expect-error type override
     expect(results).toHaveNoViolations();
   });
 });

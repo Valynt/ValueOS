@@ -150,3 +150,7 @@ packages/*/config/**/*.js.map
 packages/*/config/**/*.d.ts.map
 packages/*/components/**/*.js.map
 packages/*/components/**/*.d.ts.map
+artifacts/
+*.patch
+*.orig
+*.rej
