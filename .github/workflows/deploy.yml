@@ -1081,6 +1081,45 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce staging dwell time (minimum 30 minutes)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Download the staging operational verification artifact to read its timestamp.
+            const runId = '${{ github.run_id }}';
+            const artifactName = `post-deploy-verification-staging-${runId}`;
+
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: parseInt(runId),
+            });
+
+            const artifact = artifacts.artifacts.find(a => a.name === artifactName);
+            if (!artifact) {
+              core.setFailed(`Staging dwell check: artifact '${artifactName}' not found. Staging deployment may not have completed.`);
+              return;
+            }
+
+            const deployedAt = new Date(artifact.created_at);
+            const now = new Date();
+            const elapsedMs = now - deployedAt;
+            const elapsedMin = Math.floor(elapsedMs / 60000);
+            const requiredMin = 30;
+
+            core.info(`Staging deployed at: ${deployedAt.toISOString()}`);
+            core.info(`Current time:        ${now.toISOString()}`);
+            core.info(`Elapsed:             ${elapsedMin} minutes (required: ${requiredMin})`);
+
+            if (elapsedMin < requiredMin) {
+              core.setFailed(
+                `Staging dwell time insufficient: ${elapsedMin}m elapsed, ${requiredMin}m required. ` +
+                `Production promotion is blocked until staging has been healthy for at least 30 minutes.`
+              );
+            } else {
+              core.info(`Staging dwell time satisfied: ${elapsedMin}m >= ${requiredMin}m`);
+            }
+
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 

@@ -489,6 +489,13 @@ jobs:
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
             --output-dir artifacts/security/governance
 
+      - name: Manifest maturity gap report (warning — production gate enforces hard block)
+        # Surfaces which critical K8s manifest classes still need evidence links
+        # before production deployment. Does not fail the PR; the hard gate lives
+        # in deploy.yml manifest-maturity-production-gate. Output appears in the
+        # GitHub Actions step summary so owners can track progress.
+        run: node scripts/ci/report-manifest-maturity-gaps.mjs
+
       - name: Emit lane summary
         if: always()
         run: |
@@ -887,7 +894,7 @@ jobs:
             --label "critical-e2e" \
             --report artifacts/e2e/playwright-report.json \
             --min-executed 12 \
-            --min-pass-rate 90
+            --min-pass-rate 100
       - name: Run critical billing + security integration suites
         run: |
           mkdir -p artifacts/critical-integration
@@ -1435,24 +1442,22 @@ jobs:
             "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # These gates must not be skipped — skipped means the check did not run.
-            # e2e-critical is included here: it contains security-multi-tenancy.spec.ts
-            # and real-backend-critical-flows.spec.ts. A skipped run is a missing gate.
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ] || [ "$lane_name" = "e2e-critical" ]; then
-              if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
-                echo "Failing PR gate: $lane_name has unexpected status: $status"
+            # Hard-block lanes: must not be skipped AND must succeed.
+            # e2e-critical contains security-multi-tenancy.spec.ts and
+            # real-backend-critical-flows.spec.ts — a skip OR failure is a
+            # missing gate.
+            if [ "$lane_name" = "secret-scan" ] || \
+               [ "$lane_name" = "tenant-isolation-gate" ] || \
+               [ "$lane_name" = "mfa-production-config-gate" ] || \
+               [ "$lane_name" = "log-level-production-gate" ] || \
+               [ "$lane_name" = "e2e-critical" ]; then
+              if [ "$status" != "success" ]; then
+                echo "Failing PR gate: $lane_name must succeed (status: $status)"
                 exit 1
               fi
-            else
-              if [ "$lane_name" = "e2e-critical" ]; then
-                if [ "$status" != "success" ]; then
-                  echo "Failing PR gate due to lane status: $lane"
-                  exit 1
-                fi
-              elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-                echo "Failing PR gate due to lane status: $lane"
-                exit 1
-              fi
+            elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Failing PR gate due to lane status: $lane"
+              exit 1
             fi
           done
 
