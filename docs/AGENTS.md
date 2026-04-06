@@ -160,6 +160,110 @@ Requirements:
 
 See `.windsurf/skills/agent-onboarding/SKILL.md` for the full scaffold, validation checklist, and example implementation.
 
+## Agent Hardening
+
+Any agent that produces financial outputs, commitment-level claims, or external-facing artifacts **must** be wrapped with `HardenedAgentRunner`. This is not optional — bypassing the hardening layer for convenience violates Constitutional Invariant 6 (Integrity before convenience).
+
+Full specification: `packages/backend/src/lib/agent-fabric/hardening/HARDENING.md`
+
+### What hardening adds
+
+`HardenedAgentRunner` wraps `BaseAgent._execute()` without modifying `BaseAgent`. Every call passes through five sequential gates:
+
+1. **Safety** — prompt injection scan (10 patterns, OWASP LLM01/LLM02), tool access allowlist check, output schema validation, PII detection.
+2. **Resilience** — per-call timeout, exponential backoff retry (max 3 attempts, jitter), circuit breaker short-circuit on open state.
+3. **Agent execution** — `BaseAgent.secureInvoke()` with kill switch, hallucination detection, evidence mapping enforcement.
+4. **Governance** — IntegrityAgent veto check, confidence threshold policy, human-in-the-loop checkpoint when required.
+5. **Observability** — structured `AgentExecutionLog` (request_id, trace_id, latency, token usage, cost, reasoning trace, governance decision) emitted to the structured logger and an OTel span.
+
+### Risk tiers and confidence thresholds
+
+Declare a risk tier when instantiating `HardenedAgentRunner`. The tier selects the `accept`/`review`/`block` thresholds applied to the output's confidence score:
+
+| Tier | accept | review | block | Use for |
+|---|---|---|---|---|
+| `financial` | 0.75 | 0.60 | 0.40 | ROI models, cost/revenue claims, financial hypotheses |
+| `commitment` | 0.70 | 0.55 | 0.35 | Proposals, contracts, external commitments |
+| `compliance` | 0.80 | 0.65 | 0.45 | Audit outputs, regulatory claims |
+| `narrative` | 0.65 | 0.50 | 0.30 | Business narratives, executive summaries |
+| `discovery` | 0.55 | 0.40 | 0.25 | Hypothesis generation, opportunity identification |
+
+- `score >= accept` → output approved and released.
+- `review <= score < accept` → output held in the HITL approval queue.
+- `score < block` → output blocked; `GovernanceVetoError` thrown.
+
+### Minimum pattern for a hardened agent
+
+```typescript
+import { HardenedAgentRunner, buildRequestEnvelope } from
+  '../hardening/index.js';
+
+const runner = new HardenedAgentRunner({
+  agentName:      'FinancialModelingAgent',
+  agentVersion:   '1.0.0',
+  lifecycleStage: 'MODELING',
+  organizationId: orgId,
+  allowedTools:   new Set(['memory_query', 'benchmark_lookup']),
+  riskTier:       'financial',
+  integrityVetoService: deps.integrityVetoService,
+  hitlPort:             deps.hitlPort,
+});
+
+const result = await runner.run(
+  buildRequestEnvelope(sessionId, userId, orgId),
+  context,
+  (ctx) => agent.execute(ctx),
+  {
+    prompt:                 buildPrompt(context),
+    outputSchema:           FinancialModelOutputSchema,  // Zod schema required
+    requiresIntegrityVeto:  true,
+    requiresHumanApproval:  false,
+  }
+);
+// result.output is typed and validated
+// result.governance, result.safety, result.token_usage are always present
+```
+
+### Output schema requirements
+
+Every hardened agent must declare a `z.ZodObject` output schema. For agents in the `financial` or `commitment` tiers, the schema must include `evidence_links` on any field that carries a numeric value:
+
+```typescript
+const evidence_links = z.array(z.object({
+  metric_key:   z.string(),
+  metric_value: z.number(),
+  source:       z.string(),
+  source_date:  z.string().optional(),
+}));
+```
+
+This enforces the CFO-defensibility invariant at the schema level. Outputs that omit evidence links for numeric claims are rejected before governance runs.
+
+### Handling GovernanceVetoError
+
+`runner.run()` throws `GovernanceVetoError` when governance blocks the output. Always handle it explicitly at the call site:
+
+```typescript
+import { GovernanceVetoError } from '../hardening/index.js';
+
+try {
+  const result = await runner.run(...);
+} catch (err) {
+  if (err instanceof GovernanceVetoError) {
+    // err.verdict:      'vetoed' | 'pending_human'
+    // err.reason:       human-readable explanation
+    // err.checkpointId: set when pending_human, links to ApprovalInbox row
+    logger.warn('agent.vetoed', { verdict: err.verdict, reason: err.reason });
+    // trigger saga compensation here
+  }
+  throw err;
+}
+```
+
+### Reference implementation
+
+`packages/backend/src/lib/agent-fabric/hardening/HardenedDiscoveryAgent.ts` is the canonical example. Copy its structure when hardening a new agent.
+
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
