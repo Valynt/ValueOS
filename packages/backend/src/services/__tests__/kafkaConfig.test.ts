@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
-import { isKafkaEnabled, buildKafkaClientConfig } from '../kafkaConfig';
+import { isKafkaEnabled, buildKafkaClientConfig } from '../kafkaConfig.js';
 
 vi.mock('node:fs', () => ({
   default: {
