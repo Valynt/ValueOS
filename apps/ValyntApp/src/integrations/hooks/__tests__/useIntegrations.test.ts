@@ -218,4 +218,67 @@ describe("useIntegrations OAuth flow", () => {
     expect(mockApiClientPost).toHaveBeenCalledWith("/api/crm/hubspot/connect/start");
     expect(mockCreateIntegration).not.toHaveBeenCalled();
   });
+
+  it("maps integrations with mixed valid/invalid providers while preserving field normalization", async () => {
+    mockGetIntegrations.mockResolvedValue({
+      success: true,
+      data: {
+        integrations: [
+          {
+            id: "integration-salesforce",
+            provider: "salesforce",
+            status: "active",
+            connectedAt: "2026-04-01T00:00:00.000Z",
+            lastUsedAt: "2026-04-02T00:00:00.000Z",
+            errorMessage: "Recent auth warning",
+            instanceUrl: "https://acme.my.salesforce.com",
+            scopes: ["api", "refresh_token"],
+          },
+          {
+            id: "integration-unknown",
+            provider: "unknown-provider",
+            status: "active",
+          },
+          {
+            id: "integration-hubspot",
+            provider: "hubspot",
+            status: "expired",
+            connected_at: "2026-03-01T00:00:00.000Z",
+            last_used_at: "2026-03-03T00:00:00.000Z",
+            error_message: "Token expired",
+            instance_url: "https://app.hubspot.com",
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useIntegrations());
+
+    await act(async () => {
+      await result.current.fetchIntegrations();
+    });
+
+    expect(result.current.integrations).toEqual([
+      {
+        id: "integration-salesforce",
+        provider: "salesforce",
+        status: "connected",
+        connectedAt: "2026-04-01T00:00:00.000Z",
+        lastSyncAt: "2026-04-02T00:00:00.000Z",
+        errorMessage: "Recent auth warning",
+        instanceUrl: "https://acme.my.salesforce.com",
+        scopes: ["api", "refresh_token"],
+      },
+      {
+        id: "integration-hubspot",
+        provider: "hubspot",
+        status: "error",
+        connectedAt: "2026-03-01T00:00:00.000Z",
+        lastSyncAt: "2026-03-03T00:00:00.000Z",
+        errorMessage: "Token expired",
+        instanceUrl: "https://app.hubspot.com",
+        scopes: [],
+      },
+    ]);
+  });
 });
