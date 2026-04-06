@@ -24,23 +24,16 @@ jobs:
           fetch-depth: 0
 
       - name: Run gitleaks on PR diff
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           GITLEAKS_VERSION: "8.18.2"
         with:
-          args: >-
-            detect
-            --config=.gitleaks.toml
-            --log-opts="origin/${{ github.base_ref }}..HEAD"
-            --redact
-            --exit-code=1
-            --report-format=sarif
-            --report-path=gitleaks-pr.sarif
+          args: detect --config=.gitleaks.toml --log-opts="origin/${{ github.base_ref }}..HEAD" --redact --exit-code=1 --report-format=sarif --report-path=gitleaks-pr.sarif
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gitleaks-pr.sarif
           category: secret-scan-pr-diff
@@ -993,19 +986,13 @@ jobs:
           fi
           echo "Dev routes static check: PASS"
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           GITLEAKS_VERSION: "8.18.2"
         with:
-          args: >-
-            detect
-            --config=.gitleaks.toml
-            --redact
-            --exit-code=1
-            --report-format=sarif
-            --report-path=gitleaks.sarif
+          args: detect --config=.gitleaks.toml --redact --exit-code=1 --report-format=sarif --report-path=gitleaks.sarif
       - name: SAST — Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
