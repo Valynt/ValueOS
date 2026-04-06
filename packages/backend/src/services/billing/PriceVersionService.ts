@@ -5,11 +5,15 @@
  * Tenants are pinned to a specific version; catalog can advance independently.
  */
 
-import type { EnforcementMode, MeterKey, PriceVersionStatus } from "@shared/types/billing-events";
+import type {
+  EnforcementMode,
+  MeterKey,
+  PriceVersionStatus,
+} from "@shared/types/billing-events";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { createLogger } from "../../lib/logger.js";
-import { supabase as supabaseClient } from '../../lib/supabase.js';
+import { createBillingPlatformSupabaseClient } from "../../lib/supabase/privileged/billing.js";
 
 const logger = createLogger({ component: "PriceVersionService" });
 
@@ -48,7 +52,10 @@ export interface PriceVersion {
 // Service
 // ============================================================================
 
-const supabase: SupabaseClient | null = supabaseClient ?? null;
+const supabase: SupabaseClient = createBillingPlatformSupabaseClient({
+  justification:
+    "service-role:justified billing platform requires elevated access to global billing_price_versions catalog",
+});
 
 class PriceVersionService {
   /**
@@ -59,9 +66,7 @@ class PriceVersionService {
     planTier: string,
     definition: PriceVersionDefinition
   ): Promise<PriceVersion> {
-    this.requireSupabase();
-
-    const { data, error } = await supabase!
+    const { data, error } = await supabase
       .from("billing_price_versions")
       .insert({
         version_tag: versionTag,
@@ -75,7 +80,9 @@ class PriceVersionService {
 
     if (error) {
       if (error.code === "23505") {
-        throw new Error(`Price version ${versionTag}/${planTier} already exists`);
+        throw new Error(
+          `Price version ${versionTag}/${planTier} already exists`
+        );
       }
       throw error;
     }
@@ -96,7 +103,9 @@ class PriceVersionService {
       throw new Error(`Price version ${versionId} not found`);
     }
     if (version.status !== "draft") {
-      throw new Error(`Cannot activate version in '${version.status}' status; must be 'draft'`);
+      throw new Error(
+        `Cannot activate version in '${version.status}' status; must be 'draft'`
+      );
     }
 
     // Archive current active version for this plan tier
@@ -149,7 +158,9 @@ class PriceVersionService {
   /**
    * Get the price version pinned to a subscription.
    */
-  async getVersionForSubscription(subscriptionId: string): Promise<PriceVersion | null> {
+  async getVersionForSubscription(
+    subscriptionId: string
+  ): Promise<PriceVersion | null> {
     this.requireSupabase();
 
     const { data: sub, error: subError } = await supabase!
@@ -220,7 +231,9 @@ class PriceVersionService {
       throw new Error(`Price version ${versionId} not found`);
     }
     if (version.status !== "draft") {
-      throw new Error(`Cannot modify version in '${version.status}' status; only 'draft' versions are mutable`);
+      throw new Error(
+        `Cannot modify version in '${version.status}' status; only 'draft' versions are mutable`
+      );
     }
 
     const { data, error } = await supabase!
@@ -254,7 +267,7 @@ class PriceVersionService {
         plan_tier: planTier,
         tenant_id: tenantId,
         definition,
-        status: "draft"
+        status: "draft",
       })
       .select()
       .single();
@@ -264,7 +277,7 @@ class PriceVersionService {
     logger.info("Created custom price version", {
       versionId: data.id,
       tenantId,
-      versionTag: tag
+      versionTag: tag,
     });
 
     return data as PriceVersion;
@@ -318,7 +331,10 @@ class PriceVersionService {
   /**
    * Activate custom price version for tenant
    */
-  async activateCustomVersion(versionId: string, tenantId: string): Promise<PriceVersion> {
+  async activateCustomVersion(
+    versionId: string,
+    tenantId: string
+  ): Promise<PriceVersion> {
     this.requireSupabase();
 
     // Verify the version belongs to the tenant
@@ -328,7 +344,9 @@ class PriceVersionService {
     }
 
     if (version.tenant_id !== tenantId) {
-      throw new Error(`Price version ${versionId} does not belong to tenant ${tenantId}`);
+      throw new Error(
+        `Price version ${versionId} does not belong to tenant ${tenantId}`
+      );
     }
 
     if (version.status !== "draft") {
@@ -340,7 +358,7 @@ class PriceVersionService {
       .from("billing_price_versions")
       .update({
         status: "archived",
-        archived_at: new Date().toISOString()
+        archived_at: new Date().toISOString(),
       })
       .eq("tenant_id", tenantId)
       .eq("plan_tier", version.plan_tier)
@@ -351,7 +369,7 @@ class PriceVersionService {
       .from("billing_price_versions")
       .update({
         status: "active",
-        activated_at: new Date().toISOString()
+        activated_at: new Date().toISOString(),
       })
       .eq("id", versionId)
       .select()
@@ -362,7 +380,7 @@ class PriceVersionService {
     logger.info("Activated custom price version", {
       versionId,
       tenantId,
-      planTier: version.plan_tier
+      planTier: version.plan_tier,
     });
 
     return data as PriceVersion;
@@ -394,9 +412,9 @@ class PriceVersionService {
           negotiated: true,
           negotiated_by: negotiatedBy,
           negotiated_at: new Date().toISOString(),
-          justification
+          justification,
         },
-        status: "draft"
+        status: "draft",
       })
       .select()
       .single();
@@ -406,7 +424,7 @@ class PriceVersionService {
     logger.info("Created negotiated pricing", {
       versionId: data.id,
       tenantId,
-      negotiatedBy
+      negotiatedBy,
     });
 
     return data as PriceVersion;

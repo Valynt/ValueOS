@@ -5,11 +5,12 @@
  */
 
 import type { BillingEvent } from "@shared/types/billing-events";
+import { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
 import { GRACE_PERIOD_MS, STRIPE_CONFIG } from "../../config/billing.js";
 import { createLogger } from "../../lib/logger.js";
-import { supabase } from "../../lib/supabase.js";
+import { createBillingPlatformSupabaseClient } from "../../lib/supabase/privileged/billing.js";
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,
@@ -40,7 +41,11 @@ class TenantResolutionDeferredError extends Error {
   readonly invoiceId: string;
   readonly eventId: string;
 
-  constructor(params: { stripeCustomerId: string; invoiceId: string; eventId: string }) {
+  constructor(params: {
+    stripeCustomerId: string;
+    invoiceId: string;
+    eventId: string;
+  }) {
     super(
       `payment_succeeded: no billing_customers row for Stripe customer ${params.stripeCustomerId} (invoice ${params.invoiceId})`
     );
@@ -53,6 +58,7 @@ class TenantResolutionDeferredError extends Error {
 
 export class WebhookService {
   private stripe: Stripe | null;
+  private supabase: SupabaseClient;
 
   /**
    * Listeners for billing domain events emitted during webhook processing.
@@ -60,7 +66,12 @@ export class WebhookService {
    */
   private eventListeners: Array<(event: BillingEvent) => void> = [];
 
-  constructor() {
+  constructor(supabase?: SupabaseClient) {
+    this.supabase =
+      supabase ??
+      createBillingPlatformSupabaseClient({
+        justification: "service-role:justified billing webhook processing",
+      });
     // Initialize Stripe service only if billing is configured
     try {
       this.stripe = StripeService.getInstance().getClient();
@@ -116,7 +127,7 @@ export class WebhookService {
       .update(payload)
       .eq("tenant_id", tenantId);
 
-    await supabase.from("tenants").update(payload).eq("id", tenantId);
+    await this.supabase.from("tenants").update(payload).eq("id", tenantId);
 
     await securityAuditService.logRequestEvent({
       requestId: `billing-enforcement-${triggerEventType}-${tenantId}-${Date.now()}`,
@@ -238,9 +249,7 @@ export class WebhookService {
         eventId: event.id,
         type: event.type,
       });
-      throw new Error(
-        `Failed to record webhook event: ${insertError.message}`
-      );
+      throw new Error(`Failed to record webhook event: ${insertError.message}`);
     }
 
     // null → conflict (DO NOTHING fired) — fetch the existing row to log its state
@@ -257,7 +266,11 @@ export class WebhookService {
         : null;
       const retryReady = !nextRetryAt || nextRetryAt <= Date.now();
 
-      if (existing?.status === "pending_retry" && !existing?.processed && retryReady) {
+      if (
+        existing?.status === "pending_retry" &&
+        !existing?.processed &&
+        retryReady
+      ) {
         logger.info("Webhook pending retry due — reprocessing event", {
           eventId: event.id,
           type: event.type,
@@ -273,20 +286,27 @@ export class WebhookService {
           existingProcessed: existing?.processed ?? null,
         });
         recordStripeWebhook(event.type, "duplicate");
-        webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
+        webhooksProcessedTotal
+          .labels({ event_type: event.type, status: "duplicate" })
+          .inc();
         return true; // isDuplicate
       }
     }
 
     // Row existed but was already processed (e.g. redelivery after success)
-    if (!shouldProceedWithRetry && (inserted?.processed || inserted?.status === "processed")) {
+    if (
+      !shouldProceedWithRetry &&
+      (inserted?.processed || inserted?.status === "processed")
+    ) {
       logger.info("Webhook event already processed — skipping handler", {
         eventId: event.id,
         type: event.type,
         status: inserted.status,
       });
       recordStripeWebhook(event.type, "duplicate");
-      webhooksProcessedTotal.labels({ event_type: event.type, status: "duplicate" }).inc();
+      webhooksProcessedTotal
+        .labels({ event_type: event.type, status: "duplicate" })
+        .inc();
       return true; // isDuplicate
     }
 
@@ -296,7 +316,10 @@ export class WebhookService {
     const payloadStorage = await storeWebhookPayload(event.id, event);
 
     // Attach payload storage references to the row now that we know it's new.
-    if (payloadStorage.mode === "external" || payloadStorage.rawPayload !== null) {
+    if (
+      payloadStorage.mode === "external" ||
+      payloadStorage.rawPayload !== null
+    ) {
       const { error: payloadUpdateError } = await supabase
         .from("webhook_events")
         .update({
@@ -360,13 +383,17 @@ export class WebhookService {
 
       await this.markEventProcessed(event.id);
       recordStripeWebhook(event.type, "processed");
-      webhooksProcessedTotal.labels({ event_type: event.type, status: "success" }).inc();
+      webhooksProcessedTotal
+        .labels({ event_type: event.type, status: "success" })
+        .inc();
       return false; // not a duplicate
     } catch (error) {
       if (error instanceof TenantResolutionDeferredError) {
         await this.deferForTenantResolution(event, error);
         recordStripeWebhook(event.type, "failed");
-        webhooksProcessedTotal.labels({ event_type: event.type, status: "failed" }).inc();
+        webhooksProcessedTotal
+          .labels({ event_type: event.type, status: "failed" })
+          .inc();
         return false;
       }
 
@@ -376,7 +403,9 @@ export class WebhookService {
         { eventId: event.id }
       );
       recordStripeWebhook(event.type, "failed");
-      webhooksProcessedTotal.labels({ event_type: event.type, status: "failed" }).inc();
+      webhooksProcessedTotal
+        .labels({ event_type: event.type, status: "failed" })
+        .inc();
       webhookProcessingFailuresTotal.labels({ event_type: event.type }).inc();
       recordBillingJobFailure("stripe_webhook", (error as Error).message);
       await this.markEventFailed(event.id, (error as Error).message);
@@ -416,7 +445,7 @@ export class WebhookService {
         })
         .eq("stripe_event_id", event.id);
 
-      await supabase.from("webhook_dead_letter_queue").insert({
+      await this.supabase.from("webhook_dead_letter_queue").insert({
         stripe_event_id: event.id,
         event_type: event.type,
         payload: event,
@@ -516,7 +545,7 @@ export class WebhookService {
    */
   private async handleInvoiceEvent(event: Stripe.Event): Promise<void> {
     const invoice = event.data.object as Stripe.Invoice;
-    await InvoiceService.storeInvoice(invoice);
+    await new InvoiceService(this.supabase).storeInvoice(invoice);
     logger.info("Invoice event processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
   }
@@ -528,7 +557,10 @@ export class WebhookService {
     const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice status
-    await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
+    await new InvoiceService(this.supabase).updateInvoiceWithCustomerStatus(
+      invoice,
+      "active"
+    );
 
     // Resolve tenant_id from customer — required to update enforcement state.
     // If the customer has no billing_customers row (provisioning race, data gap),
@@ -590,7 +622,7 @@ export class WebhookService {
     const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice
-    await InvoiceService.updateInvoice(invoice);
+    await new InvoiceService(this.supabase).updateInvoice(invoice);
 
     // Get customer and create alert
     const { data: customer } = await supabase
@@ -618,7 +650,7 @@ export class WebhookService {
       );
 
       // Create payment failed alert
-      await supabase.from("usage_alerts").insert({
+      await this.supabase.from("usage_alerts").insert({
         tenant_id: customer.tenant_id,
         metric: "api_calls", // Generic metric for payment alerts
         threshold_percentage: 100,
