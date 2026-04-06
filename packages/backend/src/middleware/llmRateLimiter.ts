@@ -207,6 +207,7 @@ async function rateLimitHandler(req: Request, res: Response, _next: import('expr
 
       await supabase.from('rate_limit_violations').insert({
         user_id: req.user?.id || null,
+        organization_id: req.user?.organization_id ?? req.tenantId ?? null,
         ip_address: req.ip,
         endpoint: req.path,
         tier,

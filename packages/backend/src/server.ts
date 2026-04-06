@@ -506,7 +506,7 @@ const stripeRawParser = express.raw({
   type: "application/json",
   limit: "256kb",
 });
-const jsonParser = express.json();
+const jsonParser = express.json({ limit: '100kb' });
 app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
     stripeRawParser(req, _res, next);
