@@ -1,3 +1,4 @@
+import { createNodeMiddleware, Webhooks } from '@octokit/webhooks';
 import express from 'express';
 
 import { config } from '../config/index.js';
@@ -7,28 +8,39 @@ import { webhookHandlers } from './handlers.js';
 
 const router = express.Router();
 
-// Simplified webhook handler for development
-router.post('/github', async (req, res) => {
-  try {
-    const eventName = req.headers['x-github-event'] as string;
-    logger.info('Received webhook', { eventName, bodyType: typeof req.body });
-
-    // For now, just acknowledge webhooks - full processing needs middleware fix
-    if (eventName === 'ping') {
-      logger.info('Ping webhook received - bot is reachable');
-      res.status(200).send('OK');
-    } else if (eventName === 'push') {
-      logger.info('Push webhook received - analysis would start here');
-      res.status(200).send('OK');
-    } else {
-      logger.warn('Unhandled webhook event', { eventName });
-      res.status(200).send('Event acknowledged');
-    }
-  } catch (error) {
-    logger.error('Webhook processing error:', error);
-    res.status(500).send('Internal server error');
-  }
+const webhooks = new Webhooks({
+  secret: config.github.webhookSecret || 'development-secret',
 });
+
+webhooks.on('push', async ({ id, name, payload }) => {
+  logger.info(`Received ${name} event`, { id });
+  await webhookHandlers.push(payload);
+});
+
+webhooks.on('pull_request', async ({ id, name, payload }) => {
+  logger.info(`Received ${name} event`, { id });
+  await webhookHandlers.pull_request(payload);
+});
+
+webhooks.on('installation', async ({ id, name, payload }) => {
+  logger.info(`Received ${name} event`, { id });
+  await webhookHandlers.installation(payload);
+});
+
+webhooks.on('installation_repositories', async ({ id, name, payload }) => {
+  logger.info(`Received ${name} event`, { id });
+  await webhookHandlers.installation_repositories(payload);
+});
+
+webhooks.onError((error) => {
+  logger.error('Webhook processing error', {
+    error: error.message,
+    name: error.name,
+  });
+});
+
+// Full processing middleware for GitHub Webhooks
+router.use(createNodeMiddleware(webhooks, { path: '/github' }));
 
 // Health check for webhook endpoint
 router.get('/health', (req, res) => {
