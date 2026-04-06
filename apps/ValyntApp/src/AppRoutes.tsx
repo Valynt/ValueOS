@@ -268,12 +268,14 @@ export function AppRoutes() {
                                           </Route>
                                         </Route>
 
-                                        <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
-                                        <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
-                                        <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
-                                        <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
-                                        <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
-                                        <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
+                                        {/* H-4: Per-route ErrorBoundaries for workspace views so a crash in one
+                                            workspace pane does not unmount the entire application. */}
+                                        <Route path="workspace/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/assembly" element={<ErrorBoundary context="deal-assembly"><DealAssemblyWorkspace /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/model" element={<ErrorBoundary context="value-model-workbench"><ValueModelWorkbench /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/integrity" element={<ErrorBoundary context="integrity-dashboard"><IntegrityDashboard /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/outputs" element={<ErrorBoundary context="executive-output-studio"><ExecutiveOutputStudio /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/realization" element={<ErrorBoundary context="realization-tracker"><RealizationTracker /></ErrorBoundary>} />
                                         <Route
                                           element={
                                             <PermissionRoute
@@ -283,12 +285,12 @@ export function AppRoutes() {
                                         >
                                           <Route path="billing" element={<BillingPortal />} />
                                         </Route>
-                                        <Route path="company" element={<CompanyKnowledge />} />
+                                        <Route path="company" element={<ErrorBoundary context="company-knowledge"><CompanyKnowledge /></ErrorBoundary>} />
                                         <Route
                                           path="living-value-graph/:opportunityId?/:caseId?"
-                                          element={<LivingValueGraphPage />}
+                                          element={<ErrorBoundary context="living-value-graph"><LivingValueGraphPage /></ErrorBoundary>}
                                         />
-                                        <Route path="academy/*" element={<AcademyV2Routes />} />
+                                        <Route path="academy/*" element={<ErrorBoundary context="academy"><AcademyV2Routes /></ErrorBoundary>} />
                                       </Route>
                                     </Route>
 

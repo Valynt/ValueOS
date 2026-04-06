@@ -1,11 +1,26 @@
 /**
  * Referral Service
  * Handles all referral program operations
+ *
+ * SECURITY (B-5): This service now accepts a per-request RLS-scoped Supabase
+ * client instead of using a singleton service-role client. The service-role
+ * client bypasses all Row Level Security policies, meaning any user could
+ * previously read or modify referral records belonging to other tenants.
+ *
+ * All write operations that span tenants (e.g., claimReferral, which is
+ * intentionally cross-user) still use the service-role client via a dedicated
+ * database function that enforces its own business-logic constraints.
+ * Read operations use the RLS-scoped client so that Postgres RLS policies
+ * enforce tenant isolation at the database layer.
  */
 
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
-import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
+import {
+  createRequestRlsSupabaseClient,
+  createServiceRoleSupabaseClient,
+  type RequestScopedRlsSupabaseClient,
+} from '../../lib/supabase.js';
 import {
   ClaimReferralRequest,
   ClaimReferralResponse,
@@ -19,23 +34,46 @@ import {
 
 const logger = createLogger({ component: 'ReferralService' });
 
-export class ReferralService {
-  private _supabase: ReturnType<typeof createServiceRoleSupabaseClient> | null = null;
+/**
+ * Per-request context required by all authenticated ReferralService methods.
+ * Pass `req` (the Express request) so the service can build an RLS-scoped
+ * Supabase client that inherits the caller's JWT and tenant context.
+ */
+export interface ReferralRequestContext {
+  headers: { authorization?: string };
+}
 
-  private get supabase() {
-    if (!this._supabase) {
-      this._supabase = createServiceRoleSupabaseClient();
-    }
-    return this._supabase;
+export class ReferralService {
+  /**
+   * Build an RLS-scoped Supabase client from the incoming request.
+   * This client will only see rows that Postgres RLS policies permit for
+   * the authenticated user's tenant.
+   */
+  private rlsClient(ctx: ReferralRequestContext): RequestScopedRlsSupabaseClient {
+    return createRequestRlsSupabaseClient({ headers: ctx.headers });
+  }
+
+  /**
+   * Service-role client — used ONLY for cross-tenant database functions
+   * (e.g., process_referral_claim) that must operate across user boundaries
+   * under controlled, audited conditions.
+   */
+  private get serviceRoleClient() {
+    return createServiceRoleSupabaseClient();
   }
 
   /**
    * Generate or retrieve referral code for a user
    */
-  async generateReferralCode(userId: string): Promise<GenerateReferralCodeResponse> {
+  async generateReferralCode(
+    userId: string,
+    ctx: ReferralRequestContext
+  ): Promise<GenerateReferralCodeResponse> {
     try {
+      const supabase = this.rlsClient(ctx);
+
       // Call database function to create/retrieve referral code
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .rpc('create_user_referral_code', { p_user_id: userId });
 
       if (error) {
@@ -43,8 +81,8 @@ export class ReferralService {
         return { success: false, error: error.message };
       }
 
-      // Fetch the complete referral code details
-      const { data: referralCode, error: fetchError } = await this.supabase
+      // Fetch the complete referral code details (RLS-scoped: only own codes)
+      const { data: referralCode, error: fetchError } = await supabase
         .from('referral_codes')
         .select('*')
         .eq('id', data)
@@ -65,7 +103,11 @@ export class ReferralService {
   }
 
   /**
-   * Claim a referral code
+   * Claim a referral code.
+   *
+   * This operation is intentionally cross-user (a new user claims a code
+   * belonging to an existing user) and therefore uses the service-role client
+   * via a database function that enforces its own business-logic constraints.
    */
   async claimReferral(request: ClaimReferralRequest): Promise<ClaimReferralResponse> {
     try {
@@ -73,8 +115,10 @@ export class ReferralService {
       const sanitizedReferralCode = sanitizeForLogging(referral_code) as string;
       const sanitizedRefereeEmail = sanitizeForLogging(referee_email) as string;
 
-      // Call database function to process referral claim
-      const { data, error } = await this.supabase
+      // Use service-role client for this cross-user operation.
+      // The database function process_referral_claim enforces its own
+      // business-logic constraints and is the only permitted path.
+      const { data, error } = await this.serviceRoleClient
         .rpc('process_referral_claim', {
           p_referral_code: referral_code,
           p_referee_email: referee_email,
@@ -112,11 +156,12 @@ export class ReferralService {
   }
 
   /**
-   * Complete a referral (when referee converts to paying customer)
+   * Complete a referral (when referee converts to paying customer).
+   * Uses service-role client via audited database function.
    */
   async completeReferral(referralId: string, refereeId: string): Promise<boolean> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.serviceRoleClient
         .rpc('complete_referral', {
           p_referral_id: referralId,
           p_referee_id: refereeId
@@ -140,11 +185,14 @@ export class ReferralService {
   }
 
   /**
-   * Get referral statistics for a user
+   * Get referral statistics for a user (RLS-scoped: own stats only)
    */
-  async getReferralStats(userId: string): Promise<ReferralStats | null> {
+  async getReferralStats(
+    userId: string,
+    ctx: ReferralRequestContext
+  ): Promise<ReferralStats | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.rlsClient(ctx)
         .from('referral_stats')
         .select('*')
         .eq('user_id', userId)
@@ -164,11 +212,14 @@ export class ReferralService {
   }
 
   /**
-   * Get user's referral code
+   * Get user's referral code (RLS-scoped: own codes only)
    */
-  async getUserReferralCode(userId: string): Promise<ReferralCode | null> {
+  async getUserReferralCode(
+    userId: string,
+    ctx: ReferralRequestContext
+  ): Promise<ReferralCode | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.rlsClient(ctx)
         .from('referral_codes')
         .select('*')
         .eq('user_id', userId)
@@ -189,11 +240,15 @@ export class ReferralService {
   }
 
   /**
-   * Get referrals for a user
+   * Get referrals for a user (RLS-scoped: own referrals only)
    */
-  async getUserReferrals(userId: string, limit = 10): Promise<Referral[]> {
+  async getUserReferrals(
+    userId: string,
+    ctx: ReferralRequestContext,
+    limit = 10
+  ): Promise<Referral[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.rlsClient(ctx)
         .from('referrals')
         .select('*')
         .eq('referrer_id', userId)
@@ -214,11 +269,15 @@ export class ReferralService {
   }
 
   /**
-   * Get rewards for a user
+   * Get rewards for a user (RLS-scoped: own rewards only)
    */
-  async getUserRewards(userId: string, limit = 10): Promise<ReferralReward[]> {
+  async getUserRewards(
+    userId: string,
+    ctx: ReferralRequestContext,
+    limit = 10
+  ): Promise<ReferralReward[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.rlsClient(ctx)
         .from('referral_rewards')
         .select('*')
         .eq('user_id', userId)
@@ -239,16 +298,19 @@ export class ReferralService {
   }
 
   /**
-   * Get complete referral dashboard data
+   * Get complete referral dashboard data (RLS-scoped)
    */
-  async getReferralDashboard(userId: string): Promise<ReferralDashboard | null> {
+  async getReferralDashboard(
+    userId: string,
+    ctx: ReferralRequestContext
+  ): Promise<ReferralDashboard | null> {
     try {
-      // Fetch all data in parallel
+      // Fetch all data in parallel using the same RLS-scoped client context
       const [referralCode, stats, referrals, rewards] = await Promise.all([
-        this.getUserReferralCode(userId),
-        this.getReferralStats(userId),
-        this.getUserReferrals(userId, 5),
-        this.getUserRewards(userId, 5)
+        this.getUserReferralCode(userId, ctx),
+        this.getReferralStats(userId, ctx),
+        this.getUserReferrals(userId, ctx, 5),
+        this.getUserRewards(userId, ctx, 5)
       ]);
 
       if (!referralCode) {
@@ -278,11 +340,14 @@ export class ReferralService {
   }
 
   /**
-   * Validate referral code
+   * Validate referral code.
+   *
+   * This is a public endpoint (no auth required) so it uses the service-role
+   * client, but only reads a single boolean existence check — no PII is exposed.
    */
   async validateReferralCode(code: string): Promise<boolean> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.serviceRoleClient
         .from('referral_codes')
         .select('id')
         .eq('code', code)
@@ -302,11 +367,14 @@ export class ReferralService {
   }
 
   /**
-   * Deactivate referral code
+   * Deactivate referral code (RLS-scoped: own codes only)
    */
-  async deactivateReferralCode(userId: string): Promise<boolean> {
+  async deactivateReferralCode(
+    userId: string,
+    ctx: ReferralRequestContext
+  ): Promise<boolean> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.rlsClient(ctx)
         .from('referral_codes')
         .update({ is_active: false })
         .eq('user_id', userId);
@@ -326,5 +394,5 @@ export class ReferralService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance (stateless — all state is per-request via ctx)
 export const referralService = new ReferralService();

@@ -809,12 +809,26 @@ async function verifyTokenWithSupabase(token: string): Promise<VerifiedAuth | nu
       return null;
     }
 
-    let claims = decodeClaims(token) ?? {};
-    if (!claims.sub && data.user.id) {
-      claims = { ...claims, sub: data.user.id };
+    // SECURITY (B-4): decodeClaims() calls jwt.decode() which does NOT verify
+    // the token signature. Any tenant-identity fields in the decoded claims
+    // (tenant_id, organization_id, app_metadata) could be attacker-controlled.
+    // Strip all tenant-identity fields from decoded claims so that
+    // extractTenantId() is forced to use the Supabase-authoritative user object
+    // (data.user.app_metadata) instead.
+    let rawClaims = decodeClaims(token) ?? {};
+    if (!rawClaims.sub && data.user.id) {
+      rawClaims = { ...rawClaims, sub: data.user.id };
     }
+    // Remove tenant-identity fields from unverified decoded claims.
+    // These will be sourced exclusively from the Supabase-verified user object.
+    const { tenant_id: _t, organization_id: _o, app_metadata: _a, ...safeClaims } = rawClaims as JwtPayload & {
+      tenant_id?: unknown;
+      organization_id?: unknown;
+      app_metadata?: unknown;
+    };
+    const claims: JwtPayload = safeClaims as JwtPayload;
 
-    const session = buildSessionFromClaims(token, claims as JwtPayload);
+    const session = buildSessionFromClaims(token, claims);
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email,
@@ -827,7 +841,7 @@ async function verifyTokenWithSupabase(token: string): Promise<VerifiedAuth | nu
     return {
       user,
       session,
-      claims: claims as JwtPayload,
+      claims,
     };
   } catch (error) {
     logger.debug('Supabase token verification unavailable', sanitizeForLogging(error) as LogContext);
