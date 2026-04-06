@@ -9,22 +9,31 @@ import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 import { z } from "zod";
 
-import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue"
-import { requireAuth } from "../middleware/auth"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation"
-import { requireAllPermissions, requirePermission } from "../middleware/rbac"
-import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware"
-import { createSecureRouter } from "../middleware/secureRouter"
-import { tenantContextMiddleware } from "../middleware/tenantContext"
-import { tenantDbContextMiddleware } from "../middleware/tenantDbContext"
-import { adminRoleService } from "../services/auth/AdminRoleService"
-import { adminUserService } from "../services/auth/AdminUserService"
-import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob"
-import { auditLogService } from "../services/AuditLogService"
-import { tenantDeletionService } from "../services/tenant/TenantDeletionService"
-import { provisionTenant, TenantTier } from "../services/tenant/TenantProvisioning"
-import { DomainDLQEventEmitter, RedisDLQStore } from "../services/workflows/RedisAdapters"
-import { AUDIT_ACTION } from "../types/audit"
+import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue";
+import { requireAuth } from "../middleware/auth";
+import {
+  validateRequest,
+  ValidationSchemas,
+} from "../middleware/inputValidation";
+import { requireAllPermissions, requirePermission } from "../middleware/rbac";
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware";
+import { createSecureRouter } from "../middleware/secureRouter";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { tenantDbContextMiddleware } from "../middleware/tenantDbContext";
+import { adminRoleService } from "../services/auth/AdminRoleService";
+import { adminUserService } from "../services/auth/AdminUserService";
+import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob";
+import { auditLogService } from "../services/AuditLogService";
+import { tenantDeletionService } from "../services/tenant/TenantDeletionService";
+import {
+  provisionTenant,
+  TenantTier,
+} from "../services/tenant/TenantProvisioning";
+import {
+  DomainDLQEventEmitter,
+  RedisDLQStore,
+} from "../services/workflows/RedisAdapters";
+import { AUDIT_ACTION } from "../types/audit";
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
@@ -40,7 +49,12 @@ async function logAdminRouteEvent(
 
 const provisionTenantSchema = z.object({
   name: z.string().min(2).max(120),
-  tier: z.enum(["free", "starter", "professional", "enterprise"] as const satisfies readonly [TenantTier, ...TenantTier[]]),
+  tier: z.enum([
+    "free",
+    "starter",
+    "professional",
+    "enterprise",
+  ] as const satisfies readonly [TenantTier, ...TenantTier[]]),
   ownerEmail: z.string().email(),
   // ownerId is intentionally excluded — it is always derived from the authenticated
   // user to prevent privilege escalation via the request body.
@@ -48,114 +62,143 @@ const provisionTenantSchema = z.object({
 
 // POST /api/admin/provision — Create a new tenant (called from CreateOrganization UI).
 // Does not require an existing tenant context — the user is creating their first one.
-router.post(
-  "/provision",
-  requireAuth,
+router.post("/provision", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const actor = req.user;
+    if (!actor?.id || !actor?.email) {
+      return res.status(401).json({ error: "Authenticated user required" });
+    }
+
+    const parsed = provisionTenantSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid request", details: parsed.error.errors });
+    }
+
+    const { name, tier, ownerEmail } = parsed.data;
+
+    const result = await provisionTenant({
+      organizationId: "",
+      name,
+      tier,
+      // Always use the authenticated user's ID — never trust ownerId from the request body.
+      ownerId: actor.id,
+      ownerEmail,
+    });
+
+    if (!result.success) {
+      return res
+        .status(422)
+        .json({ error: result.errors.join("; "), errors: result.errors });
+    }
+    res.status(201);
+    await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_PROVISION, {
+      organizationId: result.organizationId,
+    });
+    return res.json({ organizationId: result.organizationId });
+  } catch (err) {
+    logger.error(
+      "Tenant provisioning failed",
+      err instanceof Error ? err : undefined
+    );
+    return res.status(500).json({ error: "Provisioning failed" });
+  }
+});
+
+router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
+
+router.get(
+  "/audit-logs",
+  requirePermission("audit.read"),
   async (req: Request, res: Response) => {
     try {
-      const actor = req.user;
-      if (!actor?.id || !actor?.email) {
-        return res.status(401).json({ error: "Authenticated user required" });
+      const tenantId = req.tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const parsed = provisionTenantSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
-      }
+      const {
+        userId,
+        action,
+        resourceType,
+        resourceId,
+        startDate,
+        endDate,
+        status,
+        limit,
+        offset,
+      } = req.query;
 
-      const { name, tier, ownerEmail } = parsed.data;
-
-      const result = await provisionTenant({
-        organizationId: "",
-        name,
-        tier,
-        // Always use the authenticated user's ID — never trust ownerId from the request body.
-        ownerId: actor.id,
-        ownerEmail,
+      const logs = await auditLogService.query({
+        tenantId,
+        userId: userId as string,
+        action: action as string | string[],
+        resourceType: resourceType as string | string[],
+        resourceId: resourceId as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        status: status as "success" | "failed",
+        limit: limit ? Number(limit) : undefined,
+        offset: offset ? Number(offset) : undefined,
       });
 
-      if (!result.success) {
-        return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
-      }
-      res.status(201);
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_PROVISION, { organizationId: result.organizationId });
-      return res.json({ organizationId: result.organizationId });
-    } catch (err) {
-      logger.error("Tenant provisioning failed", err instanceof Error ? err : undefined);
-      return res.status(500).json({ error: "Provisioning failed" });
+      await auditLogService.logAudit({
+        userId: req.user?.id ?? "unknown",
+        userName: req.user?.email ?? "unknown",
+        userEmail: req.user?.email ?? "",
+        action: "audit.logs.query",
+        resourceType: "audit_logs",
+        resourceId: tenantId,
+        details: {
+          endpoint: "/api/admin/audit-logs",
+          filters: {
+            userId,
+            action,
+            resourceType,
+            resourceId,
+            startDate,
+            endDate,
+            status,
+            limit,
+            offset,
+          },
+        },
+        status: "success",
+      });
+
+      return res.json({ logs });
+    } catch (error) {
+      logger.error(
+        "Failed to fetch audit logs",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({ error: "Failed to fetch audit logs" });
     }
   }
 );
 
-router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
+router.get(
+  "/users",
+  requirePermission("users.read"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
 
-router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.tenantId as string | undefined;
-    if (!tenantId) {
-      return res.status(400).json({ error: "Tenant ID required" });
+      const users = await adminUserService.listTenantUsers(tenantId);
+      return res.json({ users });
+    } catch (error) {
+      logger.error(
+        "Failed to list tenant users",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({ error: "Failed to load users" });
     }
-
-    const {
-      userId,
-      action,
-      resourceType,
-      resourceId,
-      startDate,
-      endDate,
-      status,
-      limit,
-      offset,
-    } = req.query;
-
-    const logs = await auditLogService.query({
-      tenantId,
-      userId: userId as string,
-      action: action as string | string[],
-      resourceType: resourceType as string | string[],
-      resourceId: resourceId as string,
-      startDate: startDate as string,
-      endDate: endDate as string,
-      status: status as "success" | "failed",
-      limit: limit ? Number(limit) : undefined,
-      offset: offset ? Number(offset) : undefined,
-    });
-
-    await auditLogService.logAudit({
-      userId: req.user?.id ?? "unknown",
-      userName: req.user?.email ?? "unknown",
-      userEmail: req.user?.email ?? "",
-      action: "audit.logs.query",
-      resourceType: "audit_logs",
-      resourceId: tenantId,
-      details: {
-        endpoint: "/api/admin/audit-logs",
-        filters: { userId, action, resourceType, resourceId, startDate, endDate, status, limit, offset },
-      },
-      status: "success",
-    });
-
-    return res.json({ logs });
-  } catch (error) {
-    logger.error("Failed to fetch audit logs", error instanceof Error ? error : undefined);
-    return res.status(500).json({ error: "Failed to fetch audit logs" });
   }
-});
-
-router.get("/users", requirePermission("users.read"), async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.tenantId as string | undefined;
-    if (!tenantId) {
-      return res.status(400).json({ error: "Tenant ID required" });
-    }
-
-    const users = await adminUserService.listTenantUsers(tenantId);
-    return res.json({ users });
-  } catch (error) {
-    logger.error("Failed to list tenant users", error instanceof Error ? error : undefined);
-    return res.status(500).json({ error: "Failed to load users" });
-  }
-});
+);
 
 router.post(
   "/users/invite",
@@ -193,7 +236,10 @@ router.post(
 
       return res.status(201).json({ user });
     } catch (error) {
-      logger.error("Failed to invite user", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to invite user",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to invite user" });
     }
   }
@@ -233,13 +279,19 @@ router.patch(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { targetUserId: req.params.userId, role: req.body.role });
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, {
+        targetUserId: req.params.userId,
+        role: req.body.role,
+      });
       return res.json({ message: "Role updated" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
         return res.status(409).json({ error: error.message });
       }
-      logger.error("Failed to update role", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to update role",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to update role" });
     }
   }
@@ -277,13 +329,19 @@ router.delete(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_SECURITY, { targetUserId: req.params.userId, operation: "remove_user" });
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_SECURITY, {
+        targetUserId: req.params.userId,
+        operation: "remove_user",
+      });
       return res.json({ message: "User removed" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
         return res.status(409).json({ error: error.message });
       }
-      logger.error("Failed to remove user", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to remove user",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to remove user" });
     }
   }
@@ -305,7 +363,9 @@ router.post(
 
       const parsed = transferOwnershipSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+        return res
+          .status(400)
+          .json({ error: "Invalid request", details: parsed.error.errors });
       }
 
       const actor = req.user;
@@ -320,7 +380,7 @@ router.post(
 
       await adminUserService.transferOwnership(
         { id: actor.id, email: actor.email ?? "", name: actorName },
-        { newOwnerId: parsed.data.newOwnerId, tenantId },
+        { newOwnerId: parsed.data.newOwnerId, tenantId }
       );
 
       return res.json({ message: "Ownership transferred" });
@@ -328,7 +388,10 @@ router.post(
       if (error instanceof Error && error.name === "ValidationError") {
         return res.status(409).json({ error: error.message });
       }
-      logger.error("Failed to transfer ownership", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to transfer ownership",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to transfer ownership" });
     }
   }
@@ -349,7 +412,11 @@ router.post(
       if (!actor) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
 
       const role = await adminRoleService.createCustomRole(
         { id: actor.id, email: actor.email ?? "", name: actorName },
@@ -361,10 +428,16 @@ router.post(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: role.id, operation: "create_custom_role" });
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, {
+        roleId: role.id,
+        operation: "create_custom_role",
+      });
       return res.status(201).json({ role });
     } catch (error) {
-      logger.error("Failed to create custom role", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to create custom role",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to create role" });
     }
   }
@@ -385,7 +458,11 @@ router.patch(
       if (!actor) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
 
       const role = await adminRoleService.updateCustomRole(
         { id: actor.id, email: actor.email ?? "", name: actorName },
@@ -397,10 +474,16 @@ router.patch(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: req.params.roleId, operation: "update_custom_role" });
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, {
+        roleId: req.params.roleId,
+        operation: "update_custom_role",
+      });
       return res.json({ role });
     } catch (error) {
-      logger.error("Failed to update custom role", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to update custom role",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to update role" });
     }
   }
@@ -420,7 +503,11 @@ router.delete(
       if (!actor) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
 
       await adminRoleService.deleteCustomRole(
         { id: actor.id, email: actor.email ?? "", name: actorName },
@@ -428,29 +515,41 @@ router.delete(
         req.params.roleId!
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_REMOVE, { roleId: req.params.roleId });
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_REMOVE, {
+        roleId: req.params.roleId,
+      });
       return res.json({ message: "Role deleted" });
     } catch (error) {
-      logger.error("Failed to delete custom role", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to delete custom role",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to delete role" });
     }
   }
 );
 
-router.get("/roles/matrix", requirePermission("users.read"), async (req: Request, res: Response) => {
-  try {
-    const tenantId = req.tenantId as string | undefined;
-    if (!tenantId) {
-      return res.status(400).json({ error: "Tenant ID required" });
-    }
+router.get(
+  "/roles/matrix",
+  requirePermission("users.read"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
 
-    const matrix = await adminRoleService.listRolePermissionMatrix(tenantId);
-    return res.json({ matrix });
-  } catch (error) {
-    logger.error("Failed to list role permission matrix", error instanceof Error ? error : undefined);
-    return res.status(500).json({ error: "Failed to list role matrix" });
+      const matrix = await adminRoleService.listRolePermissionMatrix(tenantId);
+      return res.json({ matrix });
+    } catch (error) {
+      logger.error(
+        "Failed to list role permission matrix",
+        error instanceof Error ? error : undefined
+      );
+      return res.status(500).json({ error: "Failed to list role matrix" });
+    }
   }
-});
+);
 
 router.post(
   "/roles/:roleId/permissions",
@@ -467,7 +566,11 @@ router.post(
       if (!actor) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
 
       await adminRoleService.assignPermissionsToRole(
         { id: actor.id, email: actor.email ?? "", name: actorName },
@@ -485,7 +588,10 @@ router.post(
       });
       return res.send();
     } catch (error) {
-      logger.error("Failed to assign permissions", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to assign permissions",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to assign permissions" });
     }
   }
@@ -506,7 +612,11 @@ router.delete(
       if (!actor) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
 
       await adminRoleService.removePermissionsFromRole(
         { id: actor.id, email: actor.email ?? "", name: actorName },
@@ -524,7 +634,10 @@ router.delete(
       });
       return res.send();
     } catch (error) {
-      logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
+      logger.error(
+        "Failed to remove permissions",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Failed to remove permissions" });
     }
   }
@@ -550,10 +663,17 @@ router.post(
     if (!reason) return res.status(400).json({ error: "reason is required" });
 
     try {
-      const result = await tenantDeletionService.initiateSoftDelete(tenantId, requestedBy, reason);
+      const result = await tenantDeletionService.initiateSoftDelete(
+        tenantId,
+        requestedBy,
+        reason
+      );
       return res.status(result.success ? 200 : 500).json(result);
     } catch (error) {
-      logger.error("Admin: tenant soft-delete failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "Admin: tenant soft-delete failed",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Soft-delete failed" });
     }
   }
@@ -574,7 +694,10 @@ router.post(
       const exportData = await tenantDeletionService.exportTenantData(tenantId);
       return res.status(200).json(exportData);
     } catch (error) {
-      logger.error("Admin: tenant export failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "Admin: tenant export failed",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Export failed" });
     }
   }
@@ -596,7 +719,10 @@ router.post(
       const result = await tenantDeletionService.hardDelete(tenantId);
       return res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
-      logger.error("Admin: tenant hard-delete failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "Admin: tenant hard-delete failed",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Hard-delete failed" });
     }
   }
@@ -616,7 +742,10 @@ router.post(
       const result = await tenantDeletionService.processScheduledDeletions();
       return res.status(200).json(result);
     } catch (error) {
-      logger.error("Admin: scheduled deletions failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "Admin: scheduled deletions failed",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Scheduled deletion job failed" });
     }
   }
@@ -644,7 +773,10 @@ router.post(
       const result = await tokenReEncryptionJob.run();
       return res.status(200).json(result);
     } catch (error) {
-      logger.error("Admin: CRM token re-encryption job failed", error instanceof Error ? error : undefined);
+      logger.error(
+        "Admin: CRM token re-encryption job failed",
+        error instanceof Error ? error : undefined
+      );
       return res.status(500).json({ error: "Re-encryption job failed" });
     }
   }
@@ -654,7 +786,10 @@ router.post(
 // DLQ endpoints — list failed agent tasks and retry them
 // ---------------------------------------------------------------------------
 
-const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
+const dlq = new DeadLetterQueue(
+  new RedisDLQStore(),
+  new DomainDLQEventEmitter()
+);
 
 const DlqListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -663,28 +798,40 @@ const DlqListQuerySchema = z.object({
 
 /**
  * GET /api/admin/dlq
- * Lists entries in the dead-letter queue. Admin-only.
+ * Lists entries in the dead-letter queue for the caller's tenant. Admin-only.
  */
 router.get(
   "/dlq",
   requireAuth,
   requirePermission("system.admin"),
   async (req: Request, res: Response) => {
+    const tenantId = req.tenantId as string | undefined;
+    if (!tenantId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "tenantId is required" });
+    }
     const parsed = DlqListQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, error: parsed.error.message });
+      return res
+        .status(400)
+        .json({ success: false, error: parsed.error.message });
     }
     const { limit, offset } = parsed.data;
 
     try {
       const [entries, total] = await Promise.all([
-        dlq.list(offset, limit),
-        dlq.count(),
+        dlq.list(tenantId, offset, limit),
+        dlq.count(tenantId),
       ]);
-      return res.status(200).json({ success: true, data: { entries, total, offset, limit } });
+      return res
+        .status(200)
+        .json({ success: true, data: { entries, total, offset, limit } });
     } catch (err) {
       logger.error("DLQ list failed", err instanceof Error ? err : undefined);
-      return res.status(500).json({ success: false, error: "Failed to list DLQ entries" });
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to list DLQ entries" });
     }
   }
 );
@@ -699,25 +846,37 @@ router.post(
   requireAuth,
   requirePermission("system.admin"),
   async (req: Request, res: Response) => {
+    const tenantId = req.tenantId as string | undefined;
+    if (!tenantId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "tenantId is required" });
+    }
     const { taskId } = req.params as { taskId: string };
     if (!taskId) {
-      return res.status(400).json({ success: false, error: "taskId is required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "taskId is required" });
     }
 
     try {
-      // Find the entry by taskId
-      const total = await dlq.count();
-      const entries = await dlq.list(0, total || 100);
-      const entry = entries.find((e) => e.taskId === taskId);
+      // Find the entry by taskId (tenant-scoped)
+      const total = await dlq.count(tenantId);
+      const entries = await dlq.list(tenantId, 0, total || 100);
+      const entry = entries.find(e => e.taskId === taskId);
 
       if (!entry) {
-        return res.status(404).json({ success: false, error: "DLQ entry not found" });
+        return res
+          .status(404)
+          .json({ success: false, error: "DLQ entry not found" });
       }
 
       // Remove from DLQ — the caller is responsible for re-dispatching
       const removed = await dlq.remove(entry);
       if (!removed) {
-        return res.status(409).json({ success: false, error: "Entry was already removed" });
+        return res
+          .status(409)
+          .json({ success: false, error: "Entry was already removed" });
       }
 
       logger.info("DLQ entry retried", { taskId, agentType: entry.agentType });
@@ -728,7 +887,9 @@ router.post(
       });
     } catch (err) {
       logger.error("DLQ retry failed", err instanceof Error ? err : undefined);
-      return res.status(500).json({ success: false, error: "Failed to retry DLQ entry" });
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to retry DLQ entry" });
     }
   }
 );

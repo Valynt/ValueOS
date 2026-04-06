@@ -8,13 +8,10 @@
  * All operations are scoped to (case_id, organization_id).
  */
 
-import { z } from 'zod';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-import { logger } from '../lib/logger.js';
-// service-role:justified repositories/ allowlisted; snapshot writes originate from agent background processing
-import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
-
-const supabase = createServiceRoleSupabaseClient();
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,10 +25,12 @@ export const FinancialModelSnapshotWriteSchema = z.object({
   payback_period_months: z.number().int().optional(),
   assumptions_json: z.array(z.unknown()).default([]),
   outputs_json: z.record(z.unknown()).default({}),
-  source_agent: z.string().default('FinancialModelingAgent'),
+  source_agent: z.string().default("FinancialModelingAgent"),
 });
 
-export type FinancialModelSnapshotWrite = z.infer<typeof FinancialModelSnapshotWriteSchema>;
+export type FinancialModelSnapshotWrite = z.infer<
+  typeof FinancialModelSnapshotWriteSchema
+>;
 
 export interface FinancialModelSnapshotRow {
   id: string;
@@ -52,28 +51,35 @@ export interface FinancialModelSnapshotRow {
 // ---------------------------------------------------------------------------
 
 export class FinancialModelSnapshotRepository {
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
+
   /**
    * Create a new snapshot. snapshot_version is computed as MAX + 1 for the case.
    */
   async createSnapshot(
-    input: FinancialModelSnapshotWrite,
+    input: FinancialModelSnapshotWrite
   ): Promise<FinancialModelSnapshotRow> {
     const validated = FinancialModelSnapshotWriteSchema.parse(input);
 
     // Compute next version number
-    const { data: existing } = await supabase
-      .from('financial_model_snapshots')
-      .select('snapshot_version')
-      .eq('case_id', validated.case_id)
-      .eq('organization_id', validated.organization_id)
-      .order('snapshot_version', { ascending: false })
+    const { data: existing } = await this.db
+      .from("financial_model_snapshots")
+      .select("snapshot_version")
+      .eq("case_id", validated.case_id)
+      .eq("organization_id", validated.organization_id)
+      .order("snapshot_version", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const nextVersion = ((existing?.snapshot_version as number | null) ?? 0) + 1;
+    const nextVersion =
+      ((existing?.snapshot_version as number | null) ?? 0) + 1;
 
-    const { data, error } = await supabase
-      .from('financial_model_snapshots')
+    const { data, error } = await this.db
+      .from("financial_model_snapshots")
       .insert({
         case_id: validated.case_id,
         organization_id: validated.organization_id,
@@ -85,19 +91,21 @@ export class FinancialModelSnapshotRepository {
         outputs_json: validated.outputs_json,
         source_agent: validated.source_agent,
       })
-      .select('*')
+      .select("*")
       .single();
 
     if (error || !data) {
-      logger.error('FinancialModelSnapshotRepository.createSnapshot failed', {
+      logger.error("FinancialModelSnapshotRepository.createSnapshot failed", {
         case_id: validated.case_id,
         organization_id: validated.organization_id,
         error: error?.message,
       });
-      throw new Error(`Failed to create financial model snapshot: ${error?.message}`);
+      throw new Error(
+        `Failed to create financial model snapshot: ${error?.message}`
+      );
     }
 
-    logger.info('FinancialModelSnapshotRepository: snapshot created', {
+    logger.info("FinancialModelSnapshotRepository: snapshot created", {
       id: data.id,
       case_id: validated.case_id,
       organization_id: validated.organization_id,
@@ -115,24 +123,29 @@ export class FinancialModelSnapshotRepository {
    */
   async getLatestSnapshotForCase(
     caseId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<FinancialModelSnapshotRow | null> {
-    const { data, error } = await supabase
-      .from('financial_model_snapshots')
-      .select('*')
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId)
-      .order('snapshot_version', { ascending: false })
+    const { data, error } = await this.db
+      .from("financial_model_snapshots")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .order("snapshot_version", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      logger.error('FinancialModelSnapshotRepository.getLatestSnapshotForCase failed', {
-        case_id: caseId,
-        organization_id: organizationId,
-        error: error.message,
-      });
-      throw new Error(`Failed to fetch latest financial model snapshot: ${error.message}`);
+      logger.error(
+        "FinancialModelSnapshotRepository.getLatestSnapshotForCase failed",
+        {
+          case_id: caseId,
+          organization_id: organizationId,
+          error: error.message,
+        }
+      );
+      throw new Error(
+        `Failed to fetch latest financial model snapshot: ${error.message}`
+      );
     }
 
     return data as FinancialModelSnapshotRow | null;
@@ -143,26 +156,32 @@ export class FinancialModelSnapshotRepository {
    */
   async listSnapshotsForCase(
     caseId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<FinancialModelSnapshotRow[]> {
-    const { data, error } = await supabase
-      .from('financial_model_snapshots')
-      .select('*')
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId)
-      .order('snapshot_version', { ascending: false });
+    const { data, error } = await this.db
+      .from("financial_model_snapshots")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .order("snapshot_version", { ascending: false });
 
     if (error) {
-      logger.error('FinancialModelSnapshotRepository.listSnapshotsForCase failed', {
-        case_id: caseId,
-        organization_id: organizationId,
-        error: error.message,
-      });
-      throw new Error(`Failed to list financial model snapshots: ${error.message}`);
+      logger.error(
+        "FinancialModelSnapshotRepository.listSnapshotsForCase failed",
+        {
+          case_id: caseId,
+          organization_id: organizationId,
+          error: error.message,
+        }
+      );
+      throw new Error(
+        `Failed to list financial model snapshots: ${error.message}`
+      );
     }
 
     return (data ?? []) as FinancialModelSnapshotRow[];
   }
 }
 
-export const financialModelSnapshotRepository = new FinancialModelSnapshotRepository();
+// No module-level singleton — callers must inject an RLS-scoped SupabaseClient.
+// Example: new FinancialModelSnapshotRepository(requestScopedClient)

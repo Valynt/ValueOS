@@ -15,9 +15,10 @@ import { NextFunction, Request, Response, Router } from "express";
 import { z } from "zod";
 
 import { logger } from "../lib/logger.js";
+import { getRequestSupabaseClient } from "../lib/supabase.js";
 import { requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { reasoningTraceRepository } from "../repositories/ReasoningTraceRepository.js";
+import { ReasoningTraceRepository } from "../repositories/ReasoningTraceRepository.js";
 
 const router = Router();
 
@@ -44,21 +45,30 @@ router.get(
       const organizationId = req.tenantId;
 
       if (!organizationId) {
-        res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Tenant context missing" } });
+        res
+          .status(401)
+          .json({
+            error: { code: "UNAUTHORIZED", message: "Tenant context missing" },
+          });
         return;
       }
 
       const queryParsed = PaginationQuerySchema.safeParse(req.query);
       if (!queryParsed.success) {
         res.status(400).json({
-          error: { code: "INVALID_QUERY", message: "Invalid pagination parameters" },
+          error: {
+            code: "INVALID_QUERY",
+            message: "Invalid pagination parameters",
+          },
         });
         return;
       }
 
       const { page, pageSize } = queryParsed.data;
 
-      const result = await reasoningTraceRepository.findByCaseId({
+      const result = await new ReasoningTraceRepository(
+        getRequestSupabaseClient(req)
+      ).findByCaseId({
         caseId,
         organizationId,
         page,
@@ -97,11 +107,17 @@ router.get(
       const organizationId = req.tenantId;
 
       if (!organizationId) {
-        res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Tenant context missing" } });
+        res
+          .status(401)
+          .json({
+            error: { code: "UNAUTHORIZED", message: "Tenant context missing" },
+          });
         return;
       }
 
-      const trace = await reasoningTraceRepository.findById(traceId, organizationId);
+      const trace = await new ReasoningTraceRepository(
+        getRequestSupabaseClient(req)
+      ).findById(traceId, organizationId);
 
       if (!trace) {
         res.status(404).json({

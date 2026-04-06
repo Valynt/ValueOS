@@ -8,12 +8,10 @@
  * All operations are scoped to (case_id, organization_id).
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { z } from 'zod';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-import { logger } from '../lib/logger.js';
-// service-role:justified repositories/ allowlisted for module-level singleton used by workflow/runtime services
-import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,7 +21,9 @@ export const ValueTreeNodeWriteSchema = z.object({
   node_key: z.string().min(1),
   label: z.string().min(1),
   description: z.string().optional(),
-  driver_type: z.enum(['revenue', 'cost', 'efficiency', 'risk', 'other']).optional(),
+  driver_type: z
+    .enum(["revenue", "cost", "efficiency", "risk", "other"])
+    .optional(),
   impact_estimate: z.number().optional(),
   confidence: z.number().min(0).max(1).optional(),
   parent_node_key: z.string().optional(),
@@ -62,15 +62,10 @@ interface ValueTreeParentLink {
 // ---------------------------------------------------------------------------
 
 export class ValueTreeRepository {
-  private readonly supabase: SupabaseClient;
+  private readonly db: SupabaseClient;
 
-  /**
-   * @param client - Optional RLS-scoped client. When omitted the module-level
-   *   service-role singleton is used (only appropriate for background workflow
-   *   and runtime services that have no request JWT available).
-   */
-  constructor(client?: SupabaseClient) {
-    this.supabase = client ?? createServiceRoleSupabaseClient();
+  constructor(db: SupabaseClient) {
+    this.db = db;
   }
 
   /**
@@ -78,17 +73,17 @@ export class ValueTreeRepository {
    */
   async getNodesForCase(
     caseId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<ValueTreeNodeRow[]> {
-    const { data, error } = await this.supabase
-      .from('value_tree_nodes')
-      .select('*')
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId)
-      .order('sort_order', { ascending: true });
+    const { data, error } = await this.db
+      .from("value_tree_nodes")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .order("sort_order", { ascending: true });
 
     if (error) {
-      logger.error('ValueTreeRepository.getNodesForCase failed', {
+      logger.error("ValueTreeRepository.getNodesForCase failed", {
         case_id: caseId,
         organization_id: organizationId,
         error: error.message,
@@ -107,18 +102,18 @@ export class ValueTreeRepository {
   async replaceNodesForCase(
     caseId: string,
     organizationId: string,
-    nodes: ValueTreeNodeWrite[],
+    nodes: ValueTreeNodeWrite[]
   ): Promise<ValueTreeNodeRow[]> {
-    const validated = nodes.map((n) => ValueTreeNodeWriteSchema.parse(n));
+    const validated = nodes.map(n => ValueTreeNodeWriteSchema.parse(n));
 
-    const { error: deleteError } = await this.supabase
-      .from('value_tree_nodes')
+    const { error: deleteError } = await this.db
+      .from("value_tree_nodes")
       .delete()
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId);
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId);
 
     if (deleteError) {
-      logger.error('ValueTreeRepository.replaceNodesForCase delete failed', {
+      logger.error("ValueTreeRepository.replaceNodesForCase delete failed", {
         case_id: caseId,
         organization_id: organizationId,
         error: deleteError.message,
@@ -130,8 +125,8 @@ export class ValueTreeRepository {
       return [];
     }
 
-    const { data: inserted, error: insertError } = await this.supabase
-      .from('value_tree_nodes')
+    const { data: inserted, error: insertError } = await this.db
+      .from("value_tree_nodes")
       .insert(
         validated.map((n, i) => ({
           case_id: caseId,
@@ -146,42 +141,49 @@ export class ValueTreeRepository {
           source_agent: n.source_agent ?? null,
           metadata: n.metadata,
           parent_id: null,
-        })),
+        }))
       )
-      .select('id, node_key');
+      .select("id, node_key");
 
     if (insertError || !inserted) {
-      logger.error('ValueTreeRepository.replaceNodesForCase insert failed', {
+      logger.error("ValueTreeRepository.replaceNodesForCase insert failed", {
         case_id: caseId,
         organization_id: organizationId,
         error: insertError?.message,
       });
-      throw new Error(`Failed to insert value tree nodes: ${insertError?.message}`);
+      throw new Error(
+        `Failed to insert value tree nodes: ${insertError?.message}`
+      );
     }
 
     // Build node_key -> id map for parent resolution
     const keyToId = new Map<string, string>(
       inserted
-        .filter((row) => typeof row.node_key === 'string' && typeof row.id === 'string')
-        .map((row) => [row.node_key as string, row.id as string]),
+        .filter(
+          row => typeof row.node_key === "string" && typeof row.id === "string"
+        )
+        .map(row => [row.node_key as string, row.id as string])
     );
 
     const parentUpdates: ValueTreeParentLink[] = validated
-      .filter((n) => n.parent_node_key && keyToId.has(n.parent_node_key))
-      .map((n) => ({
+      .filter(n => n.parent_node_key && keyToId.has(n.parent_node_key))
+      .map(n => ({
         node_id: keyToId.get(n.node_key)!,
         parent_id: keyToId.get(n.parent_node_key!)!,
       }));
 
     if (parentUpdates.length > 0) {
-      const { error: parentUpdateError } = await this.supabase.rpc('bulk_update_value_tree_node_parents', {
-        p_case_id: caseId,
-        p_organization_id: organizationId,
-        p_parent_links: parentUpdates,
-      });
+      const { error: parentUpdateError } = await this.db.rpc(
+        "bulk_update_value_tree_node_parents",
+        {
+          p_case_id: caseId,
+          p_organization_id: organizationId,
+          p_parent_links: parentUpdates,
+        }
+      );
 
       if (parentUpdateError) {
-        logger.warn('ValueTreeRepository: failed to set parent_id', {
+        logger.warn("ValueTreeRepository: failed to set parent_id", {
           case_id: caseId,
           organization_id: organizationId,
           parent_links: parentUpdates.length,
@@ -190,7 +192,7 @@ export class ValueTreeRepository {
       }
     }
 
-    logger.info('ValueTreeRepository: nodes replaced', {
+    logger.info("ValueTreeRepository: nodes replaced", {
       case_id: caseId,
       organization_id: organizationId,
       node_count: validated.length,
@@ -205,16 +207,16 @@ export class ValueTreeRepository {
    */
   async deleteNodesForCase(
     caseId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from('value_tree_nodes')
+    const { error } = await this.db
+      .from("value_tree_nodes")
       .delete()
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId);
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId);
 
     if (error) {
-      logger.error('ValueTreeRepository.deleteNodesForCase failed', {
+      logger.error("ValueTreeRepository.deleteNodesForCase failed", {
         case_id: caseId,
         organization_id: organizationId,
         error: error.message,
@@ -224,4 +226,5 @@ export class ValueTreeRepository {
   }
 }
 
-export const valueTreeRepository = new ValueTreeRepository();
+// No module-level singleton — callers must inject an RLS-scoped SupabaseClient.
+// Example: new ValueTreeRepository(requestScopedClient)

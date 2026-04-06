@@ -5,7 +5,7 @@
  * for manual inspection and retry. Emits `system.dlq.enqueued` domain events.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // ============================================================================
 // Types
@@ -56,7 +56,13 @@ export const DLQEntrySchema = z.object({
 // Constants
 // ============================================================================
 
-const DLQ_KEY = 'dlq:agent_tasks';
+const DLQ_KEY_PREFIX = "dlq:agent_tasks";
+
+/** Build a tenant-scoped DLQ key. */
+function dlqKey(tenantId: string): string {
+  if (!tenantId) throw new Error("DeadLetterQueue: tenantId is required");
+  return `${DLQ_KEY_PREFIX}:${tenantId}`;
+}
 
 // ============================================================================
 // DeadLetterQueue
@@ -72,16 +78,16 @@ export class DeadLetterQueue {
   }
 
   /**
-   * Enqueue a failed task to the DLQ
+   * Enqueue a failed task to the DLQ (tenant-scoped).
    */
   async enqueue(entry: DLQEntry): Promise<void> {
     const validated = DLQEntrySchema.parse(entry);
     const serialized = JSON.stringify(validated);
 
-    await this.store.lpush(DLQ_KEY, serialized);
+    await this.store.lpush(dlqKey(validated.tenantId), serialized);
 
     this.eventEmitter.emit({
-      type: 'system.dlq.enqueued',
+      type: "system.dlq.enqueued",
       payload: {
         taskId: validated.taskId,
         agentType: validated.agentType,
@@ -92,48 +98,60 @@ export class DeadLetterQueue {
       meta: {
         correlationId: validated.correlationId,
         timestamp: validated.timestamp,
-        source: 'DeadLetterQueue',
+        source: "DeadLetterQueue",
       },
     });
   }
 
   /**
-   * List DLQ entries with pagination
+   * List DLQ entries with pagination (tenant-scoped).
    */
-  async list(offset: number = 0, limit: number = 50): Promise<DLQEntry[]> {
-    const raw = await this.store.lrange(DLQ_KEY, offset, offset + limit - 1);
-    return raw.map((item) => JSON.parse(item) as DLQEntry);
+  async list(
+    tenantId: string,
+    offset: number = 0,
+    limit: number = 50
+  ): Promise<DLQEntry[]> {
+    const raw = await this.store.lrange(
+      dlqKey(tenantId),
+      offset,
+      offset + limit - 1
+    );
+    return raw.map(item => JSON.parse(item) as DLQEntry);
   }
 
   /**
-   * Get the total number of entries in the DLQ
+   * Get the total number of entries in the DLQ for a tenant.
    */
-  async count(): Promise<number> {
-    return this.store.llen(DLQ_KEY);
+  async count(tenantId: string): Promise<number> {
+    return this.store.llen(dlqKey(tenantId));
   }
 
   /**
-   * Inspect a specific entry by index
+   * Inspect a specific entry by index (tenant-scoped).
    */
-  async inspect(index: number): Promise<DLQEntry | null> {
-    const raw = await this.store.lrange(DLQ_KEY, index, index);
+  async inspect(tenantId: string, index: number): Promise<DLQEntry | null> {
+    const raw = await this.store.lrange(dlqKey(tenantId), index, index);
     if (raw.length === 0) return null;
     return JSON.parse(raw[0]!) as DLQEntry;
   }
 
   /**
-   * Remove a specific entry from the DLQ (after successful retry or manual resolution)
+   * Remove a specific entry from the DLQ (after successful retry or manual resolution).
    */
   async remove(entry: DLQEntry): Promise<boolean> {
     const serialized = JSON.stringify(entry);
-    const removed = await this.store.lrem(DLQ_KEY, 1, serialized);
+    const removed = await this.store.lrem(
+      dlqKey(entry.tenantId),
+      1,
+      serialized
+    );
     return removed > 0;
   }
 
   /**
-   * Get the Redis key used for the DLQ
+   * Get the Redis key used for a tenant's DLQ.
    */
-  static getKey(): string {
-    return DLQ_KEY;
+  static getKey(tenantId: string): string {
+    return dlqKey(tenantId);
   }
 }

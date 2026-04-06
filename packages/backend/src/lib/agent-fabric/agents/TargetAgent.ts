@@ -11,37 +11,36 @@
  * and SDUI sections (KPIForm + ValueTreeCard).
  */
 
-import { ProvenanceTracker } from '@valueos/memory/provenance';
-import { z } from 'zod';
+import { ProvenanceTracker } from "@valueos/memory/provenance";
+import { z } from "zod";
 
-import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
-import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
-import { getAdvancedCausalEngine } from '../../../services/reasoning/AdvancedCausalEngine.js';
+import { ValueTreeRepository } from "../../../repositories/ValueTreeRepository.js";
+import type { ValueTreeNodeWrite } from "../../../repositories/ValueTreeRepository.js";
+import { getAdvancedCausalEngine } from "../../../services/reasoning/AdvancedCausalEngine.js";
 import {
   BaseGraphWriter,
   valueGraphService as defaultValueGraphService,
-} from '../../../services/value-graph/index.js';
+} from "../../../services/value-graph/index.js";
 import {
   mapCategoryToValueDriverType,
   mapUnitToVgMetricUnit,
-} from '../../../services/value-graph/valueDriverUtils.js';
-import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
+} from "../../../services/value-graph/valueDriverUtils.js";
+import { SupabaseProvenanceStore } from "../../../services/workflows/SagaAdapters.js";
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
   PromptVersionReference,
-} from '../../../types/agent.js';
-import { logger } from '../../logger.js';
-// service-role:justified provenance tracker singleton has no request JWT; scoped to tenant via organizationId filter
-import { createServiceRoleSupabaseClient } from '../../supabase.js';
-import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
-import { renderTemplate } from '../promptUtils.js';
+} from "../../../types/agent.js";
+import { logger } from "../../logger.js";
+// service-role:justified worker/service requires elevated DB access for background processing
+import { createWorkerServiceSupabaseClient } from "../../supabase/privileged/index.js";
+import { resolvePromptTemplate } from "../prompts/PromptRegistry.js";
+import { renderTemplate } from "../promptUtils.js";
 
-import { BaseAgent } from './BaseAgent.js';
-import { BaseGraphWriter } from '../BaseGraphWriter.js';
-
+import { BaseAgent } from "./BaseAgent.js";
+import { BaseGraphWriter } from "../BaseGraphWriter.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -51,7 +50,14 @@ const KPIDefinitionSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string(),
-  unit: z.enum(['currency', 'percentage', 'number', 'hours', 'headcount', 'ratio']),
+  unit: z.enum([
+    "currency",
+    "percentage",
+    "number",
+    "hours",
+    "headcount",
+    "ratio",
+  ]),
   measurement_method: z.string(),
   baseline: z.object({
     value: z.number(),
@@ -63,7 +69,7 @@ const KPIDefinitionSchema = z.object({
     timeframe_months: z.number().int().positive(),
     confidence: z.number().min(0).max(1),
   }),
-  category: z.enum(['revenue', 'cost', 'efficiency', 'risk']),
+  category: z.enum(["revenue", "cost", "efficiency", "risk"]),
   hypothesis_id: z.string(),
 });
 
@@ -71,15 +77,15 @@ const ValueDriverSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   value: z.string().optional(),
-  type: z.enum(['root', 'branch', 'leaf']),
-  status: z.enum(['active', 'at_risk', 'achieved']).optional(),
+  type: z.enum(["root", "branch", "leaf"]),
+  status: z.enum(["active", "at_risk", "achieved"]).optional(),
   children: z.array(z.lazy((): z.ZodTypeAny => ValueDriverSchema)).default([]),
 });
 
 const FinancialModelInputSchema = z.object({
   hypothesis_id: z.string(),
   hypothesis_title: z.string(),
-  category: z.enum(['revenue', 'cost', 'efficiency', 'risk']),
+  category: z.enum(["revenue", "cost", "efficiency", "risk"]),
   baseline_value: z.number(),
   target_value: z.number(),
   unit: z.string(),
@@ -93,11 +99,13 @@ const TargetAnalysisSchema = z.object({
   value_driver_tree: z.array(ValueDriverSchema).min(1),
   financial_model_inputs: z.array(FinancialModelInputSchema).min(1),
   measurement_plan: z.string(),
-  risks: z.array(z.object({
-    description: z.string(),
-    likelihood: z.enum(['low', 'medium', 'high']),
-    mitigation: z.string(),
-  })),
+  risks: z.array(
+    z.object({
+      description: z.string(),
+      likelihood: z.enum(["low", "medium", "high"]),
+      mitigation: z.string(),
+    })
+  ),
 });
 
 type TargetAnalysis = z.infer<typeof TargetAnalysisSchema>;
@@ -132,7 +140,10 @@ function getProvenanceTracker(organizationId: string): ProvenanceTracker {
     return existingTracker;
   }
 
-  const client = createServiceRoleSupabaseClient();
+  const client = createWorkerServiceSupabaseClient({
+    justification:
+      "service-role:justified agent provenance store requires cross-table writes",
+  });
   const store = new SupabaseProvenanceStore(client, organizationId);
   const tracker = new ProvenanceTracker(store);
   provenanceTrackersByTenant.set(organizationId, tracker);
@@ -143,13 +154,16 @@ export class TargetAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private causalEngine = getAdvancedCausalEngine();
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
+  private graphWriter = new BaseGraphWriter(
+    this.valueGraphService ?? defaultValueGraphService,
+    logger
+  );
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
     if (!isValid) {
-      throw new Error('Invalid input context');
+      throw new Error("Invalid input context");
     }
 
     // Step 1: Retrieve hypotheses from OpportunityAgent via memory
@@ -157,12 +171,13 @@ export class TargetAgent extends BaseAgent {
     if (hypotheses.length === 0) {
       return this.buildOutput(
         {
-          error: 'No opportunity hypotheses found in memory. Run OpportunityAgent first.',
+          error:
+            "No opportunity hypotheses found in memory. Run OpportunityAgent first.",
           validated: false,
         },
-        'failure',
-        'low',
-        startTime,
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -171,16 +186,21 @@ export class TargetAgent extends BaseAgent {
     const generation = await this.generateTargets(context, hypotheses, query);
     if (!generation) {
       return this.buildOutput(
-        { error: 'KPI target generation failed. Retry or provide more context.' },
-        'failure',
-        'low',
-        startTime,
+        {
+          error: "KPI target generation failed. Retry or provide more context.",
+        },
+        "failure",
+        "low",
+        startTime
       );
     }
 
     // Step 3: Validate causal traces for each KPI against linked hypotheses
     const { analysis, promptRefs } = generation;
-    const causalResults = await this.validateAllCausalTraces(analysis.kpi_definitions, hypotheses);
+    const causalResults = await this.validateAllCausalTraces(
+      analysis.kpi_definitions,
+      hypotheses
+    );
     const verifiedCount = causalResults.filter(c => c.verified).length;
     const allVerified = verifiedCount === causalResults.length;
 
@@ -188,58 +208,81 @@ export class TargetAgent extends BaseAgent {
     await this.storeTargetsInMemory(context, analysis, causalResults);
 
     // Step 4c: Write KPI metrics and target_quantifies_driver edges to Value Graph (fire-and-forget)
-    await this.writeKpisToGraph(analysis.kpi_definitions, causalResults, context);
+    await this.writeKpisToGraph(
+      analysis.kpi_definitions,
+      causalResults,
+      context
+    );
 
     // Step 4b: Persist value driver tree to DB for frontend reads
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    const valueCaseId = context.user_inputs?.value_case_id as
+      | string
+      | undefined;
     if (valueCaseId) {
-      await this.persistValueTree(valueCaseId, context.organization_id, analysis.value_driver_tree);
+      await this.persistValueTree(
+        valueCaseId,
+        context.organization_id,
+        analysis.value_driver_tree
+      );
       // Also persist financial model snapshots for crash recovery
-      await this.persistFinancialModelSnapshots(context, valueCaseId, context.organization_id, analysis);
+      await this.persistFinancialModelSnapshots(
+        valueCaseId,
+        context.organization_id,
+        analysis
+      );
     }
 
     // Step 4c: Write Value Graph nodes — VgMetric + capability_impacts_metric edges
     try {
       const writes: Array<() => Promise<unknown>> = [];
       for (const kpi of analysis.kpi_definitions) {
-        const metricId = this.graphWriter.generateNodeId(kpi.id as string | undefined);
+        const metricId = this.graphWriter.generateNodeId(
+          kpi.id as string | undefined
+        );
         writes.push(() =>
           this.graphWriter.writeMetric(context, {
             id: metricId,
-            name: String(kpi.name ?? kpi.kpi_name ?? 'KPI'),
-            description: String(kpi.description ?? kpi.rationale ?? ''),
+            name: String(kpi.name ?? kpi.kpi_name ?? "KPI"),
+            description: String(kpi.description ?? kpi.rationale ?? ""),
             baseline_value: kpi.baseline as number | undefined,
             target_value: kpi.target as number | undefined,
             unit: kpi.unit as string | undefined,
           })
         );
-        const capabilityId = this.graphWriter.generateNodeId(kpi.capability_id as string | undefined);
+        const capabilityId = this.graphWriter.generateNodeId(
+          kpi.capability_id as string | undefined
+        );
         writes.push(() =>
           this.graphWriter.writeEdge(context, {
             from_entity_id: capabilityId,
-            from_entity_type: 'vg_capability',
+            from_entity_type: "vg_capability",
             to_entity_id: metricId,
-            to_entity_type: 'vg_metric',
-            edge_type: 'capability_impacts_metric',
-            created_by_agent: 'TargetAgent',
+            to_entity_type: "vg_metric",
+            edge_type: "capability_impacts_metric",
+            created_by_agent: "TargetAgent",
           })
         );
       }
       if (writes.length > 0) {
-        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
-        logger.info('TargetAgent: graph write complete', { succeeded, failed });
+        const { succeeded, failed } =
+          await this.graphWriter.safeWriteBatch(writes);
+        logger.info("TargetAgent: graph write complete", { succeeded, failed });
       }
     } catch (err) {
-      logger.warn('TargetAgent: graph write skipped', { reason: (err as Error).message });
+      logger.warn("TargetAgent: graph write skipped", {
+        reason: (err as Error).message,
+      });
     }
 
     // Step 5: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis, causalResults);
 
     // Step 6: Determine confidence
-    const avgConfidence = causalResults.length > 0
-      ? causalResults.reduce((sum, c) => sum + c.confidence, 0) / causalResults.length
-      : 0.5;
+    const avgConfidence =
+      causalResults.length > 0
+        ? causalResults.reduce((sum, c) => sum + c.confidence, 0) /
+          causalResults.length
+        : 0.5;
     const confidenceLevel = this.toConfidenceLevel(avgConfidence);
 
     const result = {
@@ -259,21 +302,28 @@ export class TargetAgent extends BaseAgent {
     const warnings: string[] = [];
     if (!allVerified) {
       warnings.push(
-        `${causalResults.length - verifiedCount} of ${causalResults.length} KPIs lack verified causal links to opportunity hypotheses.`,
+        `${causalResults.length - verifiedCount} of ${causalResults.length} KPIs lack verified causal links to opportunity hypotheses.`
       );
     }
 
-    return this.buildOutput(result, allVerified ? 'success' : 'partial_success', confidenceLevel, startTime, {
-      reasoning: `Generated ${analysis.kpi_definitions.length} KPI targets from ${hypotheses.length} hypotheses. ` +
-        `${verifiedCount}/${causalResults.length} causal traces verified.`,
-      suggested_next_actions: [
-        'Review KPI baselines and targets with stakeholders',
-        'Run FinancialModeling agent to build ROI model',
-        'Validate measurement methods with data team',
-      ],
-      warnings,
-      prompt_version_refs: promptRefs,
-    });
+    return this.buildOutput(
+      result,
+      allVerified ? "success" : "partial_success",
+      confidenceLevel,
+      startTime,
+      {
+        reasoning:
+          `Generated ${analysis.kpi_definitions.length} KPI targets from ${hypotheses.length} hypotheses. ` +
+          `${verifiedCount}/${causalResults.length} causal traces verified.`,
+        suggested_next_actions: [
+          "Review KPI baselines and targets with stakeholders",
+          "Run FinancialModeling agent to build ROI model",
+          "Validate measurement methods with data team",
+        ],
+        warnings,
+        prompt_version_refs: promptRefs,
+      }
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -283,31 +333,37 @@ export class TargetAgent extends BaseAgent {
   /**
    * Retrieve verified hypotheses stored by OpportunityAgent.
    */
-  private async retrieveHypotheses(context: LifecycleContext): Promise<Array<{
-    id: string;
-    content: string;
-    metadata: Record<string, unknown>;
-  }>> {
+  private async retrieveHypotheses(context: LifecycleContext): Promise<
+    Array<{
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }>
+  > {
     try {
       const memories = await this.memorySystem.retrieve({
-        agent_id: 'opportunity',
-        memory_type: 'semantic',
+        agent_id: "opportunity",
+        memory_type: "semantic",
         limit: 10,
         organization_id: context.organization_id,
         workspace_id: context.workspace_id,
       });
 
       // Filter to verified hypotheses with required metadata
-      return memories.filter(m => {
-        const meta = m.metadata || {};
-        return meta.verified === true && meta.category && meta.estimated_impact;
-      }).map(m => ({
-        id: m.id,
-        content: m.content,
-        metadata: m.metadata || {},
-      }));
+      return memories
+        .filter(m => {
+          const meta = m.metadata || {};
+          return (
+            meta.verified === true && meta.category && meta.estimated_impact
+          );
+        })
+        .map(m => ({
+          id: m.id,
+          content: m.content,
+          metadata: m.metadata || {},
+        }));
     } catch (err) {
-      logger.warn('Failed to retrieve hypotheses from memory', {
+      logger.warn("Failed to retrieve hypotheses from memory", {
         error: (err as Error).message,
       });
       return [];
@@ -321,27 +377,34 @@ export class TargetAgent extends BaseAgent {
   /**
    * Build the system prompt with hypothesis context.
    */
-  private buildSystemPrompt(hypotheses: Array<{ content: string; metadata: Record<string, unknown> }>): {
+  private buildSystemPrompt(
+    hypotheses: Array<{ content: string; metadata: Record<string, unknown> }>
+  ): {
     prompt: string;
     ref: PromptVersionReference;
   } {
-    const hypothesisContext = hypotheses.map((h, i) => {
-      const m = h.metadata;
-      const impact = (m.estimated_impact as Record<string, unknown> | undefined) || {};
-      const low = impact.low as number | undefined;
-      const high = impact.high as number | undefined;
-      const unit = impact.unit as string | undefined;
-      const timeframeMonths = impact.timeframe_months as number | undefined;
-      const kpiTargets = (m.kpi_targets as string[] | undefined) || [];
-      const evidence = (m.evidence as string[] | undefined) || [];
-      return `${i + 1}. ${h.content}
+    const hypothesisContext = hypotheses
+      .map((h, i) => {
+        const m = h.metadata;
+        const impact =
+          (m.estimated_impact as Record<string, unknown> | undefined) || {};
+        const low = impact.low as number | undefined;
+        const high = impact.high as number | undefined;
+        const unit = impact.unit as string | undefined;
+        const timeframeMonths = impact.timeframe_months as number | undefined;
+        const kpiTargets = (m.kpi_targets as string[] | undefined) || [];
+        const evidence = (m.evidence as string[] | undefined) || [];
+        return `${i + 1}. ${h.content}
    Category: ${m.category}
-   Impact: ${low ?? 'N/A'}–${high ?? 'N/A'} ${unit ?? 'N/A'} over ${timeframeMonths ?? 'N/A'} months
-   KPI targets: ${kpiTargets.join(', ')}
-   Evidence: ${evidence.join('; ')}`;
-    }).join('\n\n');
+   Impact: ${low ?? "N/A"}–${high ?? "N/A"} ${unit ?? "N/A"} over ${timeframeMonths ?? "N/A"} months
+   KPI targets: ${kpiTargets.join(", ")}
+   Evidence: ${evidence.join("; ")}`;
+      })
+      .join("\n\n");
 
-    const template = resolvePromptTemplate({ promptKey: 'target.system.kpi-generation' });
+    const template = resolvePromptTemplate({
+      promptKey: "target.system.kpi-generation",
+    });
     return {
       prompt: renderTemplate(template.template, { hypothesisContext }),
       ref: template.reference,
@@ -353,17 +416,31 @@ export class TargetAgent extends BaseAgent {
    */
   private async generateTargets(
     context: LifecycleContext,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    query?: string,
-  ): Promise<{ analysis: TargetAnalysis; promptRefs: PromptVersionReference[] } | null> {
+    hypotheses: Array<{
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }>,
+    query?: string
+  ): Promise<{
+    analysis: TargetAnalysis;
+    promptRefs: PromptVersionReference[];
+  } | null> {
     const systemPrompt = this.buildSystemPrompt(hypotheses);
-    const userTemplate = resolvePromptTemplate({ promptKey: 'target.user.generate-targets' });
-    const promptRefs: PromptVersionReference[] = [systemPrompt.ref, userTemplate.reference];
+    const userTemplate = resolvePromptTemplate({
+      promptKey: "target.user.generate-targets",
+    });
+    const promptRefs: PromptVersionReference[] = [
+      systemPrompt.ref,
+      userTemplate.reference,
+    ];
 
-    const hypothesisIds = hypotheses.map((h, i) => `"hyp-${i + 1}" (${h.metadata.category})`).join(', ');
+    const hypothesisIds = hypotheses
+      .map((h, i) => `"hyp-${i + 1}" (${h.metadata.category})`)
+      .join(", ");
     const userPrompt = renderTemplate(userTemplate.template, {
       hypothesisIds,
-      additionalContext: query ? `Additional context: ${query}` : '',
+      additionalContext: query ? `Additional context: ${query}` : "",
     });
 
     try {
@@ -377,16 +454,16 @@ export class TargetAgent extends BaseAgent {
           confidenceThresholds: { low: 0.5, high: 0.8 },
           userId: context.user_id,
           context: {
-            agent: 'target',
+            agent: "target",
             organization_id: context.organization_id,
             hypothesis_count: hypotheses.length,
           },
-        },
+        }
       );
 
       return { analysis: result, promptRefs };
     } catch (err) {
-      logger.error('KPI target generation failed', {
+      logger.error("KPI target generation failed", {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -403,7 +480,11 @@ export class TargetAgent extends BaseAgent {
    */
   private async validateAllCausalTraces(
     kpis: KPIDefinition[],
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    hypotheses: Array<{
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }>
   ): Promise<CausalTrace[]> {
     const results: CausalTrace[] = [];
 
@@ -420,7 +501,11 @@ export class TargetAgent extends BaseAgent {
    */
   private async validateCausalTrace(
     kpi: KPIDefinition,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    hypotheses: Array<{
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }>
   ): Promise<CausalTrace> {
     try {
       const action = this.categoryToAction(kpi.category);
@@ -433,36 +518,45 @@ export class TargetAgent extends BaseAgent {
           baseline: kpi.baseline.value,
           target: kpi.target.value,
           timeframe_months: kpi.target.timeframe_months,
-        },
+        }
       );
 
       // Find the linked hypothesis
       const linked = hypotheses.find(h => {
         const meta = (h.metadata || {}) as Record<string, unknown>;
-        const relatedActions = (meta.relatedActions as string[] | undefined) || [];
-        const targetKpis = (meta.targetKpis as string[] | undefined) || (meta.kpi_targets as string[] | undefined) || [];
+        const relatedActions =
+          (meta.relatedActions as string[] | undefined) || [];
+        const targetKpis =
+          (meta.targetKpis as string[] | undefined) ||
+          (meta.kpi_targets as string[] | undefined) ||
+          [];
         return (
           meta.verified === true &&
-          (relatedActions.includes(action) || targetKpis.some((k: string) => kpi.name.toLowerCase().includes(k.toLowerCase())))
+          (relatedActions.includes(action) ||
+            targetKpis.some((k: string) =>
+              kpi.name.toLowerCase().includes(k.toLowerCase())
+            ))
         );
       });
 
       return {
-        impactCascade: [{
-          action,
-          targetKpi: kpi.name,
-          effect: {
-            direction: causalInference.effect.direction,
-            magnitude: causalInference.effect.magnitude,
-            confidence: causalInference.confidence,
+        impactCascade: [
+          {
+            action,
+            targetKpi: kpi.name,
+            effect: {
+              direction: causalInference.effect.direction,
+              magnitude: causalInference.effect.magnitude,
+              confidence: causalInference.confidence,
+            },
+            linkedOpportunity: linked?.id,
           },
-          linkedOpportunity: linked?.id,
-        }],
+        ],
         verified: !!linked,
         confidence: causalInference.confidence,
       };
     } catch (err) {
-      logger.warn('Causal trace validation failed for KPI', {
+      logger.warn("Causal trace validation failed for KPI", {
         kpi: kpi.name,
         error: (err as Error).message,
       });
@@ -472,12 +566,12 @@ export class TargetAgent extends BaseAgent {
 
   private categoryToAction(category: string): string {
     const mapping: Record<string, string> = {
-      revenue: 'increase_revenue',
-      cost: 'reduce_costs',
-      efficiency: 'improve_efficiency',
-      risk: 'mitigate_risk',
+      revenue: "increase_revenue",
+      cost: "reduce_costs",
+      efficiency: "improve_efficiency",
+      risk: "mitigate_risk",
     };
-    return mapping[category] || 'business_improvement';
+    return mapping[category] || "business_improvement";
   }
 
   // -------------------------------------------------------------------------
@@ -490,7 +584,7 @@ export class TargetAgent extends BaseAgent {
   private async storeTargetsInMemory(
     context: LifecycleContext,
     analysis: TargetAnalysis,
-    causalResults: CausalTrace[],
+    causalResults: CausalTrace[]
   ): Promise<void> {
     // Store each KPI definition
     for (let i = 0; i < analysis.kpi_definitions.length; i++) {
@@ -499,8 +593,8 @@ export class TargetAgent extends BaseAgent {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
-          'target',
-          'semantic',
+          "target",
+          "semantic",
           `KPI: ${kpi.name} — baseline: ${kpi.baseline.value} ${kpi.unit}, target: ${kpi.target.value} in ${kpi.target.timeframe_months}mo`,
           {
             kpi_id: kpi.id,
@@ -515,10 +609,10 @@ export class TargetAgent extends BaseAgent {
             organization_id: context.organization_id,
             importance: kpi.target.confidence,
           },
-          context.organization_id,
+          context.organization_id
         );
       } catch (err) {
-        logger.warn('Failed to store KPI in memory', {
+        logger.warn("Failed to store KPI in memory", {
           kpi: kpi.name,
           error: (err as Error).message,
         });
@@ -529,21 +623,21 @@ export class TargetAgent extends BaseAgent {
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
-        'target',
-        'semantic',
-        `Financial model inputs: ${analysis.financial_model_inputs.length} drivers across ${[...new Set(analysis.financial_model_inputs.map(f => f.category))].join(', ')}`,
+        "target",
+        "semantic",
+        `Financial model inputs: ${analysis.financial_model_inputs.length} drivers across ${[...new Set(analysis.financial_model_inputs.map(f => f.category))].join(", ")}`,
         {
-          type: 'financial_model_inputs',
+          type: "financial_model_inputs",
           inputs: analysis.financial_model_inputs,
           measurement_plan: analysis.measurement_plan,
           risks: analysis.risks,
           organization_id: context.organization_id,
           importance: 0.9,
         },
-        context.organization_id,
+        context.organization_id
       );
     } catch (err) {
-      logger.warn('Failed to store financial model inputs in memory', {
+      logger.warn("Failed to store financial model inputs in memory", {
         error: (err as Error).message,
       });
     }
@@ -558,45 +652,62 @@ export class TargetAgent extends BaseAgent {
    */
   private buildSDUISections(
     analysis: TargetAnalysis,
-    causalResults: CausalTrace[],
+    causalResults: CausalTrace[]
   ): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
     const verifiedCount = causalResults.filter(c => c.verified).length;
 
     // Summary card
     sections.push({
-      type: 'component',
-      component: 'AgentResponseCard',
+      type: "component",
+      component: "AgentResponseCard",
       version: 1,
       props: {
         response: {
-          agentId: 'target',
-          agentName: 'Target Agent',
+          agentId: "target",
+          agentName: "Target Agent",
           timestamp: new Date().toISOString(),
           content: `${analysis.kpi_definitions.length} KPI targets defined. ${verifiedCount}/${causalResults.length} causally verified.\n\n${analysis.measurement_plan}`,
-          confidence: causalResults.length > 0
-            ? causalResults.reduce((s, c) => s + c.confidence, 0) / causalResults.length
-            : 0.5,
-          status: 'completed',
+          confidence:
+            causalResults.length > 0
+              ? causalResults.reduce((s, c) => s + c.confidence, 0) /
+                causalResults.length
+              : 0.5,
+          status: "completed",
         },
         showReasoning: false,
         showActions: true,
-        stage: 'target',
+        stage: "target",
       },
     });
 
     // KPI form with all definitions
-    const kpiFormData: Array<Record<string, unknown>> = analysis.kpi_definitions.map(kpi => ({
-      id: kpi.id,
-      label: kpi.name,
-      unit: kpi.unit === 'currency' ? '$' : kpi.unit === 'percentage' ? '%' : kpi.unit,
-      type: kpi.unit === 'currency' ? 'currency' as const
-        : kpi.unit === 'percentage' ? 'percentage' as const
-        : 'number' as const,
-      target: kpi.target.value,
-      min: kpi.baseline.value < kpi.target.value ? kpi.baseline.value : undefined,
-      max: kpi.baseline.value > kpi.target.value ? kpi.baseline.value : undefined,
-    }));
+    const kpiFormData: Array<Record<string, unknown>> =
+      analysis.kpi_definitions.map(kpi => ({
+        id: kpi.id,
+        label: kpi.name,
+        unit:
+          kpi.unit === "currency"
+            ? "$"
+            : kpi.unit === "percentage"
+              ? "%"
+              : kpi.unit,
+        type:
+          kpi.unit === "currency"
+            ? ("currency" as const)
+            : kpi.unit === "percentage"
+              ? ("percentage" as const)
+              : ("number" as const),
+        target: kpi.target.value,
+        min:
+          kpi.baseline.value < kpi.target.value
+            ? kpi.baseline.value
+            : undefined,
+        max:
+          kpi.baseline.value > kpi.target.value
+            ? kpi.baseline.value
+            : undefined,
+      }));
 
     const kpiValues: Record<string, number> = {};
     for (const kpi of analysis.kpi_definitions) {
@@ -604,8 +715,8 @@ export class TargetAgent extends BaseAgent {
     }
 
     sections.push({
-      type: 'component',
-      component: 'KPIForm',
+      type: "component",
+      component: "KPIForm",
       version: 1,
       props: {
         kpis: kpiFormData,
@@ -616,12 +727,12 @@ export class TargetAgent extends BaseAgent {
 
     // Value driver tree
     sections.push({
-      type: 'component',
-      component: 'ValueTreeCard',
+      type: "component",
+      component: "ValueTreeCard",
       version: 1,
       props: {
         nodes: analysis.value_driver_tree,
-        title: 'Value Driver Tree',
+        title: "Value Driver Tree",
       },
     });
 
@@ -635,24 +746,22 @@ export class TargetAgent extends BaseAgent {
   /**
    * Persist financial model snapshots to database for crash recovery.
    * This ensures ModelStage data survives page refresh.
-   * Uses the RLS client from context when available; falls back to service-role
-   * for callers that have no request JWT (e.g. background job invocations).
    */
   private async persistFinancialModelSnapshots(
-    context: LifecycleContext,
     caseId: string,
     organizationId: string,
-    analysis: TargetAnalysis,
+    analysis: TargetAnalysis
   ): Promise<void> {
     try {
-      // Prefer the request-scoped RLS client injected by the API layer.
-      // service-role:justified fallback for background agent runs without a request JWT
-      const supabase = context.supabaseClient ?? createServiceRoleSupabaseClient();
+      const supabase = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified agent snapshot persistence scoped to organization_id",
+      });
       const snapshots = analysis.financial_model_inputs.map((input, idx) => ({
         id: `fms_${Date.now()}_${idx}`,
         case_id: caseId,
         organization_id: organizationId,
-        snapshot_type: 'target_agent_output',
+        snapshot_type: "target_agent_output",
         hypothesis_id: input.hypothesis_id,
         category: input.category,
         baseline_value: input.baseline_value,
@@ -665,23 +774,23 @@ export class TargetAgent extends BaseAgent {
       }));
 
       const { error } = await supabase
-        .from('financial_model_snapshots')
+        .from("financial_model_snapshots")
         .insert(snapshots);
 
       if (error) {
-        logger.warn('Failed to persist financial model snapshots', {
+        logger.warn("Failed to persist financial model snapshots", {
           case_id: caseId,
           error: error.message,
         });
       } else {
-        logger.info('Persisted financial model snapshots', {
+        logger.info("Persisted financial model snapshots", {
           case_id: caseId,
           snapshot_count: snapshots.length,
         });
       }
     } catch (err) {
       // Non-fatal: log and continue
-      logger.error('Failed to persist financial model snapshots', {
+      logger.error("Failed to persist financial model snapshots", {
         case_id: caseId,
         error: (err as Error).message,
       });
@@ -695,14 +804,14 @@ export class TargetAgent extends BaseAgent {
   private async persistValueTree(
     caseId: string,
     organizationId: string,
-    tree: Array<z.infer<typeof ValueDriverSchema>>,
+    tree: Array<z.infer<typeof ValueDriverSchema>>
   ): Promise<void> {
     const nodes: ValueTreeNodeWrite[] = [];
 
     const flatten = (
       items: Array<z.infer<typeof ValueDriverSchema>>,
       parentKey: string | undefined,
-      depth: number,
+      depth: number
     ): void => {
       items.forEach((node, idx) => {
         nodes.push({
@@ -726,7 +835,7 @@ export class TargetAgent extends BaseAgent {
     try {
       const repo = new ValueTreeRepository();
       await repo.replaceNodesForCase(caseId, organizationId, nodes);
-      logger.info('TargetAgent: persisted value tree', {
+      logger.info("TargetAgent: persisted value tree", {
         case_id: caseId,
         organization_id: organizationId,
         node_count: nodes.length,
@@ -736,37 +845,43 @@ export class TargetAgent extends BaseAgent {
       // trace every value tree entry back to the TargetAgent run that produced it.
       const tracker = getProvenanceTracker(organizationId);
       const provenanceResults = await Promise.allSettled(
-        nodes.map((node) =>
+        nodes.map(node =>
           tracker.record({
             valueCaseId: caseId,
             claimId: node.node_key,
-            dataSource: 'TargetAgent:value_driver_tree',
+            dataSource: "TargetAgent:value_driver_tree",
             evidenceTier: 2, // Internal analysis — Tier 2 per EvidenceTiering classification
             agentId: this.name,
             agentVersion: this.version,
             confidenceScore: 0.7, // Default; overridden by ConfidenceScorer in IntegrityAgent
-          }),
-        ),
+          })
+        )
       );
 
       const failedProvenance = provenanceResults.filter(
-        (result): result is PromiseRejectedResult => result.status === 'rejected',
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected"
       );
 
       if (failedProvenance.length > 0) {
-        logger.warn('TargetAgent: failed to record provenance for some value tree nodes', {
-          case_id: caseId,
-          organization_id: organizationId,
-          node_count: nodes.length,
-          failed_count: failedProvenance.length,
-          sample_errors: failedProvenance.slice(0, 3).map((r) =>
-            r.reason instanceof Error ? r.reason.message : String(r.reason),
-          ),
-        });
+        logger.warn(
+          "TargetAgent: failed to record provenance for some value tree nodes",
+          {
+            case_id: caseId,
+            organization_id: organizationId,
+            node_count: nodes.length,
+            failed_count: failedProvenance.length,
+            sample_errors: failedProvenance
+              .slice(0, 3)
+              .map(r =>
+                r.reason instanceof Error ? r.reason.message : String(r.reason)
+              ),
+          }
+        );
       }
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
-      logger.error('TargetAgent: failed to persist value tree', {
+      logger.error("TargetAgent: failed to persist value tree", {
         case_id: caseId,
         error: (err as Error).message,
       });
@@ -785,13 +900,13 @@ export class TargetAgent extends BaseAgent {
   private async writeKpisToGraph(
     kpis: KPIDefinition[],
     causalResults: CausalTrace[],
-    context: LifecycleContext,
+    context: LifecycleContext
   ): Promise<void> {
-    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
     if (!opportunityId) return;
 
     const organizationId = context.organization_id;
-    const safeCtx = { opportunityId, organizationId, agentName: 'TargetAgent' };
+    const safeCtx = { opportunityId, organizationId, agentName: "TargetAgent" };
     const vgs = this.valueGraphService ?? defaultValueGraphService;
 
     for (let i = 0; i < kpis.length; i++) {
@@ -800,48 +915,51 @@ export class TargetAgent extends BaseAgent {
 
       try {
         // 1. Upsert VgMetric node
-        const metric = await this.graphWriter['safeWrite'](
-          () => vgs.writeMetric({
-            opportunity_id: opportunityId,
-            organization_id: organizationId,
-            name: kpi.name,
-            unit: mapUnitToVgMetricUnit(kpi.unit),
-            baseline_value: kpi.baseline.value,
-            target_value: kpi.target.value,
-            impact_timeframe_months: kpi.target.timeframe_months,
-          }),
-          safeCtx,
+        const metric = await this.graphWriter["safeWrite"](
+          () =>
+            vgs.writeMetric({
+              opportunity_id: opportunityId,
+              organization_id: organizationId,
+              name: kpi.name,
+              unit: mapUnitToVgMetricUnit(kpi.unit),
+              baseline_value: kpi.baseline.value,
+              target_value: kpi.target.value,
+              impact_timeframe_months: kpi.target.timeframe_months,
+            }),
+          safeCtx
         );
         if (!metric) continue;
 
         // 2. Look up or create a VgValueDriver for this KPI's category
         const driverType = mapCategoryToValueDriverType(kpi.category);
-        const driver = await this.graphWriter['safeWrite'](
-          () => vgs.writeValueDriver({
-            opportunity_id: opportunityId,
-            organization_id: organizationId,
-            type: driverType,
-            name: kpi.name,
-            description: kpi.description,
-          }),
-          safeCtx,
+        const driver = await this.graphWriter["safeWrite"](
+          () =>
+            vgs.writeValueDriver({
+              opportunity_id: opportunityId,
+              organization_id: organizationId,
+              type: driverType,
+              name: kpi.name,
+              description: kpi.description,
+            }),
+          safeCtx
         );
         if (!driver) continue;
 
         // 3. Write target_quantifies_driver edge: VgMetric → VgValueDriver
-        await this.graphWriter['safeWrite'](
-          () => vgs.writeEdge({
-            opportunity_id: opportunityId,
-            organization_id: organizationId,
-            from_entity_type: 'vg_metric',
-            from_entity_id: metric.id,
-            to_entity_type: 'vg_value_driver',
-            to_entity_id: driver.id,
-            edge_type: 'target_quantifies_driver',
-            confidence_score: causal?.confidence ?? kpi.target.confidence,
-            created_by_agent: 'TargetAgent',
-          }),
-          safeCtx,
+        await this.graphWriter["safeWrite"](
+          () =>
+            vgs.writeEdge({
+              opportunity_id: opportunityId,
+              organization_id: organizationId,
+              from_entity_type: "vg_metric",
+              from_entity_id: metric.id,
+              to_entity_type: "vg_value_driver",
+              to_entity_id: driver.id,
+              edge_type: "target_quantifies_driver",
+              confidence_score: causal?.confidence ?? kpi.target.confidence,
+              created_by_agent: "TargetAgent",
+            }),
+          safeCtx
         );
       } catch {
         // Per-KPI isolation: log via safeWrite above; continue to next KPI

@@ -9,14 +9,19 @@
 import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
 
-import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
-import { reasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import { AgentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
+import { ReasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import { createWorkerServiceSupabaseClient } from "../../../lib/supabase/privileged/index.js";
 import { getTracer } from "../../../config/telemetry.js";
 import type { ReasoningTraceWrite } from "@valueos/shared";
 import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
 import type { AgentType } from "../../../services/agent-types.js";
 import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
-import { type ToolExecutionContext, toolRegistry, type ToolResult } from "../../../services/tools/ToolRegistry.js";
+import {
+  type ToolExecutionContext,
+  toolRegistry,
+  type ToolResult,
+} from "../../../services/tools/ToolRegistry.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -28,7 +33,11 @@ import type {
   LifecycleStage,
   PromptVersionReference,
 } from "../../../types/agent.js";
-import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
+import {
+  canUseTool,
+  createAgentIdentity,
+  PermissionDeniedError,
+} from "../../auth/AgentIdentity.js";
 import { logger } from "../../logger.js";
 import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import { AuditLogger } from "../AuditLogger.js";
@@ -116,6 +125,31 @@ export abstract class BaseAgent {
   protected valueGraphService: ValueGraphService;
   // Prompt version references set during execution, included in output metadata.
   protected _promptVersionRefs: PromptVersionReference[] = [];
+  // Lazy-initialised repos (created with a privileged client per-agent instance).
+  private _lineageRepo: AgentExecutionLineageRepository | null = null;
+  private _traceRepo: ReasoningTraceRepository | null = null;
+
+  private get lineageRepo(): AgentExecutionLineageRepository {
+    if (!this._lineageRepo) {
+      const db = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified BaseAgent writes execution lineage rows",
+      });
+      this._lineageRepo = new AgentExecutionLineageRepository(db);
+    }
+    return this._lineageRepo;
+  }
+
+  private get traceRepo(): ReasoningTraceRepository {
+    if (!this._traceRepo) {
+      const db = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified BaseAgent writes reasoning trace rows",
+      });
+      this._traceRepo = new ReasoningTraceRepository(db);
+    }
+    return this._traceRepo;
+  }
 
   constructor(
     config: AgentConfig,
@@ -298,11 +332,13 @@ export abstract class BaseAgent {
 
     // Check if existing evidence links cover all numeric values
     const existingEvidence = result.metadata?.evidence_links || [];
-    const missingEvidence = numericValues.filter(value =>
-      !existingEvidence.some(evidence =>
-        evidence.metric_key === value.key &&
-        evidence.metric_value === value.value
-      )
+    const missingEvidence = numericValues.filter(
+      value =>
+        !existingEvidence.some(
+          evidence =>
+            evidence.metric_key === value.key &&
+            evidence.metric_value === value.value
+        )
     );
 
     if (missingEvidence.length > 0) {
@@ -321,8 +357,8 @@ export abstract class BaseAgent {
 
       throw new EvidenceMappingError(
         `Agent ${this.name} produced ${missingEvidence.length} numeric value(s) without required evidence links. ` +
-        `Missing evidence for: ${missingEvidence.map(v => `${v.key}=${v.value}`).join(', ')}. ` +
-        `All financial and quantitative outputs must be backed by evidence sources for compliance.`
+          `Missing evidence for: ${missingEvidence.map(v => `${v.key}=${v.value}`).join(", ")}. ` +
+          `All financial and quantitative outputs must be backed by evidence sources for compliance.`
       );
     }
 
@@ -332,20 +368,26 @@ export abstract class BaseAgent {
   /**
    * Recursively extract all numeric values from agent result for evidence validation.
    */
-  private extractNumericValues(obj: unknown, path: string = ''): Array<{key: string, value: number, path: string}> {
-    const numericValues: Array<{key: string, value: number, path: string}> = [];
+  private extractNumericValues(
+    obj: unknown,
+    path: string = ""
+  ): Array<{ key: string; value: number; path: string }> {
+    const numericValues: Array<{ key: string; value: number; path: string }> =
+      [];
 
-    if (typeof obj === 'number' && isFinite(obj)) {
+    if (typeof obj === "number" && isFinite(obj)) {
       numericValues.push({
-        key: path || 'value',
+        key: path || "value",
         value: obj,
-        path
+        path,
       });
     } else if (Array.isArray(obj)) {
       obj.forEach((item, index) => {
-        numericValues.push(...this.extractNumericValues(item, `${path}[${index}]`));
+        numericValues.push(
+          ...this.extractNumericValues(item, `${path}[${index}]`)
+        );
       });
-    } else if (obj && typeof obj === 'object') {
+    } else if (obj && typeof obj === "object") {
       Object.entries(obj).forEach(([key, value]) => {
         const currentPath = path ? `${path}.${key}` : key;
         numericValues.push(...this.extractNumericValues(value, currentPath));
@@ -407,7 +449,11 @@ export abstract class BaseAgent {
       !this._agentIdentity ||
       Date.now() >= new Date(this._agentIdentity.expires_at).getTime()
     ) {
-      this._agentIdentity = createAgentIdentity(this.name, this.name, this.organizationId);
+      this._agentIdentity = createAgentIdentity(
+        this.name,
+        this.name,
+        this.organizationId
+      );
     }
     return this._agentIdentity;
   }
@@ -504,7 +550,9 @@ export abstract class BaseAgent {
     // Kill switch — admin can disable an agent at runtime without a deploy.
     // Fails open: if Redis is unavailable the check returns false and execution proceeds.
     if (await agentKillSwitchService.isKilled(this.name)) {
-      throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
+      throw new Error(
+        `Agent ${this.name} is currently disabled by kill switch`
+      );
     }
 
     // Create an OTel span for this agent invocation so traces include
@@ -515,12 +563,13 @@ export abstract class BaseAgent {
       {
         attributes: {
           "agent.name": this.name,
-          "agent.lifecycle_stage": (options.context?.["lifecycle_stage"] as string) ?? "unknown",
-          "tenant_id": this.organizationId ?? "unknown",
-          "session_id": sessionId,
+          "agent.lifecycle_stage":
+            (options.context?.["lifecycle_stage"] as string) ?? "unknown",
+          tenant_id: this.organizationId ?? "unknown",
+          session_id: sessionId,
         },
       },
-      async (agentSpan) => {
+      async agentSpan => {
         // End the OTel span after the circuit breaker resolves or rejects.
         // circuitBreaker.execute() is inside the try so a synchronous throw
         // (e.g. circuit open) is also caught and the span is always closed.
@@ -538,7 +587,9 @@ export abstract class BaseAgent {
                   : sessionId;
 
             // Sanitize context before injecting into the LLM request — removes PII/secret fields.
-            const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
+            const sanitizedContext = sanitizeForAgent(
+              context as Record<string, unknown>
+            );
 
             const request = {
               messages: [{ role: "user" as const, content: prompt }],
@@ -579,7 +630,8 @@ export abstract class BaseAgent {
                 content: response.content,
               });
               throw new Error(
-                "LLM response was not valid JSON: " + BaseAgent.getErrorMessage(err)
+                "LLM response was not valid JSON: " +
+                  BaseAgent.getErrorMessage(err)
               );
             }
             const parsed = zodSchema.parse(parsedJson);
@@ -658,7 +710,7 @@ export abstract class BaseAgent {
             });
 
             // Append execution lineage row (non-blocking — failure must not propagate).
-            void agentExecutionLineageRepository
+            void this.lineageRepo
               .appendLineage({
                 session_id: sessionId,
                 agent_name: this.name,
@@ -702,7 +754,7 @@ export abstract class BaseAgent {
               token_usage: tokenUsage ?? null,
             };
 
-            void reasoningTraceRepository
+            void this.traceRepo
               .create(reasoningTracePayload)
               .catch((err: unknown) => {
                 logger.warn("secureInvoke: reasoning trace write failed", {
@@ -727,14 +779,16 @@ export abstract class BaseAgent {
           agentSpan.setStatus({ code: SpanStatusCode.OK });
           return result;
         } catch (err) {
-          agentSpan.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+          agentSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (err as Error).message,
+          });
           throw err;
         } finally {
           agentSpan.end();
         }
       }
     );
-
   }
 
   // -------------------------------------------------------------------------
@@ -1080,13 +1134,13 @@ export abstract class BaseAgent {
     links: EvidenceLink[]
   ): void {
     const numericPaths = extractNumericPaths(result);
-    const evidencePaths = new Set(links.map((l) => l.path));
+    const evidencePaths = new Set(links.map(l => l.path));
 
-    const missing = numericPaths.filter((p) => !evidencePaths.has(p));
+    const missing = numericPaths.filter(p => !evidencePaths.has(p));
     if (missing.length > 0) {
       throw new Error(
         `S2-1: Missing evidence for numeric values at paths: ${missing.join(", ")}. ` +
-        `All financial calculations require evidence links for auditability.`
+          `All financial calculations require evidence links for auditability.`
       );
     }
   }
@@ -1116,7 +1170,7 @@ export abstract class BaseAgent {
     // Default implementation: look for evidence in the reasoning trace
     // Subclasses can override for custom evidence sources
     try {
-      const trace = await reasoningTraceRepository.getByTraceId(
+      const trace = await this.traceRepo.getByTraceId(
         traceId,
         this.organizationId // Tenant isolation: scoped to agent's organization
       );
@@ -1127,7 +1181,8 @@ export abstract class BaseAgent {
             const evidence = JSON.parse(e);
             return (
               evidence.path === path ||
-              (evidence.value !== undefined && Math.abs(evidence.value - value) < 0.01)
+              (evidence.value !== undefined &&
+                Math.abs(evidence.value - value) < 0.01)
             );
           } catch {
             // Malformed evidence entry, skip it
@@ -1139,7 +1194,9 @@ export abstract class BaseAgent {
             const parsed = JSON.parse(matchingEvidence);
             return {
               reference: parsed.reference || `trace:${traceId}`,
-              description: parsed.description || `Evidence from reasoning trace ${traceId}`,
+              description:
+                parsed.description ||
+                `Evidence from reasoning trace ${traceId}`,
             };
           } catch {
             // Malformed matching evidence, fall through to defaults
@@ -1152,10 +1209,24 @@ export abstract class BaseAgent {
 
     // For financial values, require explicit evidence
     const financialPaths = [
-      "value", "roi", "npv", "irr", "payback", "savings", "cost", "benefit",
-      "revenue", "margin", "ebitda", "capex", "opex", "tcv", "arr", "mrr"
+      "value",
+      "roi",
+      "npv",
+      "irr",
+      "payback",
+      "savings",
+      "cost",
+      "benefit",
+      "revenue",
+      "margin",
+      "ebitda",
+      "capex",
+      "opex",
+      "tcv",
+      "arr",
+      "mrr",
     ];
-    const isFinancial = financialPaths.some((fp) =>
+    const isFinancial = financialPaths.some(fp =>
       path.toLowerCase().includes(fp)
     );
 
