@@ -248,13 +248,13 @@ export function useIntegrations() {
           return prev.filter((item) => item.provider !== providerId);
         }
 
-        if (!existing) {
-          return [...prev, updatedConnection];
+        if (existingIndex >= 0) {
+          const clone = [...prev];
+          clone[existingIndex] = { ...clone[existingIndex], ...updatedConnection };
+          return clone;
         }
 
-        const next = [...prev];
-        next[existingIndex] = { ...existing, ...updatedConnection };
-        return next;
+        return [...prev, updatedConnection];
       });
     },
     []
