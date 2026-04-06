@@ -119,20 +119,15 @@ describe('POST /api/onboarding/suggestions/bulk-accept (Performance Baseline)', 
       from: fromMock,
     } as any);
 
-    const startTime = performance.now();
-
     const response = await request(app)
       .post('/api/onboarding/suggestions/bulk-accept')
       .send({ ids });
 
-    const endTime = performance.now();
-
     expect(response.status).toBe(200);
     expect(response.body.data.accepted).toBe(numItems);
 
-    // Check how many times the select API was called (baseline: N times, optimized: 1 time)
-    console.log(`Execution time: ${endTime - startTime}ms`);
-    console.log(`Select single fetch called ${singleMock.mock.calls.length} times`);
+    // Assert query behavior directly instead of relying on timing/logging.
+    expect(inMock).toHaveBeenCalledTimes(1);
     expect(singleMock).toHaveBeenCalledTimes(0);
   });
 });
