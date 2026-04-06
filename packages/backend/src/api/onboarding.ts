@@ -350,7 +350,7 @@ router.post(
         return res.status(500).json({ error: 'Internal server error' });
       }
 
-      const suggestionsMap = new Map();
+      const suggestionsMap = new Map<string, NonNullable<typeof fetchedSuggestions>[number]>();
       for (const suggestion of fetchedSuggestions ?? []) {
         suggestionsMap.set(suggestion.id, suggestion);
       }
