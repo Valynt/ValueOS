@@ -24,16 +24,13 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noEmit": true,
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "types": [
       "node"
     ],
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    }
+    "typeRoots": [
+      "../../node_modules/@types"
+    ]
   },
   "include": [
     "src/**/*"

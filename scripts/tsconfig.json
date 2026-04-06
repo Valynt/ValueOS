@@ -1,27 +1,11 @@
 {
-  // Standalone tsconfig for the aging scripts/ directory.  It intentionally
-  // does *not* extend the root config because the parent includes `src`
-  // and `packages/*/src`, causing `pnpm run typecheck:scripts` to check
-  // the entire repo instead of just the scripts tree.
+  // Keep the scripts project scoped to this tree while inheriting the root
+  // TypeScript defaults and workspace-level type resolution.
+  "extends": "../tsconfig.app.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "noEmit": true,
     "allowJs": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "../src/*"
-      ]
-    },
-    "types": [
-      "node",
-      "vitest"
-    ]
+    "skipLibCheck": true,
+    "noEmit": true
   },
   "include": [
     "**/*"

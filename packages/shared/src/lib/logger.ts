@@ -13,7 +13,7 @@
  * - Prevents sensitive data leakage
  *
  * USAGE:
- *   import { logger } from '@/lib/logger';
+ *   import { logger } from './logger.js';
  *   logger.info('User action', { userId: '123', action: 'login' });
  *   logger.error('Operation failed', error, { context: data });
  */
@@ -88,7 +88,9 @@ class Logger {
    */
   debug(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
     this.log("debug", message, sanitizedContext);
   }
 
@@ -97,7 +99,9 @@ class Logger {
    */
   info(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
     this.log("info", message, sanitizedContext);
   }
 
@@ -105,22 +109,38 @@ class Logger {
    * Log a warning message (with automatic PII sanitization)
    */
   warn(message: string, contextOrError?: LogContext | Error): void {
-    const context = contextOrError instanceof Error
-      ? { error: contextOrError.message, stack: contextOrError.stack } as LogContext
-      : contextOrError;
+    const context =
+      contextOrError instanceof Error
+        ? ({
+            error: contextOrError.message,
+            stack: contextOrError.stack,
+          } as LogContext)
+        : contextOrError;
     validateLogMessage(message, context);
-    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
+    const sanitizedContext = context
+      ? (sanitizeForLogging(context) as LogContext)
+      : undefined;
     this.log("warn", message, sanitizedContext);
   }
 
   /**
    * Log an error message (with automatic PII sanitization)
    */
-  error(message: string, errorOrContext?: Error | LogContext, context?: LogContext): void {
-    const actualError = errorOrContext instanceof Error ? errorOrContext : undefined;
-    const actualContext = errorOrContext instanceof Error ? context : (errorOrContext as LogContext | undefined);
+  error(
+    message: string,
+    errorOrContext?: Error | LogContext,
+    context?: LogContext
+  ): void {
+    const actualError =
+      errorOrContext instanceof Error ? errorOrContext : undefined;
+    const actualContext =
+      errorOrContext instanceof Error
+        ? context
+        : (errorOrContext as LogContext | undefined);
     validateLogMessage(message, actualContext);
-    const sanitizedContext = actualContext ? (sanitizeForLogging(actualContext) as LogContext) : undefined;
+    const sanitizedContext = actualContext
+      ? (sanitizeForLogging(actualContext) as LogContext)
+      : undefined;
     const sanitizedError = actualError ? sanitizeError(actualError) : undefined;
     this.log("error", message, {
       ...sanitizedContext,
@@ -141,7 +161,11 @@ class Logger {
   /**
    * Core logging method
    */
-  private log(level: LogLevel, message: string, context?: LogContext & { error?: Error }): void {
+  private log(
+    level: LogLevel,
+    message: string,
+    context?: LogContext & { error?: Error }
+  ): void {
     if (!this.shouldLog(level)) {
       return;
     }
@@ -172,7 +196,7 @@ class Logger {
     }
 
     // Notify listeners (for monitoring services)
-    this.listeners.forEach((listener) => {
+    this.listeners.forEach(listener => {
       try {
         listener(entry);
       } catch (err) {
@@ -270,14 +294,23 @@ export const logger = new Logger();
 
 // Export convenience functions
 export const log = {
-  debug: (message: string, context?: LogContext) => logger.debug(message, context),
-  info: (message: string, context?: LogContext) => logger.info(message, context),
-  warn: (message: string, contextOrError?: LogContext | Error) => logger.warn(message, contextOrError),
-  error: (message: string, errorOrContext?: Error | LogContext, context?: LogContext) =>
+  debug: (message: string, context?: LogContext) =>
+    logger.debug(message, context),
+  info: (message: string, context?: LogContext) =>
+    logger.info(message, context),
+  warn: (message: string, contextOrError?: LogContext | Error) =>
+    logger.warn(message, contextOrError),
+  error: (
+    message: string,
+    errorOrContext?: Error | LogContext,
+    context?: LogContext
+  ) =>
     logger.error(
       message,
       errorOrContext instanceof Error ? errorOrContext : undefined,
-      errorOrContext instanceof Error ? context : (errorOrContext as LogContext | undefined),
+      errorOrContext instanceof Error
+        ? context
+        : (errorOrContext as LogContext | undefined)
     ),
 };
 
@@ -292,12 +325,26 @@ export function createLogger(defaultContext: LogContext) {
     info: (message: string, context?: LogContext) =>
       logger.info(message, { ...sanitizedDefault, ...context }),
     warn: (message: string, contextOrError?: LogContext | Error) =>
-      logger.warn(message, contextOrError instanceof Error ? contextOrError : { ...sanitizedDefault, ...contextOrError }),
-    error: (message: string, errorOrContext?: Error | LogContext, context?: LogContext) =>
+      logger.warn(
+        message,
+        contextOrError instanceof Error
+          ? contextOrError
+          : { ...sanitizedDefault, ...contextOrError }
+      ),
+    error: (
+      message: string,
+      errorOrContext?: Error | LogContext,
+      context?: LogContext
+    ) =>
       logger.error(
         message,
         errorOrContext instanceof Error ? errorOrContext : undefined,
-        { ...sanitizedDefault, ...(errorOrContext instanceof Error ? context : (errorOrContext as LogContext | undefined)) },
+        {
+          ...sanitizedDefault,
+          ...(errorOrContext instanceof Error
+            ? context
+            : (errorOrContext as LogContext | undefined)),
+        }
       ),
   };
 }
@@ -324,7 +371,8 @@ export const secureLog = {
    * Log errors with automatic sanitization
    */
   error: (message: string, error: unknown, context?: LogContext) => {
-    const sanitizedError = error instanceof Error ? error : new Error(String(error));
+    const sanitizedError =
+      error instanceof Error ? error : new Error(String(error));
     logger.error(message, sanitizedError, context);
   },
 };

@@ -49,6 +49,7 @@ Do not treat ValueOS as only a sales assistant.
 ### Rejection Criteria
 
 A file, prompt, workflow, or agent behavior is **off-intent** if it:
+
 - Treats ValueOS as just a sales copilot or generic workflow automation
 - Generates ROI claims without assumptions or support
 - Produces polished narrative without model traceability
@@ -79,7 +80,10 @@ Every database query MUST include `organization_id` or `tenant_id`. Every vector
 ```typescript
 // ✅
 await supabase.from("workflows").select("*").eq("organization_id", orgId);
-await memorySystem.query(embedding, { metadata: { tenant_id: orgId }, limit: 10 });
+await memorySystem.query(embedding, {
+  metadata: { tenant_id: orgId },
+  limit: 10,
+});
 
 // ❌ Data leak
 await supabase.from("workflows").select("*");
@@ -92,13 +96,13 @@ Validate with: `pnpm run test:rls`
 
 All public-schema tables are classified in `docs/db/rls-coverage-audit.md`. The five valid classifications are:
 
-| Classification | Meaning | RLS requirement |
-|---|---|---|
-| `tenant_scoped` | Rows belong to a single tenant | `USING (tenant_id = auth.uid()...)` or equivalent |
-| `service_only` | Written/read exclusively by service-role workers | RLS enabled + no anon/user policies (service_role bypasses) |
-| `own_row` | Users may only access their own row | `USING (user_id = auth.uid())` |
-| `public_read` | Read-only reference data, no PII | SELECT policy open; INSERT/UPDATE/DELETE blocked |
-| `partition_child` | Inherits policy from parent partition table | Parent table carries the RLS policy |
+| Classification    | Meaning                                          | RLS requirement                                             |
+| ----------------- | ------------------------------------------------ | ----------------------------------------------------------- |
+| `tenant_scoped`   | Rows belong to a single tenant                   | `USING (tenant_id = auth.uid()...)` or equivalent           |
+| `service_only`    | Written/read exclusively by service-role workers | RLS enabled + no anon/user policies (service_role bypasses) |
+| `own_row`         | Users may only access their own row              | `USING (user_id = auth.uid())`                              |
+| `public_read`     | Read-only reference data, no PII                 | SELECT policy open; INSERT/UPDATE/DELETE blocked            |
+| `partition_child` | Inherits policy from parent partition table      | Parent table carries the RLS policy                         |
 
 Every new `CREATE TABLE` migration must declare a classification comment and add the appropriate RLS policy. The CI gate (`scripts/ci/check-migration-rls-required.sh`) rejects migrations that create tables without an RLS policy or a `-- rls-exempt: <reason>` annotation.
 
@@ -111,6 +115,7 @@ All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSche
 `service_role` bypasses RLS. Use it only for: AuthService, tenant provisioning, cron jobs.
 
 Allowed backend directories for service-role call sites:
+
 - `packages/backend/src/lib/supabase/privileged/` (privileged client factories only)
 - `packages/backend/src/services/auth/`
 - `packages/backend/src/services/tenant/`
@@ -119,8 +124,9 @@ Allowed backend directories for service-role call sites:
 - `scripts/jobs/`
 
 Required annotation for every service-role call site:
+
 - Pass an explicit justification literal with the form
-  ``justification: "service-role:justified <reason>"``.
+  `justification: "service-role:justified <reason>"`.
 - Example:
   `createAuthProvisioningSupabaseClient({ justification: "service-role:justified admin user bootstrap" })`.
 
@@ -138,7 +144,7 @@ Block any operation that copies, moves, or exports data between tenants.
 ```typescript
 // ✅
 const tenantId = req.tenantId;
-const userId   = req.user?.id;
+const userId = req.user?.id;
 
 // ❌
 const tenantId = (req as any).tenantId;
@@ -151,6 +157,7 @@ Declared properties: `user`, `tenantId`, `tenantSource`, `tenantContext`, `tenan
 Location: `packages/backend/src/lib/agent-fabric/agents/` — one class per file, named `XAgent.ts`.
 
 Requirements:
+
 - Extend `BaseAgent`
 - Define `lifecycleStage`, `version`, `name`
 - Use Zod schemas for LLM responses; include `hallucination_check: boolean`
@@ -180,13 +187,13 @@ Full specification: `packages/backend/src/lib/agent-fabric/hardening/HARDENING.m
 
 Declare a risk tier when instantiating `HardenedAgentRunner`. The tier selects the `accept`/`review`/`block` thresholds applied to the output's confidence score:
 
-| Tier | accept | review | block | Use for |
-|---|---|---|---|---|
-| `financial` | 0.75 | 0.60 | 0.40 | ROI models, cost/revenue claims, financial hypotheses |
-| `commitment` | 0.70 | 0.55 | 0.35 | Proposals, contracts, external commitments |
-| `compliance` | 0.80 | 0.65 | 0.45 | Audit outputs, regulatory claims |
-| `narrative` | 0.65 | 0.50 | 0.30 | Business narratives, executive summaries |
-| `discovery` | 0.55 | 0.40 | 0.25 | Hypothesis generation, opportunity identification |
+| Tier         | accept | review | block | Use for                                               |
+| ------------ | ------ | ------ | ----- | ----------------------------------------------------- |
+| `financial`  | 0.75   | 0.60   | 0.40  | ROI models, cost/revenue claims, financial hypotheses |
+| `commitment` | 0.70   | 0.55   | 0.35  | Proposals, contracts, external commitments            |
+| `compliance` | 0.80   | 0.65   | 0.45  | Audit outputs, regulatory claims                      |
+| `narrative`  | 0.65   | 0.50   | 0.30  | Business narratives, executive summaries              |
+| `discovery`  | 0.55   | 0.40   | 0.25  | Hypothesis generation, opportunity identification     |
 
 - `score >= accept` → output approved and released.
 - `review <= score < accept` → output held in the HITL approval queue.
@@ -195,29 +202,31 @@ Declare a risk tier when instantiating `HardenedAgentRunner`. The tier selects t
 ### Minimum pattern for a hardened agent
 
 ```typescript
-import { HardenedAgentRunner, buildRequestEnvelope } from
-  '../hardening/index.js';
+import {
+  HardenedAgentRunner,
+  buildRequestEnvelope,
+} from "../hardening/index.js";
 
 const runner = new HardenedAgentRunner({
-  agentName:      'FinancialModelingAgent',
-  agentVersion:   '1.0.0',
-  lifecycleStage: 'MODELING',
+  agentName: "FinancialModelingAgent",
+  agentVersion: "1.0.0",
+  lifecycleStage: "MODELING",
   organizationId: orgId,
-  allowedTools:   new Set(['memory_query', 'benchmark_lookup']),
-  riskTier:       'financial',
+  allowedTools: new Set(["memory_query", "benchmark_lookup"]),
+  riskTier: "financial",
   integrityVetoService: deps.integrityVetoService,
-  hitlPort:             deps.hitlPort,
+  hitlPort: deps.hitlPort,
 });
 
 const result = await runner.run(
   buildRequestEnvelope(sessionId, userId, orgId),
   context,
-  (ctx) => agent.execute(ctx),
+  ctx => agent.execute(ctx),
   {
-    prompt:                 buildPrompt(context),
-    outputSchema:           FinancialModelOutputSchema,  // Zod schema required
-    requiresIntegrityVeto:  true,
-    requiresHumanApproval:  false,
+    prompt: buildPrompt(context),
+    outputSchema: FinancialModelOutputSchema, // Zod schema required
+    requiresIntegrityVeto: true,
+    requiresHumanApproval: false,
   }
 );
 // result.output is typed and validated
@@ -229,12 +238,14 @@ const result = await runner.run(
 Every hardened agent must declare a `z.ZodObject` output schema. For agents in the `financial` or `commitment` tiers, the schema must include `evidence_links` on any field that carries a numeric value:
 
 ```typescript
-const evidence_links = z.array(z.object({
-  metric_key:   z.string(),
-  metric_value: z.number(),
-  source:       z.string(),
-  source_date:  z.string().optional(),
-}));
+const evidence_links = z.array(
+  z.object({
+    metric_key: z.string(),
+    metric_value: z.number(),
+    source: z.string(),
+    source_date: z.string().optional(),
+  })
+);
 ```
 
 This enforces the CFO-defensibility invariant at the schema level. Outputs that omit evidence links for numeric claims are rejected before governance runs.
@@ -295,6 +306,7 @@ Before treating two same-named files as duplicates, read both. If they serve dif
 When a service file exceeds ~1000 lines, extract cohesive sub-concerns into separate files. The original file re-exports everything so callers need no import changes.
 
 Canonical locations for extracted modules:
+
 - Tenant tier limits and feature flags → `packages/backend/src/services/tenant/TenantLimits.ts`
 - SDUI atomic action application → `packages/backend/src/services/sdui/CanvasActionApplier.ts`
 - Agent retry/resilience types → `packages/backend/src/services/agents/resilience/AgentRetryTypes.ts`
@@ -327,19 +339,20 @@ node scripts/dx/doctor.js
 
 ## Dev Container
 
-| File | Purpose |
-|---|---|
-| `.devcontainer/Dockerfile` | Custom image: OS packages, Node, pnpm, kubectl, terraform |
-| `.devcontainer/devcontainer.json` | Build args (with SHA256s), forwarded ports, VS Code extensions |
-| `.devcontainer/versions.json` | Single source of truth for all pinned tool versions |
+| File                                 | Purpose                                                        |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `.devcontainer/Dockerfile`           | Custom image: OS packages, Node, pnpm, kubectl, terraform      |
+| `.devcontainer/devcontainer.json`    | Build args (with SHA256s), forwarded ports, VS Code extensions |
+| `.devcontainer/versions.json`        | Single source of truth for all pinned tool versions            |
 | `.devcontainer/scripts/bootstrap.sh` | Idempotent setup: toolchain validation, `.env`, `pnpm install` |
-| `.ona/automations.yaml` | All automation tasks and dev server services |
+| `.ona/automations.yaml`              | All automation tasks and dev server services                   |
 
 **Custom Dockerfile** (`mcr.microsoft.com/devcontainers/base:ubuntu-24.04`). Do not switch to a pre-built language image — the project requires kubectl, terraform, postgresql-client, and redis-tools that are not present in `javascript-node`. Layer order is slowest→fastest-changing: OS packages → Node.js → pnpm → infra CLIs → user setup. BuildKit cache mounts are used on all `apt-get` layers.
 
 **SHA256 verification.** Every downloaded binary (Node tarball, kubectl, terraform zip) is verified against a pinned SHA256 before installation. The hashes live in `devcontainer.json` `build.args` alongside the version strings. When upgrading a tool, update both the version and the hash.
 
 **Version source of truth hierarchy:**
+
 1. `.devcontainer/versions.json` — canonical; read by `bootstrap.sh` and `read-version.sh`
 2. `.nvmrc` — must match `versions.json` `node`
 3. `.tool-versions` — must match `versions.json` `node` and `pnpm`
@@ -348,6 +361,7 @@ node scripts/dx/doctor.js
 When bumping a version, update `versions.json` first, then propagate to the other three files and recompute the SHA256.
 
 **No lifecycle hooks in `devcontainer.json`.** `postCreateCommand`, `onCreateCommand`, and `postStartCommand` are forbidden. All setup runs through automations:
+
 - `installDeps` (`postDevcontainerStart`) — runs `bootstrap.sh`: validates toolchain versions, provisions `.env`, installs workspace dependencies with `--frozen-lockfile`, smoke-tests that `turbo` and `tsx` resolve.
 - `backend` / `frontend` services (`postEnvironmentStart`) — wait on `node_modules/.modules.yaml` before starting dev servers.
 
@@ -366,6 +380,7 @@ When bumping a version, update `versions.json` first, then propagate to the othe
 **`SUPABASE_KEY` env var:** Three files read `process.env.SUPABASE_KEY` rather than `SUPABASE_ANON_KEY` — set both to the same anon key value. If the backend crashes with `supabaseKey is required`, this var is missing.
 
 **Required env vars** (set in `ops/env/.env.backend.local`):
+
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 - `DATABASE_URL`
 - `TCT_SECRET` — backend startup fails fast if missing
@@ -403,6 +418,7 @@ Gitleaks runs on every PR (diff scan) and every push to `main` (full git history
 **Known history exposure (action required):** Real Supabase project API keys for projects `wfhdrrpijqygytvoaafc` and `bxaiabnqalurloblfwua` were committed in earlier commits. These must be rotated via the Supabase dashboard. See the rotation log for details.
 
 When adding a new allowlist entry to `.gitleaks.toml`:
+
 1. Confirm the value is not a real credential (check the rotation log).
 2. Add a comment explaining why it is a false positive.
 3. Add an entry to `docs/security-compliance/secret-rotation-log.md`.
@@ -428,28 +444,28 @@ A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityP
 
 `scripts/ci/check-infra-readiness-contract.mjs` runs in `pr-fast.yml` and `main-verify.yml`. It enforces that production-breaking gaps identified in the sign-off review have not regressed:
 
-| Check | What it verifies |
-|---|---|
-| NATS deployment | `infra/k8s/base/nats-jetstream.yaml` exists and is in kustomization |
+| Check                 | What it verifies                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| NATS deployment       | `infra/k8s/base/nats-jetstream.yaml` exists and is in kustomization                   |
 | LLMCache tenant scope | `buildLLMCacheKey` includes `tenantId`, throws when absent, no un-prefixed key format |
-| RLS test count | `pr-fast.yml` asserts ≥10 RLS tests passed (not silently skipped) |
-| UsageEmitter buffer | `failedEventsBuffer` has a drain method and is bounded |
-| BullMQ tenant context | Workers call `tenantContextStorage.run()` before processing |
+| RLS test count        | `pr-fast.yml` asserts ≥10 RLS tests passed (not silently skipped)                     |
+| UsageEmitter buffer   | `failedEventsBuffer` has a drain method and is bounded                                |
+| BullMQ tenant context | Workers call `tenantContextStorage.run()` before processing                           |
 
 ### Architecture doc / runtime drift
 
 `scripts/ci/check-architecture-doc-drift.mjs` runs in `pr-fast.yml` and `main-verify.yml`. It detects drift between `docs/AGENTS.md` claims and runtime reality:
 
-| Check | What it verifies |
-|---|---|
+| Check                    | What it verifies                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------- |
 | MessageBus (CloudEvents) | Source file exists, implements `trace_id`/`event_type` envelope, enforces `tenant_id` |
-| BullMQ | Declared in `packages/backend/package.json`, worker files exist |
-| NATS JetStream | `MeteringQueue.ts` references NATS, k8s manifest exists |
-| Agent names | Each agent named in this doc has a corresponding `*Agent.ts` source file |
-| Agent count | The `N-agent fabric` count in this doc matches the actual file count |
-| Runtime services | Each named runtime service directory exists under `packages/backend/src/runtime/` |
-| MessageBus path | The path in the Key Files table resolves to an existing file |
-| Image Dockerfiles | Each image referenced in `kustomization.yaml` has a corresponding Dockerfile |
+| BullMQ                   | Declared in `packages/backend/package.json`, worker files exist                       |
+| NATS JetStream           | `MeteringQueue.ts` references NATS, k8s manifest exists                               |
+| Agent names              | Each agent named in this doc has a corresponding `*Agent.ts` source file              |
+| Agent count              | The `N-agent fabric` count in this doc matches the actual file count                  |
+| Runtime services         | Each named runtime service directory exists under `packages/backend/src/runtime/`     |
+| MessageBus path          | The path in the Key Files table resolves to an existing file                          |
+| Image Dockerfiles        | Each image referenced in `kustomization.yaml` has a corresponding Dockerfile          |
 
 **When adding or renaming an agent:** update the agent list and count in this doc, then run `node scripts/ci/check-architecture-doc-drift.mjs` locally to verify before pushing.
 
@@ -457,13 +473,13 @@ A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityP
 
 Canonical source: **`docs/cicd/`**
 
-| Document | Purpose |
-|---|---|
-| `docs/cicd/PIPELINE.md` | Full pipeline architecture, workflow-by-workflow job specs, hard gate table |
+| Document                           | Purpose                                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `docs/cicd/PIPELINE.md`            | Full pipeline architecture, workflow-by-workflow job specs, hard gate table          |
 | `docs/cicd/DEPLOYMENT_STRATEGY.md` | Blue/green mechanics, 9-step deploy sequence, rollback procedure, environment matrix |
-| `docs/cicd/DATA_SAFETY.md` | Migration governance rules, rollback decision tree, backup validation, PITR restore |
-| `docs/cicd/RELEASE_CHECKLIST.md` | Step-by-step release checklist (Phases 1–7, PR through 24h post-deploy monitoring) |
-| `docs/cicd/GO_NO_GO.md` | Binary GO/NO-GO criteria, automated gate table, decision authority matrix |
+| `docs/cicd/DATA_SAFETY.md`         | Migration governance rules, rollback decision tree, backup validation, PITR restore  |
+| `docs/cicd/RELEASE_CHECKLIST.md`   | Step-by-step release checklist (Phases 1–7, PR through 24h post-deploy monitoring)   |
+| `docs/cicd/GO_NO_GO.md`            | Binary GO/NO-GO criteria, automated gate table, decision authority matrix            |
 
 ### Hard gate summary
 
@@ -493,28 +509,28 @@ A release that changes agent behavior must verify in staging smoke tests that `H
 
 ### New CI scripts
 
-| Script | Purpose |
-|---|---|
-| `scripts/ci/check-dependency-audit.mjs` | Fails on high/critical CVEs in `pnpm audit --json` output |
+| Script                                  | Purpose                                                          |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `scripts/ci/check-dependency-audit.mjs` | Fails on high/critical CVEs in `pnpm audit --json` output        |
 | `scripts/ci/check-trivy-thresholds.mjs` | Fails on any critical or high CVE in Trivy container scan output |
-| `scripts/ci/check-e2e-results.mjs` | Fails on any Playwright test failure or zero-test run |
+| `scripts/ci/check-e2e-results.mjs`      | Fails on any Playwright test failure or zero-test run            |
 
 ---
 
 ## Key Files
 
-| File | Purpose |
-|---|---|
-| `packages/shared/src/domain/` | Canonical domain model — 9 Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity) |
-| `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
-| `packages/backend/src/runtime/` | Six runtime services: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
-| `packages/backend/src/types/express.d.ts` | Express `Request` augmentation — extend here, never cast |
-| `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tier limits and feature flags |
-| `packages/backend/src/services/realtime/MessageBus.ts` | CloudEvents inter-agent messaging |
-| `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
-| `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `.windsurf/rules/global.md` | Safety and compliance policy |
-| `.github/CODEOWNERS` | Review routing by team |
+| File                                                        | Purpose                                                                                                                                                                |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/shared/src/domain/`                               | Canonical domain model — 9 Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity) |
+| `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class                                                                                                              |
+| `packages/backend/src/runtime/`                             | Six runtime services: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine                                             |
+| `packages/backend/src/types/express.d.ts`                   | Express `Request` augmentation — extend here, never cast                                                                                                               |
+| `packages/backend/src/services/tenant/TenantLimits.ts`      | Canonical tier limits and feature flags                                                                                                                                |
+| `packages/backend/src/services/realtime/MessageBus.ts`      | CloudEvents inter-agent messaging                                                                                                                                      |
+| `packages/backend/src/services/ToolRegistry.ts`             | Static tool registration                                                                                                                                               |
+| `packages/memory/`                                          | Persistent memory subsystem (semantic, episodic, vector, provenance)                                                                                                   |
+| `.windsurf/rules/global.md`                                 | Safety and compliance policy                                                                                                                                           |
+| `.github/CODEOWNERS`                                        | Review routing by team                                                                                                                                                 |
 
 Full file map: `.windsurf/context/traceability.md`
 
@@ -524,14 +540,14 @@ Full file map: `.windsurf/context/traceability.md`
 
 `.windsurf/context/` gives agents the right knowledge at the right time. Read before acting:
 
-| File | Read when |
-|---|---|
-| `decisions.md` | Before changing system boundaries, data flows, or agent config |
-| `debt.md` | Before sprint planning or touching files with known stubs |
-| `user-stories.md` | Before implementing a feature or writing lifecycle tests |
-| `traceability.md` | Before touching any lifecycle stage |
-| `memory.md` | Before submitting a PR touching agent code, DB queries, or UI |
-| `tools.md` | Before adding or calling a tool |
+| File              | Read when                                                      |
+| ----------------- | -------------------------------------------------------------- |
+| `decisions.md`    | Before changing system boundaries, data flows, or agent config |
+| `debt.md`         | Before sprint planning or touching files with known stubs      |
+| `user-stories.md` | Before implementing a feature or writing lifecycle tests       |
+| `traceability.md` | Before touching any lifecycle stage                            |
+| `memory.md`       | Before submitting a PR touching agent code, DB queries, or UI  |
+| `tools.md`        | Before adding or calling a tool                                |
 
 **Context file staleness:** `debt.md` is manually maintained — read the referenced file before treating a debt item as open. Re-measure `any` counts with grep before writing targets; do not trust table values as current.
 
