@@ -43,41 +43,44 @@ const DEFAULT_TTL_SECONDS = 3600;
  * ARGV[1] = the cache key suffix
  * Returns the stored value string or nil.
  */
-  private readonly LUA_GET = `
+const LUA_GET = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('GET', full_key)
 `;
 
-  /**
-   * Lua: atomically fetch the current version then SET the versioned key with TTL.
-   * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
-   * ARGV[1] = cache key suffix, ARGV[2] = serialized value, ARGV[3] = TTL seconds
-   */
-  private readonly LUA_SET = `
+/**
+ * Lua: atomically fetch the current version then SET the versioned key with TTL.
+ * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+ * ARGV[1] = cache key suffix, ARGV[2] = serialized value, ARGV[3] = TTL seconds
+ */
+const LUA_SET = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('SET', full_key, ARGV[2], 'EX', ARGV[3])
 `;
 
-  /**
-   * Lua: atomically fetch the current version then DEL the versioned key.
-   * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
-   * ARGV[1] = cache key suffix
-   */
-  private readonly LUA_DEL = `
+/**
+ * Lua: atomically fetch the current version then DEL the versioned key.
+ * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+ * ARGV[1] = cache key suffix
+ */
+const LUA_DEL = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('DEL', full_key)
 `;
 
-  private readonly LUA_INCR_VERSION = `
-return redis.call('INCR', KEYS[1])
-`;
+export class CacheService {
+  private namespace: string;
+  private defaultTtl: number;
+  private store: Map<string, unknown> = new Map();
+  private redisClient: ReturnType<typeof createClient> | null = null;
 
+  constructor(namespace = "default", defaultTtl = DEFAULT_TTL_SECONDS) {
     this.namespace = namespace;
     this.defaultTtl = defaultTtl;
     if (process.env.REDIS_URL) {
@@ -98,7 +101,7 @@ return redis.call('INCR', KEYS[1])
       // startup rather than silently serving stale or incorrect data.
       throw new Error(
         "CacheService: REDIS_URL must be set in production. " +
-        "In-memory fallback is not safe for multi-pod deployments."
+          "In-memory fallback is not safe for multi-pod deployments."
       );
     } else {
       logger.warn("cache-service-fallback-mode", {
@@ -157,10 +160,10 @@ return redis.call('INCR', KEYS[1])
   async get<T>(key: string): Promise<T | null> {
     if (this.redisClient) {
       try {
-        const raw = await this.redisClient.eval(this.LUA_GET, {
+        const raw = (await this.redisClient.eval(LUA_GET, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key],
-        }) as string | null;
+        })) as string | null;
         if (raw === null) return null;
         return JSON.parse(raw) as T;
       } catch {
@@ -181,7 +184,7 @@ return redis.call('INCR', KEYS[1])
 
     if (this.redisClient) {
       try {
-        await this.redisClient.eval(this.LUA_SET, {
+        await this.redisClient.eval(LUA_SET, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key, JSON.stringify(value), String(ttl)],
         });
@@ -198,7 +201,7 @@ return redis.call('INCR', KEYS[1])
   async delete(key: string): Promise<void> {
     if (this.redisClient) {
       try {
-        await this.redisClient.eval(this.LUA_DEL, {
+        await this.redisClient.eval(LUA_DEL, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key],
         });
@@ -272,7 +275,7 @@ return redis.call('INCR', KEYS[1])
     if (options?.storage === "redis" && this.redisClient) {
       // Use the versioned delete path so keys are resolved against the current
       // namespace version, consistent with get() and set().
-      await Promise.all(keys.map((k) => this.delete(k)));
+      await Promise.all(keys.map(k => this.delete(k)));
     } else {
       // In-memory path: keys are stored under basePrefix(), not a raw ns option.
       for (const k of keys) {

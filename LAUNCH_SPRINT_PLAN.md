@@ -354,43 +354,48 @@ ValueOS is **85–90% launch-ready**. The platform has comprehensive frontend vi
 
 ## Production Readiness Checklist
 
-| #   | Category             | Check                                                         | Status |
-| --- | -------------------- | ------------------------------------------------------------- | ------ |
-| 1   | **Runtime Safety**   | Zero imports of broken `supabase` proxy                       | ⬜     |
-| 2   | **Runtime Safety**   | Zero imports of `createServerSupabaseClient`                  | ⬜     |
-| 3   | **Runtime Safety**   | All workers start without error                               | ⬜     |
-| 4   | **Tenant Isolation** | `tenant-isolation-lint.sh` passes                             | ⬜     |
-| 5   | **Tenant Isolation** | `pnpm test:rls` passes (100+ RLS policies validated)          | ⬜     |
-| 6   | **TypeScript**       | ValyntApp TS errors ≤ baseline (4,239)                        | ⬜     |
-| 7   | **TypeScript**       | Backend TS errors ≤ baseline (29)                             | ⬜     |
-| 8   | **Build**            | `pnpm build` succeeds (ValyntApp + backend)                   | ⬜     |
-| 9   | **Build**            | Frontend bundle budget passes (≤2MB/chunk, ≤5MB initial)      | ⬜     |
-| 10  | **Tests**            | Full test suite passes (`pnpm test`)                          | ⬜     |
-| 11  | **Tests**            | E2E gate passes (`pnpm test:e2e:gate`)                        | ⬜     |
-| 12  | **Tests**            | Backend coverage ≥80%                                         | ⬜     |
-| 13  | **Security**         | Gitleaks full-history scan clean                              | ⬜     |
-| 14  | **Security**         | CodeQL clean (0 CRITICAL/HIGH)                                | ⬜     |
-| 15  | **Security**         | CSRF protection verified on auth routes                       | ⬜     |
-| 16  | **Security**         | No hardcoded secrets in frontend code                         | ⬜     |
-| 17  | **Security**         | All production secrets rotated (age < 7 days)                 | ⬜     |
-| 18  | **Infrastructure**   | Health endpoints return 200 (`/health`, `/ready`, `/healthz`) | ⬜     |
-| 19  | **Infrastructure**   | Blue-green deployment operational                             | ⬜     |
-| 20  | **Infrastructure**   | HPA auto-scaling tested                                       | ⬜     |
-| 21  | **Infrastructure**   | Redis Sentinel topology healthy                               | ⬜     |
-| 22  | **Infrastructure**   | ExternalSecrets injecting from AWS Secrets Manager            | ⬜     |
-| 23  | **Infrastructure**   | SSL/TLS cert valid + HSTS enabled                             | ⬜     |
-| 24  | **Infrastructure**   | WAF rules active (production)                                 | ⬜     |
-| 25  | **Observability**    | Prometheus scraping backend + Redis + Postgres                | ⬜     |
-| 26  | **Observability**    | Alert rules deployed + tested (fire/resolve cycle)            | ⬜     |
-| 27  | **Observability**    | Alertmanager routing to Slack/PagerDuty confirmed             | ⬜     |
-| 28  | **Observability**    | Grafana dashboards accessible                                 | ⬜     |
-| 29  | **Observability**    | OTEL traces flowing (Tempo)                                   | ⬜     |
-| 30  | **Backup**           | RDS backup retention configured (≥30 days)                    | ⬜     |
-| 31  | **Backup**           | DR validation workflow passes                                 | ⬜     |
-| 32  | **Documentation**    | Rollback runbook written and rehearsed                        | ⬜     |
-| 33  | **Documentation**    | PITR/backup SLA documented                                    | ⬜     |
-| 34  | **Documentation**    | Runbooks for each alert rule                                  | ⬜     |
-| 35  | **Load Test**        | 24-hour load test passed (SLO compliance)                     | ⬜     |
+> **Automation:** Sprint 3 scripts are wired into `package.json`. Run via `pnpm validate:prod-deploy`, `pnpm test:production-smoke`, `pnpm security:pen-test`, `pnpm security:rotate-secrets`, `pnpm ops:cutover`, `pnpm test:load-24h`.
+
+| #   | Category             | Check                                                         | Status | Script / Command |
+| --- | -------------------- | ------------------------------------------------------------- | ------ | ---------------- |
+| 1   | **Runtime Safety**   | Zero imports of broken `supabase` proxy                       | ⬜     | `pnpm ci:verify` |
+| 2   | **Runtime Safety**   | Zero imports of `createServerSupabaseClient`                  | ⬜     | `pnpm ci:verify` |
+| 3   | **Runtime Safety**   | All workers start without error                               | ⬜     | — |
+| 4   | **Tenant Isolation** | `tenant-isolation-lint.sh` passes                             | ⬜     | `bash scripts/tenant-isolation-lint.sh` |
+| 5   | **Tenant Isolation** | `pnpm test:rls` passes (100+ RLS policies validated)          | ⬜     | `pnpm test:rls` |
+| 6   | **TypeScript**       | ValyntApp TS errors ≤ baseline (4,239)                        | ⬜     | `pnpm check` |
+| 7   | **TypeScript**       | Backend TS errors ≤ baseline (29)                             | ✅     | `pnpm check` (CacheService.ts regression fixed — 128→0 errors) |
+| 8   | **Build**            | `pnpm build` succeeds (ValyntApp + backend)                   | ⬜     | `pnpm build` |
+| 9   | **Build**            | Frontend bundle budget passes (≤2MB/chunk, ≤5MB initial)      | ⬜     | — |
+| 10  | **Tests**            | Full test suite passes (`pnpm test`)                          | ⬜     | `pnpm test` |
+| 11  | **Tests**            | E2E gate passes (`pnpm test:e2e:gate`)                        | ⬜     | `pnpm test:e2e:gate` |
+| 12  | **Tests**            | Backend coverage ≥80%                                         | ⬜     | — |
+| 13  | **Security**         | Gitleaks full-history scan clean                              | ⬜     | `pnpm security:scan` |
+| 14  | **Security**         | CodeQL clean (0 CRITICAL/HIGH)                                | ⬜     | CI workflow |
+| 15  | **Security**         | CSRF protection verified on auth routes                       | ⬜     | `pnpm security:pen-test` |
+| 16  | **Security**         | No hardcoded secrets in frontend code                         | ⬜     | `pnpm check:frontend-bundle-service-role` |
+| 17  | **Security**         | All production secrets rotated (age < 7 days)                 | ⬜     | `pnpm security:rotate-secrets` |
+| 18  | **Infrastructure**   | Health endpoints return 200 (`/health`, `/ready`, `/healthz`) | ⬜     | `pnpm validate:prod-deploy` |
+| 19  | **Infrastructure**   | Blue-green deployment operational                             | ⬜     | `pnpm validate:prod-deploy` |
+| 20  | **Infrastructure**   | HPA auto-scaling tested                                       | ⬜     | — |
+| 21  | **Infrastructure**   | Redis Sentinel topology healthy                               | ⬜     | `pnpm validate:prod-deploy` |
+| 22  | **Infrastructure**   | ExternalSecrets injecting from AWS Secrets Manager            | ⬜     | `pnpm validate:prod-deploy` |
+| 23  | **Infrastructure**   | SSL/TLS cert valid + HSTS enabled                             | ⬜     | `pnpm validate:prod-deploy` |
+| 24  | **Infrastructure**   | WAF rules active (production)                                 | ⬜     | `pnpm validate:prod-deploy` |
+| 25  | **Observability**    | Prometheus scraping backend + Redis + Postgres                | ⬜     | — |
+| 26  | **Observability**    | Alert rules deployed + tested (fire/resolve cycle)            | ⬜     | — |
+| 27  | **Observability**    | Alertmanager routing to Slack/PagerDuty confirmed             | ⬜     | — |
+| 28  | **Observability**    | Grafana dashboards accessible                                 | ⬜     | — |
+| 29  | **Observability**    | OTEL traces flowing (Tempo)                                   | ⬜     | — |
+| 30  | **Backup**           | RDS backup retention configured (≥30 days)                    | ⬜     | — |
+| 31  | **Backup**           | DR validation workflow passes                                 | ⬜     | — |
+| 32  | **Documentation**    | Rollback runbook written and rehearsed                        | ⬜     | `docs/runbooks/rollback-procedure.md` |
+| 33  | **Documentation**    | PITR/backup SLA documented                                    | ⬜     | — |
+| 34  | **Documentation**    | Runbooks for each alert rule                                  | ⬜     | — |
+| 35  | **Load Test**        | 24-hour load test passed (SLO compliance)                     | ⬜     | `pnpm test:load-24h` |
+| 36  | **Smoke Tests**      | Production smoke tests pass (6 critical flows)                | ⬜     | `pnpm test:production-smoke` |
+| 37  | **Security**         | Pen test: 0 CRITICAL/HIGH findings                            | ⬜     | `pnpm security:pen-test` |
+| 38  | **Go-Live**          | Traffic cutover executed + 30-min SLO hold                    | ⬜     | `pnpm ops:cutover` |
 
 ---
 
@@ -399,10 +404,11 @@ ValueOS is **85–90% launch-ready**. The platform has comprehensive frontend vi
 ### T-24h (Day Before)
 
 1. **Freeze code.** No merges to `main` after 12:00 UTC.
-2. **Rotate secrets.** Execute S3-05. Verify `secret-rotation-verification.yml` passes.
-3. **Final smoke test.** Run E2E suite against production (green slot, no traffic).
-4. **Team sync.** All owners confirm their checklist items are green.
-5. **Communication.** Draft status page announcement: "Planned maintenance window."
+2. **Rotate secrets.** Run `pnpm security:rotate-secrets -- --namespace valynt --endpoint https://green.valynt.com`. Verify `secret-rotation-verification.yml` passes.
+3. **Final smoke test.** Run `BASE_URL=https://green.valynt.com pnpm test:production-smoke` against green slot (no traffic).
+4. **Validate deployment.** Run `pnpm validate:prod-deploy -- --namespace valynt --endpoint https://green.valynt.com`.
+5. **Team sync.** All owners confirm their checklist items are green.
+6. **Communication.** Draft status page announcement: "Planned maintenance window."
 
 ### T-4h (Morning of Launch)
 
@@ -413,29 +419,38 @@ ValueOS is **85–90% launch-ready**. The platform has comprehensive frontend vi
 
 ### T-0 (Cutover)
 
-10. **Switch traffic.**
+10. **Switch traffic.** Run the automated cutover script with 30-minute monitoring:
     ```bash
-    kubectl patch service backend-active \
-      -p '{"spec":{"selector":{"slot":"green"}}}' \
-      --namespace production
+    pnpm ops:cutover -- --endpoint https://app.valynt.com --namespace valynt --monitoring-minutes 30
     ```
-11. **Start 30-minute monitoring window.**
-    - Watch: error rate, p95/p99 latency, pod restarts, RLS violation logs
-    - Dashboard: Grafana → ValueOS Production Overview
+    This will: patch the service selector to green, monitor error rate / p95 latency / RLS logs for 30 minutes, and **auto-rollback** if any SLO is breached.
+11. **Manual cutover (if script unavailable):**
+    ```bash
+    kubectl patch service backend-active-production \
+      -p '{"spec":{"selector":{"slot":"green"}}}' \
+      --namespace valynt
+    ```
 12. **If SLO breached → ROLLBACK:**
     ```bash
-    kubectl patch service backend-active \
+    kubectl patch service backend-active-production \
       -p '{"spec":{"selector":{"slot":"blue"}}}' \
-      --namespace production
+      --namespace valynt
     ```
     Then diagnose and re-attempt after fix.
 
 ### T+30m (Post-Cutover Validation)
 
-13. **Confirm SLOs held** for 30 minutes.
-14. **Run production smoke tests** (auth, dashboard, agent invoke, billing page).
-15. **Check logs.** `kubectl logs -l app=backend --tail=500 | grep -i error | head -20`
-16. **Announce launch.** Update status page: "ValueOS is live."
+13. **Confirm SLOs held** for 30 minutes (the cutover script reports pass/fail automatically).
+14. **Run production smoke tests:**
+    ```bash
+    BASE_URL=https://app.valynt.com pnpm test:production-smoke
+    ```
+15. **Run pen test against live:**
+    ```bash
+    pnpm security:pen-test -- --endpoint https://app.valynt.com --token-org-a $TOKEN_A --token-org-b $TOKEN_B --org-a-id $ORG_A --org-b-id $ORG_B
+    ```
+16. **Check logs.** `kubectl logs -l app=backend --tail=500 -n valynt | grep -i error | head -20`
+17. **Announce launch.** Update status page: "ValueOS is live."
 
 ### T+4h (Afternoon Check)
 

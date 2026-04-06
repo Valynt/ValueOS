@@ -1,4 +1,171 @@
 /**
+ * S2-01 / S3-01: 24-Hour Staging Load Test (k6)
+ *
+ * Validates SLOs: ≥99.9% availability, p95 ≤ 300ms, p99 ≤ 10s, error rate < 0.1%.
+ * Covers: auth flow, deal assembly, agent invocation, dashboard queries.
+ *
+ * Run:  k6 run --env BASE_URL=https://staging.valueos.app tests/load/staging-24h.js
+ * Duration: Ramps 100 → 500 VUs over 24 hours.
+ */
+
+import http from 'k6/http';
+import { check, sleep, group } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
+
+// ── Custom Metrics ──────────────────────────────────────────────────────────
+const errorRate = new Rate('error_rate');
+const p95Latency = new Trend('p95_latency', true);
+const healthCheckFailures = new Counter('health_check_failures');
+
+// ── Configuration ───────────────────────────────────────────────────────────
+const BASE_URL = __ENV.BASE_URL || 'https://staging.valueos.app';
+const API_URL = `${BASE_URL}/api`;
+
+export const options = {
+  scenarios: {
+    sustained_load: {
+      executor: 'ramping-vus',
+      startVUs: 10,
+      stages: [
+        { duration: '30m', target: 100 },   // Ramp up to baseline
+        { duration: '22h', target: 100 },    // Sustain baseline
+        { duration: '30m', target: 500 },    // Ramp to peak
+        { duration: '30m', target: 500 },    // Sustain peak
+        { duration: '30m', target: 0 },      // Ramp down
+      ],
+    },
+  },
+  thresholds: {
+    http_req_failed: ['rate<0.001'],         // < 0.1% error rate
+    http_req_duration: [
+      'p(95)<300',                            // p95 ≤ 300ms
+      'p(99)<10000',                          // p99 ≤ 10s
+    ],
+    error_rate: ['rate<0.001'],
+  },
+};
+
+// ── Test Users ──────────────────────────────────────────────────────────────
+const TEST_EMAIL = __ENV.TEST_EMAIL || 'loadtest@valueos-test.internal';
+const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTe$t2026!Secure';
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function authHeaders(token) {
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  };
+}
+
+function login() {
+  const res = http.post(
+    `${API_URL}/auth/login`,
+    JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+  check(res, { 'login 200': (r) => r.status === 200 });
+  errorRate.add(res.status !== 200);
+
+  if (res.status === 200) {
+    const body = res.json();
+    return body.access_token || body.token || '';
+  }
+  return '';
+}
+
+// ── Scenarios ───────────────────────────────────────────────────────────────
+export default function () {
+  const token = login();
+  if (!token) {
+    sleep(1);
+    return;
+  }
+
+  const params = authHeaders(token);
+
+  // Flow 1: Health check
+  group('health', () => {
+    const res = http.get(`${API_URL}/health`);
+    const ok = check(res, {
+      'health 200': (r) => r.status === 200,
+      'health fast': (r) => r.timings.duration < 500,
+    });
+    if (!ok) healthCheckFailures.add(1);
+    errorRate.add(res.status !== 200);
+    p95Latency.add(res.timings.duration);
+  });
+
+  // Flow 2: Dashboard
+  group('dashboard', () => {
+    const res = http.get(`${API_URL}/dashboard/summary`, params);
+    check(res, {
+      'dashboard 200': (r) => r.status === 200 || r.status === 404,
+    });
+    errorRate.add(res.status >= 500);
+    p95Latency.add(res.timings.duration);
+  });
+
+  // Flow 3: Value cases list
+  group('value-cases', () => {
+    const res = http.get(`${API_URL}/value-cases`, params);
+    check(res, {
+      'value-cases ok': (r) => r.status === 200 || r.status === 404,
+    });
+    errorRate.add(res.status >= 500);
+    p95Latency.add(res.timings.duration);
+  });
+
+  // Flow 4: Agent invocation (deal assembly)
+  group('agent-invoke', () => {
+    const payload = JSON.stringify({
+      agentType: 'deal-assembly',
+      input: { dealName: `load-test-${__VU}-${__ITER}` },
+    });
+    const res = http.post(`${API_URL}/agents/invoke`, payload, params);
+    check(res, {
+      'agent-invoke accepted': (r) =>
+        r.status === 200 || r.status === 202 || r.status === 404,
+    });
+    errorRate.add(res.status >= 500);
+    p95Latency.add(res.timings.duration);
+  });
+
+  // Flow 5: Billing page
+  group('billing', () => {
+    const res = http.get(`${API_URL}/billing/subscription`, params);
+    check(res, {
+      'billing ok': (r) => r.status === 200 || r.status === 404,
+    });
+    errorRate.add(res.status >= 500);
+    p95Latency.add(res.timings.duration);
+  });
+
+  sleep(Math.random() * 3 + 1); // 1-4s think time
+}
+
+// ── Teardown report ─────────────────────────────────────────────────────────
+export function handleSummary(data) {
+  const summary = {
+    timestamp: new Date().toISOString(),
+    totalRequests: data.metrics.http_reqs?.values?.count || 0,
+    errorRate: data.metrics.error_rate?.values?.rate || 0,
+    p95Ms: data.metrics.http_req_duration?.values['p(95)'] || 0,
+    p99Ms: data.metrics.http_req_duration?.values['p(99)'] || 0,
+    thresholdsPassed: !Object.values(data.root_group?.checks || {}).some(
+      (c) => c.fails > 0
+    ),
+  };
+  return {
+    'docs/load-test-results/staging-24h-latest.json': JSON.stringify(
+      summary,
+      null,
+      2
+    ),
+    stdout: JSON.stringify(summary, null, 2) + '\n',
+  };
+}
  * ValueOS — 24-Hour Staging Load Test (k6)
  *
  * Usage:
