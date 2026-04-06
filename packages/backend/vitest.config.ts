@@ -32,6 +32,28 @@ export default defineConfig({
     exclude: ["node_modules/**", "dist/**", ...nonUnitBackendTestPatterns],
     fileParallelism: false,
     setupFiles: ["src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "coverage",
+      include: ["src/**/*.ts"],
+      exclude: [
+        "src/**/*.{test,spec}.ts",
+        "src/**/__tests__/**",
+        "src/test/**",
+        "src/**/*.d.ts",
+        "src/**/*.mock.ts",
+        // Integration and e2e files excluded from unit coverage
+        "src/**/*.integration.ts",
+        "src/**/*.e2e.ts",
+      ],
+      thresholds: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+      },
+    },
     env: {
       // AgentPolicyService defaults to process.cwd()/policies/agents.
       // Tests run from packages/backend, so point explicitly to the repo-root policies.

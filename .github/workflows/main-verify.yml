@@ -491,6 +491,32 @@ jobs:
             --coverage.reporter=json-summary \
             --coverage.reporter=text-summary \
             --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
+        # Thresholds (branches/functions/lines/statements >= 80% for backend) are
+        # enforced via the coverage.thresholds block in each package's vitest.config.ts.
+        # Vitest exits non-zero when any threshold is breached, failing this step.
+
+      - name: Assert backend coverage thresholds
+        if: matrix.package.id == 'packages-backend'
+        run: |
+          SUMMARY="${{ matrix.package.coverageDir }}/coverage-summary.json"
+          if [ ! -f "$SUMMARY" ]; then
+            echo "Coverage summary not found at $SUMMARY — coverage step may have failed."
+            exit 1
+          fi
+          node -e "
+            const s = JSON.parse(require('fs').readFileSync('$SUMMARY', 'utf8'));
+            const t = s.total;
+            const thresholds = { lines: 80, functions: 80, branches: 80, statements: 80 };
+            let failed = false;
+            for (const [metric, min] of Object.entries(thresholds)) {
+              const pct = t[metric]?.pct ?? 0;
+              const status = pct >= min ? 'PASS' : 'FAIL';
+              console.log(\`\${status}: \${metric} \${pct.toFixed(1)}% (threshold: \${min}%)\`);
+              if (pct < min) failed = true;
+            }
+            if (failed) { console.error('Backend coverage below threshold.'); process.exit(1); }
+            console.log('All backend coverage thresholds met.');
+          "
       - name: Write coverage summary
         run: |
           node scripts/ci/write-vitest-coverage-summary.mjs \

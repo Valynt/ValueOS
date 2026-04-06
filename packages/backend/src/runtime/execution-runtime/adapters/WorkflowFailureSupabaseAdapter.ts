@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase.js';
+import { createWorkerServiceSupabaseClient } from '../../../lib/supabase/privileged/index.js';
 import type { AdapterExecutionContext, AdapterResult, InfraAdapter, TypedFailure } from '../../ports/Contract.js';
 
 export interface WorkflowFailureUpdateRequest {
@@ -23,7 +23,9 @@ export class WorkflowFailureSupabaseAdapter
     request: WorkflowFailureUpdateRequest,
     _ctx: AdapterExecutionContext,
   ): Promise<AdapterResult<WorkflowFailureUpdateResponse, WorkflowFailureAdapterFailure>> {
-    const { error } = await supabase
+    // service-role:justified WorkflowFailureSupabaseAdapter writes failure status across tenant boundary during execution cleanup
+    const client = createWorkerServiceSupabaseClient('WorkflowFailureSupabaseAdapter: mark workflow execution as failed');
+    const { error } = await client
       .from('workflow_executions')
       .update({
         status: 'failed',

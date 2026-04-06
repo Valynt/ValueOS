@@ -23,7 +23,7 @@ import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
 import { CircuitBreaker } from "../lib/resilience/CircuitBreaker.js";
 import { logger } from "../lib/logger.js";
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from "../lib/supabase.js";
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
 import { attachQueueMetrics } from "../observability/queueMetrics.js";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository.js";
@@ -67,7 +67,8 @@ async function loadCaseContext(
   requestedBy: string,
   artifactType: string
 ): Promise<LifecycleContext> {
-  const supabase = createServerSupabaseClient();
+  // service-role:justified ArtifactGenerationWorker reads value case data to generate artifacts in worker context
+  const supabase = createWorkerServiceSupabaseClient('ArtifactGenerationWorker: read value case data for artifact generation');
 
   // Fetch the value case row.
   const { data: valueCase, error: caseError } = await supabase

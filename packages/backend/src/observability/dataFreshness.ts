@@ -9,7 +9,7 @@
 import { createLogger } from "@shared/lib/logger";
 
 import { createCounter, createObservableGauge } from "../lib/observability/index.js";
-import { supabase } from "../lib/supabase.js";
+import { createCronSupabaseClient } from "../lib/supabase/privileged/index.js";
 
 const logger = createLogger({ component: "DataFreshness" });
 
@@ -77,7 +77,8 @@ export async function checkTableFreshness(
   const checkedAt = new Date().toISOString();
 
   try {
-    const { data, error } = await supabase
+    // service-role:justified dataFreshness cron reads MAX(updated_at) across all tenant tables for observability
+    const { data, error } = await createCronSupabaseClient()
       .from(table)
       .select("updated_at")
       .eq("organization_id", orgId)
