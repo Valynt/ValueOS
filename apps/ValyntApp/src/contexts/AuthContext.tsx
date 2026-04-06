@@ -247,12 +247,17 @@ const useAuthMethods = ({
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(credentials.email)) {
       loginLogger("❌ Validation failed: invalid email format");
-      throw new Error("Invalid email format");
+      throw new Error("Please enter a valid email address");
     }
 
     if (credentials.password.length < 8) {
       loginLogger("❌ Validation failed: password too short");
-      throw new Error("Password must be at least 8 characters");
+      throw new Error("Password must be at least 8 characters long");
+    }
+
+    if (credentials.password.length > 72) {
+      loginLogger("❌ Validation failed: password too long");
+      throw new Error("Password exceeds maximum length");
     }
 
     loginLogger("✓ Input validation passed");

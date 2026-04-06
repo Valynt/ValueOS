@@ -3,6 +3,8 @@
  * Comprehensive audit logging for compliance and security monitoring
  */
 
+import crypto from "crypto";
+
 export interface AuditEvent {
   id: string;
   timestamp: number;
@@ -16,7 +18,12 @@ export interface AuditEvent {
   result: "success" | "failure" | "error";
   details: Record<string, unknown>;
   severity: "low" | "medium" | "high" | "critical";
-  category: "authentication" | "authorization" | "data_access" | "configuration" | "security";
+  category:
+    | "authentication"
+    | "authorization"
+    | "data_access"
+    | "configuration"
+    | "security";
   source: "frontend" | "backend";
   compliance: boolean; // Whether this is a compliance-relevant event
 }
@@ -216,40 +223,46 @@ class AuditLogger {
     if (filter) {
       if (filter.startDate) {
         const start = filter.startDate.getTime();
-        filtered = filtered.filter((event) => event.timestamp >= start);
+        filtered = filtered.filter(event => event.timestamp >= start);
       }
 
       if (filter.endDate) {
         const end = filter.endDate.getTime();
-        filtered = filtered.filter((event) => event.timestamp <= end);
+        filtered = filtered.filter(event => event.timestamp <= end);
       }
 
       if (filter.userId) {
-        filtered = filtered.filter((event) => event.userId === filter.userId);
+        filtered = filtered.filter(event => event.userId === filter.userId);
       }
 
       if (filter.action) {
-        filtered = filtered.filter((event) => event.action.includes(filter.action!));
+        filtered = filtered.filter(event =>
+          event.action.includes(filter.action!)
+        );
       }
 
       if (filter.resource) {
-        filtered = filtered.filter((event) => event.resource.includes(filter.resource!));
+        filtered = filtered.filter(event =>
+          event.resource.includes(filter.resource!)
+        );
       }
 
       if (filter.severity) {
-        filtered = filtered.filter((event) => event.severity === filter.severity);
+        filtered = filtered.filter(event => event.severity === filter.severity);
       }
 
       if (filter.category) {
-        filtered = filtered.filter((event) => event.category === filter.category);
+        filtered = filtered.filter(event => event.category === filter.category);
       }
 
       if (filter.result) {
-        filtered = filtered.filter((event) => event.result === filter.result);
+        filtered = filtered.filter(event => event.result === filter.result);
       }
 
       if (filter.compliance !== undefined) {
-        filtered = filtered.filter((event) => event.compliance === filter.compliance);
+        filtered = filtered.filter(
+          event => event.compliance === filter.compliance
+        );
       }
     }
 
@@ -270,12 +283,12 @@ class AuditLogger {
       complianceEvents: 0,
       criticalEvents: 0,
       timeRange: {
-        start: new Date(Math.min(...events.map((e) => e.timestamp))),
-        end: new Date(Math.max(...events.map((e) => e.timestamp))),
+        start: new Date(Math.min(...events.map(e => e.timestamp))),
+        end: new Date(Math.max(...events.map(e => e.timestamp))),
       },
     };
 
-    events.forEach((event) => {
+    events.forEach(event => {
       // Category breakdown
       summary.eventsByCategory[event.category] =
         (summary.eventsByCategory[event.category] || 0) + 1;
@@ -285,7 +298,8 @@ class AuditLogger {
         (summary.eventsBySeverity[event.severity] || 0) + 1;
 
       // Result breakdown
-      summary.eventsByResult[event.result] = (summary.eventsByResult[event.result] || 0) + 1;
+      summary.eventsByResult[event.result] =
+        (summary.eventsByResult[event.result] || 0) + 1;
 
       // Compliance events
       if (event.compliance) {
@@ -327,7 +341,7 @@ class AuditLogger {
 
     const events = this.getEvents(filter);
     const violations = events.filter(
-      (event) => event.result === "failure" || event.severity === "critical"
+      event => event.result === "failure" || event.severity === "critical"
     );
 
     const recommendations = this.generateComplianceRecommendations(violations);
@@ -337,9 +351,11 @@ class AuditLogger {
       complianceEvents: events.length,
       complianceRate:
         events.length > 0
-          ? (events.filter((e) => e.result === "success").length / events.length) * 100
+          ? (events.filter(e => e.result === "success").length /
+              events.length) *
+            100
           : 100,
-      violations: violations.map((event) => ({
+      violations: violations.map(event => ({
         timestamp: new Date(event.timestamp),
         action: event.action,
         details: event.details,
@@ -383,7 +399,12 @@ class AuditLogger {
    * Generate unique event ID
    */
   private generateEventId(): string {
-    return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const randomBuffer = new Uint8Array(5);
+    crypto.getRandomValues(randomBuffer);
+    const randomHex = Array.from(randomBuffer)
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+    return `audit_${Date.now()}_${randomHex}`;
   }
 
   /**
@@ -427,7 +448,10 @@ class AuditLogger {
     } catch (error) {
       this.retryCount++;
       if (this.retryCount <= this.maxRetries) {
-        console.error(`Failed to send audit batch (attempt ${this.retryCount}/${this.maxRetries}):`, error);
+        console.error(
+          `Failed to send audit batch (attempt ${this.retryCount}/${this.maxRetries}):`,
+          error
+        );
         // Re-queue for next interval
         this.pendingEvents.unshift(...batch);
       } else {
@@ -442,21 +466,26 @@ class AuditLogger {
    */
   private logToConsole(event: AuditEvent): void {
     const logMethod = this.getConsoleMethod(event.severity);
-    logMethod(`[AUDIT] ${event.action.toUpperCase()} - ${event.result.toUpperCase()}`, {
-      id: event.id,
-      userId: event.userId,
-      resource: event.resource,
-      category: event.category,
-      compliance: event.compliance,
-      timestamp: new Date(event.timestamp).toISOString(),
-      details: event.details,
-    });
+    logMethod(
+      `[AUDIT] ${event.action.toUpperCase()} - ${event.result.toUpperCase()}`,
+      {
+        id: event.id,
+        userId: event.userId,
+        resource: event.resource,
+        category: event.category,
+        compliance: event.compliance,
+        timestamp: new Date(event.timestamp).toISOString(),
+        details: event.details,
+      }
+    );
   }
 
   /**
    * Get appropriate console method for severity
    */
-  private getConsoleMethod(severity: AuditEvent["severity"]): typeof console.log {
+  private getConsoleMethod(
+    severity: AuditEvent["severity"]
+  ): typeof console.log {
     switch (severity) {
       case "critical":
         return console.error;
@@ -492,7 +521,7 @@ class AuditLogger {
       "Details",
     ];
 
-    const rows = events.map((event) => [
+    const rows = events.map(event => [
       event.id,
       new Date(event.timestamp).toISOString(),
       event.userId || "",
@@ -509,19 +538,25 @@ class AuditLogger {
       JSON.stringify(event.details),
     ]);
 
-    return [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+    return [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
   }
 
   /**
    * Generate compliance recommendations
    */
-  private generateComplianceRecommendations(violations: AuditEvent[]): string[] {
+  private generateComplianceRecommendations(
+    violations: AuditEvent[]
+  ): string[] {
     const recommendations: string[] = [];
-    const violationTypes = new Set(violations.map((v) => v.action));
+    const violationTypes = new Set(violations.map(v => v.action));
 
     // Authentication violations
     if (violationTypes.has("auth.login_failure")) {
-      recommendations.push("Consider implementing additional authentication security measures");
+      recommendations.push(
+        "Consider implementing additional authentication security measures"
+      );
     }
 
     // Authorization violations
@@ -530,8 +565,10 @@ class AuditLogger {
     }
 
     // Security violations
-    if (violations.some((v) => v.category === "security")) {
-      recommendations.push("Investigate security violations and implement preventive measures");
+    if (violations.some(v => v.category === "security")) {
+      recommendations.push(
+        "Investigate security violations and implement preventive measures"
+      );
     }
 
     // High failure rate
@@ -544,8 +581,10 @@ class AuditLogger {
     }
 
     // Critical events
-    if (violations.some((v) => v.severity === "critical")) {
-      recommendations.push("Critical security events detected - immediate investigation required");
+    if (violations.some(v => v.severity === "critical")) {
+      recommendations.push(
+        "Critical security events detected - immediate investigation required"
+      );
     }
 
     return recommendations;

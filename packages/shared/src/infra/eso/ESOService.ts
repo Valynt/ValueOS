@@ -5,6 +5,7 @@
  * Integrates with ValueOS for deterministic B2B value orchestration.
  */
 
+import crypto from "crypto";
 import {
   BLSAdapter,
   CensusAdapter,
@@ -28,7 +29,10 @@ export interface ESOConfig {
 }
 
 export class ESOService {
-  private adapters: Map<string, DataIngestionAdapter<unknown, unknown, unknown>> = new Map();
+  private adapters: Map<
+    string,
+    DataIngestionAdapter<unknown, unknown, unknown>
+  > = new Map();
   private dataCallbacks: Set<(data: ESODataPoint) => void> = new Set();
 
   constructor(private config: ESOConfig) {
@@ -50,12 +54,12 @@ export class ESOService {
       if (adapter.startStreaming) {
         try {
           // Set up data callback for this adapter
-          const unsubscribe = adapter.onData?.((data) => {
+          const unsubscribe = adapter.onData?.(data => {
             const dataPoint: ESODataPoint = {
               source: source as "SEC" | "BLS" | "Census",
               data,
               timestamp: new Date().toISOString(),
-              id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: `${source}-${Date.now()}-${crypto.randomBytes(5).toString("hex")}`,
             };
             this.notifyDataCallbacks(dataPoint);
           });
@@ -88,7 +92,7 @@ export class ESOService {
       source,
       data: transformedData,
       timestamp: new Date().toISOString(),
-      id: `${source}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${source}-${Date.now()}-${crypto.randomBytes(5).toString("hex")}`,
     };
 
     this.notifyDataCallbacks(dataPoint);
@@ -104,7 +108,7 @@ export class ESOService {
   }
 
   private notifyDataCallbacks(data: ESODataPoint) {
-    this.dataCallbacks.forEach((callback) => {
+    this.dataCallbacks.forEach(callback => {
       try {
         callback(data);
       } catch (error) {

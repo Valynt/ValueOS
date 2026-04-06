@@ -12,7 +12,8 @@ class CSRFProtection {
    * Generate a random token
    */
   private generateToken(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const array = new Uint32Array(this.tokenLength);
     crypto.getRandomValues(array);
     let token = "";
@@ -132,7 +133,7 @@ class CSRFProtection {
     const forms = document.querySelectorAll("form");
     const token = this.getToken();
 
-    forms.forEach((form) => {
+    forms.forEach(form => {
       // Check if form already has CSRF token
       if (!form.querySelector('input[name="csrf_token"]')) {
         const input = document.createElement("input");
@@ -147,8 +148,13 @@ class CSRFProtection {
   /**
    * Wrap fetch with CSRF protection
    */
-  secureFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const secureInit = init ? this.addTokenToRequest(init) : this.addTokenToRequest({});
+  secureFetch: typeof fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) => {
+    const secureInit = init
+      ? this.addTokenToRequest(init)
+      : this.addTokenToRequest({});
 
     return fetch(input, secureInit);
   };
