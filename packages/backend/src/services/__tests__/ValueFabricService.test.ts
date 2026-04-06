@@ -7,14 +7,16 @@ const baseTables = {
   capabilities: [
     {
       id: "cap-1",
+      organization_id: "org-1",
       name: "Automation",
       is_active: true,
       tags: ["automation", "workflow"],
       category: "platform",
     },
-    { id: "cap-2", name: "Analytics", is_active: true, tags: ["analytics"], category: "insights" },
+    { id: "cap-2", organization_id: "org-1", name: "Analytics", is_active: true, tags: ["analytics"], category: "insights" },
     {
       id: "cap-3",
+      organization_id: "org-1",
       name: "Workflow Automation Suite",
       is_active: true,
       tags: ["automation", "orchestration"],
@@ -22,6 +24,7 @@ const baseTables = {
     },
     {
       id: "cap-4",
+      organization_id: "org-1",
       name: "Automation Insights",
       is_active: true,
       tags: ["automation", "analytics"],
@@ -31,6 +34,7 @@ const baseTables = {
   benchmarks: [
     {
       id: "bench-1",
+      organization_id: "org-1",
       kpi_name: "NPS",
       industry: "SaaS",
       percentile: 25,
@@ -39,6 +43,7 @@ const baseTables = {
     },
     {
       id: "bench-2",
+      organization_id: "org-1",
       kpi_name: "NPS",
       industry: "SaaS",
       percentile: 50,
@@ -47,6 +52,7 @@ const baseTables = {
     },
     {
       id: "bench-3",
+      organization_id: "org-1",
       kpi_name: "NPS",
       industry: "SaaS",
       percentile: 75,
@@ -55,6 +61,7 @@ const baseTables = {
     },
     {
       id: "bench-4",
+      organization_id: "org-1",
       kpi_name: "NPS",
       industry: "SaaS",
       percentile: 90,
@@ -69,6 +76,7 @@ let service: ValueFabricService;
 
 beforeEach(() => {
   supabase = createBoltClientMock(baseTables);
+  supabase.rpc = vi.fn();
   (global.fetch as any) = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ data: [{ embedding: [0.1, 0.2, 0.3] }] }),
@@ -86,23 +94,26 @@ describe("ValueFabricService semantic search and ontology queries", () => {
       error: null,
     });
 
-    const results = await service.semanticSearchCapabilities("automate workflows", 2);
+    const results = await service.semanticSearchCapabilities("org-1", "automate workflows", 2);
     expect(results).toHaveLength(2);
     expect(results[0].item.name).toBe("Automation");
   });
 
   it("falls back to text search when RPC fails", async () => {
     supabase.rpc.mockResolvedValue({ data: null, error: new Error("pgvector unavailable") });
+    const originalFrom = supabase.from;
+    const fromSpy = vi.fn((table: string) => originalFrom(table));
+    supabase.from = fromSpy;
 
-    const results = await service.semanticSearchCapabilities("analytics", 1);
+    const results = await service.semanticSearchCapabilities("org-1", "analytics", 1);
     expect(results[0].item.name).toBe("Analytics");
-    expect(supabase.from).toHaveBeenCalled();
+    expect(fromSpy).toHaveBeenCalled();
   });
 
   it("fills gaps with text search when semantic results are empty", async () => {
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
-    const results = await service.semanticSearchCapabilities("analytics", 1);
+    const results = await service.semanticSearchCapabilities("org-1", "analytics", 1);
     expect(results).toHaveLength(1);
     expect(results[0].item.name).toBe("Analytics");
   });
@@ -113,7 +124,7 @@ describe("ValueFabricService semantic search and ontology queries", () => {
       error: null,
     });
 
-    const results = await service.semanticSearchCapabilities("automation", 3);
+    const results = await service.semanticSearchCapabilities("org-1", "automation", 3);
 
     expect(results.map((r) => r.item.name)).toEqual([
       "Automation",
@@ -123,7 +134,7 @@ describe("ValueFabricService semantic search and ontology queries", () => {
   });
 
   it("calculates benchmark percentiles and comparison values", async () => {
-    const percentiles = await service.getBenchmarkPercentiles("NPS", "SaaS");
+    const percentiles = await service.getBenchmarkPercentiles("org-1", "NPS", "SaaS");
     expect(percentiles).toEqual({ p25: 20, p50: 35, p75: 55, p90: 70 });
   });
 
@@ -139,18 +150,21 @@ describe("ValueFabricService semantic search and ontology queries", () => {
       date_collected: "2024-01-01",
     };
 
-    supabase.from.mockReturnValue({
-      insert: vi.fn().mockReturnValue({
+    const originalFrom = supabase.from.bind(supabase);
+    supabase.from = vi.fn((table: string) => {
+      const builder = originalFrom(table);
+      builder.insert = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({
             data: { id: "bench-new", ...newBenchmark },
             error: null,
           }),
         }),
-      }),
+      });
+      return builder;
     });
 
-    const result = await service.createBenchmark(newBenchmark);
+    const result = await service.createBenchmark("org-1", newBenchmark);
     expect(result.id).toBe("bench-new");
     expect(result.name).toBe("Test Benchmark");
   });
@@ -182,22 +196,25 @@ describe("ValueFabricService semantic search and ontology queries", () => {
       timestamp: new Date().toISOString(),
     };
 
-    supabase.from
-      .mockReturnValueOnce({
-        insert: vi.fn().mockReturnValue({
+    const originalFrom = supabase.from.bind(supabase);
+    supabase.from = vi.fn((table: string) => {
+      const builder = originalFrom(table);
+      if (table === "benchmarks") {
+        builder.insert = vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
               data: { id: "bench-new", ...newBenchmark },
               error: null,
             }),
           }),
-        }),
-      })
-      .mockReturnValueOnce({
-        insert: vi.fn().mockResolvedValue({ error: null }),
-      });
+        });
+      } else if (table === "audit_log") {
+        builder.insert = vi.fn().mockResolvedValue({ error: null });
+      }
+      return builder;
+    });
 
-    const result = await service.createBenchmark(newBenchmark, vmrtTrace, "tenant-1", "user-1");
+    const result = await service.createBenchmark("org-1", newBenchmark, vmrtTrace, "user-1");
     expect(result.id).toBe("bench-new");
     expect(supabase.from).toHaveBeenCalledWith("audit_log");
   });
@@ -205,22 +222,27 @@ describe("ValueFabricService semantic search and ontology queries", () => {
   it("updates a benchmark with VMRT logging", async () => {
     const updates = { metric_value: 1200000 };
 
-    supabase.from
-      .mockReturnValueOnce({
-        update: vi.fn().mockReturnValue({
+    const originalFrom = supabase.from.bind(supabase);
+    supabase.from = vi.fn((table: string) => {
+      const builder = originalFrom(table);
+      if (table === "benchmarks") {
+        builder.update = vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: "bench-1", ...updates },
-                error: null,
+            eq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "bench-1", ...updates },
+                  error: null,
+                }),
               }),
             }),
           }),
-        }),
-      })
-      .mockReturnValueOnce({
-        insert: vi.fn().mockResolvedValue({ error: null }),
-      });
+        });
+      } else if (table === "audit_log") {
+        builder.insert = vi.fn().mockResolvedValue({ error: null });
+      }
+      return builder;
+    });
 
     const vmrtTrace = {
       trace_type: "benchmark_update",
@@ -237,10 +259,10 @@ describe("ValueFabricService semantic search and ontology queries", () => {
     };
 
     const result = await service.updateBenchmark(
+      "org-1",
       "bench-1",
       updates,
       vmrtTrace,
-      "tenant-1",
       "user-1"
     );
     expect(result.metric_value).toBe(1200000);
