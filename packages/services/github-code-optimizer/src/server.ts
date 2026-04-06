@@ -9,7 +9,7 @@ import {
   safeCreateJobRow,
   safeCreateOptimizationCard,
   safeSetPlaceholder,
-} from "./safe-html";
+} from "./safe-html.js";
 import { logger } from "./utils/logger.js";
 import { webhookRouter } from "./webhooks/router.js";
 
