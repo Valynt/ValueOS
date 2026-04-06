@@ -656,6 +656,56 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  chaos-resilience-gate:
+    name: chaos-resilience-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Chaos — DB transient outage recovery
+        run: npx vitest run tests/chaos/db-transient-outage.test.ts --reporter=verbose
+      - name: Chaos — Redis / BullMQ queue outage
+        run: npx vitest run tests/chaos/queue-outage.test.ts --reporter=verbose
+      - name: Chaos — LLM provider outage (circuit breaker)
+        run: npx vitest run tests/chaos/llm-provider-outage.test.ts --reporter=verbose
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/chaos-resilience-gate
+          cat > artifacts/ci-lanes/chaos-resilience-gate/summary.md <<EOF_SUMMARY
+          # chaos-resilience-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-chaos-resilience-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/chaos-resilience-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
   accessibility-audit:
     name: accessibility-audit
     runs-on: ubuntu-latest

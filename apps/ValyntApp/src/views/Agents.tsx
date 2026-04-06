@@ -163,6 +163,17 @@ export function Agents() {
 
       {!isLoading && agents && agents.length > 0 && <FleetSummary agents={agents} />}
 
+      {!isLoading && (!agents || agents.length === 0) && (
+        <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-2xl p-12 text-center">
+          <Bot className="w-10 h-10 text-zinc-300 mx-auto mb-4" />
+          <p className="text-[16px] font-semibold text-zinc-600">No agents configured yet</p>
+          <p className="text-[13px] text-zinc-400 mt-2 max-w-md mx-auto">
+            Agents are the AI workforce that powers your value engineering lifecycle.
+            Start by running a workflow — agents are automatically provisioned when you create your first value case.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 bg-white max-w-sm">
         <Search className="w-4 h-4 text-zinc-400" />
         <input

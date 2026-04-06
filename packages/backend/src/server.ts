@@ -145,6 +145,16 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction) {
+      logger.error(
+        "Telemetry modules required in production but failed to initialize — aborting startup",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+      process.exit(1);
+    }
     logger.warn(
       "Telemetry modules not available, running without observability",
       {
