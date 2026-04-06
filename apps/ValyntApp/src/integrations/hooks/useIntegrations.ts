@@ -219,7 +219,8 @@ export function useIntegrations() {
       const healthData = (healthResponse.data ?? {}) as CrmHealthResponse;
 
       setIntegrations((prev) => {
-        const existing = prev.find((item) => item.provider === providerId);
+        const existingIndex = prev.findIndex((item) => item.provider === providerId);
+        const existing = existingIndex >= 0 ? prev[existingIndex] : undefined;
         const mergedStatus = mapStatus(healthData.status ?? statusData.status);
         const updatedConnection: IntegrationConnection = {
           id: existing?.id ?? providerId,
@@ -251,9 +252,9 @@ export function useIntegrations() {
           return [...prev, updatedConnection];
         }
 
-        return prev.map((item) =>
-          item.provider === providerId ? { ...item, ...updatedConnection } : item
-        );
+        const next = [...prev];
+        next[existingIndex] = { ...existing, ...updatedConnection };
+        return next;
       });
     },
     []
