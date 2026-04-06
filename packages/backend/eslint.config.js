@@ -240,6 +240,11 @@ export default tseslint.config(
       "src/repositories/**/*.ts",
       "src/domain/**/adapters/**/*.ts",
     ],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/__tests__/**/*.ts",
+    ],
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unsafe-assignment": "error",
