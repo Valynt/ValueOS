@@ -194,6 +194,12 @@ export default tseslint.config(
   },
   {
     files: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/**/__tests__/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: ["./vitest.config.ts"],
+        tsconfigRootDir: __dirname,
+      },
+    },
     rules: {
       "no-restricted-syntax": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
