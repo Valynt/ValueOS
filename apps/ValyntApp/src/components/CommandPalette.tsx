@@ -289,6 +289,13 @@ function CommandPaletteDialog({
             </button>
           </div>
 
+          {/* Screen-reader announcement for result count */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {filtered.length === 0
+              ? "No results found"
+              : `${filtered.length} command${filtered.length === 1 ? "" : "s"} available`}
+          </div>
+
           {/* Results */}
           <div
             ref={listRef}
