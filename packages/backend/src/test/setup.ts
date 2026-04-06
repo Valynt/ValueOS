@@ -178,6 +178,13 @@ vi.mock("ioredis", () => {
     async subscribe(..._channels: string[]) {
       return 1;
     }
+
+    async flushall() {
+      this.kv.clear();
+      this.sets.clear();
+      this.hashes.clear();
+      return "OK";
+    }
   }
 
   return {
@@ -185,6 +192,55 @@ vi.mock("ioredis", () => {
     Redis: MockRedis,
   };
 });
+
+// ---------------------------------------------------------------------------
+// Global agent-fabric mocks — provides LLMGateway and MemorySystem.
+// ---------------------------------------------------------------------------
+
+vi.mock("../lib/agent-fabric/LLMGateway.js", () => ({
+  LLMGateway: class {
+    constructor(_provider?: string) {}
+    complete = vi.fn().mockImplementation(async (requestBody: any) => {
+      const metadata = requestBody.metadata || {};
+      const tenantId =
+        metadata.tenant_id ||
+        metadata.tenantId ||
+        metadata.organization_id ||
+        metadata.organizationId;
+
+      if (!tenantId) {
+        throw new Error("LLMGateway: Missing tenant/organization ID in metadata");
+      }
+      return { content: "{}" };
+    });
+  },
+}));
+
+vi.mock("../lib/agent-fabric/MemorySystem.js", () => ({
+  MemorySystem: class {
+    constructor(_config?: unknown) {}
+    store = vi.fn().mockImplementation(async (memory: any) => {
+      if (!memory.organization_id) {
+        throw new Error("MemorySystem: Missing organization_id in store()");
+      }
+      return "mem_1";
+    });
+    retrieve = vi.fn().mockImplementation(async (query: any) => {
+      if (!query.organization_id) {
+        throw new Error("MemorySystem: Missing organization_id in retrieve()");
+      }
+      return [];
+    });
+    storeSemanticMemory = vi.fn().mockImplementation(async (...args: any[]) => {
+      const organizationId = args[5]; // 6th parameter
+      if (!organizationId) {
+        throw new Error("MemorySystem: Missing organizationId in storeSemanticMemory()");
+      }
+      return "mem_1";
+    });
+    clear = vi.fn().mockResolvedValue(0);
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Global logger mock — provides createLogger as a fallback for all tests.
@@ -264,6 +320,7 @@ process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
 process.env.SUPABASE_ANON_KEY ??= "test-anon-key";
 process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
+process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
 
 
 
@@ -304,6 +361,13 @@ beforeEach(async () => {
   const EntitlementsService = entitlementsModule.EntitlementsService;
   if (typeof EntitlementsService?.setInstance === "function") {
     EntitlementsService.setInstance(new EntitlementsService(supabase));
+  }
+
+  // Flush Redis mock between tests
+  const redisModule = await import("ioredis");
+  const redis = new (redisModule as any).default();
+  if (typeof redis.flushall === "function") {
+    await redis.flushall();
   }
 });
 
