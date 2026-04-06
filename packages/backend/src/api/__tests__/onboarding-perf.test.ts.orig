@@ -56,31 +56,22 @@ describe('Onboarding API Performance', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       single: vi.fn(),
-      insert: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ error: null }), 10))),
+      insert: vi.fn().mockResolvedValue({ error: null }),
       update: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
     };
 
-    // Prefetch mock for .in().eq()
-    mockSupabase.in.mockImplementation((field, values) => {
-      return {
-        eq: vi.fn().mockImplementation((eqField, eqValue) => {
-          if (field === 'id' && eqField === 'tenant_id' && eqValue === 'test-tenant-id') {
-            return Promise.resolve({
-              data: values.map((id: string) => ({
-                id,
-                status: 'suggested',
-                entity_type: 'product',
-                payload: { name: 'Test Product' },
-                context_id: 'test-context',
-              })),
-              error: null,
-            });
-          }
-          return Promise.resolve({ data: [], error: null });
-        })
-      };
+    // For the initial prefetch of suggestions:
+    mockSupabase.eq.mockImplementation((field, value) => {
+      if (field === 'tenant_id' && value === 'test-tenant-id') {
+        return Promise.resolve({
+          data: ids.map(id => ({ id, status: 'suggested', entity_type: 'product', payload: { name: 'Test Product' }, context_id: 'test-context' })),
+          error: null
+        });
+      }
+      return Promise.resolve({ data: {}, error: null });
     });
+    mockSupabase.in.mockReturnThis();
 
     // Setup single() to return a mock suggestion
     mockSupabase.single.mockImplementation(() => {
@@ -100,13 +91,20 @@ describe('Onboarding API Performance', () => {
     mockSupabase.update.mockImplementation(() => {
       const chain = {
         eq: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnValue(Promise.resolve({ data: {}, error: null })),
+        in: vi.fn().mockReturnThis(),
       };
 
       const promiseObj = Promise.resolve({ data: {}, error: null });
       Object.assign(chain.eq, promiseObj);
+      Object.assign(chain.in, promiseObj);
 
       chain.eq.mockReturnValue(Promise.resolve({ data: {}, error: null }));
+      chain.in.mockImplementation(() => {
+        const inChain = {
+          eq: vi.fn().mockReturnValue(Promise.resolve({ data: {}, error: null }))
+        };
+        return inChain;
+      });
 
       return chain;
     });
