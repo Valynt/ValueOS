@@ -28,6 +28,7 @@
 
 import { z } from "zod";
 import { logger } from "../../logger.js";
+import { CircuitOpenError } from "../../resilience.js";
 import { AuditLogger } from "../AuditLogger.js";
 import type { LifecycleContext, AgentOutput } from "../../../types/agent.js";
 import type {
@@ -37,7 +38,7 @@ import type {
   RequestEnvelope,
   TokenUsage,
 } from "./AgentHardeningTypes.js";
-import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES } from "./AgentHardeningTypes.js";
+import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES, GovernanceVetoError } from "./AgentHardeningTypes.js";
 import { safetyLayer } from "./AgentSafetyLayer.js";
 import {
   GovernanceLayer,
@@ -258,8 +259,7 @@ export class HardenedAgentRunner {
         lastError = err;
         const isTimeout =
           err instanceof Error && err.message.startsWith("[timeout]");
-        const isCircuitOpen =
-          err instanceof Error && err.message.includes("circuit");
+        const isCircuitOpen = err instanceof CircuitOpenError;
 
         logger.warn("agent.attempt_failed", {
           agent: this.config.agentName,
@@ -447,21 +447,6 @@ export class HardenedAgentRunner {
   }
 }
 
-// ---------------------------------------------------------------------------
-// GovernanceVetoError
-// ---------------------------------------------------------------------------
-
-export class GovernanceVetoError extends Error {
-  constructor(
-    public readonly agentName: string,
-    public readonly verdict: string,
-    public readonly reason: string,
-    public readonly checkpointId?: string
-  ) {
-    super(
-      `[${agentName}] Governance ${verdict}: ${reason}` +
-        (checkpointId ? ` (checkpoint: ${checkpointId})` : "")
-    );
-    this.name = "GovernanceVetoError";
-  }
-}
+// GovernanceVetoError is defined in AgentHardeningTypes.ts and re-exported
+// from index.ts. Import it from there rather than from this module.
+export { GovernanceVetoError } from "./AgentHardeningTypes.js";
