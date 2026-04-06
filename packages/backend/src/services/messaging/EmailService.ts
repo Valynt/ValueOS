@@ -206,7 +206,7 @@ export class EmailService {
             <p>Your organization <strong>${organizationName}</strong> has been successfully provisioned.</p>
 
             <h3>Plan Details</h3>
-            <p><strong>Tier:</strong> ${tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)}` : 'Unknown'}</p>
+            <p><strong>Tier:</strong> ${tier ? escapeHtml(`${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) : 'Unknown'}</p>
 
             ${featureList ? `
             <h3>Features Included:</h3>
