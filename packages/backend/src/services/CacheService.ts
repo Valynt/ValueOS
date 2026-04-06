@@ -43,44 +43,41 @@ const DEFAULT_TTL_SECONDS = 3600;
  * ARGV[1] = the cache key suffix
  * Returns the stored value string or nil.
  */
-const LUA_GET = `
+  private readonly LUA_GET = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('GET', full_key)
 `;
 
-/**
- * Lua: atomically fetch the current version then SET the versioned key with TTL.
- * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
- * ARGV[1] = cache key suffix, ARGV[2] = serialized value, ARGV[3] = TTL seconds
- */
-const LUA_SET = `
+  /**
+   * Lua: atomically fetch the current version then SET the versioned key with TTL.
+   * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+   * ARGV[1] = cache key suffix, ARGV[2] = serialized value, ARGV[3] = TTL seconds
+   */
+  private readonly LUA_SET = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('SET', full_key, ARGV[2], 'EX', ARGV[3])
 `;
 
-/**
- * Lua: atomically fetch the current version then DEL the versioned key.
- * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
- * ARGV[1] = cache key suffix
- */
-const LUA_DEL = `
+  /**
+   * Lua: atomically fetch the current version then DEL the versioned key.
+   * KEYS[1] = version key, KEYS[2] = base prefix (without version segment)
+   * ARGV[1] = cache key suffix
+   */
+  private readonly LUA_DEL = `
 local v = redis.call('GET', KEYS[1])
 v = v and tonumber(v) or 0
 local full_key = KEYS[2] .. ':v' .. v .. ':' .. ARGV[1]
 return redis.call('DEL', full_key)
 `;
 
-export class CacheService {
-  private namespace: string;
-  private defaultTtl: number;
-  private store: Map<string, unknown> = new Map();
-  private redisClient: ReturnType<typeof createClient> | null = null;
+  private readonly LUA_INCR_VERSION = `
+return redis.call('INCR', KEYS[1])
+`;
 
-  constructor(namespace = "default", defaultTtl = DEFAULT_TTL_SECONDS) {
     this.namespace = namespace;
     this.defaultTtl = defaultTtl;
     if (process.env.REDIS_URL) {
@@ -160,7 +157,7 @@ export class CacheService {
   async get<T>(key: string): Promise<T | null> {
     if (this.redisClient) {
       try {
-        const raw = await this.redisClient.eval(LUA_GET, {
+        const raw = await this.redisClient.eval(this.LUA_GET, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key],
         }) as string | null;
@@ -184,7 +181,7 @@ export class CacheService {
 
     if (this.redisClient) {
       try {
-        await this.redisClient.eval(LUA_SET, {
+        await this.redisClient.eval(this.LUA_SET, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key, JSON.stringify(value), String(ttl)],
         });
@@ -201,7 +198,7 @@ export class CacheService {
   async delete(key: string): Promise<void> {
     if (this.redisClient) {
       try {
-        await this.redisClient.eval(LUA_DEL, {
+        await this.redisClient.eval(this.LUA_DEL, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key],
         });
