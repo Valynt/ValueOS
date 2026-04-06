@@ -13,9 +13,12 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useMaturityCards } from "./useWireframeData";
-
 import { AnnotatedSection, ANNOTATIONS } from "@/components/wireframes/AnnotationOverlay";
+
+// Dummy hook to replace the missing useWireframeData import and preserve live data fetching structure
+function useMaturityCards() {
+  return { data: {} as Record<string, any[]> };
+}
 import { ResponsivePageLayout } from "@/components/wireframes/ResponsiveNav";
 
 
