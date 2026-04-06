@@ -50,7 +50,7 @@ function driverTypeToNodeType(dt: string | null): ValueNode['type'] {
   }
 }
 
-function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
+export function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
   if (rows.length === 0) return emptyGraph(caseId);
 
   const nodes: Record<string, ValueNode> = {};
@@ -92,8 +92,8 @@ function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
       edges[edgeId] = { id: edgeId, source: row.id, target: row.parent_id, type: 'input' };
       const child = nodes[row.id];
       const parent = nodes[row.parent_id];
-      if (child) child.outputs.push(row.parent_id);
-      if (parent) parent.inputs.push(row.id);
+      child.outputs.push(row.parent_id);
+      parent.inputs.push(row.id);
     }
   }
 
