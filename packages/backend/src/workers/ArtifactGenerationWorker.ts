@@ -23,16 +23,16 @@ import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
 import { CircuitBreaker } from "../lib/resilience/CircuitBreaker.js";
 import { logger } from "../lib/logger.js";
 
-import {
-  createWorkerServiceSupabaseClient,
-  type CreateWorkerServiceSupabaseClientOptions,
-} from "../lib/supabase/privileged/index.js";
+import { createWorkerServiceSupabaseClient } from "../lib/supabase/privileged/index.js";
 
 import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
 import { attachQueueMetrics } from "../observability/queueMetrics.js";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository.js";
 import { runJobWithTenantContext } from "./tenantContextBootstrap.js";
-import { ArtifactRepository } from "../services/artifacts/ArtifactRepository.js";
+import {
+  ArtifactRepository,
+  type CreateArtifactInput,
+} from "../services/artifacts/ArtifactRepository.js";
 import { withIdempotency } from "./IdempotentJobProcessor.js";
 import type { LifecycleContext } from "../types/agent.js";
 
@@ -68,9 +68,9 @@ async function loadCaseContext(
   requestedBy: string,
   artifactType: string
 ): Promise<LifecycleContext> {
-  
   const supabase = createWorkerServiceSupabaseClient({
-    justification: "service-role:justified ArtifactGenerationWorker reads value case data to generate artifacts in worker context",
+    justification:
+      "service-role:justified ArtifactGenerationWorker reads value case data to generate artifacts in worker context",
   });
 
   // Fetch the value case row.
@@ -176,9 +176,12 @@ async function processJob(
     format,
     requestedBy,
     traceId,
+  } = job.data;
+
   // Use a worker-scoped client for task management and persistence.
   const workerClient = createWorkerServiceSupabaseClient({
-    justification: "service-role:justified ArtifactGenerationWorker managing job lifecycle",
+    justification:
+      "service-role:justified ArtifactGenerationWorker managing job lifecycle",
   });
   const scopedJobRepo = new ArtifactJobRepository(workerClient);
   const scopedArtifactRepo = new ArtifactRepository(workerClient);
@@ -214,9 +217,7 @@ async function processJob(
       caseId,
       error: message,
     });
-    await scopedJ: message,
-    });
-    await jobRepo.markFailed(jobId, tenantId, message);
+    await scopedJobRepo.markFailed(jobId, tenantId, message);
     throw err;
   }
 
@@ -273,9 +274,9 @@ async function processJob(
       tenantId,
       organizationId,
       caseId,
-      artifactType: artifactType as any,
+      artifactType: artifactType as CreateArtifactInput["artifactType"],
       status: "final",
-      contentJson: agentOutput.data as any,
+      contentJson: agentOutput.data as Record<string, unknown>,
       readinessScoreAtGeneration:
         (context.user_inputs?.readiness_score as number | undefined) ?? 0,
       generatedByAgent: "narrative",
@@ -295,13 +296,6 @@ async function processJob(
 
   // Mark completed.
   await scopedJobRepo.markCompleted(jobId, tenantId, artifactId);
-    });
-    await jobRepo.markFailed(jobId, tenantId, message);
-    throw err;
-  }
-
-  // Mark completed.
-  await jobRepo.markCompleted(jobId, tenantId, artifactId);
 
   logger.info("ArtifactGenerationWorker: job completed", {
     jobId,

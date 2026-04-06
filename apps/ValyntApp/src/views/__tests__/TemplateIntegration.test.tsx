@@ -8,7 +8,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, it, vi } from "vitest";
 
 import ImpactCascade from "../ImpactCascade";
-// import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector"; // Component not found
 import QuantumView from "../QuantumView";
 import type { PersonaType } from "../QuantumView";
 import ROICalculator from "../ROICalculator";

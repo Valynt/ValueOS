@@ -39,14 +39,15 @@ function buggyExplainCacheKey(
   const tenantId = outerTenantId;
 
   // Inner scope — the shadow that was introduced by the bug
-   
-  const tenantId2 = innerTenantId; // renamed to avoid TS duplicate-declaration error
+  {
+    const tenantId = innerTenantId;
 
-  return {
-    tenantId: tenantId2, // bug: uses the re-derived value, not the validated one
-    endpoint: 'api-workflows-explain',
-    scope: `${executionId}:${stepId}`,
-  };
+    return {
+      tenantId, // bug: uses the re-derived value, not the validated one
+      endpoint: 'api-workflows-explain',
+      scope: `${executionId}:${stepId}`,
+    };
+  }
 }
 
 /**
@@ -61,6 +62,7 @@ function fixedExplainCacheKey(
   const tenantId = outerTenantId;
 
   return {
+    // Test case asserting the correct behavior where the validated outer tenantId is used.
     tenantId, // fix: uses the same validated tenantId as the DB query
     endpoint: 'api-workflows-explain',
     scope: `${executionId}:${stepId}`,

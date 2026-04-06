@@ -42,7 +42,7 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
       "user.accessibility.fontSize",
       "user.accessibility.reducedMotion",
     ],
-    { userId },
+    context,
     { scope: "user" }
   );
 
