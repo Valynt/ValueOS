@@ -66,11 +66,11 @@ export {
 } from "./AgentObservabilityLayer.js";
 
 // Runner
-export {
-  HardenedAgentRunner,
-  GovernanceVetoError,
-} from "./HardenedAgentRunner.js";
+export { HardenedAgentRunner } from "./HardenedAgentRunner.js";
 export type { HardenedAgentRunnerConfig, AgentExecuteFn } from "./HardenedAgentRunner.js";
+
+// GovernanceVetoError — exported from types (canonical location)
+export { GovernanceVetoError } from "./AgentHardeningTypes.js";
 
 // Reference implementation
 export {

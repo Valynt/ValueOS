@@ -19,6 +19,7 @@ const mocks = setupAuthMocks();
 const browserMocks = setupBrowserMocks();
 
 vi.mock("../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { auth: mocks.mockSupabaseAuth },
 }));
 

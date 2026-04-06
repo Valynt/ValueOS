@@ -33,6 +33,7 @@ vi.mock('../../../lib/supabase.js', () => {
   };
   mockFrom.mockReturnValue(chain);
   return { supabase: { from: mockFrom } };
+    assertNotTestEnv: vi.fn(),
 });
 
 const { mockCreateApprovalRequest } = vi.hoisted(() => ({

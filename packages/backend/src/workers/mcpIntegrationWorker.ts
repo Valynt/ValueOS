@@ -9,6 +9,7 @@ import type {
   McpFailureReasonCode,
   McpIntegrationProvider,
 } from "../services/mcp-integration/types.js";
+import { runJobWithTenantContext } from "./tenantContextBootstrap.js";
 
 const logger = createLogger({ component: "McpIntegrationWorker" });
 
@@ -147,27 +148,31 @@ export function initMcpIntegrationWorkers(): {
         );
       }
 
-      const providerClient = getMcpProvider(provider);
-      const metadata = await loadIntegrationMetadata(tenantId, integrationId);
-      const result = await providerClient.testAccess({
-        tenantId,
-        providerConfig: metadata,
-      });
+      // SECURITY: establish AsyncLocalStorage tenant context so all downstream
+      // code (DB queries, cache keys, audit logs) is scoped to this tenant.
+      return runJobWithTenantContext({ tenantId, workerName: "McpIntegrationWorker.validation" }, async () => {
+        const providerClient = getMcpProvider(provider);
+        const metadata = await loadIntegrationMetadata(tenantId, integrationId);
+        const result = await providerClient.testAccess({
+          tenantId,
+          providerConfig: metadata,
+        });
 
-      await updateIntegrationState({
-        tenantId,
-        integrationId,
-        provider,
-        state: result.ok ? "connected" : "failed",
-        reasonCode: result.reasonCode,
-        reasonMessage: result.message,
-      });
+        await updateIntegrationState({
+          tenantId,
+          integrationId,
+          provider,
+          state: result.ok ? "connected" : "failed",
+          reasonCode: result.reasonCode,
+          reasonMessage: result.message,
+        });
 
-      logger.info("MCP validation job completed", {
-        tenantId,
-        provider,
-        integrationId,
-        ok: result.ok,
+        logger.info("MCP validation job completed", {
+          tenantId,
+          provider,
+          integrationId,
+          ok: result.ok,
+        });
       });
     },
     { connection: getRedis(), concurrency: 5 }
@@ -183,28 +188,32 @@ export function initMcpIntegrationWorkers(): {
         );
       }
 
-      const providerClient = getMcpProvider(provider);
-      const metadata = await loadIntegrationMetadata(tenantId, integrationId);
-      const sync = await providerClient.sync({
-        tenantId,
-        providerConfig: metadata,
-      });
+      // SECURITY: establish AsyncLocalStorage tenant context so all downstream
+      // code (DB queries, cache keys, audit logs) is scoped to this tenant.
+      return runJobWithTenantContext({ tenantId, workerName: "McpIntegrationWorker.sync" }, async () => {
+        const providerClient = getMcpProvider(provider);
+        const metadata = await loadIntegrationMetadata(tenantId, integrationId);
+        const sync = await providerClient.sync({
+          tenantId,
+          providerConfig: metadata,
+        });
 
-      await updateIntegrationState({
-        tenantId,
-        integrationId,
-        provider,
-        state: sync.ok ? (sync.degraded ? "degraded" : "connected") : "failed",
-        reasonCode: sync.reasonCode,
-        reasonMessage: sync.message,
-      });
+        await updateIntegrationState({
+          tenantId,
+          integrationId,
+          provider,
+          state: sync.ok ? (sync.degraded ? "degraded" : "connected") : "failed",
+          reasonCode: sync.reasonCode,
+          reasonMessage: sync.message,
+        });
 
-      logger.info("MCP sync job completed", {
-        tenantId,
-        provider,
-        integrationId,
-        syncedRecords: sync.syncedRecords,
-        ok: sync.ok,
+        logger.info("MCP sync job completed", {
+          tenantId,
+          provider,
+          integrationId,
+          syncedRecords: sync.syncedRecords,
+          ok: sync.ok,
+        });
       });
     },
     { connection: getRedis(), concurrency: 3 }

@@ -10,6 +10,8 @@
  * - Multi-tenant database optimization
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -87,7 +89,7 @@ export class MultiTenantService {
     tenantData: Omit<Tenant, "id" | "createdAt" | "updatedAt">,
     creatorUserId: string
   ): Promise<Tenant> {
-    const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const tenantId = `tenant_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const tenant: Tenant = {
       ...tenantData,
@@ -101,7 +103,7 @@ export class MultiTenantService {
 
     // Create initial tenant user (owner)
     const ownerUser: TenantUser = {
-      id: `tu_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      id: `tu_${Date.now()}_${randomBytes(6).toString("hex")}`,
       tenantId,
       userId: creatorUserId,
       role: "owner",
@@ -278,7 +280,7 @@ export class MultiTenantService {
    * Add user to tenant
    */
   async addTenantUser(tenantUser: Omit<TenantUser, "id">): Promise<TenantUser> {
-    const userId = `tu_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const userId = `tu_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const newTenantUser: TenantUser = {
       ...tenantUser,

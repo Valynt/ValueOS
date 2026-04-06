@@ -12,6 +12,7 @@ const insertMock = vi.fn().mockResolvedValue({ error: null });
 const selectMock = vi.fn();
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createServerSupabaseClient: () => ({
     from: (_table: string) => ({

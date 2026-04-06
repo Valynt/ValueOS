@@ -53,6 +53,7 @@ vi.mock("../../../services/post-v1/SecurityAuditService.js", () => ({
 // Supabase mock: first upsert succeeds, subsequent ones simulate ON CONFLICT DO NOTHING
 let _upsertCallCount = 0;
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockImplementation(() => ({
       upsert: vi.fn().mockImplementation(() => ({

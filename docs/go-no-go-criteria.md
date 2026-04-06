@@ -1,0 +1,243 @@
+# ValueOS Production Launch — GO / NO-GO Criteria
+
+**Purpose:** Defines the binary pass/fail criteria for production launch authorization.  
+**Authority:** Release Manager holds final GO/NO-GO decision. Any single NO-GO blocks launch.  
+**Process:** Each criterion is evaluated by its designated owner. Results are recorded in the launch decision record (GitHub Issue tagged `release-decision`).
+
+---
+
+## How to Use This Document
+
+1. Create a GitHub Issue titled `Release vX.Y.Z — GO/NO-GO Decision` with label `release-decision`
+2. Each owner evaluates their criteria and posts their finding as a comment
+3. Release Manager reviews all findings and posts the final GO or NO-GO decision
+4. The issue is closed and linked to the GitHub Release artifact
+
+---
+
+## Hard Gates — Any single FAIL = NO-GO
+
+These are non-negotiable. No exception process exists for these criteria.
+
+### G1 — CI Pipeline Integrity
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| `pr-fast` required check | All lanes green on the release commit | GitHub branch protection status |
+| `main-verify` required check | Passed on the release commit | GitHub Actions run |
+| `codeql` required check | No open HIGH/CRITICAL alerts | GitHub Security → Code scanning |
+| TypeScript error count | ≤ baseline per package (ratchet) | `ts-error-ratchet` workflow |
+| Build succeeds | `pnpm run build` exits 0 | `active-app-quality-gates` lane |
+| Lint clean | Zero new violations vs. baseline | `lint-runtime-packages` lane |
+
+**Owner:** Platform Engineering  
+**Evidence:** Link to passing GitHub Actions runs for the release commit SHA
+
+---
+
+### G2 — Test Coverage
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| Line coverage | ≥ 75% | Vitest coverage report |
+| Statement coverage | ≥ 75% | Vitest coverage report |
+| Function coverage | ≥ 70% | Vitest coverage report |
+| Branch coverage | ≥ 70% | Vitest coverage report |
+| All unit tests pass | Zero failing tests | `unit-component-schema` lane |
+| All integration tests pass | Zero failing tests | `_reusable-test.yml` backend-services scope |
+| RLS policy tests pass | Zero failing tests | `rls-gate` workflow |
+
+**Owner:** QA Lead  
+**Evidence:** Vitest coverage JSON artifact from the release run
+
+---
+
+### G3 — E2E Tests
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| Playwright E2E suite | Zero failing tests | `playwright.config.ts` run against staging |
+| Critical user journeys covered | All journeys in test plan executed | Test run report |
+| No flaky test suppression | No `test.skip` or `test.only` in E2E suite | `check-critical-skip-only.mjs` |
+
+**Critical journeys that must pass:**
+- Tenant registration and onboarding
+- Value model creation, editing, and submission
+- Financial model calculation with evidence attachment
+- Approval workflow (submit → review → approve/reject)
+- Billing: subscription creation, upgrade, cancellation
+- Authentication: email/password login, passkey login, session expiry
+- Multi-tenant isolation: user A cannot see user B's data
+
+**Owner:** QA Lead  
+**Evidence:** Playwright HTML report artifact
+
+---
+
+### G4 — Security
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| No HIGH/CRITICAL CVEs (unwaived) | `pnpm audit --audit-level=high` exits 0 | Audit output |
+| No HIGH/CRITICAL CodeQL alerts | GitHub Security tab clean | Code scanning alerts |
+| No HIGH DAST findings | ZAP baseline: 0 HIGH | ZAP report artifact |
+| DAST MEDIUM findings | ≤ 5 MEDIUM | ZAP report artifact |
+| No secrets in codebase | Gitleaks full-history clean | `main-verify` secret scan |
+| No secrets in browser bundle | `check-client-bundle-secrets.sh` passes | CI artifact |
+| No service-role keys in frontend | `check-frontend-bundle-service-role` passes | CI artifact |
+| All CVE waivers current | No expired waivers | `check-cve-waivers.mjs` |
+| Secret rotation current | All CRITICAL secrets rotated within 90 days | `secret-rotation-verification` |
+
+**Owner:** Security  
+**Evidence:** Security scan artifacts, CVE waiver registry, ZAP report
+
+---
+
+### G5 — Schema & Data Integrity
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| Migration chain integrity | Clean apply from zero on Postgres 15 | `migration-chain-integrity` workflow |
+| All migrations have rollback files | `check-migration-rollbacks.mjs` passes | CI output |
+| No schema drift | `check-migration-schema-consistency.mjs` passes | CI output |
+| Migration naming convention | `check-migration-hygiene.mjs` passes | CI output |
+| Rollback scripts tested | Last 3 migrations rolled back and re-applied successfully | Manual test record |
+| DR validation passed | `dr-validation` workflow passed within last 7 days | Workflow run timestamp |
+| Backup restore verified | Latest snapshot restores and passes integrity checks | DR validation artifact |
+
+**Owner:** Backend Lead + SRE  
+**Evidence:** `migration-chain-integrity` run, `dr-validation` run, rollback test record
+
+---
+
+### G6 — Infrastructure Readiness
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| Manifest maturity ledger | All `critical: true` manifests at `status: "Validated"` | `infra/k8s/manifest-maturity-ledger.json` |
+| K8s manifests valid | `kubeconform` passes on production overlay | `unit-component-schema` lane |
+| HPA configured | Backend min=2/max=18, frontend min=2/max=6 | `infra/k8s/base/hpa.yaml` |
+| PodDisruptionBudgets set | Backend and frontend PDBs present | `infra/k8s/base/backend-pdb.yaml` |
+| Network policies applied | Zero-trust network policies in place | `infra/k8s/base/network-policies.yaml` |
+| Terraform plan clean | No unexpected resource changes | `terraform.yml` plan output |
+| Kyverno policies enforced | PSA `restricted` profile active | `validate-k8s-security-policies.mjs` |
+
+**Owner:** Platform Engineering + SRE  
+**Evidence:** Manifest maturity ledger, Terraform plan artifact, K8s validation output
+
+---
+
+### G7 — Observability Readiness
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| All critical services have observability links | `check-critical-service-observability-links.mjs` passes | CI output |
+| All alerts have runbook links | `check-alert-runbooks.mjs` passes | CI output |
+| Grafana dashboards deployed | Production dashboards reflect current release | Manual verification |
+| On-call rotation active | Named engineer on-call for deployment window | PagerDuty schedule |
+| PagerDuty escalation policy current | Escalation chain verified | PagerDuty config |
+
+**Owner:** SRE  
+**Evidence:** Observability check CI output, PagerDuty schedule screenshot
+
+---
+
+### G8 — Compliance
+
+| Criterion | Pass condition | Verification |
+|---|---|---|
+| Critical controls passing | `check-control-status-critical.mjs` passes | CI output |
+| Control matrix current | `check-ci-security-control-matrix.mjs` passes | CI output |
+| RLS coverage audit current | All tables classified in `docs/db/rls-coverage-audit.md` | Manual review |
+| Tenant isolation verified | `test:rls` passes + static gate passes | CI output |
+| Access review completed | No stale service accounts | `access-review-automation` artifact |
+
+**Owner:** Compliance + Security  
+**Evidence:** Control status artifacts, RLS audit doc, access review artifact
+
+---
+
+## Soft Gates — FAIL triggers review, not automatic NO-GO
+
+These require Release Manager judgment. A documented exception with mitigations is required to proceed.
+
+| Criterion | Target | Current state check | Exception process |
+|---|---|---|---|
+| Load test p95 latency | ≤ 200ms at target RPS | k6 report | Document expected load, mitigation plan |
+| Load test error rate | ≤ 0.1% | k6 report | Document error type, fix timeline |
+| Accessibility violations | Zero new WCAG 2.2 AA violations | Playwright axe-core report | Document violation, remediation sprint |
+| TypeScript `any` count | ≤ baseline (ratchet) | `any-ratchet.mjs` | Requires security owner sign-off |
+| Debt score | ≤ baseline (ratchet) | `debt-ratchet.mjs` | Document debt, remediation sprint |
+| Outdated dependencies | No packages > 2 major versions behind | `dependency-outdated` report | Document upgrade plan |
+
+---
+
+## Staging Dwell Requirement
+
+**Minimum 30 minutes of healthy staging operation** before production deployment is authorized.
+
+Staging health criteria during dwell period:
+- p95 latency ≤ 200ms
+- 5xx rate ≤ 0.1%
+- No pod restarts
+- No new error patterns in Loki
+
+**Owner:** SRE  
+**Evidence:** Grafana staging dashboard screenshot at T-30min and T-0
+
+---
+
+## Launch Decision Record Template
+
+```markdown
+## Release vX.Y.Z — GO/NO-GO Decision
+
+**Release commit:** <sha>
+**Decision timestamp:** <ISO 8601>
+**Release Manager:** <name>
+**Decision:** GO ✅ / NO-GO ❌
+
+### Gate Results
+
+| Gate | Result | Owner | Evidence |
+|---|---|---|---|
+| G1 CI Pipeline Integrity | ✅ PASS / ❌ FAIL | | |
+| G2 Test Coverage | ✅ PASS / ❌ FAIL | | |
+| G3 E2E Tests | ✅ PASS / ❌ FAIL | | |
+| G4 Security | ✅ PASS / ❌ FAIL | | |
+| G5 Schema & Data Integrity | ✅ PASS / ❌ FAIL | | |
+| G6 Infrastructure Readiness | ✅ PASS / ❌ FAIL | | |
+| G7 Observability Readiness | ✅ PASS / ❌ FAIL | | |
+| G8 Compliance | ✅ PASS / ❌ FAIL | | |
+
+### Soft Gate Exceptions (if any)
+
+<document any soft gate exceptions with mitigations>
+
+### Staging Dwell
+
+- Staging deployed at: <timestamp>
+- Staging healthy since: <timestamp>
+- Dwell duration: <minutes> (minimum 30)
+
+### Decision Rationale
+
+<Release Manager notes>
+```
+
+---
+
+## Automatic NO-GO Conditions
+
+The following conditions result in an automatic NO-GO regardless of other gate results. No exception process exists.
+
+1. Any open HIGH or CRITICAL security vulnerability without an approved waiver
+2. Any failing E2E test in the critical user journey set
+3. Test coverage below minimum thresholds
+4. Any migration without a paired rollback file
+5. `dr-validation` not passed within the last 7 days
+6. Any critical K8s manifest not at `Validated` status in the maturity ledger
+7. Any open `priority:critical` bug in the release milestone
+8. Gitleaks detecting secrets in the release commit history
+9. DAST scan showing any HIGH finding
+10. `main-verify` workflow not passing on the release commit

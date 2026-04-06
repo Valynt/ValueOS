@@ -67,6 +67,7 @@ const mocks = vi.hoisted(() => {
 
 // Mock Supabase
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => ({
     from: mocks.mockFrom,
   }),

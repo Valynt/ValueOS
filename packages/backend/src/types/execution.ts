@@ -1,3 +1,5 @@
+import { randomBytes } from "crypto";
+
 import { z } from "zod";
 import { JsonObjectSchema, type JsonObject } from "./json";
 
@@ -152,11 +154,11 @@ export function normalizeExecutionRequest(
 }
 
 function generateExecutionId(): string {
-  return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `exec_${Date.now()}_${randomBytes(6).toString("hex")}`;
 }
 
 function generateCorrelationId(): string {
-  return `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `corr_${Date.now()}_${randomBytes(6).toString("hex")}`;
 }
 
 // ============================================================================

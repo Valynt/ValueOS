@@ -120,9 +120,27 @@ export class VectorSearchService {
       });
 
       const executeSearch = async (): Promise<SearchResult[]> => {
+        // SECURITY: p_organization_id is now a mandatory parameter on the RPC
+        // (migration 20261009000000_add_search_semantic_memory_rpc.sql).
+        // Extract it from filters; throw if absent so callers are forced to
+        // supply tenant scope. Use searchWithTenant() for all production paths —
+        // it always passes tenantId explicitly.
+        const organizationId =
+          typeof filters.organization_id === "string" ? filters.organization_id :
+          typeof filters.tenant_id === "string" ? filters.tenant_id :
+          null;
+
+        if (!organizationId) {
+          throw new Error(
+            "VectorSearchService.searchByEmbedding: organization_id or tenant_id is required in filters. " +
+            "Use searchWithTenant() to ensure tenant isolation."
+          );
+        }
+
         const startTime = Date.now();
         const { data, error } = await supabase.rpc("search_semantic_memory", {
           query_embedding: queryEmbedding,
+          p_organization_id: organizationId,
           match_threshold: effectiveThreshold,
           match_count: limit,
           filter_clause: filterClause,

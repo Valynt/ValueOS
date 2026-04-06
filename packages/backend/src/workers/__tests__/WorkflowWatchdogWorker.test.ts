@@ -24,6 +24,12 @@ vi.mock("../../middleware/metricsMiddleware.js", () => ({
 }));
 
 vi.mock("prom-client", () => ({
+  Registry: vi.fn(() => ({
+    registerMetric: vi.fn(),
+    metrics: vi.fn().mockResolvedValue(""),
+    clear: vi.fn(),
+    getSingleMetric: vi.fn(),
+  })),
   Counter: vi.fn().mockImplementation(() => ({
     inc: vi.fn(),
   })),

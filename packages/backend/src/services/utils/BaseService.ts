@@ -18,7 +18,7 @@ import {
   TimeoutError,
 } from "./errors.js";
 
-interface RetryConfig {
+export interface RetryConfig {
   maxRetries: number;
   initialDelay: number;
   maxDelay: number;

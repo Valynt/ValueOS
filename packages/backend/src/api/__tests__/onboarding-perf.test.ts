@@ -6,6 +6,7 @@ import onboardingRouter from '../onboarding.js';
 // Mock dependencies
 vi.mock('../../lib/supabase.js', () => {
   return {
+    assertNotTestEnv: vi.fn(),
     createRequestRlsSupabaseClient: vi.fn(),
     supabase: {},
     supabaseClient: {}

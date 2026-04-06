@@ -19,6 +19,7 @@ const mockSelect = vi.fn(() => ({ order: mockOrder }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 

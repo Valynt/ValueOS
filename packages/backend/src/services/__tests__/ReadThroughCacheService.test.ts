@@ -39,6 +39,7 @@ vi.mock("../../lib/redis.js", () => ({
 }));
 
 vi.mock("../../lib/metrics/httpMetrics.js", () => ({
+  default: { metrics: vi.fn().mockResolvedValue(""), registerMetric: vi.fn() },
   readCacheEventsTotal: { inc: readCacheEventsTotalInc },
 }));
 

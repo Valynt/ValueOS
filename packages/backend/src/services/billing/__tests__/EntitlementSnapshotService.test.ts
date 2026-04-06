@@ -43,6 +43,7 @@ const mockSupabaseClient = {
 };
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: mockSupabaseClient,
 }));
 

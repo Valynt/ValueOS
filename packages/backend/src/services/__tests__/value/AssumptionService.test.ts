@@ -19,6 +19,7 @@ vi.mock("../../../lib/logger.js", () => ({
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockReturnValue({
       insert: vi.fn().mockImplementation((payload: Record<string, unknown>) => ({

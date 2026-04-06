@@ -36,6 +36,7 @@ const _stripe = vi.hoisted(() => ({
 // ---------------------------------------------------------------------------
 
 vi.mock("../../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockImplementation((table: string) => {
       // Simulate INSERT ... ON CONFLICT DO NOTHING (ignoreDuplicates: true).

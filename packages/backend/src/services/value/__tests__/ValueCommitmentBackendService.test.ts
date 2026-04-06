@@ -9,7 +9,8 @@ const { mockFrom, mockLogAudit } = vi.hoisted(() => ({
   mockLogAudit: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../../../lib/supabase.js', () => ({ supabase: { from: mockFrom } }));
+vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(), supabase: { from: mockFrom } }));
 vi.mock('../../security/AuditLogService.js', () => ({
   auditLogService: { logAudit: mockLogAudit },
 }));

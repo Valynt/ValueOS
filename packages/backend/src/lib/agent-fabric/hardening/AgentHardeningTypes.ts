@@ -362,3 +362,24 @@ export const FAILURE_RESPONSES: Record<FailureScenario, FailureResponse> = {
     human_notified: true,
   },
 };
+
+// ---------------------------------------------------------------------------
+// GovernanceVetoError
+// Defined here (not in HardenedAgentRunner) so callers can import it without
+// pulling in the full runner module.
+// ---------------------------------------------------------------------------
+
+export class GovernanceVetoError extends Error {
+  constructor(
+    public readonly agentName: string,
+    public readonly verdict: string,
+    public readonly reason: string,
+    public readonly checkpointId?: string
+  ) {
+    super(
+      `[${agentName}] Governance ${verdict}: ${reason}` +
+        (checkpointId ? ` (checkpoint: ${checkpointId})` : "")
+    );
+    this.name = "GovernanceVetoError";
+  }
+}

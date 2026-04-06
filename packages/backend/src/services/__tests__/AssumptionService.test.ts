@@ -14,6 +14,7 @@ vi.mock('../../lib/supabase', () => {
     single: vi.fn(),
   };
   return {
+    assertNotTestEnv: vi.fn(),
     supabase: mockSupabase
   };
 });

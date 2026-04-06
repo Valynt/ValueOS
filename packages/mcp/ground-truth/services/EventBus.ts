@@ -10,6 +10,8 @@
  * Uses Redis pub/sub for message queuing with event replay capabilities.
  */
 
+import { randomBytes } from "crypto";
+
 import { createClient, RedisClientType } from "redis";
 
 import { logger } from "../../lib/logger.js";
@@ -125,7 +127,7 @@ export class EventBus {
       throw new Error("EventBus is not connected");
     }
 
-    const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const eventId = `evt_${Date.now()}_${randomBytes(6).toString("hex")}`;
     const fullEvent: Event = {
       ...event,
       id: eventId,
@@ -170,7 +172,7 @@ export class EventBus {
     handler: EventHandlerFunction,
     options?: EventSubscription["options"]
   ): string {
-    const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const subscriptionId = `sub_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const subscription: EventSubscription = {
       id: subscriptionId,

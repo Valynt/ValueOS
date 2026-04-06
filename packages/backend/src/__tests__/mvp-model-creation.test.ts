@@ -11,6 +11,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 
 // Mock only the persistence layer, not the calculation logic
 vi.mock("../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockReturnThis(),
     insert: vi.fn().mockResolvedValue({ data: null, error: null }),

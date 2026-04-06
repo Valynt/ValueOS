@@ -13,6 +13,8 @@
  * - Integration with external compliance systems
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -183,7 +185,7 @@ export class AuditLoggingService {
     metadata: AuditMetadata,
     compliance?: Partial<ComplianceData>
   ): Promise<string> {
-    const eventId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const eventId = `audit_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const event: AuditEvent = {
       id: eventId,
@@ -318,7 +320,7 @@ export class AuditLoggingService {
         securityIncidents,
       },
       generatedAt: new Date(),
-      reportId: `report_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      reportId: `report_${Date.now()}_${randomBytes(6).toString("hex")}`,
     };
 
     // Cache the report

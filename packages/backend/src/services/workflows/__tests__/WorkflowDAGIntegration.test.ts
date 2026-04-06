@@ -52,6 +52,7 @@ const { supabaseMock } = vi.hoisted(() => {
 });
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: supabaseMock,
 }));
 

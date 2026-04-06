@@ -90,6 +90,7 @@ vi.mock('../../../middleware/tenantDbContext', () => ({
 }));
 
 vi.mock('../../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn() },
   createServerSupabaseClient: vi.fn().mockReturnValue({ from: vi.fn() }),
 }));

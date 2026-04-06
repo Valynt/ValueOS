@@ -12,6 +12,8 @@
  * - Integration with WebSocket server for live alerts
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -117,7 +119,7 @@ export class SECWebhookSystem {
   async addSubscription(
     subscription: Omit<WebhookSubscription, "id" | "createdAt">
   ): Promise<string> {
-    const id = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const id = `sub_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const newSubscription: WebhookSubscription = {
       ...subscription,

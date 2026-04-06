@@ -32,6 +32,7 @@ const mockSupabaseClient = {
 
 // Mock the supabase lib to avoid env/module resolution issues
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: mockSupabaseClient,
   createServerSupabaseClient: () => mockSupabaseClient,
   getSupabaseClient: () => mockSupabaseClient,

@@ -21,6 +21,7 @@ import { describe, expect, it, vi } from "vitest";
 
 // Mock the broken/side-effectful imports before ValueFabricService is loaded.
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {},
   createServerSupabaseClient: () => ({}),
 }));
