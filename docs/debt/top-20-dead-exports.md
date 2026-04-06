@@ -1,7 +1,7 @@
 # Top 20 dead/unused export candidates
 
 Source: `npx ts-prune -p packages/backend/tsconfig.json`.
-Generated at: `2026-04-05T20:51:29.700Z`.
+Generated at: `2026-04-06T02:11:35.585Z`.
 
 1. `packages/memory/index.ts:41` — `SemanticSearchResult`
 2. `packages/memory/index.ts:55` — `ContradictionResult`

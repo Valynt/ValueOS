@@ -26,6 +26,4 @@ while IFS= read -r pkg_json; do
 exec node "$ROOT_PNPM_CJS" "\$@"
 SHIM
   chmod +x "$shim"
-done < <(cd "$ROOT_DIR" && rg --files -g 'package.json' \
-  | rg -v '(^|/)node_modules/' \
-  | rg -v '^package.json$')
+done < <(cd "$ROOT_DIR" && find . -name 'package.json' -not -path "*/node_modules/*" | sed 's|^\./||' | grep -v '^package.json$')
