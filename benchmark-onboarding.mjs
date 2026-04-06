@@ -34,6 +34,9 @@ async function originalFetch(ids) {
       .eq('id', id)
       .eq('tenant_id', mockTenantId)
       .single();
+    if (fetchErr) {
+      console.error('Error fetching suggestion in originalFetch:', fetchErr);
+    }
     results.push(suggestion);
   }
   return results;
@@ -45,6 +48,9 @@ async function optimizedFetch(ids) {
     .select('*')
     .in('id', ids)
     .eq('tenant_id', mockTenantId);
+  if (fetchErr) {
+    console.error('Error fetching suggestions in optimizedFetch:', fetchErr);
+  }
   return suggestions;
 }
 
