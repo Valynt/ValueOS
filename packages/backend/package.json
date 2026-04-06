@@ -20,6 +20,7 @@
     "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
     "typecheck:strict:zones": "pnpm run typecheck:strict:boundaries && pnpm run typecheck:strict:capabilities",
     "lint": "eslint src/ --max-warnings=2443",
+    "cache:prewarm": "tsx src/scripts/prewarm-llm-cache.ts",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "check:service-role-boundaries": "node ../../scripts/ci/check-backend-service-role-boundaries.mjs",
     "test": "vitest run --reporter=verbose",

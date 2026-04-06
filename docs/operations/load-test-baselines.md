@@ -27,6 +27,42 @@ ValueOS load tests must reuse the canonical class mapping from `docs/operations/
 - Only workloads labeled `scaling.valueos.io/request-path-policy=interactive-allowlisted` may be counted toward interactive route capacity when an agent participates in the request path.
 - Scale-to-zero agents labeled `scaling.valueos.io/request-path-policy=async-only` remain orchestration-only; they must never be used to satisfy interactive latency expectations.
 
+## Expected launch traffic baseline
+
+This section defines the canonical "expected launch traffic" figure used to
+derive the Sprint 2 exit criterion ("2x expected launch traffic without
+degradation").
+
+| Signal | Expected at launch | 2x validation target | Basis |
+|---|---|---|---|
+| Concurrent interactive users (VUs) | **50** | **100 VUs** | Initial cohort estimate: ≤ 50 simultaneous active sessions during the first 48h |
+| Orchestration / LLM concurrent requests | **20** | **40 VUs** | Agent invocations are async; 20 concurrent LLM calls is the expected peak for 50 active users |
+| Health / readiness probes | **100** | **200 VUs** | ALB health checks + monitoring scrapes |
+
+### How to run the 2x validation
+
+```bash
+k6 run \
+  --env BASE_URL=https://staging.valueos.app \
+  --env AUTH_TOKEN=<staging-jwt> \
+  --env TENANT_ID=<staging-tenant-uuid> \
+  --env VUS=100 \
+  --env DURATION=5m \
+  infra/testing/load-test.k6.js
+```
+
+Pass criteria (all must hold at 100 VUs):
+
+- Interactive completion p95 `< 200 ms`
+- Orchestration acknowledgment p95 `< 200 ms`
+- Orchestration completion p95 `< 3000 ms`
+- Error rate `< 0.1%`
+- No HPA oscillation (scale-up then immediate scale-down within the same window)
+
+Record results in the **Recorded baselines** section below using the run template.
+
+---
+
 ## Tool
 
 [k6](https://k6.io) — scripts in `infra/testing/load-test.k6.js`.
