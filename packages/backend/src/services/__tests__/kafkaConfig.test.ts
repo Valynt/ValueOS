@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'node:fs';
+import * as fs from 'node:fs';
 import { isKafkaEnabled, buildKafkaClientConfig } from '../kafkaConfig';
 
 vi.mock('node:fs', () => ({
@@ -103,11 +103,11 @@ describe('kafkaConfig', () => {
       const config = buildKafkaClientConfig(baseConfig);
 
       expect(config.ssl).toBeDefined();
-      // @ts-ignore
+      // @ts-expect-error accessing dynamic keys
       expect(config.ssl.ca).toEqual([mockCaBuffer]);
-      // @ts-ignore
+      // @ts-expect-error accessing dynamic keys
       expect(config.ssl.cert).toEqual(mockCertBuffer);
-      // @ts-ignore
+      // @ts-expect-error accessing dynamic keys
       expect(config.ssl.key).toEqual(mockKeyBuffer);
 
       expect(fs.readFileSync).toHaveBeenCalledTimes(3);
