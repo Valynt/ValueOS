@@ -1,7 +1,41 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { getPdfExportService, PdfExportService } from '../PdfExportService';
 
-// Mock the logger
+// We intentionally do not import from PdfExportService directly here
+// to ensure a clean module state for each test if we were to use resetModules,
+// but for these tests we can rely on dynamic imports.
+
+// Mock dependencies
+vi.mock('../../../lib/supabase.js', () => ({
+  createServerSupabaseClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn(),
+        createSignedUrl: vi.fn(),
+      })),
+    },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+  assertNotTestEnv: vi.fn(),
+  createUserSupabaseClient: vi.fn(),
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  },
+}));
+
 vi.mock('@shared/lib/logger', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
@@ -11,35 +45,23 @@ vi.mock('@shared/lib/logger', () => ({
   })),
 }));
 
-// Mock the Supabase client creation
-vi.mock('../../../lib/supabase.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../lib/supabase.js')>();
-  return {
-    ...actual,
-    assertNotTestEnv: vi.fn(),
-    createServerSupabaseClient: vi.fn(() => ({
-      storage: {
-        from: vi.fn(() => ({
-          upload: vi.fn(),
-          createSignedUrl: vi.fn(),
-        })),
-      },
-    })),
-  };
-});
+describe('getPdfExportService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-describe('PdfExportService', () => {
-  describe('getPdfExportService', () => {
-    it('should return an instance of PdfExportService', () => {
-      const instance = getPdfExportService();
-      expect(instance).toBeInstanceOf(PdfExportService);
-    });
+  it('should return an instance of PdfExportService', async () => {
+    // We dynamically import so that the module state is isolated
+    const { getPdfExportService, PdfExportService } = await import('../PdfExportService');
+    const service = getPdfExportService();
+    expect(service).toBeInstanceOf(PdfExportService);
+  });
 
-    it('should return the exact same instance on subsequent calls (singleton)', () => {
-      const instance1 = getPdfExportService();
-      const instance2 = getPdfExportService();
+  it('should return the same instance on subsequent calls (singleton)', async () => {
+    const { getPdfExportService } = await import('../PdfExportService');
+    const instance1 = getPdfExportService();
+    const instance2 = getPdfExportService();
 
-      expect(instance1).toBe(instance2);
-    });
+    expect(instance1).toBe(instance2);
   });
 });

@@ -1,7 +1,7 @@
 import { Octokit } from "@octokit/rest";
 
-import { BaseAgent } from "./BaseAgent";
-import { LLMGateway } from "./openai";
+import { BaseAgent } from "./BaseAgent.js";
+import { LLMGateway } from "./openai.js";
 
 export class ScribeAgent extends BaseAgent {
   private llmGateway: LLMGateway;

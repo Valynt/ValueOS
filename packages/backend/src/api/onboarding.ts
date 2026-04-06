@@ -347,6 +347,8 @@ router.post(
         return res.status(500).json({ error: 'Failed to fetch suggestions for bulk accept' });
       }
 
+      const insertTasks: Array<{ id: string; targetTable: string; data: any }> = [];
+
       for (const id of ids) {
         try {
           // Find suggestion in prefetched data
@@ -365,24 +367,46 @@ router.post(
           // Write to canonical table
           const targetTable = ENTITY_TABLE_MAP[suggestion.entity_type];
           if (targetTable) {
-            const { error: insertErr } = await supabase
-              .from(targetTable)
-              .insert({
+            insertTasks.push({
+              id,
+              targetTable,
+              data: {
                 ...suggestion.payload,
                 tenant_id: tenantId,
                 context_id: suggestion.context_id,
-              });
-
-            if (insertErr) {
-              results.push({ id, success: false, error: insertErr.message });
-              continue;
-            }
+              }
+            });
+          } else {
+            acceptedIds.push(id);
+            results.push({ id, success: true });
           }
-
-          acceptedIds.push(id);
-          results.push({ id, success: true });
         } catch (err) {
           results.push({ id, success: false, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      // Execute insert operations concurrently
+      const insertResults = await Promise.all(
+        insertTasks.map(async (task) => {
+          try {
+            const { error: insertErr } = await supabase
+              .from(task.targetTable)
+              .insert(task.data);
+
+            return { id: task.id, error: insertErr };
+          } catch (err) {
+             return { id: task.id, error: new Error(err instanceof Error ? err.message : String(err)) };
+          }
+        })
+      );
+
+      // Process results
+      for (const result of insertResults) {
+        if (result.error) {
+          results.push({ id: result.id, success: false, error: result.error.message });
+        } else {
+          acceptedIds.push(result.id);
+          results.push({ id: result.id, success: true });
         }
       }
 
