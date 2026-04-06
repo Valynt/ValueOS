@@ -18,7 +18,7 @@ class CSRFProtection {
     crypto.getRandomValues(array);
     let token = "";
     for (let i = 0; i < this.tokenLength; i++) {
-      token += chars.charAt(array[i] % chars.length);
+      token += chars.charAt(array[i]! % chars.length);
     }
     return token;
   }
