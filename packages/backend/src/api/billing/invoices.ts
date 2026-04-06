@@ -7,7 +7,7 @@ import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
 import { auditDataExport } from '../../middleware/auditHooks.js'
-import { invoiceService as InvoiceService } from "../../services/billing/InvoiceService.js";
+import { InvoiceService } from "../../services/billing/InvoiceService.js";
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });
@@ -26,14 +26,15 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const tenantId = req.tenantId;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = parseInt(req.query.offset as string) || 0;
-    
-    if (!tenantId) {
+
+    if (!tenantId || !req.supabase) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const invoices = await InvoiceService.getInvoices(tenantId, limit, offset);
-    
+    const service = new InvoiceService(req.supabase);
+    const invoices = await service.getInvoices(tenantId, limit, offset);
+
     res.json({ invoices, limit, offset });
   } catch (error) {
     logger.error('Error fetching invoices', error as Error, withRequestContext(req, res));
@@ -48,14 +49,15 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.get('/upcoming', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId;
-    
-    if (!tenantId) {
+
+    if (!tenantId || !req.supabase) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const upcomingInvoice = await InvoiceService.getUpcomingInvoice(tenantId);
-    
+    const service = new InvoiceService(req.supabase);
+    const upcomingInvoice = await service.getUpcomingInvoice(tenantId);
+
     res.json(upcomingInvoice);
   } catch (error) {
     logger.error('Error fetching upcoming invoice', error as Error, withRequestContext(req, res));
@@ -70,9 +72,15 @@ router.get('/upcoming', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const invoiceId = req.params.id ?? '';
-    
-    const invoice = await InvoiceService.getInvoiceById(invoiceId);
-    
+
+    if (!req.supabase) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const service = new InvoiceService(req.supabase);
+    const invoice = await service.getInvoiceById(invoiceId);
+
     if (!invoice) {
       res.status(404).json({ error: 'Invoice not found' });
       return;
@@ -92,9 +100,15 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id/pdf', auditDataExport('invoice_pdf'), async (req: Request, res: Response) => {
   try {
     const invoiceId = req.params.id;
-    
-    const pdfUrl = await InvoiceService.downloadInvoicePDF(invoiceId ?? '');
-    
+
+    if (!req.supabase) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const service = new InvoiceService(req.supabase);
+    const pdfUrl = await service.downloadInvoicePDF(invoiceId ?? '');
+
     res.json({ pdfUrl });
   } catch (error) {
     logger.error('Error fetching invoice PDF', error as Error, withRequestContext(req, res));

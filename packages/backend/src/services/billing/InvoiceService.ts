@@ -4,20 +4,22 @@
  */
 
 import type Stripe from "stripe";
+import { SupabaseClient } from "@supabase/supabase-js";
 
-import { createLogger } from "../../lib/logger.js"
-import { supabase } from '../../lib/supabase.js';
-import { Invoice } from "../../types/billing";
+import { createLogger } from "../../lib/logger.js";
+import { Invoice } from "../../types/billing.js";
 
-import StripeService from "./StripeService.js"
+import StripeService from "./StripeService.js";
 
 const logger = createLogger({ component: "InvoiceService" });
 
-class InvoiceService {
+export class InvoiceService {
   private stripe: Stripe | null = null;
   private stripeService: InstanceType<typeof StripeService> | null = null;
+  private supabase: SupabaseClient;
 
-  constructor() {
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
     // Initialize Stripe service only if billing is configured
     try {
       this.stripeService = StripeService.getInstance();
@@ -33,14 +35,14 @@ class InvoiceService {
    * Store invoice from Stripe
    */
   async storeInvoice(stripeInvoice: Stripe.Invoice): Promise<Invoice> {
-    if (!this.stripe || !supabase) {
+    if (!this.stripe || !this.supabase) {
       throw new Error("Billing service not configured");
     }
     try {
       logger.info("Storing invoice", { invoiceId: stripeInvoice.id });
 
       // Get customer
-      const { data: customer } = await supabase
+      const { data: customer } = await this.supabase
         .from("billing_customers")
         .select("*")
         .eq("stripe_customer_id", stripeInvoice.customer)
@@ -51,14 +53,14 @@ class InvoiceService {
       }
 
       // Get subscription
-      const { data: subscription } = await supabase
+      const { data: subscription } = await this.supabase
         .from("subscriptions")
         .select("id")
         .eq("stripe_subscription_id", stripeInvoice.subscription)
         .single();
 
       // Insert new invoice
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from("invoices")
         .insert({
           billing_customer_id: customer.id,
@@ -131,7 +133,7 @@ class InvoiceService {
     customerStatus: string | null
   ): Promise<Invoice> {
     // Transaction boundary: RPC function runs in a single database transaction
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await this.supabase
       .from("invoices")
       .select("version")
       .eq("stripe_invoice_id", stripeInvoice.id)
@@ -147,7 +149,7 @@ class InvoiceService {
       throw new Error(`Invoice not found: ${stripeInvoice.id}`);
     }
 
-    const { data, error } = await supabase.rpc(
+    const { data, error } = await this.supabase.rpc(
       "update_invoice_and_customer_status",
       {
         p_stripe_invoice_id: stripeInvoice.id,
@@ -197,7 +199,7 @@ class InvoiceService {
     limit: number = 10,
     offset: number = 0
   ): Promise<Invoice[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("invoices")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -213,7 +215,7 @@ class InvoiceService {
    * Get invoice by ID
    */
   async getInvoiceById(invoiceId: string): Promise<Invoice | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("invoices")
       .select("*")
       .eq("id", invoiceId)
@@ -232,7 +234,7 @@ class InvoiceService {
    */
   async getUpcomingInvoice(tenantId: string): Promise<unknown> {
     try {
-      const { data: customer } = await supabase
+      const { data: customer } = await this.supabase
         .from("billing_customers")
         .select("stripe_customer_id")
         .eq("tenant_id", tenantId)
@@ -264,7 +266,3 @@ class InvoiceService {
     return invoice.invoice_pdf;
   }
 }
-
-export const invoiceService = new InvoiceService();
-/** @deprecated Use named import `invoiceService` instead. */
-export default invoiceService;

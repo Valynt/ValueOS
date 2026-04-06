@@ -10,7 +10,7 @@ import type { MeterKey } from "@shared/types/billing-events";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { createLogger } from "../../lib/logger.js";
-import { supabase as supabaseClient } from '../../lib/supabase.js';
+import { createBillingPlatformSupabaseClient } from "../../lib/supabase/privileged/billing.js";
 
 const logger = createLogger({ component: "BillingMetersCatalog" });
 
@@ -23,7 +23,10 @@ export interface BillingMeter {
   created_at: string;
 }
 
-const supabase: SupabaseClient | null = supabaseClient ?? null;
+const supabase: SupabaseClient = createBillingPlatformSupabaseClient({
+  justification:
+    "service-role:justified billing platform requires elevated access to global billing_meters catalog",
+});
 
 /**
  * In-memory cache of meters. Loaded once on first access.

@@ -7,17 +7,18 @@
  * All reads and writes enforce tenant isolation via tenant_id equality checks.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto";
+import { SupabaseClient } from "@supabase/supabase-js";
 
-import { logger } from '../../lib/logger.js';
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { logger } from "../../lib/logger.js";
+// service-role:justified background-worker requires elevated DB access for artifact job state management
+import { createWorkerServiceSupabaseClient } from "../../lib/supabase/privileged/createWorkerServiceSupabaseClient.js";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type ArtifactJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type ArtifactJobStatus = "queued" | "running" | "completed" | "failed";
 
 export interface ArtifactJob {
   id: string;
@@ -50,12 +51,21 @@ export interface CreateArtifactJobInput {
 // ---------------------------------------------------------------------------
 
 export class ArtifactJobRepository {
+  private readonly supabase: SupabaseClient;
+
+  constructor(supabase?: SupabaseClient) {
+    this.supabase =
+      supabase ??
+      createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified background-worker requires elevated DB access for artifact job state management",
+      });
+  }
+
   /**
    * Create a new artifact job row with status 'queued'.
-   * Returns the persisted job.
    */
   async create(input: CreateArtifactJobInput): Promise<ArtifactJob> {
-    const supabase = createServerSupabaseClient();
     const id = randomUUID();
     const now = new Date().toISOString();
 
@@ -67,7 +77,7 @@ export class ArtifactJobRepository {
       artifact_type: input.artifactType,
       format: input.format,
       requested_by: input.requestedBy,
-      status: 'queued' as ArtifactJobStatus,
+      status: "queued" as ArtifactJobStatus,
       created_at: now,
       started_at: null,
       completed_at: null,
@@ -76,14 +86,14 @@ export class ArtifactJobRepository {
       artifact_id: null,
     };
 
-    const { data, error } = await supabase
-      .from('artifact_jobs')
+    const { data, error } = await this.supabase
+      .from("artifact_jobs")
       .insert(row)
       .select()
       .single();
 
     if (error) {
-      logger.error('ArtifactJobRepository.create: insert failed', {
+      logger.error("ArtifactJobRepository.create: insert failed", {
         caseId: input.caseId,
         tenantId: input.tenantId,
         error: error.message,
@@ -105,23 +115,21 @@ export class ArtifactJobRepository {
   async findActiveJob(
     caseId: string,
     artifactType: string,
-    tenantId: string,
+    tenantId: string
   ): Promise<ArtifactJob | null> {
-    const supabase = createServerSupabaseClient();
-
-    const { data, error } = await supabase
-      .from('artifact_jobs')
-      .select('*')
-      .eq('case_id', caseId)
-      .eq('artifact_type', artifactType)
-      .eq('tenant_id', tenantId)
-      .in('status', ['queued', 'running'])
-      .order('created_at', { ascending: false })
+    const { data, error } = await this.supabase
+      .from("artifact_jobs")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("artifact_type", artifactType)
+      .eq("tenant_id", tenantId)
+      .in("status", ["queued", "running"])
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      logger.error('ArtifactJobRepository.findActiveJob: query failed', {
+      logger.error("ArtifactJobRepository.findActiveJob: query failed", {
         caseId,
         artifactType,
         tenantId,
@@ -131,7 +139,7 @@ export class ArtifactJobRepository {
       return null;
     }
 
-    return (data as ArtifactJob | null);
+    return data as ArtifactJob | null;
   }
 
   /**
@@ -139,17 +147,15 @@ export class ArtifactJobRepository {
    * Returns null if not found or tenant mismatch.
    */
   async findById(jobId: string, tenantId: string): Promise<ArtifactJob | null> {
-    const supabase = createServerSupabaseClient();
-
-    const { data, error } = await supabase
-      .from('artifact_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .eq('tenant_id', tenantId)
+    const { data, error } = await this.supabase
+      .from("artifact_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
 
     if (error) {
-      logger.error('ArtifactJobRepository.findById: query failed', {
+      logger.error("ArtifactJobRepository.findById: query failed", {
         jobId,
         tenantId,
         error: error.message,
@@ -157,7 +163,7 @@ export class ArtifactJobRepository {
       throw new Error(`Failed to fetch artifact job: ${error.message}`);
     }
 
-    return (data as ArtifactJob | null);
+    return data as ArtifactJob | null;
   }
 
   /**
@@ -165,7 +171,7 @@ export class ArtifactJobRepository {
    */
   async markRunning(jobId: string, tenantId: string): Promise<void> {
     await this.update(jobId, tenantId, {
-      status: 'running',
+      status: "running",
       started_at: new Date().toISOString(),
     });
   }
@@ -173,9 +179,13 @@ export class ArtifactJobRepository {
   /**
    * Transition a job to 'completed' and record the generated artifact id.
    */
-  async markCompleted(jobId: string, tenantId: string, artifactId: string): Promise<void> {
+  async markCompleted(
+    jobId: string,
+    tenantId: string,
+    artifactId: string
+  ): Promise<void> {
     await this.update(jobId, tenantId, {
-      status: 'completed',
+      status: "completed",
       completed_at: new Date().toISOString(),
       artifact_id: artifactId,
     });
@@ -184,9 +194,13 @@ export class ArtifactJobRepository {
   /**
    * Transition a job to 'failed' and record the error message.
    */
-  async markFailed(jobId: string, tenantId: string, errorMessage: string): Promise<void> {
+  async markFailed(
+    jobId: string,
+    tenantId: string,
+    errorMessage: string
+  ): Promise<void> {
     await this.update(jobId, tenantId, {
-      status: 'failed',
+      status: "failed",
       failed_at: new Date().toISOString(),
       error_message: errorMessage.slice(0, 2000), // guard against oversized messages
     });
@@ -195,18 +209,21 @@ export class ArtifactJobRepository {
   private async update(
     jobId: string,
     tenantId: string,
-    patch: Partial<Omit<ArtifactJob, 'id' | 'tenant_id' | 'organization_id' | 'case_id' | 'created_at'>>,
+    patch: Partial<
+      Omit<
+        ArtifactJob,
+        "id" | "tenant_id" | "organization_id" | "case_id" | "created_at"
+      >
+    >
   ): Promise<void> {
-    const supabase = createServerSupabaseClient();
-
-    const { error } = await supabase
-      .from('artifact_jobs')
+    const { error } = await this.supabase
+      .from("artifact_jobs")
       .update(patch)
-      .eq('id', jobId)
-      .eq('tenant_id', tenantId);
+      .eq("id", jobId)
+      .eq("tenant_id", tenantId);
 
     if (error) {
-      logger.error('ArtifactJobRepository.update: failed', {
+      logger.error("ArtifactJobRepository.update: failed", {
         jobId,
         tenantId,
         patch,

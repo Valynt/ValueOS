@@ -22,8 +22,12 @@ import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
 import { CircuitBreaker } from "../lib/resilience/CircuitBreaker.js";
 import { logger } from "../lib/logger.js";
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
+
+import {
+  createWorkerServiceSupabaseClient,
+  type CreateWorkerServiceSupabaseClientOptions,
+} from "../lib/supabase/privileged/index.js";
+
 import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
 import { attachQueueMetrics } from "../observability/queueMetrics.js";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository.js";
@@ -53,9 +57,6 @@ export interface ArtifactGenerationJobPayload {
 
 const QUEUE_NAME = "artifact-generation";
 
-const jobRepo = new ArtifactJobRepository();
-const artifactRepo = new ArtifactRepository();
-
 /**
  * Load the case context needed by NarrativeAgent from Supabase.
  * Returns a LifecycleContext shaped for the narrative lifecycle stage.
@@ -67,8 +68,10 @@ async function loadCaseContext(
   requestedBy: string,
   artifactType: string
 ): Promise<LifecycleContext> {
-  // service-role:justified ArtifactGenerationWorker reads value case data to generate artifacts in worker context
-  const supabase = createWorkerServiceSupabaseClient('ArtifactGenerationWorker: read value case data for artifact generation');
+  
+  const supabase = createWorkerServiceSupabaseClient({
+    justification: "service-role:justified ArtifactGenerationWorker reads value case data to generate artifacts in worker context",
+  });
 
   // Fetch the value case row.
   const { data: valueCase, error: caseError } = await supabase
@@ -173,7 +176,12 @@ async function processJob(
     format,
     requestedBy,
     traceId,
-  } = job.data;
+  // Use a worker-scoped client for task management and persistence.
+  const workerClient = createWorkerServiceSupabaseClient({
+    justification: "service-role:justified ArtifactGenerationWorker managing job lifecycle",
+  });
+  const scopedJobRepo = new ArtifactJobRepository(workerClient);
+  const scopedArtifactRepo = new ArtifactRepository(workerClient);
 
   if (!tenantId) {
     throw new Error("ArtifactGenerationWorker: job payload missing tenantId");
@@ -188,7 +196,7 @@ async function processJob(
   });
 
   // Mark running.
-  await jobRepo.markRunning(jobId, tenantId);
+  await scopedJobRepo.markRunning(jobId, tenantId);
 
   let context: LifecycleContext;
   try {
@@ -205,6 +213,8 @@ async function processJob(
       jobId,
       caseId,
       error: message,
+    });
+    await scopedJ: message,
     });
     await jobRepo.markFailed(jobId, tenantId, message);
     throw err;
@@ -239,7 +249,7 @@ async function processJob(
       caseId,
       error: message,
     });
-    await jobRepo.markFailed(jobId, tenantId, message);
+    await scopedJobRepo.markFailed(jobId, tenantId, message);
     throw err;
   }
 
@@ -252,34 +262,24 @@ async function processJob(
       caseId,
       message,
     });
-    await jobRepo.markFailed(jobId, tenantId, message);
+    await scopedJobRepo.markFailed(jobId, tenantId, message);
     throw new Error(message);
   }
 
-  // Persist the generated artifact.
-  // ArtifactRepository.create expects the shape used by the existing generators.
-  // We store the full agent output data as content.
+  // Persist the generated artifact using the worker-scoped client.
   let artifactId: string;
   try {
-    const artifact = await artifactRepo.create({
+    const artifact = await scopedArtifactRepo.create({
       tenantId,
       organizationId,
       caseId,
-      artifactType,
+      artifactType: artifactType as any,
       status: "final",
-      content: agentOutput.data,
+      contentJson: agentOutput.data as any,
       readinessScoreAtGeneration:
         (context.user_inputs?.readiness_score as number | undefined) ?? 0,
       generatedByAgent: "narrative",
-      metadata: {
-        jobId,
-        traceId,
-        format,
-        requestedBy,
-        agentVersion: agentOutput.agent_version ?? "unknown",
-        promptVersion: agentOutput.prompt_version ?? "unknown",
-        generatedAt: new Date().toISOString(),
-      },
+      provenanceRefs: [],
     });
     artifactId = artifact.id;
   } catch (err) {
@@ -288,6 +288,13 @@ async function processJob(
       jobId,
       caseId,
       error: message,
+    });
+    await scopedJobRepo.markFailed(jobId, tenantId, message);
+    throw err;
+  }
+
+  // Mark completed.
+  await scopedJobRepo.markCompleted(jobId, tenantId, artifactId);
     });
     await jobRepo.markFailed(jobId, tenantId, message);
     throw err;
