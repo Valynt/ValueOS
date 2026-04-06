@@ -26,6 +26,7 @@ vi.mock("../WebhookPayloadStore.js", () => ({
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockImplementation((_table: string) => ({
       upsert: vi.fn().mockImplementation((data: Record<string, unknown>, _opts: Record<string, unknown>) => {

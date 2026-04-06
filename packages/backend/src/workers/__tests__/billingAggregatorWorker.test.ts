@@ -7,6 +7,7 @@ const loggerInfoMock = vi.fn();
 const createServerMock = vi.fn();
 
 vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: createServerSupabaseClientMock,
   createServiceRoleSupabaseClient: createServerSupabaseClientMock,
   // Named export used by transitive imports

@@ -42,6 +42,7 @@ vi.mock("@shared/lib/permissions", () => {
 const supabaseMock = { from: vi.fn() };
 
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createRequestRlsSupabaseClient: vi.fn(() => supabaseMock),
   createServiceRoleSupabaseClient: vi.fn(() => supabaseMock),
   // Named export consumed by modules that import supabase directly

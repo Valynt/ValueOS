@@ -10,6 +10,7 @@ import { ArtifactEditService } from "../../../services/artifacts/ArtifactEditSer
 
 // Mock supabase
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({

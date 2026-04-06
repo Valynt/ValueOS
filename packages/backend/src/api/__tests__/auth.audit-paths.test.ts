@@ -21,11 +21,14 @@ vi.mock("@shared/lib/piiFilter", () => ({
 }));
 
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createServerSupabaseClient: vi.fn(),
 }));
 
 vi.mock("@shared/lib/supabase", () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => ({
     auth: {
       resend: resendMock,

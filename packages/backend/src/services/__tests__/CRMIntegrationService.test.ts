@@ -21,6 +21,7 @@ vi.mock('../IntegrationControlService', () => ({
 }));
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(),
 }));
 

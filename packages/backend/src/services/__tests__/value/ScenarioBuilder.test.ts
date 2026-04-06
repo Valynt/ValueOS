@@ -9,7 +9,7 @@ const { getOrLoadMock } = vi.hoisted(() => ({
 
 vi.mock("../../../lib/supabase.js", async () => {
   const { createMockSupabase } = await import("../helpers/testHelpers.js");
-  return { supabase: createMockSupabase() };
+  return { assertNotTestEnv: vi.fn(), supabase: createMockSupabase() };
 });
 
 vi.mock("../../value/ReadThroughCacheService.js", () => ({

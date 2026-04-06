@@ -12,6 +12,7 @@ const mockSupabase = {
 };
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => mockSupabase,
   // Named export consumed by modules that import supabase directly
   supabase: {

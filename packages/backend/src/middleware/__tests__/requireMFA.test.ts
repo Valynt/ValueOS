@@ -20,6 +20,8 @@ vi.mock('@shared/lib/logger', () => ({
 }));
 
 vi.mock('@shared/lib/supabase', () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   createRequestSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   getRequestSupabaseClient: vi.fn(),

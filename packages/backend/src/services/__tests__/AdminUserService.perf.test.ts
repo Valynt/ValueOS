@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createServerSupabaseClient: vi.fn(() => mocks.supabase),
 }));

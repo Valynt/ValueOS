@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => ({
     rpc: mocks.rpc,
   }),

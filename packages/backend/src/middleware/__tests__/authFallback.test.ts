@@ -9,6 +9,7 @@ const getRedisClientMock = vi.fn();
 const auditLog = vi.fn().mockResolvedValue({ id: 'audit-id' });
 
 vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createServiceRoleSupabaseClient: vi.fn(() => ({
     auth: {
       getUser: vi.fn().mockRejectedValue(new Error('supabase unavailable')),

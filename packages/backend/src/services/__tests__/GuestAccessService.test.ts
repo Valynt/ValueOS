@@ -21,6 +21,7 @@ const { mockSupabase, mockLogger } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: mockSupabase,
 }));
 

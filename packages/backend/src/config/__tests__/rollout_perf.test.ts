@@ -8,6 +8,7 @@ const { mockInsert } = vi.hoisted(() => {
 });
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),

@@ -65,6 +65,7 @@ function buildMockFrom() {
 const mockFrom = buildMockFrom();
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: (...args: unknown[]) => mockFrom(...(args as [string])) },
   createServerSupabaseClient: () => ({ from: mockFrom }),
 }));

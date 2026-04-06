@@ -18,6 +18,25 @@ import {
   TimeoutError,
 } from "./errors.js";
 
+export interface RetryConfig {
+  maxRetries: number;
+  initialDelay: number;
+  maxDelay: number;
+  backoffMultiplier: number;
+}
+
+export interface RequestConfig {
+  timeout?: number;
+  retries?: Partial<RetryConfig>;
+  deduplicationKey?: string;
+  skipCache?: boolean;
+}
+
+interface PendingRequest {
+  promise: Promise<unknown>;
+  timestamp: number;
+}
+
 export abstract class BaseService {
   protected supabase?: SupabaseClient;
   protected serviceName: string;
@@ -69,21 +88,7 @@ export abstract class BaseService {
       }
     }
 
-    coninterface RetryConfig {
-  maxRetries: number;
-  initialDelay: number;
-  maxDelay: number;
-  backoffMultiplier: number;
-}
-
-export interface RequestConfig {
-  timeout?: number;
-  retries?: Partial<RetryConfig>;
-  deduplicationKey?: string;
-  skipCache?: boolean;
-}
-
-export st retryConfig = { ...this.defaultRetryConfig, ...config.retries };
+    const retryConfig = { ...this.defaultRetryConfig, ...config.retries };
     const promise = this.executeWithRetry(
       operation,
       retryConfig,

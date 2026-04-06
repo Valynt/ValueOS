@@ -57,6 +57,7 @@ vi.mock('../../../repositories/WorkflowStateRepository.js', () => ({
 }));
 
 vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn((table: string) => {
       if (table !== 'value_scenarios') {

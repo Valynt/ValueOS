@@ -32,6 +32,7 @@ vi.mock('ioredis', () => ({
 }));
 
 vi.mock('../../lib/supabase/privileged/index.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createWorkerServiceSupabaseClient: vi.fn(() => ({ from: vi.fn() })),
 }));
 

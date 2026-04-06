@@ -37,6 +37,8 @@ const { mockFrom, mockChain, mockGetRequestSupabaseClient, getMockQueryResult, s
 });
 
 vi.mock("@shared/lib/supabase", () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   getRequestSupabaseClient: mockGetRequestSupabaseClient,
 }));
 
