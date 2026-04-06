@@ -17,7 +17,6 @@
     "src/api/config/**/*.ts",
     "src/api/conversations/**/*.ts",
     "src/api/customer/**/*.ts",
-    "src/api/domainPacks/**/*.ts",
     "src/api/health/**/*.ts",
     "src/api/initiatives/**/*.ts",
     "src/api/services/**/*.ts",

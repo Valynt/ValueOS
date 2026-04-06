@@ -78,7 +78,6 @@
     "check:repo-hygiene-placeholders": "node scripts/ci/check-repo-hygiene-placeholders.mjs",
     "check:mixed-case-module-roots": "node scripts/ci/check-mixed-case-module-roots.mjs",
     "check:security-header-drift": "node scripts/ci/check-security-header-drift.mjs",
-    "check:domain-pack-import-paths": "node scripts/ci/check-domain-pack-import-paths.mjs",
     "check:package-json-parse": "node scripts/ci/check-package-json-parse.mjs",
     "check:generated-src-artifacts": "node scripts/ci/check-generated-src-artifacts.mjs --tracked-only",
     "validate:prod-deploy": "bash scripts/validate-production-deploy.sh",
