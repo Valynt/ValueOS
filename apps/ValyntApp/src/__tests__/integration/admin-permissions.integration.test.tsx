@@ -3,8 +3,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { PermissionRoute } from "@/app/routes/route-guards";
-import { UsersPage } from "@/pages/admin/UsersPage";
 import { PERMISSIONS } from "@/lib/permissions";
+import { UsersPage } from "@/pages/admin/UsersPage";
 
 const mockUseAuth = vi.fn();
 

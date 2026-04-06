@@ -6,10 +6,11 @@
  */
 
 import { getClientConfig } from "@valueos/shared/config/client-config";
+
 import { DEFAULT_TOAST_DURATION_MS } from "@/components/ui/toast-config";
 
-import { notifyApiRequest } from "../../contexts/ApiRequestContext";
 import { toast } from "../../components/ui/use-toast";
+import { notifyApiRequest } from "../../contexts/ApiRequestContext";
 import { sanitizeInput } from "../../security/InputSanitizer";
 
 // ============================================================================

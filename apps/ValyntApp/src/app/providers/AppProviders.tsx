@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from "react";
 import { ApiRequestProvider } from "../../contexts/ApiRequestContext";
 import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 import { TrpcProvider, trpcQueryClient } from "../../lib/trpc";
+
 import { ThemeProvider } from "./ThemeProvider";
 
 interface AppProvidersProps {

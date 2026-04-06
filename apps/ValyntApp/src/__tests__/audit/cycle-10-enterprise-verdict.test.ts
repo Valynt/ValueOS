@@ -313,24 +313,6 @@ describe("Task 10.5: FINAL VERDICT — Production Readiness", () => {
     },
   ];
 
-  // ── MEDIUM (Post-Launch) Issues ────────────────────────────────────────
-  const mediumIssues = [
-    "Arbitrary pixel font sizes (text-[10px]–text-[15px]) instead of design tokens",
-    "Inconsistent card border radius (rounded-2xl vs rounded-3xl)",
-    "No breadcrumb/wayfinding system",
-    "Sidebar collapse state not persisted across sessions",
-    "Canvas active stage not persisted across navigation",
-    "No confidence explanation tooltips",
-    "No value estimate uncertainty ranges",
-    "No pagination on opportunities list",
-    "No sort controls on opportunities list",
-    "No per-stage error boundaries in canvas",
-    "Loading pattern inconsistent (skeleton vs spinner)",
-    "Button implementation inconsistent (shadcn vs inline Tailwind)",
-    "No character counters on text areas",
-    "Onboarding data lost on page refresh",
-  ];
-
   // ── STRENGTHS ──────────────────────────────────────────────────────────
   const strengths = [
     "Tenant-scoped URL architecture (/org/:slug/...) is well-designed",

@@ -4,7 +4,7 @@
  * Tests various conflict scenarios in collaborative editing
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
 
