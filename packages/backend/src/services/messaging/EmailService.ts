@@ -1,14 +1,53 @@
 import { getConfig } from '../../config/environment.js'
 import { logger } from '../../lib/logger.js'
 
+const PRODUCT_NAME = 'ValueOS';
+const DEFAULT_CONTENT_PREVIEW_LENGTH = 200;
+
 export interface EmailOptions {
   to: string;
   subject: string;
   template?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   html?: string;
   text?: string;
 }
+
+const escapeHtml = (value: unknown): string => {
+  const text = String(value ?? '');
+
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+};
+
+const readString = (data: Record<string, unknown>, key: string): string => {
+  const value = data[key];
+  return typeof value === 'string' ? value : '';
+};
+
+const readArray = (data: Record<string, unknown>, key: string): string[] => {
+  const value = data[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string');
+};
+
+const readRecord = (data: Record<string, unknown>, key: string): Record<string, unknown> => {
+  const value = data[key];
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+};
 
 export class EmailService {
   /**
@@ -24,37 +63,34 @@ export class EmailService {
     let content = options.html || options.text || '';
 
     if (options.template) {
-       content = this.renderTemplate(options.template, options.data || {});
+      content = this.renderTemplate(options.template, options.data ?? {});
     }
 
-    // In a real implementation, we would use a provider here (e.g., SendGrid, AWS SES).
-    // For now, we use a logger to simulate sending and provide visibility.
-    // This allows verification in development environments without external dependencies.
     logger.info(`Sending email to ${options.to}`, {
       subject: options.subject,
       template: options.template,
-      contentPreview: content.substring(0, 200) + '...',
-      // In a real app, we might want to mask PII in logs, but for dev debug purposes we keep it simple
+      contentPreview: `${content.substring(0, DEFAULT_CONTENT_PREVIEW_LENGTH)}...`,
     });
   }
 
-  private renderTemplate(templateName: string, data: Record<string, any>): string {
+  private renderTemplate(templateName: string, data: Record<string, unknown>): string {
     if (templateName === 'welcome') {
-        return this.renderWelcomeTemplate(data);
+      return this.renderWelcomeTemplate(data);
     }
     if (templateName === 'customer-portal-access') {
-        return this.renderCustomerPortalAccessTemplate(data);
+      return this.renderCustomerPortalAccessTemplate(data);
     }
     if (templateName === 'deactivation') {
-        return this.renderDeactivationTemplate(data);
+      return this.renderDeactivationTemplate(data);
     }
-    // Fallback for unknown templates
+
     logger.warn(`Template ${templateName} not found, sending empty body`);
     return '';
   }
 
-  private renderDeactivationTemplate(data: Record<string, any>): string {
-    const { organizationName, reason } = data;
+  private renderDeactivationTemplate(data: Record<string, unknown>): string {
+    const organizationName = escapeHtml(readString(data, 'organizationName'));
+    const reason = escapeHtml(readString(data, 'reason'));
 
     return `
       <!DOCTYPE html>
@@ -82,7 +118,7 @@ export class EmailService {
             <p>If you believe this is an error, please contact support immediately.</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} ValueCanvas. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} ${PRODUCT_NAME}. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -90,8 +126,9 @@ export class EmailService {
     `;
   }
 
-  private renderCustomerPortalAccessTemplate(data: Record<string, any>): string {
-    const { companyName, portalUrl } = data;
+  private renderCustomerPortalAccessTemplate(data: Record<string, unknown>): string {
+    const companyName = escapeHtml(readString(data, 'companyName'));
+    const portalUrl = escapeHtml(readString(data, 'portalUrl'));
 
     return `
       <!DOCTYPE html>
@@ -124,7 +161,7 @@ export class EmailService {
             <p><a href="${portalUrl}">${portalUrl}</a></p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} ValueCanvas. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} ${PRODUCT_NAME}. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -132,18 +169,18 @@ export class EmailService {
     `;
   }
 
-  private renderWelcomeTemplate(data: Record<string, any>): string {
-    const { organizationName, tier, features, limits } = data;
+  private renderWelcomeTemplate(data: Record<string, unknown>): string {
+    const organizationName = escapeHtml(readString(data, 'organizationName'));
+    const tier = readString(data, 'tier');
+    const features = readArray(data, 'features');
+    const limits = readRecord(data, 'limits');
 
-    const featureList = Array.isArray(features)
-        ? features.map(f => `<li>${f.replace(/_/g, ' ')}</li>`).join('')
-        : '';
+    const featureList = features.map(feature => `<li>${escapeHtml(feature.replaceAll('_', ' '))}</li>`).join('');
+    const limitList = Object.entries(limits)
+      .map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${value === -1 ? 'Unlimited' : escapeHtml(value)}</li>`)
+      .join('');
 
-    const limitList = limits
-        ? Object.entries(limits).map(([key, value]) => `<li><strong>${key}:</strong> ${value === -1 ? 'Unlimited' : value}</li>`).join('')
-        : '';
-
-    const appUrl = getConfig().app.url;
+    const appUrl = escapeHtml(getConfig().app.url);
 
     return `
       <!DOCTYPE html>
@@ -162,14 +199,14 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Welcome to ValueCanvas!</h1>
+            <h1>Welcome to ${PRODUCT_NAME}!</h1>
           </div>
           <div class="content">
             <p>Hello,</p>
             <p>Your organization <strong>${organizationName}</strong> has been successfully provisioned.</p>
 
             <h3>Plan Details</h3>
-            <p><strong>Tier:</strong> ${tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : 'Unknown'}</p>
+            <p><strong>Tier:</strong> ${tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)}` : 'Unknown'}</p>
 
             ${featureList ? `
             <h3>Features Included:</h3>
@@ -185,13 +222,13 @@ export class EmailService {
             </ul>
             ` : ''}
 
-            <p>You can now log in and start using ValueCanvas.</p>
+            <p>You can now log in and start using ${PRODUCT_NAME}.</p>
             <p style="text-align: center;">
               <a href="${appUrl}" class="btn">Go to Dashboard</a>
             </p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} ValueCanvas. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} ${PRODUCT_NAME}. All rights reserved.</p>
             <p>If you have any questions, please contact support.</p>
           </div>
         </div>
