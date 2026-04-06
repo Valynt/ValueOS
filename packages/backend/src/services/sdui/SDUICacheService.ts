@@ -16,12 +16,22 @@ const SCHEMA_CAS_TTL = 60 * 60 * 24 * 7; // 7 days — content-addressed, immuta
 const SCHEMA_HEAD_TTL = 60 * 60 * 24;     // 24 hours — head pointer
 const SCHEMA_TTL = 60 * 5;                // 5 minutes — legacy TTL cache
 
+// SECURITY: CAS keys are content-addressed by hash — the hash already encodes
+// the content uniquely, so cross-tenant collision is not possible for the data
+// payload itself. However, the head pointer (workspaceId → hash mapping) must
+// be tenant-scoped because workspaceId values are not globally unique.
+// CAS entries are intentionally shared (same content = same hash) but head
+// pointers must be isolated per tenant.
+
 function casKey(hash: string): string {
+  // Content-addressed: hash is globally unique by definition; no tenant prefix needed.
   return `sdui:cas:${hash}`;
 }
 
-function headKey(workspaceId: string): string {
-  return `sdui:head:${workspaceId}`;
+function headKey(tenantId: string, workspaceId: string): string {
+  // SECURITY: tenant-scoped so one tenant cannot read or overwrite another's
+  // workspace head pointer even if workspaceId values collide.
+  return `sdui:head:${tenantId}:${workspaceId}`;
 }
 
 function legacyKey(prefix: string, workspaceId: string): string {
@@ -89,21 +99,23 @@ export class SDUICacheService {
   }
 
   /** Update the head pointer for a workspace to a new content hash. */
-  async setHead(workspaceId: string, hash: string): Promise<void> {
+  async setHead(workspaceId: string, hash: string, tenantId?: string): Promise<void> {
     try {
       const redis = await getRedisClient();
       const entry = { hash, updatedAt: Date.now() };
-      await redis.set(headKey(workspaceId), JSON.stringify(entry), { EX: SCHEMA_HEAD_TTL });
+      const tid = tenantId ?? "unknown";
+      await redis.set(headKey(tid, workspaceId), JSON.stringify(entry), { EX: SCHEMA_HEAD_TTL });
     } catch (err) {
       logger.warn("SDUICacheService.setHead failed", { workspaceId, error: (err as Error).message });
     }
   }
 
   /** Get the current head pointer for a workspace. */
-  async getHead(workspaceId: string): Promise<{ hash: string; updatedAt: number } | null> {
+  async getHead(workspaceId: string, tenantId?: string): Promise<{ hash: string; updatedAt: number } | null> {
     try {
       const redis = await getRedisClient();
-      const raw = await redis.get(headKey(workspaceId));
+      const tid = tenantId ?? "unknown";
+      const raw = await redis.get(headKey(tid, workspaceId));
       return raw ? (JSON.parse(raw) as { hash: string; updatedAt: number }) : null;
     } catch (err) {
       logger.warn("SDUICacheService.getHead failed", { workspaceId, error: (err as Error).message });
@@ -117,8 +129,9 @@ export class SDUICacheService {
    */
   async getByResourceId<T>(
     workspaceId: string,
+    tenantId?: string,
   ): Promise<{ hash: string; value: T; updatedAt: number } | null> {
-    const head = await this.getHead(workspaceId);
+    const head = await this.getHead(workspaceId, tenantId);
     if (!head) return null;
     const value = await this.getCAS<T>(head.hash);
     if (!value) return null;

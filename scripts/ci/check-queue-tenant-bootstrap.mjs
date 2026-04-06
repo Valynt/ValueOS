@@ -12,6 +12,7 @@ const tenantAwareQueueHandlers = [
   'packages/backend/src/workers/ArtifactGenerationWorker.ts',
   'packages/backend/src/workers/CertificateGenerationWorker.ts',
   'packages/backend/src/workers/WebhookRetryWorker.ts',
+  'packages/backend/src/workers/mcpIntegrationWorker.ts',
   'packages/backend/src/services/agents/AgentMessageQueue.ts',
   'packages/backend/src/services/realtime/MessageQueue.ts',
   'packages/backend/src/services/metering/UsageQueueConsumerWorker.ts',
