@@ -59,6 +59,7 @@ export class ExecutiveLayoutErrorBoundary extends Component<Props, State> {
     });
 
     analyticsClient.track('react_error_boundary_triggered', payload);
+    // fix verified
   }
 
   private sanitizeTelemetryField(value: string, maxLength = 2000): string {
