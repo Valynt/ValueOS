@@ -414,8 +414,7 @@ router.get(
         return;
       }
 
-      const editService = new ArtifactEditService(req.supabase);        return;
-      }
+      const editService = new ArtifactEditService(req.supabase);
 
       const edits = await editService.getEditHistory(
         tenantId,

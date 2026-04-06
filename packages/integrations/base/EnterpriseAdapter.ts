@@ -21,6 +21,7 @@ import type {
 
 export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
   abstract readonly provider: string;
+  abstract readonly capabilities: import("./types.js").IntegrationCapabilities;
 
   protected credentials: IntegrationCredentials | null = null;
   protected readonly rateLimiter: RateLimiter;
