@@ -335,17 +335,23 @@ router.post(
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];
 
+      const { data: allSuggestions, error: prefetchErr } = await supabase
+        .from('company_research_suggestions')
+        .select('*')
+        .in('id', ids)
+        .eq('tenant_id', tenantId);
+
+      if (prefetchErr) {
+        logger.error('Failed to prefetch suggestions', new Error(prefetchErr.message));
+        return res.status(500).json({ error: 'Failed to fetch suggestions for bulk accept' });
+      }
+
       for (const id of ids) {
         try {
-          // Fetch suggestion
-          const { data: suggestion, error: fetchErr } = await supabase
-            .from('company_research_suggestions')
-            .select('*')
-            .eq('id', id)
-            .eq('tenant_id', tenantId)
-            .single();
+          // Find suggestion in prefetched data
+          const suggestion = allSuggestions?.find((s) => s.id === id);
 
-          if (fetchErr || !suggestion) {
+          if (!suggestion) {
             results.push({ id, success: false, error: 'Not found' });
             continue;
           }
