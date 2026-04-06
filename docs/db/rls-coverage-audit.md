@@ -122,7 +122,7 @@ future partitions.
 | `kpi_hypotheses` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
 | `llm_calls` | `service_only` | `20260922000000_rls_gap_remediation` | No tenant_id; written by LLM gateway workers |
 | `llm_job_results` | `tenant_scoped` | `20260921000000_llm_job_results_tenant_id` | `tenant_id` added and scoped |
-| `llm_usage` | `service_only` | `20260917000000_rls_and_search_path_remediation` | Aggregate telemetry, service_role only |
+| `llm_usage` | `own_row` | `20260928000000_restore_llm_usage` | Users see own rows; admins see all; service_role has full access |
 | `login_attempts` | `service_only` | `20260922000000_rls_gap_remediation` | Security audit, service_role only |
 | `memberships` | `service_only` | `20260922000000_rls_gap_remediation` | Managed by auth service; no direct user access |
 | `memory_access_grants` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
