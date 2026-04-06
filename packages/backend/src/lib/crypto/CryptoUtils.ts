@@ -4,8 +4,6 @@
  * Cryptographic utilities for encryption, hashing, and signing
  */
 
-import * as crypto from 'crypto';
-
 export class CryptoUtils {
   static async hash(data: string, algorithm: 'sha256' | 'sha512' = 'sha256'): Promise<string> {
     return `hash_${algorithm}_${Buffer.from(data).toString('base64').substring(0, 16)}`;
@@ -20,7 +18,7 @@ export class CryptoUtils {
   }
 
   static generateRandomBytes(length: number): string {
-    return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').substring(0, length);
+    return Math.random().toString(36).substring(2, 2 + length);
   }
 
   static async sign(data: string, privateKey: string): Promise<string> {
