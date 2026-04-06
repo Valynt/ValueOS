@@ -55,6 +55,7 @@
     "lint:ci:production-profile": "pnpm lint:ci:valynt-app && pnpm lint:ci:backend && node scripts/ci/collect-production-eslint-report.mjs",
     "check:production-eslint-profile": "node scripts/ci/production-eslint-profile.mjs",
     "dx:check": "node scripts/dx/doctor.js",
+    "cache:prewarm": "pnpm --filter @valueos/backend run cache:prewarm",
     "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
     "security:scan": "bash scripts/security/scan.sh",
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
