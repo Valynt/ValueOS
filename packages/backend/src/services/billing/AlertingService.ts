@@ -402,16 +402,18 @@ export class AlertingService {
     await this.storeAlert(alert);
 
     // Send notifications
-    for (const channel of channels) {
-      try {
-        await this.sendNotification(alert, channel);
-      } catch (error) {
-        logger.error('Failed to send alert notification', error as Error, {
-          channel,
-          alertId: alert.id
-        });
-      }
-    }
+    await Promise.allSettled(
+      channels.map(async (channel) => {
+        try {
+          await this.sendNotification(alert, channel);
+        } catch (error) {
+          logger.error('Failed to send alert notification', error as Error, {
+            channel,
+            alertId: alert.id
+          });
+        }
+      })
+    );
   }
 
   /**
