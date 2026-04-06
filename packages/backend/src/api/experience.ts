@@ -10,6 +10,8 @@
  * Sprint 55: Phase 2 implementation.
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "@shared/lib/logger";
 import { Request, Response, Router } from "express";
 import { z } from "zod";
@@ -165,7 +167,7 @@ async function orchestrateHandler(
         version: section.version,
         props: section.props,
         // SDUI metadata
-        id: `${section.component}-${Math.random().toString(36).slice(2)}`,
+        id: `${section.component}-${randomBytes(6).toString("hex")}`,
         metadata: {
           lifecycleStage: output.phase.lifecycle_stage,
           sessionId: payload.session_id,

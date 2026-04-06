@@ -17,11 +17,21 @@ import {
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
+import { TenantContext } from "./TenantContext";
 
 /**
  * Options for configuring the renderPage function behavior
  */
 export interface RenderPageOptions {
+  /**
+   * Tenant context for scoping all data hydration requests.
+   * When provided, the default fetcher adds X-Tenant-ID and X-Organization-ID
+   * headers to every hydration request, enforcing tenant isolation at the
+   * network boundary. Callers that supply a custom `dataFetcher` are
+   * responsible for propagating these values themselves.
+   */
+  tenantContext?: TenantContext;
+
   /**
    * Enable debug mode to show component metadata and hydration traces
    */
@@ -230,12 +240,45 @@ const SectionRenderer: React.FC<{
     loadingComponent: LoadingComponent = LoadingFallback,
     unknownComponentFallback: UnknownComponent = UnknownComponentFallback,
     errorFallback: ErrorFallback = SectionErrorFallback,
+    tenantContext,
   } = options;
 
   // Resolve component: try lazy registry first, then synchronous registry
   const entry =
     (options.enableLazyLoading !== false ? resolveComponentLazy(section) : undefined) ??
     resolveComponent(section);
+
+  // Build a tenant-scoped fetcher when tenantContext is provided and no
+  // custom fetcher has been supplied. This ensures every hydration request
+  // carries the tenant and organization identifiers as HTTP headers so the
+  // backend can enforce RLS without relying solely on the JWT claim.
+  const tenantScopedFetcher = React.useMemo(() => {
+    if (options.dataFetcher) {
+      // Caller-supplied fetcher takes precedence; they own tenant propagation.
+      return options.dataFetcher;
+    }
+    if (!tenantContext) {
+      return undefined; // Fall through to useDataHydration's default fetcher.
+    }
+    const { tenantId, organizationId } = tenantContext;
+    return async (endpoint: string): Promise<unknown> => {
+      const response = await globalThis.fetch(endpoint, {
+        headers: {
+          "X-Tenant-ID": tenantId,
+          "X-Organization-ID": organizationId,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        return response.json();
+      }
+      return response.text();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantContext?.tenantId, tenantContext?.organizationId, options.dataFetcher]);
 
   // Use data hydration hook if hydrateWith is specified
   const {
@@ -255,7 +298,7 @@ const SectionRenderer: React.FC<{
     timeout: options.hydrationTimeout,
     enableRetry: options.enableHydrationRetry,
     retryAttempts: options.hydrationRetryAttempts,
-    fetcher: options.dataFetcher,
+    fetcher: tenantScopedFetcher,
     enableCache: options.enableHydrationCache,
   });
 
@@ -354,6 +397,9 @@ const SectionRenderer: React.FC<{
     ...section.props,
     ...hydratedData,
     onAction: options.onAction, // Inject standard action handler
+    // Expose tenant context to components that need to scope their own queries.
+    // Components must not use this to bypass RLS — it is informational only.
+    ...(tenantContext ? { tenantContext } : {}),
   };
 
   // Notify that component is rendering

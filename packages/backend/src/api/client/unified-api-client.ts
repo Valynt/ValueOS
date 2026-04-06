@@ -395,7 +395,7 @@ export class UnifiedApiClient {
   }
 
   private generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `req_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
   }
 
   // ============================================================================

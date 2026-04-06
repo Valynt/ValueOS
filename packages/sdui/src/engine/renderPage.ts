@@ -14,6 +14,10 @@ export interface RenderContext {
   userId?: string;
   sessionId?: string;
   businessCaseId?: string;
+  /** Tenant identifier — required for RLS enforcement on any data fetched during render. */
+  tenantId?: string;
+  /** Organization identifier — required for RLS enforcement on any data fetched during render. */
+  organizationId?: string;
   [key: string]: unknown;
 }
 
@@ -159,11 +163,15 @@ function renderComponent(
     return renderMissingComponent(component, index);
   }
 
-  // Merge context into props
+  // Merge context into props. tenantId and organizationId are surfaced at the
+  // top level so components can scope their own queries without digging into
+  // the context object.
   const mergedProps = {
     ...props,
     context,
     version,
+    ...(context?.tenantId ? { tenantId: context.tenantId } : {}),
+    ...(context?.organizationId ? { organizationId: context.organizationId } : {}),
   };
 
   // Eagerly invoke the component as a function to surface synchronous throws
