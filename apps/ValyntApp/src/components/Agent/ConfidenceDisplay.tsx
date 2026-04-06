@@ -61,6 +61,7 @@ export function ConfidenceDisplay({
   const sizes = sizeConfig[size];
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- legacy waiver
     <div
       className={cn("relative inline-flex items-center", sizes.wrapper, className)}
       onMouseEnter={() => breakdown && setShowBreakdown(true)}
