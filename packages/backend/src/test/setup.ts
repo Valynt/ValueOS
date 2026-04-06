@@ -8,7 +8,10 @@
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
 
-import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
+import {
+  assertRealNetworkAllowed,
+  isRealNetworkAllowed,
+} from "./runtimeGuards";
 
 // ---------------------------------------------------------------------------
 // Global prom-client mock — prevents "metric already registered" errors
@@ -23,10 +26,22 @@ const mockRegistry = {
 
 vi.mock("prom-client", () => ({
   Registry: vi.fn(() => mockRegistry),
-  Counter: vi.fn(() => ({ inc: vi.fn(), labels: vi.fn(() => ({ inc: vi.fn() })) })),
-  Histogram: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
-  Gauge: vi.fn(() => ({ set: vi.fn(), labels: vi.fn(() => ({ set: vi.fn() })) })),
-  Summary: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
+  Counter: vi.fn(() => ({
+    inc: vi.fn(),
+    labels: vi.fn(() => ({ inc: vi.fn() })),
+  })),
+  Histogram: vi.fn(() => ({
+    observe: vi.fn(),
+    labels: vi.fn(() => ({ observe: vi.fn() })),
+  })),
+  Gauge: vi.fn(() => ({
+    set: vi.fn(),
+    labels: vi.fn(() => ({ set: vi.fn() })),
+  })),
+  Summary: vi.fn(() => ({
+    observe: vi.fn(),
+    labels: vi.fn(() => ({ observe: vi.fn() })),
+  })),
   collectDefaultMetrics: vi.fn(),
 }));
 
@@ -66,7 +81,9 @@ vi.mock("ioredis", () => {
         operations.push(() => redis.publish(...args));
         return chain;
       }),
-      exec: vi.fn(async () => Promise.all(operations.map((operation) => operation()))),
+      exec: vi.fn(async () =>
+        Promise.all(operations.map(operation => operation()))
+      ),
     };
     return chain;
   };
@@ -75,7 +92,10 @@ vi.mock("ioredis", () => {
     private readonly kv = new Map<string, string>();
     private readonly sets = new Map<string, Set<string>>();
     private readonly hashes = new Map<string, Map<string, string>>();
-    private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    private readonly listeners = new Map<
+      string,
+      Array<(...args: unknown[]) => void>
+    >();
 
     constructor(_url?: string, _options?: Record<string, unknown>) {}
 
@@ -137,7 +157,7 @@ vi.mock("ioredis", () => {
 
     async sadd(key: string, ...values: string[]) {
       const set = this.sets.get(key) ?? new Set<string>();
-      values.forEach((value) => set.add(value));
+      values.forEach(value => set.add(value));
       this.sets.set(key, set);
       return set.size;
     }
@@ -146,7 +166,7 @@ vi.mock("ioredis", () => {
       const set = this.sets.get(key);
       if (!set) return 0;
       let removed = 0;
-      values.forEach((value) => {
+      values.forEach(value => {
         if (set.delete(value)) removed += 1;
       });
       return removed;
@@ -209,7 +229,9 @@ vi.mock("../lib/agent-fabric/LLMGateway.js", () => ({
         metadata.organizationId;
 
       if (!tenantId) {
-        throw new Error("LLMGateway: Missing tenant/organization ID in metadata");
+        throw new Error(
+          "LLMGateway: Missing tenant/organization ID in metadata"
+        );
       }
       return { content: "{}" };
     });
@@ -234,7 +256,9 @@ vi.mock("../lib/agent-fabric/MemorySystem.js", () => ({
     storeSemanticMemory = vi.fn().mockImplementation(async (...args: any[]) => {
       const organizationId = args[5]; // 6th parameter
       if (!organizationId) {
-        throw new Error("MemorySystem: Missing organizationId in storeSemanticMemory()");
+        throw new Error(
+          "MemorySystem: Missing organizationId in storeSemanticMemory()"
+        );
       }
       return "mem_1";
     });
@@ -322,8 +346,6 @@ process.env.SUPABASE_ANON_KEY ??= "test-anon-key";
 process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
 process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
 
-
-
 // LLM config
 process.env.LLM_PROVIDER ??= "together";
 process.env.TOGETHER_API_KEY ??= "test-together-key";
@@ -337,10 +359,13 @@ if (originalFetch && !isRealNetworkAllowed()) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
-      const target = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+      const target =
+        typeof input === "string" || input instanceof URL
+          ? String(input)
+          : input.url;
       assertRealNetworkAllowed(target);
       return originalFetch(input);
-    }),
+    })
   );
 }
 
