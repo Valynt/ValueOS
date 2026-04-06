@@ -20,6 +20,11 @@ vi.mock('../../middleware/tenantContext.js', () => ({
   },
 }));
 
+vi.mock('../../middleware/rateLimiter.js', () => ({
+  rateLimiters: {
+    standard: (req: any, res: any, next: any) => next(),
+  },
+}));
 vi.mock('../../workers/researchWorker.js', () => ({
   getResearchQueue: vi.fn(),
 }));
