@@ -52,6 +52,12 @@ export interface BenchmarkQuery {
   kpi?: string;
   metric?: string;
   persona?: "CFO" | "CIO" | "VP_Ops" | "CEO" | "VP_Sales";
+  /**
+   * Tenant identifier — required for tenant-scoped cache keys.
+   * Benchmark data itself is global reference data, but cache entries must be
+   * namespaced per tenant to prevent cross-tenant cache poisoning.
+   */
+  tenantId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -403,7 +409,11 @@ export class BenchmarkRetrievalService {
   }
 
   private buildCacheKey(query: BenchmarkQuery): string {
-    const parts = ["benchmark", query.industry, query.kpi ?? query.metric ?? "unknown"];
+    // SECURITY: prefix with tenant scope to prevent cross-tenant cache poisoning.
+    // Benchmark data is global reference data, but cache entries must be
+    // namespaced per tenant so one tenant cannot read or poison another's cache.
+    const tenantPrefix = query.tenantId ? `tenant:${query.tenantId}:` : "global:";
+    const parts = [`${tenantPrefix}benchmark`, query.industry, query.kpi ?? query.metric ?? "unknown"];
     if (query.companySize) parts.push(query.companySize);
     if (query.persona) parts.push(query.persona);
     return parts.join(":");
