@@ -367,13 +367,25 @@ export class ValueFabricService {
     capabilityId: string,
     relevanceScore: number = 1.0
   ): Promise<void> {
+    await this.linkCapabilitiesToUseCase(organizationId, useCaseId, [{ id: capabilityId, relevanceScore }]);
+  }
+
+  async linkCapabilitiesToUseCase(
+    organizationId: string,
+    useCaseId: string,
+    capabilities: { id: string; relevanceScore?: number }[]
+  ): Promise<void> {
     this.requireOrganizationId(organizationId);
-    const { error } = await this.supabase.from("use_case_capabilities").insert({
-      organization_id: organizationId,
-      use_case_id: useCaseId,
-      capability_id: capabilityId,
-      relevance_score: relevanceScore,
-    });
+    if (capabilities.length === 0) return;
+
+    const { error } = await this.supabase.from("use_case_capabilities").insert(
+      capabilities.map((cap) => ({
+        organization_id: organizationId,
+        use_case_id: useCaseId,
+        capability_id: cap.id,
+        relevance_score: cap.relevanceScore ?? 1.0,
+      }))
+    );
 
     if (error) throw error;
 
@@ -774,10 +786,10 @@ export class ValueFabricService {
 
     await ValueFabricService.invalidateUseCaseCache(organizationId);
 
-    await Promise.all(
-      template.capabilities.map((capability) =>
-        this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id)
-      )
+    await this.linkCapabilitiesToUseCase(
+      organizationId,
+      newUseCase.id,
+      template.capabilities.map((c) => ({ id: c.id }))
     );
 
     return {

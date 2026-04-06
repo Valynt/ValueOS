@@ -4,10 +4,12 @@ import { ValueFabricService } from "../ValueFabricService";
 
 describe("ValueFabricService Performance", () => {
   it("measures performance of instantiateUseCaseTemplate", async () => {
+    let insertCount = 0;
     const mockSupabase = {
       from: (table: string) => {
         return {
           insert: (data: any) => {
+            insertCount++;
             if (table === 'use_cases') {
               return {
                 select: () => {
@@ -33,18 +35,17 @@ describe("ValueFabricService Performance", () => {
         super(mockSupabase as any);
       }
       async getUseCaseWithCapabilities(org: string, id: string) {
-        const caps = Array.from({ length: 20 }).map((_, i) => ({ id: `cap-${i}` }));
+        // 50 capabilities per template
+        const caps = Array.from({ length: 50 }).map((_, i) => ({ id: `cap-${i}` }));
         return {
           useCase: { is_template: true, name: 'T', description: 'D', persona: 'P', industry: 'I' },
           capabilities: caps
         } as any;
       }
 
-      // stub requireOrganizationId to avoid errors
       requireOrganizationId(orgId: string) {}
     }
 
-    // override static method
     (ValueFabricService as any).invalidateUseCaseCache = async () => {};
 
     const service = new BenchmarkService();
@@ -52,14 +53,16 @@ describe("ValueFabricService Performance", () => {
     // Warmup
     await service.instantiateUseCaseTemplate('org1', 'tpl1', 'vc1');
 
+    insertCount = 0;
     const start = performance.now();
-    for (let i = 0; i < 5; i++) {
-      await service.instantiateUseCaseTemplate('org1', 'tpl1', 'vc1');
+    for (let i = 0; i < 10; i++) {
+      await service.instantiateUseCaseTemplate('org1', 'tpl1', `vc${i}`);
     }
     const end = performance.now();
 
-    const averageTime = (end - start) / 5;
-    console.log(`Average time for instantiateUseCaseTemplate: ${averageTime} ms`);
+    const averageTime = (end - start) / 10;
+    console.log(`Average time: ${averageTime} ms`);
+    console.log(`Total inserts across 10 calls: ${insertCount}`);
 
     expect(averageTime).toBeGreaterThan(0);
   });
