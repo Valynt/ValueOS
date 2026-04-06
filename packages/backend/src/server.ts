@@ -668,16 +668,27 @@ app.use("/api", experienceStreamRouter);
 app.use(
   "/api/documents",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   documentRouter
 );
 app.use("/api/docs", docsApiRouter);
-app.use("/api", requireAuth, tenantContextMiddleware(), artifactsRouter);
-app.use("/api/referrals", referralsRouter);
+app.use("/api", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), artifactsRouter);
+// SECURITY (B-5 + H-1): referrals router requires auth, tenant alignment, and
+// tenant context at the mount point. ReferralService uses the RLS-scoped client.
+app.use(
+  "/api/referrals",
+  requireAuth,
+  requireTenantRequestAlignment(),
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  referralsRouter
+);
 app.use(
   "/api/usage",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   usageRouter
@@ -693,6 +704,10 @@ app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
 app.use("/api/v1/graph", valueGraphRouter);
 app.use("/api/v1/audit-logs", auditLogsRouter);
+// H-1: requireTenantRequestAlignment is applied at the individual route level
+// for /api/v1/* routes because they share a common /api/v1 prefix. The
+// alignment check requires the organizationId to be present in the request
+// body or query, which is enforced per-route in the respective routers.
 app.use("/api/v1/cases", valueCasesRouter);
 // Integrity endpoints — mounted on the same /api/v1/cases prefix so
 // /:caseId/integrity and /:caseId/integrity/resolve/:id resolve correctly.
@@ -710,17 +725,19 @@ app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use(
   "/api/compliance/evidence",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   complianceEvidenceRouter
 );
 app.use("/api/approval-inbox", approvalInboxRouter);
 
-app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
+app.use("/api/trpc", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), appTrpcMiddleware);
 
 // Academy tRPC endpoint (mounted under /api/academy)
 app.use(
   "/api/academy",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   academyTrpcMiddleware
 );

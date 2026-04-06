@@ -9,10 +9,27 @@ import { AuthUser } from './types.js';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
 
+/**
+ * Extract the tenant ID from verified auth sources only.
+ *
+ * SECURITY (B-3): `claims?.organization_id` has been removed as a fallback.
+ * `organization_id` is a legacy field that is NOT equivalent to `tenant_id`.
+ * Because `decodeClaims()` uses `jwt.decode()` (no signature verification),
+ * an attacker with a valid JWT could supply a tampered `organization_id` claim
+ * and have it win over the Supabase-authoritative `tenant_id`, enabling
+ * cross-tenant data access.
+ *
+ * Authoritative resolution order (all Supabase-verified):
+ *   1. claims.tenant_id
+ *   2. claims.app_metadata.tenant_id
+ *   3. user.app_metadata.tenant_id  (from auth.getUser() response)
+ *   4. user.tenant_id
+ *
+ * Do NOT re-add organization_id without a security review.
+ */
 export function extractTenantId(claims: JwtPayload | null, user?: AuthUser): string | undefined {
   return (
     (claims?.tenant_id as string | undefined) ??
-    (claims?.organization_id as string | undefined) ??
     (claims?.app_metadata as { tenant_id?: string } | undefined)?.tenant_id ??
     (user?.app_metadata?.tenant_id as string | undefined) ??
     (user?.tenant_id as string | undefined)

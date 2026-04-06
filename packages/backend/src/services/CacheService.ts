@@ -21,6 +21,7 @@
 import { createClient } from "redis";
 
 import { createLogger } from "../lib/logger.js";
+import { MissingTenantContextError } from "../lib/errors.js";
 import { tenantContextStorage } from "../middleware/tenantContext.js";
 
 const logger = createLogger({ component: "CacheService" });
@@ -115,8 +116,27 @@ export class CacheService {
 
   // ── Key helpers ────────────────────────────────────────────────────────────
 
+  /**
+   * Returns the current tenant ID from async context storage.
+   *
+   * SECURITY: Throws MissingTenantContextError if no tenant context is present.
+   * Falling back to a global namespace would allow cross-tenant cache poisoning —
+   * data written by one tenant could be read by another. Fail loudly instead.
+   *
+   * Callers that legitimately need a non-tenant-scoped cache (e.g., system-level
+   * caches) should use a dedicated service that does not extend CacheService.
+   */
   private currentTid(): string {
-    return tenantContextStorage.getStore()?.tid ?? "global";
+    const tid = tenantContextStorage.getStore()?.tid;
+    if (!tid) {
+      throw new MissingTenantContextError(
+        'CacheService requires tenant context. ' +
+        'Ensure tenantContextMiddleware() runs before any CacheService operation. ' +
+        'Falling back to a global namespace is not permitted — it would allow ' +
+        'cross-tenant cache poisoning.'
+      );
+    }
+    return tid;
   }
 
   /** Base prefix without version: tenant:{tid}:{namespace} */
