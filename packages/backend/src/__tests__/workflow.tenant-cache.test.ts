@@ -61,6 +61,7 @@ function fixedExplainCacheKey(
   const tenantId = outerTenantId;
 
   return {
+    // Test case asserting the correct behavior where the validated outer tenantId is used.
     tenantId, // fix: uses the same validated tenantId as the DB query
     endpoint: 'api-workflows-explain',
     scope: `${executionId}:${stepId}`,
