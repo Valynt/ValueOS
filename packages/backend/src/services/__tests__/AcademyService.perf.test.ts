@@ -6,6 +6,7 @@ import { academyService } from '../AcademyService.js'
 
 // Mock dependencies
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     auth: {
       getUser: vi.fn(),

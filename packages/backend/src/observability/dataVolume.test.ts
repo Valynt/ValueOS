@@ -6,6 +6,7 @@ const { mockGaugeSet, mockCounterInc } = vi.hoisted(() => ({
 }));
 
 vi.mock("../lib/supabase/privileged/index.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createCronSupabaseClient: vi.fn(),
 }));
 

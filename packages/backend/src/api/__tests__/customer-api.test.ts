@@ -32,6 +32,7 @@ const mockDbClient = {
 vi.mock('../../lib/supabase.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/supabase.js')>();
   return {
+    assertNotTestEnv: vi.fn(),
     ...actual,
     createServiceRoleSupabaseClient: vi.fn(() => mockDbClient),
   };

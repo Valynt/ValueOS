@@ -88,6 +88,7 @@ vi.mock("../lib/piiFilter.js", () => ({ sanitizeForLogging: (v: unknown) => v })
 vi.mock("../../lib/piiFilter.js", () => ({ sanitizeForLogging: (v: unknown) => v }));
 
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => mockSupabaseClient,
   supabase: mockSupabaseClient, // BaseService imports this named export
 }));

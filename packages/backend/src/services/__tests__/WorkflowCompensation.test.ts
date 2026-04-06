@@ -5,6 +5,7 @@ import { createBoltClientMock } from '../utils/mockSupabaseClient.js'
 
 let supabaseClient: any = createBoltClientMock();
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   get supabase() {
     return supabaseClient;
   }

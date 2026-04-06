@@ -21,6 +21,7 @@ const { mockInsert, mockSelect, mockEq, mockGte, mockSingle } = vi.hoisted(() =>
 });
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockReturnValue({
       select: mockSelect,

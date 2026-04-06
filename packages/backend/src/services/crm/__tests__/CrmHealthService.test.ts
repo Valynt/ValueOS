@@ -5,6 +5,7 @@ const mockSupabase = {
 };
 
 vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => mockSupabase,
   supabase: { from: vi.fn() },
 }));

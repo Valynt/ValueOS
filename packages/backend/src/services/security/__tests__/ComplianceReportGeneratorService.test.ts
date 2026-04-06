@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createUserSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   supabase: {

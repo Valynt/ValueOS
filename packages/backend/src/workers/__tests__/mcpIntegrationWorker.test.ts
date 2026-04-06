@@ -55,6 +55,7 @@ const mockCronClient = {
 };
 
 vi.mock('../../lib/supabase/privileged/index.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createCronSupabaseClient: vi.fn(() => mockCronClient),
 }));
 

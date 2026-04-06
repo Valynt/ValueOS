@@ -6,6 +6,7 @@ import { WorkflowCompensation } from '../WorkflowCompensation.js'
 let supabaseClient: any;
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
     get supabase() {
         return supabaseClient;
     }

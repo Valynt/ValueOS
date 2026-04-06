@@ -9,6 +9,7 @@ const maybeSingleMock = vi.fn();
 const singleMock = vi.fn();
 
 vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => ({
     from: () => ({
       insert: insertMock,

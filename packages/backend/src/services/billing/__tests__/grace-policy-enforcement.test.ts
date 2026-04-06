@@ -35,6 +35,7 @@ const buildChain = (resolvedValue: { data: unknown; error: unknown }) => {
 };
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
       if (table === 'usage_events') {

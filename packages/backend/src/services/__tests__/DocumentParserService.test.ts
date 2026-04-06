@@ -6,6 +6,7 @@ const { mockGetSession, mockSecureLLMComplete } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     auth: {
       getSession: mockGetSession,

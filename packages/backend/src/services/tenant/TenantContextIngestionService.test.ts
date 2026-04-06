@@ -20,6 +20,7 @@ vi.mock("../../lib/supabase.js", () => {
   const mockFrom = vi.fn().mockReturnValue({ delete: mockDeleteChain });
 
   return {
+    assertNotTestEnv: vi.fn(),
     createServerSupabaseClient: () => ({ from: mockFrom }),
     getSupabaseClient: () => ({ from: mockFrom }),
     supabase: { from: mockFrom },

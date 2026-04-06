@@ -33,6 +33,7 @@ const createServerSupabaseClientSpy = vi.fn().mockReturnValue(mockServerClient);
 const createUserSupabaseClientSpy = vi.fn();
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: (...args: unknown[]) => createServerSupabaseClientSpy(...args),
   createUserSupabaseClient: (...args: unknown[]) => createUserSupabaseClientSpy(...args),
   // Named export consumed by modules that import supabase directly

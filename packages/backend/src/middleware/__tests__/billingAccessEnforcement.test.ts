@@ -12,6 +12,8 @@ const selectMock = vi.fn(() => ({ eq: eqMock }));
 const fromMock = vi.fn(() => ({ select: selectMock }));
 
 vi.mock("@shared/lib/supabase", () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   getRequestSupabaseClient: vi.fn(() => ({ from: fromMock })),
 }));
 

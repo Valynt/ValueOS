@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/supabase/privileged/index.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createCronSupabaseClient: vi.fn(),
 }));
 

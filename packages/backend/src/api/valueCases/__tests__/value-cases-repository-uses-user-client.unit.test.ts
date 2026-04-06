@@ -16,10 +16,13 @@ const createServerSpy = vi.fn(() => mockServerClient);
 const createRequestSpy = vi.fn(() => mockUserClient);
 
 vi.mock("@shared/lib/supabase", () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   createRequestSupabaseClient: (...args: unknown[]) => createRequestSpy(...args),
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn() },
   createServerSupabaseClient: (...args: unknown[]) => createServerSpy(...args),
   // createUserSupabaseClient is what fromRequest() actually calls when

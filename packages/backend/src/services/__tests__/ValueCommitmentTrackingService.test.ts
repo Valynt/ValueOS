@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // vi.hoisted ensures these are available inside vi.mock() factory closures
 const { mockFrom } = vi.hoisted(() => ({ mockFrom: vi.fn() }));
 
-vi.mock('../../lib/supabase.js', () => ({ supabase: { from: mockFrom } }));
+vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(), supabase: { from: mockFrom } }));
 vi.mock('../../lib/logger.js', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),

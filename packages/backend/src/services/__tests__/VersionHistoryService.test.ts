@@ -106,6 +106,7 @@ class MockQueryBuilder implements PromiseLike<QueryResult> {
 }
 
 vi.mock("../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: null,
   getSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),

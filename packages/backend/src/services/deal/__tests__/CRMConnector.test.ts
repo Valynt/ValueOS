@@ -23,6 +23,7 @@ const { mockSupabaseClient } = vi.hoisted(() => {
 });
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(() => mockSupabaseClient),
   createServiceRoleSupabaseClient: vi.fn(() => mockSupabaseClient),
   // Named export used by some transitive imports

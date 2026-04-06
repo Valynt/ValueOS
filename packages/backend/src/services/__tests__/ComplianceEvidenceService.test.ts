@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const rows: Array<Record<string, unknown>> = [];
 
 vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(() => {
       const filters: Record<string, unknown> = {};

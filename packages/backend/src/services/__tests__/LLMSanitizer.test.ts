@@ -10,6 +10,7 @@ vi.mock("@shared/lib/logger", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: null,
 }));
 
