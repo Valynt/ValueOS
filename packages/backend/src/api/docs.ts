@@ -11,7 +11,6 @@ import { Router } from 'express';
 import YAML from 'js-yaml';
 import swaggerUi from 'swagger-ui-express';
 
-// import { logger } from '../utils/logger';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
