@@ -342,8 +342,20 @@ const useAuthMethods = ({
       throw new Error("Invalid email format");
     }
 
-    if (data.password.length < 8) {
-      throw new Error("Password must be at least 8 characters");
+    if (data.password.length < 12) {
+      throw new Error("Password must be at least 12 characters");
+    }
+
+    // Complexity check: enforce security baseline
+    const hasUpper = /[A-Z]/.test(data.password);
+    const hasLower = /[a-z]/.test(data.password);
+    const hasNumber = /\d/.test(data.password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(data.password);
+
+    if (!(hasUpper && hasLower && hasNumber && hasSpecial)) {
+      throw new Error(
+        "Password must include at least one uppercase letter, one lowercase letter, one number, and one symbol"
+      );
     }
 
     if (data.fullName && data.fullName.trim().length < 2) {

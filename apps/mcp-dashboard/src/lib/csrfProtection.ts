@@ -13,9 +13,11 @@ class CSRFProtection {
    */
   private generateToken(): string {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const array = new Uint32Array(this.tokenLength);
+    crypto.getRandomValues(array);
     let token = "";
     for (let i = 0; i < this.tokenLength; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
+      token += chars.charAt(array[i] % chars.length);
     }
     return token;
   }
