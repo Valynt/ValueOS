@@ -27,8 +27,13 @@ const toKb = (bytes: number) => bytes / 1024;
 const performanceBudgetPlugin = (): Plugin => ({
   name: "performance-budget",
   generateBundle(_options, bundle) {
-    const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 2000);
-    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 5000);
+    // Defaults reflect realistic production targets for a B2B SaaS app:
+    //   - 500 KB per chunk keeps individual network requests manageable.
+    //   - 1200 KB total initial JS is the threshold above which LCP degrades
+    //     noticeably on mid-range devices (Core Web Vitals guidance).
+    // Override via env vars in CI to enforce stricter budgets over time.
+    const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 500);
+    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 1200);
 
     const chunks = Object.values(bundle).filter(
       (asset): asset is typeof asset & { type: "chunk"; code: string } =>
@@ -144,7 +149,8 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    // Warn at 500 KB to match the performanceBudgetPlugin default ceiling.
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       external: [
         // Server-side OpenTelemetry packages
@@ -181,14 +187,101 @@ export default defineConfig({
         : undefined,
       output: {
         manualChunks: (id) => {
-          if (id.includes("node_modules")) {
-            if (id.includes("react-dom")) return "vendor";
-            if (id.includes("react-router")) return "vendorRouter";
-            if (id.includes("@supabase")) return "vendorSupabase";
-            if (id.includes("lucide-react")) return "vendorUI";
-            if (id.includes("@radix-ui")) return "vendorRadix";
-            if (id.includes("zustand")) return "vendorState";
+          if (!id.includes("node_modules")) return undefined;
+
+          // ── Tier 1: React core — always needed, tiny, cache forever ──────────
+          if (id.includes("/react-dom/") || id.includes("/react/") || id.includes("/scheduler/")) {
+            return "vendor-react";
           }
+
+          // ── Tier 2: Routing — loaded on first navigation ──────────────────────
+          if (id.includes("/react-router") || id.includes("/react-router-dom/")) {
+            return "vendor-router";
+          }
+
+          // ── Tier 3: Auth / data layer — needed before any protected page ─────
+          if (id.includes("/@supabase/")) return "vendor-supabase";
+
+          // ── Tier 4: State management — small, shared across all pages ─────────
+          if (id.includes("/zustand/") || id.includes("/zundo/") || id.includes("/immer/")) {
+            return "vendor-state";
+          }
+
+          // ── Tier 5: Data fetching ─────────────────────────────────────────────
+          if (id.includes("/@tanstack/")) return "vendor-query";
+
+          // ── Tier 6: UI primitives — Radix + class utilities ───────────────────
+          if (id.includes("/@radix-ui/")) return "vendor-radix";
+          if (
+            id.includes("/class-variance-authority/") ||
+            id.includes("/clsx/") ||
+            id.includes("/tailwind-merge/") ||
+            id.includes("/tailwindcss-animate/")
+          ) {
+            return "vendor-ui-utils";
+          }
+
+          // ── Tier 7: Icon library — large but static, cache aggressively ───────
+          if (id.includes("/lucide-react/")) return "vendor-icons";
+
+          // ── Tier 8: Animation — only pages that use motion need this ──────────
+          if (id.includes("/framer-motion/")) return "vendor-motion";
+
+          // ── Tier 9: Canvas / graph — heavy, only on canvas routes ─────────────
+          // @xyflow/react (ReactFlow) + elkjs together are ~600 KB unminified.
+          // They are only imported by ValueGraphVisualization (lazy-loaded SDUI
+          // component) and LivingValueGraphPage, so they land in a separate chunk
+          // that is never fetched on the dashboard or settings paths.
+          if (id.includes("/@xyflow/") || id.includes("/reactflow/") || id.includes("/elkjs/")) {
+            return "vendor-canvas";
+          }
+
+          // ── Tier 10: Markdown rendering ───────────────────────────────────────
+          if (
+            id.includes("/react-markdown/") ||
+            id.includes("/remark-gfm/") ||
+            id.includes("/remark-") ||
+            id.includes("/rehype-") ||
+            id.includes("/unified/") ||
+            id.includes("/micromark") ||
+            id.includes("/mdast-") ||
+            id.includes("/hast-") ||
+            id.includes("/vfile")
+          ) {
+            return "vendor-markdown";
+          }
+
+          // ── Tier 11: DnD — only canvas/workspace pages ────────────────────────
+          if (id.includes("/react-dnd") || id.includes("/dnd-core/")) {
+            return "vendor-dnd";
+          }
+
+          // ── Tier 12: Forms ────────────────────────────────────────────────────
+          if (id.includes("/react-hook-form/") || id.includes("/zod/")) {
+            return "vendor-forms";
+          }
+
+          // ── Tier 13: Numerics — financial modeling pages only ─────────────────
+          if (id.includes("/decimal.js/") || id.includes("/hyperformula/")) {
+            return "vendor-numerics";
+          }
+
+          // ── Tier 14: Observability / telemetry — backend-facing, small ────────
+          if (id.includes("/@opentelemetry/")) return "vendor-otel";
+
+          // ── Tier 15: Misc utilities — uuid, dompurify, web-vitals ────────────
+          if (
+            id.includes("/uuid/") ||
+            id.includes("/dompurify/") ||
+            id.includes("/isomorphic-dompurify/") ||
+            id.includes("/web-vitals/")
+          ) {
+            return "vendor-utils";
+          }
+
+          // Everything else in node_modules goes into a catch-all vendor chunk
+          // rather than being inlined into app chunks.
+          return "vendor-misc";
         },
       },
     },

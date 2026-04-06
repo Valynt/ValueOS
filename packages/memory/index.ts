@@ -11,20 +11,17 @@
  * - apps/* (frontend)
  */
 
-// Semantic memory (facts, knowledge)
-export * from "./semantic/index.js";
+// Keep the bare package entry intentionally small.
+// Full module surfaces remain available through the explicit subpath exports
+// declared in package.json, e.g. @valueos/memory/provenance.
+export type {
+  SemanticFact,
+  SemanticFactProvenance,
+  SemanticFactStatus,
+  SemanticFactType,
+  SemanticStore,
+} from "./semantic/index.js";
 
-// Episodic memory (events, interactions)
-export * from "./episodic/index.js";
+export type { VectorChunk, VectorStore } from "./vector/index.js";
 
-// Vector store adapters
-export * from "./vector/index.js";
-
-// Provenance tracking
-export * from "./provenance/index.js";
-
-// Memory lifecycle (TTL, consolidation, promotion)
-export * from "./lifecycle/index.js";
-
-// Session-scoped context ledger
-export * from "./context-ledger/index.js";
+export type { ProvenanceRecord } from "./provenance/index.js";

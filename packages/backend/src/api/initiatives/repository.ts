@@ -58,11 +58,19 @@ const SORT_DIRECTIONS: Record<ListInitiativesQuery["sortDirection"], "ASC" | "DE
   desc: "DESC",
 };
 
+/** Allowlist: savepoint names must be alphanumeric + underscores only. */
+const SAVEPOINT_NAME_RE = /^[a-zA-Z0-9_]+$/;
+
 const withSavepoint = async <T>(
   db: TenantDbContext,
   name: string,
   action: () => Promise<T>
 ): Promise<T> => {
+  if (!SAVEPOINT_NAME_RE.test(name)) {
+    throw new DbValidationError(
+      `Invalid savepoint name "${name}": only alphanumeric characters and underscores are allowed`
+    );
+  }
   await db.query(`SAVEPOINT ${name}`);
   try {
     const result = await action();

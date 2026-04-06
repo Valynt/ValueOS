@@ -8,6 +8,7 @@ const { mockRpc } = vi.hoisted(() => ({ mockRpc: vi.fn() }));
 // The module captures the client at load time, so we must control the rpc
 // function on the instance returned by the factory, not swap the factory.
 vi.mock('@shared/lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   createServiceRoleSupabaseClient: vi.fn(() => ({ rpc: mockRpc })),
 }));
 

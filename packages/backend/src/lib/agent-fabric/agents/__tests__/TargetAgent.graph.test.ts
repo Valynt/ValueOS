@@ -95,6 +95,7 @@ vi.mock("../../../../repositories/FinancialModelSnapshotRepository.js", () => ({
 }));
 
 vi.mock("../../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: mockSupabaseChain,
   createServerSupabaseClient: vi.fn(() => mockSupabaseChain),
   createServiceRoleSupabaseClient: vi.fn(() => mockSupabaseChain),

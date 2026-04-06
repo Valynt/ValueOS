@@ -50,13 +50,23 @@ function driverTypeToNodeType(dt: string | null): ValueNode['type'] {
   }
 }
 
-function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
+export function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
   if (rows.length === 0) return emptyGraph(caseId);
 
   const nodes: Record<string, ValueNode> = {};
   const edges: Record<string, ValueEdge> = {};
+  let totalImpact = 0;
+  let confidenceSum = 0;
+  let confidenceCount = 0;
 
   for (const row of rows) {
+    const confidence = row.confidence ?? 0;
+    if (confidence > 0) {
+      confidenceSum += confidence;
+      confidenceCount += 1;
+    }
+    totalImpact += row.impact_estimate ?? 0;
+
     nodes[row.id] = {
       id: row.id,
       type: driverTypeToNodeType(row.driver_type),
@@ -82,16 +92,14 @@ function transformToGraph(caseId: string, rows: ValueTreeNodeRow[]): Graph {
       edges[edgeId] = { id: edgeId, source: row.id, target: row.parent_id, type: 'input' };
       const child = nodes[row.id];
       const parent = nodes[row.parent_id];
-      if (child) child.outputs = [...(child.outputs ?? []), row.parent_id];
-      if (parent) parent.inputs = [...(parent.inputs ?? []), row.id];
+      child.outputs.push(row.parent_id);
+      parent.inputs.push(row.id);
     }
   }
 
-  const confidences = rows.map((r) => r.confidence ?? 0).filter((c) => c > 0);
-  const avgConf = confidences.length > 0
-    ? confidences.reduce((s, c) => s + c, 0) / confidences.length
+  const avgConf = confidenceCount > 0
+    ? confidenceSum / confidenceCount
     : 0;
-  const totalImpact = rows.reduce((s, r) => s + (r.impact_estimate ?? 0), 0);
 
   return {
     id: `graph-${caseId}`,

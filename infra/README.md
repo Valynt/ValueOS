@@ -76,6 +76,37 @@ Archived infrastructure now lives behind explicit archive roots:
 
 Archive material is retained for audit history, disaster-recovery analysis, or superseded migration review. It is **not** part of the active deployment or migration path.
 
+## Backup & Recovery
+
+### Retention policy
+
+| Environment | Automated backups (RDS) | Long-term backups (AWS Backup) | PITR window |
+|---|---|---|---|
+| Staging | 30 days | 30 days | 35 days |
+| Production | 35 days | 90 days | 35 days |
+
+**Automated backups** are configured via `var.db_backup_retention_days` in `infra/terraform/variables.tf` and applied to `aws_db_instance.main.backup_retention_period`. AWS limits automated backup retention to 35 days.
+
+**Long-term backups** for production (90-day retention) are managed by the `aws_backup_plan.db_daily` resource in `infra/terraform/modules/database/main.tf`. Daily snapshots run at 02:00 UTC and are stored in the `{env}-db-backup-vault` AWS Backup vault.
+
+**Point-in-time recovery (PITR)** is available for up to 35 days via RDS automated backups. To restore to a specific point in time, use `aws rds restore-db-instance-to-point-in-time`.
+
+### Restore procedure
+
+For a full restore from snapshot (DR drill), use:
+
+```bash
+bash scripts/dr-validate.sh rds-snapshot --validate-rollback
+```
+
+See `docs/runbooks/disaster-recovery.md` for the full step-by-step restore runbook and RTO/RPO targets (RTO < 30 min, RPO < 1 hr).
+
+### Automated restore testing
+
+The DR validation workflow (`dr-validation.yml`) runs the `rds-snapshot` restore path. Schedule quarterly drills and record results in `docs/operations/dr-drill-log.md`.
+
+---
+
 ## Entry points
 
 - Shared-environment deployment flow: `DEPLOY.md`

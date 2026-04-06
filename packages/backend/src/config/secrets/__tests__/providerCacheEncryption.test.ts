@@ -50,6 +50,7 @@ vi.mock("../../../lib/supabase", async (importOriginal) => {
   };
 
   return {
+    assertNotTestEnv: vi.fn(),
     ...actual,
     supabase: null,
     createBrowserSupabaseClient: vi.fn(() => {

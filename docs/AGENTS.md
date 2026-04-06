@@ -160,6 +160,110 @@ Requirements:
 
 See `.windsurf/skills/agent-onboarding/SKILL.md` for the full scaffold, validation checklist, and example implementation.
 
+## Agent Hardening
+
+Any agent that produces financial outputs, commitment-level claims, or external-facing artifacts **must** be wrapped with `HardenedAgentRunner`. This is not optional — bypassing the hardening layer for convenience violates Constitutional Invariant 6 (Integrity before convenience).
+
+Full specification: `packages/backend/src/lib/agent-fabric/hardening/HARDENING.md`
+
+### What hardening adds
+
+`HardenedAgentRunner` wraps `BaseAgent._execute()` without modifying `BaseAgent`. Every call passes through five sequential gates:
+
+1. **Safety** — prompt injection scan (10 patterns, OWASP LLM01/LLM02), tool access allowlist check, output schema validation, PII detection.
+2. **Resilience** — per-call timeout, exponential backoff retry (max 3 attempts, jitter), circuit breaker short-circuit on open state.
+3. **Agent execution** — `BaseAgent.secureInvoke()` with kill switch, hallucination detection, evidence mapping enforcement.
+4. **Governance** — IntegrityAgent veto check, confidence threshold policy, human-in-the-loop checkpoint when required.
+5. **Observability** — structured `AgentExecutionLog` (request_id, trace_id, latency, token usage, cost, reasoning trace, governance decision) emitted to the structured logger and an OTel span.
+
+### Risk tiers and confidence thresholds
+
+Declare a risk tier when instantiating `HardenedAgentRunner`. The tier selects the `accept`/`review`/`block` thresholds applied to the output's confidence score:
+
+| Tier | accept | review | block | Use for |
+|---|---|---|---|---|
+| `financial` | 0.75 | 0.60 | 0.40 | ROI models, cost/revenue claims, financial hypotheses |
+| `commitment` | 0.70 | 0.55 | 0.35 | Proposals, contracts, external commitments |
+| `compliance` | 0.80 | 0.65 | 0.45 | Audit outputs, regulatory claims |
+| `narrative` | 0.65 | 0.50 | 0.30 | Business narratives, executive summaries |
+| `discovery` | 0.55 | 0.40 | 0.25 | Hypothesis generation, opportunity identification |
+
+- `score >= accept` → output approved and released.
+- `review <= score < accept` → output held in the HITL approval queue.
+- `score < block` → output blocked; `GovernanceVetoError` thrown.
+
+### Minimum pattern for a hardened agent
+
+```typescript
+import { HardenedAgentRunner, buildRequestEnvelope } from
+  '../hardening/index.js';
+
+const runner = new HardenedAgentRunner({
+  agentName:      'FinancialModelingAgent',
+  agentVersion:   '1.0.0',
+  lifecycleStage: 'MODELING',
+  organizationId: orgId,
+  allowedTools:   new Set(['memory_query', 'benchmark_lookup']),
+  riskTier:       'financial',
+  integrityVetoService: deps.integrityVetoService,
+  hitlPort:             deps.hitlPort,
+});
+
+const result = await runner.run(
+  buildRequestEnvelope(sessionId, userId, orgId),
+  context,
+  (ctx) => agent.execute(ctx),
+  {
+    prompt:                 buildPrompt(context),
+    outputSchema:           FinancialModelOutputSchema,  // Zod schema required
+    requiresIntegrityVeto:  true,
+    requiresHumanApproval:  false,
+  }
+);
+// result.output is typed and validated
+// result.governance, result.safety, result.token_usage are always present
+```
+
+### Output schema requirements
+
+Every hardened agent must declare a `z.ZodObject` output schema. For agents in the `financial` or `commitment` tiers, the schema must include `evidence_links` on any field that carries a numeric value:
+
+```typescript
+const evidence_links = z.array(z.object({
+  metric_key:   z.string(),
+  metric_value: z.number(),
+  source:       z.string(),
+  source_date:  z.string().optional(),
+}));
+```
+
+This enforces the CFO-defensibility invariant at the schema level. Outputs that omit evidence links for numeric claims are rejected before governance runs.
+
+### Handling GovernanceVetoError
+
+`runner.run()` throws `GovernanceVetoError` when governance blocks the output. Always handle it explicitly at the call site:
+
+```typescript
+import { GovernanceVetoError } from '../hardening/index.js';
+
+try {
+  const result = await runner.run(...);
+} catch (err) {
+  if (err instanceof GovernanceVetoError) {
+    // err.verdict:      'vetoed' | 'pending_human'
+    // err.reason:       human-readable explanation
+    // err.checkpointId: set when pending_human, links to ApprovalInbox row
+    logger.warn('agent.vetoed', { verdict: err.verdict, reason: err.reason });
+    // trigger saga compensation here
+  }
+  throw err;
+}
+```
+
+### Reference implementation
+
+`packages/backend/src/lib/agent-fabric/hardening/HardenedDiscoveryAgent.ts` is the canonical example. Copy its structure when hardening a new agent.
+
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
@@ -348,6 +452,54 @@ A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityP
 | Image Dockerfiles | Each image referenced in `kustomization.yaml` has a corresponding Dockerfile |
 
 **When adding or renaming an agent:** update the agent list and count in this doc, then run `node scripts/ci/check-architecture-doc-drift.mjs` locally to verify before pushing.
+
+## CI/CD and Release Gating
+
+Canonical source: **`docs/cicd/`**
+
+| Document | Purpose |
+|---|---|
+| `docs/cicd/PIPELINE.md` | Full pipeline architecture, workflow-by-workflow job specs, hard gate table |
+| `docs/cicd/DEPLOYMENT_STRATEGY.md` | Blue/green mechanics, 9-step deploy sequence, rollback procedure, environment matrix |
+| `docs/cicd/DATA_SAFETY.md` | Migration governance rules, rollback decision tree, backup validation, PITR restore |
+| `docs/cicd/RELEASE_CHECKLIST.md` | Step-by-step release checklist (Phases 1–7, PR through 24h post-deploy monitoring) |
+| `docs/cicd/GO_NO_GO.md` | Binary GO/NO-GO criteria, automated gate table, decision authority matrix |
+
+### Hard gate summary
+
+These are zero-tolerance checks enforced by CI. No production deploy proceeds if any fails.
+
+- 0 secrets in any commit or PR diff (gitleaks)
+- 0 critical/high CVEs in container images (Trivy)
+- 0 E2E test failures (Playwright)
+- 0 high DAST findings, ≤ 5 medium (OWASP ZAP)
+- 0 high/critical dependency CVEs (`pnpm audit`)
+- 0 CodeQL high/critical findings
+- 100% test coverage on agent fabric; ≥ 95% on security/billing paths
+- RLS enabled on all tenant-scoped tables (enforced by `rls-gate.yml`)
+- Every migration has a `.rollback.sql` counterpart
+- Reproducible builds — identical digests across two independent builds
+- Cosign OIDC signature on all production images
+
+### Deployment strategy
+
+Blue/green on Kubernetes. Active slot is selected by the `slot:` label on the `backend-active` / `frontend-active` Services. Traffic swap is instant. The old slot is kept at `replicas: 0` for 24 hours to enable instant rollback without a new build.
+
+Production deploys require manual approval via GitHub environment protection rules. `skip_tests=true` is permanently blocked for production — the `emergency-bypass-authorization` job in `deploy.yml` enforces this.
+
+### Agent confidence thresholds as a release gate
+
+A release that changes agent behavior must verify in staging smoke tests that `HardenedAgentRunner` outputs meet the minimum `accept` thresholds defined in `docs/AGENTS.md` (Agent Hardening section). Lowering any threshold without documented risk acceptance is a NO-GO.
+
+### New CI scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/ci/check-dependency-audit.mjs` | Fails on high/critical CVEs in `pnpm audit --json` output |
+| `scripts/ci/check-trivy-thresholds.mjs` | Fails on any critical or high CVE in Trivy container scan output |
+| `scripts/ci/check-e2e-results.mjs` | Fails on any Playwright test failure or zero-test run |
+
+---
 
 ## Key Files
 

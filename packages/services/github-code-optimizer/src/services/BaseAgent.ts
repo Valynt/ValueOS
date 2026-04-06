@@ -1,1 +1,3 @@
-export { BaseAgent } from "../../../src/lib/agent-fabric/agents/BaseAgent";
+export abstract class BaseAgent {
+	protected constructor() {}
+}

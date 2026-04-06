@@ -15,6 +15,7 @@ const {
 }));
 
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     rpc: rpcMock,
     from: vi.fn(),

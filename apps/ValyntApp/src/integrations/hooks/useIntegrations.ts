@@ -180,9 +180,14 @@ export function useIntegrations() {
       const data = response.data as unknown;
       const rawData = data as RawResponseData;
       const items = rawData.integrations ?? [];
-      const mapped = items
-        .filter((item) => providerIds.has(item.provider))
-        .map((item) => ({
+      const mapped: IntegrationConnection[] = new Array(items.length);
+      let mappedCount = 0;
+      for (const item of items) {
+        if (!providerIds.has(item.provider)) {
+          continue;
+        }
+
+        mapped[mappedCount] = {
           id: item.id,
           provider: item.provider as IntegrationProviderId,
           status: mapStatus(item.status),
@@ -191,7 +196,10 @@ export function useIntegrations() {
           errorMessage: item.errorMessage ?? item.error_message ?? undefined,
           instanceUrl: item.instanceUrl ?? item.instance_url,
           scopes: item.scopes ?? [],
-        }));
+        };
+        mappedCount += 1;
+      }
+      mapped.length = mappedCount;
 
       setIntegrations(mapped);
     } catch (err: unknown) {
@@ -219,7 +227,8 @@ export function useIntegrations() {
       const healthData = (healthResponse.data ?? {}) as CrmHealthResponse;
 
       setIntegrations((prev) => {
-        const existing = prev.find((item) => item.provider === providerId);
+        const existingIndex = prev.findIndex((item) => item.provider === providerId);
+        const existing = existingIndex >= 0 ? prev[existingIndex] : undefined;
         const mergedStatus = mapStatus(healthData.status ?? statusData.status);
         const updatedConnection: IntegrationConnection = {
           id: existing?.id ?? providerId,
@@ -247,13 +256,13 @@ export function useIntegrations() {
           return prev.filter((item) => item.provider !== providerId);
         }
 
-        if (!existing) {
-          return [...prev, updatedConnection];
+        if (existingIndex >= 0) {
+          const clone = [...prev];
+          clone[existingIndex] = { ...clone[existingIndex], ...updatedConnection };
+          return clone;
         }
 
-        return prev.map((item) =>
-          item.provider === providerId ? { ...item, ...updatedConnection } : item
-        );
+        return [...prev, updatedConnection];
       });
     },
     []

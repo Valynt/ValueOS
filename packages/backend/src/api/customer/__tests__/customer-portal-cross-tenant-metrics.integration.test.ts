@@ -119,6 +119,8 @@ function buildMockSupabase() {
 const mockSupabase = buildMockSupabase();
 
 vi.mock("@shared/lib/supabase", () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   getSupabaseClient: () => mockSupabase,
 }));
 

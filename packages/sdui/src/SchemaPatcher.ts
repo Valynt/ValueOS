@@ -40,11 +40,7 @@ export interface SchemaDelta {
 // HMR NOTE: This set is module-level and survives Vite hot-module replacement.
 // Delta IDs applied before a hot reload will be silently skipped after the
 // reload, which can make schema patches appear to have no effect during
-// development. Call `clearAppliedDeltas()` in your HMR accept handler:
-//
-//   if (import.meta.hot) {
-//     import.meta.hot.accept(() => clearAppliedDeltas());
-//   }
+// development. Call `clearAppliedDeltas()` in your HMR accept handler.
 const appliedDeltaIds = new Set<string>();
 const MAX_APPLIED_DELTAS = 1000;
 

@@ -13,6 +13,6 @@ trap cleanup INT TERM EXIT
 cd "$PROJECT_ROOT"
 
 APP_ENV="${APP_ENV:-local}" pnpm run dev:backend:infisical &
-APP_ENV="${APP_ENV:-local}" pnpm run dev:frontend &
+APP_ENV="${APP_ENV:-local}" pnpm run dev:frontend:infisical &
 
 wait

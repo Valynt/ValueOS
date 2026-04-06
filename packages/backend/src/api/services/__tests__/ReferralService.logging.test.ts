@@ -24,6 +24,7 @@ vi.mock('@shared/lib/piiFilter', () => ({
 }));
 
 vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {},
   createServiceRoleSupabaseClient: () => ({
     rpc: rpcMock

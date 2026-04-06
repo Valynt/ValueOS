@@ -2,15 +2,19 @@
 # Activate with: docker compose --profile infra up
 #
 # Redis is already included in compose.yml as a core service.
-# This profile adds Kafka (KRaft mode, no Zookeeper) for local event streaming.
+# This profile adds Kafka (KRaft mode, no Zookeeper) and NATS JetStream
+# for local event streaming, matching the K8s StatefulSet in
+# infra/k8s/base/nats-jetstream.yaml.
 #
 # Usage:
-#   docker compose --profile infra up          # start Redis + Kafka
-#   docker compose --profile infra up kafka    # start Kafka only
+#   docker compose --profile infra up           # start Redis + Kafka + NATS
+#   docker compose --profile infra up kafka     # start Kafka only
+#   docker compose --profile infra up nats      # start NATS only
 #
 # Set in your .env.local:
 #   KAFKA_ENABLED=true
 #   KAFKA_BROKERS=localhost:9092
+#   NATS_URL=nats://localhost:4222
 
 services:
   kafka:
@@ -55,8 +59,36 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  nats:
+    image: nats:2.10-alpine
+    profiles: ["infra"]
+    hostname: nats
+    container_name: valueos-nats
+    # -js enables JetStream; -m exposes the HTTP monitoring endpoint on 8222.
+    # The server name matches NATS_SERVER_NAME used in MeteringQueue.ts.
+    command: ["-js", "-m", "8222", "-n", "nats-local"]
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   kafka_data:
+    driver: local
+  nats_data:
     driver: local
 
 networks:

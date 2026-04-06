@@ -29,6 +29,8 @@ vi.mock('../../services/lib/observability/index.js', () => ({
 }));
 
 vi.mock('@shared/lib/supabase', () => ({
+  createServiceRoleSupabaseClient: vi.fn(),
+  assertNotTestEnv: vi.fn(),
   getRequestSupabaseClient: vi.fn(() => ({ from: vi.fn() })),
 }));
 

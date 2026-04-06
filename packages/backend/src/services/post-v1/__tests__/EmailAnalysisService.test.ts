@@ -12,6 +12,7 @@ const { getSessionMock } = vi.hoisted(() => ({
 vi.mock('../../../lib/supabase', async () => {
   const actual = await vi.importActual<typeof import('../../../lib/supabase')>('../../../lib/supabase');
   return {
+    assertNotTestEnv: vi.fn(),
     ...actual,
     createServerSupabaseClient: () => ({
       auth: {

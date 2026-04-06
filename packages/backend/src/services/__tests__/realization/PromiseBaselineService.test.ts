@@ -6,7 +6,7 @@ import { SQL_INJECTION_PAYLOADS, TENANT_ISOLATION_SCENARIOS } from "../fixtures/
 
 vi.mock("../../../lib/supabase.js", async () => {
   const { createMockSupabase } = await import("../helpers/testHelpers.js");
-  return { supabase: createMockSupabase() };
+  return { assertNotTestEnv: vi.fn(), supabase: createMockSupabase() };
 });
 
 describe("PromiseBaselineService", () => {

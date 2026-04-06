@@ -489,6 +489,13 @@ jobs:
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
             --output-dir artifacts/security/governance
 
+      - name: Manifest maturity gap report (warning — production gate enforces hard block)
+        # Surfaces which critical K8s manifest classes still need evidence links
+        # before production deployment. Does not fail the PR; the hard gate lives
+        # in deploy.yml manifest-maturity-production-gate. Output appears in the
+        # GitHub Actions step summary so owners can track progress.
+        run: node scripts/ci/report-manifest-maturity-gaps.mjs
+
       - name: Emit lane summary
         if: always()
         run: |
@@ -653,6 +660,56 @@ jobs:
           path: |
             reports/compliance/**
             artifacts/ci-lanes/tenant-isolation-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  chaos-resilience-gate:
+    name: chaos-resilience-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Chaos — DB transient outage recovery
+        run: npx vitest run tests/chaos/db-transient-outage.test.ts --reporter=verbose
+      - name: Chaos — Redis / BullMQ queue outage
+        run: npx vitest run tests/chaos/queue-outage.test.ts --reporter=verbose
+      - name: Chaos — LLM provider outage (circuit breaker)
+        run: npx vitest run tests/chaos/llm-provider-outage.test.ts --reporter=verbose
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/chaos-resilience-gate
+          cat > artifacts/ci-lanes/chaos-resilience-gate/summary.md <<EOF_SUMMARY
+          # chaos-resilience-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-chaos-resilience-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/chaos-resilience-gate/**
           if-no-files-found: warn
           retention-days: 30
 
@@ -837,7 +894,7 @@ jobs:
             --label "critical-e2e" \
             --report artifacts/e2e/playwright-report.json \
             --min-executed 12 \
-            --min-pass-rate 90
+            --min-pass-rate 100
       - name: Run critical billing + security integration suites
         run: |
           mkdir -p artifacts/critical-integration
@@ -1385,24 +1442,22 @@ jobs:
             "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # These gates must not be skipped — skipped means the check did not run.
-            # e2e-critical is included here: it contains security-multi-tenancy.spec.ts
-            # and real-backend-critical-flows.spec.ts. A skipped run is a missing gate.
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ] || [ "$lane_name" = "e2e-critical" ]; then
-              if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
-                echo "Failing PR gate: $lane_name has unexpected status: $status"
+            # Hard-block lanes: must not be skipped AND must succeed.
+            # e2e-critical contains security-multi-tenancy.spec.ts and
+            # real-backend-critical-flows.spec.ts — a skip OR failure is a
+            # missing gate.
+            if [ "$lane_name" = "secret-scan" ] || \
+               [ "$lane_name" = "tenant-isolation-gate" ] || \
+               [ "$lane_name" = "mfa-production-config-gate" ] || \
+               [ "$lane_name" = "log-level-production-gate" ] || \
+               [ "$lane_name" = "e2e-critical" ]; then
+              if [ "$status" != "success" ]; then
+                echo "Failing PR gate: $lane_name must succeed (status: $status)"
                 exit 1
               fi
-            else
-              if [ "$lane_name" = "e2e-critical" ]; then
-                if [ "$status" != "success" ]; then
-                  echo "Failing PR gate due to lane status: $lane"
-                  exit 1
-                fi
-              elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-                echo "Failing PR gate due to lane status: $lane"
-                exit 1
-              fi
+            elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Failing PR gate due to lane status: $lane"
+              exit 1
             fi
           done
 

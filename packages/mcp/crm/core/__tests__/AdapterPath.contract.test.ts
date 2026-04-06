@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { CRM_TOOLS as canonicalTools, MCPCRMServer as CanonicalMCPCRMServer } from "../MCPCRMServer";
 import {
-  CRM_TOOLS as appTools,
   MCPCRMServer as AppMCPCRMServer,
+  CRM_TOOLS as appTools,
 } from "../../../../../apps/ValyntApp/src/mcp-crm/core/MCPCRMServer";
+import {
+  MCPCRMServer as CanonicalMCPCRMServer,
+  CRM_TOOLS as canonicalTools,
+} from "../MCPCRMServer";
 
 describe("MCP CRM canonical/runtime adapter contract", () => {
   it("adapter path and canonical runtime expose the same tool catalog", () => {

@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 /**
  * Connection Pool Tests
  *
@@ -6,7 +6,13 @@ import { vi } from 'vitest';
  * including resource management, health checking, and cleanup.
  */
 
-import { ConnectionConfig, ConnectionPool, HTTPConnectionPool } from "../../../lib/connection-pool";
+/* eslint-disable import/no-unresolved -- module not yet implemented */
+import {
+  ConnectionConfig,
+  ConnectionPool,
+  HTTPConnectionPool,
+} from "../../../lib/connection-pool";
+/* eslint-enable import/no-unresolved */
 
 describe("ConnectionPool", () => {
   let pool: ConnectionPool<MockConnection>;
@@ -25,7 +31,9 @@ describe("ConnectionPool", () => {
     closeCount: 0,
   });
 
-  const mockHealthCheck = async (connection: MockConnection): Promise<boolean> => {
+  const mockHealthCheck = async (
+    connection: MockConnection
+  ): Promise<boolean> => {
     return connection.isHealthy;
   };
 
@@ -70,7 +78,9 @@ describe("ConnectionPool", () => {
     });
 
     it("should reuse existing healthy connections", async () => {
-      await pool.acquire("reuse1", () => Promise.resolve(createMockConnection("reuse1")));
+      await pool.acquire("reuse1", () =>
+        Promise.resolve(createMockConnection("reuse1"))
+      );
       pool.release("reuse1");
 
       const connection = await pool.acquire("reuse1", () =>
@@ -82,7 +92,9 @@ describe("ConnectionPool", () => {
     });
 
     it("should remove connections explicitly", async () => {
-      await pool.acquire("remove1", () => Promise.resolve(createMockConnection("remove1")));
+      await pool.acquire("remove1", () =>
+        Promise.resolve(createMockConnection("remove1"))
+      );
 
       pool.remove("remove1");
       expect(pool.getStats().total).toBe(0);
@@ -99,7 +111,9 @@ describe("ConnectionPool", () => {
     it("should enforce maximum connection limit", async () => {
       // Fill up the pool
       for (let i = 0; i < 5; i++) {
-        await pool.acquire(`conn${i}`, () => Promise.resolve(createMockConnection(`conn${i}`)));
+        await pool.acquire(`conn${i}`, () =>
+          Promise.resolve(createMockConnection(`conn${i}`))
+        );
       }
 
       expect(pool.getStats().total).toBe(5);
@@ -116,15 +130,19 @@ describe("ConnectionPool", () => {
     it("should cleanup oldest connections when at limit", async () => {
       // Fill pool
       for (let i = 0; i < 5; i++) {
-        await pool.acquire(`old${i}`, () => Promise.resolve(createMockConnection(`old${i}`)));
+        await pool.acquire(`old${i}`, () =>
+          Promise.resolve(createMockConnection(`old${i}`))
+        );
         pool.release(`old${i}`);
       }
 
       // Wait a bit to make some connections old
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Add one more to trigger cleanup
-      await pool.acquire("new1", () => Promise.resolve(createMockConnection("new1")));
+      await pool.acquire("new1", () =>
+        Promise.resolve(createMockConnection("new1"))
+      );
 
       expect(pool.getStats().total).toBe(5);
     });
@@ -143,14 +161,18 @@ describe("ConnectionPool", () => {
     });
 
     it("should keep healthy connections", async () => {
-      await pool.acquire("healthy1", () => Promise.resolve(createMockConnection("healthy1")));
+      await pool.acquire("healthy1", () =>
+        Promise.resolve(createMockConnection("healthy1"))
+      );
 
       await pool.checkHealth("healthy1", mockHealthCheck);
       expect(pool.getStats().total).toBe(1); // Healthy connection kept
     });
 
     it("should handle health check failures gracefully", async () => {
-      await pool.acquire("fail1", () => Promise.resolve(createMockConnection("fail1")));
+      await pool.acquire("fail1", () =>
+        Promise.resolve(createMockConnection("fail1"))
+      );
 
       const failingHealthCheck = async (): Promise<boolean> => {
         throw new Error("Health check failed");
@@ -165,25 +187,29 @@ describe("ConnectionPool", () => {
     it("should cleanup idle connections automatically", async () => {
       // Create connections and release them
       for (let i = 0; i < 3; i++) {
-        await pool.acquire(`idle${i}`, () => Promise.resolve(createMockConnection(`idle${i}`)));
+        await pool.acquire(`idle${i}`, () =>
+          Promise.resolve(createMockConnection(`idle${i}`))
+        );
         pool.release(`idle${i}`);
       }
 
       expect(pool.getStats().total).toBe(3);
 
       // Wait for cleanup interval
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await new Promise(resolve => setTimeout(resolve, 2500));
 
       // Connections should be cleaned up
       expect(pool.getStats().total).toBe(0);
     });
 
     it("should not cleanup active connections", async () => {
-      await pool.acquire("active1", () => Promise.resolve(createMockConnection("active1")));
+      await pool.acquire("active1", () =>
+        Promise.resolve(createMockConnection("active1"))
+      );
       // Don't release - keep it active
 
       // Wait for cleanup interval
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await new Promise(resolve => setTimeout(resolve, 2500));
 
       expect(pool.getStats().total).toBe(1); // Active connection not cleaned up
     });
@@ -192,8 +218,12 @@ describe("ConnectionPool", () => {
   describe("Statistics", () => {
     it("should provide accurate statistics", async () => {
       // Create some connections
-      await pool.acquire("stat1", () => Promise.resolve(createMockConnection("stat1")));
-      await pool.acquire("stat2", () => Promise.resolve(createMockConnection("stat2")));
+      await pool.acquire("stat1", () =>
+        Promise.resolve(createMockConnection("stat1"))
+      );
+      await pool.acquire("stat2", () =>
+        Promise.resolve(createMockConnection("stat2"))
+      );
       pool.release("stat2");
 
       const stats = pool.getStats();
@@ -242,7 +272,9 @@ describe("ConnectionPool", () => {
         throw new Error("Connection failed");
       };
 
-      await expect(pool.acquire("fail", failingFactory)).rejects.toThrow("Connection failed");
+      await expect(pool.acquire("fail", failingFactory)).rejects.toThrow(
+        "Connection failed"
+      );
       expect(pool.getStats().total).toBe(0);
     });
 
@@ -313,7 +345,9 @@ describe("HTTPConnectionPool", () => {
     it("should handle network errors", async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
-      await expect(httpPool.makeRequest("/error")).rejects.toThrow("Network error");
+      await expect(httpPool.makeRequest("/error")).rejects.toThrow(
+        "Network error"
+      );
     });
   });
 });

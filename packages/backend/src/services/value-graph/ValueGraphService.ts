@@ -22,7 +22,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
-import { supabase as defaultSupabase } from "../../lib/supabase.js";
 import {
   EDGE_TYPE_CONSTRAINTS,
   EdgeConstraintViolationError,
@@ -130,7 +129,7 @@ export interface WriteEdgeInput {
 export class ValueGraphService {
   private supabase: SupabaseClient;
 
-  constructor(supabaseClient: SupabaseClient = defaultSupabase) {
+  constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
   }
 
@@ -193,17 +192,17 @@ export class ValueGraphService {
     const edges = (edgesResult.data ?? []) as ValueGraphEdge[];
 
     const nodes: ValueGraphNode[] = [
-      ...capabilities.map((c) => ({
+      ...capabilities.map(c => ({
         entity_type: "vg_capability" as ValueGraphEntityType,
         entity_id: c.id,
         data: c as unknown as Record<string, unknown>,
       })),
-      ...metrics.map((m) => ({
+      ...metrics.map(m => ({
         entity_type: "vg_metric" as ValueGraphEntityType,
         entity_id: m.id,
         data: m as unknown as Record<string, unknown>,
       })),
-      ...valueDrivers.map((vd) => ({
+      ...valueDrivers.map(vd => ({
         entity_type: "vg_value_driver" as ValueGraphEntityType,
         entity_id: vd.id,
         data: vd as unknown as Record<string, unknown>,
@@ -240,7 +239,10 @@ export class ValueGraphService {
     opportunityId: string,
     organizationId: string
   ): Promise<ValuePath[]> {
-    const graph = await this.getGraphForOpportunity(opportunityId, organizationId);
+    const graph = await this.getGraphForOpportunity(
+      opportunityId,
+      organizationId
+    );
 
     // Build lookup maps for fast traversal
     const capabilityMap = new Map<string, VgCapability>();
@@ -253,7 +255,10 @@ export class ValueGraphService {
       } else if (node.entity_type === "vg_metric") {
         metricMap.set(node.entity_id, node.data as unknown as VgMetric);
       } else if (node.entity_type === "vg_value_driver") {
-        valueDriverMap.set(node.entity_id, node.data as unknown as VgValueDriver);
+        valueDriverMap.set(
+          node.entity_id,
+          node.data as unknown as VgValueDriver
+        );
       }
     }
 
@@ -267,7 +272,8 @@ export class ValueGraphService {
 
     const ucCapEdges = edgesByType.get("use_case_enabled_by_capability") ?? [];
     const capMetricEdges = edgesByType.get("capability_impacts_metric") ?? [];
-    const metricDriverEdges = edgesByType.get("metric_maps_to_value_driver") ?? [];
+    const metricDriverEdges =
+      edgesByType.get("metric_maps_to_value_driver") ?? [];
 
     // Index by source for O(1) lookup
     const capMetricByCapId = this.indexEdgesBySource(capMetricEdges);
@@ -344,7 +350,7 @@ export class ValueGraphService {
         },
         {
           onConflict: "organization_id,opportunity_id,name",
-        },
+        }
       )
       .select()
       .single();
@@ -457,7 +463,7 @@ export class ValueGraphService {
       throw new EdgeConstraintViolationError(
         input.edge_type,
         input.from_entity_type,
-        input.to_entity_type,
+        input.to_entity_type
       );
     }
 
@@ -518,4 +524,5 @@ export class ValueGraphService {
   }
 }
 
-export const valueGraphService = new ValueGraphService();
+// Remove global exported singleton; services should use injected client.
+// export const valueGraphService = new ValueGraphService();

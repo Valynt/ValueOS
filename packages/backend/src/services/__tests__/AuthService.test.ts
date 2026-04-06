@@ -19,6 +19,7 @@ const { mockSupabaseAuth, mockConsumeAuthRateLimit, mockResetRateLimit, mockGetC
 }));
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { auth: mockSupabaseAuth },
 }));
 

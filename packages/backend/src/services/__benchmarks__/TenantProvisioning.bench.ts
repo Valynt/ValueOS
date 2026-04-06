@@ -187,6 +187,7 @@ const createMockSupabase = () => {
 };
 
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn().mockImplementation(() => createMockSupabase()),
 }));
 

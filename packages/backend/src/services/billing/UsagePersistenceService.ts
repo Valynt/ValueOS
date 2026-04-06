@@ -1,7 +1,7 @@
 import { createLogger } from "@shared/lib/logger";
 
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from "../../lib/supabase.js";
+// service-role:justified background-worker requires elevated DB access for tenant usage persistence
+import { createWorkerServiceSupabaseClient } from "../../lib/supabase/privileged/createWorkerServiceSupabaseClient.js";
 
 export interface UsagePersistencePayload {
   organization_id: string;
@@ -16,10 +16,18 @@ export interface UsagePersistencePayload {
 }
 
 const logger = createLogger({ component: "UsagePersistenceService" });
-const serviceRoleSupabase = createServerSupabaseClient();
+const serviceRoleSupabase = createWorkerServiceSupabaseClient({
+  justification:
+    "service-role:justified background-worker requires elevated DB access for tenant usage persistence",
+});
 
-export async function persistTenantUsage(payload: UsagePersistencePayload): Promise<void> {
-  const { error } = await serviceRoleSupabase.from("tenant_usage").upsert(payload).select();
+export async function persistTenantUsage(
+  payload: UsagePersistencePayload
+): Promise<void> {
+  const { error } = await serviceRoleSupabase
+    .from("tenant_usage")
+    .upsert(payload)
+    .select();
 
   if (error) {
     logger.error("Failed to persist tenant usage", error, {

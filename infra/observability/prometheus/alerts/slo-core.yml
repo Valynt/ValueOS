@@ -1,0 +1,223 @@
+# slo-core.yml — Core SLO alerting rules
+#
+# Covers the five required alert types for S1-03:
+#   1. High error rate (availability SLO breach)
+#   2. Latency SLO breach (p95 > 300ms)
+#   3. Worker pod CrashLoopBackOff
+#   4. Redis down
+#   5. Readiness probe failure
+#
+# Metric contract (authoritative — see infra/observability/SLOs.md):
+#   valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code=...}
+#   valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le=...}
+#   valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}
+#
+# Runbooks: docs/runbooks/alert-runbooks.md
+
+groups:
+  - name: slo.availability
+    rules:
+      # Alert 1: High error rate — availability SLO breach
+      # Fires when the 5-minute error rate exceeds 0.1% (SLO target: >= 99.9% availability).
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(valuecanvas_http_requests_total{
+              job="valueos-app",
+              service="valueos-backend",
+              status_code=~"5.."
+            }[5m]))
+            /
+            sum(rate(valuecanvas_http_requests_total{
+              job="valueos-app",
+              service="valueos-backend"
+            }[5m]))
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          slo: availability
+        annotations:
+          summary: "HTTP error rate exceeds SLO threshold"
+          description: >
+            Error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            SLO target is >= 99.9% availability (error rate <= 0.1%).
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#high-error-rate"
+
+      # Warning: fires earlier at 0.05% to give time to investigate before SLO breach
+      - alert: HighErrorRateWarning
+        expr: |
+          (
+            sum(rate(valuecanvas_http_requests_total{
+              job="valueos-app",
+              service="valueos-backend",
+              status_code=~"5.."
+            }[5m]))
+            /
+            sum(rate(valuecanvas_http_requests_total{
+              job="valueos-app",
+              service="valueos-backend"
+            }[5m]))
+          ) > 0.0005
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          slo: availability
+        annotations:
+          summary: "HTTP error rate approaching SLO threshold"
+          description: >
+            Error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            SLO threshold is 0.1%. Investigate before SLO breach.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#high-error-rate"
+
+  - name: slo.latency
+    rules:
+      # Alert 2: Latency SLO breach — p95 > 300ms
+      # Fires when fewer than 95% of requests complete within 300ms.
+      - alert: LatencyP95SLOBreach
+        expr: |
+          (
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{
+              job="valueos-app",
+              service="valueos-backend",
+              le="300"
+            }[5m]))
+            /
+            sum(rate(valuecanvas_http_request_duration_ms_count{
+              job="valueos-app",
+              service="valueos-backend"
+            }[5m]))
+          ) < 0.95
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          slo: latency
+        annotations:
+          summary: "p95 latency SLO breached (> 300ms)"
+          description: >
+            Only {{ $value | humanizePercentage }} of requests completed within 300ms
+            over the last 5 minutes. SLO target is >= 95% within 300ms.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#latency-slo-breach"
+
+      - alert: LatencyP95SLOBreachWarning
+        expr: |
+          (
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{
+              job="valueos-app",
+              service="valueos-backend",
+              le="300"
+            }[5m]))
+            /
+            sum(rate(valuecanvas_http_request_duration_ms_count{
+              job="valueos-app",
+              service="valueos-backend"
+            }[5m]))
+          ) < 0.97
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          slo: latency
+        annotations:
+          summary: "p95 latency approaching SLO threshold"
+          description: >
+            {{ $value | humanizePercentage }} of requests completed within 300ms
+            over the last 10 minutes. SLO target is >= 95%. Investigate before breach.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#latency-slo-breach"
+
+  - name: kubernetes.pods
+    rules:
+      # Alert 3: Worker pod CrashLoopBackOff
+      # Fires when any ValueOS pod has restarted more than 5 times in 15 minutes.
+      - alert: WorkerPodCrashLoop
+        expr: |
+          increase(kube_pod_container_status_restarts_total{
+            namespace="valynt"
+          }[15m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash-looping"
+          description: >
+            Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }}
+            has restarted {{ $value }} times in the last 15 minutes.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#pod-crash-loop"
+
+      # Alert 5: Readiness probe failure
+      # Fires when a pod has been unready for more than 5 minutes.
+      - alert: PodReadinessProbeFailure
+        expr: |
+          kube_pod_status_ready{
+            namespace="valynt",
+            condition="true"
+          } == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not ready"
+          description: >
+            Pod {{ $labels.namespace }}/{{ $labels.pod }} has failed its readiness probe
+            for more than 5 minutes. Traffic is not being routed to this pod.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#readiness-probe-failure"
+
+      - alert: PodReadinessProbeFailureCritical
+        expr: |
+          (
+            count(kube_pod_status_ready{namespace="valynt", condition="true"} == 0)
+            /
+            count(kube_pod_status_ready{namespace="valynt"})
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "More than 50% of pods in namespace valynt are not ready"
+          description: >
+            {{ $value | humanizePercentage }} of pods in namespace valynt are failing
+            readiness probes. This indicates a systemic failure.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#readiness-probe-failure"
+
+  - name: redis.availability
+    rules:
+      # Alert 4: Redis down
+      # Fires when the Redis instance is unreachable (no scrape data for 2 minutes).
+      - alert: RedisDown
+        expr: |
+          absent(redis_up{job="redis"}) == 1
+          or
+          redis_up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis instance is down"
+          description: >
+            Redis instance {{ $labels.instance }} has been unreachable for more than
+            2 minutes. Cache, session, and queue operations will fail.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          redis_memory_used_bytes{job="redis"}
+          /
+          redis_memory_max_bytes{job="redis"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis memory usage above 85%"
+          description: >
+            Redis instance {{ $labels.instance }} is using
+            {{ $value | humanizePercentage }} of its configured max memory.
+            Eviction may begin soon.
+          runbook_url: "https://docs.valueos.com/runbooks/alert-runbooks#redis-high-memory"

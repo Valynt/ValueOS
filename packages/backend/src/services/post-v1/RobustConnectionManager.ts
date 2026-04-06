@@ -13,6 +13,8 @@
  * - Comprehensive error handling and logging
  */
 
+import { randomBytes } from 'crypto';
+
 import { logger } from '../../lib/logger.js'
 
 /**
@@ -727,7 +729,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
    * Generate message ID
    */
   private generateMessageId(): string {
-    return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `msg-${Date.now()}-${randomBytes(6).toString("hex")}`;
   }
 }
 

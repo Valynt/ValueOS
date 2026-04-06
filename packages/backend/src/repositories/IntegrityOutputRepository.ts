@@ -7,10 +7,10 @@
  * All operations are scoped to (case_id, organization_id).
  */
 
-import { z } from 'zod';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-import { logger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,7 +35,7 @@ export const IntegrityOutputWriteSchema = z.object({
   overall_confidence: z.number().min(0).max(1).optional(),
   veto_triggered: z.boolean().default(false),
   veto_reason: z.string().optional(),
-  source_agent: z.string().default('IntegrityAgent'),
+  source_agent: z.string().default("IntegrityAgent"),
 });
 
 export type IntegrityOutputWrite = z.infer<typeof IntegrityOutputWriteSchema>;
@@ -62,17 +62,25 @@ export interface IntegrityOutputRow {
 // ---------------------------------------------------------------------------
 
 export class IntegrityOutputRepository {
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
+
   /**
    * Upsert integrity output for a case.
    * A re-run replaces the prior output for the same (case_id, organization_id).
    */
-  async upsertForCase(input: IntegrityOutputWrite): Promise<IntegrityOutputRow> {
+  async upsertForCase(
+    input: IntegrityOutputWrite
+  ): Promise<IntegrityOutputRow> {
     const validated = IntegrityOutputWriteSchema.parse(input);
 
     const flaggedCount = validated.claims.filter(c => c.flagged).length;
 
-    const { data, error } = await supabase
-      .from('integrity_outputs')
+    const { data, error } = await this.db
+      .from("integrity_outputs")
       .upsert(
         {
           case_id: validated.case_id,
@@ -88,13 +96,13 @@ export class IntegrityOutputRepository {
           flagged_claim_count: flaggedCount,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'case_id,organization_id' },
+        { onConflict: "case_id,organization_id" }
       )
-      .select('*')
+      .select("*")
       .single();
 
     if (error || !data) {
-      logger.error('IntegrityOutputRepository.upsertForCase failed', {
+      logger.error("IntegrityOutputRepository.upsertForCase failed", {
         case_id: validated.case_id,
         organization_id: validated.organization_id,
         error: error?.message,
@@ -102,7 +110,7 @@ export class IntegrityOutputRepository {
       throw new Error(`Failed to upsert integrity output: ${error?.message}`);
     }
 
-    logger.info('IntegrityOutputRepository: output upserted', {
+    logger.info("IntegrityOutputRepository: output upserted", {
       id: data.id,
       case_id: validated.case_id,
       organization_id: validated.organization_id,
@@ -119,17 +127,17 @@ export class IntegrityOutputRepository {
    */
   async getForCase(
     caseId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<IntegrityOutputRow | null> {
-    const { data, error } = await supabase
-      .from('integrity_outputs')
-      .select('*')
-      .eq('case_id', caseId)
-      .eq('organization_id', organizationId)
+    const { data, error } = await this.db
+      .from("integrity_outputs")
+      .select("*")
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
       .maybeSingle();
 
     if (error) {
-      logger.error('IntegrityOutputRepository.getForCase failed', {
+      logger.error("IntegrityOutputRepository.getForCase failed", {
         case_id: caseId,
         organization_id: organizationId,
         error: error.message,
@@ -141,4 +149,5 @@ export class IntegrityOutputRepository {
   }
 }
 
-export const integrityOutputRepository = new IntegrityOutputRepository();
+// No module-level singleton — callers must inject an RLS-scoped SupabaseClient.
+// Example: new IntegrityOutputRepository(requestScopedClient)

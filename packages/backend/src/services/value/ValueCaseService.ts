@@ -9,12 +9,14 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { secureTokenManager } from "../../lib/auth/SecureTokenManager";
 import type { LifecycleStage } from "../../types/vos";
-import { featureFlags } from "../config/featureFlags.js"
-import { logger } from "../lib/logger.js"
-import { createLogger } from "../lib/logger.js"
+import { featureFlags } from "../config/featureFlags.js";
+import { logger } from "../lib/logger.js";
+import { createLogger } from "../lib/logger.js";
 
-import { TenantAwareService, type TenantContext } from "./TenantAwareService.js"
-
+import {
+  TenantAwareService,
+  type TenantContext,
+} from "./TenantAwareService.js";
 
 const debugLogger = createLogger({ component: "ValueCaseService" });
 
@@ -70,11 +72,14 @@ class ValueCaseService extends TenantAwareService {
   private realtimeChannel: RealtimeChannel | null = null;
   private listeners: Set<(cases: ValueCase[]) => void> = new Set();
 
-  constructor() {
-    super("ValueCaseService");
+  constructor(supabase?: SupabaseClient) {
+    super("ValueCaseService", supabase);
   }
 
   private async getTenantContextFromSession(): Promise<TenantContext> {
+    if (!this.supabase) {
+      throw new Error("Supabase client not initialized in ValueCaseService");
+    }
     try {
       // Prefer secure token manager (may include demo session fallback)
       const tokenSession = await secureTokenManager.getCurrentSession();
@@ -140,7 +145,9 @@ class ValueCaseService extends TenantAwareService {
         .order("updated_at", { ascending: false });
 
       if (!vcError && valueCases && valueCases.length > 0) {
-        return valueCases.map((vc: Record<string, unknown>) => this.mapValueCase(vc));
+        return valueCases.map((vc: Record<string, unknown>) =>
+          this.mapValueCase(vc)
+        );
       }
 
       // Fallback to legacy business_cases table, but still restrict to owner
@@ -156,7 +163,9 @@ class ValueCaseService extends TenantAwareService {
         return [];
       }
 
-      return (businessCases || []).map((bc: Record<string, unknown>) => this.mapBusinessCase(bc));
+      return (businessCases || []).map((bc: Record<string, unknown>) =>
+        this.mapBusinessCase(bc)
+      );
     } catch (error: unknown) {
       logger.error(
         "Error fetching value cases",
@@ -404,7 +413,7 @@ class ValueCaseService extends TenantAwareService {
   }
 
   private notifyListeners(cases: ValueCase[]): void {
-    this.listeners.forEach((callback) => callback(cases));
+    this.listeners.forEach(callback => callback(cases));
   }
 
   // ============================================================================
@@ -421,8 +430,8 @@ class ValueCaseService extends TenantAwareService {
       name: data.name as string,
       description: data.description as string | undefined,
       company:
-        (data.company_profiles as Array<Record<string, unknown>>)?.[0]
-          ?.company_name as string || "Unknown Company",
+        ((data.company_profiles as Array<Record<string, unknown>>)?.[0]
+          ?.company_name as string) || "Unknown Company",
       stage: this.normalizeStage(stage),
       status: status as "in-progress" | "completed" | "paused",
       quality_score: data.quality_score as number | undefined,

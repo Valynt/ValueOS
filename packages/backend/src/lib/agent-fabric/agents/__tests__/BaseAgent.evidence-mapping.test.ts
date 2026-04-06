@@ -34,6 +34,7 @@ vi.mock("../AuditLogger.js", () => ({
 
 // Supabase — not needed for evidence-mapping logic
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   supabase: { from: vi.fn() },
 }));

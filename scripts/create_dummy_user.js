@@ -12,6 +12,7 @@
 
 const fetch = require("node-fetch");
 const { sign } = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
@@ -29,8 +30,12 @@ async function createUser() {
     process.exit(1);
   }
 
-  const email = "dev+dummy@localhost";
-  const password = "devpassword123";
+  const email = process.env.DUMMY_USER_EMAIL || "dev+dummy@localhost";
+  const password = process.env.DUMMY_USER_PASSWORD || crypto.randomBytes(16).toString("hex");
+
+  if (!process.env.DUMMY_USER_PASSWORD) {
+    console.log("No DUMMY_USER_PASSWORD provided. A random password will be generated for the dummy user.");
+  }
 
   const resp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: "POST",

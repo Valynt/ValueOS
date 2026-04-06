@@ -178,7 +178,7 @@ export async function processResearchJob(
               await semanticMemory.storeChunk({
                 type: "sec_filing_chunk",
                 content: chunk.content,
-                sourceUrl: `sec://edgar/${ticker}/${chunk.metadata.section || 'unknown'}`,
+                sourceUrl: `sec://edgar/${ticker}/${chunk.metadata.section || "unknown"}`,
                 tenantId,
                 contextId,
                 metadata: {
@@ -377,19 +377,18 @@ export async function processResearchJob(
       }));
 
       // Upsert using entity_hash to prevent duplicates across re-runs
-      for (const row of rows) {
-        const { error } = await supabase
-          .from("company_research_suggestions")
-          .upsert(row, { onConflict: "entity_hash", ignoreDuplicates: true });
+      // BATCHED OPTIMIZATION: Use a single .upsert() call instead of individual calls
+      const { error } = await supabase
+        .from("company_research_suggestions")
+        .upsert(rows, { onConflict: "entity_hash", ignoreDuplicates: true });
 
-        if (!error) {
-          suggestionsCreated++;
-        } else {
-          logger.warn("Failed to insert suggestion", {
-            entityType: result.entityType,
-            error: error.message,
-          });
-        }
+      if (!error) {
+        suggestionsCreated += rows.length;
+      } else {
+        logger.warn("Failed to insert suggestions batch", {
+          entityType: result.entityType,
+          error: error.message,
+        });
       }
     }
 

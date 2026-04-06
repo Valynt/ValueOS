@@ -334,18 +334,27 @@ router.post(
 
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];
+      const acceptedIds: string[] = [];
+
+      const { data: allSuggestions, error: prefetchErr } = await supabase
+        .from('company_research_suggestions')
+        .select('*')
+        .in('id', ids)
+        .eq('tenant_id', tenantId);
+
+      if (prefetchErr) {
+        logger.error('Failed to prefetch suggestions', new Error(prefetchErr.message));
+        return res.status(500).json({ error: 'Failed to fetch suggestions for bulk accept' });
+      }
+
+      const insertTasks: Array<{ id: string; targetTable: string; data: any }> = [];
 
       for (const id of ids) {
         try {
-          // Fetch suggestion
-          const { data: suggestion, error: fetchErr } = await supabase
-            .from('company_research_suggestions')
-            .select('*')
-            .eq('id', id)
-            .eq('tenant_id', tenantId)
-            .single();
+          // Find suggestion in prefetched data
+          const suggestion = allSuggestions?.find((s) => s.id === id);
 
-          if (fetchErr || !suggestion) {
+          if (!suggestion) {
             results.push({ id, success: false, error: 'Not found' });
             continue;
           }
@@ -358,33 +367,58 @@ router.post(
           // Write to canonical table
           const targetTable = ENTITY_TABLE_MAP[suggestion.entity_type];
           if (targetTable) {
-            const { error: insertErr } = await supabase
-              .from(targetTable)
-              .insert({
+            insertTasks.push({
+              id,
+              targetTable,
+              data: {
                 ...suggestion.payload,
                 tenant_id: tenantId,
                 context_id: suggestion.context_id,
-              });
-
-            if (insertErr) {
-              results.push({ id, success: false, error: insertErr.message });
-              continue;
-            }
+              }
+            });
+          } else {
+            acceptedIds.push(id);
+            results.push({ id, success: true });
           }
-
-          // Mark as accepted
-          await supabase
-            .from('company_research_suggestions')
-            .update({
-              status: 'accepted',
-              accepted_at: new Date().toISOString(),
-            })
-            .eq('id', id);
-
-          results.push({ id, success: true });
         } catch (err) {
           results.push({ id, success: false, error: err instanceof Error ? err.message : String(err) });
         }
+      }
+
+      // Execute insert operations concurrently
+      const insertResults = await Promise.all(
+        insertTasks.map(async (task) => {
+          try {
+            const { error: insertErr } = await supabase
+              .from(task.targetTable)
+              .insert(task.data);
+
+            return { id: task.id, error: insertErr };
+          } catch (err) {
+             return { id: task.id, error: new Error(err instanceof Error ? err.message : String(err)) };
+          }
+        })
+      );
+
+      // Process results
+      for (const result of insertResults) {
+        if (result.error) {
+          results.push({ id: result.id, success: false, error: result.error.message });
+        } else {
+          acceptedIds.push(result.id);
+          results.push({ id: result.id, success: true });
+        }
+      }
+
+      // Mark as accepted in bulk
+      if (acceptedIds.length > 0) {
+        await supabase
+          .from('company_research_suggestions')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+          })
+          .in('id', acceptedIds);
       }
 
       const accepted = results.filter((r) => r.success).length;

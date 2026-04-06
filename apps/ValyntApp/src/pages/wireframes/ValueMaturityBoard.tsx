@@ -11,9 +11,7 @@ import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, Clock,
   GripVertical, ShieldAlert, TrendingUp, XCircle, Zap
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-
-import { useMaturityCards } from "./useWireframeData";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { AnnotatedSection, ANNOTATIONS } from "@/components/wireframes/AnnotationOverlay";
 import { ResponsivePageLayout } from "@/components/wireframes/ResponsiveNav";
@@ -604,7 +602,9 @@ const initialColumns: MaturityColumn[] = [
 ];
 
 export default function ValueMaturityBoard() {
-  const { data: liveCards } = useMaturityCards();
+  // Removed useMaturityCards to clean up useWireframeData.ts dependency
+  // Use useMemo to avoid recreating this empty object on every render
+  const liveCards: Record<string, any[]> = React.useMemo(() => ({}), []);
 
   // Merge live cards into the static column structure.
   // Live cards replace mock cases in their respective columns when available.

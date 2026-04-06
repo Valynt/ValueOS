@@ -1,63 +1,80 @@
 /**
  * Financial Modeling Integration
- * 
+ *
  * Integrates the MCP Ground Truth Server with the existing FinancialModelingTool
  * to provide data-driven financial modeling capabilities.
- * 
+ *
  * This integration allows agents to:
  * 1. Fetch authoritative financial data from MCP server
  * 2. Use that data in financial calculations
  * 3. Ensure all models are grounded in real data
  */
 
-import { logger } from '../../lib/logger';
-import { BaseTool, ToolExecutionContext, ToolResult } from '../../services/ToolRegistry';
-import { MCPFinancialGroundTruthServer } from '../core/MCPServer';
+import { logger } from "../../lib/logger";
+import {
+  BaseTool,
+  ToolExecutionContext,
+  ToolResult,
+} from "@backend/services/ToolRegistry";
+import { MCPFinancialGroundTruthServer } from "../core/MCPServer";
 
 /**
  * Enhanced Financial Modeling Tool with Ground Truth Integration
- * 
+ *
  * Extends the existing FinancialModelingTool to automatically fetch
  * required financial data from the MCP Ground Truth Server.
  */
 export class GroundTruthFinancialModelingTool extends BaseTool {
-  name = 'ground_truth_financial_modeling';
-  description = 'Perform financial calculations using authoritative data from SEC filings and market sources. Automatically fetches required financial metrics and performs calculations.';
-  
+  name = "ground_truth_financial_modeling";
+  description =
+    "Perform financial calculations using authoritative data from SEC filings and market sources. Automatically fetches required financial metrics and performs calculations.";
+
   parameters = {
-    type: 'object',
+    type: "object",
     properties: {
       entity_id: {
-        type: 'string',
-        description: 'CIK or ticker symbol of the company to analyze',
+        type: "string",
+        description: "CIK or ticker symbol of the company to analyze",
       },
       analysis_type: {
-        type: 'string',
-        enum: ['dcf', 'comparable_companies', 'precedent_transactions', 'value_driver'],
-        description: 'Type of financial analysis to perform',
+        type: "string",
+        enum: [
+          "dcf",
+          "comparable_companies",
+          "precedent_transactions",
+          "value_driver",
+        ],
+        description: "Type of financial analysis to perform",
       },
       assumptions: {
-        type: 'object',
+        type: "object",
         properties: {
-          discount_rate: { type: 'number', description: 'WACC or discount rate' },
-          growth_rate: { type: 'number', description: 'Terminal growth rate' },
-          projection_years: { type: 'number', description: 'Number of years to project' },
+          discount_rate: {
+            type: "number",
+            description: "WACC or discount rate",
+          },
+          growth_rate: { type: "number", description: "Terminal growth rate" },
+          projection_years: {
+            type: "number",
+            description: "Number of years to project",
+          },
         },
-        description: 'Analysis assumptions (optional, will use industry benchmarks if not provided)',
+        description:
+          "Analysis assumptions (optional, will use industry benchmarks if not provided)",
       },
       period: {
-        type: 'string',
-        description: 'Fiscal period for historical data (e.g., FY2024)',
+        type: "string",
+        description: "Fiscal period for historical data (e.g., FY2024)",
       },
     },
-    required: ['entity_id', 'analysis_type'],
+    required: ["entity_id", "analysis_type"],
   };
 
   metadata = {
-    version: '2.0.0',
-    author: 'ValueCanvas',
-    category: 'financial',
-    tags: ['finance', 'modeling', 'valuation', 'ground-truth'],
+    version: "2.0.0",
+    author: "ValueCanvas",
+    category: "financial",
+    tags: ["finance", "modeling", "valuation", "ground-truth"],
   };
 
   private mcpServer: MCPFinancialGroundTruthServer;
@@ -70,7 +87,11 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
   async execute(
     params: {
       entity_id: string;
-      analysis_type: 'dcf' | 'comparable_companies' | 'precedent_transactions' | 'value_driver';
+      analysis_type:
+        | "dcf"
+        | "comparable_companies"
+        | "precedent_transactions"
+        | "value_driver";
       assumptions?: {
         discount_rate?: number;
         growth_rate?: number;
@@ -81,7 +102,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     context?: ToolExecutionContext
   ): Promise<ToolResult> {
     try {
-      logger.info('Ground truth financial modeling started', {
+      logger.info("Ground truth financial modeling started", {
         entity_id: params.entity_id,
         analysis_type: params.analysis_type,
         userId: context?.userId,
@@ -89,32 +110,32 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
 
       // Route to appropriate analysis method
       switch (params.analysis_type) {
-        case 'dcf':
+        case "dcf":
           return await this.performDCF(params);
-        case 'comparable_companies':
+        case "comparable_companies":
           return await this.performComparableCompanies(params);
-        case 'value_driver':
+        case "value_driver":
           return await this.performValueDriverAnalysis(params);
         default:
           return {
             success: false,
             error: {
-              code: 'INVALID_ANALYSIS_TYPE',
+              code: "INVALID_ANALYSIS_TYPE",
               message: `Unsupported analysis type: ${params.analysis_type}`,
             },
           };
       }
     } catch (error) {
-      logger.error('Ground truth financial modeling failed', {
+      logger.error("Ground truth financial modeling failed", {
         entity_id: params.entity_id,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       });
 
       return {
         success: false,
         error: {
-          code: 'MODELING_FAILED',
-          message: error instanceof Error ? error.message : 'Analysis failed',
+          code: "MODELING_FAILED",
+          message: error instanceof Error ? error.message : "Analysis failed",
         },
       };
     }
@@ -133,34 +154,40 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     period?: string;
   }): Promise<ToolResult> {
     // Fetch historical financials from MCP server
-    const financials = await this.mcpServer.executeTool('get_authoritative_financials', {
-      entity_id: params.entity_id,
-      metrics: [
-        'revenue_total',
-        'operating_income',
-        'net_income',
-        'cash_and_equivalents',
-        'total_debt',
-      ],
-      period: params.period || 'FY2024',
-    });
+    const financials = await this.mcpServer.executeTool(
+      "get_authoritative_financials",
+      {
+        entity_id: params.entity_id,
+        metrics: [
+          "revenue_total",
+          "operating_income",
+          "net_income",
+          "cash_and_equivalents",
+          "total_debt",
+        ],
+        period: params.period || "FY2024",
+      }
+    );
 
     if (financials.isError) {
       return {
         success: false,
         error: {
-          code: 'DATA_FETCH_FAILED',
-          message: 'Failed to fetch financial data',
+          code: "DATA_FETCH_FAILED",
+          message: "Failed to fetch financial data",
         },
       };
     }
 
     // Parse financial data
     const data = JSON.parse(financials.content[0].text!);
-    const metrics = data.data.reduce((acc: Record<string, unknown>, item: Record<string, unknown>) => {
-      acc[item.metric] = item.value;
-      return acc;
-    }, {});
+    const metrics = data.data.reduce(
+      (acc: Record<string, unknown>, item: Record<string, unknown>) => {
+        acc[item.metric] = item.value;
+        return acc;
+      },
+      {}
+    );
 
     // Get industry benchmarks for assumptions if not provided
     let discountRate = params.assumptions?.discount_rate;
@@ -168,7 +195,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
 
     if (!discountRate || !growthRate) {
       // Would fetch from industry benchmark module
-      discountRate = discountRate || 0.10; // Default 10% WACC
+      discountRate = discountRate || 0.1; // Default 10% WACC
       growthRate = growthRate || 0.03; // Default 3% terminal growth
     }
 
@@ -197,12 +224,13 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
 
     // Calculate enterprise value and equity value
     const enterpriseValue = presentValue;
-    const equityValue = enterpriseValue + metrics.cash_and_equivalents - metrics.total_debt;
+    const equityValue =
+      enterpriseValue + metrics.cash_and_equivalents - metrics.total_debt;
 
     return {
       success: true,
       data: {
-        analysis_type: 'dcf',
+        analysis_type: "dcf",
         entity_id: params.entity_id,
         valuation: {
           enterprise_value: enterpriseValue,
@@ -220,7 +248,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
         },
         historical_data: metrics,
         provenance: {
-          data_source: 'mcp-ground-truth',
+          data_source: "mcp-ground-truth",
           data_tier: data.metadata[0].source_tier,
           confidence: data.metadata[0].extraction_confidence,
           filing_type: data.metadata[0].filing_type,
@@ -239,18 +267,21 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     period?: string;
   }): Promise<ToolResult> {
     // Fetch target company financials
-    const targetFinancials = await this.mcpServer.executeTool('get_authoritative_financials', {
-      entity_id: params.entity_id,
-      metrics: ['revenue_total', 'operating_income', 'net_income'],
-      period: params.period || 'FY2024',
-    });
+    const targetFinancials = await this.mcpServer.executeTool(
+      "get_authoritative_financials",
+      {
+        entity_id: params.entity_id,
+        metrics: ["revenue_total", "operating_income", "net_income"],
+        period: params.period || "FY2024",
+      }
+    );
 
     if (targetFinancials.isError) {
       return {
         success: false,
         error: {
-          code: 'DATA_FETCH_FAILED',
-          message: 'Failed to fetch target company data',
+          code: "DATA_FETCH_FAILED",
+          message: "Failed to fetch target company data",
         },
       };
     }
@@ -264,9 +295,9 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     return {
       success: true,
       data: {
-        analysis_type: 'comparable_companies',
+        analysis_type: "comparable_companies",
         entity_id: params.entity_id,
-        message: 'Comparable companies analysis - full implementation pending',
+        message: "Comparable companies analysis - full implementation pending",
       },
     };
   }
@@ -279,12 +310,15 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     period?: string;
   }): Promise<ToolResult> {
     // Use the populate_value_driver_tree tool
-    const result = await this.mcpServer.executeTool('populate_value_driver_tree', {
-      target_cik: params.entity_id,
-      benchmark_naics: '541511', // Would determine dynamically
-      driver_node_id: 'productivity_delta',
-      simulation_period: '2025-2027',
-    });
+    const result = await this.mcpServer.executeTool(
+      "populate_value_driver_tree",
+      {
+        target_cik: params.entity_id,
+        benchmark_naics: "541511", // Would determine dynamically
+        driver_node_id: "productivity_delta",
+        simulation_period: "2025-2027",
+      }
+    );
 
     return {
       success: !result.isError,
@@ -306,7 +340,7 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     let currentCashFlow = baseCashFlow;
 
     for (let i = 0; i < years; i++) {
-      currentCashFlow *= (1 + growthRate);
+      currentCashFlow *= 1 + growthRate;
       cashFlows.push(currentCashFlow);
     }
 
@@ -334,25 +368,38 @@ export class GroundTruthFinancialModelingTool extends BaseTool {
     }
 
     // Discount terminal value
-    presentValue += terminalValue / Math.pow(1 + discountRate, cashFlows.length);
+    presentValue +=
+      terminalValue / Math.pow(1 + discountRate, cashFlows.length);
 
     return presentValue;
   }
 
-  async validate(params: Record<string, unknown>): Promise<{ valid: boolean; errors?: string[] }> {
+  async validate(
+    params: Record<string, unknown>
+  ): Promise<{ valid: boolean; errors?: string[] }> {
     const errors: string[] = [];
 
     if (!params.entity_id) {
-      errors.push('Missing required parameter: entity_id');
+      errors.push("Missing required parameter: entity_id");
     }
 
     if (!params.analysis_type) {
-      errors.push('Missing required parameter: analysis_type');
+      errors.push("Missing required parameter: analysis_type");
     }
 
-    const validAnalysisTypes = ['dcf', 'comparable_companies', 'precedent_transactions', 'value_driver'];
-    if (params.analysis_type && !validAnalysisTypes.includes(params.analysis_type)) {
-      errors.push(`Invalid analysis_type. Must be one of: ${validAnalysisTypes.join(', ')}`);
+    const validAnalysisTypes = [
+      "dcf",
+      "comparable_companies",
+      "precedent_transactions",
+      "value_driver",
+    ];
+    if (
+      params.analysis_type &&
+      !validAnalysisTypes.includes(params.analysis_type)
+    ) {
+      errors.push(
+        `Invalid analysis_type. Must be one of: ${validAnalysisTypes.join(", ")}`
+      );
     }
 
     return {

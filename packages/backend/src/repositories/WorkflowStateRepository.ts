@@ -13,6 +13,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { logger } from '../lib/logger.js';
+// service-role:justified repositories/ allowlisted; no request JWT available for background agent/worker writes
 import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 export interface WorkflowState {

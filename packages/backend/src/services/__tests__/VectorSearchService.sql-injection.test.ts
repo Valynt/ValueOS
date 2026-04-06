@@ -4,6 +4,7 @@ import { VectorSearchService } from "../memory/VectorSearchService.js";
 
 // Supabase is not needed — we test the filter-building logic, not DB execution
 vi.mock("../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   supabase: { from: vi.fn(), rpc: vi.fn() },
 }));

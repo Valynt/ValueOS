@@ -39,6 +39,7 @@ const createChain = (): Record<string, unknown> => {
 };
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: (table: string) => {
       mockFrom(table);

@@ -103,6 +103,34 @@ module "cache" {
   private_subnet_ids = module.networking.private_subnet_ids
   security_group_ids = [module.security.cache_security_group_id]
 
+  instance_type      = var.redis_instance_type
+  num_cache_nodes    = var.redis_num_cache_nodes
+
+  tags = local.common_tags
+}
+
+# EKS Module
+module "eks" {
+  source = "./modules/eks"
+
+  cluster_name        = local.name_prefix
+  cluster_version     = var.cluster_version
+  vpc_id              = module.networking.vpc_id
+  subnet_ids          = module.networking.private_subnet_ids
+  node_group_name     = "${local.name_prefix}-main-node-group"
+  node_instance_types = var.node_instance_types
+  desired_size        = var.desired_size
+  max_size            = var.max_size
+  min_size            = var.min_size
+
+  tags = local.common_tags
+}
+
+  name_prefix        = local.name_prefix
+  vpc_id             = module.networking.vpc_id
+  private_subnet_ids = module.networking.private_subnet_ids
+  security_group_ids = [module.security.cache_security_group_id]
+
   node_type          = var.cache_node_type
   num_cache_nodes    = var.cache_num_nodes
 

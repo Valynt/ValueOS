@@ -13,11 +13,11 @@
  * Sprint 51.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReasoningTrace, ReasoningTraceWrite } from "@valueos/shared";
 import { ReasoningTraceWriteSchema } from "@valueos/shared";
 
 import { logger } from "../lib/logger.js";
-import { supabase } from "../lib/supabase.js";
 
 // ---------------------------------------------------------------------------
 // Query options
@@ -42,6 +42,12 @@ export interface ReasoningTracePage {
 // ---------------------------------------------------------------------------
 
 export class ReasoningTraceRepository {
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
+
   /**
    * Persist a reasoning trace row.
    *
@@ -61,7 +67,7 @@ export class ReasoningTraceRepository {
     }
 
     try {
-      const { data: row, error } = await supabase
+      const { data: row, error } = await this.db
         .from("reasoning_traces")
         .insert(parsed.data)
         .select("id")
@@ -88,13 +94,15 @@ export class ReasoningTraceRepository {
    * Queries by value_case_id (maps to :caseId route parameter).
    * Tenant-scoped: only rows matching organizationId are returned.
    */
-  async findByCaseId(opts: ReasoningTraceQueryOptions): Promise<ReasoningTracePage> {
+  async findByCaseId(
+    opts: ReasoningTraceQueryOptions
+  ): Promise<ReasoningTracePage> {
     const page = Math.max(1, opts.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 20));
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error, count } = await supabase
+    const { data, error, count } = await this.db
       .from("reasoning_traces")
       .select("*", { count: "exact" })
       .eq("value_case_id", opts.caseId)
@@ -130,7 +138,7 @@ export class ReasoningTraceRepository {
     traceId: string,
     organizationId: string
   ): Promise<ReasoningTrace | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.db
       .from("reasoning_traces")
       .select("*")
       .eq("trace_id", traceId)
@@ -162,7 +170,7 @@ export class ReasoningTraceRepository {
     traceId: string,
     organizationId: string
   ): Promise<ReasoningTrace | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.db
       .from("reasoning_traces")
       .select("*")
       .eq("id", traceId)
@@ -186,4 +194,5 @@ export class ReasoningTraceRepository {
   }
 }
 
-export const reasoningTraceRepository = new ReasoningTraceRepository();
+// No module-level singleton — callers must inject an RLS-scoped SupabaseClient.
+// Example: new ReasoningTraceRepository(requestScopedClient)

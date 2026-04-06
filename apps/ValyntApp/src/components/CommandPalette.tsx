@@ -117,17 +117,11 @@ function createDefaultCommands(navigate: (path: string) => void): CommandItem[] 
   ];
 }
 
-/* ------------------------------------------------------------------ */
-/*  Fuzzy matcher                                                      */
-/* ------------------------------------------------------------------ */
-
-function matchesQuery(item: CommandItem, query: string): boolean {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  if (item.label.toLowerCase().includes(q)) return true;
-  if (item.description?.toLowerCase().includes(q)) return true;
-  if (item.keywords?.some((kw) => kw.includes(q))) return true;
-  return false;
+interface SearchableCommand {
+  command: CommandItem;
+  label: string;
+  description: string;
+  keywords: string[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -148,9 +142,32 @@ function CommandPaletteDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const searchableCommands = useMemo<SearchableCommand[]>(
+    () => commands.map((command) => ({
+      command,
+      label: command.label.toLowerCase(),
+      description: command.description?.toLowerCase() ?? "",
+      keywords: command.keywords?.map((keyword) => keyword.toLowerCase()) ?? [],
+    })),
+    [commands],
+  );
+
   const filtered = useMemo(
-    () => commands.filter((c) => matchesQuery(c, query)),
-    [commands, query],
+    () => {
+      const normalizedQuery = query.toLowerCase();
+      if (!normalizedQuery) {
+        return searchableCommands.map(({ command }) => command);
+      }
+
+      return searchableCommands
+        .filter(({ label, description, keywords }) => (
+          label.includes(normalizedQuery)
+          || description.includes(normalizedQuery)
+          || keywords.some((keyword) => keyword.includes(normalizedQuery))
+        ))
+        .map(({ command }) => command);
+    },
+    [query, searchableCommands],
   );
 
   // Reset selection when query changes
@@ -270,6 +287,13 @@ function CommandPaletteDialog({
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+
+          {/* Screen-reader announcement for result count */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {filtered.length === 0
+              ? "No results found"
+              : `${filtered.length} command${filtered.length === 1 ? "" : "s"} available`}
           </div>
 
           {/* Results */}

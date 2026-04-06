@@ -24,8 +24,14 @@ import { z } from "zod";
 import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
 import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
-import { LLMGateway as FabricLLMGateway, LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
-import { MemorySystem as FabricMemorySystem, MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
+import {
+  LLMGateway as FabricLLMGateway,
+  LLMGateway,
+} from "../../lib/agent-fabric/LLMGateway.js";
+import {
+  MemorySystem as FabricMemorySystem,
+  MemorySystem,
+} from "../../lib/agent-fabric/MemorySystem.js";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
@@ -33,7 +39,6 @@ import { AuthenticatedRequest, requireAuth } from "../../middleware/auth.js";
 import { rateLimiters } from "../../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../../middleware/tenantDbContext.js";
-import { agentExecutionLineageRepository } from "../../repositories/AgentExecutionLineageRepository.js";
 import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOpportunityRepository.js";
 import { IntegrityResultRepository } from "../../repositories/IntegrityResultRepository.js";
 import { NarrativeDraftRepository } from "../../repositories/NarrativeDraftRepository.js";
@@ -224,7 +229,10 @@ backHalfRouter.get(
       const integrityService = new ValueIntegrityService();
 
       // Calculate current integrity score
-      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityResult = await integrityService.calculateIntegrity(
+        caseId,
+        tenantId
+      );
       const integrityScore = integrityResult.score ?? 0;
 
       // Check for hard blocks (critical violations)
@@ -234,7 +242,8 @@ backHalfRouter.get(
         req.headers.authorization?.replace("Bearer ", "") ?? ""
       );
 
-      const canAdvance = integrityScore >= INTEGRITY_THRESHOLD && !hardBlockResult.blocked;
+      const canAdvance =
+        integrityScore >= INTEGRITY_THRESHOLD && !hardBlockResult.blocked;
 
       // Build remediation instructions if blocked
       const remediationInstructions: string[] = [];
@@ -270,7 +279,9 @@ backHalfRouter.get(
             warnings: hardBlockResult.soft_warnings.length,
             blocked: hardBlockResult.blocked,
           },
-          remediationInstructions: canAdvance ? undefined : remediationInstructions,
+          remediationInstructions: canAdvance
+            ? undefined
+            : remediationInstructions,
           nextStage: canAdvance ? "narrative" : undefined,
         },
       });
@@ -562,7 +573,10 @@ backHalfRouter.post(
     // Integrity check: block export if score < 0.6
     try {
       const integrityService = new ValueIntegrityService();
-      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityResult = await integrityService.calculateIntegrity(
+        caseId,
+        tenantId
+      );
       const integrityScore = integrityResult.score ?? 0;
 
       if (integrityScore < INTEGRITY_THRESHOLD) {
@@ -588,7 +602,10 @@ backHalfRouter.post(
         requestId,
         failClosed: true,
         exportBlocked: true,
-        error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+        error:
+          integrityErr instanceof Error
+            ? integrityErr.message
+            : String(integrityErr),
       });
 
       return res.status(503).json({
@@ -742,15 +759,17 @@ backHalfRouter.post(
 
 function getBackHalfProvenanceTracker(
   client: Request["supabase"],
-  tenantId: string,
+  tenantId: string
 ): ProvenanceTracker {
   if (!client) {
-    throw new Error("Authenticated Supabase context required for provenance lookups");
+    throw new Error(
+      "Authenticated Supabase context required for provenance lookups"
+    );
   }
 
   const store = new SupabaseProvenanceStore(
     client as unknown as ReturnType<typeof createClient>,
-    tenantId,
+    tenantId
   ) as unknown as ProvenanceStore;
   return new ProvenanceTracker(store);
 }
@@ -805,9 +824,13 @@ backHalfRouter.get(
 // POST /:id/run-loop — trigger the hypothesis-first core loop
 // ---------------------------------------------------------------------------
 
-function createOrchestrator(supabaseClient: Request["supabase"]): ValueLifecycleOrchestrator {
+function createOrchestrator(
+  supabaseClient: Request["supabase"]
+): ValueLifecycleOrchestrator {
   if (!supabaseClient) {
-    throw new Error("Authenticated Supabase context required for lifecycle orchestration");
+    throw new Error(
+      "Authenticated Supabase context required for lifecycle orchestration"
+    );
   }
 
   return new ValueLifecycleOrchestrator(
@@ -853,7 +876,10 @@ backHalfRouter.post(
     logger.info("run-loop triggered", { caseId, tenantId, userId, sessionId });
 
     try {
-      const result = await createOrchestrator(req.supabase).runHypothesisLoop(caseId, context);
+      const result = await createOrchestrator(req.supabase).runHypothesisLoop(
+        caseId,
+        context
+      );
 
       logger.info("run-loop completed", {
         caseId,

@@ -4,6 +4,7 @@ import { ProgressiveRollout, RolloutManager, RolloutMetrics } from '../progressi
 
 // Mock dependencies
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),

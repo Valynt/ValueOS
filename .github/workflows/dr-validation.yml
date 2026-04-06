@@ -12,6 +12,7 @@ on:
         options:
           - local
           - staging
+          - rds-snapshot
   schedule:
     - cron: '0 4 * * 1'
 
@@ -24,25 +25,54 @@ jobs:
     env:
       STAGE_DATABASE_URL: ${{ secrets.STAGE_DATABASE_URL }}
       DR_FAILOVER_HEALTHCHECK_URL: ${{ secrets.DR_FAILOVER_HEALTHCHECK_URL }}
+      # rds-snapshot environment — only used when environment=rds-snapshot
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      RDS_SOURCE_DB_IDENTIFIER: ${{ secrets.RDS_SOURCE_DB_IDENTIFIER }}
+      RDS_RESTORE_DB_IDENTIFIER: ${{ secrets.DR_RESTORE_DB_IDENTIFIER }}
+      RDS_DB_SUBNET_GROUP: ${{ secrets.RDS_DB_SUBNET_GROUP }}
+      RDS_VPC_SECURITY_GROUP_IDS: ${{ secrets.RDS_VPC_SECURITY_GROUP_IDS }}
+      PROD_DATABASE_URL: ${{ secrets.DR_RESTORE_DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (rds-snapshot only)
+        if: ${{ github.event.inputs.environment == 'rds-snapshot' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.DR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.DR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Install PostgreSQL client + jq
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client jq
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client jq awscli
 
-      - name: Run DR validation with failover simulation and rollback checks
+      - name: Run DR validation
+        id: dr
         run: |
           ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
-          bash scripts/dr-validate.sh "$ENVIRONMENT" --simulate-failover --validate-rollback --output-dir artifacts/dr
+          bash scripts/dr-validate.sh "$ENVIRONMENT" \
+            --simulate-failover \
+            --validate-rollback \
+            --output-dir artifacts/dr
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [[ -f artifacts/dr/dr-validation-summary.md ]]; then
+            cat artifacts/dr/dr-validation-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "DR summary not generated — check the validation step logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload DR report artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: dr-validation-report-${{ github.run_id }}
           path: |
             artifacts/dr/dr-validation-report.json
             artifacts/dr/dr-validation-summary.md
           if-no-files-found: error
+          retention-days: 90

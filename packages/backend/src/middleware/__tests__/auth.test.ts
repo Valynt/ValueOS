@@ -9,6 +9,7 @@ vi.mock('../../services/auth/AuthService.js', () => ({
 }));
 
 vi.mock('../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createRequestRlsSupabaseClient: vi.fn(),
   createServiceRoleSupabaseClient: vi.fn(),

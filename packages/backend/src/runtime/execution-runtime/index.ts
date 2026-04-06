@@ -163,7 +163,7 @@ export class ExecutionRuntime implements IExecutionRuntime {
 import { PolicyEngine as PolicyEngineImpl } from '../policy-engine/index.js';
 import { decisionRouter } from '../decision-router/index.js';
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { createWorkerServiceSupabaseClient } from '../../lib/supabase/privileged/index.js';
 
 /**
  * Create an ExecutionRuntime with production-default dependencies.
@@ -187,7 +187,8 @@ export function createExecutionRuntimeWithPorts(
   config: Partial<ExecutionRuntimeConfig>,
   dependencies: ExecutionRuntimeDependencies,
 ): ExecutionRuntime {
-  const supabase = createServerSupabaseClient();
+  // service-role:justified ExecutionRuntime initializes agent registry and policy engine in worker context
+  const supabase = createWorkerServiceSupabaseClient('ExecutionRuntime: initialize agent registry and policy engine');
   const registry = new AgentRegistry();
   const policy = new PolicyEngineImpl({
     supabase,
@@ -224,7 +225,8 @@ export function createExecutionRuntimeWithPorts(
 export function createExecutionRuntimeWithLegacyFallback(
   config: Partial<ExecutionRuntimeConfig> = {},
 ): ExecutionRuntime {
-  const runtimePorts = createSupabaseRuntimePorts(createServerSupabaseClient());
+  // service-role:justified ExecutionRuntime legacy fallback creates runtime ports in worker context
+  const runtimePorts = createSupabaseRuntimePorts(createWorkerServiceSupabaseClient('ExecutionRuntime legacy fallback: create runtime ports'));
   return createExecutionRuntimeWithPorts(config, {
     runtimePorts: { workflowExecution: runtimePorts.workflowExecution },
     runtimePathTag: 'old_path',

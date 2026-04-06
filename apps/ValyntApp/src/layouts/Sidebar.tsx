@@ -110,7 +110,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav aria-label="Main navigation" className="flex-1 px-3 py-4">
         {/* Primary product surfaces */}
         <div className="space-y-1">
           {prioritizedNavItems

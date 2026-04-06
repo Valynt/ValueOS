@@ -10,6 +10,8 @@
  * - Business intelligence and usage analytics
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -162,8 +164,8 @@ export class EnterpriseMonitoringService {
     service: string,
     tags: Record<string, any> = {}
   ): TraceContext {
-    const traceId = `trace_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const spanId = `span_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const traceId = `trace_${Date.now()}_${randomBytes(6).toString("hex")}`;
+    const spanId = `span_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const context: TraceContext = {
       traceId,
@@ -261,7 +263,7 @@ export class EnterpriseMonitoringService {
   logEntry(entry: Omit<LogEntry, "id" | "timestamp">): void {
     const logEntry: LogEntry = {
       ...entry,
-      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      id: `log_${Date.now()}_${randomBytes(6).toString("hex")}`,
       timestamp: Date.now(),
     };
 
@@ -310,7 +312,7 @@ export class EnterpriseMonitoringService {
   async createAlertRule(
     rule: Omit<AlertRule, "id" | "createdAt">
   ): Promise<AlertRule> {
-    const ruleId = `alert_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const ruleId = `alert_${Date.now()}_${randomBytes(6).toString("hex")}`;
 
     const alertRule: AlertRule = {
       ...rule,
@@ -610,7 +612,7 @@ export class EnterpriseMonitoringService {
     }
 
     // Create alert instance
-    const alertId = `alert_instance_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const alertId = `alert_instance_${Date.now()}_${randomBytes(6).toString("hex")}`;
     const alert: AlertInstance = {
       id: alertId,
       ruleId: rule.id,
@@ -912,8 +914,8 @@ export class TraceContext {
     service: string,
     tags: Record<string, any> = {}
   ) {
-    this.traceId = `trace_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    this.spanId = `span_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    this.traceId = `trace_${Date.now()}_${randomBytes(6).toString("hex")}`;
+    this.spanId = `span_${Date.now()}_${randomBytes(6).toString("hex")}`;
     this.operation = operation;
     this.service = service;
     this.tags = tags;
