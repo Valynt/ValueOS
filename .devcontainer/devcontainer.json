@@ -61,7 +61,8 @@
         "bradlc.vscode-tailwindcss",
         "vitest.explorer",
         "redhat.vscode-yaml",
-        "cweijan.vscode-postgresql-client2"
+        "cweijan.vscode-postgresql-client2",
+        "ms-vscode-remote.remote-containers"
       ],
       "settings": {
         "remote.containers.defaultExtensionsIfInstalledLocally": []
