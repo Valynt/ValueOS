@@ -333,59 +333,66 @@ router.post(
       const supabase = createRequestRlsSupabaseClient(req);
 
       const { ids } = parsed.data;
-      const results: Array<{ id: string; success: boolean; error?: string }> = [];
 
-      for (const id of ids) {
-        try {
-          // Fetch suggestion
-          const { data: suggestion, error: fetchErr } = await supabase
-            .from('company_research_suggestions')
-            .select('*')
-            .eq('id', id)
-            .eq('tenant_id', tenantId)
-            .single();
+      // 1. Fetch all suggestions at once to avoid N+1 queries
+      const { data: suggestionsData, error: fetchAllErr } = await supabase
+        .from('company_research_suggestions')
+        .select('*')
+        .in('id', ids)
+        .eq('tenant_id', tenantId);
 
-          if (fetchErr || !suggestion) {
-            results.push({ id, success: false, error: 'Not found' });
-            continue;
-          }
-
-          if (suggestion.status !== 'suggested') {
-            results.push({ id, success: false, error: `Already ${suggestion.status}` });
-            continue;
-          }
-
-          // Write to canonical table
-          const targetTable = ENTITY_TABLE_MAP[suggestion.entity_type];
-          if (targetTable) {
-            const { error: insertErr } = await supabase
-              .from(targetTable)
-              .insert({
-                ...suggestion.payload,
-                tenant_id: tenantId,
-                context_id: suggestion.context_id,
-              });
-
-            if (insertErr) {
-              results.push({ id, success: false, error: insertErr.message });
-              continue;
-            }
-          }
-
-          // Mark as accepted
-          await supabase
-            .from('company_research_suggestions')
-            .update({
-              status: 'accepted',
-              accepted_at: new Date().toISOString(),
-            })
-            .eq('id', id);
-
-          results.push({ id, success: true });
-        } catch (err) {
-          results.push({ id, success: false, error: err instanceof Error ? err.message : String(err) });
-        }
+      if (fetchAllErr) {
+        return res.status(500).json({ error: 'Failed to fetch suggestions' });
       }
+
+      // Map suggestions by id for quick lookup
+      const suggestionsMap = new Map((suggestionsData || []).map((s) => [s.id, s]));
+
+      // 2. Process all acceptances concurrently
+      const results: Array<{ id: string; success: boolean; error?: string }> = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const suggestion = suggestionsMap.get(id);
+
+            if (!suggestion) {
+              return { id, success: false, error: 'Not found' };
+            }
+
+            if (suggestion.status !== 'suggested') {
+              return { id, success: false, error: `Already ${suggestion.status}` };
+            }
+
+            // Write to canonical table
+            const targetTable = ENTITY_TABLE_MAP[suggestion.entity_type];
+            if (targetTable) {
+              const { error: insertErr } = await supabase
+                .from(targetTable)
+                .insert({
+                  ...suggestion.payload,
+                  tenant_id: tenantId,
+                  context_id: suggestion.context_id,
+                });
+
+              if (insertErr) {
+                return { id, success: false, error: insertErr.message };
+              }
+            }
+
+            // Mark as accepted
+            await supabase
+              .from('company_research_suggestions')
+              .update({
+                status: 'accepted',
+                accepted_at: new Date().toISOString(),
+              })
+              .eq('id', id);
+
+            return { id, success: true };
+          } catch (err) {
+            return { id, success: false, error: err instanceof Error ? err.message : String(err) };
+          }
+        })
+      );
 
       const accepted = results.filter((r) => r.success).length;
       return res.json({ data: { results, accepted, total: ids.length } });
