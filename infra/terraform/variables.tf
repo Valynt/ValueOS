@@ -97,6 +97,37 @@ variable "cache_num_nodes" {
   default     = 2
 }
 
+# EKS
+variable "cluster_version" {
+  description = "Kubernetes version for the EKS cluster"
+  type        = string
+  default     = "1.32"
+}
+
+variable "node_instance_types" {
+  description = "List of instance types for the nodes"
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "desired_size" {
+  description = "Desired number of worker nodes"
+  type        = number
+  default     = 2
+}
+
+variable "max_size" {
+  description = "Maximum number of worker nodes"
+  type        = number
+  default     = 4
+}
+
+variable "min_size" {
+  description = "Minimum number of worker nodes"
+  type        = number
+  default     = 2
+}
+
 # Frontend
 variable "frontend_image" {
   description = "Frontend Docker image"
