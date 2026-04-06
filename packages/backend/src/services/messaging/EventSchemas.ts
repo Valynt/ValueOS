@@ -18,7 +18,7 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     tenantId: z.string().min(1),
     recipient: z.string().email(),
     template: z.string().min(1),
-    variables: z.record(z.any()),
+    variables: z.record(z.unknown()),
   }),
   'notifications.webhook.dispatch': z.object({
     schemaVersion: z.string(),
@@ -26,7 +26,7 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     emittedAt: z.string().datetime(),
     tenantId: z.string().min(1),
     targetUrl: z.string().url(),
-    body: z.record(z.any()),
+    body: z.record(z.unknown()),
     signature: z.string().min(1),
     retryCount: z.number().int().nonnegative().optional(),
   }),
@@ -37,7 +37,7 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     tenantId: z.string().min(1),
     exportType: z.string().min(1),
     requestedBy: z.string().min(1),
-    filters: z.record(z.any()).default({}),
+    filters: z.record(z.unknown()).default({}),
     notifyOnCompletion: z
       .object({
         channels: z.array(z.enum(['email', 'webhook'])).default(['email']),
@@ -63,7 +63,7 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
         tenantId: z.string().min(1),
         organizationId: z.string().min(1),
       }),
-      payload: z.any(),
+      payload: z.unknown(),
       priority: z.enum(['low', 'normal', 'high', 'urgent']),
       encrypted: z.boolean(),
       correlationId: z.string().optional(),
