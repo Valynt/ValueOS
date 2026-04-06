@@ -7,8 +7,8 @@ const repoRoot = process.cwd();
 const scanRoot = path.join(repoRoot, 'packages/backend/src');
 
 const allowedMixedCaseRoots = new Set([
-  'packages/backend/src/api::domain-packs|domainPacks',
-  'packages/backend/src/services::domain-packs|domainPacks',
+  'packages/backend/src/api::domain-packs',
+  'packages/backend/src/services::domain-packs',
 ]);
 
 function walkDirectories(dir, collector) {

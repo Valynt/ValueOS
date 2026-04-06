@@ -1001,12 +1001,10 @@
       "count": 2
     },
     {
-      "path": "packages/backend/src/api/domainPacks/index.ts",
       "rule": "security/detect-object-injection",
       "count": 1
     },
     {
-      "path": "packages/backend/src/api/domainPacks/types.ts",
       "rule": "security/detect-object-injection",
       "count": 4
     },
@@ -1776,7 +1774,6 @@
       "count": 2
     },
     {
-      "path": "packages/backend/src/services/domainPacks/versioning.ts",
       "rule": "security/detect-object-injection",
       "count": 4
     },
