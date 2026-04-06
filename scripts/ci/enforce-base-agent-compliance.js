@@ -22,9 +22,16 @@ const __dirname = dirname(__filename);
 const AGENTS_DIR = resolve(__dirname, "../../packages/backend/src/lib/agent-fabric/agents");
 const AGENT_FACTORY_PATH = resolve(__dirname, "../../packages/backend/src/lib/agent-fabric/AgentFactory.ts");
 
-// Agents that are allowed to not extend BaseAgent (with documented justification)
+// Agents that are allowed to not extend BaseAgent (with documented justification).
+// These are ORCHESTRATION agents — they coordinate other agents but do not make
+// direct LLM calls themselves. They must not be confused with LLM agents.
+// Decision records: docs/architecture/agent-contract-decisions.md
 const ALLOWED_EXCEPTIONS = new Set([
-  // None currently allowed - all agents must extend BaseAgent
+  // DiscoveryAgent: orchestration-only. Coordinates OpportunityAgent and emits
+  // domain events via DomainEventBus. No direct LLM calls. Does not need
+  // secureInvoke because it delegates all LLM work to OpportunityAgent.
+  // See: docs/architecture/agent-contract-decisions.md §1
+  "DiscoveryAgent",
 ]);
 
 // Patterns that indicate security contract violations
@@ -129,8 +136,11 @@ function analyzeAgentFile(filePath) {
     });
   }
   
-  // Check 4: Must use Zod schemas for output validation
-  const hasZodSchema = /z\.(object|array|string|number|enum)\(/.test(content);
+  // Check 4: Must use Zod schemas for output validation.
+  // Schemas may be defined inline (z.object) or imported from agent-schemas.js.
+  const hasInlineZodSchema = /z\.(object|array|string|number|enum)\(/.test(content);
+  const hasImportedZodSchema = /from\s+['"].*agent-schemas(\.js)?['"]/.test(content);
+  const hasZodSchema = hasInlineZodSchema || hasImportedZodSchema;
   if (!hasZodSchema && hasBaseAgentExtension) {
     violations.push({
       type: "MISSING_ZOD_SCHEMA",

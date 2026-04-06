@@ -64,6 +64,51 @@ type ParseEdgeFunctionResult =
   | { ok: false; error: ParseOperationalError };
 
 // ============================================================================
+// Size Guard (Sprint 6 — Ingestion Layer)
+// ============================================================================
+
+/**
+ * Maximum file size in bytes that the parser will accept.
+ * Override with DOCUMENT_PARSER_MAX_FILE_BYTES env var.
+ * Default: 20 MB.
+ */
+export const DEFAULT_MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+/**
+ * Thrown before any parser execution when a document exceeds the configured
+ * size limit. Callers should surface this as a 413 Payload Too Large response.
+ */
+export class OversizedDocumentError extends Error {
+  public readonly fileName: string;
+  public readonly fileSizeBytes: number;
+  public readonly maxSizeBytes: number;
+
+  constructor(fileName: string, fileSizeBytes: number, maxSizeBytes: number) {
+    super(
+      `Document "${fileName}" is ${(fileSizeBytes / 1024 / 1024).toFixed(2)} MB, ` +
+      `which exceeds the maximum allowed size of ${(maxSizeBytes / 1024 / 1024).toFixed(0)} MB.`,
+    );
+    this.name = 'OversizedDocumentError';
+    this.fileName = fileName;
+    this.fileSizeBytes = fileSizeBytes;
+    this.maxSizeBytes = maxSizeBytes;
+  }
+}
+
+/**
+ * Guard: throws OversizedDocumentError if the file exceeds the configured limit.
+ * Call this at the top of parseDocument() before any expensive work.
+ */
+export function assertFileSizeWithinLimit(
+  file: File,
+  maxBytes: number = DEFAULT_MAX_FILE_BYTES,
+): void {
+  if (file.size > maxBytes) {
+    throw new OversizedDocumentError(file.name, file.size, maxBytes);
+  }
+}
+
+// ============================================================================
 // Document Parser Service
 // ============================================================================
 
@@ -73,8 +118,10 @@ export class DocumentParserService {
   private static readonly PARSE_TIMEOUT_MS = 12_000;
   private static readonly MAX_PARSE_ATTEMPTS = 2;
   private static readonly RETRY_BASE_DELAY_MS = 200;
+  private readonly maxFileSizeBytes: number;
 
-  constructor() {
+  constructor(options?: { maxFileSizeBytes?: number }) {
+    this.maxFileSizeBytes = options?.maxFileSizeBytes ?? DEFAULT_MAX_FILE_BYTES;
     const Gateway = LLMGateway as unknown as {
       new (provider: string, gatingEnabled?: boolean): LLMGateway;
       (provider: string, gatingEnabled?: boolean): LLMGateway;
@@ -101,9 +148,15 @@ export class DocumentParserService {
   }
 
   /**
-   * Parse a document file and extract text
+   * Parse a document file and extract text.
+   *
+   * @throws {OversizedDocumentError} when the file exceeds the configured size limit.
+   * Callers should catch this and return a 413 Payload Too Large response.
    */
   async parseDocument(file: File): Promise<ParsedDocument> {
+    // Guard: reject oversized files before any parser work.
+    assertFileSizeWithinLimit(file, this.maxFileSizeBytes);
+
     // For text files, parse locally
     if (this.isTextFile(file)) {
       const text = await file.text();
