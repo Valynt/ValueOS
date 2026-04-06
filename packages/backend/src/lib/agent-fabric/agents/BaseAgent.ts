@@ -754,12 +754,20 @@ export abstract class BaseAgent {
       };
     }
 
+    const TIMEOUT_MS = 5_000;
+
     try {
-      return await this.knowledgeFabricValidator.validate(
-        content,
-        this.organizationId,
-        this.name
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Knowledge Fabric validation timed out after ${TIMEOUT_MS}ms`)),
+          TIMEOUT_MS
+        )
       );
+
+      return await Promise.race([
+        this.knowledgeFabricValidator.validate(content, this.organizationId, this.name),
+        timeoutPromise,
+      ]);
     } catch (err) {
       logger.error("Knowledge Fabric validation failed, defaulting to fail", {
         agent_id: this.name,

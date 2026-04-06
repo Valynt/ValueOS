@@ -19,6 +19,13 @@ export interface CircuitBreakerConfig {
   monitoringPeriod?: number;
   /** Number of successes needed to close from half-open. Defaults to halfOpenRequests. */
   successThreshold?: number;
+  /**
+   * Maximum number of concurrent calls allowed to queue while the breaker is
+   * open. When exceeded, execute() throws CircuitBreakerError immediately
+   * rather than waiting, preventing unbounded memory growth under sustained
+   * provider degradation. Defaults to 50.
+   */
+  maxPending?: number;
 }
 
 export interface CircuitBreakerMetrics {
@@ -41,6 +48,7 @@ export class CircuitBreaker {
   private successes = 0;
   private totalRequests = 0;
   private lastFailure = 0;
+  private pendingCount = 0;
   private config: CircuitBreakerConfig;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
@@ -58,6 +66,7 @@ export class CircuitBreaker {
       cooldownPeriod: config?.cooldownPeriod,
       monitoringPeriod: config?.monitoringPeriod,
       successThreshold: config?.successThreshold,
+      maxPending: config?.maxPending ?? 50,
     };
   }
 
@@ -72,6 +81,14 @@ export class CircuitBreaker {
       }
     }
 
+    const maxPending = this.config.maxPending ?? 50;
+    if (this.pendingCount >= maxPending) {
+      throw new CircuitBreakerError(
+        `Circuit breaker pending queue full (${maxPending} in-flight)`
+      );
+    }
+
+    this.pendingCount++;
     try {
       const result = await fn();
       this.onSuccess();
@@ -79,7 +96,13 @@ export class CircuitBreaker {
     } catch (err) {
       this.onFailure();
       throw err;
+    } finally {
+      this.pendingCount--;
     }
+  }
+
+  getPendingCount(): number {
+    return this.pendingCount;
   }
 
   getMetrics(): CircuitBreakerMetrics {

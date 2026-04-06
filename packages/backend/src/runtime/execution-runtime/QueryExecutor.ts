@@ -157,30 +157,33 @@ export class QueryExecutor {
   // Rate limiting
   // --------------------------------------------------------------------------
 
-  checkAgentRateLimit(agentType: AgentType): boolean {
+  checkAgentRateLimit(agentType: AgentType, organizationId: string): boolean {
     const now = Date.now();
     const windowMs = 60_000;
-    const times = this.agentInvocationTimes.get(agentType) ?? [];
+    // Key by tenant so one org's invocations cannot exhaust another's quota.
+    const key = `${agentType}:${organizationId}`;
+    const times = this.agentInvocationTimes.get(key) ?? [];
     const valid = times.filter((t) => now - t < windowMs);
 
     if (valid.length >= this.config.maxAgentInvocationsPerMinute) {
       logger.warn('Agent rate limit exceeded', {
         agentType,
+        organizationId,
         invocationCount: valid.length,
         limit: this.config.maxAgentInvocationsPerMinute,
       });
       // Persist the already-filtered array (may be empty if the window expired);
       // delete the entry entirely when empty to prevent unbounded map growth.
       if (valid.length > 0) {
-        this.agentInvocationTimes.set(agentType, valid);
+        this.agentInvocationTimes.set(key, valid);
       } else {
-        this.agentInvocationTimes.delete(agentType);
+        this.agentInvocationTimes.delete(key);
       }
       return false;
     }
 
     valid.push(now);
-    this.agentInvocationTimes.set(agentType, valid);
+    this.agentInvocationTimes.set(key, valid);
     return true;
   }
 
@@ -219,7 +222,7 @@ export class QueryExecutor {
       assertInteractiveAgentAllowed(agentType, 'QueryExecutor.processQueryAsync');
     }
 
-    if (!this.checkAgentRateLimit(agentType)) {
+    if (!this.checkAgentRateLimit(agentType, envelope.organizationId)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
     }
 
@@ -448,7 +451,7 @@ export class QueryExecutor {
 
         assertInteractiveAgentAllowed(agentType, 'QueryExecutor._processQuerySync');
 
-        if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
+        if (!this.checkAgentRateLimit(agentType, envelope.organizationId)) throw new Error(`Agent ${agentType} rate limit exceeded`);
 
         logger.debug('Agent selected', { traceId, agentType, currentStage: currentState.currentStage });
 

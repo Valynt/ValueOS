@@ -11,7 +11,7 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { supabase } from '../lib/supabase.js'
+import { createServerSupabaseClient } from '../lib/supabase.js'
 import React from 'react'
 
 const CONFIG_TTL = 60 * 1000; // 1 minute
@@ -19,6 +19,7 @@ const ERROR_TTL = 10 * 1000; // 10 seconds
 
 export interface RolloutConfig {
   featureName: string;
+  organizationId: string;
   percentage: number;
   targetGroups?: string[];
   excludeGroups?: string[];
@@ -38,6 +39,7 @@ export interface RolloutMetrics {
 
 interface UsageEvent {
   feature_name: string;
+  organization_id: string;
   user_id: string;
   enabled: boolean;
   timestamp: string;
@@ -45,6 +47,7 @@ interface UsageEvent {
 
 export class ProgressiveRollout {
   private featureName: string;
+  private organizationId: string;
   private config: RolloutConfig | null = null;
   private metrics: RolloutMetrics | null = null;
   private nextLoadAttempt: number = 0;
@@ -52,6 +55,7 @@ export class ProgressiveRollout {
   // Static buffer for batching usage tracking
   private static usageBuffer: {
     feature_name: string;
+    organization_id: string;
     user_id: string;
     enabled: boolean;
     timestamp: string;
@@ -61,8 +65,9 @@ export class ProgressiveRollout {
   private static readonly FLUSH_DELAY_MS = 5000;
   private static readonly BUFFER_LIMIT = 100;
 
-  constructor(featureName: string) {
+  constructor(featureName: string, organizationId: string) {
     this.featureName = featureName;
+    this.organizationId = organizationId;
   }
 
   /**
@@ -75,7 +80,8 @@ export class ProgressiveRollout {
     this.usageBuffer = []; // Clear buffer immediately
 
     try {
-      const { error } = await supabase.from('feature_usage').insert(batch);
+      const db = createServerSupabaseClient();
+      const { error } = await db.from('feature_usage').insert(batch);
 
       if (error) {
         logger.error('Failed to flush feature usage buffer', { error, count: batch.length });
@@ -110,10 +116,12 @@ export class ProgressiveRollout {
    */
   async loadConfig(): Promise<RolloutConfig | null> {
     try {
-      const { data, error } = await supabase
+      const db = createServerSupabaseClient();
+      const { data, error } = await db
         .from('feature_rollouts')
         .select('*')
         .eq('feature_name', this.featureName)
+        .eq('organization_id', this.organizationId)
         .eq('active', true)
         .single();
 
@@ -127,6 +135,7 @@ export class ProgressiveRollout {
 
       this.config = {
         featureName: data.feature_name,
+        organizationId: data.organization_id,
         percentage: data.percentage,
         targetGroups: data.target_groups,
         excludeGroups: data.exclude_groups,
@@ -236,6 +245,7 @@ export class ProgressiveRollout {
     try {
       ProgressiveRollout.usageBuffer.push({
         feature_name: this.featureName,
+        organization_id: this.organizationId,
         user_id: userId,
         enabled,
         timestamp: new Date().toISOString(),
@@ -260,8 +270,10 @@ export class ProgressiveRollout {
    */
   async trackError(userId: string, error: Error): Promise<void> {
     try {
-      await supabase.from('feature_errors').insert({
+      const db = createServerSupabaseClient();
+      await db.from('feature_errors').insert({
         feature_name: this.featureName,
+        organization_id: this.organizationId,
         user_id: userId,
         error_message: error.message,
         error_stack: error.stack,
@@ -281,27 +293,31 @@ export class ProgressiveRollout {
   async getMetrics(): Promise<RolloutMetrics> {
     try {
       const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Last 24 hours
+      const db = createServerSupabaseClient();
 
       const [
         { count: totalUsers, error: totalUsersError },
         { count: enabledUsers, error: enabledUsersError },
         { count: errors, error: errorsError },
       ] = await Promise.all([
-        supabase
+        db
           .from('feature_usage')
           .select('*', { count: 'exact', head: true })
           .eq('feature_name', this.featureName)
+          .eq('organization_id', this.organizationId)
           .gte('timestamp', timestamp),
-        supabase
+        db
           .from('feature_usage')
           .select('*', { count: 'exact', head: true })
           .eq('feature_name', this.featureName)
+          .eq('organization_id', this.organizationId)
           .eq('enabled', true)
           .gte('timestamp', timestamp),
-        supabase
+        db
           .from('feature_errors')
           .select('*', { count: 'exact', head: true })
           .eq('feature_name', this.featureName)
+          .eq('organization_id', this.organizationId)
           .gte('timestamp', timestamp),
       ]);
 
@@ -352,14 +368,16 @@ export class ProgressiveRollout {
    */
   async rollback(reason: string): Promise<void> {
     try {
-      await supabase
+      const db = createServerSupabaseClient();
+      await db
         .from('feature_rollouts')
         .update({
           active: false,
           rollback_reason: reason,
           rollback_at: new Date().toISOString(),
         })
-        .eq('feature_name', this.featureName);
+        .eq('feature_name', this.featureName)
+        .eq('organization_id', this.organizationId);
 
       logger.info('Feature rolled back', { feature: this.featureName, reason });
 
@@ -380,13 +398,15 @@ export class ProgressiveRollout {
     }
 
     try {
-      await supabase
+      const db = createServerSupabaseClient();
+      await db
         .from('feature_rollouts')
         .update({
           percentage: newPercentage,
           updated_at: new Date().toISOString(),
         })
-        .eq('feature_name', this.featureName);
+        .eq('feature_name', this.featureName)
+        .eq('organization_id', this.organizationId);
 
       logger.info('Rollout percentage increased', {
         feature: this.featureName,
@@ -432,35 +452,38 @@ export class ProgressiveRollout {
  * Progressive rollout manager
  */
 export class RolloutManager {
+  // Key: `${featureName}:${organizationId}` to isolate per-tenant instances
   private rollouts: Map<string, ProgressiveRollout> = new Map();
 
   /**
-   * Get or create rollout instance
+   * Get or create a tenant-scoped rollout instance.
    */
-  getRollout(featureName: string): ProgressiveRollout {
-    if (!this.rollouts.has(featureName)) {
-      this.rollouts.set(featureName, new ProgressiveRollout(featureName));
+  getRollout(featureName: string, organizationId: string): ProgressiveRollout {
+    const key = `${featureName}:${organizationId}`;
+    if (!this.rollouts.has(key)) {
+      this.rollouts.set(key, new ProgressiveRollout(featureName, organizationId));
     }
-    return this.rollouts.get(featureName)!;
+    return this.rollouts.get(key)!;
   }
 
   /**
-   * Check if feature is enabled for user
+   * Check if feature is enabled for user within a specific tenant.
    */
   async isEnabled(
     featureName: string,
+    organizationId: string,
     userId: string,
     userGroups?: string[]
   ): Promise<boolean> {
-    const rollout = this.getRollout(featureName);
+    const rollout = this.getRollout(featureName, organizationId);
     return rollout.isEnabledForUser(userId, userGroups);
   }
 
   /**
-   * Track error for feature
+   * Track error for feature within a specific tenant.
    */
-  async trackError(featureName: string, userId: string, error: Error): Promise<void> {
-    const rollout = this.getRollout(featureName);
+  async trackError(featureName: string, organizationId: string, userId: string, error: Error): Promise<void> {
+    const rollout = this.getRollout(featureName, organizationId);
     await rollout.trackError(userId, error);
   }
 
@@ -493,7 +516,7 @@ export const rolloutManager = new RolloutManager();
 /**
  * React hook for feature flags with progressive rollout
  */
-export function useFeatureRollout(featureName: string, userId: string, userGroups?: string[]) {
+export function useFeatureRollout(featureName: string, organizationId: string, userId: string, userGroups?: string[]) {
   const [enabled, setEnabled] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
@@ -502,7 +525,7 @@ export function useFeatureRollout(featureName: string, userId: string, userGroup
 
     async function checkFeature() {
       try {
-        const isEnabled = await rolloutManager.isEnabled(featureName, userId, userGroups);
+        const isEnabled = await rolloutManager.isEnabled(featureName, organizationId, userId, userGroups);
         if (mounted) {
           setEnabled(isEnabled);
           setLoading(false);
