@@ -8,7 +8,17 @@ vi.mock('../../../lib/logger.js', () => ({
 vi.mock('../../../lib/supabase.js', () => ({
   assertNotTestEnv: vi.fn(),
   getSupabaseClient: vi.fn(),
-  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), insert: vi.fn().mockResolvedValue({ data: null, error: null }), update: vi.fn().mockReturnThis(), delete: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) })) },
+  // Named export consumed by modules that import supabase directly
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  },
 }));
 
 vi.mock('../../AssumptionService.js', () => ({
@@ -43,8 +53,6 @@ vi.mock('./ActionRouterExport.js', () => ({
   handleExportAction: vi.fn(),
 }));
 
-// We need to use `vi.mock` factory specifically for AgentScalingPolicy since it's throwing InteractiveAgentPolicyError inside ActionRouterHandlers which means the assert function there isn't actually mocked, or our mock returns/throws something because it's somehow evaluating the real module elsewhere, or not hoisted correctly.
-
 vi.mock('../AgentScalingPolicy.js', () => ({
   assertInteractiveAgentAllowed: vi.fn(),
   InteractiveAgentPolicyError: class InteractiveAgentPolicyError extends Error {},
@@ -54,29 +62,27 @@ vi.mock('../AgentScalingPolicy.js', () => ({
   getAgentScalingDescriptor: vi.fn(() => ({})),
 }));
 
-// We also might have to mock './AgentScalingPolicy.js' just in case.
 vi.mock('./AgentScalingPolicy.js', () => ({
   assertInteractiveAgentAllowed: vi.fn(),
 }));
 
-
-import {
-  registerDefaultActionHandlers,
-  validateValueTreeStructure,
-  validateAssumptionEvidence,
-  findComponentById,
-  ActionRouterHandlerDeps,
-} from '../ActionRouterHandlers.js';
-import { canvasSchemaService } from '../../sdui/CanvasSchemaService.js';
 import { assumptionService } from '../../AssumptionService.js';
-import { workspaceStateService } from '../../WorkspaceStateService.js';
 import { atomicActionExecutor } from '../../post-v1/AtomicActionExecutor.js';
 import { manifestoEnforcer } from '../../post-v1/ManifestoEnforcer.js';
+import { canvasSchemaService } from '../../sdui/CanvasSchemaService.js';
+import { workspaceStateService } from '../../WorkspaceStateService.js';
 import { ValueTreeService } from '../../ValueTreeService.js';
+import {
+  findComponentById,
+  registerDefaultActionHandlers,
+  validateAssumptionEvidence,
+  validateValueTreeStructure,
+} from '../ActionRouterHandlers.js';
 
-describe('registerDefaultActionHandlers core handlers', () => {
+describe('registerDefaultActionHandlers', () => {
   const handlers = new Map<string, (action: unknown, context: unknown) => Promise<unknown>>();
   const mockValueTreeService = new ValueTreeService({} as never);
+
   const deps = {
     auditLogService: { query: vi.fn() },
     executionRuntime: { executeWorkflow: vi.fn() },
@@ -88,22 +94,42 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
   const context = {
     workspaceId: 'workspace-1',
+    organizationId: 'org-1',
     userId: 'user-1',
     sessionId: 'session-1',
     timestamp: Date.now(),
-    execution: { intent: 'test-intent', environment: 'production' },
+    execution: { intent: 'FullValueAnalysis', environment: 'production' },
     metadata: {},
   };
 
   beforeEach(() => {
     handlers.clear();
     vi.clearAllMocks();
+
+    deps.getValueTreeService.mockReturnValue(mockValueTreeService);
+
     registerDefaultActionHandlers((actionType, handler) => {
       handlers.set(
         actionType,
         typeof handler === 'function' ? handler : handler.execute.bind(handler),
       );
     }, deps as never);
+  });
+
+  it('registers expected handlers', () => {
+    expect(handlers.has('invokeAgent')).toBe(true);
+    expect(handlers.has('runWorkflowStep')).toBe(true);
+    expect(handlers.has('updateValueTree')).toBe(true);
+    expect(handlers.has('updateAssumption')).toBe(true);
+    expect(handlers.has('exportArtifact')).toBe(true);
+    expect(handlers.has('openAuditTrail')).toBe(true);
+    expect(handlers.has('showExplanation')).toBe(true);
+    expect(handlers.has('navigateToStage')).toBe(true);
+    expect(handlers.has('saveWorkspace')).toBe(true);
+    expect(handlers.has('mutateComponent')).toBe(true);
+    expect(handlers.has('requestOverride')).toBe(true);
+    expect(handlers.has('approveOverride')).toBe(true);
+    expect(handlers.has('rejectOverride')).toBe(true);
   });
 
   describe('invokeAgent', () => {
@@ -117,6 +143,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('successfully invokes agent', async () => {
       const handler = handlers.get('invokeAgent');
+      expect(handler).toBeDefined();
+
       deps.agentAPI.invokeAgent.mockResolvedValueOnce({ success: true, data: 'test-response' });
 
       const action = {
@@ -126,11 +154,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
         execution: { intent: 'test-intent' },
       };
 
-      vi.doMock('../../types/execution', () => ({
-        normalizeExecutionRequest: vi.fn((req) => req),
-      }));
-
       const result = await handler!(action, context);
+
       expect(result).toEqual({ success: true, data: { success: true, data: 'test-response' } });
       expect(deps.agentAPI.invokeAgent).toHaveBeenCalledWith({
         agent: 'opportunity',
@@ -143,10 +168,13 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('handles invokeAgent error', async () => {
       const handler = handlers.get('invokeAgent');
+      expect(handler).toBeDefined();
+
       deps.agentAPI.invokeAgent.mockRejectedValueOnce(new Error('Agent error'));
 
       const action = { type: 'invokeAgent', agentId: 'opportunity' };
       const result = await handler!(action, context);
+
       expect(result).toEqual({ success: false, error: 'Agent error' });
     });
   });
@@ -154,12 +182,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('runWorkflowStep', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('runWorkflowStep');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('successfully executes workflow step', async () => {
       const handler = handlers.get('runWorkflowStep');
+      expect(handler).toBeDefined();
+
       deps.executionRuntime.executeWorkflow.mockResolvedValueOnce({ stepResult: 'done' });
 
       const action = {
@@ -169,12 +201,13 @@ describe('registerDefaultActionHandlers core handlers', () => {
       };
 
       const result = await handler!(action, context);
+
       expect(result).toEqual({ success: true, data: { stepResult: 'done' } });
       expect(deps.executionRuntime.executeWorkflow).toHaveBeenCalledWith(
         expect.objectContaining({ intent: 'run-workflow-step' }),
         'wf-1',
         expect.objectContaining({ stepId: 'step-1' }),
-        'user-1'
+        'user-1',
       );
     });
   });
@@ -182,18 +215,25 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('updateValueTree', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('updateValueTree');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('handles ValueTreeService unavailability', async () => {
       const handler = handlers.get('updateValueTree');
+      expect(handler).toBeDefined();
+
       deps.getValueTreeService.mockReturnValueOnce(undefined as never);
+
       const { logger } = await import('../../../lib/logger.js');
       vi.mocked(logger.error).mockImplementationOnce(() => {});
 
       const { getSupabaseClient } = await import('../../../lib/supabase.js');
-      vi.mocked(getSupabaseClient).mockImplementationOnce(() => { throw new Error('DB Error'); });
+      vi.mocked(getSupabaseClient).mockImplementationOnce(() => {
+        throw new Error('DB Error');
+      });
 
       const result = await handler!({ type: 'updateValueTree' }, context);
       expect(result).toEqual({ success: false, error: 'ValueTreeService not available' });
@@ -201,6 +241,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('returns error for invalid value tree structure', async () => {
       const handler = handlers.get('updateValueTree');
+      expect(handler).toBeDefined();
+
       deps.getValueTreeService.mockReturnValueOnce(mockValueTreeService as never);
 
       const action = {
@@ -214,6 +256,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('successfully updates value tree', async () => {
       const handler = handlers.get('updateValueTree');
+      expect(handler).toBeDefined();
+
       deps.getValueTreeService.mockReturnValueOnce(mockValueTreeService as never);
       vi.mocked(mockValueTreeService.updateValueTree).mockResolvedValueOnce({
         id: 'tree-1',
@@ -227,6 +271,7 @@ describe('registerDefaultActionHandlers core handlers', () => {
       };
 
       const result = await handler!(action, context);
+
       expect(result).toEqual({
         success: true,
         data: { treeId: 'tree-1', updated: true, version: 2 },
@@ -234,7 +279,7 @@ describe('registerDefaultActionHandlers core handlers', () => {
       expect(mockValueTreeService.updateValueTree).toHaveBeenCalledWith(
         'tree-1',
         { some: 'update' },
-        expect.objectContaining({ userId: 'user-1' })
+        expect.objectContaining({ userId: 'user-1' }),
       );
     });
   });
@@ -242,12 +287,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('updateAssumption', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('updateAssumption');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('returns error for invalid assumption evidence', async () => {
       const handler = handlers.get('updateAssumption');
+      expect(handler).toBeDefined();
+
       const action = {
         type: 'updateAssumption',
         updates: { source: 'estimate' },
@@ -258,6 +307,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('successfully updates assumption', async () => {
       const handler = handlers.get('updateAssumption');
+      expect(handler).toBeDefined();
+
       vi.mocked(assumptionService.updateAssumption).mockResolvedValueOnce({ updated: true } as never);
 
       const action = {
@@ -267,11 +318,12 @@ describe('registerDefaultActionHandlers core handlers', () => {
       };
 
       const result = await handler!(action, context);
+
       expect(result).toEqual({ success: true, data: { updated: true } });
       expect(assumptionService.updateAssumption).toHaveBeenCalledWith(
         'assump-1',
         { source: 'verified', value: 100 },
-        expect.objectContaining({ userId: 'user-1' })
+        expect.objectContaining({ userId: 'user-1' }),
       );
     });
   });
@@ -294,9 +346,11 @@ describe('registerDefaultActionHandlers core handlers', () => {
     });
 
     it('returns true if structure has all required fields', () => {
-      expect(validateValueTreeStructure({
-        structure: { capabilities: [], outcomes: [], kpis: [] }
-      })).toBe(true);
+      expect(
+        validateValueTreeStructure({
+          structure: { capabilities: [], outcomes: [], kpis: [] },
+        }),
+      ).toBe(true);
     });
   });
 
@@ -329,7 +383,7 @@ describe('registerDefaultActionHandlers core handlers', () => {
       sections: [
         {
           component: 'Header',
-          props: { id: 'header-1' }
+          props: { id: 'header-1' },
         },
         {
           component: 'Content',
@@ -337,14 +391,14 @@ describe('registerDefaultActionHandlers core handlers', () => {
             items: [
               { component: 'Nested', props: { id: 'nested-1' } },
               { id: 'direct-id-1' },
-            ]
-          }
+            ],
+          },
         },
         {
           id: 'section-id',
-          component: 'Footer'
-        }
-      ]
+          component: 'Footer',
+        },
+      ],
     } as never;
 
     it('finds component by props.id in top level section', () => {
@@ -366,25 +420,11 @@ describe('registerDefaultActionHandlers core handlers', () => {
       const result = findComponentById(mockSchema, 'nested-1');
       expect(result).toEqual({
         component: { component: 'Nested', props: { id: 'nested-1' } },
-        path: 'sections[1].items[0]'
+        path: 'sections[1].items[0]',
       });
     });
 
-    it('finds nested component by direct id', () => {
-      const result = findComponentById(mockSchema, 'direct-id-1');
-      // findComponentById checks if record.id === componentId
-      // and returns `{ component: props, path: currentPath }`
-      // Since `{ id: 'direct-id-1' }` doesn't have a `.component` string property, `findComponentInProps` falls back to scanning object keys.
-      // So it will scan `.id` which is a string, which returns null, so it doesn't match direct id if there's no `component` field.
-      // Wait, let's look at `findComponentInProps`:
-      // if (record.component && typeof record.component === 'string') {
-      //   const innerProps = record.props as Record<string, unknown> | undefined;
-      //   if (innerProps?.id === componentId || record.id === componentId) {
-      //     return { component: props, path: currentPath };
-      //   }
-      // }
-      // The test passed for `nested-1` because `component: 'Nested'` is present.
-      // Let's modify the test to reflect what actually matches.
+    it('finds nested component by direct id when component metadata is present', () => {
       const mockSchemaWithDirectId = {
         sections: [
           {
@@ -392,20 +432,22 @@ describe('registerDefaultActionHandlers core handlers', () => {
             props: {
               component: 'TargetComponent',
               id: 'direct-id-1',
-            }
-          }
-        ]
+            },
+          },
+        ],
       } as never;
-      const result2 = findComponentById(mockSchemaWithDirectId, 'direct-id-1');
-      expect(result2).toEqual({
+
+      const result = findComponentById(mockSchemaWithDirectId, 'direct-id-1');
+
+      expect(result).toEqual({
         component: {
           component: 'Wrapper',
           props: {
             component: 'TargetComponent',
             id: 'direct-id-1',
-          }
+          },
         },
-        path: 'sections[0]'
+        path: 'sections[0]',
       });
     });
 
@@ -418,12 +460,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('openAuditTrail', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('openAuditTrail');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('successfully queries audit log', async () => {
       const handler = handlers.get('openAuditTrail');
+      expect(handler).toBeDefined();
+
       const mockLogs = [{ id: 'log-1' }];
       deps.auditLogService.query.mockResolvedValueOnce(mockLogs as never);
 
@@ -433,8 +479,7 @@ describe('registerDefaultActionHandlers core handlers', () => {
         entityType: 'workflow',
       };
 
-      const customContext = { ...context, organizationId: 'org-1' };
-      const result = await handler!(action, customContext);
+      const result = await handler!(action, context);
 
       expect(result).toEqual({
         success: true,
@@ -456,22 +501,31 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('showExplanation', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('showExplanation');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('returns error if no schema available', async () => {
       const handler = handlers.get('showExplanation');
+      expect(handler).toBeDefined();
+
       vi.mocked(canvasSchemaService.getCachedSchema).mockResolvedValueOnce(null);
 
       const action = { type: 'showExplanation', componentId: 'comp-1', topic: 'topic-1' };
       const result = await handler!(action, context);
 
-      expect(result).toEqual({ success: false, error: 'No schema available for workspace to explain component' });
+      expect(result).toEqual({
+        success: false,
+        error: 'No schema available for workspace to explain component',
+      });
     });
 
     it('returns error if component not found', async () => {
       const handler = handlers.get('showExplanation');
+      expect(handler).toBeDefined();
+
       vi.mocked(canvasSchemaService.getCachedSchema).mockResolvedValueOnce({ sections: [] } as never);
 
       const action = { type: 'showExplanation', componentId: 'comp-1', topic: 'topic-1' };
@@ -482,11 +536,14 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('successfully invokes narrative agent for explanation', async () => {
       const handler = handlers.get('showExplanation');
+      expect(handler).toBeDefined();
+
       const mockSchema = {
         sections: [
-          { props: { id: 'comp-1', title: 'test-title' }, component: 'TestComponent' }
-        ]
+          { props: { id: 'comp-1', title: 'test-title' }, component: 'TestComponent' },
+        ],
       };
+
       vi.mocked(canvasSchemaService.getCachedSchema).mockResolvedValueOnce(mockSchema as never);
       deps.agentAPI.invokeAgent.mockResolvedValueOnce({ success: true, data: 'test explanation' });
 
@@ -503,7 +560,9 @@ describe('registerDefaultActionHandlers core handlers', () => {
       });
       expect(deps.agentAPI.invokeAgent).toHaveBeenCalledWith({
         agent: 'narrative',
-        query: expect.stringContaining('Explain the "test-topic" for the component "TestComponent"'),
+        query: expect.stringContaining(
+          'Explain the "test-topic" for the component "TestComponent"',
+        ),
         context: expect.objectContaining({
           workspaceId: 'workspace-1',
           componentName: 'TestComponent',
@@ -516,12 +575,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('navigateToStage', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('navigateToStage');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('successfully navigates to stage', async () => {
       const handler = handlers.get('navigateToStage');
+      expect(handler).toBeDefined();
+
       const action = { type: 'navigateToStage', stage: 'stage-2' };
       const result = await handler!(action, context);
 
@@ -532,12 +595,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('saveWorkspace', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('saveWorkspace');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('successfully saves workspace', async () => {
       const handler = handlers.get('saveWorkspace');
+      expect(handler).toBeDefined();
+
       const action = { type: 'saveWorkspace', workspaceId: 'ws-1' };
 
       const result = await handler!(action, context);
@@ -550,12 +617,16 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('mutateComponent', () => {
     it('returns error for invalid action type', async () => {
       const handler = handlers.get('mutateComponent');
+      expect(handler).toBeDefined();
+
       const result = await handler!({ type: 'invalidType' }, context);
       expect(result).toEqual({ success: false, error: 'Invalid action type' });
     });
 
     it('returns error if no schema available', async () => {
       const handler = handlers.get('mutateComponent');
+      expect(handler).toBeDefined();
+
       vi.mocked(canvasSchemaService.getCachedSchema).mockResolvedValueOnce(null);
 
       const action = { type: 'mutateComponent', action: {} };
@@ -566,6 +637,8 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
     it('successfully executes atomic action', async () => {
       const handler = handlers.get('mutateComponent');
+      expect(handler).toBeDefined();
+
       const mockSchema = { sections: [] };
       vi.mocked(canvasSchemaService.getCachedSchema).mockResolvedValueOnce(mockSchema as never);
 
@@ -589,7 +662,7 @@ describe('registerDefaultActionHandlers core handlers', () => {
       expect(atomicActionExecutor.executeAction).toHaveBeenCalledWith(
         { type: 'some-atomic-action' },
         mockSchema,
-        'workspace-1'
+        'workspace-1',
       );
     });
   });
@@ -597,9 +670,12 @@ describe('registerDefaultActionHandlers core handlers', () => {
   describe('override handlers', () => {
     it('successfully requests override', async () => {
       const handler = handlers.get('requestOverride');
+      expect(handler).toBeDefined();
+
       vi.mocked(manifestoEnforcer.requestOverride).mockResolvedValueOnce('req-1');
 
       const action = {
+        type: 'requestOverride',
         actionId: 'act-1',
         violations: [],
         justification: 'reason',
@@ -608,33 +684,46 @@ describe('registerDefaultActionHandlers core handlers', () => {
 
       expect(result).toEqual({ success: true, data: { requestId: 'req-1' } });
       expect(manifestoEnforcer.requestOverride).toHaveBeenCalledWith(
-        'act-1', 'user-1', [], 'reason'
+        'act-1',
+        'user-1',
+        [],
+        'reason',
       );
     });
 
     it('successfully approves override', async () => {
       const handler = handlers.get('approveOverride');
+      expect(handler).toBeDefined();
+
       vi.mocked(manifestoEnforcer.decideOverride).mockResolvedValueOnce(undefined as never);
 
-      const action = { requestId: 'req-1', reason: 'ok' };
+      const action = { type: 'approveOverride', requestId: 'req-1', reason: 'ok' };
       const result = await handler!(action, context);
 
       expect(result).toEqual({ success: true, data: { requestId: 'req-1', approved: true } });
       expect(manifestoEnforcer.decideOverride).toHaveBeenCalledWith(
-        'req-1', true, 'user-1', 'ok'
+        'req-1',
+        true,
+        'user-1',
+        'ok',
       );
     });
 
     it('successfully rejects override', async () => {
       const handler = handlers.get('rejectOverride');
+      expect(handler).toBeDefined();
+
       vi.mocked(manifestoEnforcer.decideOverride).mockResolvedValueOnce(undefined as never);
 
-      const action = { requestId: 'req-1', reason: 'no' };
+      const action = { type: 'rejectOverride', requestId: 'req-1', reason: 'no' };
       const result = await handler!(action, context);
 
       expect(result).toEqual({ success: true, data: { requestId: 'req-1', approved: false } });
       expect(manifestoEnforcer.decideOverride).toHaveBeenCalledWith(
-        'req-1', false, 'user-1', 'no'
+        'req-1',
+        false,
+        'user-1',
+        'no',
       );
     });
   });

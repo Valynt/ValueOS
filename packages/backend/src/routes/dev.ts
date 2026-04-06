@@ -5,7 +5,7 @@
  * They support the Smart Remediation "Fix It" buttons in the Dev HUD.
  */
 
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
 import { Request, Response, Router } from "express";
@@ -17,7 +17,7 @@ import { requireAuth } from "../middleware/auth.js";
 
 import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const router = Router();
 const CACHE_PREFIX = "valueos";
 
@@ -159,7 +159,7 @@ if (isDevRoutesEnabled) {
 
   router.post("/seed", requireDevAdmin, async (_req: Request, res: Response) => {
     try {
-      const { stdout, stderr } = await execAsync("npm run seed:demo", {
+      const { stdout, stderr } = await execFileAsync("npm", ["run", "seed:demo"], {
         cwd: process.cwd(),
         timeout: 60000,
       });
@@ -179,8 +179,9 @@ if (isDevRoutesEnabled) {
 
   router.get("/db/migrations/status", async (_req: Request, res: Response) => {
     try {
-      const { stdout } = await execAsync(
-        "npx supabase migration list --local",
+      const { stdout } = await execFileAsync(
+        "npx",
+        ["supabase", "migration", "list", "--local"],
         {
           cwd: process.cwd(),
           timeout: 30000,
@@ -204,7 +205,7 @@ if (isDevRoutesEnabled) {
 
   router.post("/db/migrations/run", requireDevAdmin, async (_req: Request, res: Response) => {
     try {
-      const { stdout, stderr } = await execAsync("npm run db:push", {
+      const { stdout, stderr } = await execFileAsync("npm", ["run", "db:push"], {
         cwd: process.cwd(),
         timeout: 120000,
       });
