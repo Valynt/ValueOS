@@ -774,9 +774,11 @@ export class ValueFabricService {
 
     await ValueFabricService.invalidateUseCaseCache(organizationId);
 
-    for (const capability of template.capabilities) {
-      await this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id);
-    }
+    await Promise.all(
+      template.capabilities.map((capability) =>
+        this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id)
+      )
+    );
 
     return {
       useCase: newUseCase,
