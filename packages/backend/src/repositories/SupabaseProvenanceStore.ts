@@ -10,6 +10,7 @@
 import { createLogger } from '@shared/lib/logger';
 import type { ProvenanceRecord, ProvenanceStore } from '@valueos/memory/provenance';
 
+// service-role:justified repositories/ allowlisted; no request JWT available for background agent/worker writes
 import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ component: 'SupabaseProvenanceStore' });

@@ -34,8 +34,8 @@ import type {
   PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../../supabase.js';
+// service-role:justified provenance tracker singleton has no request JWT; scoped to tenant via organizationId filter
+import { createServiceRoleSupabaseClient } from '../../supabase.js';
 import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
@@ -132,7 +132,7 @@ function getProvenanceTracker(organizationId: string): ProvenanceTracker {
     return existingTracker;
   }
 
-  const client = createServerSupabaseClient();
+  const client = createServiceRoleSupabaseClient();
   const store = new SupabaseProvenanceStore(client, organizationId);
   const tracker = new ProvenanceTracker(store);
   provenanceTrackersByTenant.set(organizationId, tracker);
@@ -195,7 +195,7 @@ export class TargetAgent extends BaseAgent {
     if (valueCaseId) {
       await this.persistValueTree(valueCaseId, context.organization_id, analysis.value_driver_tree);
       // Also persist financial model snapshots for crash recovery
-      await this.persistFinancialModelSnapshots(valueCaseId, context.organization_id, analysis);
+      await this.persistFinancialModelSnapshots(context, valueCaseId, context.organization_id, analysis);
     }
 
     // Step 4c: Write Value Graph nodes — VgMetric + capability_impacts_metric edges
@@ -635,14 +635,19 @@ export class TargetAgent extends BaseAgent {
   /**
    * Persist financial model snapshots to database for crash recovery.
    * This ensures ModelStage data survives page refresh.
+   * Uses the RLS client from context when available; falls back to service-role
+   * for callers that have no request JWT (e.g. background job invocations).
    */
   private async persistFinancialModelSnapshots(
+    context: LifecycleContext,
     caseId: string,
     organizationId: string,
     analysis: TargetAnalysis,
   ): Promise<void> {
     try {
-      const supabase = createServerSupabaseClient();
+      // Prefer the request-scoped RLS client injected by the API layer.
+      // service-role:justified fallback for background agent runs without a request JWT
+      const supabase = context.supabaseClient ?? createServiceRoleSupabaseClient();
       const snapshots = analysis.financial_model_inputs.map((input, idx) => ({
         id: `fms_${Date.now()}_${idx}`,
         case_id: caseId,
