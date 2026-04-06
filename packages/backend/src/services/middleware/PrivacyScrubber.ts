@@ -37,7 +37,7 @@ const DEFAULT_PATTERNS: ScrubPattern[] = [
     regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
     replacement: '[EMAIL]',
   },
-  // SSN (XXX-XX-XXXX)
+  // SSN (000-00-0000)
   {
     regex: /\b\d{3}-\d{2}-\d{4}\b/g,
     replacement: '[SSN]',

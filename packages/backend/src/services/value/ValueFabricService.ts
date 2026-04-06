@@ -772,13 +772,20 @@ export class ValueFabricService {
 
     if (error) throw error;
 
-    await ValueFabricService.invalidateUseCaseCache(organizationId);
+    if (template.capabilities.length > 0) {
+      const { error: linkError } = await this.supabase.from("use_case_capabilities").insert(
+        template.capabilities.map((capability) => ({
+          organization_id: organizationId,
+          use_case_id: newUseCase.id,
+          capability_id: capability.id,
+          relevance_score: 1.0,
+        }))
+      );
 
-    await Promise.all(
-      template.capabilities.map((capability) =>
-        this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id)
-      )
-    );
+      if (linkError) throw linkError;
+    }
+
+    await ValueFabricService.invalidateUseCaseCache(organizationId);
 
     return {
       useCase: newUseCase,
