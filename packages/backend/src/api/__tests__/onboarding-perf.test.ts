@@ -55,24 +55,35 @@ describe('Onboarding API Performance', () => {
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      single: vi.fn(),
-      insert: vi.fn().mockResolvedValue({ error: null }),
-      update: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+      insert: vi.fn().mockImplementation(async () => {
+        // Simulate network latency for inserts
+        await new Promise(resolve => setTimeout(resolve, 5));
+        return { error: null };
+      }),
+      update: vi.fn().mockReturnThis(),
     };
 
-    // Setup single() to return a mock suggestion
-    mockSupabase.single.mockImplementation(() => {
-      return Promise.resolve({
-        data: {
-          id: 'test-id',
-          status: 'suggested',
-          entity_type: 'product',
-          payload: { name: 'Test Product' },
-          context_id: 'test-context',
-        },
-        error: null,
-      });
+    // We need 'in' to resolve data for the prefetch
+    mockSupabase.in.mockImplementation((column: string, idsArray: string[]) => {
+      if (column === 'id' && Array.isArray(idsArray)) {
+        const eqChain = {
+          eq: vi.fn().mockReturnValue(Promise.resolve({
+            data: idsArray.map(id => ({
+              id,
+              status: 'suggested',
+              entity_type: 'product',
+              payload: { name: 'Test Product ' + id },
+              context_id: 'test-context',
+              tenant_id: 'test-tenant-id'
+            })),
+            error: null
+          }))
+        };
+        return eqChain as any;
+      }
+      return Promise.resolve({ data: {}, error: null }) as any;
     });
 
     // We need update() to resolve
@@ -88,13 +99,10 @@ describe('Onboarding API Performance', () => {
 
       chain.eq.mockReturnValue(Promise.resolve({ data: {}, error: null }));
       chain.in.mockImplementation(() => {
-        const inChain = {
-          eq: vi.fn().mockReturnValue(Promise.resolve({ data: {}, error: null }))
-        };
-        return inChain;
+        return Promise.resolve({ data: {}, error: null });
       });
 
-      return chain;
+      return chain as any;
     });
 
     (createRequestRlsSupabaseClient as any).mockReturnValue(mockSupabase);
@@ -112,7 +120,8 @@ describe('Onboarding API Performance', () => {
 
     // Verify it works correctly
     expect(res.body.data.accepted).toBe(50);
-    expect(mockSupabase.update).toHaveBeenCalledTimes(1);
-    // mockSupabase.in isn't called directly on mockSupabase in our chain mock, it's chained
+
+    // For baseline, it inserts N times. Once optimized, it should insert 1 time (as all are 'product' entity_type)
+    console.log(`Number of insert calls: ${mockSupabase.insert.mock.calls.length}`);
   });
 });

@@ -347,6 +347,11 @@ router.post(
         return res.status(500).json({ error: 'Failed to fetch suggestions for bulk accept' });
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tableInserts = new Map<string, any[]>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const suggestionByTable = new Map<string, any[]>();
+
       for (const id of ids) {
         try {
           // Find suggestion in prefetched data
@@ -362,29 +367,56 @@ router.post(
             continue;
           }
 
-          // Write to canonical table
-          const targetTable = ENTITY_TABLE_MAP[suggestion.entity_type];
+          const targetTable = ENTITY_TABLE_MAP[String(suggestion.entity_type)];
           if (targetTable) {
-            const { error: insertErr } = await supabase
-              .from(targetTable)
-              .insert({
-                ...suggestion.payload,
-                tenant_id: tenantId,
-                context_id: suggestion.context_id,
-              });
-
-            if (insertErr) {
-              results.push({ id, success: false, error: insertErr.message });
-              continue;
+            if (!tableInserts.has(targetTable)) {
+              tableInserts.set(targetTable, []);
+              suggestionByTable.set(targetTable, []);
             }
-          }
 
-          acceptedIds.push(id);
-          results.push({ id, success: true });
+            tableInserts.get(targetTable)!.push({
+              ...(suggestion.payload as object),
+              tenant_id: tenantId,
+              context_id: suggestion.context_id,
+            });
+            suggestionByTable.get(targetTable)!.push(suggestion);
+          } else {
+            acceptedIds.push(id);
+            results.push({ id, success: true });
+          }
         } catch (err) {
           results.push({ id, success: false, error: err instanceof Error ? err.message : String(err) });
         }
       }
+
+      // Execute batched inserts
+      await Promise.all(
+        Array.from(tableInserts.entries()).map(async ([targetTable, inserts]) => {
+          const suggestions = suggestionByTable.get(targetTable)!;
+
+          try {
+            const { error: insertErr } = await supabase
+              .from(targetTable)
+              .insert(inserts);
+
+            if (insertErr) {
+              suggestions.forEach((s) => {
+                results.push({ id: s.id, success: false, error: insertErr.message });
+              });
+            } else {
+              suggestions.forEach((s) => {
+                acceptedIds.push(s.id);
+                results.push({ id: s.id, success: true });
+              });
+            }
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            suggestions.forEach((s) => {
+              results.push({ id: s.id, success: false, error: errorMessage });
+            });
+          }
+        })
+      );
 
       // Mark as accepted in bulk
       if (acceptedIds.length > 0) {
