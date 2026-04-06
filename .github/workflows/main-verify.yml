@@ -878,7 +878,7 @@ jobs:
         run: |
           node scripts/ci/check-appsec-controls-attestation.mjs \
             --sbom sbom.json \
-            --secret-scan gitleaks.sarif \
+            --secret-scan results.sarif \
             --out artifacts/security/appsec-controls-attestation.json
       - name: Upload security artifacts
         if: always()
@@ -887,7 +887,7 @@ jobs:
           name: security-gate-${{ github.run_id }}
           path: |
             npm-audit-report.json
-            gitleaks.sarif
+            results.sarif
             semgrep.sarif
             trivy-fs.sarif
             trivy-image.sarif
