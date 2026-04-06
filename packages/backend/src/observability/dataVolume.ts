@@ -11,7 +11,7 @@
 import { createLogger } from "@shared/lib/logger";
 
 import { createCounter, createObservableGauge } from "../lib/observability/index.js";
-import { supabase } from "../lib/supabase.js";
+import { createCronSupabaseClient } from "../lib/supabase/privileged/index.js";
 
 const logger = createLogger({ component: "DataVolume" });
 
@@ -59,7 +59,8 @@ async function countRowsInWindow(
 ): Promise<number | null> {
   const since = new Date(Date.now() - hoursBack * 3_600_000).toISOString();
 
-  const { count, error } = await supabase
+  // service-role:justified dataVolume cron reads row counts across all tenant tables for observability
+  const { count, error } = await createCronSupabaseClient()
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("organization_id", orgId)

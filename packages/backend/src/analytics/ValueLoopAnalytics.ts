@@ -12,7 +12,7 @@ import { createLogger } from "@shared/lib/logger";
 import { z } from "zod";
 
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from "../lib/supabase.js";
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 
 const logger = createLogger({ component: "ValueLoopAnalytics" });
 
@@ -87,7 +87,8 @@ export class ValueLoopAnalytics {
     const { organizationId, sessionId, eventType, objectType, objectId, payload, actorId } =
       parsed.data;
 
-    const supabase = createServerSupabaseClient();
+    // service-role:justified ValueLoopAnalytics reads value loop metrics across all tenants for analytics
+    const supabase = createWorkerServiceSupabaseClient('ValueLoopAnalytics: read value loop metrics');
     const { error } = await supabase.from("value_loop_events").insert({
       organization_id: organizationId,
       session_id: sessionId,
@@ -166,7 +167,8 @@ export class ValueLoopAnalytics {
     organizationId: string,
     windowDays = 30,
   ): Promise<ValueLoopInsights> {
-    const supabase = createServerSupabaseClient();
+    // service-role:justified ValueLoopAnalytics reads value loop metrics across all tenants for analytics
+    const supabase = createWorkerServiceSupabaseClient('ValueLoopAnalytics: read value loop metrics');
     const from = new Date(Date.now() - windowDays * 86_400_000).toISOString();
     const to = new Date().toISOString();
 

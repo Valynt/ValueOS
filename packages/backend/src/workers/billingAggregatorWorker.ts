@@ -2,7 +2,7 @@ import { createServer } from 'http';
 
 import { createLogger } from '../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { UsageQueueConsumerWorker } from '../services/metering/UsageQueueConsumerWorker.js';
 
 const logger = createLogger({ component: 'BillingAggregatorWorker' });
@@ -12,7 +12,8 @@ let healthy = true;
 
 export async function main(): Promise<void> {
   try {
-    const supabaseClient = createServerSupabaseClient();
+    // service-role:justified billingAggregatorWorker aggregates usage billing records across all tenants
+    const supabaseClient = createWorkerServiceSupabaseClient('billingAggregatorWorker: aggregate usage billing records');
     const worker = new UsageQueueConsumerWorker(supabaseClient);
 
     const healthServer = createServer(async (_req, res) => {

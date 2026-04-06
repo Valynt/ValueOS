@@ -79,9 +79,14 @@ variable "db_multi_az" {
 }
 
 variable "db_backup_retention_days" {
-  description = "RDS backup retention period (days)"
+  description = "RDS automated backup retention period (days). Staging: 30, Production: 90."
   type        = number
-  default     = 7
+  default     = 30
+
+  validation {
+    condition     = var.db_backup_retention_days >= 7 && var.db_backup_retention_days <= 35
+    error_message = "RDS backup_retention_period must be between 7 and 35 days (AWS maximum for automated backups). For longer retention, use manual snapshots or AWS Backup."
+  }
 }
 
 # Cache

@@ -11,7 +11,7 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { createServerSupabaseClient } from '../lib/supabase.js'
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js'
 import React from 'react'
 
 const CONFIG_TTL = 60 * 1000; // 1 minute
@@ -80,7 +80,8 @@ export class ProgressiveRollout {
     this.usageBuffer = []; // Clear buffer immediately
 
     try {
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
       const { error } = await db.from('feature_usage').insert(batch);
 
       if (error) {
@@ -116,7 +117,8 @@ export class ProgressiveRollout {
    */
   async loadConfig(): Promise<RolloutConfig | null> {
     try {
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
       const { data, error } = await db
         .from('feature_rollouts')
         .select('*')
@@ -270,7 +272,8 @@ export class ProgressiveRollout {
    */
   async trackError(userId: string, error: Error): Promise<void> {
     try {
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
       await db.from('feature_errors').insert({
         feature_name: this.featureName,
         organization_id: this.organizationId,
@@ -293,7 +296,8 @@ export class ProgressiveRollout {
   async getMetrics(): Promise<RolloutMetrics> {
     try {
       const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Last 24 hours
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
 
       const [
         { count: totalUsers, error: totalUsersError },
@@ -368,7 +372,8 @@ export class ProgressiveRollout {
    */
   async rollback(reason: string): Promise<void> {
     try {
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
       await db
         .from('feature_rollouts')
         .update({
@@ -398,7 +403,8 @@ export class ProgressiveRollout {
     }
 
     try {
-      const db = createServerSupabaseClient();
+      // service-role:justified progressiveRollout reads/writes feature flag state across tenants
+      const db = createWorkerServiceSupabaseClient('progressiveRollout: read/write feature flag state');
       await db
         .from('feature_rollouts')
         .update({

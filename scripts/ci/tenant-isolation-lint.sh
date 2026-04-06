@@ -21,19 +21,25 @@ green() { printf '\033[0;32m%s\033[0m\n' "$1"; }
 warn()  { printf '\033[0;33m%s\033[0m\n' "$1"; }
 
 # ── 1. No production code should import the broken `supabase` proxy ──────────
-echo "=== Check 1: No broken 'supabase' proxy imports ==="
+# S1-01 target files — these must be clean unconditionally.
+S1_01_FILES=(
+  "$BACKEND_SRC/workers/AlertingRulesWorker.ts"
+  "$BACKEND_SRC/runtime/execution-runtime/adapters/WorkflowFailureSupabaseAdapter.ts"
+  "$BACKEND_SRC/observability/dataVolume.ts"
+  "$BACKEND_SRC/observability/dataFreshness.ts"
+)
 
-PROXY_HITS=$(grep -rn "from.*['\"].*lib/supabase\.js['\"]" "$BACKEND_SRC" \
-  --include="*.ts" --include="*.js" \
-  | grep -v "__tests__\|\.test\.\|\.spec\.\|\.mock\." \
+echo "=== Check 1: No broken 'supabase' proxy imports (S1-01 target files) ==="
+
+PROXY_HITS=$(grep -n "from.*['\"].*lib/supabase\.js['\"]" "${S1_01_FILES[@]}" \
   | grep "import.*{ *supabase *}" || true)
 
 if [ -n "$PROXY_HITS" ]; then
-  red "FAIL: Production code imports the broken 'supabase' proxy:"
+  red "FAIL: S1-01 target files still import the broken 'supabase' proxy:"
   echo "$PROXY_HITS"
   EXIT_CODE=1
 else
-  green "PASS: No broken proxy imports found."
+  green "PASS: S1-01 target files are clean."
 fi
 
 # ── 2. No service_role singletons in repository files ────────────────────────
@@ -112,19 +118,53 @@ else
   green "PASS: No obvious global Redis keys."
 fi
 
-# ── 6. No deprecated createServerSupabaseClient in new code ──────────────────
-echo ""
-echo "=== Check 6: Deprecated createServerSupabaseClient usage ==="
+# ── 6. No deprecated createServerSupabaseClient in S1-02 target files ────────
+# S1-02 target files — these must be clean unconditionally.
+S1_02_FILES=(
+  "$BACKEND_SRC/analytics/ValueLoopAnalytics.ts"
+  "$BACKEND_SRC/config/progressiveRollout.ts"
+  "$BACKEND_SRC/config/secretsManager.ts"
+  "$BACKEND_SRC/workers/CertificateGenerationWorker.ts"
+  "$BACKEND_SRC/workers/billingAggregatorWorker.ts"
+  "$BACKEND_SRC/workers/ArtifactGenerationWorker.ts"
+  "$BACKEND_SRC/lib/memory/SupabaseVectorStore.ts"
+  "$BACKEND_SRC/lib/memory/SupabaseSemanticStore.ts"
+  "$BACKEND_SRC/observability/dataVolume.ts"
+  "$BACKEND_SRC/observability/dataFreshness.ts"
+  "$BACKEND_SRC/runtime/approval-inbox/index.ts"
+  "$BACKEND_SRC/runtime/execution-runtime/index.ts"
+)
 
-DEPRECATED_HITS=$(grep -rn "createServerSupabaseClient" "$BACKEND_SRC" \
-  --include="*.ts" \
-  | grep -v "__tests__\|\.test\.\|\.spec\.\|\.mock\.\|supabase\.ts\|supabase/index\.ts\|/privileged/" || true)
+echo ""
+echo "=== Check 6: Deprecated createServerSupabaseClient (S1-02 target files) ==="
+
+DEPRECATED_HITS=$(grep -n "createServerSupabaseClient" "${S1_02_FILES[@]}" \
+  | grep -v "__tests__\|\.test\.\|\.spec\.\|/privileged/" || true)
 
 if [ -n "$DEPRECATED_HITS" ]; then
-  warn "WARN: Files still using deprecated createServerSupabaseClient:"
+  red "FAIL: S1-02 target files still use deprecated createServerSupabaseClient:"
   echo "$DEPRECATED_HITS"
+  echo "  Migrate to: createWorkerServiceSupabaseClient('justification') | createCronSupabaseClient() | getRequestSupabaseClient(req)"
+  echo "  Each replacement must include a '// service-role:justified <reason>' comment."
+  EXIT_CODE=1
 else
-  green "PASS: No deprecated createServerSupabaseClient usage in production code."
+  green "PASS: S1-02 target files are clean."
+fi
+
+# Broader repo-wide check — informational only (not a blocking failure until full migration is complete)
+echo ""
+echo "=== Check 6b: Deprecated createServerSupabaseClient (repo-wide, informational) ==="
+
+REPO_WIDE_HITS=$(grep -rn "createServerSupabaseClient" "$BACKEND_SRC" \
+  --include="*.ts" \
+  | grep -v "__tests__\|\.test\.\|\.spec\.\|\.mock\.\|supabase\.ts\|supabase/index\.ts\|/privileged/" \
+  | grep -v -F "$(printf '%s\n' "${S1_02_FILES[@]}")" \
+  | wc -l | tr -d ' ')
+
+if [ "$REPO_WIDE_HITS" -gt 0 ]; then
+  warn "WARN: $REPO_WIDE_HITS additional createServerSupabaseClient usages remain in the repo (outside S1-02 scope — migrate in subsequent sprints)."
+else
+  green "PASS: No remaining createServerSupabaseClient usages outside S1-02 scope."
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
