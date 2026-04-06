@@ -453,6 +453,54 @@ A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityP
 
 **When adding or renaming an agent:** update the agent list and count in this doc, then run `node scripts/ci/check-architecture-doc-drift.mjs` locally to verify before pushing.
 
+## CI/CD and Release Gating
+
+Canonical source: **`docs/cicd/`**
+
+| Document | Purpose |
+|---|---|
+| `docs/cicd/PIPELINE.md` | Full pipeline architecture, workflow-by-workflow job specs, hard gate table |
+| `docs/cicd/DEPLOYMENT_STRATEGY.md` | Blue/green mechanics, 9-step deploy sequence, rollback procedure, environment matrix |
+| `docs/cicd/DATA_SAFETY.md` | Migration governance rules, rollback decision tree, backup validation, PITR restore |
+| `docs/cicd/RELEASE_CHECKLIST.md` | Step-by-step release checklist (Phases 1–7, PR through 24h post-deploy monitoring) |
+| `docs/cicd/GO_NO_GO.md` | Binary GO/NO-GO criteria, automated gate table, decision authority matrix |
+
+### Hard gate summary
+
+These are zero-tolerance checks enforced by CI. No production deploy proceeds if any fails.
+
+- 0 secrets in any commit or PR diff (gitleaks)
+- 0 critical/high CVEs in container images (Trivy)
+- 0 E2E test failures (Playwright)
+- 0 high DAST findings, ≤ 5 medium (OWASP ZAP)
+- 0 high/critical dependency CVEs (`pnpm audit`)
+- 0 CodeQL high/critical findings
+- 100% test coverage on agent fabric; ≥ 95% on security/billing paths
+- RLS enabled on all tenant-scoped tables (enforced by `rls-gate.yml`)
+- Every migration has a `.rollback.sql` counterpart
+- Reproducible builds — identical digests across two independent builds
+- Cosign OIDC signature on all production images
+
+### Deployment strategy
+
+Blue/green on Kubernetes. Active slot is selected by the `slot:` label on the `backend-active` / `frontend-active` Services. Traffic swap is instant. The old slot is kept at `replicas: 0` for 24 hours to enable instant rollback without a new build.
+
+Production deploys require manual approval via GitHub environment protection rules. `skip_tests=true` is permanently blocked for production — the `emergency-bypass-authorization` job in `deploy.yml` enforces this.
+
+### Agent confidence thresholds as a release gate
+
+A release that changes agent behavior must verify in staging smoke tests that `HardenedAgentRunner` outputs meet the minimum `accept` thresholds defined in `docs/AGENTS.md` (Agent Hardening section). Lowering any threshold without documented risk acceptance is a NO-GO.
+
+### New CI scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/ci/check-dependency-audit.mjs` | Fails on high/critical CVEs in `pnpm audit --json` output |
+| `scripts/ci/check-trivy-thresholds.mjs` | Fails on any critical or high CVE in Trivy container scan output |
+| `scripts/ci/check-e2e-results.mjs` | Fails on any Playwright test failure or zero-test run |
+
+---
+
 ## Key Files
 
 | File | Purpose |
