@@ -335,17 +335,25 @@ router.post(
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];
 
+      // Pre-fetch all suggestions to avoid N+1 queries
+      const { data: fetchedSuggestions, error: bulkFetchErr } = await supabase
+        .from('company_research_suggestions')
+        .select('*')
+        .in('id', ids)
+        .eq('tenant_id', tenantId);
+
+      const suggestionsMap = new Map();
+      if (!bulkFetchErr && fetchedSuggestions) {
+        for (const suggestion of fetchedSuggestions) {
+          suggestionsMap.set(suggestion.id, suggestion);
+        }
+      }
+
       for (const id of ids) {
         try {
-          // Fetch suggestion
-          const { data: suggestion, error: fetchErr } = await supabase
-            .from('company_research_suggestions')
-            .select('*')
-            .eq('id', id)
-            .eq('tenant_id', tenantId)
-            .single();
+          const suggestion = suggestionsMap.get(id);
 
-          if (fetchErr || !suggestion) {
+          if (!suggestion) {
             results.push({ id, success: false, error: 'Not found' });
             continue;
           }
