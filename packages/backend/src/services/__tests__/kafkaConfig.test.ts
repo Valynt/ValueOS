@@ -1,17 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
-import { isKafkaEnabled, buildKafkaClientConfig } from '../kafkaConfig';
+import { isKafkaEnabled, buildKafkaClientConfig } from '../kafkaConfig.js';
 
 vi.mock('node:fs', () => ({
   default: {
-    readFileSync: vi.fn(),
+    readFileSync: vi.fn((path: string) => Buffer.from(`mocked-content-of-${path}`)),
   },
 }));
 
 describe('kafkaConfig', () => {
   const originalEnv = process.env;
 
-  beforeEach(() => {
+ beforeEach(() => {
+    vi.resetModules();
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
@@ -21,14 +22,10 @@ describe('kafkaConfig', () => {
   });
 
   describe('isKafkaEnabled', () => {
-    it('returns true if KAFKA_ENABLED is true', () => {
-      process.env.KAFKA_ENABLED = 'true';
-      expect(isKafkaEnabled()).toBe(true);
-    });
-
-    it('returns true if EVENT_EXECUTOR_ENABLED is true', () => {
-      process.env.EVENT_EXECUTOR_ENABLED = 'true';
-      expect(isKafkaEnabled()).toBe(true);
+    it('returns false if env vars are undefined', () => {
+      delete process.env.KAFKA_ENABLED;
+      delete process.env.EVENT_EXECUTOR_ENABLED;
+      expect(isKafkaEnabled()).toBe(false);
     });
 
     it('returns false if neither is true', () => {
@@ -37,10 +34,22 @@ describe('kafkaConfig', () => {
       expect(isKafkaEnabled()).toBe(false);
     });
 
-    it('returns false if env vars are undefined', () => {
-      delete process.env.KAFKA_ENABLED;
+    it('returns true if KAFKA_ENABLED is true', () => {
+      process.env.KAFKA_ENABLED = 'true';
       delete process.env.EVENT_EXECUTOR_ENABLED;
-      expect(isKafkaEnabled()).toBe(false);
+      expect(isKafkaEnabled()).toBe(true);
+    });
+
+    it('returns true if EVENT_EXECUTOR_ENABLED is true', () => {
+      delete process.env.KAFKA_ENABLED;
+      process.env.EVENT_EXECUTOR_ENABLED = 'true';
+      expect(isKafkaEnabled()).toBe(true);
+    });
+
+    it('returns true when both are true', () => {
+      process.env.KAFKA_ENABLED = 'true';
+      process.env.EVENT_EXECUTOR_ENABLED = 'true';
+      expect(isKafkaEnabled()).toBe(true);
     });
   });
 
@@ -48,6 +57,10 @@ describe('kafkaConfig', () => {
     const baseConfig = { clientId: 'test-client', brokers: ['localhost:9092'] };
 
     it('returns base config when no specific SSL or SASL environment variables are set', () => {
+      delete process.env.KAFKA_SSL_ENABLED;
+      delete process.env.KAFKA_SECURITY_PROTOCOL;
+      delete process.env.KAFKA_SASL_MECHANISM;
+
       const config = buildKafkaClientConfig(baseConfig);
       expect(config).toEqual({
         ...baseConfig,
@@ -153,4 +166,3 @@ describe('kafkaConfig', () => {
       expect(config.sasl).toBeUndefined();
     });
   });
-});
