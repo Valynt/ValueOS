@@ -54,8 +54,13 @@ export class AuthFallbackService {
       // Implement cryptographic operator approval check
       // For production, the presence of a valid signature already implies operator approval
       // as the FALLBACK_SECRET is only known to the secure operator key management system.
-      if (!process.env.AUTH_FALLBACK_APPROVAL_TOKEN && process.env.NODE_ENV === "production") {
-        logger.error("Missing AUTH_FALLBACK_APPROVAL_TOKEN in production environment");
+      if (
+        !process.env.AUTH_FALLBACK_APPROVAL_TOKEN &&
+        process.env.NODE_ENV === "production"
+      ) {
+        logger.error(
+          "Missing AUTH_FALLBACK_APPROVAL_TOKEN in production environment"
+        );
         return null;
       }
 
