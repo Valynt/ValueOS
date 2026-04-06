@@ -176,6 +176,8 @@ async function processJob(
     format,
     requestedBy,
     traceId,
+  } = job.data;
+
   // Use a worker-scoped client for task management and persistence.
   const workerClient = createWorkerServiceSupabaseClient({
     justification: "service-role:justified ArtifactGenerationWorker managing job lifecycle",
@@ -214,9 +216,7 @@ async function processJob(
       caseId,
       error: message,
     });
-    await scopedJ: message,
-    });
-    await jobRepo.markFailed(jobId, tenantId, message);
+    await scopedJobRepo.markFailed(jobId, tenantId, message);
     throw err;
   }
 
@@ -295,13 +295,6 @@ async function processJob(
 
   // Mark completed.
   await scopedJobRepo.markCompleted(jobId, tenantId, artifactId);
-    });
-    await jobRepo.markFailed(jobId, tenantId, message);
-    throw err;
-  }
-
-  // Mark completed.
-  await jobRepo.markCompleted(jobId, tenantId, artifactId);
 
   logger.info("ArtifactGenerationWorker: job completed", {
     jobId,
