@@ -62,10 +62,10 @@ bash scripts/validate-cloud-dev-env.sh
 
 Each mode uses three files with distinct ownership:
 
-| File                   | Who reads it                               | What goes in it                                                                                                     |
-| ---------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `.env.<mode>`          | Both frontend and backend prep scripts     | `APP_ENV`, `NODE_ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`                                  |
-| `.env.frontend.<mode>` | `scripts/env/prepare-frontend-env.sh` only | Port/origin values for Vite mapping. No secrets.                                                                    |
+| File                   | Who reads it                               | What goes in it                                                                                                                                 |
+| ---------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.env.<mode>`          | Both frontend and backend prep scripts     | `APP_ENV`, `NODE_ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`                                                              |
+| `.env.frontend.<mode>` | `scripts/env/prepare-frontend-env.sh` only | Port/origin values for Vite mapping. No secrets.                                                                                                |
 | `.env.backend.<mode>`  | `scripts/env/prepare-backend-env.sh` only  | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `DATABASE_URL`, `TCT_SECRET`, `WEB_SCRAPER_ENCRYPTION_KEY`, `API_PORT`, backend pool sizing inputs |
 
 `SUPABASE_SERVICE_ROLE_KEY` and `DATABASE_URL` must never appear in the shared or frontend files.
@@ -81,13 +81,13 @@ For the API role used by the main backend deployments, `settings.ts` targets rou
 
 ### Default API sizing by environment
 
-| Environment | Role | Expected concurrency per pod | Derived per-pod pool max | Replica assumption | Connection budget |
-| --- | --- | ---: | ---: | ---: | ---: |
-| `local` | `api` | 12 | 6 | n/a | n/a |
-| `cloud-dev` | `api` | 10 | 5 | n/a | n/a |
-| `test` | `api` | 4 | 2 | n/a | n/a |
-| `staging` | `api` | 8 | 4 | 2 backend replicas | 8 |
-| `prod` | `api` | 8 | 4 | 18 backend replicas (HPA max) | 72 |
+| Environment | Role  | Expected concurrency per pod | Derived per-pod pool max |            Replica assumption | Connection budget |
+| ----------- | ----- | ---------------------------: | -----------------------: | ----------------------------: | ----------------: |
+| `local`     | `api` |                           12 |                        6 |                           n/a |               n/a |
+| `cloud-dev` | `api` |                           10 |                        5 |                           n/a |               n/a |
+| `test`      | `api` |                            4 |                        2 |                           n/a |               n/a |
+| `staging`   | `api` |                            8 |                        4 |            2 backend replicas |                 8 |
+| `prod`      | `api` |                            8 |                        4 | 18 backend replicas (HPA max) |                72 |
 
 `DATABASE_POOL_MAX` remains available as an escape hatch, but the preferred steady-state configuration is to set role + expected concurrency and let the app derive the cap.
 

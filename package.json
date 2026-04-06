@@ -10,6 +10,7 @@
     "infisical:init": "pnpm dlx @infisical/cli init",
     "dev:frontend:infisical": "bash scripts/dev/run-with-infisical.sh pnpm run dev:frontend",
     "dev:backend:infisical": "bash scripts/dev/run-with-infisical.sh pnpm run dev:backend",
+    "dev:full:infisical": "bash scripts/dev/start-full-infisical.sh",
     "test:infisical": "INFISICAL_ENVIRONMENT=test bash scripts/dev/run-with-infisical.sh pnpm test",
     "postinstall": "bash scripts/dx/ensure-local-pnpm-shims.sh",
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",

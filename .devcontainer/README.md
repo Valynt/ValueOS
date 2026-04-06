@@ -208,19 +208,19 @@ bash .devcontainer/scripts/validate-devcontainer-secrets.sh
 
 All configuration is in `.devcontainer/.env`. Key variables:
 
-| Variable          | Default   | Description                      |
-| ----------------- | --------- | -------------------------------- |
-| `FRONTEND_PORT`   | 5173      | Vite dev server port             |
-| `BACKEND_PORT`    | 3001      | API server port                  |
-| `PGPORT`          | 5432      | PostgreSQL port (localhost only) |
-| `KONG_PROXY_PORT` | 54321     | Supabase API port                |
-| `STUDIO_PORT`     | 54324     | Supabase Studio port             |
-| `REDIS_PORT`      | 6379      | Redis port                       |
-| `PGPASSWORD`      | postgres  | PostgreSQL password              |
-| `JWT_SECRET`      | required  | JWT signing secret (32+ chars)   |
-| `SECRET_KEY_BASE` | required  | Realtime/Phoenix secret (32+ chars) |
-| `TCT_SECRET`      | required  | Backend secret (32+ chars)       |
-| `WEB_SCRAPER_ENCRYPTION_KEY` | required | 64-character hex encryption key |
+| Variable                     | Default  | Description                         |
+| ---------------------------- | -------- | ----------------------------------- |
+| `FRONTEND_PORT`              | 5173     | Vite dev server port                |
+| `BACKEND_PORT`               | 3001     | API server port                     |
+| `PGPORT`                     | 5432     | PostgreSQL port (localhost only)    |
+| `KONG_PROXY_PORT`            | 54321    | Supabase API port                   |
+| `STUDIO_PORT`                | 54324    | Supabase Studio port                |
+| `REDIS_PORT`                 | 6379     | Redis port                          |
+| `PGPASSWORD`                 | postgres | PostgreSQL password                 |
+| `JWT_SECRET`                 | required | JWT signing secret (32+ chars)      |
+| `SECRET_KEY_BASE`            | required | Realtime/Phoenix secret (32+ chars) |
+| `TCT_SECRET`                 | required | Backend secret (32+ chars)          |
+| `WEB_SCRAPER_ENCRYPTION_KEY` | required | 64-character hex encryption key     |
 
 ## Local HTTP-only Caddy exception
 
@@ -329,12 +329,12 @@ This DevContainer follows security best practices for isolated development:
 
 ### Isolation Principles
 
-| Layer | Access Level | Isolation Mechanism |
-|-------|--------------|---------------------|
-| Windows Host | IDE only | No dev tools, no shell access |
-| WSL2 Host | Docker daemon only | No installed software beyond Docker |
-| DevContainer | Full dev environment | Container boundaries, no-new-privileges |
-| Service Containers | Internal only | Bridge network, no host exposure |
+| Layer              | Access Level         | Isolation Mechanism                     |
+| ------------------ | -------------------- | --------------------------------------- |
+| Windows Host       | IDE only             | No dev tools, no shell access           |
+| WSL2 Host          | Docker daemon only   | No installed software beyond Docker     |
+| DevContainer       | Full dev environment | Container boundaries, no-new-privileges |
+| Service Containers | Internal only        | Bridge network, no host exposure        |
 
 ### Security Features
 
@@ -350,6 +350,7 @@ This DevContainer follows security best practices for isolated development:
 To prevent host state from leaking into containers, ensure WSL shell startup files don't export:
 
 **Files to check:**
+
 ```
 ~/.bashrc
 ~/.bash_profile
@@ -359,6 +360,7 @@ To prevent host state from leaking into containers, ensure WSL shell startup fil
 ```
 
 **Remove or comment out:**
+
 ```bash
 # ❌ Windows PATH pollution
 export PATH="/mnt/c/Program Files/...:$PATH"
@@ -372,6 +374,7 @@ export NVM_DIR="$HOME/.nvm"
 ```
 
 **What WSL should contain:**
+
 ```bash
 # ✅ Only Docker daemon access
 # No Node.js, no npm, no pnpm, no build tools
@@ -403,13 +406,13 @@ code .
 
 ### Anti-Patterns to Avoid
 
-| Anti-Pattern | Why Bad | Solution |
-|--------------|---------|----------|
-| Mount docker.sock | Container escapes to host | Use Docker Desktop CLI from host |
-| Install tools in WSL | Host coupling | All tools in container only |
-| Use `/mnt/c/` paths | Slow 9P, breaks watching | Clone to `~` in WSL |
-| Hardcoded secrets | Security risk | env_file only |
-| Privileged containers | Full host access | Never use for dev |
+| Anti-Pattern          | Why Bad                   | Solution                         |
+| --------------------- | ------------------------- | -------------------------------- |
+| Mount docker.sock     | Container escapes to host | Use Docker Desktop CLI from host |
+| Install tools in WSL  | Host coupling             | All tools in container only      |
+| Use `/mnt/c/` paths   | Slow 9P, breaks watching  | Clone to `~` in WSL              |
+| Hardcoded secrets     | Security risk             | env_file only                    |
+| Privileged containers | Full host access          | Never use for dev                |
 
 ### Security Checklist
 

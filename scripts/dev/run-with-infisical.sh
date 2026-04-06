@@ -45,4 +45,7 @@ fi
 export SECRETS_PROVIDER="${SECRETS_PROVIDER:-infisical}"
 
 cd "$PROJECT_ROOT"
+export APP_ENV="${APP_ENV:-local}"
+export SECRETS_PROVIDER="${SECRETS_PROVIDER:-infisical}"
+export INFISICAL_ENVIRONMENT="$ENVIRONMENT"
 exec "${CLI_CMD[@]}" run --env="$ENVIRONMENT" -- "$@"
