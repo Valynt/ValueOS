@@ -334,6 +334,7 @@ router.post(
 
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];
+      const acceptedIds: string[] = [];
 
       const { data: allSuggestions, error: prefetchErr } = await supabase
         .from('company_research_suggestions')
@@ -378,19 +379,22 @@ router.post(
             }
           }
 
-          // Mark as accepted
-          await supabase
-            .from('company_research_suggestions')
-            .update({
-              status: 'accepted',
-              accepted_at: new Date().toISOString(),
-            })
-            .eq('id', id);
-
+          acceptedIds.push(id);
           results.push({ id, success: true });
         } catch (err) {
           results.push({ id, success: false, error: err instanceof Error ? err.message : String(err) });
         }
+      }
+
+      // Mark as accepted in bulk
+      if (acceptedIds.length > 0) {
+        await supabase
+          .from('company_research_suggestions')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+          })
+          .in('id', acceptedIds);
       }
 
       const accepted = results.filter((r) => r.success).length;
