@@ -6,12 +6,13 @@ import { vi } from "vitest";
  * including resource management, health checking, and cleanup.
  */
 
-// eslint-disable-next-line import/no-unresolved -- module not yet implemented
+/* eslint-disable import/no-unresolved -- module not yet implemented */
 import {
   ConnectionConfig,
   ConnectionPool,
   HTTPConnectionPool,
 } from "../../../lib/connection-pool";
+/* eslint-enable import/no-unresolved */
 
 describe("ConnectionPool", () => {
   let pool: ConnectionPool<MockConnection>;
