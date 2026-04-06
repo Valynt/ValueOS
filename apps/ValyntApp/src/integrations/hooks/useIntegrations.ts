@@ -180,9 +180,14 @@ export function useIntegrations() {
       const data = response.data as unknown;
       const rawData = data as RawResponseData;
       const items = rawData.integrations ?? [];
-      const mapped = items
-        .filter((item) => providerIds.has(item.provider))
-        .map((item) => ({
+      const mapped: IntegrationConnection[] = new Array(items.length);
+      let mappedCount = 0;
+      for (const item of items) {
+        if (!providerIds.has(item.provider)) {
+          continue;
+        }
+
+        mapped[mappedCount] = {
           id: item.id,
           provider: item.provider as IntegrationProviderId,
           status: mapStatus(item.status),
@@ -191,7 +196,10 @@ export function useIntegrations() {
           errorMessage: item.errorMessage ?? item.error_message ?? undefined,
           instanceUrl: item.instanceUrl ?? item.instance_url,
           scopes: item.scopes ?? [],
-        }));
+        };
+        mappedCount += 1;
+      }
+      mapped.length = mappedCount;
 
       setIntegrations(mapped);
     } catch (err: unknown) {
