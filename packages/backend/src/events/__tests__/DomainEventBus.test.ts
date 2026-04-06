@@ -213,7 +213,7 @@ describe('DomainEventBus', () => {
       busWith.subscribe('opportunity.updated', handler);
 
       const payload = makeOpportunityUpdatedPayload();
-      // No originPid field — simulates a message from before this fix
+      // Tests backwards compatibility with legacy message format (no originPid field)
       capturedCallback!(
         JSON.stringify({ name: 'opportunity.updated', payload }),
         'domain:opportunity.updated',

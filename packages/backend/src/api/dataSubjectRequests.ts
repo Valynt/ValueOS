@@ -83,11 +83,10 @@ async function gatherFootprint(
   const footprint: Record<string, unknown[]> = {};
   const coverage: DsrAssetCoverage = { included: [], excluded: [] };
 
-  for (const entry of DSR_PII_ASSETS) {
+  const fetchPromises = DSR_PII_ASSETS.map(async (entry) => {
     const { asset, dsr } = entry;
     if (!dsr.exportable || !dsr.userColumn || !dsr.tenantColumn) {
-      coverage.excluded.push({ asset, reason: "not_exportable" });
-      continue;
+      return { asset, reason: "not_exportable", data: null, error: null };
     }
 
     const { data, error } = await supabase
@@ -96,7 +95,16 @@ async function gatherFootprint(
       .eq(dsr.userColumn, userId)
       .eq(dsr.tenantColumn, tenantId);
 
-    if (error) {
+    return { asset, reason: null, data, error };
+  });
+
+  const results = await Promise.all(fetchPromises);
+
+  for (const result of results) {
+    const { asset, reason, data, error } = result;
+    if (reason === "not_exportable") {
+      coverage.excluded.push({ asset, reason });
+    } else if (error) {
       logger.warn(`DSR: failed to read ${asset}`, { error: error.message });
       footprint[asset] = [];
       coverage.excluded.push({ asset, reason: `read_error:${error.code ?? "unknown"}` });

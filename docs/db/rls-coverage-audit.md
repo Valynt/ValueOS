@@ -3,8 +3,8 @@
 Audit basis: `docs/db/schema_snapshot.sql` cross-referenced against all active migrations under
 `infra/supabase/supabase/migrations/` (excluding `archive/` and `*.rollback.sql`).
 
-Last audited: 2026-03-27  
-Total public tables in snapshot: 147  
+Last audited: 2026-03-27
+Total public tables in snapshot: 147
 Coverage: 100% — every table is either RLS-enabled or explicitly classified as exempt below.
 
 ## Classification key
@@ -63,7 +63,8 @@ future partitions.
 | `agent_ontologies` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
 | `agent_predictions` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
 | `agent_retraining_queue` | `service_only` | `20260917000000_rls_and_search_path_remediation` | Queue table, service_role only |
-| `agent_sessions` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
+| `agent_sessions` | `tenant_scoped` | `20261008000000_restore_rls_contract_objects` | Restored to the active migration path; `tenant_id` scoped |
+| `dead_letter_events` | `service_only` | `20261008000000_restore_rls_contract_objects` | Metering DLQ, service_role only |
 | `agent_tools` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
 | `agents` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
 | `approval_requests` | `tenant_scoped` | `20260213000010_canonical_identity_baseline` | `tenant_id` scoped |
