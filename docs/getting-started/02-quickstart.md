@@ -10,7 +10,7 @@
 
 ## How to Run ValueOS - Quick Start Guide
 
-*Source: `HOW_TO_RUN.md`*
+_Source: `HOW_TO_RUN.md`_
 
 ## Prerequisites
 
@@ -141,11 +141,21 @@ pnpm run typecheck:islands
 
 Key environment variables are set in `.env.local`:
 
-| Variable            | Purpose               | Default                                           |
-| ------------------- | --------------------- | ------------------------------------------------- |
-| `SUPABASE_URL`      | Supabase API URL      | `http://kong:8000`                                |
+| Variable            | Purpose               | Default                                                                                                                            |
+| ------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`      | Supabase API URL      | `http://kong:8000`                                                                                                                 |
 | `DATABASE_URL`      | Postgres connection   | `postgresql://postgres:<PGPASSWORD>@db:5432/postgres?sslmode=disable` — **local dev only; set PGPASSWORD in `.devcontainer/.env`** |
-| `VITE_SUPABASE_URL` | Frontend Supabase URL | `http://localhost:54321`                          |
+| `VITE_SUPABASE_URL` | Frontend Supabase URL | `http://localhost:54321`                                                                                                           |
+
+### Secrets management (optional)
+
+For centralized secret injection instead of local `.env` files, ValueOS supports [Infisical](https://infisical.com). After authenticating (`pnpm run infisical:login && pnpm run infisical:init`), start the dev stack with:
+
+```bash
+pnpm run dev:full:infisical
+```
+
+See [Secrets Management with Infisical CLI](../developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli) for the full guide.
 
 ## Network Topology (Devcontainer)
 

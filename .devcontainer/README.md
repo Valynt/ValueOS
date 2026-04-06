@@ -124,6 +124,9 @@ This DevContainer provides a **100% Linux-to-production parity** development env
 # Start development servers
 pnpm dev
 
+# Start with Infisical secret injection (optional)
+pnpm run dev:full:infisical
+
 # Run tests
 pnpm test
 
@@ -178,6 +181,12 @@ Use this file as the single source of truth for updating pinned versions (for ex
 - `.env.local` is for secrets only (API keys, tokens, connection strings) and should not define port mappings.
 - `.devcontainer/.env.template` - Template for the fully containerized environment with required secret fields intentionally left blank.
 - `.devcontainer/.env` - Your local environment overrides (copy from template and populate with real local-only secrets).
+
+### Infisical secrets (optional)
+
+The `.env.template` includes an `INFISICAL_*` section for [Infisical](https://infisical.com) integration. When `SECRETS_PROVIDER=infisical` is set and the `INFISICAL_*` variables are populated, `pnpm run dev:full:infisical` injects secrets from Infisical at startup instead of reading them from `.env` files.
+
+See [Secrets Management with Infisical CLI](../docs/developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli) for the full setup guide and [Infisical Secrets Management](../docs/security-compliance/infisical-secrets-management.md) for the architecture overview.
 
 ### Required secret bootstrap values
 

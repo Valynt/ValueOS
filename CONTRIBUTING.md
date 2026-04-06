@@ -22,6 +22,9 @@ pnpm run dev
 # Or start independently
 pnpm run dev:frontend   # apps/ValyntApp — React + Vite
 pnpm run dev:backend    # packages/backend — Express API
+
+# With Infisical secret injection (optional — see docs/developer-experience/dev-environment.md)
+pnpm run dev:full:infisical
 ```
 
 All new product logic goes to one of these two runtimes. No other entry points exist.
@@ -105,6 +108,7 @@ pnpm test
 Per-package error budgets are tracked in `.github/ts-error-ratchet-budgets.json`. The CI gate (`scripts/ci/ts-error-ratchet.mjs`) fails if any package exceeds its budget.
 
 **To update a baseline** (e.g. after fixing errors):
+
 1. Run `pnpm exec tsc --noEmit -p packages/<pkg>/tsconfig.json 2>&1 | grep "error TS" | wc -l` to get the new count.
 2. Lower the `budget` value in `.github/ts-error-ratchet-budgets.json` to the new count.
 3. Include the budget change in the same PR as the fixes — never update the budget without the corresponding fixes.
@@ -189,6 +193,7 @@ Escalate for dedicated security review when a change includes:
 - Complete environment setup and start dependent services.
 - Validate API health and local DB connectivity.
 - Read API/data architecture docs and code standards.
+- Optional: configure [Infisical secrets](docs/developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli) (`pnpm run infisical:login && pnpm run infisical:init`).
 
 **Validation checklist (by end of week 1)**
 

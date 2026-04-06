@@ -94,6 +94,18 @@ The devcontainer provides:
 
 See [.devcontainer/README.md](.devcontainer/README.md) for detailed setup, troubleshooting, and advanced configuration.
 
+### 4. Secrets management (optional)
+
+ValueOS supports [Infisical](https://infisical.com) for centralized secrets injection. To use it instead of local `.env` files:
+
+```bash
+pnpm run infisical:login
+pnpm run infisical:init          # Select the ValueOS project
+pnpm run dev:full:infisical       # Start backend + frontend with injected secrets
+```
+
+See [Secrets Management with Infisical CLI](docs/developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli) for the full guide.
+
 ---
 
 ## Alternative: Cloud-Dev Setup
@@ -131,6 +143,7 @@ pnpm run dev:backend  # In another terminal
 | `pnpm test`                       | Run the canonical repo-wide Vitest workspace across all maintained suites                             |
 | `pnpm run format`                 | Format code with Prettier                                                                             |
 | `pnpm run db:migrate`             | Apply database migrations                                                                             |
+| `pnpm run dev:full:infisical`     | Start frontend + backend with Infisical secret injection                                              |
 | `pnpm run dx:check`               | Run preflight environment checks                                                                      |
 | `pnpm run check:docs:consistency` | Verify canonical product names, domains, support contacts, and `apps/` inventory across docs surfaces |
 
@@ -236,7 +249,7 @@ See [docs/architecture/](docs/architecture/) for detailed design documents, [AGE
 
 - **CI security gate**: TruffleHog (secrets), CodeQL + Semgrep (SAST), Trivy (containers + filesystem), Checkov (IaC), Hadolint (Dockerfiles). Critical/high findings block merge.
 - **Pre-commit**: Gitleaks scans staged files.
-- **Secrets**: Vault / AWS Secrets Manager via External Secrets Operator. No secrets in code or config.
+- **Secrets**: Vault / AWS Secrets Manager / Infisical via External Secrets Operator. No secrets in code or config. See [Infisical integration](docs/security-compliance/infisical-secrets-management.md).
 - **RLS**: All tenant-scoped tables enforce row-level security. Dedicated CI check validates policies.
 
 See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide, and review [SECURITY.md](SECURITY.md) for coordinated vulnerability disclosure.

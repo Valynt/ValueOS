@@ -43,6 +43,22 @@ bash scripts/setup-env.sh prod     # -> ops/env/.env.production
 bash scripts/setup-env.sh test     # -> ops/env/.env.test
 ```
 
+## Infisical integration (optional)
+
+Instead of (or alongside) local `.env` files, you can inject secrets at startup via [Infisical](https://infisical.com):
+
+```bash
+pnpm run infisical:login            # Authenticate with Infisical
+pnpm run infisical:init             # Link the ValueOS project
+pnpm run dev:backend:infisical      # Start backend with injected secrets
+pnpm run dev:full:infisical         # Start full stack with injected secrets
+```
+
+When using Infisical, set `SECRETS_PROVIDER=infisical` and the `INFISICAL_*` variables in your `.env` file (see `ops/env/.env.local.example` for the template). The `infisical run` wrapper exports all project secrets as environment variables, complementing any values already set in `.env`.
+
+Full setup: [Secrets Management with Infisical CLI](../docs/developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli).
+Architecture: [Infisical Secrets Management](../docs/security-compliance/infisical-secrets-management.md).
+
 ## Bootstrapping cloud-dev
 
 ```bash
@@ -135,7 +151,7 @@ No local Postgres, Redis, or NATS required. These services are either hosted (Su
 
 Shared: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 Backend: `DATABASE_URL`, `DATABASE_POOL_ROLE`, `DATABASE_EXPECTED_CONCURRENCY`
-Optional: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`
+Optional: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`, `SECRETS_PROVIDER` (set to `infisical` to use Infisical — requires `INFISICAL_*` vars)
 
 ### `test`
 

@@ -6,12 +6,11 @@
 
 ## DX Troubleshooting Guide
 
-*Source: `DX_TROUBLESHOOTING.md`*
+_Source: `DX_TROUBLESHOOTING.md`_
 
 ## Error Codes Reference
 
 ### DX_ERR_001: Missing Observability Module
-
 
 Symptoms:
 
@@ -32,7 +31,6 @@ mkdir -p packages/backend/src/lib/observability
 # Add observability/index.ts with required exports
 ```
 
-
 Prevention: Import validation runs in CI via `.github/workflows/dx-e2e.yml`.
 
 ---
@@ -43,7 +41,6 @@ Symptoms:
 
 - DX startup fails with "address already in use"
 - Services can't bind to required ports (3001, 5173, 5432, 6379, 54321-54323)
-
 
 Root Cause:
 
@@ -62,7 +59,6 @@ lsof -ti:PORT | xargs kill -9
 pnpm run dx:sanitize
 ```
 
-
 Prevention: Run `pnpm run dx:sanitize` before starting DX.
 
 ---
@@ -74,14 +70,12 @@ Symptoms:
 - Backend starts but health endpoint returns 500 or doesn't respond
 - Frontend can't connect to backend API
 
-
 Root Cause:
 
 - Database connection failed
 - Missing environment variables
 - Module import errors
 - Unhandled exceptions in startup code
-
 
 Fix:
 
@@ -99,7 +93,6 @@ cat .env.local | grep DATABASE_URL
 curl -v http://localhost:3001/health
 ```
 
-
 Prevention: Module contract tests in `packages/backend/src/__tests__/module-contracts.test.ts`.
 
 ---
@@ -111,13 +104,11 @@ Symptoms:
 - Migrations fail with "connection refused"
 - Backend can't connect to Postgres
 
-
 Root Cause:
 
 - Postgres container not running
 - Wrong host/port in DATABASE_URL
 - Container network issue in DevContainer
-
 
 Fix:
 
@@ -135,26 +126,22 @@ pnpm run dx up --mode local
 PGPASSWORD=dev_password psql -h localhost -p 5432 -U postgres -d valuecanvas_dev -c 'SELECT 1'
 ```
 
-
 Prevention: Orchestrator checks Docker availability in preflight.
 
 **Prevention:** Orchestrator checks Docker availability in preflight.
 
 ### DX_ERR_005: Supabase DB Port Binding Failed
 
-
 Symptoms:
 
 - `supabase start` fails with "dial tcp 127.0.0.1:54322: connect: connection refused"
 - Supabase Kong container is not running
-
 
 Root Cause:
 
 - Port 54322 already in use
 - Supabase DB container failed to start
 - Race condition in healthcheck
-
 
 Fix:
 
@@ -172,7 +159,6 @@ supabase start --workdir . --debug
 supabase status --workdir infra/supabase
 ```
 
-
 Prevention: DX falls back to `valueos-postgres` if Supabase fails.
 
 ---
@@ -184,13 +170,11 @@ Symptoms:
 - `supabase db push` fails with "tls error (server refused TLS connection)"
 - Migrations work on one environment but not another
 
-
 Root Cause:
 
 - Postgres container doesn't support TLS
 - Connection string has conflicting SSL parameters
 - Client is attempting TLS despite `sslmode=disable`
-
 
 Fix:
 
@@ -205,7 +189,6 @@ supabase db push \
   --debug
 ```
 
-
 Prevention: Orchestrator removes invalid SSL params from connection strings.
 
 ---
@@ -217,14 +200,12 @@ Symptoms:
 - `ERR_MODULE_NOT_FOUND` at runtime
 - Import path looks correct but Node can't resolve it
 
-
 Root Cause:
 
 - File doesn't exist at import path
 - Casing mismatch (Linux is case-sensitive)
 - Missing `.js` extension in ESM import
 - Directory import without `index.ts`
-
 
 Fix:
 
@@ -238,7 +219,6 @@ ls -la packages/backend/src/lib/observability
 # For ESM, add .js extension to imports
 # ✅ import { foo } from './lib/bar.js'
 ```
-
 
 Prevention: Import resolution tests run in CI.
 
@@ -257,7 +237,6 @@ Root Cause:
 - Docker socket not accessible
 - User not in `docker` group (Linux)
 
-
 Fix:
 
 ```bash
@@ -274,7 +253,6 @@ sudo usermod -aG docker $USER
 docker ps
 ```
 
-
 Prevention: Orchestrator checks Docker availability in preflight.
 
 ---
@@ -286,12 +264,10 @@ Symptoms:
 - Services fail with "env var not set" errors
 - Database URL is undefined
 
-
 Root Cause:
 
 - `.env.local` file missing or incomplete
 - Environment not regenerated after changes
-
 
 Fix:
 
@@ -306,7 +282,6 @@ pnpm run dx:env:validate
 cat .env.local
 ```
 
-
 Prevention: Setup script generates `.env.local` automatically.
 
 ---
@@ -318,13 +293,11 @@ Symptoms:
 - Supabase API unreachable
 - Kong container status shows "Exited"
 
-
 Root Cause:
 
 - Container startup failure
 - Healthcheck timeout
 - Volume corruption
-
 
 Fix:
 
@@ -343,8 +316,45 @@ docker volume prune -f
 supabase start --workdir . --debug
 ```
 
-
 Prevention: Orchestrator provides structured error output with context.
+
+---
+
+### DX_ERR_011: Infisical Authentication Failed
+
+Symptoms:
+
+- `pnpm run dev:backend:infisical` fails with "unauthorized" or "You are not logged in"
+- Secrets not found when running with Infisical
+- `infisical run` returns empty environment
+
+Root Cause:
+
+- Infisical CLI session expired or not authenticated
+- `.infisical.json` not initialized or pointing to the wrong project
+- Missing `INFISICAL_*` environment variables for Machine Identity auth
+- User does not have access to the ValueOS organization in Infisical
+
+Fix:
+
+```bash
+# Re-authenticate
+pnpm run infisical:login
+
+# Re-initialize project link
+pnpm run infisical:init
+
+# Verify .infisical.json exists and has correct project
+cat .infisical.json
+
+# For Machine Identity auth, ensure these are set in your .env:
+# INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID
+
+# Test secret injection directly
+pnpm dlx @infisical/cli run --env=dev -- env | grep SUPABASE
+```
+
+Prevention: Request access via `#dev-infisical-access` Slack channel. See [Infisical setup guide](dev-environment.md#5-secrets-management-with-infisical-cli).
 
 ---
 
@@ -395,7 +405,6 @@ cat .dx-checkpoints.json | jq '.[-1]'
 ```
 
 ## Getting Help
-
 
 Collect diagnostics:
 
