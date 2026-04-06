@@ -1,0 +1,273 @@
+# Sprint 5 — HPA definitions for the four newly containerized canonical agents.
+# Scaling profiles follow the classification matrix in docs/operations/slo-sli.md.
+
+# ── DiscoveryAgent ────────────────────────────────────────────────────────────
+# Latency-sensitive interactive profile. Entry point of every deal session;
+# scale-up must be aggressive to absorb session bursts.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: discovery-agent
+  namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+  labels:
+    app: discovery-agent
+    autoscaling.valueos.dev/profile: warm-interactive-agent
+    scaling.valueos.io/request-path-policy: interactive-allowlisted
+    scaling.valueos.io/cold-start-class: warm-interactive
+    scaling.valueos.io/execution-class: interactive
+    monitoring.valueos.dev/interactive-completion-p95-ms: "200"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: discovery-agent
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: agent_queue_depth
+          selector:
+            matchLabels:
+              queue: agent-tasks
+              agent_type: discovery
+        target:
+          type: AverageValue
+          averageValue: "6"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 180
+      selectPolicy: Min
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 90
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 200
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+---
+# ── ContextExtractionAgent ────────────────────────────────────────────────────
+# Latency-sensitive interactive profile. Called on every document/CRM import;
+# warm replicas prevent cold-start latency spikes.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: context-extraction-agent
+  namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+  labels:
+    app: context-extraction-agent
+    autoscaling.valueos.dev/profile: warm-interactive-agent
+    scaling.valueos.io/request-path-policy: interactive-allowlisted
+    scaling.valueos.io/cold-start-class: warm-interactive
+    scaling.valueos.io/execution-class: interactive
+    monitoring.valueos.dev/interactive-completion-p95-ms: "200"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: context-extraction-agent
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: agent_queue_depth
+          selector:
+            matchLabels:
+              queue: agent-tasks
+              agent_type: context-extraction
+        target:
+          type: AverageValue
+          averageValue: "6"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 180
+      selectPolicy: Min
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 90
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 200
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+---
+# ── DealAssemblyAgent ─────────────────────────────────────────────────────────
+# Financial-critical profile. Aggregates upstream agent outputs into the final
+# value case; narrow per-pod concurrency, scales through replicas.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: deal-assembly-agent
+  namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+  labels:
+    app: deal-assembly-agent
+    autoscaling.valueos.dev/profile: financial-critical-agent
+    scaling.valueos.io/request-path-policy: interactive-allowlisted
+    scaling.valueos.io/cold-start-class: warm-interactive
+    scaling.valueos.io/execution-class: financial-critical
+    monitoring.valueos.dev/interactive-completion-p95-ms: "500"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: deal-assembly-agent
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: agent_queue_depth
+          selector:
+            matchLabels:
+              queue: agent-tasks
+              agent_type: deal-assembly
+        target:
+          type: AverageValue
+          averageValue: "4"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      selectPolicy: Min
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 3
+          periodSeconds: 60
+      selectPolicy: Max
+---
+# ── ComplianceAuditorAgent ────────────────────────────────────────────────────
+# Low-frequency async profile. Audits run on-demand or on schedule, not on the
+# interactive request path. KEDA ScaledObject handles scale-to-zero; this HPA
+# provides a safety ceiling for burst scenarios (e.g., bulk re-audit).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: compliance-auditor-agent
+  namespace: valynt-agents
+  annotations:
+    autoscaling.valueos.dev/source-of-truth: docs/operations/slo-sli.md#canonical-classification-and-policy-matrix
+    scaling.valueos.io/routing-guardrail: async-only; do not route interactive traffic here
+  labels:
+    app: compliance-auditor-agent
+    autoscaling.valueos.dev/profile: async-warm-agent
+    scaling.valueos.io/request-path-policy: async-only
+    scaling.valueos.io/cold-start-class: async-warm
+    scaling.valueos.io/execution-class: orchestration
+    monitoring.valueos.dev/orchestration-acknowledgment-p95-ms: "200"
+    monitoring.valueos.dev/orchestration-completion-p95-ms: "5000"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: compliance-auditor-agent
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: agent_queue_depth
+          selector:
+            matchLabels:
+              queue: agent-tasks
+              agent_type: compliance-auditor
+        target:
+          type: AverageValue
+          averageValue: "2"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      selectPolicy: Min
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max

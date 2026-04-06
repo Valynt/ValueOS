@@ -12,10 +12,14 @@
 
 import { ValuePathCard } from "@valueos/sdui";
 import { ArrowRightLeft, ExternalLink, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 
 import type { ValueGraphEntityType, ValueGraphNode } from "@/api/valueGraph";
-import { ValueGraphVisualization } from "@/components/sdui/ValueGraphVisualization";
+// Lazy-load the ReactFlow + elkjs canvas so the vendor-canvas chunk (~600 KB)
+// is only fetched when the user navigates to the Value Graph tab.
+const ValueGraphVisualization = lazy(
+  () => import("@/components/sdui/ValueGraphVisualization").then((m) => ({ default: m.ValueGraphVisualization }))
+);
 import { useClaimEvidenceGraph } from "@/hooks/useClaimEvidenceGraph";
 import { useValueGraph } from "@/hooks/useValueGraph";
 
@@ -204,11 +208,19 @@ export function ValueGraphStage({ opportunityId }: ValueGraphStageProps) {
     <div className="flex flex-col gap-6" data-testid="value-graph-stage">
       <div className="flex gap-0 rounded-xl border border-zinc-200 overflow-hidden" style={{ height: 500 }}>
         <div className="flex-1 min-w-0">
-          <ValueGraphVisualization
-            opportunityId={opportunityId}
-            onNodeSelect={handleNodeSelect}
-            className="h-full"
-          />
+          <Suspense
+            fallback={
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                Loading graph…
+              </div>
+            }
+          >
+            <ValueGraphVisualization
+              opportunityId={opportunityId}
+              onNodeSelect={handleNodeSelect}
+              className="h-full"
+            />
+          </Suspense>
         </div>
         {selectedEntity && (
           <EntityInspector

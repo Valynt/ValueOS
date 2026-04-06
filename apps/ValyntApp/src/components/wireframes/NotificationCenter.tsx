@@ -31,6 +31,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
 import { useWireframeAuth } from "./WireframeAuthContext";
@@ -453,24 +454,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 /*  Nav Bell Button (for nav rail)                                     */
 /* ------------------------------------------------------------------ */
 export function NotificationBell() {
-  const { toggle, derivedState } = useNotifications();
+  const { isOpen, toggle, derivedState } = useNotifications();
   const { unreadCount } = derivedState;
 
   return (
     <button
       onClick={toggle}
+      aria-label={
+        unreadCount > 0
+          ? `Notifications — ${unreadCount} unread (press N to toggle)`
+          : "Notifications (press N to toggle)"
+      }
+      aria-expanded={isOpen}
+      aria-haspopup="dialog"
       className="relative w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors group"
-      title="Notifications (N)"
     >
-      <Bell className="w-4 h-4" />
+      <Bell className="w-4 h-4" aria-hidden="true" />
       {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-risk text-[8px] font-bold text-white flex items-center justify-center ring-2 ring-card">
+        <span
+          aria-hidden="true"
+          className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-risk text-[8px] font-bold text-white flex items-center justify-center ring-2 ring-card"
+        >
           {unreadCount}
         </span>
       )}
-      {/* Pulse animation for unread */}
       {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-risk animate-ping opacity-30" />
+        <span
+          aria-hidden="true"
+          className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-risk animate-ping opacity-30"
+        />
       )}
     </button>
   );
@@ -725,13 +737,24 @@ function NotificationListItem({
   const Icon = notification.icon;
   const priorityStyle = PRIORITY_STYLES[notification.priority];
 
+  const handleKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick(notification.id);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03 }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${notification.read ? "" : "Unread: "}${notification.title} — ${notification.source}, ${formatRelativeTime(notification.timestamp)}. Click to mark as read.`}
       onClick={() => onClick(notification.id)}
-      className={`relative px-4 py-3 border-l-2 cursor-pointer transition-colors group ${
+      onKeyDown={handleKeyDown}
+      className={`relative px-4 py-3 border-l-2 cursor-pointer transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
         priorityStyle.border
       } ${
         notification.read
@@ -805,6 +828,36 @@ export default function NotificationCenter() {
     shouldVirtualize
   );
 
+  // Focus management: move focus into the panel when it opens, restore when it closes.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      // Defer so the panel is in the DOM before we focus it.
+      requestAnimationFrame(() => {
+        panelRef.current?.focus();
+      });
+    } else {
+      previousFocusRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handler, { capture: true });
+    return () => document.removeEventListener("keydown", handler, { capture: true });
+  }, [isOpen, setIsOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -815,17 +868,27 @@ export default function NotificationCenter() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            aria-hidden="true"
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel */}
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              unreadCount > 0
+                ? `Notifications — ${unreadCount} unread`
+                : "Notifications"
+            }
+            tabIndex={-1}
             initial={{ x: -420, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -420, opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed top-0 left-[52px] bottom-0 z-50 w-[400px] bg-card border-r border-border shadow-2xl shadow-black/40 flex flex-col"
+            className="fixed top-0 left-[52px] bottom-0 z-50 w-[400px] bg-card border-r border-border shadow-2xl shadow-black/40 flex flex-col focus-visible:outline-none"
           >
             {/* Header */}
             <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
@@ -849,9 +912,10 @@ export default function NotificationCenter() {
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
+                  aria-label="Close notifications"
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -866,6 +930,8 @@ export default function NotificationCenter() {
                   <button
                     key={cat.key}
                     onClick={() => setActiveFilter(cat.key)}
+                    aria-pressed={isActive}
+                    aria-label={`Filter by ${cat.label}${count > 0 ? ` (${count} unread)` : ""}`}
                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono transition-colors whitespace-nowrap ${
                       isActive
                         ? "bg-primary/10 text-primary"
@@ -901,8 +967,8 @@ export default function NotificationCenter() {
             {/* Notification List */}
             <div ref={containerRef} onScroll={onScroll} className="flex-1 overflow-y-auto">
               {activeView.filtered.length === 0 && (
-                <div className="px-4 py-12 text-center">
-                  <Filter className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+                <div className="px-4 py-12 text-center" role="status">
+                  <Filter aria-hidden="true" className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
                   <p className="text-[11px] text-muted-foreground/50">
                     No notifications in this category
                   </p>
@@ -948,7 +1014,7 @@ export default function NotificationCenter() {
             {/* Footer */}
             <div className="px-4 py-2.5 border-t border-border flex items-center justify-between shrink-0 bg-muted/10">
               <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground/40">
-                <Eye className="w-3 h-3" />
+                <Eye aria-hidden="true" className="w-3 h-3" />
                 <span>{derivedState.readCount} read</span>
                 <span>·</span>
                 <span>{derivedState.unreadCount} unread</span>
