@@ -29,15 +29,11 @@ const mockServerClient = {
 };
 
 // Track which factory was called so the test can assert the correct one.
-const createServerSupabaseClientSpy = vi.fn().mockReturnValue(mockServerClient);
+const createWorkerServiceSupabaseClientSpy = vi.fn().mockReturnValue(mockServerClient);
 const createUserSupabaseClientSpy = vi.fn();
 
-vi.mock("../../../lib/supabase.js", () => ({
-  assertNotTestEnv: vi.fn(),
-  createServerSupabaseClient: (...args: unknown[]) => createServerSupabaseClientSpy(...args),
-  createUserSupabaseClient: (...args: unknown[]) => createUserSupabaseClientSpy(...args),
-  // Named export consumed by modules that import supabase directly
-  supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), insert: vi.fn().mockResolvedValue({ data: null, error: null }), update: vi.fn().mockReturnThis(), delete: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) })) },
+vi.mock("../../../lib/supabase/privileged/index.js", () => ({
+  createWorkerServiceSupabaseClient: (...args: unknown[]) => createWorkerServiceSupabaseClientSpy(...args),
 }));
 
 vi.mock("../../../repositories/NarrativeDraftRepository.js", () => ({
@@ -47,8 +43,8 @@ vi.mock("../../../repositories/NarrativeDraftRepository.js", () => ({
 }));
 
 vi.mock("../../../repositories/FinancialModelSnapshotRepository.js", () => ({
-  financialModelSnapshotRepository: {
-    getLatestSnapshotForCase: vi.fn().mockResolvedValue(null),
+  FinancialModelSnapshotRepository: class {
+    getLatestSnapshotForCase = vi.fn().mockResolvedValue(null);
   },
 }));
 
@@ -80,14 +76,16 @@ describe("PptxExportService", () => {
     vi.clearAllMocks();
   });
 
-  it("uses createServerSupabaseClient, not createUserSupabaseClient", async () => {
+  it("uses createWorkerServiceSupabaseClient, not createUserSupabaseClient", async () => {
     // Import after mocks are set up
     const { PptxExportService } = await import("../PptxExportService.js");
     new PptxExportService();
 
-    expect(createServerSupabaseClientSpy).toHaveBeenCalledOnce();
-    // Called with no arguments — service-role client requires none
-    expect(createServerSupabaseClientSpy).toHaveBeenCalledWith();
+    expect(createWorkerServiceSupabaseClientSpy).toHaveBeenCalledOnce();
+    // Called with justification
+    expect(createWorkerServiceSupabaseClientSpy).toHaveBeenCalledWith({
+      justification: "service-role:justified PptxExportService reads case data and uploads exports",
+    });
     expect(createUserSupabaseClientSpy).not.toHaveBeenCalled();
   });
 
@@ -95,11 +93,9 @@ describe("PptxExportService", () => {
     const { PptxExportService } = await import("../PptxExportService.js");
     new PptxExportService();
 
-    const calls = createServerSupabaseClientSpy.mock.calls;
+    const calls = createWorkerServiceSupabaseClientSpy.mock.calls;
     for (const args of calls) {
       expect(args[0]).not.toBe(undefined);
-      // service-role factory takes no args; first arg should be absent
-      expect(args.length).toBe(0);
     }
   });
 });

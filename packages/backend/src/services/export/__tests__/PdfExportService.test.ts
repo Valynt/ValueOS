@@ -6,7 +6,22 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 // Mock dependencies
 vi.mock('../../../lib/supabase.js', () => ({
-  createServerSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(() => ({
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn(),
+        createSignedUrl: vi.fn(),
+      })),
+    },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
   assertNotTestEnv: vi.fn(),
   createUserSupabaseClient: vi.fn(),
   supabase: {
@@ -25,6 +40,8 @@ vi.mock('@shared/lib/logger', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   })),
 }));
 
