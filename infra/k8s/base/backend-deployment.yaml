@@ -153,6 +153,16 @@ spec:
                 configMapKeyRef:
                   name: valynt-config
                   key: otel-service-name
+            - name: OTEL_TRACES_SAMPLER
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: otel-traces-sampler
+            - name: OTEL_TRACES_SAMPLER_ARG
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: otel-traces-sampler-arg
 
           resources:
             requests:

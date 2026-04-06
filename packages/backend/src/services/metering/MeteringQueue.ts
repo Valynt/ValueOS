@@ -80,6 +80,15 @@ export class MeteringQueue {
     this.connection = await connect({
       servers: this.config.natsServers,
       name: 'valueos-metering',
+      // Reconnect resilience: retry indefinitely with exponential backoff.
+      // Without this, the billing aggregator worker crashes on transient NATS
+      // unavailability at startup (e.g., during rolling k8s restarts).
+      reconnect: true,
+      maxReconnectAttempts: -1,   // retry forever
+      reconnectTimeWait: 2_000,   // 2 s between attempts
+      maxPingOut: 3,
+      pingInterval: 30_000,
+      connectTimeout: 10_000,
     });
     this.jetstream = this.connection.jetstream();
     this.manager = await this.connection.jetstreamManager();

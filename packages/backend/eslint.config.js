@@ -114,6 +114,17 @@ export default tseslint.config(
           message:
             "TaskContext must be imported as a named type export. Use: import type { TaskContext } from '.../TaskContext'.",
         },
+        // ── Security: ban Math.random() in crypto/auth/billing/secret paths ─────
+        // Math.random() is NOT cryptographically secure. Use crypto.randomBytes()
+        // or the CryptoUtils.generateRandomBytes() wrapper instead.
+        // Sprint 3 fix: this rule prevents regressions after the Math.random →
+        // crypto.randomBytes migration in CryptoUtils.ts and SecretVersioning.ts.
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name='Math'][callee.property.name='random']",
+          message:
+            "Math.random() is not cryptographically secure. Use crypto.randomBytes() or CryptoUtils.generateRandomBytes() for security-sensitive values.",
+        },
       ],
     },
   },

@@ -42,3 +42,9 @@ data:
   # OpenTelemetry — in-cluster collector endpoint (HTTP/OTLP)
   otel-exporter-otlp-endpoint: "http://otel-collector.observability.svc.cluster.local:4318"
   otel-service-name: "valueos-backend"
+  # Sampler: parentbased_traceidratio with 10% sample rate in production.
+  # The tracing.ts code defaults to 0.1 in production, but we set this
+  # explicitly here so the value is visible in config and can be overridden
+  # per-overlay without a code change.
+  otel-traces-sampler: "parentbased_traceidratio"
+  otel-traces-sampler-arg: "0.1"
