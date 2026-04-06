@@ -379,14 +379,18 @@ router.post(
             }
 
             // Mark as accepted
-            await supabase
+            const { error: updateErr } = await supabase
               .from('company_research_suggestions')
               .update({
                 status: 'accepted',
                 accepted_at: new Date().toISOString(),
               })
-              .eq('id', id);
+              .eq('id', id)
+              .eq('tenant_id', tenantId);
 
+            if (updateErr) {
+              return { id, success: false, error: updateErr.message };
+            }
             return { id, success: true };
           } catch (err) {
             return { id, success: false, error: err instanceof Error ? err.message : String(err) };
