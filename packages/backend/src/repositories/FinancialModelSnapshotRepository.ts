@@ -11,7 +11,10 @@
 import { z } from 'zod';
 
 import { logger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
+// service-role:justified repositories/ allowlisted; snapshot writes originate from agent background processing
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
+
+const supabase = createServiceRoleSupabaseClient();
 
 // ---------------------------------------------------------------------------
 // Types

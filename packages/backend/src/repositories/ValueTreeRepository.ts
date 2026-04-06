@@ -8,10 +8,12 @@
  * All operations are scoped to (case_id, organization_id).
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { logger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
+// service-role:justified repositories/ allowlisted for module-level singleton used by workflow/runtime services
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +62,17 @@ interface ValueTreeParentLink {
 // ---------------------------------------------------------------------------
 
 export class ValueTreeRepository {
+  private readonly supabase: SupabaseClient;
+
+  /**
+   * @param client - Optional RLS-scoped client. When omitted the module-level
+   *   service-role singleton is used (only appropriate for background workflow
+   *   and runtime services that have no request JWT available).
+   */
+  constructor(client?: SupabaseClient) {
+    this.supabase = client ?? createServiceRoleSupabaseClient();
+  }
+
   /**
    * Fetch all nodes for a case ordered by sort_order.
    */
@@ -67,7 +80,7 @@ export class ValueTreeRepository {
     caseId: string,
     organizationId: string,
   ): Promise<ValueTreeNodeRow[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('value_tree_nodes')
       .select('*')
       .eq('case_id', caseId)
@@ -98,7 +111,7 @@ export class ValueTreeRepository {
   ): Promise<ValueTreeNodeRow[]> {
     const validated = nodes.map((n) => ValueTreeNodeWriteSchema.parse(n));
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await this.supabase
       .from('value_tree_nodes')
       .delete()
       .eq('case_id', caseId)
@@ -117,7 +130,7 @@ export class ValueTreeRepository {
       return [];
     }
 
-    const { data: inserted, error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await this.supabase
       .from('value_tree_nodes')
       .insert(
         validated.map((n, i) => ({
@@ -161,7 +174,7 @@ export class ValueTreeRepository {
       }));
 
     if (parentUpdates.length > 0) {
-      const { error: parentUpdateError } = await supabase.rpc('bulk_update_value_tree_node_parents', {
+      const { error: parentUpdateError } = await this.supabase.rpc('bulk_update_value_tree_node_parents', {
         p_case_id: caseId,
         p_organization_id: organizationId,
         p_parent_links: parentUpdates,
@@ -194,7 +207,7 @@ export class ValueTreeRepository {
     caseId: string,
     organizationId: string,
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('value_tree_nodes')
       .delete()
       .eq('case_id', caseId)

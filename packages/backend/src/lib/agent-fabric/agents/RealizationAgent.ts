@@ -223,9 +223,12 @@ export class RealizationAgent extends BaseAgent {
         const { RealizationFeedbackLoop } = await import(
           '../../../services/post-v1/RealizationFeedbackLoop.js'
         ) as { RealizationFeedbackLoop: typeof import('../../../services/post-v1/RealizationFeedbackLoop.js').RealizationFeedbackLoop };
-        const { createServerSupabaseClient } = await import('../../../lib/supabase.js');
 
-        const feedbackLoop = new RealizationFeedbackLoop(createServerSupabaseClient());
+        // Use the request-scoped RLS client when available.
+        // service-role:justified fallback for background agent runs without a request JWT
+        const { createServiceRoleSupabaseClient } = await import('../../../lib/supabase.js');
+        const feedbackClient = context.supabaseClient ?? createServiceRoleSupabaseClient();
+        const feedbackLoop = new RealizationFeedbackLoop(feedbackClient);
 
         // Record the overall realization rate as the actual outcome
         await feedbackLoop.recordActualOutcome(

@@ -1,7 +1,13 @@
 /**
  * Service for managing Value Models, Business Cases, and their related artifacts.
  * This service encapsulates business logic and uses repositories for data access.
+ *
+ * Requires a request-scoped RLS Supabase client injected at construction time.
+ * All repository operations run under the caller's JWT, enforcing tenant isolation
+ * via RLS without any service_role bypass.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../../lib/logger.js"
 import { KpiTargetRepository } from "../../repositories/KpiTargetRepository";
 import { RoiModelCalculationRepository } from "../../repositories/RoiModelCalculationRepository";
@@ -27,19 +33,24 @@ export class ModelService {
   private roiModelCalcRepo: RoiModelCalculationRepository;
   private valueCommitRepo: ValueCommitRepository;
 
-  constructor(context: LifecycleContext) {
+  /**
+   * @param context - Lifecycle context carrying organization_id and user_id.
+   * @param rlsClient - Request-scoped Supabase client authenticated with the
+   *   caller's JWT. All DB operations run under this client's RLS policies.
+   */
+  constructor(context: LifecycleContext, rlsClient: SupabaseClient) {
     const tenantId = context.organization_id;
     if (!tenantId) {
       throw new Error("Tenant ID (organization_id) is required to initialize ModelService");
     }
     this.context = context;
-    this.roiModelRepo = new RoiModelRepository();
-    this.kpiTargetRepo = new KpiTargetRepository();
-    this.valueTreeRepo = new ValueTreeRepository();
-    this.valueTreeNodeRepo = new ValueTreeNodeRepository();
-    this.valueTreeLinkRepo = new ValueTreeLinkRepository();
-    this.roiModelCalcRepo = new RoiModelCalculationRepository();
-    this.valueCommitRepo = new ValueCommitRepository();
+    this.roiModelRepo = new RoiModelRepository(rlsClient);
+    this.kpiTargetRepo = new KpiTargetRepository(rlsClient);
+    this.valueTreeRepo = new ValueTreeRepository(rlsClient);
+    this.valueTreeNodeRepo = new ValueTreeNodeRepository(rlsClient);
+    this.valueTreeLinkRepo = new ValueTreeLinkRepository(rlsClient);
+    this.roiModelCalcRepo = new RoiModelCalculationRepository(rlsClient);
+    this.valueCommitRepo = new ValueCommitRepository(rlsClient);
   }
 
   /**

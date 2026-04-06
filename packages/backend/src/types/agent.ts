@@ -100,6 +100,13 @@ export interface LifecycleContext {
   metadata?: Record<string, unknown>;
   /** Free-form query string passed by some callers. */
   query?: string;
+  /**
+   * Request-scoped RLS Supabase client authenticated with the caller's JWT.
+   * When present, agents must use this client for all DB operations so that
+   * tenant isolation is enforced via RLS rather than service_role bypass.
+   * Injected by the API layer from the authenticated request context.
+   */
+  supabaseClient?: import('@supabase/supabase-js').SupabaseClient;
 }
 
 export interface WorkspaceData {

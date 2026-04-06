@@ -36,8 +36,8 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../../supabase.js';
+// service-role:justified provenance tracker singleton has no request JWT; scoped to tenant via organizationId filter
+import { createServiceRoleSupabaseClient } from '../../supabase.js';
 import { resolvePromptTemplate } from '../promptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
@@ -100,7 +100,7 @@ function getProvenanceTracker(organizationId: string): ProvenanceTracker {
     return existingTracker;
   }
 
-  const client = createServerSupabaseClient();
+  const client = createServiceRoleSupabaseClient();
   const store = new SupabaseProvenanceStore(client, organizationId);
   const tracker = new ProvenanceTracker(store);
   provenanceTrackersByTenant.set(organizationId, tracker);
@@ -181,7 +181,7 @@ export class FinancialModelingAgent extends BaseAgent {
       await this.persistSnapshot(valueCaseId, context.organization_id, computedModels, llmOutput);
       // Persist scenarios to scenarios table
       const baseAssumptions = scenarios.find(s => s.scenarioType === 'base')?.assumptions || {};
-      await this.persistScenarios(valueCaseId, context.organization_id, scenarioFinancials, baseAssumptions);
+      await this.persistScenarios(context, valueCaseId, context.organization_id, scenarioFinancials, baseAssumptions);
     }
 
     // Step 6: Build SDUI sections
@@ -513,8 +513,11 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
 
   /**
    * Persist scenarios to database.
+   * Uses the RLS client from context when available; falls back to service-role
+   * for callers that have no request JWT (e.g. background job invocations).
    */
   private async persistScenarios(
+    context: LifecycleContext,
     caseId: string,
     organizationId: string,
     scenarios: Array<{
@@ -531,7 +534,10 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     }>,
     assumptionsSnapshot: Record<string, number>,
   ): Promise<void> {
-    const supabase = createServerSupabaseClient();
+    // Prefer the request-scoped RLS client injected by the API layer.
+    // Fall back to service-role only when no JWT is available (background runs).
+    // service-role:justified fallback for background agent runs without a request JWT
+    const supabase = context.supabaseClient ?? createServiceRoleSupabaseClient();
 
     const records = scenarios.map(scenario => ({
       id: `scn_${Date.now()}_${scenario.scenarioType}`,
