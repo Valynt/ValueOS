@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
 // service-role:justified background-worker requires elevated DB access for artifact job state management
@@ -50,14 +51,19 @@ export interface CreateArtifactJobInput {
 // ---------------------------------------------------------------------------
 
 export class ArtifactJobRepository {
-  private readonly supabase = createWorkerServiceSupabaseClient({
-    justification:
-      "service-role:justified background-worker requires elevated DB access for artifact job state management",
-  });
+  private readonly supabase: SupabaseClient;
+
+  constructor(supabase?: SupabaseClient) {
+    this.supabase =
+      supabase ??
+      createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified background-worker requires elevated DB access for artifact job state management",
+      });
+  }
 
   /**
    * Create a new artifact job row with status 'queued'.
-   * Returns the persisted job.
    */
   async create(input: CreateArtifactJobInput): Promise<ArtifactJob> {
     const id = randomUUID();

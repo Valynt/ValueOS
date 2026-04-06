@@ -8,60 +8,18 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
+import { type SupabaseClient } from "@supabase/supabase-js";
 
-import { supabase } from "../lib/supabase.js"
-
-import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
-
-// Null-safe supabase proxy that throws clear errors when client is unavailable
-const createSupabaseProxy = () => {
-  if (supabase) return supabase;
-  
-  // Return a proxy that throws on any property access
-  const handler: ProxyHandler<object> = {
-    get(_target, prop) {
-      if (prop === 'auth') {
-        return new Proxy({}, {
-          get(_t, authProp) {
-            return () => Promise.reject(
-              new ServiceError(
-                `Supabase not configured. Cannot call auth.${String(authProp)}()`,
-                ErrorCode.SERVICE_UNAVAILABLE
-              )
-            );
-          }
-        });
-      }
-      throw new ServiceError(
-        `Supabase client not configured. Feature unavailable.`,
-        ErrorCode.SERVICE_UNAVAILABLE
-      );
-    }
-  };
-  return new Proxy({}, handler) as typeof supabase;
-};
-
-export interface RetryConfig {
-  maxRetries: number;
-  initialDelay: number;
-  maxDelay: number;
-  backoffMultiplier: number;
-}
-
-export interface RequestConfig {
-  timeout?: number;
-  retries?: Partial<RetryConfig>;
-  deduplicationKey?: string;
-  skipCache?: boolean;
-}
-
-interface PendingRequest {
-  promise: Promise<unknown>;
-  timestamp: number;
-}
+import {
+  ErrorCode,
+  handleServiceError,
+  NetworkError,
+  ServiceError,
+  TimeoutError,
+} from "./errors.js";
 
 export abstract class BaseService {
-  protected supabase = createSupabaseProxy();
+  protected supabase?: SupabaseClient;
   protected serviceName: string;
   protected logger: ReturnType<typeof createLogger>;
 
@@ -78,8 +36,9 @@ export abstract class BaseService {
     backoffMultiplier: 2,
   };
 
-  constructor(serviceName: string) {
+  constructor(serviceName: string, supabase?: SupabaseClient) {
     this.serviceName = serviceName;
+    this.supabase = supabase;
     this.logger = createLogger({ component: serviceName });
   }
 
@@ -110,8 +69,26 @@ export abstract class BaseService {
       }
     }
 
-    const retryConfig = { ...this.defaultRetryConfig, ...config.retries };
-    const promise = this.executeWithRetry(operation, retryConfig, config.timeout);
+    coninterface RetryConfig {
+  maxRetries: number;
+  initialDelay: number;
+  maxDelay: number;
+  backoffMultiplier: number;
+}
+
+export interface RequestConfig {
+  timeout?: number;
+  retries?: Partial<RetryConfig>;
+  deduplicationKey?: string;
+  skipCache?: boolean;
+}
+
+export st retryConfig = { ...this.defaultRetryConfig, ...config.retries };
+    const promise = this.executeWithRetry(
+      operation,
+      retryConfig,
+      config.timeout
+    );
 
     // Store pending request
     if (deduplicationKey) {
@@ -172,17 +149,26 @@ export abstract class BaseService {
             config.maxDelay
           );
 
-          this.log("warn", `Attempt ${attempt + 1} failed, retrying in ${delay}ms`, {
-            error: lastError.message,
-          });
+          this.log(
+            "warn",
+            `Attempt ${attempt + 1} failed, retrying in ${delay}ms`,
+            {
+              error: lastError.message,
+            }
+          );
 
           await this.sleep(delay);
         }
       }
     }
 
-    this.log("error", `All retry attempts failed`, { error: lastError?.message });
-    throw new NetworkError("Operation failed after multiple retries", lastError);
+    this.log("error", `All retry attempts failed`, {
+      error: lastError?.message,
+    });
+    throw new NetworkError(
+      "Operation failed after multiple retries",
+      lastError
+    );
   }
 
   /**
@@ -191,7 +177,9 @@ export abstract class BaseService {
   private withTimeout<T>(promise: Promise<T>, timeout: number): Promise<T> {
     return Promise.race([
       promise,
-      new Promise<T>((_, reject) => setTimeout(() => reject(new TimeoutError()), timeout)),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new TimeoutError()), timeout)
+      ),
     ]);
   }
 
@@ -215,7 +203,7 @@ export abstract class BaseService {
    * Sleep utility
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -232,7 +220,11 @@ export abstract class BaseService {
   /**
    * Logging utility
    */
-  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: Record<string, unknown>): void {
+  protected log(
+    level: "debug" | "info" | "warn" | "error",
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     switch (level) {
       case "debug":
         this.logger.debug(message, data);
@@ -248,8 +240,8 @@ export abstract class BaseService {
           data?.error instanceof Error
             ? data.error
             : data?.error
-            ? new Error(String(data.error))
-            : undefined;
+              ? new Error(String(data.error))
+              : undefined;
         this.logger.error(message, error, data);
         break;
     }
@@ -258,8 +250,11 @@ export abstract class BaseService {
   /**
    * Validate required fields
    */
-  protected validateRequired<T extends Record<string, unknown>>(data: T, fields: (keyof T)[]): void {
-    const missing = fields.filter((field) => !data[field]);
+  protected validateRequired<T extends Record<string, unknown>>(
+    data: T,
+    fields: (keyof T)[]
+  ): void {
+    const missing = fields.filter(field => !data[field]);
     if (missing.length > 0) {
       throw new ServiceError(
         `Missing required fields: ${missing.join(", ")}`,

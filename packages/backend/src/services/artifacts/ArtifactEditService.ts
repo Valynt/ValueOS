@@ -56,7 +56,7 @@ export class ArtifactEditService {
     });
 
     // Validate tenant access before proceeding
-    const { data: artifact, error: fetchError } = await supabase
+    const { data: artifact, error: fetchError } = await this.supabase
       .from("case_artifacts")
       .select("content_json, tenant_id, organization_id")
       .eq("id", input.artifactId)
@@ -77,7 +77,7 @@ export class ArtifactEditService {
     }
 
     // Store the edit record in artifact_edits
-    const { data: editRecord, error: editError } = await supabase
+    const { data: editRecord, error: editError } = await this.supabase
       .from("artifact_edits")
       .insert({
         tenant_id: input.tenantId,
@@ -108,7 +108,7 @@ export class ArtifactEditService {
     );
 
     // Update the artifact with new content
-    const { error: updateError } = await supabase
+    const { error: updateError } = await this.supabase
       .from("case_artifacts")
       .update({
         content_json: updatedContent,
@@ -158,7 +158,7 @@ export class ArtifactEditService {
       createdAt: string;
     }>
   > {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("artifact_edits")
       .select(
         "id, field_path, old_value, new_value, edited_by_user_id, reason, created_at"
@@ -226,7 +226,7 @@ export class ArtifactEditService {
     artifactId: string,
     userId: string
   ): Promise<boolean> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("case_artifacts")
       .select("id")
       .eq("id", artifactId)

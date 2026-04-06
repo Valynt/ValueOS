@@ -58,9 +58,6 @@ const EditArtifactSchema = z.object({
 // Repositories, Services, and Queue
 // ---------------------------------------------------------------------------
 
-const artifactJobRepo = new ArtifactJobRepository();
-const editService = new ArtifactEditService();
-
 // Single shared queue instance — avoids opening a new Redis connection per request.
 function createArtifactQueue(): Queue<ArtifactGenerationJobPayload> {
   const config = getAgentMessageQueueConfig();
@@ -133,6 +130,8 @@ router.post(
         res.status(404).json({ error: "Value case not found." });
         return;
       }
+
+      const artifactJobRepo = new ArtifactJobRepository(req.supabase);
 
       // Idempotency: return the existing job if one is already queued or running
       // for this (caseId, artifactType) combination. Prevents duplicate jobs on
@@ -354,6 +353,7 @@ router.patch(
       const body = EditArtifactSchema.parse(req.body);
 
       // Verify artifact exists and belongs to this case
+      const artifactRepo = new ArtifactRepository(req.supabase);
       const artifact = await artifactRepo.getById(
         artifactId,
         tenantId,
@@ -365,6 +365,7 @@ router.patch(
       }
 
       // Apply the edit
+      const editService = new ArtifactEditService(req.supabase);
       const result = await editService.editArtifact({
         tenantId,
         organizationId,
@@ -401,8 +402,7 @@ router.get(
     try {
       const { caseId, artifactId } = req.params;
       const tenantId = req.tenantId as string;
-      const organizationId = req.organizationId as string;
-
+      const artifactRepo = new ArtifactRepository(req.supabase);
       // Verify artifact exists and belongs to this case
       const artifact = await artifactRepo.getById(
         artifactId,
@@ -412,6 +412,9 @@ router.get(
       if (!artifact || artifact.case_id !== caseId) {
         res.status(404).json({ error: "Artifact not found" });
         return;
+      }
+
+      const editService = new ArtifactEditService(req.supabase);        return;
       }
 
       const edits = await editService.getEditHistory(
