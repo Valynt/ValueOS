@@ -915,40 +915,51 @@ ValueOS uses [Infisical](https://infisical.com) for secure secrets management. T
 
 Instead of sharing `.env.local` files, use the Infisical CLI to inject secrets directly into your development process:
 
-**1. Install the CLI**
+#### 1. Install or invoke the CLI
 
 ```bash
-# macOS
-brew install infisical/get-cli/infisical
+# Recommended in this dev container: no global install required
+pnpm dlx @infisical/cli login
 
-# Or via npm (cross-platform)
-npm i -g @infisical/cli
-```
-
-**2. Authenticate**
-
-```bash
+# Alternative if you already have the binary installed locally
 infisical login
 ```
 
-**3. Initialize Project**
+> If `npm i -g @infisical/cli` fails with `EACCES`, use `pnpm dlx @infisical/cli ...` instead of a system-wide install.
+
+#### 2. Authenticate
+
+```bash
+pnpm run infisical:login
+```
+
+#### 3. Initialize Project
 
 ```bash
 # From the repository root
-infisical init
+pnpm run infisical:init
 # Select the "ValueOS" project when prompted
+# The repo default environment is pre-set to "dev" in .infisical.json
 ```
 
-**4. Run Development Commands with Secret Injection**
+#### 4. Run Development Commands with Secret Injection
 
 ```bash
 # Backend with injected secrets
-infisical run --env=dev -- pnpm run dev:backend
+pnpm run dev:backend:infisical
 
 # Frontend with injected secrets
-infisical run --env=dev -- pnpm run dev:frontend
+pnpm run dev:frontend:infisical
 
 # Run tests with secrets
+pnpm run test:infisical
+```
+
+If you prefer the raw CLI flow, the helper scripts above are equivalent to:
+
+```bash
+infisical run --env=dev -- pnpm run dev:backend
+infisical run --env=dev -- pnpm run dev:frontend
 infisical run --env=test -- pnpm test
 ```
 
@@ -957,6 +968,7 @@ infisical run --env=test -- pnpm test
 | Local Command                 | Infisical Environment | Use Case                        |
 | :---------------------------- | :-------------------- | :------------------------------ |
 | `infisical run --env=dev`     | `dev`                 | Local development               |
+| `infisical run --env=test`    | `test`                | Automated tests                 |
 | `infisical run --env=staging` | `staging`             | Staging validation              |
 | `infisical run --env=prod`    | `prod`                | **Read-only** production access |
 
@@ -967,15 +979,22 @@ infisical run --env=test -- pnpm test
 - **Audit trail** — All secret access is logged with user identity
 - **Tenant isolation** — Each tenant's secrets are isolated in `/tenants/{tenantId}` paths
 
+### Required Local Variables
+
+When `SECRETS_PROVIDER=infisical`, the backend expects these values in the environment (either from your local-only env file or from `infisical run`):
+
+- `INFISICAL_SITE_URL`
+- `INFISICAL_CLIENT_ID`
+- `INFISICAL_CLIENT_SECRET`
+- `INFISICAL_PROJECT_ID`
+- `INFISICAL_ENVIRONMENT=dev`
+
 ### Troubleshooting
 
-| Issue                   | Resolution                                                           |
-| :---------------------- | :------------------------------------------------------------------- |
-| `infisical login` fails | Verify your Infisical account has access to the ValueOS organization |
-| Secrets not found       | Check `infisical init` selected the correct project                  |
-| Permission denied       | Request access via `#dev-infisical-access` Slack channel             |
-
----
+- `infisical login` fails — verify your Infisical account has access to the ValueOS organization.
+- Secrets not found — check that `infisical init` selected the correct project.
+- `ERR_MODULE_NOT_FOUND` or `node_modules missing` — run `pnpm install --frozen-lockfile`, then rerun the Infisical command.
+- Permission denied — request access via `#dev-infisical-access` Slack channel.
 
 **Last Updated:** 2026-01-28
 **Related:** `docs/dev/DEV_MASTER.md`, `docs/getting-started/quickstart.md`

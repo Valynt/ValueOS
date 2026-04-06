@@ -22,6 +22,15 @@ find .devcontainer/scripts -type f -name "*.sh" -exec chmod +x {} +
 # Ensure pnpm is available (automations will run the full install)
 verify_pnpm
 
+if [[ -n "${INFISICAL_SITE_URL:-}" ]]; then
+  if curl -fsS --max-time 5 "${INFISICAL_SITE_URL%/}/api/status" >/dev/null 2>&1 \
+    || curl -fsS --max-time 5 "${INFISICAL_SITE_URL%/}/healthz" >/dev/null 2>&1; then
+    log "Infisical reachable at ${INFISICAL_SITE_URL}"
+  else
+    log "Infisical not reachable at ${INFISICAL_SITE_URL}; continuing without blocking setup"
+  fi
+fi
+
 if [[ ! -d "node_modules" ]]; then
 	log "Installing workspace dependencies with pnpm"
 	pnpm install

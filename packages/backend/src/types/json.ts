@@ -9,3 +9,7 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 );
 
 export const JsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), JsonValueSchema);
+
+// Backward-compatible aliases for existing lowercase imports in runtime code.
+export const jsonValueSchema = JsonValueSchema;
+export const jsonObjectSchema = JsonObjectSchema;
