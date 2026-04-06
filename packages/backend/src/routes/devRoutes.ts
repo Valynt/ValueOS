@@ -15,7 +15,7 @@ function parseAllowlist(rawAllowlist?: string): string[] {
 
   const entries = rawAllowlist
     .split(",")
-    .map((entry) => normalizeHost(entry))
+    .map(entry => normalizeHost(entry))
     .filter(Boolean);
 
   return entries.length > 0 ? entries : DEFAULT_DEV_ROUTE_HOST_ALLOWLIST;
@@ -45,8 +45,8 @@ export function assertDevRoutesConfiguration(): void {
     // by a caller, whereas process.exit cannot.
     logger.error(
       "[Security] FATAL: ENABLE_DEV_ROUTES=true is not allowed when NODE_ENV=production. " +
-      "Dev routes include child_process.exec which must never be reachable in production. " +
-      "Disable dev routes or set NODE_ENV to a non-production value."
+        "Dev routes include child_process operations which must never be reachable in production. " +
+        "Disable dev routes or set NODE_ENV to a non-production value."
     );
     process.exit(1);
   }
@@ -60,7 +60,7 @@ export function isDevRouteHostAllowed(hostname: string | undefined): boolean {
   const normalizedHost = normalizeHost(hostname);
   const allowlist = getDevRouteHostAllowlist();
 
-  return allowlist.some((allowedHost) => {
+  return allowlist.some(allowedHost => {
     if (!allowedHost) {
       return false;
     }

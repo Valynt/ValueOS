@@ -5,24 +5,29 @@
  * They support the Smart Remediation "Fix It" buttons in the Dev HUD.
  */
 
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
 import { Request, Response, Router } from "express";
 import { z } from "zod";
-
 
 import { logger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
 
 import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const router = Router();
 const CACHE_PREFIX = "valueos";
 
+const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+
 type RedisCacheClient = {
-  scan(cursor: string, options: { MATCH: string; COUNT: number }): Promise<[string, string[]]>;
+  scan(
+    cursor: string,
+    options: { MATCH: string; COUNT: number }
+  ): Promise<[string, string[]]>;
   del(keys: string | string[]): Promise<number>;
 };
 
@@ -41,10 +46,15 @@ const cacheClearScopeSchema = z
     }
   });
 
-export function resolveCacheClearPattern(payload: unknown): { scope: "platform" | "tenant"; pattern: string } {
+export function resolveCacheClearPattern(payload: unknown): {
+  scope: "platform" | "tenant";
+  pattern: string;
+} {
   const parsed = cacheClearScopeSchema.safeParse(payload);
   if (!parsed.success) {
-    const formatted = parsed.error.issues.map((issue) => issue.message).join(", ");
+    const formatted = parsed.error.issues
+      .map(issue => issue.message)
+      .join(", ");
     throw new Error(formatted || "Invalid scope for cache clear operation");
   }
 
@@ -61,7 +71,10 @@ export function resolveCacheClearPattern(payload: unknown): { scope: "platform" 
   };
 }
 
-export async function deleteKeysByPattern(client: RedisCacheClient, pattern: string): Promise<number> {
+export async function deleteKeysByPattern(
+  client: RedisCacheClient,
+  pattern: string
+): Promise<number> {
   let cursor = "0";
   let deleted = 0;
 
@@ -112,7 +125,9 @@ function requireDevAdmin(req: Request, res: Response, next: () => void): void {
       : undefined;
   const role = roleFromUser ?? roleFromMetadata;
   if (role !== "admin" && role !== "service_role") {
-    res.status(403).json({ error: "Admin access required for this dev operation" });
+    res
+      .status(403)
+      .json({ error: "Admin access required for this dev operation" });
     return;
   }
   next();
@@ -157,30 +172,39 @@ if (isDevRoutesEnabled) {
     }
   });
 
-  router.post("/seed", requireDevAdmin, async (_req: Request, res: Response) => {
-    try {
-      const { stdout, stderr } = await execAsync("npm run seed:demo", {
-        cwd: process.cwd(),
-        timeout: 60000,
-      });
+  router.post(
+    "/seed",
+    requireDevAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const { stdout, stderr } = await execFileAsync(
+          npmCmd,
+          ["run", "seed:demo"],
+          {
+            cwd: process.cwd(),
+            timeout: 60000,
+          }
+        );
 
-      res.json({
-        success: true,
-        stdout: stdout.slice(-500),
-        stderr: stderr.slice(-500),
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : "Seed failed",
-      });
+        res.json({
+          success: true,
+          stdout: stdout.slice(-500),
+          stderr: stderr.slice(-500),
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error instanceof Error ? error.message : "Seed failed",
+        });
+      }
     }
-  });
+  );
 
   router.get("/db/migrations/status", async (_req: Request, res: Response) => {
     try {
-      const { stdout } = await execAsync(
-        "npx supabase migration list --local",
+      const { stdout } = await execFileAsync(
+        npxCmd,
+        ["supabase", "migration", "list", "--local"],
         {
           cwd: process.cwd(),
           timeout: 30000,
@@ -202,114 +226,140 @@ if (isDevRoutesEnabled) {
     }
   });
 
-  router.post("/db/migrations/run", requireDevAdmin, async (_req: Request, res: Response) => {
-    try {
-      const { stdout, stderr } = await execAsync("npm run db:push", {
-        cwd: process.cwd(),
-        timeout: 120000,
-      });
+  router.post(
+    "/db/migrations/run",
+    requireDevAdmin,
+    async (_req: Request, res: Response) => {
+      try {
+        const { stdout, stderr } = await execFileAsync(
+          npmCmd,
+          ["run", "db:push"],
+          {
+            cwd: process.cwd(),
+            timeout: 120000,
+          }
+        );
 
-      const appliedMatch = (stdout || "").match(/applied\s+(\d+)/i);
-      const applied = appliedMatch ? parseInt(appliedMatch[1], 10) : 0;
+        const appliedMatch = (stdout || "").match(/applied\s+(\d+)/i);
+        const applied = appliedMatch ? parseInt(appliedMatch[1], 10) : 0;
+
+        res.json({
+          success: true,
+          applied,
+          stdout: (stdout || "").slice(-500),
+          stderr: (stderr || "").slice(-500),
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error instanceof Error ? error.message : "Migration failed",
+        });
+      }
+    }
+  );
+
+  router.post(
+    "/auth/dev-token",
+    requireDevAdmin,
+    async (_req: Request, res: Response) => {
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        sub: "dev-user-001",
+        email: "dev@valueos.local",
+        role: "authenticated",
+        iat: now,
+        exp: now + 3600 * 24,
+        aud: "authenticated",
+      };
+
+      const fakeToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(
+        JSON.stringify(payload)
+      ).toString("base64")}.dev-signature`;
 
       res.json({
+        token: fakeToken,
+        refreshToken: `refresh-${Date.now()}`,
+        expiresIn: 86400,
+      });
+    }
+  );
+
+  router.post(
+    "/restart",
+    requireDevAdmin,
+    async (_req: Request, res: Response) => {
+      res.json({
         success: true,
-        applied,
-        stdout: (stdout || "").slice(-500),
-        stderr: (stderr || "").slice(-500),
+        message: "Restart signal sent. Server will restart shortly.",
       });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : "Migration failed",
-      });
+
+      setTimeout(() => {
+        logger.info("[Dev] Restart requested via Dev HUD");
+        process.exit(0);
+      }, 500);
     }
-  });
+  );
 
-  router.post("/auth/dev-token", requireDevAdmin, async (_req: Request, res: Response) => {
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      sub: "dev-user-001",
-      email: "dev@valueos.local",
-      role: "authenticated",
-      iat: now,
-      exp: now + 3600 * 24,
-      aud: "authenticated",
-    };
+  router.post(
+    "/clear-cache",
+    requireDevAdmin,
+    async (req: Request, res: Response) => {
+      const payload = req.body as unknown;
+      let parsedScope: { scope: "platform" | "tenant"; pattern: string };
 
-    const fakeToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(
-      JSON.stringify(payload)
-    ).toString("base64")}.dev-signature`;
-
-    res.json({
-      token: fakeToken,
-      refreshToken: `refresh-${Date.now()}`,
-      expiresIn: 86400,
-    });
-  });
-
-  router.post("/restart", requireDevAdmin, async (_req: Request, res: Response) => {
-    res.json({
-      success: true,
-      message: "Restart signal sent. Server will restart shortly.",
-    });
-
-    setTimeout(() => {
-      logger.info("[Dev] Restart requested via Dev HUD");
-      process.exit(0);
-    }, 500);
-  });
-
-  router.post("/clear-cache", requireDevAdmin, async (req: Request, res: Response) => {
-    const payload = req.body as unknown;
-    let parsedScope: { scope: "platform" | "tenant"; pattern: string };
-
-    try {
-      parsedScope = resolveCacheClearPattern(payload);
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        error: error instanceof Error ? error.message : "Invalid scope for cache clear operation",
-      });
-      return;
-    }
-
-    try {
-      const redisModule = (await import("../lib/redis")) as Record<
-        string,
-        unknown
-      >;
-      const getClient = redisModule.getRedisClient as
-        | (() => Promise<RedisCacheClient | null>)
-        | undefined;
-      let deletedCount = 0;
-
-      if (getClient) {
-        const client = await getClient();
-        if (client) {
-          deletedCount = await deleteKeysByPattern(client, parsedScope.pattern);
-        }
+      try {
+        parsedScope = resolveCacheClearPattern(payload);
+      } catch (error) {
+        res.status(400).json({
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Invalid scope for cache clear operation",
+        });
+        return;
       }
 
-      logger.info("dev.cache_clear.completed", {
-        event: "dev.cache_clear.completed",
-        scope: parsedScope.scope,
-        deleted_key_count: deletedCount,
-      });
+      try {
+        const redisModule = (await import("../lib/redis")) as Record<
+          string,
+          unknown
+        >;
+        const getClient = redisModule.getRedisClient as
+          | (() => Promise<RedisCacheClient | null>)
+          | undefined;
+        let deletedCount = 0;
 
-      res.json({
-        success: true,
-        scope: parsedScope.scope,
-        deletedKeyCount: deletedCount,
-        message: "Cache cleared for requested scope",
-      });
-    } catch (error) {
-      res.json({
-        success: false,
-        error: error instanceof Error ? error.message : "Cache clear failed",
-      });
+        if (getClient) {
+          const client = await getClient();
+          if (client) {
+            deletedCount = await deleteKeysByPattern(
+              client,
+              parsedScope.pattern
+            );
+          }
+        }
+
+        logger.info("dev.cache_clear.completed", {
+          event: "dev.cache_clear.completed",
+          scope: parsedScope.scope,
+          deleted_key_count: deletedCount,
+        });
+
+        res.json({
+          success: true,
+          scope: parsedScope.scope,
+          deletedKeyCount: deletedCount,
+          message: "Cache cleared for requested scope",
+        });
+      } catch (error) {
+        res.json({
+          success: false,
+          error: error instanceof Error ? error.message : "Cache clear failed",
+        });
+      }
     }
-  });
+  );
 }
 
 export default router;
