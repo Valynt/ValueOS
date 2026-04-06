@@ -342,11 +342,17 @@ router.post(
         .in('id', ids)
         .eq('tenant_id', tenantId);
 
+      if (bulkFetchErr) {
+        logger.error(
+          'Bulk accept prefetch failed',
+          bulkFetchErr instanceof Error ? bulkFetchErr : new Error(String(bulkFetchErr)),
+        );
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+
       const suggestionsMap = new Map();
-      if (!bulkFetchErr && fetchedSuggestions) {
-        for (const suggestion of fetchedSuggestions) {
-          suggestionsMap.set(suggestion.id, suggestion);
-        }
+      for (const suggestion of fetchedSuggestions ?? []) {
+        suggestionsMap.set(suggestion.id, suggestion);
       }
 
       for (const id of ids) {
