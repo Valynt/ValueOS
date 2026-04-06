@@ -1001,16 +1001,6 @@
       "count": 2
     },
     {
-      "path": "packages/backend/src/api/domainPacks/index.ts",
-      "rule": "security/detect-object-injection",
-      "count": 1
-    },
-    {
-      "path": "packages/backend/src/api/domainPacks/types.ts",
-      "rule": "security/detect-object-injection",
-      "count": 4
-    },
-    {
       "path": "packages/backend/src/api/initiatives/index.ts",
       "rule": "security/detect-object-injection",
       "count": 1
@@ -1774,11 +1764,6 @@
       "path": "packages/backend/src/services/domain-packs/MCPTools.ts",
       "rule": "@typescript-eslint/no-explicit-any",
       "count": 2
-    },
-    {
-      "path": "packages/backend/src/services/domainPacks/versioning.ts",
-      "rule": "security/detect-object-injection",
-      "count": 4
     },
     {
       "path": "packages/backend/src/services/export/ArtifactEditService.ts",

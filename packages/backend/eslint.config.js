@@ -89,15 +89,6 @@ export default tseslint.config(
               message:
                 "Deprecated UnifiedAgentAPI shim import. Use canonical `services/value/UnifiedAgentAPI`.",
             },
-            {
-              group: [
-                "**/api/domainPacks",
-                "**/api/domainPacks/*",
-                "**/api/domainPacks.js",
-              ],
-              message:
-                "Deprecated camelCase API path import. Use canonical `src/api/domain-packs/*`.",
-            },
           ],
         },
       ],

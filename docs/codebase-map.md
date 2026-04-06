@@ -122,7 +122,7 @@ Mounted in `packages/backend/src/server.ts`:
 | `/api/integrations` | `api/integrations.ts` | Integration management |
 | `/api/crm` | `api/crm.ts` | CRM operations |
 | `/api/onboarding` | `api/onboarding.ts` | Onboarding (concurrency guarded) |
-| `/api/v1/domain-packs` | `api/domainPacks.ts` | Domain pack management |
+| `/api/v1/domain-packs` | `api/domain-packs/index.ts` | Domain pack management |
 | `/api/v1/cases` | `api/valueCases/` | Value case CRUD |
 | `/api/compliance/evidence` | `api/complianceEvidence.ts` | Compliance evidence |
 | `/api/approvals/webhooks` | `api/approvalWebhooks.ts` | Approval webhooks |
@@ -178,8 +178,7 @@ Mounted in `packages/backend/src/server.ts`:
 | `approvals/` | ApprovalWebhookService, NotificationActionSigner, NotificationAdapterService |
 | `cache/` | AgentCache, TenantCache |
 | `bfa/` | Backend Function Agents (registry, auth-guard, telemetry, onboarding tools) |
-| `domain-packs/` | DomainPackService |
-| `domainPacks/` | merge, snapshot, validate, versioning |
+| `domain-packs/` | DomainPackService, merge, snapshot, validate, versioning |
 | `tools/` | Tool implementations |
 | `types/` | Service type definitions |
 | `utils/` | Shared utilities |
