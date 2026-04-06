@@ -45,7 +45,7 @@
  * ──────────────────────────────────────────────────────────────────
  */
 
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 
 // eslint-disable-next-line no-restricted-imports -- required for this module
 import logger from "../../shared/src/lib/logger.js";
@@ -643,7 +643,7 @@ export class MigrationRunner {
    * Generate unique checkpoint ID
    */
   private generateCheckpointId(): string {
-    return `checkpoint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `checkpoint_${Date.now()}_${randomBytes(6).toString("hex")}`;
   }
 
   /**

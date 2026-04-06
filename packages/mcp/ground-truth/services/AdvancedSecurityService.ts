@@ -280,7 +280,7 @@ export class AdvancedSecurityService {
   async createSSOProvider(
     provider: Omit<SSOProvider, "id" | "createdAt">
   ): Promise<SSOProvider> {
-    const providerId = `sso_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const providerId = `sso_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
 
     const newProvider: SSOProvider = {
       ...provider,
@@ -327,7 +327,7 @@ export class AdvancedSecurityService {
     if (riskScore < 0.3) return null; // Not a threat
 
     const threatEvent: ThreatEvent = {
-      id: `threat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      id: `threat_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`,
       type: this.classifyThreatType(eventType),
       severity: this.calculateSeverity(riskScore),
       source,
@@ -428,7 +428,7 @@ export class AdvancedSecurityService {
   async createSecurityPolicy(
     policy: Omit<SecurityPolicy, "id" | "createdAt">
   ): Promise<SecurityPolicy> {
-    const policyId = `policy_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const policyId = `policy_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
 
     const newPolicy: SecurityPolicy = {
       ...policy,

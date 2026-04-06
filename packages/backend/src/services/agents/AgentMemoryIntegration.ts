@@ -5,6 +5,8 @@
  * Stores episodes and retrieves similar past experiences for context.
  */
 
+import { randomBytes } from 'crypto';
+
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend';
 import { logger } from '../../lib/logger.js'
@@ -287,7 +289,7 @@ export class AgentMemoryIntegration {
    * Generate unique session ID
    */
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    return `session_${Date.now()}_${randomBytes(8).toString("hex")}`;
   }
 
   /**

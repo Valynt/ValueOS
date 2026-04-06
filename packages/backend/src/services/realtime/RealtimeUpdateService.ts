@@ -5,6 +5,8 @@
  * Handles push notifications, conflict resolution, and state synchronization.
  */
 
+import { randomBytes } from 'crypto';
+
 import { logger } from '../../lib/logger.js'
 import { SDUIUpdate, WorkspaceState } from '../../types/sdui-integration';
 
@@ -495,7 +497,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Generate message ID
    */
   private generateMessageId(): string {
-    return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `msg-${Date.now()}-${randomBytes(6).toString("hex")}`;
   }
 }
 

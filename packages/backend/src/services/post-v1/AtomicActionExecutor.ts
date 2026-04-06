@@ -5,6 +5,8 @@
  * Provides high-level interface for surgical UI updates.
  */
 
+import { randomBytes } from 'crypto';
+
 import { ActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
 import { SDUIPageDefinition } from '@valueos/sdui';
 
@@ -360,7 +362,7 @@ export class AtomicActionExecutor {
    * Generate execution ID
    */
   private generateExecutionId(): string {
-    return `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `exec-${Date.now()}-${randomBytes(6).toString("hex")}`;
   }
 
   /**
