@@ -380,6 +380,30 @@ export class ValueFabricService {
     await ValueFabricService.invalidateUseCaseCache(organizationId);
   }
 
+  async bulkLinkCapabilitiesToUseCase(
+    organizationId: string,
+    useCaseId: string,
+    capabilityIds: string[],
+    relevanceScore: number = 1.0
+  ): Promise<void> {
+    this.requireOrganizationId(organizationId);
+
+    if (capabilityIds.length > 0) {
+      const capabilityLinks = capabilityIds.map((capabilityId) => ({
+        organization_id: organizationId,
+        use_case_id: useCaseId,
+        capability_id: capabilityId,
+        relevance_score: relevanceScore,
+      }));
+
+      const { error } = await this.supabase.from("use_case_capabilities").insert(capabilityLinks);
+
+      if (error) throw error;
+    }
+
+    await ValueFabricService.invalidateUseCaseCache(organizationId);
+  }
+
   // =====================================================
   // BENCHMARK DATA
   // =====================================================
@@ -772,13 +796,8 @@ export class ValueFabricService {
 
     if (error) throw error;
 
-    await ValueFabricService.invalidateUseCaseCache(organizationId);
-
-    await Promise.all(
-      template.capabilities.map((capability) =>
-        this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id)
-      )
-    );
+    const capabilityIds = template.capabilities.map(c => c.id);
+    await this.bulkLinkCapabilitiesToUseCase(organizationId, newUseCase.id, capabilityIds);
 
     return {
       useCase: newUseCase,
