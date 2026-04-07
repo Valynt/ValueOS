@@ -272,8 +272,6 @@ router.get(
         tenantId,
         organizationId
       );
-      Repo = new ArtifactRepository(req.supabase);
-      const artifact;
       res.json({
         caseId,
         artifacts: artifacts.map(a => ({

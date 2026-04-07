@@ -1,16 +1,12 @@
 import { z } from 'zod';
 
-import {
-  BaseGraphWriter,
-  valueGraphService as defaultValueGraphService,
-} from '../../../services/value-graph/index.js';
+import { valueGraphService } from "../../../services/value-graph/index.js";
 import type { ValueGraph } from '../../../services/value-graph/ValueGraphService.js';
 import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -30,9 +26,7 @@ export class ComplianceAuditorAgent extends BaseAgent {
   public override readonly version = '1.0.0';
   public override readonly name = 'compliance-auditor';
 
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
-
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
+  protected override async _execute(context: LifecycleContext): Promise<AgentOutput> {
     const start = Date.now();
     const valid = await this.validateInput(context);
     if (!valid) {
@@ -94,43 +88,42 @@ export class ComplianceAuditorAgent extends BaseAgent {
 
     // Write Value Graph nodes — VgValueDriver (compliance risk) + hypothesis_claims_metric edges
     try {
-      const writes: Array<() => Promise<unknown>> = [];
+      const opportunityId = context.workspace_id;
+      const organizationId = context.organization_id;
+
       for (const gap of deterministicCoverage.controlGaps) {
-        const driverId = this.graphWriter.generateNodeId();
-        writes.push(() =>
-          this.graphWriter.writeValueDriver(context, {
-            id: driverId,
-            name: gap,
-            description: `Compliance risk driver: ${gap}`,
-            category: 'risk',
-          })
-        );
+        const driverId = crypto.randomUUID();
+        await this.valueGraphService.writeValueDriver({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          type: 'cost_reduction',
+          name: gap,
+          description: `Compliance risk driver: ${gap}`,
+        });
+
         // Write a metric node representing the compliance gap measurement so
         // the hypothesis_claims_metric edge has a valid target node.
-        const metricId = this.graphWriter.generateNodeId();
-        writes.push(() =>
-          this.graphWriter.writeMetric(context, {
-            id: metricId,
-            name: `${gap} (metric)`,
-            description: `Compliance gap metric for: ${gap}`,
-          })
-        );
-        writes.push(() =>
-          this.graphWriter.writeEdge(context, {
-            from_entity_id: metricId,
-            from_entity_type: 'vg_metric',
-            to_entity_id: driverId,
-            to_entity_type: 'vg_value_driver',
-            edge_type: 'metric_maps_to_value_driver',
-            created_by_agent: 'ComplianceAuditorAgent',
-            confidence_score: deterministicCoverage.controlCoverageScore,
-          })
-        );
+        const metricId = crypto.randomUUID();
+        await this.valueGraphService.writeMetric({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: `${gap} (metric)`,
+          unit: 'count',
+        });
+
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_id: metricId,
+          from_entity_type: 'vg_metric',
+          to_entity_id: driverId,
+          to_entity_type: 'vg_value_driver',
+          edge_type: 'metric_maps_to_value_driver',
+          created_by_agent: 'ComplianceAuditorAgent',
+          confidence_score: deterministicCoverage.controlCoverageScore,
+        });
       }
-      if (writes.length > 0) {
-        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
-        logger.info('ComplianceAuditorAgent: graph write complete', { succeeded, failed });
-      }
+      logger.info('ComplianceAuditorAgent: graph write complete', { gapsWritten: deterministicCoverage.controlGaps.length });
     } catch (err) {
       logger.warn('ComplianceAuditorAgent: graph write skipped', { reason: (err as Error).message });
     }
@@ -180,11 +173,11 @@ export class ComplianceAuditorAgent extends BaseAgent {
   private async enrichPromptWithGraph(
     context: LifecycleContext,
   ): Promise<{ nodeCount: number; edgeCount: number; graph: ValueGraph } | null> {
-    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    const opportunityId = context.workspace_id;
     if (!opportunityId) return null;
 
     try {
-      const vgs = this.valueGraphService ?? defaultValueGraphService;
+      const vgs = this.valueGraphService;
       const graph = await vgs.getGraphForOpportunity(opportunityId, context.organization_id);
       return { nodeCount: graph.nodes.length, edgeCount: graph.edges.length, graph };
     } catch (err) {
@@ -199,7 +192,7 @@ export class ComplianceAuditorAgent extends BaseAgent {
 
   /**
    * Writes one audit_verifies_node edge per VgValueDriver node in the graph.
-   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   * All writes are fire-and-forget via try/catch.
    */
   private async writeAuditEdges(
     graphSummary: { nodeCount: number; edgeCount: number; graph: ValueGraph } | null,
@@ -208,30 +201,33 @@ export class ComplianceAuditorAgent extends BaseAgent {
   ): Promise<void> {
     if (!graphSummary) return;
 
-    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    const opportunityId = context.workspace_id;
     if (!opportunityId) return;
 
     const organizationId = context.organization_id;
-    const safeCtx = { opportunityId, organizationId, agentName: 'ComplianceAuditorAgent' };
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService ?? valueGraphService;
 
     const driverNodes = graphSummary.graph.nodes.filter(n => n.entity_type === 'vg_value_driver');
 
     for (const driverNode of driverNodes) {
-      await this.graphWriter['safeWrite'](
-        () => vgs.writeEdge({
+      try {
+        await vgs.writeEdge({
           opportunity_id: opportunityId,
           organization_id: organizationId,
           from_entity_type: 'evidence',
-          from_entity_id: this.graphWriter['newEntityId'](),
+          from_entity_id: crypto.randomUUID(),
           to_entity_type: 'vg_value_driver',
           to_entity_id: driverNode.entity_id,
           edge_type: 'audit_verifies_node',
           confidence_score: coverageScore,
           created_by_agent: 'ComplianceAuditorAgent',
-        }),
-        safeCtx,
-      );
+        });
+      } catch (err) {
+        logger.warn('ComplianceAuditorAgent: audit edge write failed', {
+          error: (err as Error).message,
+          driverId: driverNode.entity_id,
+        });
+      }
     }
   }
 

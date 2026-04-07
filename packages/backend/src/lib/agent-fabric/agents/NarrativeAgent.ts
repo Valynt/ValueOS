@@ -31,9 +31,7 @@ import {
   type CustomerNarrativeInput,
   type InternalCaseInput,
 } from "../../../services/artifacts/index.js";
-import {
-  valueGraphService as defaultValueGraphService,
-} from "../../../services/value-graph/index.js";
+import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import type { ValuePath } from "../../../services/value-graph/ValueGraphService.js";
 import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
@@ -174,7 +172,7 @@ export class NarrativeAgent extends BaseAgent {
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
   private readonly artifactRepo = new ArtifactRepository();
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService);
+  private graphWriter = new BaseGraphWriter(this.valueGraphService, logger);
 
   // Artifact generators - initialized lazily
   private executiveMemoGenerator: ExecutiveMemoGenerator | null = null;
@@ -449,7 +447,7 @@ export class NarrativeAgent extends BaseAgent {
     }
   }
 
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
+  override async execute(context: LifecycleContext): Promise<AgentOutput> {
     const tracer = getTracer();
     return tracer.startActiveSpan(
       "agent.execute",
@@ -986,7 +984,7 @@ export class NarrativeAgent extends BaseAgent {
     if (!opportunityId) return "";
 
     try {
-      const vgs = this.valueGraphService ?? defaultValueGraphService;
+      const vgs = this.valueGraphService;
       const paths: ValuePath[] = await vgs.getValuePaths(opportunityId, context.organization_id);
       if (paths.length === 0) return "";
 
@@ -1026,7 +1024,7 @@ export class NarrativeAgent extends BaseAgent {
     if (!opportunityId || !organizationId) return;
 
     const safeCtx = { opportunityId, organizationId, agentName: "NarrativeAgent" };
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService;
 
     // One edge per proof point — each represents a narrative claim about a hypothesis
     const writes: Array<() => Promise<unknown>> = [];

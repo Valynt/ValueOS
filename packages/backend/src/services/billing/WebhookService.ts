@@ -22,7 +22,7 @@ import {
 } from "../../metrics/billingMetrics";
 import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
-import InvoiceService from "./InvoiceService.js";
+import { InvoiceService } from "./InvoiceService.js";
 import StripeService from "./StripeService.js";
 import { storeWebhookPayload } from "./WebhookPayloadStore.js";
 
@@ -122,7 +122,7 @@ export class WebhookService {
       updated_at: new Date().toISOString(),
     };
 
-    await supabase
+    await this.supabase
       .from("billing_customers")
       .update(payload)
       .eq("tenant_id", tenantId);
@@ -158,7 +158,7 @@ export class WebhookService {
         throw new Error("STRIPE_WEBHOOK_SECRET not configured");
       }
 
-      const event = this.stripe.webhooks.constructEvent(
+      const event = this.stripe!.webhooks.constructEvent(
         payload,
         signature,
         STRIPE_CONFIG.webhookSecret!
@@ -210,7 +210,7 @@ export class WebhookService {
    * when the event was new and the handler ran.
    */
   async processEvent(event: Stripe.Event): Promise<boolean> {
-    if (!supabase) {
+    if (!this.supabase) {
       throw new Error("Supabase billing not configured");
     }
 
@@ -223,7 +223,7 @@ export class WebhookService {
     // ignoreDuplicates:true maps to INSERT ... ON CONFLICT DO NOTHING.
     // Payload storage is deferred to step 2 so duplicate deliveries (the
     // common case for Stripe retries) never trigger a Storage upload.
-    const { data: inserted, error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await this.supabase
       .from("webhook_events")
       .upsert(
         {
@@ -255,7 +255,7 @@ export class WebhookService {
     // null → conflict (DO NOTHING fired) — fetch the existing row to log its state
     let shouldProceedWithRetry = false;
     if (!inserted) {
-      const { data: existing } = await supabase
+      const { data: existing } = await this.supabase
         .from("webhook_events")
         .select("id, processed, status, retry_count, next_retry_at")
         .eq("stripe_event_id", event.id)
@@ -320,7 +320,7 @@ export class WebhookService {
       payloadStorage.mode === "external" ||
       payloadStorage.rawPayload !== null
     ) {
-      const { error: payloadUpdateError } = await supabase
+      const { error: payloadUpdateError } = await this.supabase
         .from("webhook_events")
         .update({
           raw_payload: payloadStorage.rawPayload,
@@ -434,7 +434,7 @@ export class WebhookService {
     const idempotencyKey = event.request?.idempotency_key ?? event.id;
 
     if (nextRetryCount > TENANT_RESOLUTION_MAX_RETRIES) {
-      await supabase
+      await this.supabase
         .from("webhook_events")
         .update({
           status: "failed",
@@ -476,7 +476,7 @@ export class WebhookService {
       return;
     }
 
-    await supabase
+    await this.supabase
       .from("webhook_events")
       .update({
         status: "pending_retry",
@@ -492,7 +492,7 @@ export class WebhookService {
    * Mark event as processed
    */
   private async markEventProcessed(eventId: string): Promise<void> {
-    await supabase
+    await this.supabase
       .from("webhook_events")
       .update({
         processed: true,
@@ -524,7 +524,7 @@ export class WebhookService {
         (existing && (existing as { retry_count?: number }).retry_count) || 0;
       const newCount = Number(current) + 1;
 
-      await supabase
+      await this.supabase
         .from("webhook_events")
         .update({
           error_message: errorMessage,
@@ -601,7 +601,7 @@ export class WebhookService {
       payload: {
         tenantId,
         externalInvoiceId: invoice.id,
-        externalPaymentIntentId: invoice.payment_intent ?? undefined,
+        externalPaymentIntentId: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : undefined,
         status: "succeeded",
         occurredAt: new Date().toISOString(),
         idempotencyKey: event.id,
@@ -666,7 +666,7 @@ export class WebhookService {
         payload: {
           tenantId: customer.tenant_id,
           externalInvoiceId: invoice.id,
-          externalPaymentIntentId: invoice.payment_intent ?? undefined,
+          externalPaymentIntentId: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : undefined,
           status: "failed",
           occurredAt: new Date().toISOString(),
           idempotencyKey: event.id,
@@ -689,14 +689,14 @@ export class WebhookService {
     const subscription = event.data.object as Stripe.Subscription;
 
     // Fetch previous state before updating
-    const { data: prevSub } = await supabase
+    const { data: prevSub } = await this.supabase
       .from("subscriptions")
       .select("status, plan_tier, price_version_id, tenant_id")
       .eq("stripe_subscription_id", subscription.id)
       .single();
 
     // Update subscription in database
-    await supabase
+    await this.supabase
       .from("subscriptions")
       .update({
         status: subscription.status,
@@ -785,7 +785,7 @@ export class WebhookService {
     const subscription = event.data.object as Stripe.Subscription;
 
     // Update subscription status
-    await supabase
+    await this.supabase
       .from("subscriptions")
       .update({
         status: "canceled",
@@ -795,14 +795,14 @@ export class WebhookService {
       .eq("stripe_subscription_id", subscription.id);
 
     // Get customer and update status
-    const { data: sub } = await supabase
+    const { data: sub } = await this.supabase
       .from("subscriptions")
       .select("tenant_id")
       .eq("stripe_subscription_id", subscription.id)
       .single();
 
     if (sub) {
-      await supabase
+      await this.supabase
         .from("billing_customers")
         .update({ status: "cancelled" })
         .eq("tenant_id", sub.tenant_id);
@@ -845,10 +845,10 @@ export class WebhookService {
    * Resolve tenant_id from a Stripe customer ID.
    */
   private async resolveTenantId(
-    stripeCustomerId: string
+    stripeCustomerId: string | null
   ): Promise<string | null> {
-    if (!supabase) return null;
-    const { data } = await supabase
+    if (!this.supabase || !stripeCustomerId) return null;
+    const { data } = await this.supabase
       .from("billing_customers")
       .select("tenant_id")
       .eq("stripe_customer_id", stripeCustomerId)

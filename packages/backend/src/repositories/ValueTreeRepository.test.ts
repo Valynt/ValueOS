@@ -48,7 +48,7 @@ describe('ValueTreeRepository', () => {
   let repo: ValueTreeRepository;
 
   beforeEach(() => {
-    repo = new ValueTreeRepository();
+    repo = new ValueTreeRepository(supabase);
     vi.clearAllMocks();
   });
 

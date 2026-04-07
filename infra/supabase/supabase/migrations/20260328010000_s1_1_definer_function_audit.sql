@@ -25,9 +25,20 @@ CREATE TABLE IF NOT EXISTS security.definer_function_audit (
 -- Enable RLS
 ALTER TABLE security.definer_function_audit ENABLE ROW LEVEL SECURITY;
 
--- Only service_role can access audit logs
-CREATE POLICY definer_function_audit_service_role ON security.definer_function_audit
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+-- Only service_role can access audit logs (idempotent creation)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'security'
+        AND tablename = 'definer_function_audit'
+        AND policyname = 'definer_function_audit_service_role'
+    ) THEN
+        CREATE POLICY definer_function_audit_service_role ON security.definer_function_audit
+            FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END;
+$$;
 
 REVOKE ALL ON security.definer_function_audit FROM PUBLIC;
 GRANT ALL ON security.definer_function_audit TO service_role;
@@ -49,13 +60,13 @@ LANGUAGE sql
 STABLE
 SET search_path = pg_catalog, pg_temp
 AS $$
-    SELECT 
+    SELECT
         n.nspname::text as function_schema,
         p.proname::text as function_name,
         p.oid as function_oid,
         p.proretset as returns_set,
         pg_get_function_result(p.oid)::text as return_type,
-        CASE 
+        CASE
             WHEN p.prosecdef THEN 'SECURITY DEFINER'
             ELSE 'SECURITY INVOKER'
         END::text as security_type
@@ -87,7 +98,7 @@ DECLARE
     func_schema text;
 BEGIN
     -- Get function source and name
-    SELECT 
+    SELECT
         p.prosrc,
         p.proname,
         n.nspname
@@ -115,7 +126,7 @@ BEGIN
     END IF;
 
     -- Check for manual tenant_id validation
-    IF func_source ~* 'tenant_id.*=.*auth\.uid' OR 
+    IF func_source ~* 'tenant_id.*=.*auth\.uid' OR
        func_source ~* 'tenant_id.*=.*current_setting' OR
        func_source ~* 'SELECT.*tenant_id.*FROM' THEN
         RETURN QUERY SELECT true::boolean, 'manual_check'::text;
@@ -161,13 +172,13 @@ BEGIN
     FOR rec IN SELECT * FROM security.get_all_definer_functions()
     LOOP
         total_count := total_count + 1;
-        
-        SELECT * INTO check_result 
+
+        SELECT * INTO check_result
         FROM security.check_definer_has_tenant_verification(rec.function_oid);
 
         -- Insert audit record
         INSERT INTO security.definer_function_audit (
-            function_schema, function_name, function_oid, 
+            function_schema, function_name, function_oid,
             has_tenant_verification, verification_method, audit_version
         ) VALUES (
             rec.function_schema, rec.function_name, rec.function_oid,
@@ -195,9 +206,9 @@ BEGIN
         'total_definer_functions', total_count,
         'verified_count', verified_count,
         'unverified_count', unverified_count,
-        'compliance_rate', CASE WHEN total_count > 0 
+        'compliance_rate', CASE WHEN total_count > 0
             THEN round(verified_count::numeric / total_count * 100, 2)
-            ELSE 0 
+            ELSE 0
         END,
         'results', results
     );
@@ -221,7 +232,7 @@ DECLARE
     unverified_count integer;
     unverified_list jsonb;
 BEGIN
-    SELECT 
+    SELECT
         count(*),
         jsonb_agg(jsonb_build_object(
             'schema', function_schema,
@@ -275,10 +286,10 @@ BEGIN
 
     RETURN jsonb_build_object(
         'compliant', (latest_audit->>'unverified')::integer = 0,
-        'compliance_rate', CASE 
-            WHEN (latest_audit->>'total')::integer > 0 
+        'compliance_rate', CASE
+            WHEN (latest_audit->>'total')::integer > 0
             THEN round((latest_audit->>'verified')::integer / (latest_audit->>'total')::integer::numeric * 100, 2)
-            ELSE 0 
+            ELSE 0
         END,
         'latest_audit', latest_audit,
         'unverified_details', unverified_check,

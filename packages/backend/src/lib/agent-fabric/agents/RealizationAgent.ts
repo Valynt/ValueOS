@@ -22,7 +22,7 @@ import {
   getDomainEventBus,
 } from "../../../events/DomainEventBus.js";
 import { RealizationReportRepository } from "../../../repositories/RealizationReportRepository.js";
-import { valueGraphService as defaultValueGraphService } from "../../../services/value-graph/index.js";
+import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import { mapUnitToVgMetricUnit } from "../../../services/value-graph/valueDriverUtils.js";
 import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
@@ -30,7 +30,6 @@ import { resolvePromptTemplate } from "../promptRegistry.js";
 import { renderTemplate } from "../promptUtils.js";
 
 import { BaseAgent } from "./BaseAgent.js";
-import { BaseGraphWriter } from "../BaseGraphWriter.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -108,10 +107,8 @@ export class RealizationAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private readonly realizationRepo = new RealizationReportRepository();
-  private graphWriter = new BaseGraphWriter(
-    this.valueGraphService ?? defaultValueGraphService
-  );
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
+  private graphWriter = new BaseGraphWriter(this.valueGraphService);
+  override async _execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
     if (!isValid) {
@@ -952,7 +949,7 @@ export class RealizationAgent extends BaseAgent {
       return;
     }
     const { opportunityId, organizationId } = safeCtx;
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService;
 
     // Load existing metrics to match proof points against
     let graph;

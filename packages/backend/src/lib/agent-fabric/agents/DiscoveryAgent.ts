@@ -23,7 +23,6 @@ import type { AgentOutput, LifecycleContext, AgentConfig } from "../../../types/
 import { logger } from "../../logger.js";
 import {
   ValueGraphService,
-  valueGraphService as defaultValueGraphService,
 } from "../../../services/value-graph/ValueGraphService.js";
 import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import { LLMGateway } from "../LLMGateway.js";
@@ -107,7 +106,7 @@ export class DiscoveryAgent extends BaseAgent {
     graphWriter?: BaseGraphWriter
   ) {
     super(config, organizationId, memorySystem, llmGateway, circuitBreaker);
-    this.graphWriter = graphWriter ?? new BaseGraphWriter(valueGraphService ?? defaultValueGraphService);
+    this.graphWriter = graphWriter ?? new BaseGraphWriter(valueGraphService!);
   }
 
   /**

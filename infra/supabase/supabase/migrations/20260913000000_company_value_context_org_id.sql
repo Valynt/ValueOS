@@ -56,12 +56,19 @@ DECLARE
   rows_updated INT;
 BEGIN
   LOOP
+    -- Use CTE with LIMIT for batch processing
+    WITH batch AS (
+      SELECT cc.id
+      FROM public.company_contexts cc
+      JOIN public.organizations o ON o.tenant_id = cc.tenant_id
+      WHERE cc.organization_id IS NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_contexts cc
     SET    organization_id = o.id
-    FROM   public.organizations o
-    WHERE  o.tenant_id = cc.tenant_id
-      AND  cc.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.organizations o ON o.tenant_id = (SELECT tenant_id FROM public.company_contexts WHERE id = batch.id)
+    WHERE  cc.id = batch.id;
 
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
@@ -77,78 +84,120 @@ DECLARE
 BEGIN
   -- company_products
   LOOP
+    WITH batch AS (
+      SELECT cp.id
+      FROM public.company_products cp
+      JOIN public.company_contexts cc ON cc.id = cp.context_id
+      WHERE cp.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_products cp
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = cp.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  cp.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_products WHERE id = batch.id)
+    WHERE  cp.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
 
   -- company_competitors
   LOOP
+    WITH batch AS (
+      SELECT cc2.id
+      FROM public.company_competitors cc2
+      JOIN public.company_contexts cc ON cc.id = cc2.context_id
+      WHERE cc2.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_competitors cc2
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = cc2.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  cc2.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_competitors WHERE id = batch.id)
+    WHERE  cc2.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
 
   -- company_personas
   LOOP
+    WITH batch AS (
+      SELECT cp.id
+      FROM public.company_personas cp
+      JOIN public.company_contexts cc ON cc.id = cp.context_id
+      WHERE cp.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_personas cp
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = cp.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  cp.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_personas WHERE id = batch.id)
+    WHERE  cp.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
 
   -- company_value_patterns
   LOOP
+    WITH batch AS (
+      SELECT cvp.id
+      FROM public.company_value_patterns cvp
+      JOIN public.company_contexts cc ON cc.id = cvp.context_id
+      WHERE cvp.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_value_patterns cvp
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = cvp.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  cvp.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_value_patterns WHERE id = batch.id)
+    WHERE  cvp.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
 
   -- company_claim_governance
   LOOP
+    WITH batch AS (
+      SELECT ccg.id
+      FROM public.company_claim_governance ccg
+      JOIN public.company_contexts cc ON cc.id = ccg.context_id
+      WHERE ccg.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_claim_governance ccg
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = ccg.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  ccg.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_claim_governance WHERE id = batch.id)
+    WHERE  ccg.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
 
   -- company_context_versions
   LOOP
+    WITH batch AS (
+      SELECT ccv.id
+      FROM public.company_context_versions ccv
+      JOIN public.company_contexts cc ON cc.id = ccv.context_id
+      WHERE ccv.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_context_versions ccv
     SET    organization_id = cc.organization_id
-    FROM   public.company_contexts cc
-    WHERE  cc.id = ccv.context_id
-      AND  cc.organization_id IS NOT NULL
-      AND  ccv.organization_id IS NULL
-    LIMIT  batch_size;
+    FROM   batch
+    JOIN   public.company_contexts cc ON cc.id = (SELECT context_id FROM public.company_context_versions WHERE id = batch.id)
+    WHERE  ccv.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;
@@ -162,14 +211,22 @@ DECLARE
   rows_updated INT;
 BEGIN
   LOOP
+    WITH batch AS (
+      SELECT cap.id
+      FROM public.company_capabilities cap
+      JOIN public.company_products cp ON cp.id = cap.product_id
+      JOIN public.company_contexts cc ON cc.id = cp.context_id
+      WHERE cap.organization_id IS NULL
+        AND cc.organization_id IS NOT NULL
+      LIMIT batch_size
+    )
     UPDATE public.company_capabilities cap
     SET    organization_id = cc.organization_id
-    FROM   public.company_products cp
+    FROM   batch
+    JOIN   public.company_products cp ON cp.id = (SELECT product_id FROM public.company_capabilities WHERE id = batch.id)
     JOIN   public.company_contexts cc ON cc.id = cp.context_id
-    WHERE  cp.id = cap.product_id
-      AND  cc.organization_id IS NOT NULL
-      AND  cap.organization_id IS NULL
-    LIMIT  batch_size;
+    WHERE  cap.id = batch.id;
+
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
     EXIT WHEN rows_updated = 0;
   END LOOP;

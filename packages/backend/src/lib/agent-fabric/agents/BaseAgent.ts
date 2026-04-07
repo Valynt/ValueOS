@@ -48,10 +48,7 @@ import type {
 } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import {
-  ValueGraphService,
-  valueGraphService as defaultValueGraphService,
-} from "../../../services/value-graph/ValueGraphService.js";
+import { ValueGraphService } from "../../../services/value-graph/ValueGraphService.js";
 import {
   computeGroundingScore,
   extractArrayLengths,
@@ -173,7 +170,7 @@ export abstract class BaseAgent {
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
     this.auditLogger = new AuditLogger();
-    this.valueGraphService = valueGraphService ?? defaultValueGraphService;
+    this.valueGraphService = valueGraphService!;
   }
 
   /**

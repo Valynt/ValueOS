@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.job_processed (
     result_status text, -- 'completed', 'failed', 'skipped_duplicate'
     result_payload jsonb, -- optional result data for cache hits
     expires_at timestamptz NOT NULL DEFAULT (now() + interval '7 days'),
-    
+
     CONSTRAINT unique_idempotency_key UNIQUE (idempotency_key, queue_name)
 );
 
@@ -48,22 +48,22 @@ GRANT SELECT ON public.job_processed TO authenticated;
 -- 2. Create indexes for efficient lookups
 -- ============================================================================
 
-CREATE INDEX IF NOT EXISTS idx_job_processed_idempotency_key 
+CREATE INDEX IF NOT EXISTS idx_job_processed_idempotency_key
     ON public.job_processed(idempotency_key, queue_name);
 
-CREATE INDEX IF NOT EXISTS idx_job_processed_tenant_id 
+CREATE INDEX IF NOT EXISTS idx_job_processed_tenant_id
     ON public.job_processed(tenant_id);
 
-CREATE INDEX IF NOT EXISTS idx_job_processed_expires_at 
+CREATE INDEX IF NOT EXISTS idx_job_processed_expires_at
     ON public.job_processed(expires_at);
 
-CREATE INDEX IF NOT EXISTS idx_job_processed_processed_at 
+CREATE INDEX IF NOT EXISTS idx_job_processed_processed_at
     ON public.job_processed(processed_at);
 
--- Partial index for active (non-expired) entries
-CREATE INDEX IF NOT EXISTS idx_job_processed_active 
-    ON public.job_processed(idempotency_key, queue_name) 
-    WHERE expires_at > now();
+-- Note: Partial index on expires_at > now() was removed because
+-- now() is not IMMUTABLE. The regular index on expires_at is sufficient
+-- for query performance. Cleanup of expired records is handled by
+-- the cleanup_expired_job_processed() function.
 
 -- ============================================================================
 -- 3. Create cleanup function for expired entries
@@ -78,11 +78,11 @@ AS $$
 DECLARE
     deleted_count integer;
 BEGIN
-    DELETE FROM public.job_processed 
+    DELETE FROM public.job_processed
     WHERE expires_at < now();
-    
+
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    
+
     RETURN deleted_count;
 END;
 $$;
@@ -108,17 +108,17 @@ DECLARE
 BEGIN
     SELECT * INTO existing_record
     FROM public.job_processed
-    WHERE idempotency_key = p_idempotency_key 
+    WHERE idempotency_key = p_idempotency_key
         AND queue_name = p_queue_name
         AND expires_at > now();
-    
+
     IF existing_record IS NULL THEN
         RETURN jsonb_build_object(
             'exists', false,
             'should_process', true
         );
     END IF;
-    
+
     RETURN jsonb_build_object(
         'exists', true,
         'should_process', false,
@@ -178,7 +178,7 @@ BEGIN
         p_result_payload,
         now() + (p_ttl_hours || ' hours')::interval
     )
-    ON CONFLICT (idempotency_key, queue_name) 
+    ON CONFLICT (idempotency_key, queue_name)
     DO UPDATE SET
         processed_at = now(),
         processed_by = p_processed_by,
@@ -186,7 +186,7 @@ BEGIN
         result_payload = p_result_payload,
         expires_at = now() + (p_ttl_hours || ' hours')::interval
     RETURNING id INTO record_id;
-    
+
     RETURN record_id;
 END;
 $$;

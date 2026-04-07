@@ -524,5 +524,6 @@ export class ValueGraphService {
   }
 }
 
-// Remove global exported singleton; services should use injected client.
-// export const valueGraphService = new ValueGraphService();
+// Singleton instance for default usage
+export const valueGraphService = new ValueGraphService();
+

@@ -35,15 +35,15 @@ import {
   EdgeConstraintViolationError,
 } from "@valueos/shared";
 import type {
+  ValueGraphEdge,
   ValueGraphEdgeType,
   ValueGraphEntityType,
 } from "@valueos/shared";
 import { ValueGraphService } from "../services/value-graph/ValueGraphService.js";
 import { logger } from "../lib/logger.js";
 
-const router = Router();
+const router: Router = Router();
 const requireTenantAccess = tenantContextMiddleware(true);
-const valueGraphService = new ValueGraphService();
 
 // ---------------------------------------------------------------------------
 // GraphRequest middleware — validates caseId belongs to the authenticated tenant
@@ -90,8 +90,9 @@ router.get(
     try {
       const { caseId } = req.params;
       const organizationId = req.tenantId;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId);
+      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId!);
       res.json({ success: true, data: graph });
     } catch (err) {
       next(err);
@@ -113,8 +114,9 @@ router.get(
     try {
       const { caseId } = req.params;
       const organizationId = req.tenantId;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const paths = await valueGraphService.getValuePaths(caseId, organizationId);
+      const paths = await valueGraphService.getValuePaths(caseId, organizationId!);
       res.json({ success: true, data: paths });
     } catch (err) {
       next(err);
@@ -137,8 +139,9 @@ router.get(
       const { caseId } = req.params;
       const organizationId = req.tenantId;
       const typeFilter = req.query.type as ValueGraphEntityType | undefined;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId);
+      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId!);
       const nodes = typeFilter
         ? graph.nodes.filter(n => n.entity_type === typeFilter)
         : graph.nodes;
@@ -164,8 +167,9 @@ router.get(
     try {
       const { caseId, nodeId } = req.params;
       const organizationId = req.tenantId;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId);
+      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId!);
       const node = graph.nodes.find(n => n.entity_id === nodeId);
 
       if (!node) {
@@ -195,8 +199,9 @@ router.get(
       const { caseId } = req.params;
       const organizationId = req.tenantId;
       const edgeTypeFilter = req.query.edge_type as ValueGraphEdgeType | undefined;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId);
+      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId!);
       const edges = edgeTypeFilter
         ? graph.edges.filter(e => e.edge_type === edgeTypeFilter)
         : graph.edges;
@@ -223,6 +228,7 @@ router.post(
     try {
       const { caseId } = req.params;
       const organizationId = req.tenantId;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
       const {
         from_entity_type,
@@ -273,8 +279,8 @@ router.post(
       }
 
       const edge = await valueGraphService.writeEdge({
-        opportunity_id: caseId,
-        organization_id: organizationId,
+        opportunity_id: caseId!,
+        organization_id: organizationId!,
         from_entity_type,
         from_entity_id,
         to_entity_type,
@@ -306,26 +312,27 @@ router.get(
     try {
       const { caseId } = req.params;
       const organizationId = req.tenantId;
+      const valueGraphService = new ValueGraphService(req.supabase!);
 
-      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId);
+      const graph = await valueGraphService.getGraphForOpportunity(caseId, organizationId!);
 
       // Find hypothesis_claims_value_driver edges
       const claimEdges = graph.edges.filter(
-        e => e.edge_type === "hypothesis_claims_value_driver",
+        (e: ValueGraphEdge) => e.edge_type === "hypothesis_claims_value_driver",
       );
 
       // Find value driver IDs that have at least one evidence_supports_metric edge
       // pointing to a metric that maps to them
       const evidenceMetricIds = new Set(
         graph.edges
-          .filter(e => e.edge_type === "evidence_supports_metric")
+          .filter((e: ValueGraphEdge) => e.edge_type === "evidence_supports_metric")
           .map(e => e.to_entity_id),
       );
 
       const metricDriverIds = new Set(
         graph.edges
           .filter(
-            e =>
+            (e: ValueGraphEdge) =>
               e.edge_type === "metric_maps_to_value_driver" &&
               evidenceMetricIds.has(e.from_entity_id),
           )
@@ -334,8 +341,8 @@ router.get(
 
       // A claim has a gap if its target driver has no evidence-backed metric path
       const gaps = claimEdges
-        .filter(e => !metricDriverIds.has(e.to_entity_id))
-        .map(e => ({
+        .filter((e: ValueGraphEdge) => !metricDriverIds.has(e.to_entity_id))
+        .map((e: ValueGraphEdge) => ({
           hypothesis_entity_id: e.from_entity_id,
           value_driver_entity_id: e.to_entity_id,
           edge_id: e.id,

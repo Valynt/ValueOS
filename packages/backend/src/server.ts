@@ -33,7 +33,7 @@ import { parseCorsAllowlist } from "@shared/config/cors";
 import { initializeContext } from "@shared/lib/context";
 import compression from "compression";
 import cors from "cors";
-import * as express from "express";
+import express from "express";
 import type { Application, Request, Response, NextFunction } from "express";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 

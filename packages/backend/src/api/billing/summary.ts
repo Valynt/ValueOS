@@ -4,13 +4,15 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 
-import { invoiceService as InvoiceService } from '../../services/billing/InvoiceService.js';
+import { createBillingPlatformSupabaseClient } from '../../lib/supabase/privileged/index.js';
+
+import { InvoiceService } from '../../services/billing/InvoiceService.js';
 import { subscriptionService as SubscriptionService } from '../../services/billing/SubscriptionService.js';
 import MetricsCollector from '../../services/metering/MetricsCollector.js';
 
-const router = express.Router();
+const router: Router = express.Router();
 const logger = createLogger({ component: 'BillingSummaryAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
@@ -37,16 +39,21 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     // Get usage summary
     const usageSummary = await MetricsCollector.getUsageSummary(tenantId);
 
+    // Instantiate services
+    const invoiceService = new InvoiceService(createBillingPlatformSupabaseClient({
+      justification: 'service-role:justified billing summary API'
+    }));
+
     // Get upcoming invoice preview
     let upcomingInvoice = null;
     try {
-      upcomingInvoice = await InvoiceService.getUpcomingInvoice(tenantId);
+      upcomingInvoice = await invoiceService.getUpcomingInvoice(tenantId);
     } catch (error) {
       logger.warn('Could not fetch upcoming invoice', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // Get recent invoices
-    const recentInvoices = await InvoiceService.getInvoices(tenantId, 5, 0);
+    const recentInvoices = await invoiceService.getInvoices(tenantId, 5, 0);
 
     const summary = {
       tenant_id: tenantId,

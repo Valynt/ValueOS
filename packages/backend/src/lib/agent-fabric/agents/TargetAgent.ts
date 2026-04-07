@@ -18,10 +18,6 @@ import { ValueTreeRepository } from "../../../repositories/ValueTreeRepository.j
 import type { ValueTreeNodeWrite } from "../../../repositories/ValueTreeRepository.js";
 import { getAdvancedCausalEngine } from "../../../services/reasoning/AdvancedCausalEngine.js";
 import {
-  BaseGraphWriter,
-  valueGraphService as defaultValueGraphService,
-} from "../../../services/value-graph/index.js";
-import {
   mapCategoryToValueDriverType,
   mapUnitToVgMetricUnit,
 } from "../../../services/value-graph/valueDriverUtils.js";
@@ -39,8 +35,7 @@ import { createWorkerServiceSupabaseClient } from "../../supabase/privileged/ind
 import { resolvePromptTemplate } from "../prompts/PromptRegistry.js";
 import { renderTemplate } from "../promptUtils.js";
 
-import { BaseAgent } from "./BaseAgent.js";
-import { BaseGraphWriter } from "../BaseGraphWriter.js";
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -73,13 +68,20 @@ const KPIDefinitionSchema = z.object({
   hypothesis_id: z.string(),
 });
 
-const ValueDriverSchema = z.object({
+const ValueDriverSchema: z.ZodType<{
+  id: string;
+  label: string;
+  value?: string;
+  type: "root" | "branch" | "leaf";
+  status?: "active" | "at_risk" | "achieved";
+  children?: unknown[];
+}> = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   value: z.string().optional(),
   type: z.enum(["root", "branch", "leaf"]),
   status: z.enum(["active", "at_risk", "achieved"]).optional(),
-  children: z.array(z.lazy((): z.ZodTypeAny => ValueDriverSchema)).default([]),
+  children: z.array(z.lazy(() => ValueDriverSchema)).optional(),
 });
 
 const FinancialModelInputSchema = z.object({
@@ -154,12 +156,8 @@ export class TargetAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private causalEngine = getAdvancedCausalEngine();
-  private graphWriter = new BaseGraphWriter(
-    this.valueGraphService ?? defaultValueGraphService,
-    logger
-  );
 
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
+  public override async _execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
     if (!isValid) {
@@ -234,40 +232,35 @@ export class TargetAgent extends BaseAgent {
 
     // Step 4c: Write Value Graph nodes — VgMetric + capability_impacts_metric edges
     try {
-      const writes: Array<() => Promise<unknown>> = [];
+      const opportunityId = context.workspace_id;
+      const organizationId = context.organization_id;
+
       for (const kpi of analysis.kpi_definitions) {
-        const metricId = this.graphWriter.generateNodeId(
-          kpi.id as string | undefined
-        );
-        writes.push(() =>
-          this.graphWriter.writeMetric(context, {
-            id: metricId,
-            name: String(kpi.name ?? kpi.kpi_name ?? "KPI"),
-            description: String(kpi.description ?? kpi.rationale ?? ""),
-            baseline_value: kpi.baseline as number | undefined,
-            target_value: kpi.target as number | undefined,
-            unit: kpi.unit as string | undefined,
-          })
-        );
-        const capabilityId = this.graphWriter.generateNodeId(
-          kpi.capability_id as string | undefined
-        );
-        writes.push(() =>
-          this.graphWriter.writeEdge(context, {
-            from_entity_id: capabilityId,
-            from_entity_type: "vg_capability",
-            to_entity_id: metricId,
-            to_entity_type: "vg_metric",
-            edge_type: "capability_impacts_metric",
-            created_by_agent: "TargetAgent",
-          })
-        );
+        const metricId = crypto.randomUUID();
+        await this.valueGraphService.writeMetric({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: String(kpi.name ?? "KPI"),
+          description: String(kpi.description ?? ""),
+          baseline_value: kpi.baseline?.value ?? null,
+          target_value: kpi.target?.value ?? null,
+          unit: mapUnitToVgMetricUnit(kpi.unit),
+        });
+
+        const capabilityId = crypto.randomUUID();
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_id: capabilityId,
+          from_entity_type: "vg_capability",
+          to_entity_id: metricId,
+          to_entity_type: "vg_metric",
+          edge_type: "capability_impacts_metric",
+          created_by_agent: "TargetAgent",
+          confidence_score: kpi.target?.confidence ?? 0.5,
+        });
       }
-      if (writes.length > 0) {
-        const { succeeded, failed } =
-          await this.graphWriter.safeWriteBatch(writes);
-        logger.info("TargetAgent: graph write complete", { succeeded, failed });
-      }
+      logger.info("TargetAgent: graph write complete", { kpiCount: analysis.kpi_definitions.length });
     } catch (err) {
       logger.warn("TargetAgent: graph write skipped", {
         reason: (err as Error).message,
@@ -833,7 +826,11 @@ export class TargetAgent extends BaseAgent {
     flatten(tree, undefined, 0);
 
     try {
-      const repo = new ValueTreeRepository();
+      const supabase = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified agent provenance store requires cross-table writes",
+      });
+      const repo = new ValueTreeRepository(supabase);
       await repo.replaceNodesForCase(caseId, organizationId, nodes);
       logger.info("TargetAgent: persisted value tree", {
         case_id: caseId,
@@ -895,19 +892,18 @@ export class TargetAgent extends BaseAgent {
   /**
    * Writes VgMetric nodes (upsert) and target_quantifies_driver edges for each
    * KPI definition. Per-KPI isolation: one failure does not abort others.
-   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   * All writes are fire-and-forget via try/catch.
    */
   private async writeKpisToGraph(
     kpis: KPIDefinition[],
     causalResults: CausalTrace[],
     context: LifecycleContext
   ): Promise<void> {
-    const opportunityId = this.graphWriter["resolveOpportunityId"](context);
+    const opportunityId = context.workspace_id;
     if (!opportunityId) return;
 
     const organizationId = context.organization_id;
-    const safeCtx = { opportunityId, organizationId, agentName: "TargetAgent" };
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService;
 
     for (let i = 0; i < kpis.length; i++) {
       const kpi = kpis[i];
@@ -915,54 +911,46 @@ export class TargetAgent extends BaseAgent {
 
       try {
         // 1. Upsert VgMetric node
-        const metric = await this.graphWriter["safeWrite"](
-          () =>
-            vgs.writeMetric({
-              opportunity_id: opportunityId,
-              organization_id: organizationId,
-              name: kpi.name,
-              unit: mapUnitToVgMetricUnit(kpi.unit),
-              baseline_value: kpi.baseline.value,
-              target_value: kpi.target.value,
-              impact_timeframe_months: kpi.target.timeframe_months,
-            }),
-          safeCtx
-        );
+        const metric = await vgs.writeMetric({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: kpi.name,
+          unit: mapUnitToVgMetricUnit(kpi.unit),
+          baseline_value: kpi.baseline.value,
+          target_value: kpi.target.value,
+          impact_timeframe_months: kpi.target.timeframe_months,
+        });
         if (!metric) continue;
 
         // 2. Look up or create a VgValueDriver for this KPI's category
         const driverType = mapCategoryToValueDriverType(kpi.category);
-        const driver = await this.graphWriter["safeWrite"](
-          () =>
-            vgs.writeValueDriver({
-              opportunity_id: opportunityId,
-              organization_id: organizationId,
-              type: driverType,
-              name: kpi.name,
-              description: kpi.description,
-            }),
-          safeCtx
-        );
+        const driver = await vgs.writeValueDriver({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          type: driverType,
+          name: kpi.name,
+          description: kpi.description,
+        });
         if (!driver) continue;
 
         // 3. Write target_quantifies_driver edge: VgMetric → VgValueDriver
-        await this.graphWriter["safeWrite"](
-          () =>
-            vgs.writeEdge({
-              opportunity_id: opportunityId,
-              organization_id: organizationId,
-              from_entity_type: "vg_metric",
-              from_entity_id: metric.id,
-              to_entity_type: "vg_value_driver",
-              to_entity_id: driver.id,
-              edge_type: "target_quantifies_driver",
-              confidence_score: causal?.confidence ?? kpi.target.confidence,
-              created_by_agent: "TargetAgent",
-            }),
-          safeCtx
-        );
-      } catch {
-        // Per-KPI isolation: log via safeWrite above; continue to next KPI
+        await vgs.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: "vg_metric",
+          from_entity_id: metric.id,
+          to_entity_type: "vg_value_driver",
+          to_entity_id: driver.id,
+          edge_type: "target_quantifies_driver",
+          confidence_score: causal?.confidence ?? kpi.target.confidence,
+          created_by_agent: "TargetAgent",
+        });
+      } catch (err) {
+        // Per-KPI isolation: log and continue to next KPI
+        logger.warn("TargetAgent: failed to write KPI to graph", {
+          kpi: kpi.name,
+          error: (err as Error).message,
+        });
       }
     }
   }
