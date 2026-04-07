@@ -1,14 +1,15 @@
 /**
- * REQ-T3: Metering pipeline integration tests
+ * REQ-T3: Metering pipeline unit tests
  *
  * Covers:
  * - Concurrent aggregation of overlapping event sets: exactly one Stripe call
  * - Webhook delivery failure -> BullMQ retry -> eventual success (idempotent)
  * - Webhook retry exhaustion: DB status = 'failed' + counter increment
  *
- * All tests use mocked Supabase and Stripe — no live infrastructure required.
- * The describe.skipIf guard is kept for parity with other integration tests
- * but these run in CI without a real DB.
+ * NOTE: These tests mock all external dependencies (Supabase, Stripe, Redis,
+ * BullMQ). They verify internal logic correctness only. Real integration
+ * behavior is tested in the sibling `metering-pipeline.integration.test.ts`
+ * file which exercises actual boundaries.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

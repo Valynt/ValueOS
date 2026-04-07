@@ -103,8 +103,8 @@ const ReviewPage = lazy(() =>
 const CaseListPage = lazy(() =>
   import("./features/cases/CaseListPage").then((m) => ({ default: m.CaseListPage }))
 );
-const RealizationPlaceholder = lazy(() =>
-  import("./features/review/components/RealizationPlaceholder").then((m) => ({ default: m.RealizationPlaceholder }))
+const RealizationReviewPage = lazy(() =>
+  import("./views/RealizationReviewPage").then((m) => ({ default: m.RealizationReviewPage }))
 );
 const TemplatesPlaceholder = lazy(() =>
   import("./views/TemplatesPlaceholder").then((m) => ({ default: m.TemplatesPlaceholder }))
@@ -320,7 +320,7 @@ export function AppRoutes() {
                                         <Route path="work/cases/new" element={<Opportunities />} />
                                         <Route path="case/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
                                         <Route path="review/:caseId" element={<ReviewPage />} />
-                                        <Route path="review/:caseId/actuals" element={<RealizationPlaceholder />} />
+                                        <Route path="review/:caseId/actuals" element={<RealizationReviewPage />} />
                                         <Route path="library/models" element={<Models />} />
                                         <Route path="library/templates" element={<TemplatesPlaceholder />} />
                                         <Route path="library/agents" element={<Agents />} />

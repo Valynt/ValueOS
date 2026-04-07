@@ -74,6 +74,8 @@ export { useModePreference, useUpdateModePreference } from './queries/useModePre
 export { useEventSource } from './useEventSource';
 export { useWorkspaceEvents } from './useWorkspaceEvents';
 export { useWorkspaceData } from './useWorkspaceData';
+export { useConflictResolution, useBatchResolveConflicts } from './useConflictResolution';
+export { useWebVitals } from './useWebVitals';
 export { useUpdateNode, useDeleteNode } from './mutations/useUpdateNode';
 
 // Event types

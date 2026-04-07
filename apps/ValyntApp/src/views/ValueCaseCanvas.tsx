@@ -22,9 +22,11 @@ import { RealizationStage } from "./canvas/RealizationStage";
 import { ValueGraphStage } from "./canvas/ValueGraphStage";
 
 import { useToast } from "@/components/ui/use-toast";
+import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { HandoffTimelineCards } from "@/features/workflow/components/HandoffTimelineCards";
 import { useWorkflowExecutionViewModel } from "@/features/workflow/hooks/useWorkflowExecutionViewModel";
 import { WORKFLOW_STATUS_PRESENTATION } from "@/features/workflow/hooks/workflowExecutionPresentation";
+import { useTargetAlignment } from "@/hooks/company-context";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { usePptxExport } from "@/hooks/useCaseExport";
 import { useCase } from "@/hooks/useCases";
@@ -202,6 +204,13 @@ const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
 const { data: merged } = useMergedContext(caseId);
 const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
 const { data: workflowExecutionViewModel } = useWorkflowExecutionViewModel(caseId);
+const { companyContext } = useCompanyValueContext();
+const licensorContextId = companyContext?.context.id;
+const {
+  data: targetAlignment,
+  isLoading: targetAlignmentLoading,
+  error: targetAlignmentError,
+} = useTargetAlignment(licensorContextId, caseId);
 
 const workflowStatus = workflowExecutionViewModel ?? {
   statusLabel: WORKFLOW_STATUS_PRESENTATION.never_run.label,
@@ -298,6 +307,9 @@ const { toast } = useToast();
   };
 
   const currentStage = stages.find((s) => s.key === activeStage);
+  const topAlignmentPathways = targetAlignment?.alignment.pathways.slice(0, 3) ?? [];
+  const alignmentAvailable = topAlignmentPathways.length > 0;
+  const alignmentNotFound = targetAlignmentError instanceof Error && targetAlignmentError.message.includes("404");
 
   const canvasBasePath = useMemo(() => {
     const marker = `/opportunities/${oppId}/cases/${caseId}`;
@@ -489,7 +501,7 @@ const { toast } = useToast();
           )}
         </div>
 
-        <div className="min-w-[280px]">
+        <div className="min-w-[280px] max-w-[440px]">
           <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">Completion criteria</p>
           {milestoneCriteria.length > 0 ? (
             <ul className="mt-1 space-y-1">
@@ -503,6 +515,46 @@ const { toast } = useToast();
           ) : (
             <p className="text-[12px] text-zinc-500">No completion criteria reported by workflow execution metadata yet.</p>
           )}
+
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3" data-testid="target-alignment-panel">
+            <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">
+              Licensor to Target Alignment
+            </p>
+            {targetAlignmentLoading && (
+              <p className="mt-1 text-[12px] text-zinc-500">Analyzing target fit against Value Fabric...</p>
+            )}
+            {!targetAlignmentLoading && alignmentAvailable && targetAlignment && (
+              <>
+                <p className="mt-1 text-[12px] text-zinc-700">
+                  {targetAlignment.alignment.summary.matched_pathways} matched pathways from{" "}
+                  {targetAlignment.alignment.summary.licensor_nodes} licensor nodes.
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {topAlignmentPathways.map((pathway) => (
+                    <li key={pathway.id} className="rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-2">
+                      <p className="text-[12px] font-medium text-zinc-800">{pathway.licensor_node_name}</p>
+                      <p className="text-[11px] text-zinc-600">
+                        Target signal: {pathway.matched_target_signals[0] ?? "n/a"}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        Confidence {(pathway.confidence_score * 100).toFixed(0)}%
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {!targetAlignmentLoading && !alignmentAvailable && !alignmentNotFound && (
+              <p className="mt-1 text-[12px] text-zinc-500">
+                No strong pathways yet. Run target assembly to enrich account signals.
+              </p>
+            )}
+            {!targetAlignmentLoading && alignmentNotFound && (
+              <p className="mt-1 text-[12px] text-zinc-500">
+                Target context is not assembled yet for this case.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

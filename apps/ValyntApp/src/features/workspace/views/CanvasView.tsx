@@ -9,44 +9,23 @@ import { ReactFlow, Background, Controls, MiniMap } from "@xyflow/react";
 import type { WarmthState } from "@shared/domain/Warmth";
 import "@xyflow/react/dist/style.css";
 
-interface GraphNode {
-  id: string;
-  type: "driver" | "metric" | "input" | "output";
-  label: string;
-  value: number;
-  confidence: number;
-  evidence: unknown[];
-}
-
-interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  type: string;
-}
-
-interface Graph {
-  id: string;
-  versionId: string;
-  scenarioId: string;
-  nodes: Record<string, GraphNode>;
-  edges: Record<string, GraphEdge>;
-  computedAt: string;
-  globalMetrics: {
-    npv: number;
-    confidence: number;
-    defensibilityScore: number;
-  };
-  evidenceCoverage: number;
-}
+import type { Graph } from "@/features/living-value-graph/types/graph.types";
 
 interface CanvasViewProps {
   graph: Graph | null;
   warmth: WarmthState;
   onNodeSelect: (nodeId: string) => void;
+  onNodeUpdate?: (nodeId: string, updates: Record<string, unknown>) => void;
+  isUpdating?: boolean;
 }
 
-export function CanvasView({ graph, warmth, onNodeSelect }: CanvasViewProps): JSX.Element {
+export function CanvasView({
+  graph,
+  warmth,
+  onNodeSelect,
+  onNodeUpdate,
+  isUpdating
+}: CanvasViewProps): JSX.Element {
   if (!graph) {
     return (
       <div className="flex h-full items-center justify-center text-gray-500">

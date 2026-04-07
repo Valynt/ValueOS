@@ -150,7 +150,7 @@ export function WorkspacePage(): JSX.Element {
               {conflicts.length} conflicting edit{conflicts.length > 1 ? 's' : ''} detected
             </span>
             <button
-              onClick={() => resolveConflict({ conflictId: conflicts[0].id, resolution: 'remote' })}
+              onClick={() => conflicts[0]?.id && resolveConflict({ conflictId: conflicts[0].id, resolution: 'remote' })}
               className="text-sm text-amber-700 hover:underline"
             >
               Resolve

@@ -71,7 +71,8 @@
     "web-vitals": "4.2.4",
     "zod": "^3.25.76",
     "zundo": "^2.1.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "d3-force": "^3.0.0"
   },
   "devDependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1004.0",
@@ -98,7 +99,6 @@
     "@vitejs/plugin-react": "^5.0.4",
     "@vitest/coverage-v8": "^3.2.4",
     "autoprefixer": "^10.4.23",
-    "d3-force": "^3.0.0",
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",

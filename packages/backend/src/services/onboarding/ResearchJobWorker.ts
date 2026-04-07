@@ -21,6 +21,10 @@ import {
   type ExtractionResult,
   type LLMGatewayInterface,
 } from "./SuggestionExtractor.js";
+import {
+  persistCompanyValueFabric,
+  renderValueFabricForRetrieval,
+} from "./ValueFabricBuilder.js";
 import { generateValueHypotheses } from "./ValueHypothesisGenerator.js";
 import { type CrawlResult, crawlWebsite } from "./WebCrawler.js";
 
@@ -174,7 +178,7 @@ export async function processResearchJob(
           // Store chunks in semantic memory with proper metadata
           const ingestionQueue = new PQueue({ concurrency: 5 });
           for (const chunk of secChunks) {
-            void ingestionQueue.add(async () => {
+            ingestionQueue.add(async () => {
               await semanticMemory.storeChunk({
                 type: "sec_filing_chunk",
                 content: chunk.content,
@@ -188,6 +192,12 @@ export async function processResearchJob(
                   total_chunks: chunk.metadata.totalChunks,
                   ticker,
                 },
+              });
+            }).catch((err: unknown) => {
+              logger.warn("Failed to store SEC chunk in semantic memory", {
+                jobId,
+                ticker,
+                error: err instanceof Error ? err.message : String(err),
               });
             });
           }
@@ -219,7 +229,14 @@ export async function processResearchJob(
 
     // 3. Crawl the website
     logger.info("Starting web crawl", { jobId, website });
-    const crawlResult: CrawlResult = await crawlWebsite(website);
+    const crawlResult: CrawlResult = await crawlWebsite(website, {
+      entityExtraction: {
+        enabled: true,
+        tenantId,
+        llmGateway,
+        maxEntitiesPerPage: 12,
+      },
+    });
 
     // Vector Ingestion for Web using ChunkEmbedPipeline (R2.2)
     const webIngestionQueue = new PQueue({ concurrency: 5 });
@@ -239,7 +256,7 @@ export async function processResearchJob(
       );
 
       for (const chunk of webChunks) {
-        void webIngestionQueue.add(async () => {
+        webIngestionQueue.add(async () => {
           await semanticMemory.storeChunk({
             type: "web_chunk",
             content: chunk.content,
@@ -253,6 +270,12 @@ export async function processResearchJob(
               chunk_index: chunk.metadata.chunkIndex,
               total_chunks: chunk.metadata.totalChunks,
             },
+          });
+        }).catch((err: unknown) => {
+          logger.warn("Failed to store web chunk in semantic memory", {
+            jobId,
+            url: page.url,
+            error: err instanceof Error ? err.message : String(err),
           });
         });
       }
@@ -390,6 +413,45 @@ export async function processResearchJob(
           error: error.message,
         });
       }
+    }
+
+    // 4.6 Persist canonical Value Fabric snapshot + retrieval layer chunk
+    try {
+      const valueFabric = await persistCompanyValueFabric({
+        supabase,
+        tenantId,
+        contextId,
+        website,
+        extractionResults,
+      });
+
+      await semanticMemory.storeChunk({
+        type: "value_fabric_model",
+        content: renderValueFabricForRetrieval(valueFabric),
+        sourceUrl: `valuefabric://context/${contextId}`,
+        tenantId,
+        contextId,
+        metadata: {
+          tier: "tier_0_value_fabric",
+          ontology_version: valueFabric.ontology_version,
+          node_count: valueFabric.nodes.length,
+          relationship_count: valueFabric.relationships.length,
+          generated_at: valueFabric.generated_at,
+        },
+      });
+
+      logger.info("Persisted canonical Value Fabric model", {
+        contextId,
+        tenantId,
+        nodes: valueFabric.nodes.length,
+        relationships: valueFabric.relationships.length,
+      });
+    } catch (vfErr: unknown) {
+      logger.warn("Value Fabric persistence failed; continuing job completion", {
+        contextId,
+        tenantId,
+        error: (vfErr as Error).message,
+      });
     }
 
     // 5. Mark job as completed

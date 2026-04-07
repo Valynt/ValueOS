@@ -81,6 +81,7 @@ import { integrityRouter } from "./api/integrity.js";
 import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
 import { reasoningTracesRouter } from "./api/reasoningTraces.js";
 import { valueGraphRouter as valueGraphCaseRouter } from "./routes/value-graph.js";
+import realizationRouter from './routes/realization.js';
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
 import experienceRouter from "./api/experience.js";
@@ -715,7 +716,9 @@ app.use("/api/v1/cases", integrityRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
 // Value Graph API — Sprint 49
-app.use("/api/v1/cases", valueGraphCaseRouter);
+app.use('/api/v1/cases', valueGraphRouter);
+// Realization API — mounted for post-sale value tracking
+app.use('/api', realizationRouter);
 // Reasoning traces — Sprint 52
 app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);

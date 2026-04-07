@@ -13,7 +13,7 @@ import {
   Upload,
   Workflow,
 } from "lucide-react";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 
 import {
   AuditIndicator,
@@ -26,6 +26,7 @@ import {
 } from "@/hooks/useOrganizationSettings";
 import { useSettingsSubscription } from "@/hooks/useSettings";
 import { useConfigAccess } from "@/hooks/useConfigAccess";
+import { useToast } from "@/app/providers/ToastProvider";
 
 import { WorkflowSettings } from "./WorkflowSettings";
 
@@ -59,6 +60,12 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
     canEdit,
   } = useTeamNotifications(organizationId, userRole);
 
+  // Toast notifications for user feedback
+  const { toast } = useToast();
+
+  // Track last saved timestamp for UX feedback
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
   const effectiveCanEdit = canEdit && webhooksAccess.canEdit;
 
   // Get values with fallbacks
@@ -76,14 +83,20 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
     [updateSetting, markDirty]
   );
 
-  // Bulk save
+  // Bulk save with timestamp tracking
   const handleBulkSave = useCallback(async () => {
     const promises = Array.from(dirtyFields).map((key) =>
       updateSetting(key, values[key])
     );
     await Promise.all(promises);
     dirtyFields.forEach((key) => markClean(key));
-  }, [dirtyFields, values, updateSetting, markClean]);
+    setLastSavedAt(new Date());
+    toast({
+      title: "Settings saved",
+      description: `Successfully saved ${promises.length} setting${promises.length !== 1 ? "s" : ""}`,
+      variant: "success",
+    });
+  }, [dirtyFields, values, updateSetting, markClean, toast]);
 
   // Export settings
   const handleExport = useCallback(() => {
@@ -111,7 +124,7 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
     URL.revokeObjectURL(url);
   }, [getBoolValue]);
 
-  // Import settings
+  // Import settings with user-facing error feedback
   const handleImport = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -120,11 +133,15 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
       // Validate file type and size
       const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
       if (file.size > MAX_FILE_SIZE) {
-        logger.error("Import failed: File too large (max 5MB)");
+        const errorMsg = "Import failed: File too large (max 5MB)";
+        logger.error(errorMsg);
+        toast({ title: errorMsg, variant: "error" });
         return;
       }
       if (!file.type.match(/json/) && !file.name.endsWith('.json')) {
-        logger.error("Import failed: Invalid file type (expected JSON)");
+        const errorMsg = "Import failed: Invalid file type (expected JSON)";
+        logger.error(errorMsg);
+        toast({ title: errorMsg, variant: "error" });
         return;
       }
 
@@ -133,7 +150,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
 
         // Check text size before parsing
         if (text.length > MAX_FILE_SIZE) {
-          logger.error("Import failed: Content too large");
+          const errorMsg = "Import failed: Content too large";
+          logger.error(errorMsg);
+          toast({ title: errorMsg, variant: "error" });
           return;
         }
 
@@ -141,23 +160,50 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
 
         // Validate basic structure
         if (!imported || typeof imported !== "object") {
-          logger.error("Import failed: Invalid JSON structure");
+          const errorMsg = "Import failed: Invalid JSON structure";
+          logger.error(errorMsg);
+          toast({ title: errorMsg, variant: "error" });
           return;
         }
 
         const data = imported as Record<string, unknown>;
+        let importCount = 0;
         if (data.notifications && typeof data.notifications === "object") {
           Object.entries(data.notifications).forEach(([key, value]) => {
             const settingKey = `notifications.${key}`;
             void updateSetting(settingKey, value);
             markDirty(settingKey);
+            importCount++;
+          });
+        }
+
+        if (importCount > 0) {
+          toast({
+            title: "Settings imported",
+            description: `${importCount} notification setting${importCount !== 1 ? "s" : ""} imported. Click "Save all" to apply.`,
+            variant: "success",
+          });
+        } else {
+          toast({
+            title: "No settings found",
+            description: "The imported file contains no notification settings",
+            variant: "warning",
           });
         }
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         logger.error("Import failed:", err);
+        toast({
+          title: "Import failed",
+          description: errorMsg,
+          variant: "error",
+        });
       }
+
+      // Reset file input
+      event.target.value = "";
     },
-    [updateSetting, markDirty]
+    [updateSetting, markDirty, toast]
   );
 
   // Loading state

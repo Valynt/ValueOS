@@ -333,7 +333,9 @@ describe("5.4 Value Graph Polish", () => {
     const link = generateGraphShareLink("case-abc", { view: "canvas" });
     expect(typeof link).toBe("string");
     expect(link).toContain("case-abc");
-    expect(link).toContain("view=canvas");
+    // View is encoded in the 'v' param as JSON
+    expect(link).toContain("v=");
+    expect(link).toContain("t="); // Token param
   });
 
   it("5.4.4: Shareable link can be parsed back to original config", () => {
