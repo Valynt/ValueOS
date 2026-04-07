@@ -12,8 +12,7 @@
     "skipLibCheck": true,
     "types": [
       "vitest/globals",
-      "node",
-      "@testing-library/jest-dom"
+      "node"
     ],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
