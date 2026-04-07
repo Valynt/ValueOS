@@ -105,7 +105,7 @@ DROP POLICY IF EXISTS audit_logs_tenant_delete ON public.audit_logs;
 -- Allow tenant members to read their own audit logs
 CREATE POLICY audit_logs_tenant_select ON public.audit_logs
   FOR SELECT TO authenticated
-  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::text OR organization_id IN (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text));
+  USING (tenant_id::text IN (SELECT tenant_id FROM public.user_tenants WHERE user_id = (auth.uid())::text));
 
 -- Service role full access
 DROP POLICY IF EXISTS audit_logs_service_role ON public.audit_logs;

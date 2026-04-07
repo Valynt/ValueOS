@@ -1,12 +1,13 @@
 /**
  * HypothesisCard Widget
  *
- * Value driver, impact range, evidence tier, confidence badge, Accept/Edit/Reject actions.
+ * Value driver, impact range, evidence tier, confidence badge.
+ * Includes Accept/Edit/Reject actions and "Lock as Assumption" promotion.
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.2
  */
 
 import { ConfidenceBadge } from "@valueos/components/components/ConfidenceBadge";
-import { Check, Edit3, TrendingUp, X } from "lucide-react";
+import { Check, Edit3, Lock, TrendingUp, X } from "lucide-react";
 import React from "react";
 
 import { useToast } from "@/components/common/Toast";
@@ -18,25 +19,58 @@ export interface HypothesisData {
   impactRange: { low: number; high: number };
   evidenceTier: "tier1" | "tier2" | "tier3";
   confidenceScore: number;
-  status: "pending" | "accepted" | "rejected" | "modified";
+  status: "pending" | "accepted" | "rejected" | "modified" | "promoted";
   benchmarkReference?: { source: string; p25: number; p50: number; p75: number };
 }
 
 export interface HypothesisCardWidgetData {
   hypotheses: HypothesisData[];
+  canPromote?: boolean;
+  phaseId?: string;
 }
 
 export function HypothesisCard({ data, onAction }: WidgetProps) {
   const { error, success } = useToast();
   const widgetData = data as unknown as HypothesisCardWidgetData;
   const hypotheses = widgetData.hypotheses ?? [];
+  const canPromote = widgetData.canPromote ?? false;
+  const phaseId = widgetData.phaseId;
 
-  const handleAction = async (action: "accept" | "edit" | "reject", hypothesisId: string) => {
+  const handleAction = async (
+    action: "accept" | "edit" | "reject" | "promote-to-assumption",
+    hypothesisId: string,
+    payload?: { value?: number; unit?: string; sourceType?: string }
+  ) => {
     try {
-      await onAction?.(action, { hypothesisId });
-      success(`Hypothesis ${action}ed.`);
+      if (action === "promote-to-assumption") {
+        const hypothesis = hypotheses.find((h) => h.id === hypothesisId);
+        if (hypothesis) {
+          const avgValue = (hypothesis.impactRange.low + hypothesis.impactRange.high) / 2;
+          await onAction?.(action, {
+            hypothesisId,
+            value: payload?.value ?? avgValue,
+            unit: payload?.unit ?? "USD",
+            sourceType: payload?.sourceType ?? getSourceTypeFromTier(hypothesis.evidenceTier),
+          });
+          success("Hypothesis locked as assumption.");
+        }
+      } else {
+        await onAction?.(action, { hypothesisId });
+        success(`Hypothesis ${action}ed.`);
+      }
     } catch {
       error("Could not update hypothesis. Please try again.");
+    }
+  };
+
+  const getSourceTypeFromTier = (tier: string): string => {
+    switch (tier) {
+      case "tier1":
+        return "customer-confirmed";
+      case "tier2":
+        return "benchmark-derived";
+      default:
+        return "inferred";
     }
   };
 
@@ -61,6 +95,8 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
         return "bg-red-100 text-red-800";
       case "modified":
         return "bg-blue-100 text-blue-800";
+      case "promoted":
+        return "bg-purple-100 text-purple-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -123,28 +159,39 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
           )}
 
           {hypothesis.status === "pending" && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => void handleAction("accept", hypothesis.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-              >
-                <Check className="w-4 h-4" />
-                Accept
-              </button>
-              <button
-                onClick={() => void handleAction("edit", hypothesis.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => void handleAction("reject", hypothesis.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Reject
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => void handleAction("accept", hypothesis.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                >
+                  <Check className="w-4 h-4" />
+                  Accept
+                </button>
+                <button
+                  onClick={() => void handleAction("edit", hypothesis.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => void handleAction("reject", hypothesis.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Reject
+                </button>
+              </div>
+              {canPromote && (
+                <button
+                  onClick={() => void handleAction("promote-to-assumption", hypothesis.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors w-full"
+                >
+                  <Lock className="w-4 h-4" />
+                  Lock as Assumption
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -203,6 +203,7 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
               entry={{
                 id: "1",
                 settingKey: "notifications.email",
+                userId: "system",
                 userEmail: "system",
                 timestamp: new Date().toISOString(),
                 action: "update",
@@ -325,13 +326,14 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={notifications.emailNotifications}
-                    onChange={() =>
-                      handleNotificationToggle("emailNotifications")
+                    checked={getBoolValue("notifications.emailNotifications")}
+                    onChange={(e) =>
+                      handleToggle("notifications.emailNotifications")(e.target.checked)
                     }
+                    disabled={!effectiveCanEdit || pendingFields.has("notifications.emailNotifications")}
                     aria-label="Email Notifications"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
                 </label>
               </div>
 
@@ -346,13 +348,14 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={notifications.slackNotifications}
-                    onChange={() =>
-                      handleNotificationToggle("slackNotifications")
+                    checked={getBoolValue("notifications.slackNotifications")}
+                    onChange={(e) =>
+                      handleToggle("notifications.slackNotifications")(e.target.checked)
                     }
+                    disabled={!effectiveCanEdit || pendingFields.has("notifications.slackNotifications")}
                     aria-label="Slack Notifications"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
                 </label>
               </div>
             </div>
@@ -360,130 +363,7 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title="Workflow Settings"
-        description="Configure default workflows and automation rules"
-      >
-        <div className="space-y-4 max-w-2xl">
-          <div>
-            <label
-              htmlFor="defaultTaskStatus"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Default Task Status
-            </label>
-            <select
-              id="defaultTaskStatus"
-              value={workflow.defaultTaskStatus}
-              onChange={(e) =>
-                handleWorkflowChange("defaultTaskStatus", e.target.value)
-              }
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="review">Review</option>
-              <option value="done">Done</option>
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              New tasks will be created with this status by default
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="defaultAssignee"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Default Assignee
-            </label>
-            <select
-              id="defaultAssignee"
-              value={workflow.defaultAssignee}
-              onChange={(e) =>
-                handleWorkflowChange("defaultAssignee", e.target.value)
-              }
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="unassigned">Unassigned</option>
-              <option value="creator">Task Creator</option>
-              <option value="project_owner">Project Owner</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-            <div className="flex items-start space-x-3">
-              <Check className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="font-medium text-foreground">Require Approval</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Tasks must be approved before marking as complete
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={workflow.requireApproval}
-                onChange={(e) =>
-                  handleWorkflowChange("requireApproval", e.target.checked)
-                }
-                aria-label="Require Approval"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-start space-x-3">
-                <Archive className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-medium text-foreground">
-                    Auto-Archive Projects
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Automatically archive inactive projects
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={workflow.autoArchive}
-                  onChange={(e) =>
-                    handleWorkflowChange("autoArchive", e.target.checked)
-                  }
-                  aria-label="Auto-Archive Projects"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            {workflow.autoArchive && (
-              <div className="ml-8 pt-3 border-t border-border">
-                <label
-                  htmlFor="archiveDays"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  Archive after (days)
-                </label>
-                <input
-                  id="archiveDays"
-                  type="number"
-                  value={archiveDays}
-                  onChange={(e) => setArchiveDays(parseInt(e.target.value) || 30)}
-                  min="30"
-                  max="365"
-                  className="w-32 px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </SettingsSection>
+      {/* TODO: Connect Workflow Settings to backend (future P2 enhancement) */}
 
       <SettingsSection
         title="Settings Management"
@@ -507,30 +387,20 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
 
             <div className="flex space-x-3">
               <button
-                onClick={handleExportSettings}
-                disabled={exporting}
-                className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
+                onClick={handleExport}
+                className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {exporting ? "Exporting..." : "Export Settings"}
+                <Download className="h-4 w-4 mr-2" />
+                Export Settings
               </button>
 
               <label className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer">
-                {importing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4 mr-2" />
-                )}
-                {importing ? "Importing..." : "Import Settings"}
+                <Upload className="h-4 w-4 mr-2" />
+                Import Settings
                 <input
                   type="file"
                   accept=".json"
-                  onChange={handleImportSettings}
-                  disabled={importing}
+                  onChange={handleImport}
                   className="hidden"
                 />
               </label>
@@ -539,14 +409,6 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
         </div>
       </SettingsSection>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSaveSettings}
-          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg shadow-light-blue-sm hover:bg-primary/90 transition-colors"
-        >
-          Save All Settings
-        </button>
-      </div>
     </div>
   );
 };

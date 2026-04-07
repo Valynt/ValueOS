@@ -264,7 +264,7 @@ export function SettingsToggleRow({
 
 interface SettingsSectionProps {
   title?: string;
-  description?: string;
+  description?: ReactNode;
   children: ReactNode;
 }
 
@@ -275,7 +275,7 @@ export function SettingsSection({ title, description, children }: SettingsSectio
         <div className="mb-4">
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
           {description && (
-            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            <div className="text-sm text-muted-foreground mt-1">{description}</div>
           )}
         </div>
       )}
@@ -331,5 +331,3 @@ export function SettingsAlert({ type, title, description, action }: SettingsAler
     </div>
   );
 }
-
-export { SettingsRow, SettingsToggleRow, SettingsSection, SettingsAlert };

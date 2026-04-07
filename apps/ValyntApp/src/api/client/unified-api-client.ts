@@ -610,6 +610,13 @@ export const api = {
   getScenarios: (caseId: string) => apiClient.get(`/api/cases/${caseId}/scenarios`),
   getSensitivity: (caseId: string) => apiClient.get(`/api/cases/${caseId}/sensitivity`),
 
+  updateArtifactConfidence: (caseId: string, artifactId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/artifacts/${artifactId}/confidence`, data),
+  updateHypothesisConfidence: (caseId: string, hypothesisId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/hypotheses/${hypothesisId}/confidence`, data),
+  updateAssumptionConfidence: (caseId: string, assumptionId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/assumptions/${assumptionId}/confidence`, data),
+
   // Journey Orchestration
   getJourneyState: (caseId: string) => apiClient.get(`/api/cases/${caseId}/journey`),
 
