@@ -216,7 +216,7 @@ export function ProfilePage({
           description="Please verify your email address to access all features."
           action={{
             label: "Verify email",
-            onClick={ handleVerifyEmail }
+            onClick: handleVerifyEmail
           }}
         />
       )}
