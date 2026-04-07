@@ -247,7 +247,7 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
 
   describe("agent_sessions RLS Policies", () => {
     it("CRITICAL: should prevent cross-tenant access to agent_sessions", async () => {
-      const sessionId = `test-session-${crypto.randomUUID()}`;
+      const sessionId = crypto.randomUUID();
       cleanupIds.agentSessions.push(sessionId);
 
       const { data: session, error: createError } = await serviceRoleClient

@@ -20,13 +20,33 @@ export interface TenantIsolationFixture {
 const resolveEnv = (...names: string[]): string | undefined =>
   names.map((name) => process.env[name]).find((value) => Boolean(value));
 
+function createServiceRoleClient(): SupabaseClient {
+  const supabaseUrl = resolveEnv("VITE_SUPABASE_URL", "SUPABASE_URL")!;
+  const serviceKey = resolveEnv("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY")!;
+
+  return createClient(supabaseUrl, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storage: undefined,
+    },
+    global: {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    },
+  });
+}
+
 const createTenantClient = (
   supabaseUrl: string,
   anonKey: string,
   accessToken: string
 ): SupabaseClient =>
   createClient(supabaseUrl, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
+    auth: { autoRefreshToken: false, persistSession: false, storage: undefined },
     global: {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -55,6 +75,7 @@ const bootstrapTenantUser = async ({
   const email = `tenant-${uniqueSuffix}@example.com`;
   const password = `P@ssword-${uniqueSuffix}`;
 
+  // Phase 1: Auth operations with setup client
   const { data: createdUser, error: createUserError } =
     await adminClient.auth.admin.createUser({
       email,
@@ -78,7 +99,10 @@ const bootstrapTenantUser = async ({
 
   cleanupIds.users.push(createdUser.user.id);
 
-  const { error: userTenantError } = await adminClient
+  // Phase 2: Table operations with FRESH client (never used for auth)
+  const tableClient = createServiceRoleClient();
+
+  const { error: userTenantError } = await tableClient
     .from("user_tenants")
     .insert({
       user_id: createdUser.user.id,
@@ -92,6 +116,7 @@ const bootstrapTenantUser = async ({
     );
   }
 
+  // Phase 3: Sign in with setup client
   const { data: signInData, error: signInError } =
     await adminClient.auth.signInWithPassword({
       email,
@@ -134,9 +159,8 @@ export const createTenantIsolationFixture =
       );
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    // Phase 1: Setup - Use dedicated client for auth operations only
+    const setupClient = createServiceRoleClient();
 
     const cleanupIds: { users: string[]; tenants: string[] } = {
       users: [],
@@ -148,7 +172,10 @@ export const createTenantIsolationFixture =
 
     cleanupIds.tenants.push(tenantOneId, tenantTwoId);
 
-    const { error: tenantInsertError } = await adminClient
+    // Phase 2: Table Operations - Use FRESH service role client (never used for auth)
+    const tableClient = createServiceRoleClient();
+
+    const { error: tenantInsertError } = await tableClient
       .from("tenants")
       .insert([
         {
@@ -172,7 +199,7 @@ export const createTenantIsolationFixture =
     }
 
     const tenantOne = await bootstrapTenantUser({
-      adminClient,
+      adminClient: setupClient,
       tenantId: tenantOneId,
       suffix: "a",
       supabaseUrl,
@@ -181,7 +208,7 @@ export const createTenantIsolationFixture =
     });
 
     const tenantTwo = await bootstrapTenantUser({
-      adminClient,
+      adminClient: setupClient,
       tenantId: tenantTwoId,
       suffix: "b",
       supabaseUrl,
@@ -190,21 +217,21 @@ export const createTenantIsolationFixture =
     });
 
     const cleanup = async () => {
-      await adminClient.from("agent_predictions").delete().like("id", "sec-%");
-      await adminClient.from("agent_sessions").delete().like("id", "sec-%");
+      await tableClient.from("agent_predictions").delete().like("id", "sec-%");
+      await tableClient.from("agent_sessions").delete().like("id", "sec-%");
 
       for (const userId of cleanupIds.users) {
-        await adminClient.from("user_tenants").delete().eq("user_id", userId);
-        await adminClient.auth.admin.deleteUser(userId);
+        await tableClient.from("user_tenants").delete().eq("user_id", userId);
+        await setupClient.auth.admin.deleteUser(userId);
       }
 
       for (const tenantId of cleanupIds.tenants) {
-        await adminClient.from("tenants").delete().eq("id", tenantId);
+        await tableClient.from("tenants").delete().eq("id", tenantId);
       }
     };
 
     return {
-      adminClient,
+      adminClient: tableClient,
       tenantOne,
       tenantTwo,
       cleanup,

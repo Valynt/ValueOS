@@ -54,7 +54,10 @@ const QUEUE_NAME = "export-jobs";
 // Worker processor
 // ---------------------------------------------------------------------------
 
-async function processJob(job: Job<ExportJobPayload>): Promise<void> {
+/**
+ * Process a single export job. Exported for testing.
+ */
+export async function processJob(job: Job<ExportJobPayload>): Promise<void> {
   const {
     jobId,
     tenantId,
