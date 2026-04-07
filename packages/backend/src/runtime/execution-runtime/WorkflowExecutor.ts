@@ -425,25 +425,26 @@ export class WorkflowExecutor {
           deadlineMinutes: DEFAULT_WORKFLOW_DEADLINE_MINUTES,
         });
 
-        await this._recordWorkflowEvent(
-          executionId,
-          organizationId,
-          "execution_failed",
-          null,
-          {
-            reason: "deadline_exceeded",
-            runtime_failure: failureDetails,
-            traceId,
-          }
-        );
-
-        await this._updateStatus(
-          executionId,
-          organizationId,
-          "failed",
-          null,
-          this._withRuntimeFailure(recordSnapshot, failureDetails)
-        );
+        await Promise.all([
+          this._recordWorkflowEvent(
+            executionId,
+            organizationId,
+            "execution_failed",
+            null,
+            {
+              reason: "deadline_exceeded",
+              runtime_failure: failureDetails,
+              traceId,
+            }
+          ),
+          this._updateStatus(
+            executionId,
+            organizationId,
+            "failed",
+            null,
+            this._withRuntimeFailure(recordSnapshot, failureDetails)
+          ),
+        ]);
 
         throw new Error(deadlineError);
       }
@@ -576,29 +577,29 @@ export class WorkflowExecutor {
             traceId,
           };
 
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_waiting_for_approval",
-            stage.id,
-            approvalEventMetadata
-          );
-
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_hitl_pending_approval",
-            stage.id,
-            approvalEventMetadata
-          );
-
-          await this._persistAndUpdate(
-            executionId,
-            organizationId,
-            recordSnapshot,
-            approvalStatus,
-            stage.id
-          );
+          await Promise.all([
+            this._recordWorkflowEvent(
+              executionId,
+              organizationId,
+              "stage_waiting_for_approval",
+              stage.id,
+              approvalEventMetadata
+            ),
+            this._recordWorkflowEvent(
+              executionId,
+              organizationId,
+              "stage_hitl_pending_approval",
+              stage.id,
+              approvalEventMetadata
+            ),
+            this._persistAndUpdate(
+              executionId,
+              organizationId,
+              recordSnapshot,
+              approvalStatus,
+              stage.id
+            ),
+          ]);
 
           return;
         }
@@ -652,21 +653,22 @@ export class WorkflowExecutor {
               "failed"
             );
 
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              metadata
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              recordSnapshot,
-              "failed",
-              stage.id
-            );
+            await Promise.all([
+              this._recordWorkflowEvent(
+                executionId,
+                organizationId,
+                "stage_failed",
+                stage.id,
+                metadata
+              ),
+              this._persistAndUpdate(
+                executionId,
+                organizationId,
+                recordSnapshot,
+                "failed",
+                stage.id
+              ),
+            ]);
             break;
           }
 
@@ -710,25 +712,26 @@ export class WorkflowExecutor {
               failureDetails
             );
 
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: structuralCheck.metadata,
-                runtime_failure: failureDetails,
-              }
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              this._withRuntimeFailure(recordSnapshot, failureDetails),
-              "failed",
-              stage.id
-            );
+            await Promise.all([
+              this._recordWorkflowEvent(
+                executionId,
+                organizationId,
+                "stage_failed",
+                stage.id,
+                {
+                  reason: "integrity_veto",
+                  metadata: structuralCheck.metadata,
+                  runtime_failure: failureDetails,
+                }
+              ),
+              this._persistAndUpdate(
+                executionId,
+                organizationId,
+                this._withRuntimeFailure(recordSnapshot, failureDetails),
+                "failed",
+                stage.id
+              ),
+            ]);
 
             continue;
           }
@@ -773,25 +776,26 @@ export class WorkflowExecutor {
               failureDetails
             );
 
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: integrityCheck.metadata,
-                runtime_failure: failureDetails,
-              }
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              this._withRuntimeFailure(recordSnapshot, failureDetails),
-              "failed",
-              stage.id
-            );
+            await Promise.all([
+              this._recordWorkflowEvent(
+                executionId,
+                organizationId,
+                "stage_failed",
+                stage.id,
+                {
+                  reason: "integrity_veto",
+                  metadata: integrityCheck.metadata,
+                  runtime_failure: failureDetails,
+                }
+              ),
+              this._persistAndUpdate(
+                executionId,
+                organizationId,
+                this._withRuntimeFailure(recordSnapshot, failureDetails),
+                "failed",
+                stage.id
+              ),
+            ]);
 
             continue;
           }
@@ -821,31 +825,41 @@ export class WorkflowExecutor {
             stageDiagnostic ?? undefined
           );
 
-          await this.executionPersistence.recordStageRun({
-            executionId,
-            organizationId,
-            stage,
-            executionRecord: recordSnapshot,
-            startedAt: stageStart,
-            completedAt: stageCompleted,
-            output: stageOutput,
-          });
-
           completed.add(stage.id);
 
-          await this._buildAndPersistHandoffCards({
-            executionId,
-            organizationId,
-            dag,
-            completedStages: completed,
-            fromStage: stage,
-            stageOutput,
-            timestamp: stageCompleted.toISOString(),
-            actor:
-              executionContext.userId ??
-              executionContext.actorId ??
-              "workflow-orchestrator",
-          });
+          await Promise.all([
+            this.executionPersistence.recordStageRun({
+              executionId,
+              organizationId,
+              stage,
+              executionRecord: recordSnapshot,
+              startedAt: stageStart,
+              completedAt: stageCompleted,
+              output: stageOutput,
+            }),
+            this._buildAndPersistHandoffCards({
+              executionId,
+              organizationId,
+              dag,
+              completedStages: completed,
+              fromStage: stage,
+              stageOutput,
+              timestamp: stageCompleted.toISOString(),
+              actor:
+                executionContext.userId ??
+                executionContext.actorId ??
+                "workflow-orchestrator",
+            }),
+            this._persistAndUpdate(
+              executionId,
+              organizationId,
+              recordSnapshot,
+              "in_progress",
+              stage.id
+            ),
+          ]);
+
+          continue;
         } else {
           const errMsg =
             result.result?.stageResult.error ??
@@ -878,26 +892,27 @@ export class WorkflowExecutor {
             failureDetails
           );
 
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_failed",
-            stage.id,
-            {
-              reason: "execution_error",
-              runtime_failure: failureDetails,
-              traceId,
-            }
-          );
+          await Promise.all([
+            this._recordWorkflowEvent(
+              executionId,
+              organizationId,
+              "stage_failed",
+              stage.id,
+              {
+                reason: "execution_error",
+                runtime_failure: failureDetails,
+                traceId,
+              }
+            ),
+            this._persistAndUpdate(
+              executionId,
+              organizationId,
+              recordSnapshot,
+              "in_progress",
+              stage.id
+            ),
+          ]);
         }
-
-        await this._persistAndUpdate(
-          executionId,
-          organizationId,
-          recordSnapshot,
-          "in_progress",
-          stage.id
-        );
       }
 
       if (integrityVetoed || schemaValidationFailed) {
@@ -925,25 +940,26 @@ export class WorkflowExecutor {
         [...failed.values()][0] ?? "Unknown stage error"
       );
 
-      await this._recordWorkflowEvent(
-        executionId,
-        organizationId,
-        "execution_failed",
-        null,
-        {
-          reason: "workflow_failed",
-          runtime_failure: fallbackFailure,
-          traceId,
-        }
-      );
-
-      await this._updateStatus(
-        executionId,
-        organizationId,
-        "failed",
-        null,
-        this._withRuntimeFailure(recordSnapshot, fallbackFailure)
-      );
+      await Promise.all([
+        this._recordWorkflowEvent(
+          executionId,
+          organizationId,
+          "execution_failed",
+          null,
+          {
+            reason: "workflow_failed",
+            runtime_failure: fallbackFailure,
+            traceId,
+          }
+        ),
+        this._updateStatus(
+          executionId,
+          organizationId,
+          "failed",
+          null,
+          this._withRuntimeFailure(recordSnapshot, fallbackFailure)
+        ),
+      ]);
 
       return;
     }
@@ -1032,17 +1048,18 @@ export class WorkflowExecutor {
         },
       };
 
-      await this.executionPersistence.updateWorkflowExecutionContext(
-        executionId,
-        organizationId,
-        nextContext
-      );
-
-      await this.executionPersistence.persistExecutionRecord(
-        executionId,
-        organizationId,
-        nextRecordSnapshot
-      );
+      await Promise.all([
+        this.executionPersistence.updateWorkflowExecutionContext(
+          executionId,
+          organizationId,
+          nextContext
+        ),
+        this.executionPersistence.persistExecutionRecord(
+          executionId,
+          organizationId,
+          nextRecordSnapshot
+        ),
+      ]);
 
       return {
         executionContext: nextContext,

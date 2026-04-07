@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "react-error-boundary";
 /**
  * ValueGraphStage
  *
@@ -208,7 +209,7 @@ export function ValueGraphStage({ opportunityId }: ValueGraphStageProps) {
     <div className="flex flex-col gap-6" data-testid="value-graph-stage">
       <div className="flex gap-0 rounded-xl border border-zinc-200 overflow-hidden" style={{ height: 500 }}>
         <div className="flex-1 min-w-0">
-          <Suspense
+          <ErrorBoundary fallback={<div className="h-full flex items-center justify-center text-sm text-red-500">Error loading graph</div>}><Suspense
             fallback={
               <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                 Loading graph…
@@ -220,7 +221,7 @@ export function ValueGraphStage({ opportunityId }: ValueGraphStageProps) {
               onNodeSelect={handleNodeSelect}
               className="h-full"
             />
-          </Suspense>
+          </Suspense></ErrorBoundary>
         </div>
         {selectedEntity && (
           <EntityInspector
