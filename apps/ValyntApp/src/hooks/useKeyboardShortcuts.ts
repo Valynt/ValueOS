@@ -331,3 +331,90 @@ export function createWorkbenchHandlers(
 }
 
 export default useKeyboardShortcuts;
+
+// ============================================================================
+// Undo/Redo Stack Hook
+// ============================================================================
+
+export interface UndoableAction<T = unknown> {
+  id: string;
+  description: string;
+  undo: () => T | Promise<T>;
+  redo: () => T | Promise<T>;
+  timestamp: number;
+}
+
+export function useUndoStack<T = unknown>(limit: number = 50) {
+  const [stack, setStack] = useState<UndoableAction<T>[]>([]);
+  const [index, setIndex] = useState(-1);
+
+  const push = useCallback(
+    (action: Omit<UndoableAction<T>, "timestamp">) => {
+      setStack((prev) => {
+        // Remove any redo actions
+        const newStack = prev.slice(0, index + 1);
+
+        // Add new action
+        const newAction: UndoableAction<T> = {
+          ...action,
+          timestamp: Date.now(),
+        };
+        newStack.push(newAction);
+
+        // Limit stack size
+        if (newStack.length > limit) {
+          newStack.shift();
+        }
+
+        return newStack;
+      });
+
+      setIndex((prev) => Math.min(prev + 1, limit - 1));
+    },
+    [index, limit]
+  );
+
+  const undo = useCallback(async (): Promise<T | null> => {
+    if (index < 0) return null;
+
+    const action = stack[index];
+    if (!action) return null;
+
+    const result = await action.undo();
+    setIndex((prev) => prev - 1);
+
+    return result;
+  }, [index, stack]);
+
+  const redo = useCallback(async (): Promise<T | null> => {
+    if (index >= stack.length - 1) return null;
+
+    const nextIndex = index + 1;
+    const action = stack[nextIndex];
+    if (!action) return null;
+
+    const result = await action.redo();
+    setIndex(nextIndex);
+
+    return result;
+  }, [index, stack]);
+
+  const canUndo = index >= 0;
+  const canRedo = index < stack.length - 1;
+
+  const clear = useCallback(() => {
+    setStack([]);
+    setIndex(-1);
+  }, []);
+
+  return {
+    push,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clear,
+    stackSize: stack.length,
+    currentIndex: index,
+  };
+}

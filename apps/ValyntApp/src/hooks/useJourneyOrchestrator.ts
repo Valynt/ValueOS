@@ -85,6 +85,43 @@ export interface WorkspaceRegions {
   footer: unknown[];
 }
 
+export interface NextStepGuidance {
+  id: string;
+  type: "auto_advance" | "action_required" | "suggestion" | "completion";
+  priority: "high" | "medium" | "low";
+  title: string;
+  description: string;
+  primaryAction?: {
+    id: string;
+    label: string;
+    surface: "button" | "slash_command" | "keyboard_shortcut";
+    shortcut?: string;
+  };
+  secondaryActions?: Array<{ id: string; label: string }>;
+  progress?: {
+    current: number;
+    total: number;
+    label: string;
+  };
+  blocking: boolean;
+  dismissible: boolean;
+}
+
+export interface InlineValidation {
+  target: string;
+  status: "valid" | "invalid" | "pending" | "warning";
+  message: string;
+  suggestion?: string;
+  autoFixable?: boolean;
+}
+
+export interface KeyboardShortcut {
+  key: string;
+  label: string;
+  action_id: string;
+  scope: "global" | "phase" | "widget";
+}
+
 export interface JourneyState {
   phase: JourneyPhase;
   uiState: UIState | null;
@@ -101,6 +138,9 @@ export interface JourneyState {
     min_evidence_tier: string;
   };
   interactionMode: "editable" | "locked";
+  nextStepGuidance: NextStepGuidance[];
+  inlineValidations: InlineValidation[];
+  keyboardShortcuts: KeyboardShortcut[];
 }
 
 export interface PromoteHypothesisInput {
