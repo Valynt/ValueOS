@@ -96,6 +96,14 @@ const LivingValueGraphPage = lazy(() =>
   import("./views/LivingValueGraphPage").then((m) => ({ default: m.LivingValueGraphPage }))
 );
 
+// Warmth-era surfaces
+const ReviewPlaceholder = lazy(() =>
+  import("./views/ReviewPlaceholder").then((m) => ({ default: m.ReviewPlaceholder }))
+);
+const TemplatesPlaceholder = lazy(() =>
+  import("./views/TemplatesPlaceholder").then((m) => ({ default: m.TemplatesPlaceholder }))
+);
+
 // V1 Surface Views
 const DealAssemblyWorkspace = lazy(() =>
   import("./views/DealAssemblyWorkspace").then((m) => ({ default: m.DealAssemblyWorkspace }))
@@ -300,6 +308,17 @@ export function AppRoutes() {
 
                                         {/* H-4: Per-route ErrorBoundaries for workspace views so a crash in one
                                             workspace pane does not unmount the entire application. */}
+                                        {/* Warmth-era routes — coexist with legacy during 90-day bridge */}
+                                        <Route path="work" element={<Dashboard />} />
+                                        <Route path="work/cases" element={<Opportunities />} />
+                                        <Route path="work/cases/new" element={<Opportunities />} />
+                                        <Route path="case/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
+                                        <Route path="review/:caseId" element={<ReviewPlaceholder />} />
+                                        <Route path="library/models" element={<Models />} />
+                                        <Route path="library/templates" element={<TemplatesPlaceholder />} />
+                                        <Route path="library/agents" element={<Agents />} />
+
+                                        {/* V1 workspace routes */}
                                         <Route path="workspace/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
                                         <Route path="workspace/:caseId/assembly" element={<ErrorBoundary context="deal-assembly"><DealAssemblyWorkspace /></ErrorBoundary>} />
                                         <Route path="workspace/:caseId/model" element={<ErrorBoundary context="value-model-workbench"><ValueModelWorkbench /></ErrorBoundary>} />
@@ -323,6 +342,16 @@ export function AppRoutes() {
                                         <Route path="academy/*" element={<ErrorBoundary context="academy"><AcademyV2Routes /></ErrorBoundary>} />
                                       </Route>
                                     </Route>
+
+                                    {/* Warmth-era non-tenant routes also bridge to canonical tenant URL */}
+                                    <Route path="/work" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/work/cases" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/work/cases/new" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/case/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/review/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/models" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/templates" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/agents" element={<LegacyTenantRouteBridge />} />
 
                                     {/* Legacy non-tenant routes bridge to canonical tenant URL */}
                                     <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />

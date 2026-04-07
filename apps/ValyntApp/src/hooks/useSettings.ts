@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiClient } from "@/api/client/unified-api-client";
 import { useToast } from "@/components/ui/use-toast";
@@ -122,6 +122,7 @@ async function updateSettingApi(
   input: SettingUpdateInput
 ): Promise<Setting> {
   const res = await apiClient.put<Setting>(`/api/v1/settings/${key}`, {
+    key,
     ...input,
     scope,
     scopeId,

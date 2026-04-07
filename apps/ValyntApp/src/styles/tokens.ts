@@ -1,6 +1,6 @@
 /**
  * ValueOS Design Tokens
- * 
+ *
  * Light theme design system based on the UX Redesign spec.
  * These tokens define the visual language for the entire application.
  */
@@ -242,6 +242,41 @@ export const tokens = {
       canvasWidth: '65%',
       minConversationWidth: '320px',
       maxConversationWidth: '480px',
+    },
+  },
+  // ===================
+  // WARMTH
+  // ===================
+  warmth: {
+    states: {
+      forming: {
+        border: 'dashed',
+        borderColor: '#FCD34D', // amber-300
+        background: '#FFFBEB',  // amber-50
+        text: '#B45309',        // amber-700
+        icon: 'flame',
+        animation: 'warmth-pulse',
+      },
+      firm: {
+        border: 'solid',
+        borderColor: '#BFDBFE', // blue-200
+        background: '#FFFFFF',
+        text: '#0F172A',        // slate-900
+        icon: 'check-circle',
+        animation: 'none',
+      },
+      verified: {
+        border: 'solid',
+        borderColor: '#3B82F6', // blue-500
+        background: '#EFF6FF',  // blue-50
+        text: '#1E3A8A',        // blue-900
+        icon: 'shield-check',
+        animation: 'warmth-glow',
+      },
+    },
+    modifiers: {
+      firming: { icon: 'trending-up', color: '#D97706' },
+      needsReview: { icon: 'alert-triangle', color: '#D97706' },
     },
   },
 } as const;

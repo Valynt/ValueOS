@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const PERSONALIZATION_STORAGE_KEY = "valynt_personalization_v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -44,9 +44,19 @@ function persistPersonalizationState(state: PersonalizationState) {
 
 export function useNavigationPersonalization() {
   const [state, setState] = useState<PersonalizationState>(() => loadPersonalizationState());
+  const skipNextPersist = useRef(false);
+
+  useEffect(() => {
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      return;
+    }
+    persistPersonalizationState(state);
+  }, [state]);
 
   useEffect(() => {
     const syncState = () => {
+      skipNextPersist.current = true;
       setState(loadPersonalizationState());
     };
 
@@ -67,36 +77,26 @@ export function useNavigationPersonalization() {
   const trackRouteVisit = useCallback((path: string) => {
     if (!path) return;
 
-    setState((prev) => {
-      const next: PersonalizationState = {
-        ...prev,
-        routeUsage: {
-          ...prev.routeUsage,
-          [path]: (prev.routeUsage[path] ?? 0) + 1,
-        },
-      };
-
-      persistPersonalizationState(next);
-      return next;
-    });
+    setState((prev) => ({
+      ...prev,
+      routeUsage: {
+        ...prev.routeUsage,
+        [path]: (prev.routeUsage[path] ?? 0) + 1,
+      },
+    }));
   }, []);
 
   const trackFeatureUsage = useCallback((feature: string) => {
     const normalized = feature.trim();
     if (!normalized) return;
 
-    setState((prev) => {
-      const next: PersonalizationState = {
-        ...prev,
-        featureUsage: {
-          ...prev.featureUsage,
-          [normalized]: (prev.featureUsage[normalized] ?? 0) + 1,
-        },
-      };
-
-      persistPersonalizationState(next);
-      return next;
-    });
+    setState((prev) => ({
+      ...prev,
+      featureUsage: {
+        ...prev.featureUsage,
+        [normalized]: (prev.featureUsage[normalized] ?? 0) + 1,
+      },
+    }));
   }, []);
 
   const trackSearch = useCallback((query: string) => {
@@ -107,14 +107,10 @@ export function useNavigationPersonalization() {
       const deduped = prev.recentSearches.filter(
         (entry) => entry.toLocaleLowerCase() !== normalized.toLocaleLowerCase()
       );
-
-      const next: PersonalizationState = {
+      return {
         ...prev,
         recentSearches: [normalized, ...deduped].slice(0, MAX_RECENT_SEARCHES),
       };
-
-      persistPersonalizationState(next);
-      return next;
     });
   }, []);
 
