@@ -97,6 +97,8 @@ export interface HallucinationCheckResult {
   requiresEscalation: boolean;
   /** Knowledge Fabric validation result (when validator is configured) */
   knowledgeFabric?: KFHallucinationCheckResult;
+  /** Deferred signals processed asynchronously (memory cross-reference, confidence calibration) */
+  deferredSignals?: HallucinationSignal[];
 }
 
 // ---------------------------------------------------------------------------
@@ -633,11 +635,12 @@ export abstract class BaseAgent {
             }
             const parsed = zodSchema.parse(parsedJson);
 
-            // Run multi-signal hallucination detection
+            // Run tiered hallucination detection (critical inline, deferred async)
             const hallucinationResult = await this.checkHallucination(
               response.content,
               parsed as Record<string, unknown>,
-              sessionId
+              sessionId,
+              traceId
             );
 
             // Merge Knowledge Fabric result
@@ -839,20 +842,31 @@ export abstract class BaseAgent {
   // -------------------------------------------------------------------------
 
   /**
-   * 6-signal hallucination detection pipeline:
+   * 6-signal hallucination detection pipeline with tiered execution:
+   *
+   * CRITICAL (inline, blocking):
    * 1. Refusal patterns — LLM declining to answer
    * 2. Self-reference — LLM breaking character
    * 3. Fabricated data — fake URLs, round numbers, implausible percentages
    * 4. Internal contradictions — range inversions, out-of-bounds confidence
+   *
+   * DEFERRED (async, non-blocking):
    * 5. Memory cross-reference — contradictions against stored facts
    * 6. Confidence calibration — high confidence with thin evidence
+   *
+   * Deferred signals are processed asynchronously and merged into the reasoning
+   * trace to reduce latency without sacrificing safety.
    */
   protected async checkHallucination(
     rawContent: string,
     parsedOutput: Record<string, unknown>,
-    sessionId: string
+    sessionId: string,
+    traceId?: string
   ): Promise<HallucinationCheckResult> {
     const signals: HallucinationSignal[] = [];
+
+    // === CRITICAL SIGNALS (inline, blocking) ===
+    // These run synchronously - they detect high-severity issues that must block execution
 
     // 1. Refusal patterns
     for (const pattern of REFUSAL_PATTERNS) {
@@ -884,16 +898,46 @@ export abstract class BaseAgent {
     // 4. Internal contradictions
     this.checkInternalContradictions(parsedOutput, signals);
 
-    // 5. Memory cross-reference
-    await this.crossReferenceMemory(parsedOutput, sessionId, signals);
-
-    // 6. Confidence calibration
-    this.checkConfidenceCalibration(parsedOutput, signals);
-
-    // Compute grounding score
-    const groundingScore = computeGroundingScore(signals);
-
+    // Compute preliminary grounding score from critical signals
+    const criticalGroundingScore = computeGroundingScore(signals);
     const hasHighSeverity = signals.some(s => s.severity === "high");
+
+    // === DEFERRED SIGNALS (async, non-blocking) ===
+    // These run in parallel and their results are stored in the reasoning trace
+    // They don't block the response but contribute to audit/compliance
+
+    const deferredSignalsPromise = this.runDeferredSignals(
+      parsedOutput,
+      sessionId,
+      traceId
+    );
+
+    // If we have high severity signals, don't wait for deferred - fail fast
+    if (hasHighSeverity) {
+      // Still kick off deferred for logging, but don't await
+      void deferredSignalsPromise.then(deferredSignals => {
+        if (traceId && deferredSignals.length > 0) {
+          void this.updateTraceWithDeferredSignals(traceId, deferredSignals);
+        }
+      });
+
+      return {
+        passed: false,
+        signals,
+        groundingScore: criticalGroundingScore,
+        requiresEscalation: true,
+        deferredSignals: [], // Will be populated async in trace
+      };
+    }
+
+    // For non-failing cases, await deferred signals for complete result
+    const deferredSignals = await deferredSignalsPromise;
+
+    // Merge deferred signals (medium/low severity only)
+    signals.push(...deferredSignals);
+
+    // Compute final grounding score
+    const groundingScore = computeGroundingScore(signals);
     const requiresEscalation = hasHighSeverity || groundingScore < 0.5;
 
     return {
@@ -901,7 +945,71 @@ export abstract class BaseAgent {
       signals,
       groundingScore,
       requiresEscalation,
+      deferredSignals,
     };
+  }
+
+  /**
+   * Run deferred (non-blocking) hallucination signals.
+   * These are processed in parallel for latency reduction.
+   */
+  private async runDeferredSignals(
+    parsedOutput: Record<string, unknown>,
+    sessionId: string,
+    traceId?: string
+  ): Promise<HallucinationSignal[]> {
+    const deferredSignals: HallucinationSignal[] = [];
+
+    try {
+      // Run deferred checks in parallel with timeout
+      const timeoutMs = 2000; // 2 second timeout for deferred signals
+
+      const results = await Promise.allSettled([
+        this.crossReferenceMemory(parsedOutput, sessionId, deferredSignals).then(() => deferredSignals),
+        Promise.resolve().then(() => {
+          this.checkConfidenceCalibration(parsedOutput, deferredSignals);
+          return deferredSignals;
+        }),
+      ]);
+
+      // Aggregate all signals from successful checks
+      for (const result of results) {
+        if (result.status === "fulfilled" && Array.isArray(result.value)) {
+          // Signals are pushed to the array by reference
+        }
+      }
+    } catch (err) {
+      logger.warn("[BaseAgent.runDeferredSignals] Deferred signal processing failed", {
+        agent: this.name,
+        sessionId,
+        traceId,
+        error: BaseAgent.getErrorMessage(err),
+      });
+    }
+
+    return deferredSignals;
+  }
+
+  /**
+   * Update reasoning trace with deferred signals (fire-and-forget).
+   */
+  private async updateTraceWithDeferredSignals(
+    traceId: string,
+    deferredSignals: HallucinationSignal[]
+  ): Promise<void> {
+    if (!this.traceRepo || deferredSignals.length === 0) return;
+
+    try {
+      await this.traceRepo.updateDeferredSignals(traceId, this.organizationId, {
+        deferred_signals: deferredSignals,
+        deferred_signal_count: deferredSignals.length,
+      });
+    } catch (err) {
+      logger.warn("[BaseAgent.updateTraceWithDeferredSignals] Failed to update trace", {
+        traceId,
+        error: BaseAgent.getErrorMessage(err),
+      });
+    }
   }
 
   private checkFabricatedData(

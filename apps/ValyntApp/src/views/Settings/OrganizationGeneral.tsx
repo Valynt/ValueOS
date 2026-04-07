@@ -1,114 +1,162 @@
-import { Building2, Loader2, Palette, Upload, X } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import { Building2, Loader2, Palette, Upload, X, RotateCcw, Save, Lock } from "lucide-react";
+import React, { useCallback, useEffect, useRef } from "react";
 
-import { SettingsSection } from "../../components/settings";
+import {
+  AuditIndicator,
+  SettingsAlert,
+  SettingsSection,
+} from "@/components/settings";
+import { Button } from "@/components/ui/button";
+import { ValidatedInput } from "@/components/ui/validated-input";
+import { useOrganizationBranding } from "@/hooks/useOrganizationSettings";
+import { useConfigAccess } from "@/hooks/useConfigAccess";
 import {
   applyBrandTheme,
   VALYNT_BRAND_PRIMARY,
   VALYNT_BRAND_SECONDARY,
-} from "../../styles/brandTheme";
-
-import { ValidatedInput } from "@/components/ui/validated-input";
-import type { CustomBrandingConfig } from "@/config/settingsMatrix";
+} from "@/styles/brandTheme";
 
 interface OrganizationGeneralProps {
-  initialBranding?: CustomBrandingConfig;
-  initialOrganizationName?: string;
-  initialDomain?: string;
+  organizationId: string;
+  userRole: "tenant_admin" | "vendor_admin" | "user" | "viewer";
 }
 
 const BRANDING_PREVIEW_TEXT_COLOR = "#f8fafc";
 
 export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
-  initialBranding,
-  initialOrganizationName = "Acme Corporation",
-  initialDomain = "acme.com",
+  organizationId,
+  userRole,
 }) => {
-  const [orgName, setOrgName] = useState(initialOrganizationName);
-  const [domain, setDomain] = useState(initialDomain);
-  const [industry, setIndustry] = useState("technology");
-  const [orgSize, setOrgSize] = useState("51-200");
-  const [primaryColor, _setPrimaryColor] = useState(
-    initialBranding?.primaryColor ?? VALYNT_BRAND_PRIMARY
-  );
-  const [secondaryColor, _setSecondaryColor] = useState(
-    initialBranding?.secondaryColor ?? VALYNT_BRAND_SECONDARY
-  );
-  const [logo, setLogo] = useState<string | null>(initialBranding?.logoUrl ?? null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  // Permission check for customBranding setting
+  const { checkAccess } = useConfigAccess(userRole);
+  const customBrandingAccess = checkAccess("customBranding");
+
+  // Backend-connected branding settings
+  const {
+    values,
+    isLoading,
+    error,
+    updateSetting,
+    pendingFields,
+    dirtyFields,
+    markDirty,
+    markClean,
+    revert,
+    canEdit,
+    fieldErrors,
+    clearFieldError,
+    brandingAccess,
+    previewBranding,
+    applyBranding,
+  } = useOrganizationBranding(organizationId, userRole);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateOrgName = (name: string): string | null => {
-    if (!name.trim()) return "Organization name is required";
-    if (name.length < 2) return "Name must be at least 2 characters";
-    return null;
-  };
+  // Derived values with fallbacks
+  const orgName = (values["org.name"] as string) || "";
+  const domain = (values["org.domain"] as string) || "";
+  const industry = (values["org.industry"] as string) || "technology";
+  const orgSize = (values["org.size"] as string) || "51-200";
+  const logo = (values["branding.logoUrl"] as string | null) || null;
+  const primaryColor = (values["branding.primaryColor"] as string) || VALYNT_BRAND_PRIMARY;
+  const secondaryColor = (values["branding.secondaryColor"] as string) || VALYNT_BRAND_SECONDARY;
 
-  const validateDomain = (domain: string): string | null => {
-    if (!domain.trim()) return "Domain is required";
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(domain)) return "Invalid domain format";
-    return null;
-  };
+  // Apply theme on mount when data loads
+  useEffect(() => {
+    if (!isLoading && primaryColor && secondaryColor) {
+      applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
+    }
+  }, [isLoading, primaryColor, secondaryColor]);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle logo upload
+  const handleLogoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setErrors((prev) => ({ ...prev, logo: "Please upload an image file" }));
+      // TODO: Show toast error
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, logo: "Image must be smaller than 5MB" }));
+      // TODO: Show toast error
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setLogo(reader.result as string);
-      setIsDirty(true);
-      setErrors((prev) => ({ ...prev, logo: "" }));
+      const base64 = reader.result as string;
+      void updateSetting("branding.logoUrl", base64);
+      markDirty("branding.logoUrl");
     };
     reader.readAsDataURL(file);
-  };
+  }, [updateSetting, markDirty]);
 
-  const handleSave = async () => {
-    const nameError = validateOrgName(orgName);
-    const domainError = validateDomain(domain);
+  // Handle field changes
+  const handleOrgNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    void updateSetting("org.name", e.target.value);
+    markDirty("org.name");
+    clearFieldError("org.name");
+  }, [updateSetting, markDirty, clearFieldError]);
 
-    if (nameError || domainError) {
-      setErrors({
-        orgName: nameError || "",
-        domain: domainError || "",
-      });
-      return;
-    }
+  const handleDomainChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    void updateSetting("org.domain", e.target.value);
+    markDirty("org.domain");
+    clearFieldError("org.domain");
+  }, [updateSetting, markDirty, clearFieldError]);
 
-    setSaving(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
-      setIsDirty(false);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleIndustryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    void updateSetting("org.industry", e.target.value);
+    markDirty("org.industry");
+  }, [updateSetting, markDirty]);
 
-  useEffect(() => {
-    // Only apply theme on mount to set initial defaults
-    applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
-    // Intentionally run once on mount only - subsequent theme changes
-    // are applied via handleSave to avoid preview flickering
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleOrgSizeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    void updateSetting("org.size", e.target.value);
+    markDirty("org.size");
+  }, [updateSetting, markDirty]);
 
-  const brandingPreviewEnabled = Boolean(
-    initialBranding?.logoUrl && initialBranding.primaryColor && initialBranding.secondaryColor
-  );
+  const handleRemoveLogo = useCallback(() => {
+    void updateSetting("branding.logoUrl", null);
+    markDirty("branding.logoUrl");
+  }, [updateSetting, markDirty]);
+
+  // Bulk save all dirty fields
+  const handleBulkSave = useCallback(async () => {
+    const promises = Array.from(dirtyFields).map((key) =>
+      updateSetting(key, values[key])
+    );
+    await Promise.all(promises);
+    // Apply branding after save
+    applyBranding(primaryColor, secondaryColor);
+  }, [dirtyFields, values, updateSetting, applyBranding, primaryColor, secondaryColor]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SettingsAlert
+        type="error"
+        title="Failed to load organization settings"
+        description={error.message}
+      />
+    );
+  }
+
+  const hasDirtyFields = dirtyFields.size > 0;
+  const effectiveCanEdit = canEdit && customBrandingAccess.canEdit;
+
+  // Validation helper
+  const getFieldError = (key: string) => fieldErrors[key] || "";
+  const isFieldPending = (key: string) => pendingFields.has(key);
+  const isFieldDirty = (key: string) => dirtyFields.has(key);
 
   const brandingPreviewStyle: React.CSSProperties = {
     background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
@@ -116,10 +164,66 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Floating bulk action bar */}
+      {hasDirtyFields && effectiveCanEdit && (
+        <div className="sticky top-4 z-10 mb-4 animate-in slide-in-from-top-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
+            <span className="text-sm text-amber-800">
+              {dirtyFields.size} unsaved change{dirtyFields.size !== 1 ? "s" : ""}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={revert}
+                className="text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Discard
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void handleBulkSave()}
+                disabled={Array.from(dirtyFields).some(key => !!fieldErrors[key])}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                <Save className="h-4 w-4 mr-1" />
+                Save all
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only indicator */}
+      {!effectiveCanEdit && (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>
+            You have view-only access to these settings.
+            {customBrandingAccess.denialReason && ` ${customBrandingAccess.denialReason}`}
+          </span>
+        </div>
+      )}
+
       <SettingsSection
         title="Organization Identity"
-        description="Manage your organization's basic information and branding"
+        description={
+          <div className="flex flex-col gap-1">
+            <span>Manage your organization's basic information and branding</span>
+            <AuditIndicator
+              entry={{
+                id: "1",
+                settingKey: "org.name",
+                userEmail: "system",
+                timestamp: new Date().toISOString(),
+                action: "update",
+                newValue: orgName,
+              }}
+            />
+          </div>
+        }
       >
         <div className="space-y-6">
           <div className="flex items-start space-x-6">
@@ -136,12 +240,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                     <Building2 className="h-12 w-12 text-primary" />
                   </div>
                 )}
-                {logo && (
+                {logo && effectiveCanEdit && (
                   <button
-                    onClick={() => {
-                      setLogo(null);
-                      setIsDirty(true);
-                    }}
+                    onClick={handleRemoveLogo}
                     className="absolute -top-2 -right-2 p-1.5 bg-error text-error-foreground rounded-full hover:bg-error/80 transition-colors"
                   >
                     <X className="h-4 w-4" />
@@ -154,16 +255,23 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                 accept="image/*"
                 onChange={handleLogoChange}
                 className="hidden"
+                disabled={!effectiveCanEdit}
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-3 flex items-center text-sm text-primary hover:text-accent transition-colors"
+                disabled={!effectiveCanEdit}
+                className="mt-3 flex items-center text-sm text-primary hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload className="h-4 w-4 mr-1" />
                 {logo ? "Change Logo" : "Upload Logo"}
               </button>
               <p className="text-xs text-muted-foreground mt-1">Max 5MB (PNG, JPG, SVG)</p>
-              {errors.logo && <p className="text-xs text-error mt-1">{errors.logo}</p>}
+              {getFieldError("branding.logoUrl") && (
+                <p className="text-xs text-error mt-1">{getFieldError("branding.logoUrl")}</p>
+              )}
+              {isFieldPending("branding.logoUrl") && (
+                <Loader2 className="h-3 w-3 animate-spin inline ml-2" />
+              )}
             </div>
 
             <div className="flex-1 space-y-4">
@@ -174,17 +282,23 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                 <ValidatedInput
                   label="Organization Name"
                   value={orgName}
-                  onChange={(e) => {
-                    setOrgName(e.target.value);
-                    setIsDirty(true);
-                  }}
-                  error={errors.orgName}
-                  valid={!errors.orgName && orgName.length > 1}
+                  onChange={handleOrgNameChange}
+                  error={getFieldError("org.name")}
+                  valid={!getFieldError("org.name") && orgName.length > 1}
                   showValidation={true}
                   required
+                  disabled={!effectiveCanEdit}
                   className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                 />
-                {errors.orgName && <p className="text-sm text-error mt-1">{errors.orgName}</p>}
+                {getFieldError("org.name") && (
+                  <p className="text-sm text-error mt-1">{getFieldError("org.name")}</p>
+                )}
+                {isFieldDirty("org.name") && (
+                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                )}
+                {isFieldPending("org.name") && (
+                  <Loader2 className="h-3 w-3 animate-spin inline ml-2" />
+                )}
               </div>
 
               <div>
@@ -194,18 +308,21 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                 <ValidatedInput
                   label="Primary Domain"
                   value={domain}
-                  onChange={(e) => {
-                    setDomain(e.target.value);
-                    setIsDirty(true);
-                  }}
-                  error={errors.domain}
-                  valid={!errors.domain && domain.length > 1}
+                  onChange={handleDomainChange}
+                  error={getFieldError("org.domain")}
+                  valid={!getFieldError("org.domain") && domain.length > 1}
                   showValidation={true}
                   required
+                  disabled={!effectiveCanEdit}
                   placeholder="example.com"
                   className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                 />
-                {errors.domain && <p className="text-sm text-error mt-1">{errors.domain}</p>}
+                {getFieldError("org.domain") && (
+                  <p className="text-sm text-error mt-1">{getFieldError("org.domain")}</p>
+                )}
+                {isFieldDirty("org.domain") && (
+                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -213,11 +330,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                   <label className="block text-sm font-medium text-foreground mb-1">Industry</label>
                   <select
                     value={industry}
-                    onChange={(e) => {
-                      setIndustry(e.target.value);
-                      setIsDirty(true);
-                    }}
-                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={handleIndustryChange}
+                    disabled={!effectiveCanEdit}
+                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="technology">Technology</option>
                     <option value="healthcare">Healthcare</option>
@@ -226,6 +341,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                     <option value="retail">Retail</option>
                     <option value="other">Other</option>
                   </select>
+                  {isFieldDirty("org.industry") && (
+                    <span className="text-xs text-amber-600 block mt-1">Unsaved</span>
+                  )}
                 </div>
 
                 <div>
@@ -234,11 +352,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                   </label>
                   <select
                     value={orgSize}
-                    onChange={(e) => {
-                      setOrgSize(e.target.value);
-                      setIsDirty(true);
-                    }}
-                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={handleOrgSizeChange}
+                    disabled={!effectiveCanEdit}
+                    className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="1-10">1-10 employees</option>
                     <option value="11-50">11-50 employees</option>
@@ -246,6 +362,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
                     <option value="201-1000">201-1000 employees</option>
                     <option value="1000+">1000+ employees</option>
                   </select>
+                  {isFieldDirty("org.size") && (
+                    <span className="text-xs text-amber-600 block mt-1">Unsaved</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -253,125 +372,123 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
         </div>
       </SettingsSection>
 
-      {brandingPreviewEnabled && (
-        <SettingsSection
-          title="Tenant Branding Verification Preview"
-          description="Deterministic render surfaces sourced from organization custom branding settings."
-        >
-          <div className="space-y-4">
-            <div
-              data-testid="tenant-branding-preview-header"
-              className="rounded-2xl border border-border p-5 shadow-sm"
-              style={brandingPreviewStyle}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  {logo ? (
-                    <img
-                      data-testid="tenant-branding-logo"
-                      src={logo}
-                      alt={`${orgName} logo preview`}
-                      className="h-14 w-auto rounded-xl bg-white/10 p-2"
-                    />
-                  ) : (
-                    <div
-                      data-testid="tenant-branding-logo-fallback"
-                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10"
-                    >
-                      <Building2 className="h-6 w-6" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/70">
-                      Tenant branding validation
-                    </p>
-                    <h3 className="text-2xl font-semibold">{orgName}</h3>
-                    <p className="text-sm text-white/80">{domain}</p>
-                  </div>
-                </div>
-
-                {initialBranding?.faviconUrl && (
-                  <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2">
-                    <img
-                      data-testid="tenant-branding-favicon"
-                      src={initialBranding.faviconUrl}
-                      alt={`${orgName} favicon preview`}
-                      className="h-8 w-8 rounded-lg bg-white object-contain p-1"
-                    />
-                    <span className="text-sm text-white/80">Browser favicon asset</span>
+      <SettingsSection
+        title="Tenant Branding Verification Preview"
+        description="Deterministic render surfaces sourced from organization custom branding settings."
+      >
+        <div className="space-y-4">
+          <div
+            data-testid="tenant-branding-preview-header"
+            className="rounded-2xl border border-border p-5 shadow-sm"
+            style={brandingPreviewStyle}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {logo ? (
+                  <img
+                    data-testid="tenant-branding-logo"
+                    src={logo}
+                    alt={`${orgName} logo preview`}
+                    className="h-14 w-auto rounded-xl bg-white/10 p-2"
+                  />
+                ) : (
+                  <div
+                    data-testid="tenant-branding-logo-fallback"
+                    className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10"
+                  >
+                    <Building2 className="h-6 w-6" />
                   </div>
                 )}
-              </div>
-
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  data-testid="tenant-branding-primary-action"
-                  className="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
-                  style={{ backgroundColor: primaryColor, color: BRANDING_PREVIEW_TEXT_COLOR }}
-                >
-                  Launch workspace
-                </button>
-                <button
-                  type="button"
-                  data-testid="tenant-branding-secondary-action"
-                  className="rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
-                  style={{
-                    backgroundColor: secondaryColor,
-                    borderColor: "rgba(248, 250, 252, 0.25)",
-                    color: BRANDING_PREVIEW_TEXT_COLOR,
-                  }}
-                >
-                  Share branded proposal
-                </button>
-                <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
-                  <Palette className="h-3.5 w-3.5" />
-                  Theme sync from organization settings
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/70">
+                    Tenant branding validation
+                  </p>
+                  <h3 className="text-2xl font-semibold">{orgName}</h3>
+                  <p className="text-sm text-white/80">{domain}</p>
                 </div>
               </div>
+
+              {Boolean(values["branding.faviconUrl"]) && (
+                <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2">
+                  <img
+                    data-testid="tenant-branding-favicon"
+                    src={values["branding.faviconUrl"] as string}
+                    alt={`${orgName} favicon preview`}
+                    className="h-8 w-8 rounded-lg bg-white object-contain p-1"
+                  />
+                  <span className="text-sm text-white/80">Browser favicon asset</span>
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-sm font-medium text-foreground">Rendered asset surfaces</p>
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  <li>• Organization logo preview in the identity card</li>
-                  <li>• Header surface using tenant brand gradient</li>
-                  <li>• CTA controls rendered with primary + secondary brand colors</li>
-                </ul>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                data-testid="tenant-branding-primary-action"
+                className="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
+                style={{ backgroundColor: primaryColor, color: BRANDING_PREVIEW_TEXT_COLOR }}
+              >
+                Launch workspace
+              </button>
+              <button
+                type="button"
+                data-testid="tenant-branding-secondary-action"
+                className="rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
+                style={{
+                  backgroundColor: secondaryColor,
+                  borderColor: "rgba(248, 250, 252, 0.25)",
+                  color: BRANDING_PREVIEW_TEXT_COLOR,
+                }}
+              >
+                Share branded proposal
+              </button>
+              <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
+                <Palette className="h-3.5 w-3.5" />
+                Theme sync from organization settings
               </div>
+            </div>
+          </div>
 
-              <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-sm font-medium text-foreground">Brand tokens from settings</p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <div className="min-w-[10rem] rounded-lg border border-border p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Primary</p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <span
-                        data-testid="tenant-branding-primary-swatch"
-                        className="h-6 w-6 rounded-full border border-border"
-                        style={{ backgroundColor: primaryColor }}
-                      />
-                      <code className="text-sm text-foreground">{primaryColor}</code>
-                    </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-medium text-foreground">Rendered asset surfaces</p>
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <li>• Organization logo preview in the identity card</li>
+                <li>• Header surface using tenant brand gradient</li>
+                <li>• CTA controls rendered with primary + secondary brand colors</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-medium text-foreground">Brand tokens from settings</p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <div className="min-w-[10rem] rounded-lg border border-border p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Primary</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span
+                      data-testid="tenant-branding-primary-swatch"
+                      className="h-6 w-6 rounded-full border border-border"
+                      style={{ backgroundColor: primaryColor }}
+                    />
+                    <code className="text-sm text-foreground">{primaryColor}</code>
                   </div>
-                  <div className="min-w-[10rem] rounded-lg border border-border p-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Secondary</p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <span
-                        data-testid="tenant-branding-secondary-swatch"
-                        className="h-6 w-6 rounded-full border border-border"
-                        style={{ backgroundColor: secondaryColor }}
-                      />
-                      <code className="text-sm text-foreground">{secondaryColor}</code>
-                    </div>
+                </div>
+                <div className="min-w-[10rem] rounded-lg border border-border p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Secondary</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span
+                      data-testid="tenant-branding-secondary-swatch"
+                      className="h-6 w-6 rounded-full border border-border"
+                      style={{ backgroundColor: secondaryColor }}
+                    />
+                    <code className="text-sm text-foreground">{secondaryColor}</code>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </SettingsSection>
-      )}
+        </div>
+      </SettingsSection>
 
       <SettingsSection
         title="Branding Colors"
@@ -439,26 +556,6 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
           </div>
         </div>
       </SettingsSection>
-
-      {isDirty && (
-        <div className="flex justify-end space-x-3 p-4 bg-card border-t border-border sticky bottom-0">
-          <button
-            onClick={() => setIsDirty(false)}
-            disabled={saving}
-            className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-card transition-colors disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-60"
-          >
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

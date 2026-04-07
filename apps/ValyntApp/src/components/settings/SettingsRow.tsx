@@ -62,11 +62,11 @@ export function SettingsRow({
 
   // Show success state temporarily
   useEffect(() => {
-    if (showSuccess) {
-      setShowSuccessState(true);
-      const timer = setTimeout(() => setShowSuccessState(false), 2000);
-      return () => clearTimeout(timer);
-    }
+    if (!showSuccess) return;
+
+    setShowSuccessState(true);
+    const timer = setTimeout(() => setShowSuccessState(false), 2000);
+    return () => clearTimeout(timer);
   }, [showSuccess]);
 
   // Reset edit value when entering edit mode
@@ -332,4 +332,4 @@ export function SettingsAlert({ type, title, description, action }: SettingsAler
   );
 }
 
-export default SettingsRow;
+export { SettingsRow, SettingsToggleRow, SettingsSection, SettingsAlert };

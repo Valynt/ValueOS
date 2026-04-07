@@ -9,6 +9,10 @@
  * Sprint 5: Replaced selectAgentForQuery() keyword matching with
  * domain-state decisioning via DecisionContext. Rules live in ./rules/.
  * The legacy selectAgentForQuery() method is removed.
+ *
+ * Sprint 5.5: Added LRU caching for evaluate() results to reduce redundant
+ * rule processing for similar contexts. Cache key is derived from context
+ * fingerprint (opportunity_id + lifecycle_stage + key state fields).
  */
 
 import { DecisionContext } from '@shared/domain/DecisionContext';
@@ -27,6 +31,67 @@ import {
   RoutingRule,
 } from './rules/index.js';
 
+// Simple LRU Cache implementation for routing decisions
+class LRUCache<K, V> {
+  private cache: Map<K, V> = new Map();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Remove least recently used (first item)
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+/**
+ * Generate a cache key from DecisionContext.
+ * Creates a deterministic fingerprint based on key routing fields.
+ */
+function generateContextCacheKey(context: DecisionContext): string {
+  // Extract key fields that determine routing decisions
+  const opportunityId = context.opportunity?.id ?? 'none';
+  const stage = context.opportunity?.lifecycle_stage ?? 'unknown';
+
+  // Include key state flags that affect routing
+  const stateFlags = [
+    context.hypothesis?.confidence ?? 'no_hyp',
+    context.hypothesis?.evidence_count ? 'has_ev' : 'no_ev',
+    context.business_case ? 'has_bc' : 'no_bc',
+    context.is_external_artifact_action ? 'ext' : 'int',
+    context.is_high_impact_decision ? 'hi' : 'lo',
+  ].join(':');
+
+  return `${opportunityId}:${stage}:${stateFlags}`;
+}
 
 export type { StageRoute, RoutingRecommendation, RoutingRule };
 export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
@@ -40,6 +105,9 @@ export * from './rules/types.js';
 export class DecisionRouter {
   private routingLayer: AgentRoutingLayer;
   private rules: RoutingRule[];
+  private evaluationCache: LRUCache<string, RoutingRecommendation | null>;
+  private cacheHits = 0;
+  private cacheMisses = 0;
 
   constructor(routingLayer?: AgentRoutingLayer, rules?: RoutingRule[]) {
     this.routingLayer = routingLayer ?? new AgentRoutingLayer();
@@ -48,6 +116,8 @@ export class DecisionRouter {
     this.rules = [...(rules ?? DOMAIN_ROUTING_RULES)].sort(
       (a, b) => a.priority - b.priority
     );
+    // LRU cache for evaluation results - max 1000 entries
+    this.evaluationCache = new LRUCache(1000);
   }
 
   /**
@@ -84,6 +154,8 @@ export class DecisionRouter {
    *
    * Returns null when no rule matches — callers should fall back to the
    * 'coordinator' agent.
+   *
+   * Results are cached based on context fingerprint for O(1) repeated lookups.
    */
   evaluate(context: DecisionContext): RoutingRecommendation | null {
     return runInTelemetrySpan('runtime.decision_router.evaluate', {
@@ -93,14 +165,55 @@ export class DecisionRouter {
       trace_id: `decision-eval-${context.opportunity?.id ?? 'unknown'}`,
       attributes: { rule_count: this.rules.length },
     }, () => {
+      // Check cache first
+      const cacheKey = generateContextCacheKey(context);
+      const cached = this.evaluationCache.get(cacheKey);
+
+      if (cached !== undefined) {
+        this.cacheHits++;
+        return cached;
+      }
+
+      this.cacheMisses++;
+
+      // Evaluate rules
+      let result: RoutingRecommendation | null = null;
       for (const rule of this.rules) {
         const recommendation = rule.evaluate(context);
         if (recommendation !== null) {
-          return recommendation;
+          result = recommendation;
+          break;
         }
       }
-      return null;
+
+      // Cache the result (including null for "no match")
+      this.evaluationCache.set(cacheKey, result);
+
+      return result;
     });
+  }
+
+  /**
+   * Get cache statistics for observability.
+   */
+  getCacheStats(): { hits: number; misses: number; size: number; hitRate: number } {
+    const total = this.cacheHits + this.cacheMisses;
+    const hitRate = total > 0 ? this.cacheHits / total : 0;
+    return {
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      size: this.evaluationCache.size,
+      hitRate,
+    };
+  }
+
+  /**
+   * Clear the evaluation cache (useful for testing or rule hot-swaps).
+   */
+  clearCache(): void {
+    this.evaluationCache.clear();
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
   }
 
   /**

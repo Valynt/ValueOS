@@ -6,6 +6,7 @@
 import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
+import { LayoutSkeleton } from "./components/common/LayoutSkeleton";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
@@ -13,7 +14,6 @@ import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { NotificationProvider } from "./components/shell/NotificationCenter";
-import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
@@ -112,7 +112,7 @@ function TenantAwareRedirect({ leafPath }: { leafPath: string }) {
   const { currentTenant, isLoading } = useTenant();
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <LayoutSkeleton variant="embedded" />;
   }
 
   if (!currentTenant) {
@@ -132,7 +132,7 @@ function LegacyTenantRouteBridge() {
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <LayoutSkeleton variant="embedded" />;
   }
   if (!currentTenant) {
     return <Navigate to="/create-org" replace />;
@@ -175,7 +175,7 @@ export function AppRoutes() {
                       <SDUIStateProvider _supabase={supabase}>
                         <SDUIHumanCheckpointProvider>
                           <CommandPaletteProvider>
-                            <Suspense fallback={<LoadingSpinner />}>
+                            <Suspense fallback={<LayoutSkeleton variant="fullscreen" />}>
                               <Routes>
                                 {/* Public Auth Routes */}
                                 {publicRoutePaths.map((path) => (
