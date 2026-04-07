@@ -18,8 +18,8 @@ ALTER TABLE public.scenarios ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS scenarios_tenant_isolation ON public.scenarios;
 CREATE POLICY scenarios_tenant_isolation ON public.scenarios
   FOR ALL TO authenticated
-  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1))
-  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1));
+  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1))
+  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1));
 
 DROP POLICY IF EXISTS scenarios_service_role ON public.scenarios;
 CREATE POLICY scenarios_service_role ON public.scenarios
@@ -33,8 +33,8 @@ ALTER TABLE public.sensitivity_analysis ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS sensitivity_analysis_tenant_isolation ON public.sensitivity_analysis;
 CREATE POLICY sensitivity_analysis_tenant_isolation ON public.sensitivity_analysis
   FOR ALL TO authenticated
-  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1))
-  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1));
+  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1))
+  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1));
 
 DROP POLICY IF EXISTS sensitivity_analysis_service_role ON public.sensitivity_analysis;
 CREATE POLICY sensitivity_analysis_service_role ON public.sensitivity_analysis
@@ -48,8 +48,8 @@ ALTER TABLE public.promise_baselines ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS promise_baselines_tenant_isolation ON public.promise_baselines;
 CREATE POLICY promise_baselines_tenant_isolation ON public.promise_baselines
   FOR ALL TO authenticated
-  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1))
-  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1));
+  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1))
+  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1));
 
 DROP POLICY IF EXISTS promise_baselines_service_role ON public.promise_baselines;
 CREATE POLICY promise_baselines_service_role ON public.promise_baselines
@@ -63,8 +63,8 @@ ALTER TABLE public.promise_kpi_targets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS promise_kpi_targets_tenant_isolation ON public.promise_kpi_targets;
 CREATE POLICY promise_kpi_targets_tenant_isolation ON public.promise_kpi_targets
   FOR ALL TO authenticated
-  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1))
-  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = auth.uid() LIMIT 1));
+  USING (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1))
+  WITH CHECK (organization_id = (SELECT organization_id FROM public.user_tenants WHERE user_id = (auth.uid())::text LIMIT 1));
 
 DROP POLICY IF EXISTS promise_kpi_targets_service_role ON public.promise_kpi_targets;
 CREATE POLICY promise_kpi_targets_service_role ON public.promise_kpi_targets

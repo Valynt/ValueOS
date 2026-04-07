@@ -1,10 +1,12 @@
 /**
  * SettingsRow - Edit-in-place row pattern for settings
- * 
+ *
  * Read-only display with Edit action. Prevents accidental edits.
+ * Supports optimistic updates, validation, and permission-based editing.
  */
 
-import { ReactNode, useState } from "react";
+import { Check, Loader2, X } from "lucide-react";
+import { ReactNode, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +16,22 @@ interface SettingsRowProps {
   label: string;
   value: string;
   description?: string;
-  onSave?: (value: string) => void;
+  onSave?: (value: string) => void | Promise<void>;
+  onCancel?: () => void;
+  onChange?: (value: string) => void;
   type?: "text" | "email" | "password";
   editable?: boolean;
   children?: ReactNode;
+  /** Validation function: returns error message or undefined */
+  validate?: (value: string) => string | undefined;
+  /** Whether field is currently saving */
+  isPending?: boolean;
+  /** Whether field has unsaved changes */
+  isDirty?: boolean;
+  /** Error message to display */
+  error?: string;
+  /** Success state for save confirmation */
+  showSuccess?: boolean;
 }
 
 export function SettingsRow({
@@ -25,25 +39,99 @@ export function SettingsRow({
   value,
   description,
   onSave,
+  onCancel,
+  onChange,
   type = "text",
   editable = true,
   children,
+  validate,
+  isPending = false,
+  isDirty = false,
+  error,
+  showSuccess = false,
 }: SettingsRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+  const [validationError, setValidationError] = useState<string | undefined>(error);
+  const [showSuccessState, setShowSuccessState] = useState(showSuccess);
 
-  const handleSave = () => {
-    onSave?.(editValue);
-    setIsEditing(false);
+  // Sync with external error prop
+  useEffect(() => {
+    setValidationError(error);
+  }, [error]);
+
+  // Show success state temporarily
+  useEffect(() => {
+    if (showSuccess) {
+      setShowSuccessState(true);
+      const timer = setTimeout(() => setShowSuccessState(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
+
+  // Reset edit value when entering edit mode
+  useEffect(() => {
+    if (isEditing) {
+      setEditValue(value);
+      setValidationError(undefined);
+    }
+  }, [isEditing, value]);
+
+  const validateValue = (val: string): boolean => {
+    if (validate) {
+      const errorMsg = validate(val);
+      setValidationError(errorMsg);
+      return !errorMsg;
+    }
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateValue(editValue)) {
+      return;
+    }
+
+    try {
+      await onSave?.(editValue);
+      setIsEditing(false);
+      setShowSuccessState(true);
+      setTimeout(() => setShowSuccessState(false), 2000);
+    } catch {
+      // Error handling is done by parent (toast, etc.)
+      // Keep in edit mode on error
+    }
   };
 
   const handleCancel = () => {
     setEditValue(value);
+    setValidationError(undefined);
     setIsEditing(false);
+    onCancel?.();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setEditValue(newValue);
+    onChange?.(newValue);
+    // Clear validation error on change
+    if (validationError) {
+      setValidationError(undefined);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isPending) {
+      void handleSave();
+    } else if (e.key === "Escape") {
+      handleCancel();
+    }
   };
 
   return (
-    <div className="py-4 border-b border-border last:border-b-0">
+    <div className={cn(
+      "py-4 border-b border-border last:border-b-0",
+      isDirty && "bg-amber-50/50"
+    )}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">{label}</p>
@@ -55,20 +143,48 @@ export function SettingsRow({
         {children ? (
           <div className="flex-shrink-0">{children}</div>
         ) : isEditing ? (
-          <div className="flex items-center gap-2">
-            <Input
-              type={type}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="w-64"
-              autoFocus
-            />
-            <Button size="sm" onClick={handleSave}>
-              Save
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleCancel}>
-              Cancel
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Input
+                type={type}
+                value={editValue}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                className={cn("w-64", validationError && "border-destructive")}
+                autoFocus
+                disabled={isPending}
+                aria-invalid={validationError ? "true" : "false"}
+                aria-describedby={validationError ? `${label}-error` : undefined}
+              />
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={isPending || !!validationError}
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={isPending}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {validationError && (
+              <p
+                id={`${label}-error`}
+                className="text-sm text-destructive"
+                role="alert"
+              >
+                {validationError}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex items-center gap-4">
@@ -80,9 +196,18 @@ export function SettingsRow({
                 size="sm"
                 variant="ghost"
                 onClick={() => setIsEditing(true)}
+                disabled={isPending}
               >
                 Edit
               </Button>
+            )}
+            {showSuccessState && (
+              <Check className="h-4 w-4 text-green-500 animate-in fade-in" />
+            )}
+            {isDirty && (
+              <span className="text-xs text-amber-600" title="Unsaved changes">
+                •
+              </span>
             )}
           </div>
         )}
