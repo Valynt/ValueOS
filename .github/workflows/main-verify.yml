@@ -70,10 +70,10 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: artifacts/secret-scan/gitleaks-history.sarif
-          category: gitleaks-history
+          path: results.sarif
+          name: gitleaks-history
 
       - name: Upload scan artifacts
         if: always()
@@ -771,7 +771,7 @@ jobs:
       - name: SCA — pnpm audit (fail on high/critical)
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
@@ -796,10 +796,10 @@ jobs:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload Semgrep SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: semgrep.sarif
-          category: semgrep
+          path: semgrep.sarif
+          name: semgrep
       - name: Build backend container image for Trivy
         run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:ci .
       - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
@@ -824,16 +824,16 @@ jobs:
           exit-code: "1"
       - name: Upload Trivy filesystem SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: trivy-fs.sarif
-          category: trivy-fs
+          path: trivy-fs.sarif
+          name: trivy-fs
       - name: Upload Trivy image SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: trivy-image.sarif
-          category: trivy-image
+          path: trivy-image.sarif
+          name: trivy-image
       - name: SBOM — generate CycloneDX
         run: pnpm exec cyclonedx-npm --output-format json --output-file sbom.json
       - name: SBOM — verify artifact exists and is non-empty
