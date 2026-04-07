@@ -230,6 +230,12 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
 
   return (
     <div className="space-y-6 relative">
+      {/* Screen reader announcements for status changes */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {hasDirtyFields && `${dirtyFields.size} unsaved change${dirtyFields.size !== 1 ? "s" : ""}`}
+        {!hasDirtyFields && lastSavedAt && `All changes saved at ${lastSavedAt.toLocaleTimeString()}`}
+      </div>
+
       {/* Floating bulk action bar */}
       {hasDirtyFields && effectiveCanEdit && (
         <div className="sticky top-4 z-10 mb-4 animate-in slide-in-from-top-2">
@@ -276,6 +282,11 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
         description={
           <div className="flex flex-col gap-1">
             <span>Configure how workspace members receive notifications</span>
+            {lastSavedAt && (
+              <span className="text-xs text-muted-foreground">
+                Last saved: {lastSavedAt.toLocaleTimeString()}
+              </span>
+            )}
             <AuditIndicator
               entry={{
                 id: "1",
@@ -312,6 +323,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   aria-label="@Mentions"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.mentions") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -337,6 +351,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   aria-label="Task Assignments"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.taskAssignments") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -360,6 +377,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   aria-label="Weekly Digest"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.weeklyDigest") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -383,6 +403,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                   aria-label="Project Updates"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.projectUpdates") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
           </div>
@@ -411,6 +434,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                     aria-label="Email Notifications"
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                  {pendingFields.has("notifications.emailNotifications") && (
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                  )}
                 </label>
               </div>
 
@@ -433,6 +459,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
                     aria-label="Slack Notifications"
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                  {pendingFields.has("notifications.slackNotifications") && (
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                  )}
                 </label>
               </div>
             </div>

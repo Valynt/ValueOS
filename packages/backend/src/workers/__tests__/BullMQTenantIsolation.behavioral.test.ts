@@ -162,13 +162,13 @@ class TenantScopedQueueService {
   }
 
   async getJobById(jobId: string): Promise<BullMQJob | undefined> {
-    const job = await this.queue.getJob(jobId);
-    if (!job) return undefined;
-
     const ctx = this.contextStorage.get();
     if (!ctx) {
       throw new Error("Cannot get job without tenant context.");
     }
+
+    const job = await this.queue.getJob(jobId);
+    if (!job) return undefined;
 
     // Tenant isolation: reject if job belongs to different tenant
     if (job.data.organizationId !== ctx.organizationId) {
