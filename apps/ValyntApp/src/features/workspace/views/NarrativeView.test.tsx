@@ -29,7 +29,6 @@ describe("NarrativeView", () => {
   it("renders NarrativeStream as primary content", () => {
     render(
       <NarrativeView
-        caseId="case-1"
         blocks={buildBlocks()}
         warmth="firm"
         onNavigateToNode={vi.fn()}
@@ -42,7 +41,6 @@ describe("NarrativeView", () => {
   it("renders export actions: PDF, presentation", () => {
     render(
       <NarrativeView
-        caseId="case-1"
         blocks={buildBlocks()}
         warmth="firm"
         onNavigateToNode={vi.fn()}
@@ -55,7 +53,6 @@ describe("NarrativeView", () => {
   it('shows "Edit in Canvas" affordance per section', () => {
     render(
       <NarrativeView
-        caseId="case-1"
         blocks={buildBlocks()}
         warmth="firm"
         onNavigateToNode={vi.fn()}
@@ -68,7 +65,6 @@ describe("NarrativeView", () => {
   it("renders empty state when no blocks", () => {
     render(
       <NarrativeView
-        caseId="case-1"
         blocks={[]}
         warmth="forming"
         onNavigateToNode={vi.fn()}

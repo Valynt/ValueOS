@@ -66,3 +66,27 @@ export {
   type Invoice,
   type ApprovalRequest,
 } from "./useBilling";
+
+// Phase 6: Backend Integration — Warmth & Workspace
+export { useValueCase, useWarmthHistory } from './queries/useValueCase';
+export { useGraphData, useGraphNode } from './queries/useGraphData';
+export { useModePreference, useUpdateModePreference } from './queries/useModePreference';
+export { useEventSource } from './useEventSource';
+export { useWorkspaceEvents } from './useWorkspaceEvents';
+export { useConflictResolution, useBatchResolveConflicts } from './useConflictResolution';
+export { useUpdateNode, useDeleteNode } from './mutations/useUpdateNode';
+
+// Event types
+export type {
+  WarmthTransitionEvent,
+  AgentUpdateEvent,
+  CollaborativeEditEvent,
+  CheckpointReminderEvent,
+  WorkspaceEvent,
+} from './events/types';
+
+export {
+  isWarmthTransitionEvent,
+  isAgentUpdateEvent,
+  isCollaborativeEditEvent,
+} from './events/types';

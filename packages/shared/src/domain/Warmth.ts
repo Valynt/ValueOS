@@ -23,6 +23,36 @@ import { z } from "zod";
 import { SagaStateEnumSchema } from "./ExperienceModel.js";
 import type { SagaStateEnum } from "./ExperienceModel.js";
 
+/**
+ * WarmthOverrides — Per-case or global threshold configuration
+ *
+ * Allows Value Engineers to customize warmth thresholds within bounded ranges.
+ * Changes are audit-logged for accountability.
+ */
+export const WarmthOverridesSchema = z.object({
+  firmMinimum: z.number().min(0.5).max(0.7).optional(),
+  verifiedMinimum: z.number().min(0.7).max(0.9).optional(),
+  overriddenBy: z.string(),
+  overriddenAt: z.string().datetime(),
+  reason: z.string().optional(),
+});
+export type WarmthOverrides = z.infer<typeof WarmthOverridesSchema>;
+
+// ============================================================================
+// Post-Sale Warmth States
+// ============================================================================
+
+/**
+ * Extended warmth mappings for post-sale realization tracking.
+ * Added in Phase 5 for full Realization Tracker integration.
+ */
+export const POST_SALE_WARMTH: Readonly<Record<string, WarmthState>> = {
+  TRACKING: "verified",      // Post-sale, actively tracking
+  REALIZED: "verified",      // Value confirmed by actuals
+  AT_RISK: "firm",           // Variance >20%, needs attention
+  EXPANSION_READY: "verified", // Exceeded targets, expansion opportunity
+} as const;
+
 // ============================================================================
 // Warmth States
 // ============================================================================
@@ -65,6 +95,10 @@ export const SAGA_TO_WARMTH: Readonly<Record<SagaStateEnum, WarmthState>> = {
   COMPOSING: "firm",
   REFINING: "verified",
   FINALIZED: "verified",
+  TRACKING: "verified",
+  REALIZED: "verified",
+  AT_RISK: "firm",
+  EXPANSION_READY: "verified",
 } as const;
 
 // ============================================================================
@@ -98,28 +132,40 @@ export const CONFIDENCE_MODIFIERS = {
  *   3. If confidence_score is null/undefined, defaults to 0.5 (no modifier).
  *   4. If saga_state is unknown, defaults to "forming" (runtime safety).
  *   5. Returns a WarmthResult with state, modifier, and source data.
+ *
+ * @param overrides - Optional custom thresholds for firm/verified minimums
  */
 export function deriveWarmth(
   sagaState: SagaStateEnum,
   confidenceScore?: number | null,
+  overrides?: WarmthOverrides,
 ): WarmthResult {
   const resolvedConfidence = confidenceScore ?? DEFAULT_CONFIDENCE;
 
-  const state: WarmthState =
-    SAGA_TO_WARMTH[sagaState] ?? ("forming" as WarmthState);
+  // Determine base warmth from saga state
+  let state: WarmthState = SAGA_TO_WARMTH[sagaState] ?? "forming";
+
+  // Check for post-sale warmth states
+  if (POST_SALE_WARMTH[sagaState]) {
+    state = POST_SALE_WARMTH[sagaState];
+  }
+
+  // Apply custom thresholds if provided
+  const firmThreshold = overrides?.firmMinimum ?? CONFIDENCE_MODIFIERS.highConfidenceInForming.threshold;
+  const verifiedThreshold = overrides?.verifiedMinimum ?? CONFIDENCE_MODIFIERS.lowConfidenceInVerified.threshold;
 
   let modifier: WarmthModifier = null;
 
   if (
     state === "forming" &&
-    resolvedConfidence >= CONFIDENCE_MODIFIERS.highConfidenceInForming.threshold
+    resolvedConfidence >= firmThreshold
   ) {
     modifier = CONFIDENCE_MODIFIERS.highConfidenceInForming.indicator;
   }
 
   if (
     state === "verified" &&
-    resolvedConfidence < CONFIDENCE_MODIFIERS.lowConfidenceInVerified.threshold
+    resolvedConfidence < verifiedThreshold
   ) {
     modifier = CONFIDENCE_MODIFIERS.lowConfidenceInVerified.indicator;
   }
