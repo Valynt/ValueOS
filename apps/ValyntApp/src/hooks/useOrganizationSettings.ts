@@ -360,4 +360,65 @@ export function useOrganizationSettings(options: UseOrganizationSettingsOptions)
   });
 }
 
+const WORKFLOW_SETTING_KEYS = [
+  "workflow.defaultTaskStatus",
+  "workflow.requireApproval",
+  "workflow.autoArchive",
+  "workflow.archiveDays",
+  "workflow.defaultAssignee",
+];
+
+export interface WorkflowSettings {
+  "workflow.defaultTaskStatus": "todo" | "in_progress" | "review" | "done";
+  "workflow.requireApproval": boolean;
+  "workflow.autoArchive": boolean;
+  "workflow.archiveDays": number;
+  "workflow.defaultAssignee": "unassigned" | "creator" | "project_owner";
+}
+
+/**
+ * Hook for workflow-specific settings within a team/organization scope
+ */
+export function useWorkflowSettings(
+  organizationId: string,
+  userRole: "tenant_admin" | "vendor_admin" | "user" | "viewer"
+) {
+  const { checkAccess } = useConfigAccess(userRole);
+  const workflowAccess = checkAccess("workflow");
+
+  const settingsResult = useSettingsGroup({
+    scope: "organization",
+    scopeId: organizationId,
+    keys: WORKFLOW_SETTING_KEYS,
+    accessLevel: userRole as AccessLevel,
+  });
+
+  // Helper to get typed workflow values with defaults
+  const getWorkflowValue = useCallback(
+    <K extends keyof WorkflowSettings>(key: K): WorkflowSettings[K] => {
+      const value = settingsResult.values[key];
+      if (value === undefined) {
+        // Return defaults
+        const defaults: WorkflowSettings = {
+          "workflow.defaultTaskStatus": "todo",
+          "workflow.requireApproval": false,
+          "workflow.autoArchive": true,
+          "workflow.archiveDays": 90,
+          "workflow.defaultAssignee": "unassigned",
+        };
+        return defaults[key];
+      }
+      return value as WorkflowSettings[K];
+    },
+    [settingsResult.values]
+  );
+
+  return {
+    ...settingsResult,
+    workflowAccess,
+    getWorkflowValue,
+    canEditWorkflow: settingsResult.canEdit && workflowAccess.canEdit,
+  };
+}
+
 export default useOrganizationSettings;

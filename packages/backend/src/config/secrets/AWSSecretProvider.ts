@@ -256,7 +256,7 @@ export class AWSSecretProvider implements ISecretProvider {
 
       logger.warn(
         "Failed to get secret from Redis cache",
-        error instanceof Error ? error : new Error(String(error))
+        { error: error instanceof Error ? error.message : String(error) }
       );
       return null;
     }
@@ -287,7 +287,7 @@ export class AWSSecretProvider implements ISecretProvider {
     } catch (error) {
       logger.warn(
         "Failed to set secret in Redis cache",
-        error instanceof Error ? error : new Error(String(error))
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }
@@ -370,9 +370,10 @@ export class AWSSecretProvider implements ISecretProvider {
     ];
 
     // Check AWS error codes
-    const e = error as Record<string, unknown>;
-    const errorCode = (typeof e?.name === "string" ? e.name : undefined) ?? (typeof e?.code === "string" ? e.code : undefined);
-    return nonRetryableCodes.includes(errorCode);
+    const errorWithCode = error as unknown as { name?: string; code?: string };
+    const errorCode = errorWithCode.name ?? errorWithCode.code;
+    const validErrorCode = typeof errorCode === "string" ? errorCode : undefined;
+    return validErrorCode ? nonRetryableCodes.includes(validErrorCode) : false;
   }
 
   async getSecret(
@@ -382,25 +383,25 @@ export class AWSSecretProvider implements ISecretProvider {
     userId?: string
   ): Promise<SecretValue> {
     // Validate inputs
-    const validatedTenantId = InputValidator.validateOrThrow(
+    const validatedTenantId = InputValidator.validateOrThrow<string>(
       tenantId,
       InputValidator.validateTenantId,
       "tenantId"
     );
-    const validatedSecretKey = InputValidator.validateOrThrow(
+    const validatedSecretKey = InputValidator.validateOrThrow<string>(
       secretKey,
       InputValidator.validateSecretKey,
       "secretKey"
     );
     const validatedUserId = userId
-      ? InputValidator.validateOrThrow(
+      ? InputValidator.validateOrThrow<string>(
           userId,
           InputValidator.validateUserId,
           "userId"
         )
       : undefined;
     const validatedVersion = version
-      ? InputValidator.validateOrThrow(
+      ? InputValidator.validateOrThrow<string>(
           version,
           InputValidator.validateVersion,
           "version"
@@ -426,7 +427,7 @@ export class AWSSecretProvider implements ISecretProvider {
         userId,
         undefined,
         {
-          source: "redis-cache",
+          type: "redis",
           latency_ms: Date.now() - startTime,
         }
       );
@@ -463,8 +464,8 @@ export class AWSSecretProvider implements ISecretProvider {
     try {
       const command = new GetSecretValueCommand({
         SecretId: secretPath,
-        VersionId: version,
-      });
+        ...(version ? { VersionId: version } : {}),
+      } as { SecretId: string; VersionId?: string });
 
       const response = await this.circuitBreaker.execute(() =>
         this.retryWithBackoff(
@@ -535,23 +536,23 @@ export class AWSSecretProvider implements ISecretProvider {
     userId?: string
   ): Promise<boolean> {
     // Validate inputs
-    const validatedTenantId = InputValidator.validateOrThrow(
+    const validatedTenantId = InputValidator.validateOrThrow<string>(
       tenantId,
       InputValidator.validateTenantId,
       "tenantId"
     );
-    const validatedSecretKey = InputValidator.validateOrThrow(
+    const validatedSecretKey = InputValidator.validateOrThrow<string>(
       secretKey,
       InputValidator.validateSecretKey,
       "secretKey"
     );
-    const validatedValue = InputValidator.validateOrThrow(
+    const validatedValue = InputValidator.validateOrThrow<SecretValue>(
       value,
       InputValidator.validateSecretValue,
       "value"
     );
     const validatedUserId = userId
-      ? InputValidator.validateOrThrow(
+      ? InputValidator.validateOrThrow<string>(
           userId,
           InputValidator.validateUserId,
           "userId"
@@ -811,12 +812,20 @@ export class AWSSecretProvider implements ISecretProvider {
         SecretId: secretPath,
       });
 
+      type DescribeSecretResponse = {
+        Name?: string;
+        VersionIdsToStages?: Record<string, string[]>;
+        CreatedDate?: Date;
+        LastAccessedDate?: Date;
+        Tags?: Array<{ Key?: string; Value?: string }>;
+      };
+
       const response = await this.retryWithBackoff(
         () => this.client.send(command),
         "DescribeSecret",
         tenantId,
         secretKey
-      );
+      ) as DescribeSecretResponse;
 
       if (!response.Name) {
         return null;
@@ -917,6 +926,10 @@ export class AWSSecretProvider implements ISecretProvider {
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   }
 
+  private typedEntries<K, V>(map: Map<K, V>): Array<[K, V]> {
+    return Array.from(map.entries());
+  }
+
   getProviderName(): string {
     return "aws";
   }
@@ -942,7 +955,7 @@ export class AWSSecretProvider implements ISecretProvider {
   clearCache(tenantId?: string): void {
     if (tenantId) {
       // Clear cache for specific tenant
-      for (const [key] of this.cache.entries()) {
+      for (const [key] of this.typedEntries(this.cache)) {
         if (key.startsWith(`${tenantId}:`)) {
           this.cache.delete(key);
         }

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ValidatedInput } from "@/components/ui/validated-input";
 import { useOrganizationBranding } from "@/hooks/useOrganizationSettings";
+import { useSettingsSubscription } from "@/hooks/useSettings";
 import { useConfigAccess } from "@/hooks/useConfigAccess";
 import {
   applyBrandTheme,
@@ -27,6 +28,9 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
   organizationId,
   userRole,
 }) => {
+  // Real-time sync across tabs
+  useSettingsSubscription("organization", organizationId);
+
   // Permission check for customBranding setting
   const { checkAccess } = useConfigAccess(userRole);
   const customBrandingAccess = checkAccess("customBranding");
@@ -122,12 +126,17 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
 
   // Bulk save all dirty fields
   const handleBulkSave = useCallback(async () => {
-    const promises = Array.from(dirtyFields).map((key) =>
-      updateSetting(key, values[key])
-    );
-    await Promise.all(promises);
-    // Apply branding after save
-    applyBranding(primaryColor, secondaryColor);
+    try {
+      const promises = Array.from(dirtyFields).map((key) =>
+        updateSetting(key, values[key])
+      );
+      await Promise.all(promises);
+      // Only apply branding after successful save of all fields
+      applyBranding(primaryColor, secondaryColor);
+    } catch (err) {
+      // Error is already handled by updateSetting via toast
+      console.error("Bulk save failed:", err);
+    }
   }, [dirtyFields, values, updateSetting, applyBranding, primaryColor, secondaryColor]);
 
   // Loading state
@@ -216,6 +225,7 @@ export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
               entry={{
                 id: "1",
                 settingKey: "org.name",
+                userId: "system",
                 userEmail: "system",
                 timestamp: new Date().toISOString(),
                 action: "update",

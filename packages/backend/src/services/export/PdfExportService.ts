@@ -54,9 +54,11 @@ export interface PdfExportResult {
 
 export class PdfExportService {
   private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private progressCallback?: (step: string, progress: number, message?: string) => Promise<void>;
 
-  constructor() {
+  constructor(progressCallback?: (step: string, progress: number, message?: string) => Promise<void>) {
     this.supabase = createServerSupabaseClient();
+    this.progressCallback = progressCallback;
   }
 
   /**
@@ -70,13 +72,19 @@ export class PdfExportService {
 
     logger.info('PdfExportService: generating PDF', { caseId, renderUrl });
 
+    await this.emitProgress('launch', 50, 'Launching browser...');
+
     const pdfBuffer = await this.renderPdf(renderUrl, authToken, title);
+
+    await this.emitProgress('launch', 100, 'Browser ready');
 
     logger.info('PdfExportService: uploading to storage', {
       caseId,
       storagePath,
       sizeBytes: pdfBuffer.length,
     });
+
+    await this.emitProgress('upload', 50, 'Uploading to storage...');
 
     const { error: uploadError } = await this.supabase.storage
       .from(EXPORTS_BUCKET)
@@ -94,6 +102,9 @@ export class PdfExportService {
       throw new Error(`PDF upload failed: ${uploadError.message}`);
     }
 
+    await this.emitProgress('upload', 100, 'Upload complete');
+    await this.emitProgress('finalize', 50, 'Creating download link...');
+
     const { data: signedData, error: signError } = await this.supabase.storage
       .from(EXPORTS_BUCKET)
       .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
@@ -101,6 +112,8 @@ export class PdfExportService {
     if (signError || !signedData?.signedUrl) {
       throw new Error(`Failed to create signed URL: ${signError?.message ?? 'unknown'}`);
     }
+
+    await this.emitProgress('finalize', 100, 'Export complete');
 
     return {
       signedUrl: signedData.signedUrl,
@@ -123,7 +136,18 @@ export class PdfExportService {
     title: string | undefined,
   ): Promise<Buffer> {
     // Dynamic import keeps Puppeteer optional — the service starts without it.
-    let puppeteer: { default: { launch: (...args: unknown[]) => Promise<unknown> } };
+    type PuppeteerBrowser = {
+      newPage: () => Promise<{
+        setRequestInterception: (enabled: boolean) => Promise<void>;
+        on: (event: string, handler: (req: unknown) => void) => void;
+        setCookie: (cookie: Record<string, unknown>) => Promise<void>;
+        goto: (url: string, options: Record<string, unknown>) => Promise<unknown>;
+        waitForSelector: (selector: string, options: Record<string, unknown>) => Promise<unknown>;
+        pdf: (options: Record<string, unknown>) => Promise<Buffer>;
+      }>;
+      close: () => Promise<void>;
+    };
+    let puppeteer: { default: { launch: (...args: unknown[]) => Promise<PuppeteerBrowser> } };
     try {
       // Use a variable to prevent tsc from resolving the module at compile time
       const moduleName = 'puppeteer';
@@ -134,7 +158,7 @@ export class PdfExportService {
       );
     }
 
-    const browser = await puppeteer.default.launch({
+    const browser: PuppeteerBrowser = await puppeteer.default.launch({
       headless: true,
       args: [
         '--no-sandbox',
@@ -144,8 +168,71 @@ export class PdfExportService {
       ],
     });
 
+    // Allowlisted external resource types for PDF generation (fonts, images, CSS)
+    // Block all other resource types to prevent data exfiltration or unwanted network access
+    const ALLOWLISTED_RESOURCE_TYPES = new Set([
+      'document',
+      'stylesheet',
+      'image',
+      'font',
+      'xhr',
+      'fetch',
+      'script',
+    ]);
+
+    // Blocked URL patterns that could be used for SSRF or local network access
+    const BLOCKED_URL_PATTERNS = [
+      /^file:/i,
+      /^data:/i,
+      /^javascript:/i,
+      /^blob:/i,
+      /^ws:/i,
+      /^wss:/i,
+      /^chrome-extension:/i,
+      /127\.\d+\.\d+\.\d+/,
+      /192\.168\.\d+\.\d+/,
+      /10\.\d+\.\d+\.\d+/,
+      /172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/,
+      /169\.254\.\d+\.\d+/, // Link-local
+      /::1/,
+      /localhost/i,
+    ];
+
     try {
       const page = await browser.newPage();
+
+      // Enable request interception to block SSRF attempts via redirects
+      await page.setRequestInterception(true);
+
+      page.on('request', (request: { resourceType: () => string; url: () => string; abort: () => void; continue: () => void }) => {
+        const resourceType = request.resourceType();
+        const requestUrl = request.url();
+
+        // Block non-allowlisted resource types
+        if (!ALLOWLISTED_RESOURCE_TYPES.has(resourceType)) {
+          logger.warn('PdfExportService: blocked non-allowlisted resource type', {
+            resourceType,
+            url: requestUrl,
+          });
+          request.abort();
+          return;
+        }
+
+        // Block requests to internal/private networks (SSRF protection)
+        const isBlocked = BLOCKED_URL_PATTERNS.some(pattern => pattern.test(requestUrl));
+        if (isBlocked) {
+          logger.warn('PdfExportService: blocked potential SSRF request', {
+            url: requestUrl,
+          });
+          request.abort();
+          return;
+        }
+
+        request.continue();
+      });
+
+      await this.emitProgress('launch', 100, 'Browser launched');
+      await this.emitProgress('render', 25, 'Loading page...');
 
       // Inject auth token as a cookie if provided
       if (authToken) {
@@ -162,10 +249,14 @@ export class PdfExportService {
 
       await page.goto(url, { waitUntil: 'networkidle0', timeout: 30_000 });
 
+      await this.emitProgress('render', 75, 'Waiting for content...');
+
       // Wait for the canvas content to fully render
       await page.waitForSelector('[data-pdf-ready]', { timeout: 10_000 }).catch(() => {
         // Selector is optional — proceed if not present
       });
+
+      await this.emitProgress('generate', 50, 'Generating PDF...');
 
       const pdf = await page.pdf({
         format: 'A4',
@@ -176,9 +267,20 @@ export class PdfExportService {
         footerTemplate: `<div style="font-size:9px;color:#999;width:100%;text-align:center;">Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>`,
       });
 
+      await this.emitProgress('generate', 100, 'PDF generated');
+
       return Buffer.from(pdf);
     } finally {
       await browser.close();
+    }
+  }
+
+  /**
+   * Emit progress update if callback is configured.
+   */
+  private async emitProgress(step: string, progress: number, message?: string): Promise<void> {
+    if (this.progressCallback) {
+      await this.progressCallback(step, progress, message);
     }
   }
 }

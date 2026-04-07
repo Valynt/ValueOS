@@ -31,10 +31,22 @@ export interface HypothesisCardWidgetData {
 
 export function HypothesisCard({ data, onAction }: WidgetProps) {
   const { error, success } = useToast();
-  const widgetData = data as unknown as HypothesisCardWidgetData;
-  const hypotheses = widgetData.hypotheses ?? [];
-  const canPromote = widgetData.canPromote ?? false;
-  const phaseId = widgetData.phaseId;
+
+  // Validate data shape before casting
+  const widgetData = validateHypothesisCardData(data);
+  const hypotheses = widgetData?.hypotheses ?? [];
+  const canPromote = widgetData?.canPromote ?? false;
+
+  const getSourceTypeFromTier = (tier: string): string => {
+    switch (tier) {
+      case "tier1":
+        return "customer-confirmed";
+      case "tier2":
+        return "benchmark-derived";
+      default:
+        return "inferred";
+    }
+  };
 
   const handleAction = async (
     action: "accept" | "edit" | "reject" | "promote-to-assumption",
@@ -60,17 +72,6 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
       }
     } catch {
       error("Could not update hypothesis. Please try again.");
-    }
-  };
-
-  const getSourceTypeFromTier = (tier: string): string => {
-    switch (tier) {
-      case "tier1":
-        return "customer-confirmed";
-      case "tier2":
-        return "benchmark-derived";
-      default:
-        return "inferred";
     }
   };
 
@@ -208,3 +209,29 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
 }
 
 export default HypothesisCard;
+
+// Validation helper for runtime type safety
+function validateHypothesisCardData(data: unknown): HypothesisCardWidgetData | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+
+  // Validate hypotheses array
+  const hypotheses = Array.isArray(d.hypotheses) ? d.hypotheses : [];
+  const validatedHypotheses = hypotheses.filter((h): h is HypothesisData => {
+    if (!h || typeof h !== "object") return false;
+    const hypothesis = h as Record<string, unknown>;
+    return (
+      typeof hypothesis.id === "string" &&
+      typeof hypothesis.valueDriver === "string" &&
+      typeof hypothesis.confidenceScore === "number" &&
+      hypothesis.confidenceScore >= 0 &&
+      hypothesis.confidenceScore <= 1
+    );
+  });
+
+  return {
+    hypotheses: validatedHypotheses,
+    canPromote: typeof d.canPromote === "boolean" ? d.canPromote : false,
+    phaseId: typeof d.phaseId === "string" ? d.phaseId : undefined,
+  };
+}

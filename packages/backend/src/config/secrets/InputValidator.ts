@@ -390,7 +390,7 @@ export class EnvValidator {
       throw new ValidationError(`Environment variable ${key} is required`);
     }
 
-    const result = InputValidator.validateOrThrow(value, validator, key);
+    const result = InputValidator.validateOrThrow<string>(value, validator, key);
     return result;
   }
 
@@ -409,7 +409,7 @@ export class EnvValidator {
       throw new ValidationError(`Environment variable ${key} is required`);
     }
 
-    const result = InputValidator.validateOrThrow(numValue, validator, key);
+    const result = InputValidator.validateOrThrow<number>(numValue, validator, key);
     return result;
   }
 

@@ -17,7 +17,7 @@ import { auditLogService } from "../../services/security/AuditLogService.js";
 import { validateUuidParam } from "./middleware.js";
 import { ValueCasesRouteLimiters } from "./crud.routes.js";
 
-const router = Router();
+const router: Router = Router();
 
 // ============================================================================
 // Schemas
@@ -102,7 +102,7 @@ async function updateEntityConfidence(
   const tenantColumnMap: Record<string, { tenant: string; case?: string }> = {
     artifact: { tenant: "organization_id", case: "case_id" },
     hypothesis: { tenant: "organization_id", case: "case_id" },
-    assumption: { tenant: "tenant_id", case: "case_id" },
+    assumption: { tenant: "organization_id", case: "case_id" },
   };
   const tenantCols = tenantColumnMap[entityType];
 
@@ -176,16 +176,12 @@ async function updateEntityConfidence(
 
   // Trigger recalculation if assumption confidence changed significantly (>0.1)
   if (entityType === "assumption" && Math.abs(confidenceScore - previousScore) > 0.1) {
-    try {
-      // Queue recalculation via event or direct call
-      logger.info("Triggering scenario recalculation due to confidence change", {
-        caseId,
-        assumptionId: entityId,
-        delta: confidenceScore - previousScore,
-      });
-    } catch (recalcError) {
-      logger.warn("Failed to queue recalculation", { recalcError });
-    }
+    // TODO: Queue recalculation via event bus or background job
+    logger.info("Assumption confidence changed significantly - scenario recalculation needed", {
+      caseId,
+      assumptionId: entityId,
+      delta: confidenceScore - previousScore,
+    });
   }
 
   const result: ConfidenceUpdateResult = {

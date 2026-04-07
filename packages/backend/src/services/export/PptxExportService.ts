@@ -114,8 +114,9 @@ export class PptxExportService {
   private narrativeRepo: NarrativeDraftRepository;
   private hypothesisOutputService: HypothesisOutputService;
   private snapshotRepo: FinancialModelSnapshotRepository;
+  private progressCallback?: (step: string, progress: number, message?: string) => Promise<void>;
 
-  constructor() {
+  constructor(progressCallback?: (step: string, progress: number, message?: string) => Promise<void>) {
     this.supabase = createWorkerServiceSupabaseClient({
       justification:
         "service-role:justified PptxExportService reads case data and uploads exports",
@@ -123,6 +124,7 @@ export class PptxExportService {
     this.narrativeRepo = new NarrativeDraftRepository();
     this.hypothesisOutputService = new HypothesisOutputService();
     this.snapshotRepo = new FinancialModelSnapshotRepository(this.supabase);
+    this.progressCallback = progressCallback;
   }
 
   async exportValueCase(input: PptxExportInput): Promise<PptxExportResult> {
@@ -132,6 +134,8 @@ export class PptxExportService {
     const storagePath = `${organizationId}/value-cases/${caseId}/${timestamp}.pptx`;
 
     logger.info("PptxExportService: generating deck", { caseId });
+
+    await this.emitProgress("fetch", 50, "Loading case data...");
 
     const [narrative, financialSnapshot, hypothesisOutput] = await Promise.all([
       this.narrativeRepo
@@ -144,6 +148,9 @@ export class PptxExportService {
         .getLatestForCase(caseId, organizationId)
         .catch(() => null),
     ]);
+
+    await this.emitProgress("fetch", 100, "Data loaded");
+    await this.emitProgress("build", 25, "Building presentation...");
 
     const pptxBuffer = await this.buildDeck({
       title,
@@ -162,6 +169,8 @@ export class PptxExportService {
       sizeBytes: pptxBuffer.length,
     });
 
+    await this.emitProgress("upload", 50, "Uploading to storage...");
+
     const { error: uploadError } = await this.supabase.storage
       .from(EXPORTS_BUCKET)
       .upload(storagePath, pptxBuffer, {
@@ -174,6 +183,9 @@ export class PptxExportService {
       throw new Error(`Storage upload failed: ${uploadError.message}`);
     }
 
+    await this.emitProgress("upload", 100, "Upload complete");
+    await this.emitProgress("finalize", 50, "Creating download link...");
+
     const { data: signedData, error: signError } = await this.supabase.storage
       .from(EXPORTS_BUCKET)
       .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
@@ -183,6 +195,8 @@ export class PptxExportService {
         `Failed to create signed URL: ${signError?.message ?? "unknown"}`
       );
     }
+
+    await this.emitProgress("finalize", 100, "Export complete");
 
     return {
       signedUrl: signedData.signedUrl,
@@ -222,13 +236,28 @@ export class PptxExportService {
     pptx.subject = data.title;
     pptx.title = data.title;
 
+    await this.emitProgress("build", 50, "Generating slides...");
+
     this.addCoverSlide(pptx, data.title, data.ownerName, data.createdAt);
     this.addExecutiveSummarySlide(pptx, data.narrativeContent);
     this.addFinancialSlide(pptx, data.roi, data.npv, data.paybackMonths);
     this.addHypothesesSlide(pptx, data.hypotheses);
 
+    await this.emitProgress("slides", 100, "Slides generated");
+    await this.emitProgress("build", 90, "Finalizing presentation...");
+
     const buffer = await pptx.write({ outputType: "nodebuffer" });
+    await this.emitProgress("build", 100, "Presentation built");
     return buffer as Buffer;
+  }
+
+  /**
+   * Emit progress update if callback is configured.
+   */
+  private async emitProgress(step: string, progress: number, message?: string): Promise<void> {
+    if (this.progressCallback) {
+      await this.progressCallback(step, progress, message);
+    }
   }
 
   // Slide 1: Cover

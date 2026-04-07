@@ -1,9 +1,7 @@
 import { logger } from "@/lib/logger";
 import {
   AlertCircle,
-  Archive,
   Bell,
-  Check,
   Download,
   FileText,
   Loader2,
@@ -23,8 +21,13 @@ import {
   SettingsSection,
 } from "@/components/settings";
 import { Button } from "@/components/ui/button";
-import { useTeamNotifications } from "@/hooks/useOrganizationSettings";
+import {
+  useTeamNotifications,
+} from "@/hooks/useOrganizationSettings";
+import { useSettingsSubscription } from "@/hooks/useSettings";
 import { useConfigAccess } from "@/hooks/useConfigAccess";
+
+import { WorkflowSettings } from "./WorkflowSettings";
 
 interface TeamSettingsProps {
   organizationId: string;
@@ -35,6 +38,9 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
   organizationId,
   userRole,
 }) => {
+  // Real-time sync across tabs
+  useSettingsSubscription("organization", organizationId);
+
   // Permission check
   const { checkAccess } = useConfigAccess(userRole);
   const webhooksAccess = checkAccess("webhooks");
@@ -111,12 +117,37 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
       const file = event.target.files?.[0];
       if (!file) return;
 
+      // Validate file type and size
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+      if (file.size > MAX_FILE_SIZE) {
+        logger.error("Import failed: File too large (max 5MB)");
+        return;
+      }
+      if (!file.type.match(/json/) && !file.name.endsWith('.json')) {
+        logger.error("Import failed: Invalid file type (expected JSON)");
+        return;
+      }
+
       try {
         const text = await file.text();
-        const imported = JSON.parse(text);
 
-        if (imported.notifications) {
-          Object.entries(imported.notifications).forEach(([key, value]) => {
+        // Check text size before parsing
+        if (text.length > MAX_FILE_SIZE) {
+          logger.error("Import failed: Content too large");
+          return;
+        }
+
+        const imported = JSON.parse(text) as unknown;
+
+        // Validate basic structure
+        if (!imported || typeof imported !== "object") {
+          logger.error("Import failed: Invalid JSON structure");
+          return;
+        }
+
+        const data = imported as Record<string, unknown>;
+        if (data.notifications && typeof data.notifications === "object") {
+          Object.entries(data.notifications).forEach(([key, value]) => {
             const settingKey = `notifications.${key}`;
             void updateSetting(settingKey, value);
             markDirty(settingKey);
@@ -363,7 +394,12 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({
         </div>
       </SettingsSection>
 
-      {/* TODO: Connect Workflow Settings to backend (future P2 enhancement) */}
+      <SettingsSection
+        title="Workflow Settings"
+        description="Configure default workflows and automation rules"
+      >
+        <WorkflowSettings organizationId={organizationId} userRole={userRole} />
+      </SettingsSection>
 
       <SettingsSection
         title="Settings Management"

@@ -195,7 +195,7 @@ export function useSetting(
   key: string,
   scope: SettingScope,
   scopeId: string,
-  queryOpts?: Omit<UseQueryOptions<Setting | null, Error>, "queryKey" | "queryFn">
+  queryOpts?: Omit<UseQueryOptions<Setting[], Error>, "queryKey" | "queryFn">
 ) {
   const { data: settings, ...rest } = useSettings(
     { scope, scopeId, keys: [key] },
@@ -245,12 +245,14 @@ export function useUpdateSetting() {
         context: { settingKey: key },
       });
     },
-    onSuccess: (data, { key }) => {
+    onSuccess: (data, { key, scope, scopeId }) => {
       toast({
         title: "Setting saved",
         description: `${key} has been updated successfully.`,
         duration: 2000,
       });
+      // Broadcast to other tabs
+      broadcastSettingsChange(scope, scopeId);
     },
     onSettled: (_data, _error, { scope, scopeId }) => {
       // Always refetch after error or success to ensure sync
@@ -311,7 +313,7 @@ export function useSettingsGroup(options: UseSettingsOptions): SettingsGroupResu
   const { data: settings, isLoading, error } = useSettings({ scope, scopeId, keys });
 
   // Update local state when data arrives
-  useMemo(() => {
+  useEffect(() => {
     if (settings) {
       const values = settings.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {});
       setOriginalValues(values);
@@ -414,6 +416,8 @@ export function useSettingsGroup(options: UseSettingsOptions): SettingsGroupResu
   };
 }
 
+import { fetchTeamAuditLogs } from "@/services/adminSettingsService";
+
 /**
  * Hook for fetching settings audit history
  */
@@ -421,15 +425,20 @@ export function useSettingsAudit(scope: SettingScope, scopeId: string, limit = 1
   return useQuery({
     queryKey: [SETTINGS_AUDIT_KEY, scope, scopeId, limit],
     queryFn: async () => {
-      const res = await apiClient.get<{ logs: AuditLogEntry[] }>("/api/v1/settings/audit", {
-        scope,
-        scopeId,
+      const response = await fetchTeamAuditLogs({
+        resourceType: "settings",
         limit,
       });
-      if (!res.success || !res.data) {
-        throw new Error(res.error?.message ?? "Failed to fetch audit log");
-      }
-      return res.data.logs;
+      // Transform to our AuditLogEntry format
+      return response.logs.map((log) => ({
+        id: log.id,
+        settingKey: log.resource_id || "unknown",
+        oldValue: log.details?.oldValue,
+        newValue: log.details?.newValue || "",
+        userId: log.user_id,
+        userEmail: log.user_email,
+        timestamp: log.timestamp,
+      }));
     },
     staleTime: 60_000,
   });
@@ -446,7 +455,13 @@ export interface AuditLogEntry {
 }
 
 /**
+ * Broadcast channel name for settings sync
+ */
+const SETTINGS_BROADCAST_CHANNEL = "valueos-settings-sync";
+
+/**
  * Hook for real-time settings synchronization (multi-tab)
+ * Uses BroadcastChannel API with localStorage fallback
  */
 export function useSettingsSubscription(scope: SettingScope, scopeId: string) {
   const queryClient = useQueryClient();
@@ -454,16 +469,74 @@ export function useSettingsSubscription(scope: SettingScope, scopeId: string) {
   useMemo(() => {
     if (typeof window === "undefined") return;
 
-    // Listen for storage events from other tabs
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === `settings:${scope}:${scopeId}`) {
-        void queryClient.invalidateQueries({
-          queryKey: buildSettingsKey(scope, scopeId),
-        });
+    const storageKey = `settings:${scope}:${scopeId}`;
+
+    // Try BroadcastChannel first (more efficient)
+    let broadcastChannel: BroadcastChannel | null = null;
+    if ("BroadcastChannel" in window) {
+      try {
+        broadcastChannel = new BroadcastChannel(SETTINGS_BROADCAST_CHANNEL);
+      } catch {
+        // Fallback to localStorage if BroadcastChannel fails
       }
+    }
+
+    const handleSync = (event: MessageEvent | StorageEvent) => {
+      const data = "data" in event ? (event.data as { scope: string; scopeId: string }) : null;
+      const isStorageEvent = "key" in event;
+
+      // Check if this sync is for our scope
+      if (isStorageEvent && event.key !== storageKey) return;
+      if (data && (data.scope !== scope || data.scopeId !== scopeId)) return;
+
+      // Invalidate queries to trigger refetch
+      void queryClient.invalidateQueries({
+        queryKey: buildSettingsKey(scope, scopeId),
+      });
     };
 
+    if (broadcastChannel) {
+      broadcastChannel.addEventListener("message", handleSync as (e: MessageEvent) => void);
+    }
+
+    // Always listen for storage events as fallback
+    const handleStorageChange = (event: StorageEvent) => handleSync(event);
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+
+    return () => {
+      if (broadcastChannel) {
+        broadcastChannel.removeEventListener("message", handleSync as (e: MessageEvent) => void);
+        broadcastChannel.close();
+      }
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [scope, scopeId, queryClient]);
+}
+
+/**
+ * Broadcast a settings change to other tabs
+ */
+function broadcastSettingsChange(scope: SettingScope, scopeId: string): void {
+  if (typeof window === "undefined") return;
+
+  const storageKey = `settings:${scope}:${scopeId}`;
+
+  // Broadcast via BroadcastChannel if available
+  if ("BroadcastChannel" in window) {
+    try {
+      // Create a temporary channel for broadcasting only (no listener needed)
+      const channel = new BroadcastChannel(SETTINGS_BROADCAST_CHANNEL);
+      channel.postMessage({ scope, scopeId, timestamp: Date.now() });
+      channel.close();
+    } catch {
+      // Fallback to localStorage
+    }
+  }
+
+  // Always update localStorage to trigger storage event in other tabs
+  try {
+    localStorage.setItem(storageKey, Date.now().toString());
+  } catch {
+    // localStorage might be disabled
+  }
 }

@@ -314,7 +314,7 @@ export class InfisicalSecretProvider implements ISecretProvider {
             projectId: this.projectId,
             secretPath,
             secretValue: stringValue,
-            type: "shared" as const,
+            type: "shared" as unknown as undefined,
           })
         );
       }
@@ -587,13 +587,17 @@ export class InfisicalSecretProvider implements ISecretProvider {
     }
   }
 
+  private typedEntries<K, V>(map: Map<K, V>): Array<[K, V]> {
+    return Array.from(map.entries());
+  }
+
   /**
    * Clear the in-memory secret cache.
    * Pass a tenantId to evict only that tenant's entries.
    */
   clearCache(tenantId?: string): void {
     if (tenantId) {
-      for (const [key] of this.cache.entries()) {
+      for (const [key] of this.typedEntries(this.cache)) {
         if (key.startsWith(`${tenantId}:`)) {
           this.cache.delete(key);
         }

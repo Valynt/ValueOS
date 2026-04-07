@@ -37,6 +37,7 @@ import { AuthenticationError, RateLimitError, ValidationError } from "./errors.j
 import { mfaService } from "./MFAService.js"
 import { securityLogger } from "./SecurityLogger.js"
 import { getTokenRotationService } from "./TokenRotationService.js";
+import { createAuthProvisioningSupabaseClient } from "../../lib/supabase/privileged/authProvisioning.js";
 
 
 export interface LoginCredentials {
@@ -109,7 +110,10 @@ export class AuthService extends BaseService {
   }
 
   constructor() {
-    super("AuthService");
+    const supabase = createAuthProvisioningSupabaseClient({
+      justification: "service-role:justified AuthService authentication operations",
+    });
+    super("AuthService", supabase);
     this.tctSecret = this.resolveTctSecret();
 
     // Initialize hardened services
