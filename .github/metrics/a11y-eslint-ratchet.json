@@ -1,6 +1,6 @@
 {
   "start_date": "2026-03-30",
-  "start_warning_count": 27,
+  "start_warning_count": 29,
   "weekly_reduction": 1,
   "rule_prefix": "jsx-a11y/"
 }

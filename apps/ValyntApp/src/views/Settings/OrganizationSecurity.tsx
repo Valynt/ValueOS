@@ -170,6 +170,7 @@ export const OrganizationSecurity: React.FC = () => {
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
+                <span className="sr-only">Require Single Sign-On (SSO)</span>
                 <input
                   type="checkbox"
                   className="sr-only peer"
@@ -191,6 +192,7 @@ export const OrganizationSecurity: React.FC = () => {
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
+                <span className="sr-only">Require Multi-Factor Authentication</span>
                 <input
                   type="checkbox"
                   className="sr-only peer"
@@ -206,8 +208,9 @@ export const OrganizationSecurity: React.FC = () => {
             <h4 className="text-sm font-medium text-gray-900 mb-4">Password Requirements</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Length</label>
+                <label htmlFor="min-length" className="block text-sm font-medium text-gray-700 mb-1">Minimum Length</label>
                 <input
+                  id="min-length"
                   type="number"
                   value={passwordMinLength}
                   onChange={(e) => setPasswordMinLength(parseInt(e.target.value) || 8)}
@@ -218,8 +221,9 @@ export const OrganizationSecurity: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password Expiry (days)</label>
+                <label htmlFor="expiry-days" className="block text-sm font-medium text-gray-700 mb-1">Password Expiry (days)</label>
                 <input
+                  id="expiry-days"
                   type="number"
                   value={passwordExpiryDays}
                   onChange={(e) => setPasswordExpiryDays(parseInt(e.target.value) || 0)}
@@ -231,8 +235,9 @@ export const OrganizationSecurity: React.FC = () => {
             </div>
 
             <div className="mt-4 space-y-2">
-              <label className="flex items-center space-x-2 text-sm">
+              <label htmlFor="require-uppercase" className="flex items-center space-x-2 text-sm">
                 <input
+                  id="require-uppercase"
                   type="checkbox"
                   checked={policy.passwordRequireUppercase}
                   onChange={(e) => setPolicy({ ...policy, passwordRequireUppercase: e.target.checked })}
@@ -240,8 +245,9 @@ export const OrganizationSecurity: React.FC = () => {
                 />
                 <span>Require uppercase letters</span>
               </label>
-              <label className="flex items-center space-x-2 text-sm">
+              <label htmlFor="require-numbers" className="flex items-center space-x-2 text-sm">
                 <input
+                  id="require-numbers"
                   type="checkbox"
                   checked={policy.passwordRequireNumbers}
                   onChange={(e) => setPolicy({ ...policy, passwordRequireNumbers: e.target.checked })}
@@ -249,8 +255,9 @@ export const OrganizationSecurity: React.FC = () => {
                 />
                 <span>Require numbers</span>
               </label>
-              <label className="flex items-center space-x-2 text-sm">
+              <label htmlFor="require-symbols" className="flex items-center space-x-2 text-sm">
                 <input
+                  id="require-symbols"
                   type="checkbox"
                   checked={policy.passwordRequireSymbols}
                   onChange={(e) => setPolicy({ ...policy, passwordRequireSymbols: e.target.checked })}
@@ -266,12 +273,13 @@ export const OrganizationSecurity: React.FC = () => {
       <SettingsSection title="Session Management" description="Configure session timeout and concurrent session limits">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="session-timeout" className="block text-sm font-medium text-gray-700 mb-1">
               <Clock className="inline h-4 w-4 mr-1" />
               Session Timeout
             </label>
             <div className="flex items-center space-x-2">
               <input
+                id="session-timeout"
                 type="number"
                 value={sessionTimeoutMinutes}
                 onChange={(e) => setSessionTimeoutMinutes(parseInt(e.target.value) || 15)}
@@ -283,12 +291,13 @@ export const OrganizationSecurity: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="idle-timeout" className="block text-sm font-medium text-gray-700 mb-1">
               <Clock className="inline h-4 w-4 mr-1" />
               Idle Timeout
             </label>
             <div className="flex items-center space-x-2">
               <input
+                id="idle-timeout"
                 type="number"
                 value={idleTimeoutMinutes}
                 onChange={(e) => setIdleTimeoutMinutes(parseInt(e.target.value) || 5)}
@@ -300,11 +309,12 @@ export const OrganizationSecurity: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="max-sessions" className="block text-sm font-medium text-gray-700 mb-1">
               <Users className="inline h-4 w-4 mr-1" />
               Max Sessions
             </label>
             <input
+              id="max-sessions"
               type="number"
               value={maxConcurrentSessions}
               onChange={(e) => setMaxConcurrentSessions(parseInt(e.target.value) || 1)}
