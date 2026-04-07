@@ -68,7 +68,7 @@ describe("ModeAwareLayout", () => {
   it("renders evidence layout", () => {
     render(<ModeAwareLayout mode={"evidence" as WorkspaceMode} {...baseProps} />);
 
-    expect(screen.getByText(/evidence/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evidence View/i)).toBeInTheDocument();
   });
 
   it("passes warmth state to child components", () => {

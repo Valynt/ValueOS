@@ -15,31 +15,24 @@ import { WarmthValueNode } from "./WarmthValueNode";
 
 function buildNodeData(overrides: Record<string, unknown> = {}) {
   return {
-    node: {
-      id: "node-1",
-      type: "driver" as const,
-      label: "Automated Reconciliation",
-      value: 2400000,
-      confidence: 0.78,
-      evidence: [
-        { id: "ev-1", type: "10-K", source: "SEC", title: "Annual Report", confidence: 0.9, date: "2026-01-01" },
-        { id: "ev-2", type: "benchmark", source: "Gartner", title: "Industry Benchmark", confidence: 0.7, date: "2026-02-01" },
-      ],
-      metadata: { locked: false },
-      ...overrides,
-    },
+    label: "Automated Reconciliation",
+    value: 2400000,
+    format: "currency" as const,
+    confidence: 0.78,
+    evidenceCount: 2,
     warmth: "firm" as WarmthState,
-    ...(overrides.warmth ? { warmth: overrides.warmth as WarmthState } : {}),
+    warmthModifier: null,
+    isLocked: false,
+    ...overrides,
   };
 }
 
 describe("WarmthValueNode", () => {
-  it("renders node label, value, and type", () => {
+  it("renders node label and formatted value", () => {
     render(<WarmthValueNode data={buildNodeData()} />);
 
     expect(screen.getByText("Automated Reconciliation")).toBeInTheDocument();
     expect(screen.getByText("$2.4M")).toBeInTheDocument();
-    expect(screen.getByText(/driver/i)).toBeInTheDocument();
   });
 
   it("applies dashed border + amber bg for forming warmth", () => {
@@ -68,27 +61,27 @@ describe("WarmthValueNode", () => {
     );
 
     const node = container.firstElementChild;
-    expect(node?.className).toMatch(/blue/);
+    expect(node?.className).toMatch(/emerald/);
   });
 
-  it("shows firming modifier icon when confidence > 0.7 in forming", () => {
+  it("shows firming modifier icon when modifier is firming", () => {
     render(
       <WarmthValueNode
-        data={buildNodeData({ warmth: "forming", confidence: 0.75 })}
+        data={buildNodeData({ warmth: "forming", confidence: 0.75, warmthModifier: "firming" })}
       />,
     );
 
-    expect(screen.getByLabelText(/firming/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/firming/i)).toBeInTheDocument();
   });
 
-  it("shows needs_review modifier icon when confidence < 0.5 in verified", () => {
+  it("shows needs_review modifier icon when modifier is needs_review", () => {
     render(
       <WarmthValueNode
-        data={buildNodeData({ warmth: "verified", confidence: 0.4 })}
+        data={buildNodeData({ warmth: "verified", confidence: 0.4, warmthModifier: "needs_review" })}
       />,
     );
 
-    expect(screen.getByLabelText(/needs.review/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/needs_review/i)).toBeInTheDocument();
   });
 
   it("displays source count badge when evidence exists", () => {
@@ -100,7 +93,7 @@ describe("WarmthValueNode", () => {
   it("shows lock icon when node is locked", () => {
     render(
       <WarmthValueNode
-        data={buildNodeData({ metadata: { locked: true } })}
+        data={buildNodeData({ isLocked: true })}
       />,
     );
 

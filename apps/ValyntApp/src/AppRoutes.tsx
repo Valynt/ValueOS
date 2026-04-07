@@ -96,9 +96,15 @@ const LivingValueGraphPage = lazy(() =>
   import("./views/LivingValueGraphPage").then((m) => ({ default: m.LivingValueGraphPage }))
 );
 
-// Warmth-era surfaces
-const ReviewPlaceholder = lazy(() =>
-  import("./views/ReviewPlaceholder").then((m) => ({ default: m.ReviewPlaceholder }))
+// Warmth-era surfaces (Phase 3)
+const ReviewPage = lazy(() =>
+  import("./features/review/ReviewPage").then((m) => ({ default: m.ReviewPage }))
+);
+const CaseListPage = lazy(() =>
+  import("./features/cases/CaseListPage").then((m) => ({ default: m.CaseListPage }))
+);
+const RealizationPlaceholder = lazy(() =>
+  import("./features/review/components/RealizationPlaceholder").then((m) => ({ default: m.RealizationPlaceholder }))
 );
 const TemplatesPlaceholder = lazy(() =>
   import("./views/TemplatesPlaceholder").then((m) => ({ default: m.TemplatesPlaceholder }))
@@ -310,10 +316,11 @@ export function AppRoutes() {
                                             workspace pane does not unmount the entire application. */}
                                         {/* Warmth-era routes — coexist with legacy during 90-day bridge */}
                                         <Route path="work" element={<Dashboard />} />
-                                        <Route path="work/cases" element={<Opportunities />} />
+                                        <Route path="work/cases" element={<CaseListPage />} />
                                         <Route path="work/cases/new" element={<Opportunities />} />
                                         <Route path="case/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
-                                        <Route path="review/:caseId" element={<ReviewPlaceholder />} />
+                                        <Route path="review/:caseId" element={<ReviewPage />} />
+                                        <Route path="review/:caseId/actuals" element={<RealizationPlaceholder />} />
                                         <Route path="library/models" element={<Models />} />
                                         <Route path="library/templates" element={<TemplatesPlaceholder />} />
                                         <Route path="library/agents" element={<Agents />} />
@@ -349,6 +356,7 @@ export function AppRoutes() {
                                     <Route path="/work/cases/new" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/case/:caseId" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/review/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/review/:caseId/actuals" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/library/models" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/library/templates" element={<LegacyTenantRouteBridge />} />
                                     <Route path="/library/agents" element={<LegacyTenantRouteBridge />} />

@@ -38,6 +38,17 @@ vi.mock("@/hooks/useJourneyOrchestrator", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useValueModeling", () => ({
+  useAssumptions: () => ({
+    data: [
+      { id: "a-1", name: "Market volatility", value: 100000, unit: "%", source: "inferred", confidenceScore: 0.3, unsupported: false, plausibility: "weakly-supported", lastModified: "2026-01-01" },
+      { id: "a-2", name: "Revenue per seat", value: 50000, unit: "$", source: "CRM-derived", confidenceScore: 0.85, unsupported: false, plausibility: "plausible", lastModified: "2026-01-01" },
+    ],
+    isLoading: false,
+    error: null,
+  }),
+}));
+
 vi.mock("@/lib/supabase", () => ({
   supabase: null,
   createBrowserSupabaseClient: vi.fn(),
@@ -119,7 +130,7 @@ describe("ReviewPage", () => {
     it("renders assumptions at risk section", () => {
       renderReviewPage();
       expect(
-        screen.getByText(/assumption|attention|risk/i),
+        screen.getByText("Assumptions Requiring Attention"),
       ).toBeInTheDocument();
     });
   });

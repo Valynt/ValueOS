@@ -186,7 +186,14 @@ export function useKeyboardShortcuts({
 
       // Special handling for Escape
       if (shortcut.key === "Escape" && !shortcut.modifiers?.length) {
-        setShowHelp(false);
+        const escHandler = handlersRef.current[shortcut.key];
+        if (escHandler) {
+          const shouldPreventDefault = escHandler(event, contextRef.current);
+          if (shouldPreventDefault && preventDefault) event.preventDefault();
+        } else {
+          setShowHelp(false);
+          if (preventDefault) event.preventDefault();
+        }
         return;
       }
 
@@ -198,7 +205,7 @@ export function useKeyboardShortcuts({
           event.preventDefault();
         }
       } else {
-        // No handler - just record the shortcut was pressed
+        // No handler - record the shortcut was pressed
         setLastShortcut(`${shortcut.modifiers?.join("+") ?? ""}${shortcut.key}`);
       }
     };

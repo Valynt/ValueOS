@@ -82,7 +82,8 @@ describe("AssumptionsAtRisk", () => {
       );
 
       // At least one "inferred" label should be visible (from fixtures)
-      expect(screen.getByText(/inferred/i)).toBeInTheDocument();
+      const inferredLabels = screen.getAllByText(/inferred/i);
+      expect(inferredLabels.length).toBeGreaterThanOrEqual(1);
     });
   });
 

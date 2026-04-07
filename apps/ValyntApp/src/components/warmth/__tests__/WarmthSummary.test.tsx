@@ -29,22 +29,24 @@ describe("WarmthSummary", () => {
     });
 
     it("shows correct case count for forming tier", () => {
-      renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
-      // 2 forming cases in fixture
-      expect(screen.getByText(/2/)).toBeInTheDocument();
+      const { container } = renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
+      const formingCard = container.querySelector('[data-warmth="forming"]');
+      expect(formingCard).toBeInTheDocument();
+      expect(formingCard!.textContent).toContain("2");
     });
 
     it("shows correct case count for firm tier", () => {
-      renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
-      // 2 firm cases in fixture — find within the firm card context
-      const firmCard = screen.getByText(/firm/i).closest("[data-warmth]") ?? screen.getByText(/firm/i).parentElement;
+      const { container } = renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
+      const firmCard = container.querySelector('[data-warmth="firm"]');
       expect(firmCard).toBeInTheDocument();
+      expect(firmCard!.textContent).toContain("2");
     });
 
     it("shows correct case count for verified tier", () => {
-      renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
-      const verifiedCard = screen.getByText(/verified/i).closest("[data-warmth]") ?? screen.getByText(/verified/i).parentElement;
+      const { container } = renderWithRouter(<WarmthSummary cases={MOCK_CASES} isLoading={false} />);
+      const verifiedCard = container.querySelector('[data-warmth="verified"]');
       expect(verifiedCard).toBeInTheDocument();
+      expect(verifiedCard!.textContent).toContain("2");
     });
   });
 

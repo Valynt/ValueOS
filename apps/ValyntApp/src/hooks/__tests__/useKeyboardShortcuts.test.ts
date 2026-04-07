@@ -37,6 +37,7 @@ import {
 function createKeyboardEvent(overrides: Partial<KeyboardEventInit> = {}) {
   return new KeyboardEvent("keydown", {
     key: "a",
+    bubbles: true,
     ctrlKey: false,
     altKey: false,
     shiftKey: false,

@@ -350,18 +350,15 @@ describe("API contract: endpoint stability", () => {
 // ============================================================================
 
 describe("TypeScript strict zone", () => {
-  it("tsconfig.strict-zones.json exists", async () => {
-    // This test verifies the strict zone config is present
-    // Implementation: new redesign files must be added to this config
+  it("tsconfig.strict-zones.json exists at repo root", async () => {
     const fs = await import("fs");
     const path = await import("path");
-    const strictZonePath = path.resolve(
-      __dirname,
-      "../../../../tsconfig.strict-zone.json",
-    );
+    // Resolve from apps/ValyntApp/src/__tests__/redesign-tdd/ → repo root
+    const repoRoot = path.resolve(__dirname, "../../../../..");
+    const strictZonePath = path.join(repoRoot, "tsconfig.strict-zones.json");
     expect(
       fs.existsSync(strictZonePath),
-      "tsconfig.strict-zone.json must exist for strict zone enforcement",
+      `tsconfig.strict-zones.json must exist at ${strictZonePath}`,
     ).toBe(true);
   });
 });

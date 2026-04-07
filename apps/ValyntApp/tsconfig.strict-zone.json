@@ -13,6 +13,11 @@
     "noFallthroughCasesInSwitch": true,
     "noEmit": true
   },
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**"
+  ],
   "include": [
     "src/lib/warmth.ts",
     "src/lib/events.ts",
