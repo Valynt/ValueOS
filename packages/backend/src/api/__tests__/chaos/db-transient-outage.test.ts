@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Import the actual middleware and error types
-import { requireCustomerEntitlement } from "../../src/middleware/authorization.middleware";
+import { requireCustomerEntitlement } from "../../middleware/authorization.middleware";
 import { createLogger } from "@shared/lib/logger";
 
 // ---------------------------------------------------------------------------

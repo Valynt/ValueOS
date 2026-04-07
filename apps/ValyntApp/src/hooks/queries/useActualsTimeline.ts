@@ -8,7 +8,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
 
 import type { CheckpointStatus } from "@/types/checkpoint";
 
@@ -49,18 +50,23 @@ interface UseActualsTimelineResult {
  * @returns Timeline data with loading/error states
  */
 export function useActualsTimeline(caseId: string | undefined): UseActualsTimelineResult {
-  const query = useQuery<ActualsTimelinePoint[]>({
-    queryKey: ["actuals-timeline", caseId],
-    queryFn: async () => {
-      if (!caseId) return [];
+  const { tenantId } = useTenant();
 
-      const response = await apiClient.get<ActualsTimelinePoint[]>(
-        `/cases/${caseId}/realization/timeline`
-      );
-      return response.data ?? [];
+  const query = useQuery<ActualsTimelinePoint[]>({
+    queryKey: ["actuals-timeline", caseId, tenantId],
+    queryFn: async () => {
+      if (!caseId || !tenantId) return [];
+
+      const response = await apiClient.get(`/cases/${caseId}/realization/actuals-timeline`);
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error?.message || "Failed to fetch timeline");
+      }
+
+      return response.data.data ?? [];
     },
-    staleTime: 60_000, // 1 minute - actuals change infrequently
-    enabled: !!caseId,
+    staleTime: 60_000, // 1 minute
+    enabled: !!caseId && !!tenantId,
   });
 
   return {

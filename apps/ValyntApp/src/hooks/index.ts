@@ -73,7 +73,7 @@ export { useGraphData, useGraphNode } from './queries/useGraphData';
 export { useModePreference, useUpdateModePreference } from './queries/useModePreference';
 export { useEventSource } from './useEventSource';
 export { useWorkspaceEvents } from './useWorkspaceEvents';
-export { useConflictResolution, useBatchResolveConflicts } from './useConflictResolution';
+export { useWorkspaceData } from './useWorkspaceData';
 export { useUpdateNode, useDeleteNode } from './mutations/useUpdateNode';
 
 // Event types

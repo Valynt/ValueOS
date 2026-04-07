@@ -6,19 +6,7 @@
  * Provides SVG, PNG, JSON, and CSV export functionality.
  */
 
-// Stub for html-to-image - install actual dependency for production
-// pnpm add html-to-image
-const htmlToImageStub = {
-  toSvg: async (element: HTMLElement, options?: unknown) => {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><!-- Stub SVG export --></svg>`;
-  },
-  toPng: async (element: HTMLElement, options?: unknown) => {
-    // Return a data URL for a 1x1 transparent PNG
-    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-  },
-};
-
-const { toSvg, toPng } = htmlToImageStub;
+import { toSvg, toPng } from "html-to-image";
 
 import type { Graph, ValueNode, ValueEdge } from "@/features/living-value-graph/types/graph.types";
 

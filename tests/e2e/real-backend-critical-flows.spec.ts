@@ -210,40 +210,43 @@ test.describe("Billing webhook flow (real backend + DB)", () => {
   test("AC-13: idempotent re-delivery of the same event returns isDuplicate: true", async () => {
     const ctx = await apiContext();
 
+    // Use a FIXED event ID — true idempotency requires the same ID
+    const fixedEventId = `evt_idem_fixed_${Date.now()}`;
+    const eventWithFixedId = { ...stripeEvent, id: fixedEventId };
+
     // First delivery
     const first = await ctx.post("/api/billing/webhooks", {
       headers: {
         "stripe-signature": "t=0,v1=test_sig_e2e",
         "Content-Type": "application/json",
       },
-      data: { ...stripeEvent, id: `evt_idem_${Date.now()}` },
+      data: eventWithFixedId,
     });
 
-    if (first.status() !== 200) {
-      test.skip(true, "Webhook endpoint not reachable or sig verification failed");
-      return;
-    }
-
+    // Must succeed on first delivery
+    expect(first.status()).toBe(200);
     const firstBody = await first.json() as { isDuplicate?: boolean };
+    expect(firstBody.isDuplicate).toBeFalsy();
 
-    // Second delivery with same event ID
-    const sameId = `evt_idem_reuse_${Date.now()}`;
-    const eventWithId = { ...stripeEvent, id: sameId };
-
-    await ctx.post("/api/billing/webhooks", {
-      headers: { "stripe-signature": "t=0,v1=test_sig_e2e", "Content-Type": "application/json" },
-      data: eventWithId,
-    });
-
+    // Second delivery with the SAME event ID — must be detected as duplicate
     const second = await ctx.post("/api/billing/webhooks", {
       headers: { "stripe-signature": "t=0,v1=test_sig_e2e", "Content-Type": "application/json" },
-      data: eventWithId,
+      data: eventWithFixedId,
     });
 
-    if (second.status() === 200) {
-      const secondBody = await second.json() as { isDuplicate?: boolean };
-      expect(secondBody.isDuplicate).toBe(true);
-    }
+    expect(second.status()).toBe(200);
+    const secondBody = await second.json() as { isDuplicate?: boolean };
+    expect(secondBody.isDuplicate).toBe(true);
+
+    // Third delivery — still duplicate
+    const third = await ctx.post("/api/billing/webhooks", {
+      headers: { "stripe-signature": "t=0,v1=test_sig_e2e", "Content-Type": "application/json" },
+      data: eventWithFixedId,
+    });
+
+    expect(third.status()).toBe(200);
+    const thirdBody = await third.json() as { isDuplicate?: boolean };
+    expect(thirdBody.isDuplicate).toBe(true);
 
     await ctx.dispose();
   });

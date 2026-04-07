@@ -4,7 +4,9 @@ import { promisify } from "util";
 import * as cheerio from "cheerio";
 import * as ipaddr from "ipaddr.js";
 import Redis, { type Redis as RedisClientType } from "ioredis";
+import { z } from "zod";
 
+import { secureLLMComplete, type LLMCompletable } from "../../lib/llm/secureLLMWrapper.js";
 import { logger } from "../../lib/logger.js";
 
 const resolveAsync = promisify(resolve);
@@ -15,7 +17,33 @@ export interface WebScraperResult {
   h1_tags: string[];
   main_content: string;
   relevance_score: number;
+  entity_extraction?: WebEntityExtractionResult;
 }
+
+export interface ExtractedWebEntity {
+  name: string;
+  type: "company" | "product" | "persona" | "competitor" | "claim" | "capability" | "other";
+  confidence_score: number;
+  evidence_snippet: string;
+}
+
+export interface WebEntityExtractionResult {
+  entities: ExtractedWebEntity[];
+  model?: string;
+}
+
+const ExtractedWebEntitySchema = z.object({
+  name: z.string().min(1),
+  type: z
+    .enum(["company", "product", "persona", "competitor", "claim", "capability", "other"])
+    .default("other"),
+  confidence_score: z.number().min(0).max(1),
+  evidence_snippet: z.string().min(1),
+});
+
+const WebEntityExtractionSchema = z.object({
+  entities: z.array(ExtractedWebEntitySchema).default([]),
+});
 
 /** Tracks hits, misses, and evictions across all internal maps. */
 export interface CacheMetrics {
@@ -386,6 +414,41 @@ export class WebScraperService {
   }
 
   /**
+   * Scrape a URL and optionally run LLM-backed entity extraction on the result.
+   * If extraction fails, the base scrape result is still returned.
+   */
+  async scrapeWithEntityExtraction(params: {
+    url: string;
+    tenantId: string;
+    llmGateway: LLMCompletable;
+    maxRetries?: number;
+    maxEntities?: number;
+    model?: string;
+  }): Promise<WebScraperResult | null> {
+    const { url, tenantId, llmGateway, maxRetries = 3, maxEntities = 20, model } = params;
+    const scraped = await this.scrape(url, maxRetries);
+    if (!scraped) {
+      return null;
+    }
+
+    const extracted = await this.extractEntitiesFromContent(scraped, {
+      tenantId,
+      llmGateway,
+      maxEntities,
+      model,
+    });
+
+    if (!extracted) {
+      return scraped;
+    }
+
+    return {
+      ...scraped,
+      entity_extraction: extracted,
+    };
+  }
+
+  /**
    * Check rate limit for a hostname
    */
   private async checkRateLimit(hostname: string): Promise<boolean> {
@@ -539,6 +602,77 @@ export class WebScraperService {
     else if (indicatorCount >= 1) score += 5;
 
     return Math.min(100, score);
+  }
+
+  private parseJsonResponse(content: string): unknown {
+    const trimmed = content.trim();
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenced?.[1]?.trim() ?? trimmed;
+    return JSON.parse(candidate);
+  }
+
+  private async extractEntitiesFromContent(
+    result: WebScraperResult,
+    options: {
+      tenantId: string;
+      llmGateway: LLMCompletable;
+      maxEntities: number;
+      model?: string;
+    }
+  ): Promise<WebEntityExtractionResult | null> {
+    const { tenantId, llmGateway, maxEntities, model } = options;
+
+    if (!result.main_content || result.main_content.trim().length < 100) {
+      return { entities: [], model };
+    }
+
+    const systemPrompt = [
+      "You extract structured business entities from web page content.",
+      "Return ONLY valid JSON. No markdown or explanation.",
+      `Return shape: {"entities":[{"name":"...","type":"company|product|persona|competitor|claim|capability|other","confidence_score":0.0-1.0,"evidence_snippet":"..."}]}`,
+      `Limit to the top ${maxEntities} highest-signal entities.`,
+    ].join("\n");
+
+    const userPrompt = [
+      `URL: ${result.url}`,
+      `Title: ${result.title || "(none)"}`,
+      `H1: ${result.h1_tags.join(" | ") || "(none)"}`,
+      "",
+      "CONTENT:",
+      result.main_content.slice(0, 8_000),
+    ].join("\n");
+
+    try {
+      const llmResponse = await secureLLMComplete(
+        llmGateway,
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        {
+          tenantId,
+          serviceName: "WebScraperService",
+          operation: "extractEntitiesFromContent",
+          model,
+          max_tokens: 1200,
+          temperature: 0.1,
+        }
+      );
+
+      const parsed = this.parseJsonResponse(llmResponse.content);
+      const validated = WebEntityExtractionSchema.parse(parsed);
+
+      return {
+        entities: validated.entities.slice(0, maxEntities),
+        model,
+      };
+    } catch (error) {
+      logger.warn("Web entity extraction failed; returning scraped content without entities", {
+        url: result.url,
+        error: (error as Error).message,
+      });
+      return null;
+    }
   }
 
   /**

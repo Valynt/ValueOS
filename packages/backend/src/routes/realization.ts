@@ -19,7 +19,7 @@ const realizationService = new RealizationService();
  * GET /api/cases/:caseId/realization/baseline
  * Get promise baseline for a case
  */
-router.get("/api/cases/:caseId/realization/baseline", async (req: Request, res: Response) => {
+router.get("/api/cases/:caseId/realization/baseline", requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params;
     const organizationId = req.tenantId ?? "";
@@ -147,6 +147,56 @@ router.get(
       res.json({
         success: true,
         data: targets,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/cases/:caseId/realization/actuals-timeline
+ * Get timeline of projected vs actual values for a case
+ */
+router.get(
+  "/api/cases/:caseId/realization/actuals-timeline",
+  requireAuth,
+  requireTenantAccess,
+  async (req, res, next) => {
+    try {
+      const { caseId } = req.params;
+      const organizationId = req.tenantId ?? "";
+
+      const timeline = await realizationService.getActualsTimeline(caseId, organizationId);
+
+      res.json({
+        success: true,
+        data: timeline,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/cases/:caseId/realization/expansion-signals
+ * Get expansion opportunity signals for a case
+ */
+router.get(
+  "/api/cases/:caseId/realization/expansion-signals",
+  requireAuth,
+  requireTenantAccess,
+  async (req, res, next) => {
+    try {
+      const { caseId } = req.params;
+      const organizationId = req.tenantId ?? "";
+
+      const signals = await realizationService.getExpansionSignals(caseId, organizationId);
+
+      res.json({
+        success: true,
+        data: signals,
       });
     } catch (error) {
       next(error);
