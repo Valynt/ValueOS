@@ -36,8 +36,12 @@ const SignupPage = lazy(() =>
     default: m.ModernSignupPage,
   }))
 );
-const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
-const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
+const ResetPasswordPage = lazy(() =>
+  import("./views/Auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage }))
+);
+const AuthCallback = lazy(() =>
+  import("./views/Auth/AuthCallback").then((m) => ({ default: m.AuthCallback }))
+);
 const GuestAccessPage = lazy(() =>
   import("./pages/guest/GuestAccessPage").then((m) => ({
     default: m.GuestAccessPage,
@@ -57,39 +61,65 @@ const EnvironmentBanner = lazy(() =>
 
 // Lazy load app shell + pages
 const MainLayout = lazy(() => import("./layouts/MainLayout").then((m) => ({ default: m.MainLayout })));
-const Dashboard = lazy(() => import("./views/Dashboard"));
-const Opportunities = lazy(() => import("./views/Opportunities"));
-const OpportunityDetail = lazy(() => import("./views/OpportunityDetail"));
+const Dashboard = lazy(() => import("./views/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Opportunities = lazy(() => import("./views/Opportunities").then((m) => ({ default: m.Opportunities })));
+const OpportunityDetail = lazy(() => import("./views/OpportunityDetail").then((m) => ({ default: m.OpportunityDetail })));
 const ValueCaseCanvas = lazy(() =>
   import("./views/ValueCaseCanvas").then((m) => ({
     default: m.ValueCaseCanvas,
   })),
 );
-const Models = lazy(() => import("./views/Models"));
-const ModelDetail = lazy(() => import("./views/ModelDetail"));
-const Agents = lazy(() => import("./views/Agents"));
-const AgentDetail = lazy(() => import("./views/AgentDetail"));
-const Integrations = lazy(() => import("./views/Integrations"));
+const Models = lazy(() => import("./views/Models").then((m) => ({ default: m.Models })));
+const ModelDetail = lazy(() => import("./views/ModelDetail").then((m) => ({ default: m.ModelDetail })));
+const Agents = lazy(() => import("./views/Agents").then((m) => ({ default: m.Agents })));
+const AgentDetail = lazy(() => import("./views/AgentDetail").then((m) => ({ default: m.AgentDetail })));
+const Integrations = lazy(() => import("./views/Integrations").then((m) => ({ default: m.Integrations })));
 const SettingsLayout = lazy(() =>
   import("./pages/settings/SettingsLayout").then((m) => ({ default: m.SettingsLayout }))
 );
-const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
-const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
-const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
-const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
-const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
-const LivingValueGraphPage = lazy(() => import("./views/LivingValueGraphPage"));
+const CompanyOnboarding = lazy(() =>
+  import("./views/CompanyOnboarding").then((m) => ({ default: m.CompanyOnboarding }))
+);
+const CreateOrganization = lazy(() =>
+  import("./views/CreateOrganization").then((m) => ({ default: m.CreateOrganization }))
+);
+const CompanyKnowledge = lazy(() =>
+  import("./views/CompanyKnowledge").then((m) => ({ default: m.CompanyKnowledge }))
+);
+const ValueCaseWorkspace = lazy(() =>
+  import("./views/ValueCaseWorkspace").then((m) => ({ default: m.ValueCaseWorkspace }))
+);
+const AgentAdminPage = lazy(() =>
+  import("./views/Admin/AgentAdminPage").then((m) => ({ default: m.AgentAdminPage }))
+);
+const LivingValueGraphPage = lazy(() =>
+  import("./views/LivingValueGraphPage").then((m) => ({ default: m.LivingValueGraphPage }))
+);
 
 // V1 Surface Views
-const DealAssemblyWorkspace = lazy(() => import("./views/DealAssemblyWorkspace"));
-const ValueModelWorkbench = lazy(() => import("./views/ValueModelWorkbench"));
-const IntegrityDashboard = lazy(() => import("./views/IntegrityDashboard"));
-const ExecutiveOutputStudio = lazy(() => import("./views/ExecutiveOutputStudio"));
-const RealizationTracker = lazy(() => import("./views/RealizationTracker"));
-const BillingPortal = lazy(() => import("./views/BillingPortal"));
+const DealAssemblyWorkspace = lazy(() =>
+  import("./views/DealAssemblyWorkspace").then((m) => ({ default: m.DealAssemblyWorkspace }))
+);
+const ValueModelWorkbench = lazy(() =>
+  import("./views/ValueModelWorkbench").then((m) => ({ default: m.ValueModelWorkbench }))
+);
+const IntegrityDashboard = lazy(() =>
+  import("./views/IntegrityDashboard").then((m) => ({ default: m.IntegrityDashboard }))
+);
+const ExecutiveOutputStudio = lazy(() =>
+  import("./views/ExecutiveOutputStudio").then((m) => ({ default: m.ExecutiveOutputStudio }))
+);
+const RealizationTracker = lazy(() =>
+  import("./views/RealizationTracker").then((m) => ({ default: m.RealizationTracker }))
+);
+const BillingPortal = lazy(() =>
+  import("./views/BillingPortal").then((m) => ({ default: m.BillingPortal }))
+);
 
 // Academy v2 (migrated from VOSAcademy)
-const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
+const AcademyV2Routes = lazy(() =>
+  import("./features/academy-v2/routes").then((m) => ({ default: m.AcademyV2Routes }))
+);
 const MainLayoutSkipLinkHarness = lazy(() =>
   import("./views/testing/MainLayoutSkipLinkHarness").then((m) => ({
     default: m.MainLayoutSkipLinkHarness,

@@ -603,10 +603,15 @@ export const api = {
   getHypotheses: (caseId: string) => apiClient.get(`/api/cases/${caseId}/hypotheses`),
   acceptHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/accept`),
   rejectHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/reject`),
+  promoteHypothesisToAssumption: (caseId: string, hypothesisId: string, data?: unknown) =>
+    apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/promote`, data),
   getAssumptions: (caseId: string) => apiClient.get(`/api/cases/${caseId}/assumptions`),
   updateAssumption: (caseId: string, assumptionId: string, data: unknown) => apiClient.patch(`/api/cases/${caseId}/assumptions/${assumptionId}`, data),
   getScenarios: (caseId: string) => apiClient.get(`/api/cases/${caseId}/scenarios`),
   getSensitivity: (caseId: string) => apiClient.get(`/api/cases/${caseId}/sensitivity`),
+
+  // Journey Orchestration
+  getJourneyState: (caseId: string) => apiClient.get(`/api/cases/${caseId}/journey`),
 
   // Integrity
   getReadiness: (caseId: string) => apiClient.get(`/api/cases/${caseId}/readiness`),
