@@ -287,22 +287,6 @@ describe("Task 1.4: Route Naming Consistency Audit", () => {
   it("all protected routes are registered in routeConfig.ts", () => {
     // Criterion: Route config is the single source of truth
     // FINDING: FAIL — living-value-graph is in AppRoutes but not in routeConfig.ts
-    const configuredRoutes = [
-      "/create-org",
-      "/onboarding",
-      "/dashboard",
-      "/opportunities",
-      "/opportunities/:id",
-      "/opportunities/:oppId/cases/:caseId",
-      "/models",
-      "/models/:id",
-      "/agents",
-      "/agents/:id",
-      "/integrations",
-      "/settings",
-      "/workspace/:caseId",
-      "/company",
-    ];
     const missingFromConfig = ["living-value-graph", "billing", "academy", "admin/agents"];
     // These routes exist in AppRoutes.tsx but not in routeConfig.ts protectedRoutePaths
     expect(missingFromConfig.length).toBe(0); // ← FAILS: 4 routes missing from config

@@ -161,7 +161,7 @@ class GuestAccessService {
       });
 
       return this.mapDatabaseToGuestUser(data);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to create guest user', error as Error);
       throw error;
     }
@@ -220,7 +220,7 @@ class GuestAccessService {
       });
 
       return { token: tokenData, magicLink };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to create guest token', error as Error);
       throw error;
     }

@@ -12,9 +12,9 @@ import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { NotificationProvider } from "./components/shell/NotificationCenter";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";
+import { NotificationProvider } from "./components/shell/NotificationCenter";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { DrawerProvider } from "./contexts/DrawerContext";
@@ -22,8 +22,8 @@ import { TenantProvider, useTenant } from "./contexts/TenantContext";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
-import { publicRoutePaths } from "./routes/routeConfig";
 import { settingsNavItems } from "./pages/settings/settingsNavigation";
+import { publicRoutePaths } from "./routes/routeConfig";
 
 // Lazy load auth pages (public routes) - Modern design
 const LoginPage = lazy(() =>
@@ -146,16 +146,16 @@ function LegacyTenantRouteBridge() {
 }
 
 export function AppRoutes() {
-  const publicRouteElements: Record<string, ReactElement> = {
-    "/login": <LoginPage />,
-    "/signup": <SignupPage />,
-    "/reset-password": <ResetPasswordPage />,
-    "/auth/callback": <AuthCallback />,
-    "/guest/access": <GuestAccessPage />,
-  };
+  const publicRouteMap = new Map<string, ReactElement>([
+    ["/login", <LoginPage />],
+    ["/signup", <SignupPage />],
+    ["/reset-password", <ResetPasswordPage />],
+    ["/auth/callback", <AuthCallback />],
+    ["/guest/access", <GuestAccessPage />],
+  ]);
 
   const resolvePublicElement = (path: string) => {
-    const element = publicRouteElements[path];
+    const element = publicRouteMap.get(path);
     if (!element) {
       throw new Error(`Missing route element for ${path}`);
     }

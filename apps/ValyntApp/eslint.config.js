@@ -155,7 +155,7 @@ const testConfig = {
 
 const typeAwareRuntimeConfig = {
   files: ["src/**/*.{ts,tsx}"],
-  ignores: ["src/**/*.test.{ts,tsx}", "src/**/*.spec.{ts,tsx}", "src/**/__tests__/**"],
+  ignores: ["src/**/*.test.{ts,tsx}", "src/**/*.spec.{ts,tsx}", "src/**/__tests__/**", "src/**/*.stories.{ts,tsx}"],
   languageOptions: {
     parserOptions: {
       project: ["./tsconfig.json", "./tsconfig.node.json"],
@@ -206,7 +206,7 @@ const browserBoundaryConfig = {
     "src/repositories/**/*.{ts,tsx}",
     "src/views/**/*.{ts,tsx}",
   ],
-  ignores: ["src/**/*.server.ts", "src/**/*.server.tsx", "src/**/__tests__/**/*", "src/**/*.test.*", "src/**/*.spec.*"],
+  ignores: ["src/**/*.server.ts", "src/**/*.server.tsx", "src/**/__tests__/**/*", "src/**/*.test.*", "src/**/*.spec.*", "src/**/*.stories.*"],
   rules: {
     "no-restricted-imports": [
       "error",

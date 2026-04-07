@@ -20,7 +20,7 @@ export interface GuestBadgeProps {
 
 export function GuestBadge({
   guestName,
-  guestEmail,
+  guestEmail: _guestEmail,
   permissions,
   expiresAt,
   className = '',

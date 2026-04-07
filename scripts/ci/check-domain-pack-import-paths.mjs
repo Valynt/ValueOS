@@ -7,11 +7,7 @@ const repoRoot = process.cwd();
 const scanRoot = path.join(repoRoot, 'packages/backend/src');
 
 const FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
-const ALLOWED_SHIM_PREFIXES = [
-  'packages/backend/src/api/domainPacks/',
-  'packages/backend/src/services/domainPacks/',
-  'packages/backend/src/api/domainPacks.ts',
-];
+const ALLOWED_SHIM_PREFIXES = [];
 
 const LEGACY_IMPORT_PATTERN = /from\s+['"][^'"]*domainPacks(?:\/[^'"]*)?['"]|import\s*\(\s*['"][^'"]*domainPacks(?:\/[^'"]*)?['"]\s*\)/;
 

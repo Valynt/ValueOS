@@ -99,7 +99,17 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
   return (
     <div
       className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          onClose();
+        }
+      }}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label="AI Agent Collaboration"
