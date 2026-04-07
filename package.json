@@ -81,6 +81,7 @@
     "check:domain-pack-import-paths": "node scripts/ci/check-domain-pack-import-paths.mjs",
     "check:package-json-parse": "node scripts/ci/check-package-json-parse.mjs",
     "check:generated-src-artifacts": "node scripts/ci/check-generated-src-artifacts.mjs --tracked-only",
+    "check:phase0-artifacts": "node scripts/ci/check-phase0-artifacts.mjs",
     "validate:prod-deploy": "bash scripts/validate-production-deploy.sh",
     "test:production-smoke": "npx playwright test --config playwright.config.ts tests/e2e/production-smoke.spec.ts",
     "security:pen-test": "bash scripts/security/pen-test-auth-tenant.sh",

@@ -27,13 +27,13 @@ const toKb = (bytes: number) => bytes / 1024;
 const performanceBudgetPlugin = (): Plugin => ({
   name: "performance-budget",
   generateBundle(_options, bundle) {
-    // Defaults reflect realistic production targets for a B2B SaaS app:
+    // Defaults reflect production targets for the ValueOS frontend redesign:
     //   - 500 KB per chunk keeps individual network requests manageable.
-    //   - 1200 KB total initial JS is the threshold above which LCP degrades
-    //     noticeably on mid-range devices (Core Web Vitals guidance).
-    // Override via env vars in CI to enforce stricter budgets over time.
+    //   - 500 KB total initial JS ensures fast LCP on mid-range devices.
+    //     All route components are lazy-loaded; only the shell + vendor-react
+    //     count toward this budget. Override via env vars if needed.
     const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 500);
-    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 1200);
+    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 500);
 
     const chunks = Object.values(bundle).filter(
       (asset): asset is typeof asset & { type: "chunk"; code: string } =>

@@ -50,5 +50,9 @@ export * from "./ReasoningTrace.js";
 // Bridging layer: maps backend agent state → user-perceivable experience.
 export * from "./ExperienceModel.js";
 
+// Warmth — perceptual state layer for the frontend redesign
+// Translates saga lifecycle → forming / firm / verified
+export * from "./Warmth.js";
+
 // Runtime orchestration failure taxonomy
 export * from "./RuntimeFailureTaxonomy.js";

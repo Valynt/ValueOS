@@ -42,6 +42,11 @@
     "packages/shared": {
       "budget": 6,
       "nextTarget": 4
+    },
+    "apps/ValyntApp/strict-zone": {
+      "budget": 0,
+      "nextTarget": 0,
+      "note": "All new frontend redesign files must be error-free under strict mode. Zero tolerance."
     }
   },
   "criticalPathModules": [
