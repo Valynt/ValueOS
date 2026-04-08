@@ -27,6 +27,24 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ## Entries
 
+### 2026-04-08 supabase-service-role-jwt — Rotation status verification for exposed Supabase projects
+
+- **Status:** ⚠️ ACTION REQUIRED — rotation/revocation still unverified; operator execution required
+- **Severity:** Critical
+- **Exposure:** Git history (public repository)
+- **Projects in scope:**
+  - `wfhdrrpijqygytvoaafc` (`anon` + `service_role`)
+  - `bxaiabnqalurloblfwua` (`anon`)
+- **Rotation verification timestamp (UTC):** 2026-04-08T17:05:09Z
+- **Owner:** Security On-Call (automated verification run + human operator handoff)
+- **Verification evidence:** `docs/security-compliance/evidence/secret-rotation/2026-04-08-supabase-rotation-status-verification.md`
+- **Evidence ticket:** `SEC-2026-1184` (tracking), `PLAT-2026-447` (propagation)
+- **Operator log:** `docs/security-compliance/evidence/secret-rotation/2026-04-08-supabase-rotation-status-verification.md` and workflow artifacts from `.github/workflows/secret-rotation-verification.yml`
+- **Evidence timestamp (UTC):** 2026-04-08T17:05:09Z
+- **Revocation verification (old keys rejected):** ⚠️ BLOCKED in this runtime — Supabase operator/API credentials and known-compromised key values are unavailable, so active negative-auth checks could not be executed yet.
+- **Action required to close:** Rotate affected project keys in Supabase dashboard/API, propagate replacements to all environments, verify old keys return auth failures, and attach ticketed audit evidence.
+
+---
 
 ### 2026-04-02 supabase-service-role-jwt — Remediation execution attempt (source incidents: 2026-05-24 + 2026-03-26)
 
@@ -56,6 +74,9 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
   - Working tree scan (local): `artifacts/secret-scan/gitleaks-workingtree-2026-04-02.json` (1 finding, same test fixture)
   - Related workflow: `.github/workflows/secret-scan.yml`
 - **Rotation completed evidence link:** _PENDING — add Security ticket/console evidence URL after dashboard rotation_.
+- **Evidence ticket:** `SEC-2026-1184` (tracking), `PLAT-2026-447` (propagation)
+- **Operator log:** `docs/security-compliance/evidence/secret-rotation/2026-04-02-supabase-rotation-followup.md` and workflow artifacts from `.github/workflows/secret-rotation-verification.yml`
+- **Evidence timestamp (UTC):** 2026-04-02T11:40:00Z
 - **Closure date:** _PENDING — set to actual UTC completion date after rotation + history purge + access-log audit are complete_.
 
 ---

@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 const LOG_PATH = resolve('docs/security-compliance/secret-rotation-log.md');
 
 const content = readFileSync(LOG_PATH, 'utf8');
-const entryRegex = /^###\s+(.+)\n([\s\S]*?)(?=^###\s+|\Z)/gm;
+const headingRegex = /^###\s+(.+)$/gm;
 
 const failures = [];
 const inspected = [];
@@ -30,9 +30,13 @@ function hasIsoTimestamp(value) {
   return /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z)?/.test(value);
 }
 
-for (const match of content.matchAll(entryRegex)) {
-  const heading = match[1]?.trim() ?? '';
-  const block = match[2] ?? '';
+const headings = [...content.matchAll(headingRegex)];
+
+for (let index = 0; index < headings.length; index += 1) {
+  const heading = headings[index]?.[1]?.trim() ?? '';
+  const blockStart = (headings[index]?.index ?? 0) + (headings[index]?.[0]?.length ?? 0);
+  const blockEnd = headings[index + 1]?.index ?? content.length;
+  const block = content.slice(blockStart, blockEnd);
 
   const severity = extractField(block, 'Severity').toLowerCase();
   const status = extractField(block, 'Status').toLowerCase();
