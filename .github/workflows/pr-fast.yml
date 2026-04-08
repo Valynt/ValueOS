@@ -489,6 +489,12 @@ jobs:
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
             --output-dir artifacts/security/governance
 
+      - name: Data residency controls gate + signed governance artifact
+        run: |
+          node scripts/ci/check-data-residency-controls.mjs \
+            --policy docs/security-compliance/data-residency-controls.json \
+            --output artifacts/security/governance/data-residency-status.json
+
       - name: Manifest maturity gap report (warning — production gate enforces hard block)
         # Surfaces which critical K8s manifest classes still need evidence links
         # before production deployment. Does not fail the PR; the hard gate lives
