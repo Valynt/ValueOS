@@ -28,6 +28,12 @@ This document turns CI-only UX quality artifacts into a durable release scorecar
 
 Use this matrix to track declared and candidate locales through onboarding. `supported` locales are customer-facing in production, `in-progress` locales are actively onboarding with required evidence, and `blocked` locales are paused pending dependency/risk resolution.
 
+Status governance definitions:
+
+- **`supported`**: Locale is declared in runtime and release-blocking for completeness regressions.
+- **`in-progress`**: Locale onboarding is active; PRs must include coverage diff + pseudo-localization evidence before status can move to `supported`.
+- **`blocked`**: Locale is not release-eligible; blocker, owner, and target unblock date are required in the localization roadmap before work resumes.
+
 | Locale | Status (`supported` / `in-progress` / `blocked`) | Runtime declared | Key coverage target | Required onboarding evidence | Owner | Escalation trigger |
 | --- | --- | --- | --- | --- | --- | --- |
 | `en` | `supported` | Yes | 100% completeness vs source baseline | `artifacts/i18n/coverage-dashboard.json` entry in release evidence | `@team/frontend` | Any regression below 100% in release candidate |
@@ -35,6 +41,14 @@ Use this matrix to track declared and candidate locales through onboarding. `sup
 | `en-XA` (QA only) | `in-progress` | No (QA-only pseudo-loc) | Pseudo-localization token integrity = pass; expansion readiness ≥95% | `artifacts/i18n/pseudo-localization-report.json` + pseudo-loc screenshot/log links | `@team/frontend` | Overflow/token-integrity failures remain unresolved after one release cycle |
 | `fr` | `blocked` | No | N/A until declared | Blocker record + owner + target unblock date in localization roadmap | `@team/frontend` + `@team/owners` | Blocker unresolved for >1 release cycle |
 | `de` | `blocked` | No | N/A until declared | Blocker record + owner + target unblock date in localization roadmap | `@team/frontend` + `@team/owners` | Blocker unresolved for >1 release cycle |
+
+### Locale onboarding artifacts (PR governance)
+
+For any PR that modifies user-facing copy, locale files, or runtime locale declarations:
+
+1. Attach a **coverage diff** (before/after from `artifacts/i18n/coverage-dashboard.json`).
+2. Attach **pseudo-localization evidence** (`en-XA` screenshot(s) and/or run logs from `artifacts/i18n/pseudo-localization-report.json`).
+3. If a locale is newly declared, update this matrix status (`supported` / `in-progress` / `blocked`) in the same PR.
 
 ## ValyntApp top user journeys
 

@@ -30,10 +30,13 @@ This document defines the CI lane model across `.github/workflows/pr-fast.yml`, 
 ## Localization regression ownership and escalation
 
 - Primary owner for localization regressions detected in `accessibility-audit` is **Frontend Platform** (`@team/frontend`).
+- Frontend Platform triages within **4 business hours**, assigns a DRI, and links evidence (`coverage-dashboard` + pseudo-loc report/screenshot) in the release thread.
+- If the regression remains unresolved for **24 hours** in a release candidate window, escalate to the **release captain** and mark the candidate `at-risk`.
 - If a shipped-locale regression (`en`, `es`) is unresolved by the end of the current release cycle:
   - escalate to **`@team/owners` + release captain** before production approval,
   - record owner, mitigation, and due date in `docs/quality/ux-quality-scorecard.md`,
   - require a time-bound exception in release review docs (`docs/cicd/GO_NO_GO.md`, `docs/cicd/RELEASE_CHECKLIST.md`) or block promotion.
+- A regression that exceeds one full release cycle without closure is automatically treated as a **launch blocker** for the next candidate until `@team/owners` signs a time-bound exception with expiration.
 
 ## Dependency Graph (`needs`)
 
