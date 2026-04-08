@@ -1107,6 +1107,16 @@ jobs:
               );
             }
 
+  release-manager-signoff-gate:
+    name: Release Manager Sign-off Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require release-manager sign-off + timestamp + release SHA
+        run: node scripts/ci/check-launch-readiness-signoff.mjs --require-release-manager --expected-sha=${{ github.sha }}
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
@@ -1124,6 +1134,7 @@ jobs:
         manifest-maturity-production-gate,
         ux-scorecard-release-log-gate,
         dr-validation-recency-gate,
+        release-manager-signoff-gate,
         release-manifest-gate,
         reliability-indicators-gate,
         secret-rotation-gate,

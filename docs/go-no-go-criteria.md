@@ -8,7 +8,7 @@
 
 ## How to Use This Document
 
-1. Create a GitHub Issue titled `Release vX.Y.Z — GO/NO-GO Decision` with label `release-decision`
+1. Create a GitHub Issue from `.github/ISSUE_TEMPLATE/release-go-no-go.yml` titled `Release vX.Y.Z — GO/NO-GO`
 2. Each owner evaluates their criteria and posts their finding as a comment
 3. Release Manager reviews all findings and posts the final GO or NO-GO decision
 4. The issue is closed and linked to the GitHub Release artifact
@@ -187,10 +187,10 @@ Staging health criteria during dwell period:
 
 ---
 
-## Launch Decision Record Template
+## Launch Decision Record Template (mirrors the GitHub issue template)
 
 ```markdown
-## Release vX.Y.Z — GO/NO-GO Decision
+## Release vX.Y.Z — GO/NO-GO
 
 **Release commit:** <sha>
 **Decision timestamp:** <ISO 8601>
