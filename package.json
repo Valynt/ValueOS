@@ -91,7 +91,8 @@
     "security:pen-test": "bash scripts/security/pen-test-auth-tenant.sh",
     "security:rotate-secrets": "bash scripts/security/pre-launch-secret-rotation.sh",
     "ops:cutover": "bash scripts/traffic-cutover.sh",
-    "test:load-24h": "k6 run tests/load/staging-24h.js"
+    "test:load-24h": "k6 run tests/load/staging-24h.js",
+    "check:launch-gate-doc-consistency": "node scripts/ci/check-launch-gate-doc-consistency.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

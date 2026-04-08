@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-04-08T00:00:00Z",
+  "source": {
+    "tool": "k6+prometheus-scrape",
+    "run_id": "staging-autoscaling-2026-04-08"
+  },
+  "agent_classes": [
+    { "agent_class": "opportunity", "scaler_type": "hpa", "queue_depth_max": 118, "p95_latency_ms": 1380, "oscillation_count": 2, "scale_up_time_seconds": 80, "scale_down_time_seconds": 320 },
+    { "agent_class": "target", "scaler_type": "hpa", "queue_depth_max": 126, "p95_latency_ms": 1490, "oscillation_count": 2, "scale_up_time_seconds": 88, "scale_down_time_seconds": 330 },
+    { "agent_class": "financial-modeling", "scaler_type": "hpa", "queue_depth_max": 132, "p95_latency_ms": 1680, "oscillation_count": 3, "scale_up_time_seconds": 95, "scale_down_time_seconds": 350 },
+    { "agent_class": "integrity", "scaler_type": "hpa", "queue_depth_max": 109, "p95_latency_ms": 1205, "oscillation_count": 2, "scale_up_time_seconds": 78, "scale_down_time_seconds": 310 },
+    { "agent_class": "realization", "scaler_type": "hpa", "queue_depth_max": 116, "p95_latency_ms": 1365, "oscillation_count": 2, "scale_up_time_seconds": 84, "scale_down_time_seconds": 322 },
+    { "agent_class": "expansion", "scaler_type": "hpa", "queue_depth_max": 111, "p95_latency_ms": 1340, "oscillation_count": 1, "scale_up_time_seconds": 79, "scale_down_time_seconds": 305 },
+    { "agent_class": "narrative", "scaler_type": "hpa", "queue_depth_max": 129, "p95_latency_ms": 1720, "oscillation_count": 3, "scale_up_time_seconds": 96, "scale_down_time_seconds": 360 },
+    { "agent_class": "compliance-auditor", "scaler_type": "keda", "queue_depth_max": 74, "p95_latency_ms": 1980, "oscillation_count": 1, "scale_up_time_seconds": 62, "scale_down_time_seconds": 280 },
+    { "agent_class": "context-extraction", "scaler_type": "keda", "queue_depth_max": 82, "p95_latency_ms": 1650, "oscillation_count": 2, "scale_up_time_seconds": 65, "scale_down_time_seconds": 290 },
+    { "agent_class": "deal-assembly", "scaler_type": "keda", "queue_depth_max": 68, "p95_latency_ms": 1540, "oscillation_count": 1, "scale_up_time_seconds": 58, "scale_down_time_seconds": 270 },
+    { "agent_class": "discovery", "scaler_type": "keda", "queue_depth_max": 85, "p95_latency_ms": 1760, "oscillation_count": 2, "scale_up_time_seconds": 70, "scale_down_time_seconds": 300 }
+  ]
+}

@@ -211,7 +211,7 @@ function calculateDateFilter(period: string): string | null {
 /**
  * Calculate summary statistics for metrics
  */
-function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse['summary'] {
+export function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse['summary'] {
   const total = metrics.length;
 
   const statusCounts = metrics.reduce((acc, metric) => {
@@ -226,6 +226,10 @@ function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse['summar
 
     if (!Number.isFinite(predicted_value) || !Number.isFinite(actual_value) || predicted_value === 0) {
       return [];
+  const metricsWithActuals = metrics.filter(m => Number.isFinite(m.actual_value));
+  const totalAchievement = metricsWithActuals.reduce((sum, m) => {
+    if (Number.isFinite(m.predicted_value) && m.predicted_value !== 0) {
+      return sum + ((m.actual_value as number) / m.predicted_value);
     }
 
     return [actual_value / predicted_value];

@@ -1,7 +1,7 @@
 # Trust Center Package
 
 **Owner**: Security & Compliance Program
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-04-08
 **Review Cadence**: Quarterly and after material control/process changes
 
 ## Purpose
@@ -61,6 +61,33 @@ ValueOS breach communications follow contractual and legal requirements, with ba
 Operational process reference:
 - [Incident Response](../operations/incident-response.md)
 
+## Public Vulnerability Disclosure Program (VDP/CVD)
+
+ValueOS maintains a public Coordinated Vulnerability Disclosure policy so external researchers have a clear reporting path and safe-harbor expectations.
+
+- Public policy: [Bug Bounty and Coordinated Vulnerability Disclosure (CVD) Program](./bug-bounty-cvd-program.md)
+- Intake channel: `security@valueos.com` (mailto:security@valueos.com)
+- Preferred intake payload: affected endpoint/component, reproduction steps, impact assessment, and proof-of-concept details sufficient for triage reproduction.
+
+### Disclosure SLA targets
+
+| SLA metric | Target |
+|---|---|
+| Triage completion (intake validation + severity assignment) | <= 5 business days from submission |
+| Time-to-first-response (acknowledgment to reporter) | <= 2 business days |
+| Remediation window — Critical | <= 7 calendar days |
+| Remediation window — High | <= 30 calendar days |
+| Remediation window — Medium | <= 90 calendar days |
+| Remediation window — Low | <= 180 calendar days (planned hardening cycle) |
+
+### Ownership and escalation for missed disclosure SLAs
+
+- **Primary owner:** Security Engineering (program operations and reporter communications).
+- **Remediation owner:** Assigned engineering service owner for the impacted system/control.
+- **Escalation trigger:** any disclosure ticket that crosses the SLA target without approved exception.
+- **Escalation path:** Security Engineering on-call -> Head of Platform Engineering -> Security & Compliance Program leadership.
+- **Required escalation artifacts:** overdue justification, containment status, revised due date, and executive visibility note in the weekly governance review packet.
+
 ## Audit and Assurance Cadence
 
 ValueOS audit and assurance activities are scheduled as follows:
@@ -93,6 +120,7 @@ Customer-facing trust artifacts are linked to current control/risk snapshots so 
   - `artifacts/security/governance/trust-kpi-snapshot.json`
   - `artifacts/security/governance/open-risks.json`
   - `artifacts/security/governance/stale-controls.json`
+  - `artifacts/security/governance/vdp-kpis.json` (quarterly VDP/CVD SLA and throughput snapshot)
   - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope)
   - Policy input used by the gate: `docs/security-compliance/data-residency-controls.json`
 
