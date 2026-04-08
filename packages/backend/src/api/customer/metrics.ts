@@ -221,16 +221,18 @@ function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse['summar
   }, {} as Record<string, number>);
 
   // Calculate overall achievement
-  const metricsWithActuals = metrics.filter(m => m.actual_value !== null);
-  const totalAchievement = metricsWithActuals.reduce((sum, m) => {
-    if (m.predicted_value && m.actual_value) {
-      return sum + (m.actual_value / m.predicted_value);
-    }
-    return sum;
-  }, 0);
+  const achievementRatios = metrics.flatMap((metric) => {
+    const { predicted_value, actual_value } = metric;
 
-  const overallAchievement = metricsWithActuals.length > 0
-    ? (totalAchievement / metricsWithActuals.length) * 100
+    if (!Number.isFinite(predicted_value) || !Number.isFinite(actual_value) || predicted_value === 0) {
+      return [];
+    }
+
+    return [actual_value / predicted_value];
+  });
+
+  const overallAchievement = achievementRatios.length > 0
+    ? (achievementRatios.reduce((sum, ratio) => sum + ratio, 0) / achievementRatios.length) * 100
     : 0;
 
   return {

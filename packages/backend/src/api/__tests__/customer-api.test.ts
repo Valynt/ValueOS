@@ -34,7 +34,7 @@ vi.mock('../../lib/supabase.js', async (importOriginal) => {
   return {
     assertNotTestEnv: vi.fn(),
     ...actual,
-    createServiceRoleSupabaseClient: vi.fn(() => mockDbClient),
+    createRequestSupabaseClient: vi.fn(() => mockDbClient),
   };
 });
 
@@ -65,19 +65,7 @@ describe('Customer Portal API', () => {
   });
 
   describe('GET /api/customer/metrics', () => {
-    it('returns metrics for valid header token', async () => {
-      vi.mocked(mockReq.header as ReturnType<typeof vi.fn>).mockImplementation((name: string) =>
-        name.toLowerCase() === 'x-customer-access-token' ? 'valid-token' : undefined,
-      );
-      mockReq.query = { period: '90d' };
-
-      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
-        value_case_id: 'value-case-123',
-        organization_id: 'org-123',
-        is_valid: true,
-        error_message: null,
-      });
-
+    const mockMetricsFetch = (metricsData: Array<Record<string, unknown>>) => {
       const valueCaseQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -91,21 +79,37 @@ describe('Customer Portal API', () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
         gte: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: 'm1',
-              metric_name: 'Cost Savings',
-              metric_type: 'cost',
-              predicted_value: 100,
-              actual_value: 120,
-              status: 'on_track',
-            },
-          ],
+          data: metricsData,
           error: null,
         }),
       };
 
       mockDbClient.from.mockReturnValueOnce(valueCaseQuery).mockReturnValueOnce(metricsQuery);
+    };
+
+    it('returns metrics for valid header token', async () => {
+      vi.mocked(mockReq.header as ReturnType<typeof vi.fn>).mockImplementation((name: string) =>
+        name.toLowerCase() === 'x-customer-access-token' ? 'valid-token' : undefined,
+      );
+      mockReq.query = { period: '90d' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: 'value-case-123',
+        organization_id: 'org-123',
+        is_valid: true,
+        error_message: null,
+      });
+
+      mockMetricsFetch([
+        {
+          id: 'm1',
+          metric_name: 'Cost Savings',
+          metric_type: 'cost',
+          predicted_value: 100,
+          actual_value: 120,
+          status: 'on_track',
+        },
+      ]);
 
       await getCustomerMetrics(mockReq as Request, mockRes as Response);
 
@@ -137,6 +141,102 @@ describe('Customer Portal API', () => {
 
       expect(customerAccessServiceMock.validateCustomerToken).toHaveBeenCalledWith('body-token');
       expect(statusMock).toHaveBeenCalledWith(401);
+    });
+
+    it('computes summary when predicted=100 and actual=0', async () => {
+      mockReq.body = { token: 'body-token' };
+      mockReq.query = { period: '90d' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: 'value-case-123',
+        organization_id: 'org-123',
+        is_valid: true,
+        error_message: null,
+      });
+
+      mockMetricsFetch([
+        {
+          id: 'm-100-0',
+          metric_name: 'Zero actual metric',
+          metric_type: 'cost',
+          predicted_value: 100,
+          actual_value: 0,
+          status: 'at_risk',
+        },
+      ]);
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: expect.objectContaining({ overall_achievement: 0 }),
+        }),
+      );
+    });
+
+    it('computes summary when predicted=0 and actual=0', async () => {
+      mockReq.body = { token: 'body-token' };
+      mockReq.query = { period: '90d' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: 'value-case-123',
+        organization_id: 'org-123',
+        is_valid: true,
+        error_message: null,
+      });
+
+      mockMetricsFetch([
+        {
+          id: 'm-0-0',
+          metric_name: 'Zero denominator metric',
+          metric_type: 'cost',
+          predicted_value: 0,
+          actual_value: 0,
+          status: 'pending',
+        },
+      ]);
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: expect.objectContaining({ overall_achievement: 0 }),
+        }),
+      );
+    });
+
+    it('computes summary when predicted=50 and actual=25', async () => {
+      mockReq.body = { token: 'body-token' };
+      mockReq.query = { period: '90d' };
+
+      customerAccessServiceMock.validateCustomerToken.mockResolvedValue({
+        value_case_id: 'value-case-123',
+        organization_id: 'org-123',
+        is_valid: true,
+        error_message: null,
+      });
+
+      mockMetricsFetch([
+        {
+          id: 'm-50-25',
+          metric_name: 'Half achievement metric',
+          metric_type: 'efficiency',
+          predicted_value: 50,
+          actual_value: 25,
+          status: 'on_track',
+        },
+      ]);
+
+      await getCustomerMetrics(mockReq as Request, mockRes as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: expect.objectContaining({ overall_achievement: 50 }),
+        }),
+      );
     });
   });
 
