@@ -161,10 +161,8 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
 }
 
 import {
-  extractTenantId,
   requireAuth,
   requireTenantRequestAlignment,
-  verifyAccessToken,
 } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
@@ -209,12 +207,13 @@ import {
 import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
 import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 import {
+  authenticateWebSocketRequest,
   getRequestedTenantId,
   getWebSocketToken,
   parseBearerToken,
 } from "./server/websocket-request-auth.js";
-import { registerServerMiddleware } from "./server/middlewareRegistration.js";
-import { mountServerRoutes } from "./server/routeMounting.js";
+import { registerServerMiddleware } from "./server/register-middleware.js";
+import { mountServerRoutes } from "./server/register-routes.js";
 import {
   validateAuditLogStartupConfig,
   validateInfrastructureConnectivity,
@@ -303,62 +302,13 @@ async function authenticateWebSocket(
   ws: WebSocket,
   req: IncomingMessage
 ): Promise<void> {
+  const authResult = await authenticateWebSocketRequest(ws, req, {
+    tenantResolver,
+    logger,
+  });
+  if (!authResult) return;
+  const { userId, tenantId } = authResult;
   const clientIp = req.socket.remoteAddress;
-  const token = getWebSocketToken(req);
-
-  if (!token) {
-    logger.warn("WebSocket authentication failed: missing token", { clientIp });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Authentication required");
-    return;
-  }
-
-  const verified = await verifyAccessToken(token);
-  if (!verified) {
-    logger.warn("WebSocket authentication failed: invalid token", { clientIp });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
-    return;
-  }
-
-  const claims = verified.claims ?? null;
-  const userId = verified.user?.id ?? claims?.sub;
-
-  if (!userId) {
-    logger.warn("WebSocket authentication failed: missing user id", {
-      clientIp,
-    });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
-    return;
-  }
-
-  let tenantId = extractTenantId(claims, verified.user);
-  if (!tenantId) {
-    const requestedTenantId = getRequestedTenantId(req);
-    if (requestedTenantId) {
-      const hasAccess = await tenantResolver.hasTenantAccess(
-        userId,
-        requestedTenantId
-      );
-      if (!hasAccess) {
-        logger.warn("WebSocket authentication failed: tenant access denied", {
-          clientIp,
-          userId,
-          requestedTenantId,
-        });
-        ws.close(WS_POLICY_VIOLATION_CODE, "Tenant access denied");
-        return;
-      }
-      tenantId = requestedTenantId;
-    }
-  }
-
-  if (!tenantId) {
-    logger.warn("WebSocket authentication failed: missing tenant context", {
-      clientIp,
-      userId,
-    });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Tenant context required");
-    return;
-  }
 
   const authedSocket = ws as AuthenticatedWebSocket;
   authedSocket.userId = userId;

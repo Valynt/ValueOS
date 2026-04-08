@@ -32,6 +32,6 @@ ESLint `no-restricted-imports` now blocks new imports of:
 
 | File | Current size | Target size | Primary ownership | Extraction seam(s) tracked |
 |---|---:|---:|---|---|
-| `packages/backend/src/server.ts` | 1030 LOC | ≤ 850 LOC | Backend Platform | `server/websocket-request-auth.ts` (WebSocket auth header + tenant query parsing), route registration/bootstrap seams next |
+| `packages/backend/src/server.ts` | 836 LOC | ≤ 850 LOC | Backend Platform | `server/websocket-request-auth.ts`, `server/register-routes.ts`, `server/register-middleware.ts` extracted; continue trimming startup/shutdown orchestration helpers as needed |
 | `packages/backend/src/runtime/execution-runtime/WorkflowExecutor.ts` | 1364 LOC | ≤ 1100 LOC | Runtime Orchestration | `workflow-stage-output-schema.ts` (scenario stage schema guard), policy-check seam extraction next |
 | `packages/backend/src/services/tenant/TenantPerformanceManager.ts` | 1287 LOC | ≤ 1000 LOC | Tenant Services | `TenantPerformancePolicy.ts` (tier limits/SLA/weights/defaults), alert/index management seams next |
