@@ -161,6 +161,7 @@ async function makeExecutor(
   const { AgentRegistry } = await import('../../../services/agents/AgentRegistry.js');
   const { AgentMessageBroker } = await import('../../../services/agents/AgentMessageBroker.js');
   const { MemorySystem } = await import('../../../lib/agent-fabric/MemorySystem.js');
+  const { valueTreeRepository } = await import('../../../repositories/ValueTreeRepository.js');
   return new WorkflowExecutor(
     policy as never,
     { routeStage: vi.fn().mockReturnValue({ selected_agent: { id: 'agent-1' } }) } as never,
@@ -170,7 +171,10 @@ async function makeExecutor(
     new MemorySystem() as never,
     rateLimitFn as never,
     { enableWorkflows: true, maxRetryAttempts: 3, maxAgentInvocationsPerMinute: 20, ...cfg },
-    { executionPersistence: executionPersistence as never },
+    {
+      executionPersistence: executionPersistence as never,
+      valueTreeRepo: valueTreeRepository as never,
+    },
   );
 }
 

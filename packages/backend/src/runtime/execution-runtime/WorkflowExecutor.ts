@@ -7,10 +7,7 @@
  */
 
 import { Span, SpanStatusCode } from "@opentelemetry/api";
-import {
-  buildRuntimeFailureDetails,
-  type RuntimeFailureDetails,
-} from "@valueos/shared";
+import { type RuntimeFailureDetails } from "@valueos/shared";
 import { securityLogger } from "../../services/core/SecurityLogger.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -20,15 +17,10 @@ import { logger } from "../../lib/logger.js";
 import { assertTenantContextMatch } from "../../lib/tenant/assertTenantContextMatch.js";
 import {
   recordAgentInvocation,
-  recordLoopCompletion,
   recordWorkflowDeadlineViolation,
   recordWorkflowExecutionActive,
 } from "../../observability/valueLoopMetrics.js";
-import {
-  ValueTreeRepository,
-  type ValueTreeNodeRow,
-  type ValueTreeNodeWrite,
-} from "../../repositories/ValueTreeRepository.js";
+import { ValueTreeRepository } from "../../repositories/ValueTreeRepository.js";
 import type { WorkflowStatus } from "../../repositories/WorkflowStateRepository.js";
 import type { AgentType } from "../../services/agent-types.js";
 import type { AgentContext } from "../../services/agents/AgentAPI.js";
@@ -46,11 +38,6 @@ import type {
 } from "../../services/agents/core/IAgent.js";
 import { AgentRetryManager } from "../../services/agents/resilience/AgentRetryManager.js";
 import { CircuitBreakerManager } from "../../services/agents/resilience/CircuitBreaker.js";
-import {
-  getEnhancedParallelExecutor,
-  type RunnableTask,
-} from "../../services/post-v1/EnhancedParallelExecutor.js";
-import { HandoffCardBuilder } from "../../services/workflows/HandoffCardBuilder.js";
 import type {
   ExecutionEnvelope,
   WorkflowExecutionResult,
@@ -77,24 +64,19 @@ import type {
 
 import { isExternalArtifactWorkflowStage } from "./externalArtifactPolicy.js";
 import { validateWorkflowDAG } from "./dag-validator.js";
-import { WorkflowStatePersistence } from "./state-persistence.js";
 import { buildRetryOptions, buildStageRetryConfig } from "./retry-policy.js";
-import { validateStageOutputSchema } from "./workflow-stage-output-schema.js";
-import { stageTransitionEventBus } from "../approval-inbox/StageTransitionEventBus.js";
+import { WorkflowDagRunner } from "./dag-runner.js";
+import {
+  buildFailureDetails,
+  classifyStageFailure,
+  withRuntimeFailure,
+} from "./stage-failure-policy.js";
+import { WorkflowPersistence } from "./workflow-persistence.js";
+import { SnapshotAndHandoffHelper } from "./snapshot-and-handoff.js";
 
 // ============================================================================
 // Internal types
 // ============================================================================
-
-interface StageLifecycleRecord {
-  stageId: string;
-  lifecycleStage: string;
-  status: string;
-  startedAt: string;
-  completedAt: string;
-  summary?: string;
-  runtimeFailure?: RuntimeFailureDetails;
-}
 
 // ============================================================================
 // WorkflowExecutor
@@ -107,8 +89,6 @@ export interface WorkflowExecutorConfig {
 }
 
 const DEFAULT_WORKFLOW_DEADLINE_MINUTES = 30;
-const VALUE_MODELING_WORKFLOW_ID = "value-modeling-v1";
-
 const DEFAULT_CONFIG: WorkflowExecutorConfig = {
   enableWorkflows: true,
   maxRetryAttempts: 3,
@@ -118,8 +98,8 @@ const DEFAULT_CONFIG: WorkflowExecutorConfig = {
 export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionPersistence: WorkflowExecutionPersistencePort;
-  private readonly handoffCardBuilder: HandoffCardBuilder;
-  private readonly statePersistence: WorkflowStatePersistence;
+  private readonly workflowPersistence: WorkflowPersistence;
+  private readonly snapshotAndHandoffHelper: SnapshotAndHandoffHelper;
   private readonly runtimePathTag: RuntimeMigrationPathTag;
   private readonly valueTreeRepo: ValueTreeRepository;
 
@@ -143,10 +123,17 @@ export class WorkflowExecutor {
     this.executionPersistence = dependencies.executionPersistence;
     this.runtimePathTag = dependencies.runtimePathTag ?? "new_path";
     this.valueTreeRepo =
-      dependencies.valueTreeRepo ?? (null as unknown as ValueTreeRepository);
-    this.handoffCardBuilder = new HandoffCardBuilder();
-    this.statePersistence = new WorkflowStatePersistence(
-      this.executionPersistence
+      dependencies.valueTreeRepo ??
+      ({
+        getNodesForCase: async () => [],
+      } as ValueTreeRepository);
+    this.workflowPersistence = new WorkflowPersistence(this.executionPersistence);
+    this.snapshotAndHandoffHelper = new SnapshotAndHandoffHelper(
+      this.valueTreeRepo,
+      this.executionPersistence,
+      this.policy,
+      this.buildStageContext.bind(this),
+      this._buildStageDecisionContext.bind(this)
     );
   }
 
@@ -336,643 +323,42 @@ export class WorkflowExecutor {
     executionRecord: WorkflowExecutionRecord | undefined,
     checkDeadline: () => boolean
   ): Promise<void> {
-    let executionContext = this.buildStageContext(
-      organizationId,
-      initialContext,
-      "WorkflowExecutor.executeDAGAsync.initialContext"
-    );
-
-    const defaultRecord: WorkflowExecutionRecord = executionRecord ?? {
-      id: executionId,
-      workflow_id: dag.id ?? "",
-      workspace_id: "",
-      organization_id: organizationId,
-      status: "running",
-      started_at: new Date().toISOString(),
-      context: initialContext,
-      lifecycle: [],
-      outputs: [],
-    };
-
-    let recordSnapshot: WorkflowExecutionRecord = {
-      ...defaultRecord,
-      lifecycle: Array.isArray(defaultRecord.lifecycle)
-        ? [...defaultRecord.lifecycle]
-        : [],
-      outputs: Array.isArray(defaultRecord.outputs)
-        ? [...defaultRecord.outputs]
-        : [],
-    };
-
-    ({ executionContext, recordSnapshot } =
-      await this.capturePreModelingSnapshotIfNeeded(
-        executionId,
-        organizationId,
-        dag,
-        executionContext,
-        recordSnapshot
-      ));
-
-    const dependencies = new Map<string, Set<string>>();
-    const inProgress = new Set<string>();
-    const completed = new Set<string>();
-    const failed = new Map<string, string>();
-    const stageStartTimes = new Map<string, Date>();
-    const executor = getEnhancedParallelExecutor();
-    let integrityVetoed = false;
-    let schemaValidationFailed = false;
-
-    for (const stage of dag.stages) {
-      dependencies.set(stage.id, new Set());
-    }
-
-    for (const t of dag.transitions) {
-      const to =
-        t.to_stage ?? ((t as Record<string, unknown>).to as string) ?? "";
-      const from =
-        t.from_stage ?? ((t as Record<string, unknown>).from as string) ?? "";
-      const deps = dependencies.get(to);
-      if (deps) {
-        deps.add(from);
-      } else {
-        dependencies.set(to, new Set([from]));
-      }
-    }
-
-    const depsMet = (id: string) => {
-      const d = dependencies.get(id);
-      return !d || d.size === 0 || [...d].every(dep => completed.has(dep));
-    };
-
-    const total = dag.stages.length;
-
-    while (completed.size + failed.size < total) {
-      // Check deadline before processing next batch
-      if (!checkDeadline()) {
-        const deadlineError = `Workflow deadline exceeded: ${DEFAULT_WORKFLOW_DEADLINE_MINUTES} minutes`;
-        const failureDetails = this.buildFailureDetails({
-          failureClass: "execution-failed",
-          severity: "failed",
-          machineReasonCode: "WORKFLOW_DEADLINE_EXCEEDED",
-          diagnosis: deadlineError,
-          confidence: 0.94,
-          blastRadiusEstimate: "workflow",
-        });
-
-        logger.error("Workflow deadline exceeded", {
-          executionId,
-          traceId,
-          deadlineMinutes: DEFAULT_WORKFLOW_DEADLINE_MINUTES,
-        });
-
-        await this._recordWorkflowEvent(
-          executionId,
-          organizationId,
-          "execution_failed",
-          null,
-          {
-            reason: "deadline_exceeded",
-            runtime_failure: failureDetails,
-            traceId,
-          }
-        );
-
-        await this._updateStatus(
-          executionId,
-          organizationId,
-          "failed",
-          null,
-          this._withRuntimeFailure(recordSnapshot, failureDetails)
-        );
-
-        throw new Error(deadlineError);
-      }
-
-      const orgId = String(
-        executionContext.organizationId ?? executionContext.tenantId ?? ""
-      );
-      if (orgId) {
-        await this.policy.assertTenantExecutionAllowed(orgId);
-      }
-
-      const ready = dag.stages.filter(
-        s =>
-          !completed.has(s.id) &&
-          !failed.has(s.id) &&
-          !inProgress.has(s.id) &&
-          depsMet(s.id)
-      );
-
-      if (ready.length === 0) {
-        break;
-      }
-
-      const tasks: RunnableTask<{
-        stage: WorkflowStage;
-        route: ReturnType<DecisionRouter["routeStage"]>;
-        context: WorkflowContextDTO;
-        startedAt: Date;
-      }>[] = ready.map(stage => {
-        const route = this.router.routeStage(dag, stage.id, executionContext);
-        const startedAt = new Date();
-
-        stageStartTimes.set(stage.id, startedAt);
-        inProgress.add(stage.id);
-
-        stageTransitionEventBus.publish({
-          source: "execution-runtime",
-          organizationId,
-          runId: executionId,
-          stageId: stage.id,
-          transition: "stage_started",
-          metadata: { agent_type: stage.agent_type, trace_id: traceId },
-        });
-
-        return {
-          id: stage.id,
-          priority: "high",
-          payload: {
-            stage,
-            route,
-            context: this.buildStageContext(
-              organizationId,
-              executionContext,
-              `WorkflowExecutor.executeDAGAsync.stage.${stage.id}`
-            ),
-            startedAt,
-          },
-        };
-      });
-
-      const taskLookup = new Map(tasks.map(t => [t.id, t]));
-      const cap = Math.max(
-        1,
-        Math.min(this.config.maxAgentInvocationsPerMinute, tasks.length)
-      );
-
-      const results = await executor.executeRunnableTasks(
-        tasks,
-        async task => {
-          const { stage, route, context } = task.payload;
-          const stageResult = await this.executeStageWithRetry(
-            executionId,
-            stage,
-            context,
-            route as StageRouteDTO,
-            traceId
-          );
-          return { stage, stageResult };
-        },
-        cap
-      );
-
-      for (const result of results) {
-        const task = taskLookup.get(result.taskId);
-        if (!task) {
-          continue;
-        }
-
-        const { stage, startedAt } = task.payload;
-        const stageStart =
-          startedAt ?? stageStartTimes.get(stage.id) ?? new Date();
-        const stageCompleted = new Date();
-
-        inProgress.delete(stage.id);
-
-        if (
-          result.success &&
-          (result.result?.stageResult.status === "waiting_approval" ||
-            result.result?.stageResult.status === "pending_approval")
-        ) {
-          const hitlMetadata = result.result.stageResult.output ?? {};
-          const approvalStatus = "pending_approval";
-
-          stageTransitionEventBus.publish({
-            source: "execution-runtime",
-            organizationId,
-            runId: executionId,
-            stageId: stage.id,
-            transition: "stage_waiting_approval",
-            metadata: {
-              ...hitlMetadata,
-              checkpoint_id:
-                (hitlMetadata.checkpoint_id as string | undefined) ?? uuidv4(),
-              trace_id: traceId,
-            },
-          });
-
-          recordSnapshot = this._appendStageRecord(
-            recordSnapshot,
-            stage,
-            stageStart,
-            stageCompleted,
-            hitlMetadata,
-            approvalStatus
-          );
-
-          const approvalEventMetadata = {
-            reason: "hitl_required",
-            ...hitlMetadata,
-            traceId,
-          };
-
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_waiting_for_approval",
-            stage.id,
-            approvalEventMetadata
-          );
-
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_hitl_pending_approval",
-            stage.id,
-            approvalEventMetadata
-          );
-
-          await this._persistAndUpdate(
-            executionId,
-            organizationId,
-            recordSnapshot,
-            approvalStatus,
-            stage.id
-          );
-
-          return;
-        }
-
-        if (
-          result.success &&
-          result.result?.stageResult.status === "completed"
-        ) {
-          const stageOutput = result.result.stageResult.output ?? {};
-          const stageDiagnostic = result.result.stageResult.runtimeFailure;
-
-          if (stageDiagnostic && stageDiagnostic.severity === "degraded") {
-            this.lastDegradedState = stageDiagnostic;
-
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_completed",
-              stage.id,
-              {
-                reason: "degraded_execution",
-                runtime_failure: stageDiagnostic,
-                traceId,
-              }
-            );
-          }
-
-          const schemaValidationResult = validateStageOutputSchema(
-            stage,
-            stageOutput
-          );
-          if (!schemaValidationResult.valid) {
-            const msg = `Output failed ${schemaValidationResult.schemaName} schema validation.`;
-
-            failed.set(stage.id, msg);
-            schemaValidationFailed = true;
-
-            const metadata = {
-              reason: "schema_violation",
-              schema: schemaValidationResult.schemaName,
-              stageId: stage.id,
-              issues: schemaValidationResult.issues,
-            };
-
-            recordSnapshot = this._appendStageRecord(
-              recordSnapshot,
-              stage,
-              stageStart,
-              stageCompleted,
-              { error: msg, metadata },
-              "failed"
-            );
-
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              metadata
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              recordSnapshot,
-              "failed",
-              stage.id
-            );
-            break;
-          }
-
-          const structuralCheck = await this.policy.evaluateStructuralTruthVeto(
-            stageOutput,
-            {
-              traceId,
-              agentType: stage.agent_type as AgentType,
-              query: stage.description ?? stage.id,
-              stageId: stage.id,
-            }
-          );
-
-          if (structuralCheck.vetoed) {
-            const msg =
-              "Output failed structural truth validation against expected schema.";
-            const failureDetails = this.buildFailureDetails({
-              failureClass: "policy-blocked",
-              severity: "failed",
-              machineReasonCode: "POLICY_STRUCTURAL_TRUTH_VETO",
-              diagnosis: msg,
-              confidence: 0.95,
-              blastRadiusEstimate: "workflow",
-              recommendedNextActions: [
-                "request-override",
-                "reroute-owner",
-                "escalate-approval-inbox",
-              ],
-            });
-
-            failed.set(stage.id, msg);
-            integrityVetoed = true;
-
-            recordSnapshot = this._appendStageRecord(
-              recordSnapshot,
-              stage,
-              stageStart,
-              stageCompleted,
-              { error: msg, metadata: structuralCheck.metadata },
-              "failed",
-              failureDetails
-            );
-
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: structuralCheck.metadata,
-                runtime_failure: failureDetails,
-              }
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              this._withRuntimeFailure(recordSnapshot, failureDetails),
-              "failed",
-              stage.id
-            );
-
-            continue;
-          }
-
-          const integrityCheck = await this.policy.evaluateIntegrityVeto(
-            stageOutput,
-            {
-              traceId,
-              agentType: stage.agent_type as AgentType,
-              query: stage.description ?? stage.id,
-              stageId: stage.id,
-            }
-          );
-
-          if (integrityCheck.vetoed) {
-            const msg =
-              "Output failed integrity validation against ground truth benchmarks.";
-            const failureDetails = this.buildFailureDetails({
-              failureClass: "policy-blocked",
-              severity: "failed",
-              machineReasonCode: "POLICY_INTEGRITY_VETO",
-              diagnosis: msg,
-              confidence: 0.95,
-              blastRadiusEstimate: "workflow",
-              recommendedNextActions: [
-                "request-override",
-                "reroute-owner",
-                "escalate-approval-inbox",
-              ],
-            });
-
-            failed.set(stage.id, msg);
-            integrityVetoed = true;
-
-            recordSnapshot = this._appendStageRecord(
-              recordSnapshot,
-              stage,
-              stageStart,
-              stageCompleted,
-              { error: msg, metadata: integrityCheck.metadata },
-              "failed",
-              failureDetails
-            );
-
-            await this._recordWorkflowEvent(
-              executionId,
-              organizationId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: integrityCheck.metadata,
-                runtime_failure: failureDetails,
-              }
-            );
-
-            await this._persistAndUpdate(
-              executionId,
-              organizationId,
-              this._withRuntimeFailure(recordSnapshot, failureDetails),
-              "failed",
-              stage.id
-            );
-
-            continue;
-          }
-
-          executionContext = this.buildStageContext(
-            organizationId,
-            { ...executionContext, ...stageOutput },
-            `WorkflowExecutor.executeDAGAsync.output.${stage.id}`
-          );
-
-          stageTransitionEventBus.publish({
-            source: "execution-runtime",
-            organizationId,
-            runId: executionId,
-            stageId: stage.id,
-            transition: "stage_completed",
-            metadata: { trace_id: traceId },
-          });
-
-          recordSnapshot = this._appendStageRecord(
-            recordSnapshot,
-            stage,
-            stageStart,
-            stageCompleted,
-            stageOutput,
-            "completed",
-            stageDiagnostic ?? undefined
-          );
-
-          await this.executionPersistence.recordStageRun({
-            executionId,
-            organizationId,
-            stage,
-            executionRecord: recordSnapshot,
-            startedAt: stageStart,
-            completedAt: stageCompleted,
-            output: stageOutput,
-          });
-
-          completed.add(stage.id);
-
-          await this._buildAndPersistHandoffCards({
-            executionId,
-            organizationId,
-            dag,
-            completedStages: completed,
-            fromStage: stage,
-            stageOutput,
-            timestamp: stageCompleted.toISOString(),
-            actor:
-              executionContext.userId ??
-              executionContext.actorId ??
-              "workflow-orchestrator",
-          });
-        } else {
-          const errMsg =
-            result.result?.stageResult.error ??
-            result.error ??
-            "Unknown stage error";
-          const failureDetails = this.classifyStageFailure(errMsg);
-
-          stageTransitionEventBus.publish({
-            source: "execution-runtime",
-            organizationId,
-            runId: executionId,
-            stageId: stage.id,
-            transition: "stage_failed",
-            metadata: {
-              error: errMsg,
-              runtime_failure: failureDetails,
-              trace_id: traceId,
-            },
-          });
-
-          failed.set(stage.id, errMsg);
-
-          recordSnapshot = this._appendStageRecord(
-            recordSnapshot,
-            stage,
-            stageStart,
-            stageCompleted,
-            { error: errMsg },
-            "failed",
-            failureDetails
-          );
-
-          await this._recordWorkflowEvent(
-            executionId,
-            organizationId,
-            "stage_failed",
-            stage.id,
-            {
-              reason: "execution_error",
-              runtime_failure: failureDetails,
-              traceId,
-            }
-          );
-        }
-
-        await this._persistAndUpdate(
-          executionId,
-          organizationId,
-          recordSnapshot,
-          "in_progress",
-          stage.id
-        );
-      }
-
-      if (integrityVetoed || schemaValidationFailed) {
-        break;
-      }
-    }
-
-    // Mark blocked stages as failed
-    for (const stage of dag.stages) {
-      if (!completed.has(stage.id) && !failed.has(stage.id)) {
-        failed.set(stage.id, "Blocked by unmet dependencies");
-      }
-    }
-
-    if (failed.size > 0) {
-      logger.error("DAG execution failed", {
-        executionId,
-        traceId,
-        errorSummary: [...failed.entries()]
-          .map(([id, e]) => `${id}: ${e}`)
-          .join("; "),
-      });
-
-      const fallbackFailure = this.classifyStageFailure(
-        [...failed.values()][0] ?? "Unknown stage error"
-      );
-
-      await this._recordWorkflowEvent(
-        executionId,
-        organizationId,
-        "execution_failed",
-        null,
-        {
-          reason: "workflow_failed",
-          runtime_failure: fallbackFailure,
-          traceId,
-        }
-      );
-
-      await this._updateStatus(
-        executionId,
-        organizationId,
-        "failed",
-        null,
-        this._withRuntimeFailure(recordSnapshot, fallbackFailure)
-      );
-
-      return;
-    }
-
-    const firstStage = (
-      recordSnapshot.lifecycle as Array<{ startedAt?: string }> | undefined
-    )?.[0];
-    const dagStartMs = firstStage?.startedAt
-      ? Date.now() - new Date(firstStage.startedAt).getTime()
-      : 0;
-
-    recordLoopCompletion({
-      organizationId,
-      sessionId: executionId,
-      durationMs: dagStartMs,
-      completedStages: [
-        ...completed.keys(),
-      ] as import("../../observability/valueLoopMetrics.js").ValueLoopStage[],
+    const runner = new WorkflowDagRunner({
+      policy: this.policy,
+      router: this.router,
+      maxAgentInvocationsPerMinute: this.config.maxAgentInvocationsPerMinute,
+      executeStageWithRetry: this.executeStageWithRetry.bind(this),
+      buildStageContext: this.buildStageContext.bind(this),
+      buildStageDecisionContext: this._buildStageDecisionContext.bind(this),
+      classifyStageFailure: this.classifyStageFailure.bind(this),
+      buildFailureDetails: this.buildFailureDetails.bind(this),
+      withRuntimeFailure: this._withRuntimeFailure.bind(this),
+      persistAndUpdate: this._persistAndUpdate.bind(this),
+      updateStatus: this._updateStatus.bind(this),
+      recordWorkflowEvent: this._recordWorkflowEvent.bind(this),
+      recordStageRun: this.executionPersistence.recordStageRun.bind(
+        this.executionPersistence
+      ),
+      buildAndPersistHandoffCards: this._buildAndPersistHandoffCards.bind(this),
     });
 
-    await this._updateStatus(
+    await runner.run({
       executionId,
       organizationId,
-      "completed",
-      null,
-      this.lastDegradedState
-        ? this._withRuntimeFailure(recordSnapshot, this.lastDegradedState)
-        : recordSnapshot
-    );
+      dag,
+      initialContext,
+      traceId,
+      executionRecord,
+      checkDeadline,
+      capturePreModelingSnapshotIfNeeded: async params =>
+        this.capturePreModelingSnapshotIfNeeded(
+          params.executionId,
+          params.organizationId,
+          params.dag,
+          params.executionContext,
+          params.recordSnapshot
+        ),
+    });
   }
 
   private async capturePreModelingSnapshotIfNeeded(
@@ -985,110 +371,13 @@ export class WorkflowExecutor {
     executionContext: WorkflowStageContextDTO;
     recordSnapshot: WorkflowExecutionRecord;
   }> {
-    if (dag.id !== VALUE_MODELING_WORKFLOW_ID) {
-      return { executionContext, recordSnapshot };
-    }
-
-    const caseId = String(
-      executionContext.caseId ?? executionContext.case_id ?? ""
+    return this.snapshotAndHandoffHelper.capturePreModelingSnapshotIfNeeded(
+      executionId,
+      organizationId,
+      dag,
+      executionContext,
+      recordSnapshot
     );
-    if (!caseId) {
-      throw new Error(
-        "Value modeling workflow requires caseId to capture pre-modeling snapshot"
-      );
-    }
-
-    try {
-      const existingNodes = await this.valueTreeRepo.getNodesForCase(
-        caseId,
-        organizationId
-      );
-      const preModelingSnapshot = this.toValueTreeSnapshot(existingNodes);
-
-      const nextContext = this.buildStageContext(
-        organizationId,
-        {
-          ...executionContext,
-          caseId,
-          case_id: caseId,
-          preModelingSnapshot,
-        },
-        "WorkflowExecutor.capturePreModelingSnapshotIfNeeded"
-      );
-
-      const nextRecordSnapshot: WorkflowExecutionRecord = {
-        ...recordSnapshot,
-        context: {
-          ...(recordSnapshot.context &&
-          typeof recordSnapshot.context === "object"
-            ? (recordSnapshot.context as Record<string, unknown>)
-            : {}),
-          caseId,
-          case_id: caseId,
-          organizationId,
-          organization_id: organizationId,
-          tenantId: organizationId,
-          preModelingSnapshot,
-        },
-      };
-
-      await this.executionPersistence.updateWorkflowExecutionContext(
-        executionId,
-        organizationId,
-        nextContext
-      );
-
-      await this.executionPersistence.persistExecutionRecord(
-        executionId,
-        organizationId,
-        nextRecordSnapshot
-      );
-
-      return {
-        executionContext: nextContext,
-        recordSnapshot: nextRecordSnapshot,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to capture pre-modeling snapshot: ${message}`);
-    }
-  }
-
-  private toValueTreeSnapshot(nodes: ValueTreeNodeRow[]): ValueTreeNodeWrite[] {
-    const orderedNodes = [...nodes].sort((a, b) => {
-      if (a.sort_order !== b.sort_order) {
-        return a.sort_order - b.sort_order;
-      }
-
-      const aKey = a.node_key ?? "";
-      const bKey = b.node_key ?? "";
-      if (aKey !== bKey) {
-        return aKey.localeCompare(bKey);
-      }
-
-      return a.id.localeCompare(b.id);
-    });
-
-    const keyById = new Map<string, string>();
-    for (const row of orderedNodes) {
-      if (row.node_key) {
-        keyById.set(row.id, row.node_key);
-      }
-    }
-
-    return orderedNodes.map((row, index) => ({
-      node_key: row.node_key ?? `snapshot-node-${index}`,
-      label: row.label,
-      description: row.description ?? undefined,
-      driver_type:
-        (row.driver_type as ValueTreeNodeWrite["driver_type"]) ?? undefined,
-      impact_estimate: row.impact_estimate ?? undefined,
-      confidence: row.confidence ?? undefined,
-      parent_node_key: row.parent_id ? keyById.get(row.parent_id) : undefined,
-      sort_order: row.sort_order,
-      source_agent: row.source_agent ?? undefined,
-      metadata: row.metadata ?? {},
-    }));
   }
 
   // --------------------------------------------------------------------------
@@ -1444,62 +733,7 @@ export class WorkflowExecutor {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // Private helpers
-  // --------------------------------------------------------------------------
-
-  private _appendStageRecord(
-    snapshot: WorkflowExecutionRecord,
-    stage: WorkflowStage,
-    startedAt: Date,
-    completedAt: Date,
-    payload: Record<string, unknown>,
-    status: "completed" | "failed" | "pending_approval",
-    runtimeFailure?: RuntimeFailureDetails
-  ): WorkflowExecutionRecord {
-    const lifecycle: StageLifecycleRecord = {
-      stageId: stage.id,
-      lifecycleStage: stage.agent_type,
-      status,
-      startedAt: startedAt.toISOString(),
-      completedAt: completedAt.toISOString(),
-      summary: stage.description,
-      ...(runtimeFailure ? { runtimeFailure } : {}),
-    };
-    const prevOutputs =
-      snapshot.io && typeof snapshot.io === "object" && "outputs" in snapshot.io
-        ? ((snapshot.io as Record<string, unknown>).outputs as Record<
-            string,
-            unknown
-          >)
-        : {};
-    return {
-      ...snapshot,
-      lifecycle: [
-        ...(Array.isArray(snapshot.lifecycle) ? snapshot.lifecycle : []),
-        lifecycle,
-      ],
-      outputs: [
-        ...(Array.isArray(snapshot.outputs) ? snapshot.outputs : []),
-        { stageId: stage.id, payload, completedAt: completedAt.toISOString() },
-      ],
-      io: {
-        ...(snapshot.io && typeof snapshot.io === "object"
-          ? (snapshot.io as Record<string, unknown>)
-          : {}),
-        outputs: { ...prevOutputs, [stage.id]: payload },
-      },
-      ...(status === "completed" &&
-      (payload as Record<string, unknown>).economic_deltas
-        ? {
-            economicDeltas: (payload as Record<string, unknown>)
-              .economic_deltas,
-          }
-        : {}),
-    };
-  }
-
-  // --- Handoff card builder (from codex branch) ---
+  // --- Handoff card / snapshot helpers ---
   private async _buildAndPersistHandoffCards(input: {
     executionId: string;
     organizationId: string;
@@ -1510,104 +744,15 @@ export class WorkflowExecutor {
     timestamp: string;
     actor: string;
   }): Promise<void> {
-    const outgoingTransitions = (input.dag.transitions ?? []).filter(
-      transition => {
-        const fromStageId = transition.from_stage ?? transition.from;
-        return fromStageId === input.fromStage.id;
-      }
-    );
-
-    if (outgoingTransitions.length === 0) {
-      return;
-    }
-
-    const getDependencies = (stageId: string): string[] =>
-      (input.dag.transitions ?? [])
-        .filter(
-          transition => (transition.to_stage ?? transition.to) === stageId
-        )
-        .map(transition => transition.from_stage ?? transition.from)
-        .filter(
-          (dependency): dependency is string =>
-            typeof dependency === "string" && dependency.length > 0
-        );
-
-    for (const transition of outgoingTransitions) {
-      const toStageId = transition.to_stage ?? transition.to;
-      if (!toStageId) continue;
-
-      const toStage = input.dag.stages.find(stage => stage.id === toStageId);
-      if (!toStage) continue;
-
-      const dependencies = getDependencies(toStage.id);
-      const dependenciesMet =
-        dependencies.length === 0 ||
-        dependencies.every(dependency => input.completedStages.has(dependency));
-
-      if (!dependenciesMet) continue;
-
-      const hitlResult = this.policy.checkHITL(
-        this._buildStageDecisionContext(toStage, {
-          organizationId: input.organizationId,
-          organization_id: input.organizationId,
-          tenantId: input.organizationId,
-          confidence_score:
-            typeof input.stageOutput.confidence_score === "number"
-              ? input.stageOutput.confidence_score
-              : 0.5,
-        })
-      );
-
-      const policyConstraints = [
-        `hitl_required=${String(hitlResult.hitl_required)}`,
-        ...(hitlResult.hitl_reason ? [String(hitlResult.hitl_reason)] : []),
-        ...(typeof hitlResult.details?.rule_id === "string"
-          ? [hitlResult.details.rule_id]
-          : []),
-      ];
-
-      const handoffCard = this.handoffCardBuilder.build({
-        runId: input.executionId,
-        fromStage: input.fromStage,
-        toStage,
-        actor: input.actor,
-        timestamp: input.timestamp,
-        dag: input.dag,
-        stageOutput: input.stageOutput,
-        policyConstraints,
-      });
-
-      await this.executionPersistence.recordWorkflowEvent({
-        executionId: input.executionId,
-        organizationId: input.organizationId,
-        eventType: "stage_transition_handoff_created",
-        stageId: toStage.id,
-        metadata: {
-          run_id: input.executionId,
-          stage_id: toStage.id,
-          from_stage: input.fromStage.id,
-          transition_timestamp: input.timestamp,
-          handoff_card: handoffCard,
-          addendum_comments: [],
-        },
-      });
-    }
+    await this.snapshotAndHandoffHelper.buildAndPersistHandoffCards(input);
   }
 
-  // --- Runtime failure handling (from main branch) ---
+  // --- Runtime failure handling ---
   private _withRuntimeFailure(
     snapshot: WorkflowExecutionRecord,
     runtimeFailure: RuntimeFailureDetails
   ): WorkflowExecutionRecord {
-    return {
-      ...snapshot,
-      io: {
-        ...(snapshot.io && typeof snapshot.io === "object"
-          ? (snapshot.io as Record<string, unknown>)
-          : {}),
-        runtime_failure: runtimeFailure,
-      },
-    };
+    return withRuntimeFailure(snapshot, runtimeFailure);
   }
 
   private buildFailureDetails(input: {
@@ -1619,75 +764,11 @@ export class WorkflowExecutor {
     blastRadiusEstimate: RuntimeFailureDetails["blastRadiusEstimate"];
     recommendedNextActions?: RuntimeFailureDetails["recommendedNextActions"];
   }): RuntimeFailureDetails {
-    return buildRuntimeFailureDetails({
-      class: input.failureClass,
-      severity: input.severity,
-      machineReasonCode: input.machineReasonCode,
-      diagnosis: input.diagnosis,
-      confidence: input.confidence,
-      blastRadiusEstimate: input.blastRadiusEstimate,
-      recommendedNextActions: input.recommendedNextActions,
-    });
+    return buildFailureDetails(input);
   }
 
   private classifyStageFailure(errorMessage: string): RuntimeFailureDetails {
-    const msg = errorMessage.toLowerCase();
-
-    if (
-      msg.includes("policy") ||
-      msg.includes("veto") ||
-      msg.includes("approval")
-    ) {
-      return this.buildFailureDetails({
-        failureClass: "policy-blocked",
-        severity: "failed",
-        machineReasonCode: "POLICY_BLOCKED",
-        diagnosis: errorMessage,
-        confidence: 0.9,
-        blastRadiusEstimate: "workflow",
-      });
-    }
-
-    if (
-      msg.includes("missing") ||
-      msg.includes("not found") ||
-      msg.includes("artifact") ||
-      msg.includes("required")
-    ) {
-      return this.buildFailureDetails({
-        failureClass: "data-missing",
-        severity: "failed",
-        machineReasonCode: "DATA_MISSING",
-        diagnosis: errorMessage,
-        confidence: 0.85,
-        blastRadiusEstimate: "single-stage",
-      });
-    }
-
-    if (
-      msg.includes("timeout") ||
-      msg.includes("unavailable") ||
-      msg.includes("connection") ||
-      msg.includes("service")
-    ) {
-      return this.buildFailureDetails({
-        failureClass: "dependency-unavailable",
-        severity: "failed",
-        machineReasonCode: "DEPENDENCY_UNAVAILABLE",
-        diagnosis: errorMessage,
-        confidence: 0.81,
-        blastRadiusEstimate: "workflow",
-      });
-    }
-
-    return this.buildFailureDetails({
-      failureClass: "execution-failed",
-      severity: "failed",
-      machineReasonCode: "EXECUTION_FAILED",
-      diagnosis: errorMessage,
-      confidence: 0.78,
-      blastRadiusEstimate: "single-stage",
-    });
+    return classifyStageFailure(errorMessage);
   }
 
   private _buildStageDecisionContext(
@@ -1732,7 +813,7 @@ export class WorkflowExecutor {
     status: WorkflowStatus,
     stageId: string | null
   ): Promise<void> {
-    await this.statePersistence.persistAndUpdate(
+    await this.workflowPersistence.persistAndUpdate(
       executionId,
       organizationId,
       record,
@@ -1748,7 +829,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     record: WorkflowExecutionRecord
   ): Promise<void> {
-    await this.statePersistence.updateStatus(
+    await this.workflowPersistence.updateStatus(
       executionId,
       organizationId,
       status,
@@ -1768,7 +849,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     metadata: Record<string, unknown>
   ): Promise<void> {
-    await this.statePersistence.recordWorkflowEvent(
+    await this.workflowPersistence.recordWorkflowEvent(
       executionId,
       organizationId,
       eventType,
@@ -1782,7 +863,7 @@ export class WorkflowExecutor {
     organizationId: string,
     errorMessage: string
   ): Promise<void> {
-    await this.statePersistence.handleWorkflowFailure(
+    await this.workflowPersistence.handleWorkflowFailure(
       executionId,
       organizationId,
       errorMessage
