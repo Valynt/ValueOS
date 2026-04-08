@@ -724,8 +724,8 @@ app.use('/api', realizationRouter);
 app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/opportunities", opportunityValueGraphRouter);
-app.use("/api/v1/tenant", requireAuth, tenantRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
+app.use("/api/v1/tenant", requireAuth, tenantRouter);
 app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use(
   "/api/compliance/evidence",
