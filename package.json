@@ -28,7 +28,7 @@
     "check": "bash scripts/dx/ensure-local-pnpm-shims.sh && turbo run typecheck",
     "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
     "ci:governance:self-check": "node scripts/ci/check-canonical-ci-entrypoint.mjs",
-    "ci:verify": "pnpm run check:package-json-parse && pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:domain-pack-import-paths && pnpm run check:generated-src-artifacts && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
+    "ci:verify": "pnpm run check:package-json-parse && pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && bash scripts/ci/check-legacy-path-imports.sh && pnpm run check:mixed-case-module-roots && pnpm run check:domain-pack-import-paths && pnpm run check:generated-src-artifacts && pnpm run check:repo-hygiene-placeholders && pnpm run check:docs:boundaries && pnpm run check:docs:secrets && pnpm run check:docs:date-integrity && pnpm run check:launch-gate-doc-drift && pnpm run check:eventing-architecture && pnpm run test && pnpm run ci:governance:self-check && pnpm run check:required-checks-policy && pnpm run check:workflow-pnpm-contract && pnpm run check:any-ratchet && pnpm run check:debt-ratchet && pnpm run check:app-test-toolchain-baseline && pnpm run build",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
@@ -91,7 +91,8 @@
     "security:pen-test": "bash scripts/security/pen-test-auth-tenant.sh",
     "security:rotate-secrets": "bash scripts/security/pre-launch-secret-rotation.sh",
     "ops:cutover": "bash scripts/traffic-cutover.sh",
-    "test:load-24h": "k6 run tests/load/staging-24h.js"
+    "test:load-24h": "k6 run tests/load/staging-24h.js",
+    "check:launch-gate-doc-drift": "node scripts/ci/check-launch-gate-doc-drift.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

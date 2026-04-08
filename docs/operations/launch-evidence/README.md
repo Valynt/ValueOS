@@ -5,6 +5,8 @@ Each subdirectory corresponds to a release version (e.g. `release-1.0/`).
 
 See `docs/operations/release-scope-ga-signoff.md` for the full GA sign-off checklist.
 
+See `gate-control-matrix.md` for gate ownership, CI mapping, pass thresholds, artifact conventions, and waiver policy.
+
 ---
 
 ## Required artifacts per release
