@@ -1,0 +1,61 @@
+# Command
+pnpm exec vitest run tests/performance/load-testing.test.ts
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v3.2.4 /workspace/ValueOS
+
+No test files found, exiting with code 1
+
+filter: tests/performance/load-testing.test.ts
+
+|infra| 
+
+include: packages/infra/**/*.{test,spec}.ts
+exclude:  **/node_modules/**, **/dist/**
+
+|mcp-ground-truth| 
+
+include: packages/mcp/ground-truth/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**
+
+|memory| 
+
+include: packages/memory/tests/**/*.{test,spec}.ts, packages/memory/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**
+
+|sdui| 
+
+include: packages/sdui/src/**/*.{test,spec}.{ts,tsx}
+exclude:  **/node_modules/**, **/dist/**, **/*.pure-unit.test.*
+
+|shared| 
+
+include: packages/shared/**/*.{test,spec}.ts
+exclude:  **/node_modules/**, **/dist/**
+
+|valynt-app| 
+
+include: src/**/*.{test,spec}.{ts,tsx}
+exclude:  **/node_modules/**, **/*.pure-unit.test.*, src/__tests__/audit/**, src/sdui/**
+
+|@valueos/backend| 
+
+include: src/**/*.{test,spec}.ts
+exclude:  node_modules/**, dist/**, src/**/*.integration.{test,spec}.ts, src/**/*.int.{test,spec}.ts, src/**/*.e2e.{test,spec}.ts, src/**/*.perf.{test,spec}.ts, src/**/*.load.{test,spec}.ts, src/**/__tests__/integration/**, src/**/__integration__/**, src/**/integration/**, src/**/__tests__/security/**
+
+|@valueos/components| 
+
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+|@valueos/integrations| 
+
+include: **/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+|@valueos/domain-validator| 
+
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+

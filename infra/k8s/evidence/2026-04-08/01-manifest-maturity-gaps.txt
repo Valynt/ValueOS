@@ -1,0 +1,52 @@
+# Command
+node scripts/ci/report-manifest-maturity-gaps.mjs
+
+
+[1mManifest Maturity Gap Report[0m
+Ledger: infra/k8s/manifest-maturity-ledger.json
+Schema version: 1.1
+Last updated: 2026-03-27
+
+[31m[1m⚠ Unvalidated critical classes (5):[0m
+
+[1mdeployments[0m  [status: [33mAspirational[0m]  owner: Platform Engineering
+  Missing fields:
+    [31m✗[0m date_validated
+    [31m✗[0m evidence.rollout_artifact (missing)
+    [31m✗[0m evidence.load_test_artifact (missing)
+    [31m✗[0m evidence.rollback_artifact (missing)
+
+[1mhpa[0m  [status: [33mAspirational[0m]  owner: SRE
+  Missing fields:
+    [31m✗[0m date_validated
+    [31m✗[0m evidence.rollout_artifact (missing)
+    [31m✗[0m evidence.load_test_artifact (missing)
+    [31m✗[0m evidence.rollback_artifact (missing)
+
+[1mnetwork-policies[0m  [status: [33mAspirational[0m]  owner: Security Engineering
+  Missing fields:
+    [31m✗[0m date_validated
+    [31m✗[0m evidence.rollout_artifact (missing)
+    [31m✗[0m evidence.load_test_artifact (missing)
+    [31m✗[0m evidence.rollback_artifact (missing)
+
+[1mexternal-secrets[0m  [status: [33mAspirational[0m]  owner: Platform Security
+  Missing fields:
+    [31m✗[0m date_validated
+    [31m✗[0m evidence.rollout_artifact (missing)
+    [31m✗[0m evidence.load_test_artifact (missing)
+    [31m✗[0m evidence.rollback_artifact (missing)
+
+[1mobservability[0m  [status: [33mAspirational[0m]  owner: Observability Engineering
+  Missing fields:
+    [31m✗[0m date_validated
+    [31m✗[0m evidence.rollout_artifact (missing)
+    [31m✗[0m evidence.load_test_artifact (missing)
+    [31m✗[0m evidence.rollback_artifact (missing)
+
+[1mHow to resolve:[0m
+  See docs/runbooks/manifest-maturity-validation.md for the step-by-step
+  procedure to advance each class from Aspirational to Validated.
+
+[33mWarning only (--fail-on-gaps not set). Production deploy will still be blocked by manifest-maturity-production-gate.[0m
+
