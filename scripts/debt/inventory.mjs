@@ -37,7 +37,7 @@ function listCodeFiles() {
   }
 
   for (const dir of dirs) walk(path.join(repoRoot, dir));
-  return res.map(p => path.relative(repoRoot, p));
+  return res.map((p) => path.relative(repoRoot, p).split(path.sep).join("/"));
 }
 
 function inStrictZone(file, strictZones) {
