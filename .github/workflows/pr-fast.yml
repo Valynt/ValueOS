@@ -551,6 +551,7 @@ jobs:
           node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
+          node scripts/ci/check-backend-service-tenant-query-filters.mjs
       - name: Emit lane summary
         if: always()
         run: |
@@ -617,6 +618,12 @@ jobs:
         run: |
           npx vitest run --config tests/security/vitest.security.config.ts \
             tests/security/api-tenant-isolation.test.ts \
+            packages/memory/tests/tenant-vector-isolation.test.ts \
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
+            packages/backend/src/workers/__tests__/tenantContextBootstrap.test.ts \
+            packages/backend/src/workers/__tests__/WorkerTenantBoundaryIsolation.test.ts \
+            packages/backend/src/workers/__tests__/BullMQTenantIsolation.test.ts \
+            packages/backend/src/workers/__tests__/BullMQTenantIsolation.behavioral.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --outputFile.junit=reports/compliance/rls/vitest-rls-fork.junit.xml

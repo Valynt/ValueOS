@@ -15,6 +15,10 @@ const rlsSpecs = [
   'tests/security/agent-invocation-tenant-boundary.test.ts',
   'packages/memory/tests/tenant-vector-isolation.test.ts',
   'packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts',
+  'packages/backend/src/workers/__tests__/tenantContextBootstrap.test.ts',
+  'packages/backend/src/workers/__tests__/WorkerTenantBoundaryIsolation.test.ts',
+  'packages/backend/src/workers/__tests__/BullMQTenantIsolation.test.ts',
+  'packages/backend/src/workers/__tests__/BullMQTenantIsolation.behavioral.test.ts',
 ];
 
 if (!Number.isFinite(minimumExecuted) || minimumExecuted < 1) {
