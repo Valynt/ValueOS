@@ -115,11 +115,16 @@ function buildMockSupabase() {
 }
 
 const mockSupabase = buildMockSupabase();
+const createRequestSupabaseClientMock = vi.fn(() => mockSupabase);
+const readGlobalBenchmarksByIndustryMock = vi.fn();
 
-vi.mock("@shared/lib/supabase", () => ({
-  createServiceRoleSupabaseClient: vi.fn(),
+vi.mock("../../../lib/supabase.js", () => ({
+  createRequestSupabaseClient: createRequestSupabaseClientMock,
   assertNotTestEnv: vi.fn(),
-  getSupabaseClient: () => mockSupabase,
+}));
+
+vi.mock("../../../lib/supabase/privileged/benchmarkCatalog", () => ({
+  readGlobalBenchmarksByIndustry: readGlobalBenchmarksByIndustryMock,
 }));
 
 vi.mock("../../../services/tenant/CustomerAccessService", () => ({
@@ -145,13 +150,14 @@ vi.mock("@shared/lib/logger", () => ({
 describe("customer-portal-cross-tenant-benchmarks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    readGlobalBenchmarksByIndustryMock.mockResolvedValue({ data: BENCHMARK_ROWS, error: null });
   });
 
   it("uses only the requesting organization's realization metrics while keeping benchmarks global", async () => {
     const { getCustomerBenchmarks } = await import("../benchmarks.js");
 
     const req = {
-      params: { token: "valid-token" },
+      headers: { authorization: "Bearer valid-token" },
       query: {},
     } as unknown as Request;
 
@@ -164,6 +170,10 @@ describe("customer-portal-cross-tenant-benchmarks", () => {
     await getCustomerBenchmarks(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
+    expect(createRequestSupabaseClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: "valid-token", request: req })
+    );
+    expect(readGlobalBenchmarksByIndustryMock).not.toHaveBeenCalled();
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         value_case_id: SHARED_VALUE_CASE_ID,
@@ -187,5 +197,34 @@ describe("customer-portal-cross-tenant-benchmarks", () => {
     expect(payload.comparisons[0]?.current_value).toBe(140);
     expect(payload.comparisons[0]?.current_value).not.toBe(900);
     expect(payload.comparisons[0]?.benchmark.id).toBe("benchmark-1");
+  });
+
+  it("token-validation organization scope prevents cross-tenant metric leakage when value_case_id collides", async () => {
+    const { customerAccessService } = await import("../../../services/tenant/CustomerAccessService");
+    vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValueOnce({
+      is_valid: true,
+      value_case_id: SHARED_VALUE_CASE_ID,
+      organization_id: ORG_B,
+      error_message: null,
+    });
+
+    const { getCustomerBenchmarks } = await import("../benchmarks.js");
+    const req = {
+      headers: { authorization: "Bearer valid-token" },
+      query: {},
+    } as unknown as Request;
+
+    const json = vi.fn();
+    const res = {
+      status: vi.fn().mockReturnValue({ json }),
+      json,
+    } as unknown as Response;
+
+    await getCustomerBenchmarks(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const payload = json.mock.calls[0]?.[0] as { comparisons: Array<{ current_value: number | null }> };
+    expect(payload.comparisons[0]?.current_value).toBe(900);
+    expect(payload.comparisons[0]?.current_value).not.toBe(140);
   });
 });
