@@ -1,4 +1,14 @@
 tasks:
+  pruneWindsurfCache:
+    name: Prune Windsurf server cache
+    description: Remove stale Windsurf server installations, keeping only the latest. Prevents disk bloat across container rebuilds.
+    command: |
+      rm -f ~/.windsurf-server/.installation_lock 2>/dev/null || true
+      find ~/.windsurf-server/bin -maxdepth 1 -type d 2>/dev/null | tail -n +2 | head -n -1 | xargs rm -rf 2>/dev/null || true
+      echo '[pruneWindsurfCache] done'
+    triggeredBy:
+      - postDevcontainerStart
+
   installDeps:
     name: Install dependencies
     description: Validate toolchain, ensure .env, and install workspace dependencies from the lockfile.
