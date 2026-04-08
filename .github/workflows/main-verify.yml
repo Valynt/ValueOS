@@ -84,6 +84,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 365
 
+  secret-rotation-sla-gate:
+    name: secret-rotation-sla-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: Fail on unresolved ACTION REQUIRED secret incidents older than SLA
+        run: node scripts/ci/check-secret-rotation-action-required-sla.mjs
+
   debt-inventory-report:
     name: debt-inventory-report
     runs-on: ubuntu-latest
