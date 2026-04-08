@@ -52,6 +52,7 @@ export function initAlertingRulesWorker(): Worker {
   const alertingService = new AlertingService(
     createWorkerServiceSupabaseClient('AlertingRulesWorker: evaluate billing alert rules across tenants')
   );
+  // WORKER_CLASSIFICATION: explicit-cross-tenant-safe
   _worker = new Worker(
     ALERTING_QUEUE_NAME,
     async () => {

@@ -170,6 +170,7 @@ let _syncWorker: Worker | null = null;
 export function initCrmSyncWorker(): Worker {
   if (_syncWorker) return _syncWorker;
 
+  // WORKER_CLASSIFICATION: tenant-context-restored
   _syncWorker = new Worker(
     CRM_SYNC_QUEUE,
     async (job: Job) => {
@@ -266,6 +267,7 @@ let _webhookWorker: Worker | null = null;
 export function initCrmWebhookWorker(): Worker {
   if (_webhookWorker) return _webhookWorker;
 
+  // WORKER_CLASSIFICATION: tenant-context-restored
   _webhookWorker = new Worker(
     CRM_WEBHOOK_QUEUE,
     async (job: Job) => {
@@ -356,6 +358,7 @@ let _prefetchWorker: Worker | null = null;
 export function initCrmPrefetchWorker(): Worker {
   if (_prefetchWorker) return _prefetchWorker;
 
+  // WORKER_CLASSIFICATION: tenant-context-restored
   _prefetchWorker = new Worker(
     CRM_PREFETCH_QUEUE,
     async (job: Job) => {
