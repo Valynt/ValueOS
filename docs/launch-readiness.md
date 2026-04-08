@@ -7,7 +7,7 @@ status: active
 
 # Launch Readiness Dashboard
 
-Normative GO/NO-GO criteria live only in [docs/go-no-go-criteria.md](./go-no-go-criteria.md). Operational control ownership, CI job mapping, thresholds, artifact paths, and waiver policy live in [docs/operations/launch-evidence/gate-control-matrix.md](./operations/launch-evidence/gate-control-matrix.md).
+Normative GO/NO-GO criteria live only in [docs/go-no-go-criteria.md](./go-no-go-criteria.md). Operational control ownership, CI job mapping, thresholds, artifact paths, and waiver policy live in [docs/operations/launch-evidence/control-matrix.md](./operations/launch-evidence/control-matrix.md).
 
 Requirements intent and traceability source: [openspec/specs/production-readiness/spec.md](../openspec/specs/production-readiness/spec.md).
 
