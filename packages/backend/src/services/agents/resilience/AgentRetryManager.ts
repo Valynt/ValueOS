@@ -14,6 +14,12 @@ import { getRedisClient } from "../../../lib/redis.js";
 import { AgentType } from "../../agent-types.js";
 import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent.js";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService.js";
+import { calculateRetryDelay } from "./RetryDelayCalculator.js";
+import {
+  findRetryPolicy,
+  resolveRetryOptions,
+  shouldRetryForError,
+} from "./RetryPolicyResolver.js";
 
 export type ContractComplianceFailureType = "parse" | "schema" | "business_rule" | "unknown";
 
@@ -415,12 +421,7 @@ export class AgentRetryManager {
    * Get retry policy for agent type
    */
   getRetryPolicy(agentType: AgentType): RetryPolicy | undefined {
-    for (const policy of this.retryPolicies.values()) {
-      if (policy.agentTypes.includes(agentType) && policy.enabled) {
-        return policy;
-      }
-    }
-    return undefined;
+    return findRetryPolicy(this.retryPolicies, agentType);
   }
 
   /**
@@ -1147,90 +1148,21 @@ export class AgentRetryManager {
     customOptions?: Partial<RetryOptions>
   ): RetryOptions {
     const policy = this.getRetryPolicy(agentType);
-    const defaultOptions = policy?.defaultOptions || this.getDefaultRetryOptions();
-
-    return {
-      ...defaultOptions,
-      ...customOptions,
-    };
+    return resolveRetryOptions(policy, () => this.getDefaultRetryOptions(), customOptions);
   }
 
   /**
    * Calculate retry delay based on strategy
    */
   private calculateRetryDelay(attemptNumber: number, options: RetryOptions): number {
-    let delay: number;
-
-    switch (options.strategy) {
-      case "exponential_backoff":
-        delay = options.baseDelay * Math.pow(options.backoffMultiplier, attemptNumber - 1);
-        break;
-
-      case "linear_backoff":
-        delay = options.baseDelay * attemptNumber;
-        break;
-
-      case "fixed_delay":
-        delay = options.baseDelay;
-        break;
-
-      case "adaptive":
-        // Adaptive based on recent success rates
-        const recentSuccessRate = this.getRecentSuccessRate(options);
-        if (recentSuccessRate < 0.5) {
-          delay = options.baseDelay * Math.pow(options.backoffMultiplier, attemptNumber - 1) * 2;
-        } else {
-          delay = options.baseDelay * Math.pow(options.backoffMultiplier, attemptNumber - 1);
-        }
-        break;
-
-      default:
-        delay = options.baseDelay * Math.pow(options.backoffMultiplier, attemptNumber - 1);
-    }
-
-    // Apply jitter
-    if (options.jitterFactor > 0) {
-      const jitter = delay * options.jitterFactor * Math.random();
-      delay += jitter;
-    }
-
-    // Apply maximum delay
-    delay = Math.min(delay, options.maxDelay);
-
-    return Math.floor(delay);
+    return calculateRetryDelay(attemptNumber, options, opts => this.getRecentSuccessRate(opts));
   }
 
   /**
    * Check if error is retryable
    */
   private shouldRetry(error: RetryError, options: RetryOptions, attemptNumber: number): boolean {
-    // Check if error type is non-retryable
-    if (options.nonRetryableErrors.includes(error.type)) {
-      return false;
-    }
-
-    // Check if error type is explicitly retryable
-    if (options.retryableErrors.includes(error.type)) {
-      return true;
-    }
-
-    // Check error severity
-    if (error.severity === "critical") {
-      return false;
-    }
-
-    // Check if error indicates retryable condition
-    const retryablePatterns = [
-      /timeout/i,
-      /network/i,
-      /connection/i,
-      /temporary/i,
-      /rate.?limit/i,
-      /too.?many.?requests/i,
-      /service.?unavailable/i,
-    ];
-
-    return retryablePatterns.some((pattern) => pattern.test(error.message));
+    return shouldRetryForError(error, options, attemptNumber);
   }
 
   /**

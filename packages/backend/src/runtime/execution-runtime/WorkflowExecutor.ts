@@ -76,9 +76,11 @@ import type {
 } from "../ports/runtimePorts.js";
 
 import { isExternalArtifactWorkflowStage } from "./externalArtifactPolicy.js";
-import { validateWorkflowDAG } from "./dag-validator.js";
+import { validateWorkflowDAGSchema } from "./workflow-dag-validation.js";
 import { WorkflowStatePersistence } from "./state-persistence.js";
 import { buildRetryOptions, buildStageRetryConfig } from "./retry-policy.js";
+import { buildRecoveredRetryRuntimeFailure } from "./workflow-retry-decisioning.js";
+import { WorkflowPersistenceHelpers } from "./workflow-persistence-helpers.js";
 import { validateStageOutputSchema } from "./workflow-stage-output-schema.js";
 import { stageTransitionEventBus } from "../approval-inbox/StageTransitionEventBus.js";
 
@@ -120,6 +122,7 @@ export class WorkflowExecutor {
   private readonly executionPersistence: WorkflowExecutionPersistencePort;
   private readonly handoffCardBuilder: HandoffCardBuilder;
   private readonly statePersistence: WorkflowStatePersistence;
+  private readonly persistenceHelpers: WorkflowPersistenceHelpers;
   private readonly runtimePathTag: RuntimeMigrationPathTag;
   private readonly valueTreeRepo: ValueTreeRepository;
 
@@ -148,6 +151,7 @@ export class WorkflowExecutor {
     this.statePersistence = new WorkflowStatePersistence(
       this.executionPersistence
     );
+    this.persistenceHelpers = new WorkflowPersistenceHelpers(this.statePersistence);
   }
 
   private buildStageContext(
@@ -211,7 +215,7 @@ export class WorkflowExecutor {
           `Workflow definition not found: ${workflowDefinitionId}`
         );
 
-      const dag = validateWorkflowDAG(definition.dag_schema);
+      const dag = validateWorkflowDAGSchema(definition.dag_schema);
       const executionId = uuidv4();
       const initialStageExecutionId = uuidv4();
 
@@ -1246,17 +1250,7 @@ export class WorkflowExecutor {
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
           const attempts = retryResult.attempts ?? 1;
-          const runtimeFailure =
-            attempts > 1
-              ? this.buildFailureDetails({
-                  failureClass: "transient-degraded",
-                  severity: "degraded",
-                  machineReasonCode: "TRANSIENT_RETRY_RECOVERED",
-                  diagnosis: `Stage recovered after ${attempts} attempts.`,
-                  confidence: 0.72,
-                  blastRadiusEstimate: "single-stage",
-                })
-              : undefined;
+          const runtimeFailure = buildRecoveredRetryRuntimeFailure(attempts);
 
           return {
             status: "completed",
@@ -1732,7 +1726,7 @@ export class WorkflowExecutor {
     status: WorkflowStatus,
     stageId: string | null
   ): Promise<void> {
-    await this.statePersistence.persistAndUpdate(
+    await this.persistenceHelpers.persistAndUpdate(
       executionId,
       organizationId,
       record,
@@ -1748,7 +1742,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     record: WorkflowExecutionRecord
   ): Promise<void> {
-    await this.statePersistence.updateStatus(
+    await this.persistenceHelpers.updateStatus(
       executionId,
       organizationId,
       status,
@@ -1768,7 +1762,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     metadata: Record<string, unknown>
   ): Promise<void> {
-    await this.statePersistence.recordWorkflowEvent(
+    await this.persistenceHelpers.recordWorkflowEvent(
       executionId,
       organizationId,
       eventType,
@@ -1782,7 +1776,7 @@ export class WorkflowExecutor {
     organizationId: string,
     errorMessage: string
   ): Promise<void> {
-    await this.statePersistence.handleWorkflowFailure(
+    await this.persistenceHelpers.handleWorkflowFailure(
       executionId,
       organizationId,
       errorMessage
@@ -1790,7 +1784,7 @@ export class WorkflowExecutor {
   }
 
   private _validateWorkflowDAG(rawDag: unknown): WorkflowDAG {
-    return validateWorkflowDAG(rawDag);
+    return validateWorkflowDAGSchema(rawDag);
   }
 }
 

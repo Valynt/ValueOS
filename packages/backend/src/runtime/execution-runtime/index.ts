@@ -38,6 +38,9 @@ import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecuto
 
 export { QueryExecutor, WorkflowExecutor };
 export type { QueryExecutorConfig, WorkflowExecutorConfig };
+export { validateWorkflowDAGSchema } from "./workflow-dag-validation.js";
+export { buildRecoveredRetryRuntimeFailure } from "./workflow-retry-decisioning.js";
+export { WorkflowPersistenceHelpers } from "./workflow-persistence-helpers.js";
 
 // ============================================================================
 // ExecutionRuntime — thin wiring class
