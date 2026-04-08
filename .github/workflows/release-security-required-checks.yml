@@ -1,0 +1,60 @@
+name: release-security-required-checks
+
+on:
+  pull_request:
+    branches:
+      - "release/**"
+  push:
+    tags:
+      - "production-*"
+      - "prod-*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  secret-rotation-verification:
+    uses: ./.github/workflows/secret-rotation-verification.yml
+    with:
+      target_environment: production
+    secrets: inherit
+
+  check-cve-waivers:
+    name: check-cve-waivers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: SCA — pnpm audit (fail on unwaived high/critical)
+        run: |
+          pnpm audit --audit-level=high --json > npm-audit-report.json || true
+          mkdir -p artifacts/security/cve-waivers
+          node scripts/ci/check-cve-waivers.mjs --audit-file=npm-audit-report.json | tee artifacts/security/cve-waivers/check-cve-waivers-${{ github.run_id }}.txt
+      - name: Upload CVE waiver evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cve-waiver-evidence-${{ github.run_id }}
+          path: artifacts/security/cve-waivers/
+          if-no-files-found: error
+          retention-days: 30

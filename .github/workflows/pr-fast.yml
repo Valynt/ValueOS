@@ -339,6 +339,8 @@ jobs:
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
+      - name: Waiver ownership metadata guard
+        run: node scripts/ci/check-waiver-ownership-metadata.mjs
 
       - name: OpenAPI canonical path allowlist guard
         run: node scripts/ci/check-openapi-file-allowlist.mjs
