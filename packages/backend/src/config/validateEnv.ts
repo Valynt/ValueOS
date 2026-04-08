@@ -59,6 +59,7 @@ const RECOMMENDED_VARS = [
 
 const SECURE_NODE_ENVS = new Set(["staging", "production"]);
 const STRICT_POSTGRES_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
+const VALID_LOG_LEVELS = new Set(["debug", "info", "warn", "error"]);
 
 const DEPRECATED_ALIASES = [
   { deprecated: "SUPABASE_SERVICE_KEY", canonical: "SUPABASE_SERVICE_ROLE_KEY" },
@@ -465,6 +466,25 @@ function validateAuthFallbackConfig(nodeEnv: string, errors: string[]): void {
   }
 }
 
+function validateLogLevel(nodeEnv: string, errors: string[]): void {
+  const rawLogLevel = process.env.LOG_LEVEL;
+  if (!rawLogLevel) {
+    return;
+  }
+
+  const normalizedLogLevel = rawLogLevel.toLowerCase();
+  if (!VALID_LOG_LEVELS.has(normalizedLogLevel)) {
+    errors.push(
+      `Invalid LOG_LEVEL="${rawLogLevel}". Allowed values: debug | info | warn | error.`
+    );
+    return;
+  }
+
+  if (SECURE_NODE_ENVS.has(nodeEnv) && normalizedLogLevel === "debug") {
+    errors.push(`LOG_LEVEL=debug is not permitted in ${nodeEnv}. Use info, warn, or error.`);
+  }
+}
+
 export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -574,6 +594,7 @@ export function validateEnv(): ValidationResult {
   validateCacheEncryptionRules(nodeEnv, errors);
   validateBrowserTelemetryControls(nodeEnv, errors);
   validateAuthFallbackConfig(nodeEnv, errors);
+  validateLogLevel(nodeEnv, errors);
   errors.push(...validateAuditLogEncryptionConfig(process.env));
 
   return {
