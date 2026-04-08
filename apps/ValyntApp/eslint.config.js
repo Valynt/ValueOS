@@ -168,6 +168,14 @@ const typeAwareRuntimeConfig = {
   },
 };
 
+const noDefaultExportsConfig = {
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/**/*.stories.tsx", "src/**/*.d.ts"],
+  rules: {
+    "import/no-default-export": "error",
+  },
+};
+
 // Confirmed exception locations: src/lib/, src/utils/, src/mcp-*/, src/security/ may use raw fetch()
 // for external APIs, fire-and-forget analytics, CSP violation reporting, and security primitives.
 // These are not /api/ backend routes and do not require UnifiedApiClient.
@@ -236,6 +244,7 @@ export default [
   ignoresConfig,
   valyntAppConfig,
   typeAwareRuntimeConfig,
+  noDefaultExportsConfig,
   testConfig,
   fetchExceptionConfig,
   browserBoundaryConfig,

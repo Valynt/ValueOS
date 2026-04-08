@@ -247,4 +247,4 @@ export function useCanvasState(
   };
 }
 
-export default useCanvasState;
+export { useCanvasState };

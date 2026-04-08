@@ -55,4 +55,4 @@ export function CanvasView({
   );
 }
 
-export default CanvasView;
+export { CanvasView };

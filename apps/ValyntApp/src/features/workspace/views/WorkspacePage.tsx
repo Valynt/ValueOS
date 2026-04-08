@@ -196,4 +196,4 @@ export function WorkspacePage(): JSX.Element {
   );
 }
 
-export default WorkspacePage;
+export { WorkspacePage };

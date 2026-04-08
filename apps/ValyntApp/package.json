@@ -9,6 +9,7 @@
     "build:strict": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:no-default-exports": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "lint:boundaries": "node ./scripts/check-server-boundaries.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -18,6 +19,7 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest run --watch",
     "test:coverage": "vitest run --coverage",
+    "refactor:default-exports": "node ./scripts/refactor-default-exports.mjs",
     "ts:errors:ratchet": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --enforce",
     "ts:errors:report": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --report-only",
     "ts:errors:update-baseline": "node ../../scripts/ci/valyntapp-ts-error-policy.mjs --update-baseline --report-only"
