@@ -247,7 +247,8 @@ describe("5.3 Realization Tracker", () => {
 
     const updatedGraph = applyRealizationFeedback(mockGraph, actuals);
     expect(updatedGraph.nodes["driver-1"]).toBeDefined();
-    expect(updatedGraph.nodes["driver-1"]!.confidence).toBeGreaterThan(0.7);
+    expect(updatedGraph.nodes["driver-1"]!.confidence).toBeCloseTo(0.8, 10);
+    expect(updatedGraph.versionId).toContain("v1-feedback-");
   });
 
   it("5.3.5: Realization feedback decreases confidence when actuals diverge significantly", () => {
@@ -264,7 +265,35 @@ describe("5.3 Realization Tracker", () => {
 
     const updatedGraph = applyRealizationFeedback(mockGraph, actuals);
     expect(updatedGraph.nodes["driver-1"]).toBeDefined();
-    expect(updatedGraph.nodes["driver-1"]!.confidence).toBeLessThan(0.8);
+    expect(updatedGraph.nodes["driver-1"]!.confidence).toBe(0.65);
+    expect(updatedGraph.versionId).toContain("v1-feedback-");
+  });
+
+  it("5.3.5: Realization feedback honors confidence thresholds at boundaries", () => {
+    const mockGraph = createMockGraph({
+      nodes: {
+        "excellent-95": { id: "excellent-95", type: "driver", label: "Excellent", value: 100, confidence: 0.6 },
+        "good-85": { id: "good-85", type: "driver", label: "Good", value: 100, confidence: 0.6 },
+        "fair-70": { id: "fair-70", type: "driver", label: "Fair", value: 100, confidence: 0.6 },
+        "poor-below-70": { id: "poor-below-70", type: "driver", label: "Poor", value: 100, confidence: 0.6 },
+        "floor-check": { id: "floor-check", type: "driver", label: "Floor", value: 100, confidence: 0.31 },
+      },
+      edges: {},
+    });
+
+    const updatedGraph = applyRealizationFeedback(mockGraph, {
+      "excellent-95": { projected: 100, actual: 95, accuracy: 0.95 },
+      "good-85": { projected: 100, actual: 85, accuracy: 0.85 },
+      "fair-70": { projected: 100, actual: 70, accuracy: 0.7 },
+      "poor-below-70": { projected: 100, actual: 69, accuracy: 0.69 },
+      "floor-check": { projected: 100, actual: 10, accuracy: 0.1 },
+    });
+
+    expect(updatedGraph.nodes["excellent-95"]!.confidence).toBeCloseTo(0.7, 10);
+    expect(updatedGraph.nodes["good-85"]!.confidence).toBeCloseTo(0.65, 10);
+    expect(updatedGraph.nodes["fair-70"]!.confidence).toBeCloseTo(0.6, 10);
+    expect(updatedGraph.nodes["poor-below-70"]!.confidence).toBeCloseTo(0.45, 10);
+    expect(updatedGraph.nodes["floor-check"]!.confidence).toBeCloseTo(0.3, 10);
   });
 });
 

@@ -223,7 +223,7 @@ export function RealizationReviewPage() {
   const { data: report, isLoading: reportLoading } = useRealizationReport(caseId);
   const { data: timelineData, isLoading: timelineLoading } = useActualsTimeline(caseId);
   const { data: expansionSignals, isLoading: signalsLoading } = useExpansionSignals(caseId);
-  const { applyFeedback, feedbackStats } = useRealizationFeedback(caseId);
+  const { feedbackStats } = useRealizationFeedback(caseId);
 
   const isLoading = baselineLoading || checkpointsLoading || reportLoading || timelineLoading;
   const error = baselineError;
