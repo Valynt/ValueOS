@@ -507,4 +507,4 @@ function formatCostPerMonth(value?: number): string {
   return `$${value.toFixed(0)}/mo`;
 }
 
-export default exportToPdf;
+export { exportToPdf };

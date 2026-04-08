@@ -212,6 +212,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Active app lint
         run: pnpm --dir ${{ matrix.app_dir }} run lint
+      - name: ValyntApp default-export regression guard
+        if: matrix.app == 'valynt-app'
+        run: pnpm run check:valyntapp-default-exports
       - name: Active app typecheck
         run: pnpm --dir ${{ matrix.app_dir }} run typecheck
       - name: Active app build

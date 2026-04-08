@@ -438,4 +438,4 @@ function ArtifactStatusBadge({ status }: { status: Artifact['status'] }) {
   );
 }
 
-export default ArtifactRenderer;
+export { ArtifactRenderer };

@@ -65,6 +65,7 @@
     "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
     "check:package-metadata-naming": "node scripts/ci/check-package-metadata-naming.mjs",
     "check:app-test-toolchain-baseline": "node scripts/ci/check-app-test-toolchain-baseline.mjs",
+    "check:valyntapp-default-exports": "node scripts/ci/check-valyntapp-default-export-regressions.mjs",
     "check:latency-target-consistency": "node scripts/ci/check-latency-target-consistency.mjs",
     "check:debt-ratchet": "node scripts/ci/debt-ratchet.mjs",
     "check:debt-inventory-report": "node scripts/ci/check-debt-report-semantic-content.mjs",

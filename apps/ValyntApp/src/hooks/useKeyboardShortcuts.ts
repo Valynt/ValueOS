@@ -337,7 +337,7 @@ export function createWorkbenchHandlers(
   };
 }
 
-export default useKeyboardShortcuts;
+export { useKeyboardShortcuts };
 
 // ============================================================================
 // Undo/Redo Stack Hook

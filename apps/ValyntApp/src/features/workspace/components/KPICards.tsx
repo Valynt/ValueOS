@@ -185,4 +185,4 @@ export function KPIStrip({ data, className }: { data: KPIData; className?: strin
   );
 }
 
-export default KPICards;
+export { KPICards };

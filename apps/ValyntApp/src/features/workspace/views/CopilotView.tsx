@@ -60,4 +60,4 @@ export function CopilotView({
   );
 }
 
-export default CopilotView;
+export { CopilotView };
