@@ -74,6 +74,7 @@ import referralsRouter from "./api/referrals.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
 import { secretAuditRouter } from "./api/secretAudit.js";
 import teamsRouter from "./api/teams.js";
+import { tenantRouter } from "./api/tenant.js";
 import { tenantContextRouter } from "./api/tenantContext.js";
 import { usageRouter } from "./api/usage.js";
 import { valueCasesRouter } from "./api/valueCases/index.js";
@@ -723,6 +724,7 @@ app.use('/api', realizationRouter);
 app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/opportunities", opportunityValueGraphRouter);
+app.use("/api/v1/tenant", requireAuth, tenantRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use(

@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockEq, mockSelect, mockFrom, mockGetUser } = vi.hoisted(() => ({
-  mockEq: vi.fn(),
-  mockSelect: vi.fn(),
-  mockFrom: vi.fn(),
-  mockGetUser: vi.fn(),
+const { mockGet, mockGetSession } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockGetSession: vi.fn(),
 }));
 
-vi.mock("../../lib/supabase", () => ({
+vi.mock("@/api/client", () => ({
+  apiClient: {
+    get: mockGet,
+  },
+}));
+
+vi.mock("@/lib/supabase", () => ({
   supabase: {
     auth: {
-      getUser: mockGetUser,
+      getSession: mockGetSession,
     },
-    from: mockFrom,
   },
 }));
 
@@ -22,22 +25,17 @@ describe("tenant api security", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockEq.mockResolvedValue({ data: [], error: null });
-    mockSelect.mockReturnValue({ eq: mockEq });
-    mockFrom.mockReturnValue({ select: mockSelect });
-
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "session-user-123" } },
-      error: null,
+    mockGet.mockResolvedValue({ data: { data: [], error: null } });
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: "session-user-123" } } },
     });
   });
 
-  it("rejects mismatched caller user id and does not query memberships", async () => {
+  it("rejects mismatched caller user id", async () => {
     const result = await fetchUserTenants({ expectedUserId: "attacker-user-456" });
 
     expect(result.data).toBeNull();
     expect(result.error).toBeTruthy();
-    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it("sanitizes tenantId before tenant lookup query", async () => {
@@ -45,7 +43,6 @@ describe("tenant api security", () => {
 
     await getTenantById(dangerousTenantId);
 
-    // sanitizeInput with allowHtml: false strips script tags entirely
-    expect(mockEq).toHaveBeenCalledWith("id", "tenant-1");
+    expect(mockGet).toHaveBeenCalledWith("/v1/tenant/tenant-1");
   });
 });

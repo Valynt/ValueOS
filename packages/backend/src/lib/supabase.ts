@@ -1,10 +1,8 @@
 import {
-  createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
   getRequestSupabaseClient,
-  type BrowserSafeAnonSupabaseClient,
   type RequestScopedRlsSupabaseClient,
   type ServiceRoleSupabaseClient,
 } from "@shared/lib/supabase";
@@ -31,12 +29,10 @@ function assertNotTestEnv(caller: string): void {
 
 export {
   assertNotTestEnv,
-  createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
   getRequestSupabaseClient,
-  type BrowserSafeAnonSupabaseClient,
   type RequestScopedRlsSupabaseClient,
 };
 export type { ServiceRoleSupabaseClient };

@@ -72,6 +72,18 @@ export default tseslint.config(
         {
           patterns: [
             {
+              group: ["@shared/lib/supabase"],
+              importNames: ["createBrowserSupabaseClient"],
+              message:
+                "Browser-only Supabase helpers are forbidden in backend code. Use request-scoped or privileged backend Supabase clients.",
+            },
+            {
+              group: ["**/lib/supabase", "**/lib/supabase.js"],
+              importNames: ["createBrowserSupabaseClient"],
+              message:
+                "Browser-only Supabase helpers are forbidden in backend code. Use request-scoped or privileged backend Supabase clients.",
+            },
+            {
               group: [
                 "**/services/types/agent",
                 "**/services/types/agent.js",

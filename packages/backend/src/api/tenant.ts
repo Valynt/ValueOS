@@ -1,19 +1,10 @@
-/**
- * Tenant API Client
- *
- * Provides typed API calls for tenant-related operations.
- * Uses feature flag to enable/disable real API calls.
- */
+import { Router } from "express";
 
-import { createLogger } from "@shared/lib/logger";
-import { createBrowserSupabaseClient } from "@shared/lib/supabase";
+import { getRequestSupabaseClient } from "../lib/supabase.js";
+import { createLogger } from "../lib/logger.js";
 
-const logger = createLogger({ component: "TenantAPI" });
-const supabase = createBrowserSupabaseClient();
+const logger = createLogger({ component: "TenantApiRouter" });
 
-/**
- * Tenant information returned from API
- */
 export interface TenantInfo {
   id: string;
   name: string;
@@ -24,43 +15,33 @@ export interface TenantInfo {
   createdAt: string;
 }
 
-/**
- * API response wrapper
- */
-export interface TenantApiResponse<T> {
-  data: T | null;
-  error: Error | null;
+interface TenantMembershipRow {
+  tenant_id: string;
+  role: string;
+  status: TenantInfo["status"];
+  tenants?: {
+    id: string;
+    name?: string;
+    slug?: string;
+    settings?: { brandColor?: string };
+    created_at?: string;
+  };
 }
 
-/**
- * Check if tenant API is enabled via feature flag
- */
-export function isTenantApiEnabled(): boolean {
-  return import.meta.env.VITE_TENANTS_API_ENABLED !== "false";
-}
+const isSafeTenantId = (tenantId: string): boolean => /^[a-zA-Z0-9_-]{1,128}$/.test(tenantId);
 
-/**
- * Fetch all tenants the current user has access to
- *
- * SECURITY: This queries user_tenants table which is RLS-protected.
- * The backend validates the user's session before returning data.
- */
-export async function fetchUserTenants(userId: string): Promise<TenantApiResponse<TenantInfo[]>> {
-  if (!isTenantApiEnabled()) {
-    logger.warn("Tenant API disabled, returning empty list");
-    return { data: [], error: null };
-  }
+export const tenantRouter = Router();
 
-  if (!supabase) {
-    logger.error("Supabase client not configured");
-    return {
-      data: null,
-      error: new Error("Database connection unavailable"),
-    };
+tenantRouter.get("/memberships", async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ data: null, error: "Unauthorized" });
   }
 
   try {
-    const { data, error } = await supabase
+    const db = getRequestSupabaseClient(req);
+    const { data, error } = await db
       .from("user_tenants")
       .select(
         `
@@ -71,7 +52,8 @@ export async function fetchUserTenants(userId: string): Promise<TenantApiRespons
           id,
           name,
           slug,
-          settings
+          settings,
+          created_at
         )
       `
       )
@@ -79,97 +61,83 @@ export async function fetchUserTenants(userId: string): Promise<TenantApiRespons
       .eq("status", "active");
 
     if (error) {
-      logger.error("Failed to fetch user tenants", error, { userId });
-      return { data: null, error };
+      logger.error("Failed to fetch tenant memberships", error, { userId });
+      return res.status(500).json({ data: null, error: "Failed to fetch tenant memberships" });
     }
 
-    if (!data || data.length === 0) {
-      logger.info("User has no active tenants", { userId });
-      return { data: [], error: null };
-    }
+    const tenants: TenantInfo[] = (data as TenantMembershipRow[] | null)?.map((row) => ({
+      id: row.tenant_id,
+      name: row.tenants?.name ?? "Unknown Tenant",
+      slug: row.tenants?.slug ?? row.tenant_id,
+      color: row.tenants?.settings?.brandColor ?? "#18C3A5",
+      role: row.role || "member",
+      status: row.status,
+      createdAt: row.tenants?.created_at ?? new Date().toISOString(),
+    })) ?? [];
 
-    const tenants: TenantInfo[] = data.map((row: Record<string, unknown>) => {
-      const tenantsData = row.tenants as Record<string, unknown> | undefined;
-      const settingsData = tenantsData?.settings as Record<string, unknown> | undefined;
-      return {
-        id: String(row.tenant_id),
-        name: String(tenantsData?.name || "Unknown Tenant"),
-        slug: String(tenantsData?.slug || row.tenant_id),
-        color: String(settingsData?.brandColor || "#18C3A5"),
-        role: String(row.role || "member"),
-        status: (row.status as TenantInfo["status"]) || "active",
-        createdAt: String(tenantsData?.created_at || new Date().toISOString()),
-      };
-    });
-
-    logger.debug("Fetched user tenants", { userId, count: tenants.length });
-    return { data: tenants, error: null };
+    return res.json({ data: tenants, error: null });
   } catch (err) {
-    const error = err instanceof Error ? err : new Error("Unknown error fetching tenants");
-    logger.error("Exception fetching user tenants", error, { userId });
-    return { data: null, error };
+    const error = err instanceof Error ? err.message : "Unknown error fetching tenant memberships";
+    logger.error("Exception fetching tenant memberships", err as Error, { userId });
+    return res.status(500).json({ data: null, error });
   }
-}
+});
 
-/**
- * Validate that a user has access to a specific tenant
- *
- * SECURITY: This is a client-side check. The backend MUST also validate.
- */
-export async function validateTenantAccess(userId: string, tenantId: string): Promise<boolean> {
-  const { data: tenants, error } = await fetchUserTenants(userId);
+tenantRouter.get("/:tenantId", async (req, res) => {
+  const userId = req.user?.id;
+  const { tenantId } = req.params;
 
-  if (error || !tenants) {
-    logger.warn("Cannot validate tenant access", { userId, tenantId, error });
-    return false;
+  if (!userId) {
+    return res.status(401).json({ data: null, error: "Unauthorized" });
   }
 
-  const hasAccess = tenants.some((t) => t.id === tenantId);
-
-  if (!hasAccess) {
-    logger.warn("User does not have access to tenant", { userId, tenantId });
-  }
-
-  return hasAccess;
-}
-
-/**
- * Get tenant details by ID
- */
-export async function getTenantById(tenantId: string): Promise<TenantApiResponse<TenantInfo>> {
-  if (!supabase) {
-    return { data: null, error: new Error("Database connection unavailable") };
+  if (!tenantId || !isSafeTenantId(tenantId)) {
+    return res.status(400).json({ data: null, error: "Invalid tenant id" });
   }
 
   try {
-    const { data, error } = await supabase
-      .from("tenants")
-      .select("id, name, slug, settings, created_at")
-      .eq("id", tenantId)
+    const db = getRequestSupabaseClient(req);
+
+    const { data, error } = await db
+      .from("user_tenants")
+      .select(
+        `
+        tenant_id,
+        role,
+        status,
+        tenants:tenant_id (
+          id,
+          name,
+          slug,
+          settings,
+          created_at
+        )
+      `
+      )
+      .eq("user_id", userId)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (error) {
-      logger.error("Failed to fetch tenant", error, { tenantId });
-      return { data: null, error };
+      logger.warn("Failed to fetch tenant by id", { userId, tenantId, error });
+      return res.status(404).json({ data: null, error: "Tenant not found" });
     }
 
-    if (!data) {
-      return { data: null, error: new Error("Tenant not found") };
-    }
-
+    const row = data as TenantMembershipRow;
     const tenant: TenantInfo = {
-      id: data.id,
-      name: data.name,
-      slug: data.slug,
-      color: data.settings?.brandColor || "#18C3A5",
-      role: "member",
-      status: "active",
-      createdAt: data.created_at,
+      id: row.tenant_id,
+      name: row.tenants?.name ?? "Unknown Tenant",
+      slug: row.tenants?.slug ?? row.tenant_id,
+      color: row.tenants?.settings?.brandColor ?? "#18C3A5",
+      role: row.role || "member",
+      status: row.status,
+      createdAt: row.tenants?.created_at ?? new Date().toISOString(),
     };
 
-    return { data: tenant, error: null };
+    return res.json({ data: tenant, error: null });
   } catch (err) {
-    const error = err instanceof Error ? err : new Error("Unknown error");
-    return { data: null, error };
+    const error = err instanceof Error ? err.message : "Unknown error fetching tenant";
+    logger.error("Exception fetching tenant", err as Error, { userId, tenantId });
+    return res.status(500).json({ data: null, error });
   }
-}
+});
