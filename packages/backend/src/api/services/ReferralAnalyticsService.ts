@@ -55,7 +55,7 @@ interface TopReferrerRecord {
 }
 
 interface UserProfile {
-  id: string;
+  user_uuid: string;
   email: string;
 }
 
@@ -65,7 +65,11 @@ export class ReferralAnalyticsService {
   /**
    * Get comprehensive referral analytics
    */
-  async getReferralAnalytics(timeframe = '90 days'): Promise<ReferralAnalytics | null> {
+  async getReferralAnalytics(organizationId: string, timeframe = '90 days'): Promise<ReferralAnalytics | null> {
+    if (!organizationId?.trim()) {
+      throw new Error('organizationId is required');
+    }
+
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeframe.split(' ')[0]));
@@ -74,6 +78,7 @@ export class ReferralAnalyticsService {
       const { data: overallStats, error: overallError } = await this.supabase
         .from('referrals')
         .select('status, created_at, completed_at')
+        .eq('organization_id', organizationId)
         .gte('created_at', cutoffDate.toISOString())
         .returns<ReferralRecord[]>();
 
@@ -86,6 +91,7 @@ export class ReferralAnalyticsService {
       const { data: rewardStats, error: rewardError } = await this.supabase
         .from('referral_rewards')
         .select('reward_type, reward_value, created_at')
+        .eq('organization_id', organizationId)
         .gte('created_at', cutoffDate.toISOString())
         .returns<RewardRecord[]>();
 
@@ -98,6 +104,7 @@ export class ReferralAnalyticsService {
       const { data: topReferrers, error: referrersError } = await this.supabase
         .from('referral_stats')
         .select('user_id, total_referrals, completed_referrals')
+        .eq('organization_id', organizationId)
         .gte('total_referrals', 1)
         .order('completed_referrals', { ascending: false })
         .limit(10)
@@ -110,19 +117,24 @@ export class ReferralAnalyticsService {
 
       // Get user emails for top referrers
       const userIds = topReferrers?.map(r => r.user_id) || [];
-      const { data: userProfiles, error: profilesError } = await this.supabase.auth.admin.listUsers();
+      const { data: userProfiles, error: profilesError } = userIds.length === 0
+        ? { data: [], error: null }
+        : await this.supabase
+          .from('user_profile_directory')
+          .select('user_uuid, email')
+          .eq('tenant_id', organizationId)
+          .in('user_uuid', userIds)
+          .returns<UserProfile[]>();
 
       const userEmailMap = new Map<string, string>();
-      if (!profilesError && userProfiles?.users) {
-        (userProfiles.users as UserProfile[]).forEach(user => {
-          if (userIds.includes(user.id)) {
-            userEmailMap.set(user.id, user.email);
-          }
+      if (!profilesError && userProfiles) {
+        userProfiles.forEach(user => {
+          userEmailMap.set(user.user_uuid, user.email);
         });
       }
 
       // Get monthly stats
-      const monthlyStats = await this.getMonthlyStats(cutoffDate);
+      const monthlyStats = await this.getMonthlyStats(organizationId, cutoffDate);
 
       // Calculate analytics
       const totalReferrals = overallStats?.length || 0;
@@ -157,6 +169,7 @@ export class ReferralAnalyticsService {
       };
 
       logger.info('Referral analytics generated', {
+        organization_id: organizationId,
         timeframe,
         total_referrals: analytics.total_referrals,
         conversion_rate: analytics.conversion_rate
@@ -173,11 +186,12 @@ export class ReferralAnalyticsService {
   /**
    * Get monthly referral statistics
    */
-  private async getMonthlyStats(cutoffDate: Date): Promise<ReferralAnalytics['monthly_stats']> {
+  private async getMonthlyStats(organizationId: string, cutoffDate: Date): Promise<ReferralAnalytics['monthly_stats']> {
     try {
       const { data: monthlyData, error } = await this.supabase
         .from('referrals')
         .select('status, created_at, completed_at')
+        .eq('organization_id', organizationId)
         .gte('created_at', cutoffDate.toISOString())
         .returns<ReferralRecord[]>();
 
@@ -299,28 +313,35 @@ export class ReferralAnalyticsService {
   /**
    * Get referral funnel analytics
    */
-  async getReferralFunnel(): Promise<{
+  async getReferralFunnel(organizationId: string): Promise<{
     generated_codes: number;
     claimed_referrals: number;
     started_signup: number;
     completed_signup: number;
     converted_to_paid: number;
   } | null> {
+    if (!organizationId?.trim()) {
+      throw new Error('organizationId is required');
+    }
+
     try {
       // This would require additional tracking tables or events
       // For now, return basic funnel data
       const { data: codes, error: codesError } = await this.supabase
         .from('referral_codes')
-        .select('id');
+        .select('id')
+        .eq('organization_id', organizationId);
 
       const { data: claimed, error: claimedError } = await this.supabase
         .from('referrals')
         .select('id')
+        .eq('organization_id', organizationId)
         .eq('status', 'claimed');
 
       const { data: completed, error: completedError } = await this.supabase
         .from('referrals')
         .select('id')
+        .eq('organization_id', organizationId)
         .eq('status', 'completed');
 
       if (codesError || claimedError || completedError) {
