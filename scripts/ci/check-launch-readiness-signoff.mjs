@@ -43,42 +43,22 @@ function parseMarkdownTableRows(markdown, heading) {
   return tableLines.slice(2).filter((line) => line.trim().startsWith('|'));
 }
 
-const gateRows = parseMarkdownTableRows(content, '## Gate evidence matrix');
+const gateRows = parseMarkdownTableRows(content, '## Gate status dashboard');
 const gateStatusById = new Map();
+const gateSignoffById = new Map();
 
 for (const row of gateRows) {
   const cols = row.split('|').map((cell) => cell.trim());
   const gateId = cols[1]?.match(/^G\d+/)?.[0];
   const statusRaw = cols[2] ?? '';
+  const checkedCell = cols[5] ?? '';
 
   if (!gateId) {
     continue;
   }
 
   gateStatusById.set(gateId, normalize(statusRaw));
-}
-
-const signoffRows = parseMarkdownTableRows(content, '## Go/No-Go sign-off table');
-const signoffById = new Map();
-let releaseManagerRow = null;
-
-for (const row of signoffRows) {
-  const cols = row.split('|').map((cell) => cell.trim());
-  const roleCell = cols[1] ?? '';
-  const checkedCell = cols[2] ?? '';
-  const timestamp = cols[3] ?? '';
-  const releaseSha = cols[4] ?? '';
-
-  const gateId = roleCell.match(/^G\d+/)?.[0];
-  const isChecked = /\[(x|X)\]/.test(checkedCell);
-
-  if (gateId) {
-    signoffById.set(gateId, { isChecked, timestamp, releaseSha, roleCell });
-  }
-
-  if (roleCell.startsWith('Release Manager')) {
-    releaseManagerRow = { isChecked, timestamp, releaseSha, roleCell };
-  }
+  gateSignoffById.set(gateId, /\[(x|X)\]/.test(checkedCell));
 }
 
 const violations = [];
@@ -87,9 +67,8 @@ for (const [gateId, status] of gateStatusById.entries()) {
     continue;
   }
 
-  const signoff = signoffById.get(gateId);
-  if (!signoff || !signoff.isChecked) {
-    violations.push(`${gateId} is COMPLETE in gate matrix but unchecked in sign-off table.`);
+  if (!gateSignoffById.get(gateId)) {
+    violations.push(`${gateId} is COMPLETE in gate dashboard but owner sign-off is unchecked.`);
   }
 }
 
@@ -102,31 +81,33 @@ if (violations.length > 0) {
 }
 
 if (requireReleaseManager) {
-  if (!releaseManagerRow) {
-    console.error(`❌ ${docPath} is missing the Release Manager sign-off row.`);
-    process.exit(1);
-  }
+  const decisionRows = parseMarkdownTableRows(content, '## Release manager decision');
+  const row = decisionRows[0];
+  const cols = row.split('|').map((cell) => cell.trim());
+  const checkedCell = cols[1] ?? '';
+  const timestamp = cols[2] ?? '';
+  const releaseSha = cols[3] ?? '';
 
-  if (!releaseManagerRow.isChecked) {
+  const isChecked = /\[(x|X)\]/.test(checkedCell);
+
+  if (!isChecked) {
     console.error('❌ Release Manager sign-off is required before production deploy.');
     process.exit(1);
   }
 
   const isoLike = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-  if (!isoLike.test(releaseManagerRow.timestamp)) {
+  if (!isoLike.test(timestamp)) {
     console.error('❌ Release Manager sign-off must include a UTC ISO timestamp (YYYY-MM-DDTHH:MM:SSZ).');
     process.exit(1);
   }
 
-  if (!/^[a-fA-F0-9]{7,40}$/.test(releaseManagerRow.releaseSha)) {
+  if (!/^[a-fA-F0-9]{7,40}$/.test(releaseSha)) {
     console.error('❌ Release Manager sign-off must include a valid release SHA (7-40 hex chars).');
     process.exit(1);
   }
 
-  if (expectedSha && releaseManagerRow.releaseSha.toLowerCase() !== expectedSha.toLowerCase()) {
-    console.error(
-      `❌ Release Manager release SHA (${releaseManagerRow.releaseSha}) does not match expected SHA (${expectedSha}).`
-    );
+  if (expectedSha && releaseSha.toLowerCase() !== expectedSha.toLowerCase()) {
+    console.error(`❌ Release Manager release SHA (${releaseSha}) does not match expected SHA (${expectedSha}).`);
     process.exit(1);
   }
 }

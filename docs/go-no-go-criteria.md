@@ -19,6 +19,23 @@
 
 These are non-negotiable. No exception process exists for these criteria.
 
+Operational control mapping (owner, CI jobs, artifact paths, waiver governance): [docs/operations/launch-evidence/gate-control-matrix.md](./operations/launch-evidence/gate-control-matrix.md).
+
+OpenSpec requirements intent and traceability: [openspec/specs/production-readiness/spec.md](../openspec/specs/production-readiness/spec.md).
+
+```json gate-threshold-catalog
+{
+  "G1": "All required checks green on release SHA; no open HIGH/CRITICAL CodeQL alerts",
+  "G2": "Coverage: lines >=75%, statements >=75%, functions >=70%, branches >=70%; zero failing unit/integration/RLS tests",
+  "G3": "Zero failing Playwright tests; no test.skip/test.only for critical E2E coverage",
+  "G4": "0 HIGH DAST, <=5 MEDIUM DAST; 0 HIGH/CRITICAL unwaived dependency CVEs; no secrets detected",
+  "G5": "Migration chain clean; all migrations have rollback; rollback/reapply verified; DR validation passed within 7 days",
+  "G6": "All critical manifests validated; kube/terraform/security policy gates pass",
+  "G7": "Required observability links and runbook mappings pass; on-call and escalation active for deployment window",
+  "G8": "Critical controls pass; control matrix consistency passes; tenant isolation evidence present with passing RLS suite"
+}
+```
+
 ### G1 — CI Pipeline Integrity
 
 | Criterion | Pass condition | Verification |
