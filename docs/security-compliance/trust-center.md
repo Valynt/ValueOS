@@ -121,8 +121,10 @@ Customer-facing trust artifacts are linked to current control/risk snapshots so 
   - `artifacts/security/governance/trust-kpi-snapshot.json`
   - `artifacts/security/governance/open-risks.json`
   - `artifacts/security/governance/stale-controls.json`
+
   - `artifacts/security/governance/vdp-kpis.json` (quarterly VDP/CVD SLA + throughput snapshot, including SLA ownership/escalation metadata)
-  - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope)
+  - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope; CI requires managed signing key via `DATA_RESIDENCY_ARTIFACT_SIGNING_KEY`)
+
   - Policy input used by the gate: `docs/security-compliance/data-residency-controls.json`
 - KPI generation/refresh workflows:
   - PR + main governance lanes: `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` (`Extract governance trust KPI snapshots` step)

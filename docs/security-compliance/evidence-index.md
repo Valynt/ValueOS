@@ -80,8 +80,10 @@ Each bundle contains:
 - `SHA256SUMS` checksum ledger.
 - `SHA256SUMS.sig` + `SHA256SUMS.pem` keyless signature material.
 - `reports/compliance/metadata/workflow-run.json` with run metadata.
-- `artifacts/security/governance/data-residency-status.json` — tenant-to-region data store/export residency evaluation with a machine-verifiable signature envelope (`signature.payloadDigest` + `signature.signature`).
+
+- `artifacts/security/governance/data-residency-status.json` — tenant-to-region data store/export residency evaluation with a machine-verifiable signature envelope (`signature.payloadDigest` + `signature.signature`) and signing provenance metadata (`signature.keySource`, `signature.signatureMode`).
 - `artifacts/security/governance/vdp-kpis.json` — quarterly vulnerability disclosure KPI snapshot (public policy path, intake metadata, SLA performance/remediation windows, and ownership/escalation workflow for missed SLAs).
+
 
 Secret-rotation evidence is published separately as:
 

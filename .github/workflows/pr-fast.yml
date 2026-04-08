@@ -514,10 +514,13 @@ jobs:
             --output-dir artifacts/security/governance
 
       - name: Data residency controls gate + signed governance artifact
+        env:
+          DATA_RESIDENCY_ARTIFACT_SIGNING_KEY: ${{ secrets.DATA_RESIDENCY_ARTIFACT_SIGNING_KEY }}
         run: |
           node scripts/ci/check-data-residency-controls.mjs \
             --policy docs/security-compliance/data-residency-controls.json \
-            --output artifacts/security/governance/data-residency-status.json
+            --output artifacts/security/governance/data-residency-status.json \
+            --require-signing-key
 
       - name: Manifest maturity gap report (warning — production gate enforces hard block)
         # Surfaces which critical K8s manifest classes still need evidence links
