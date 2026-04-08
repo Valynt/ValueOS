@@ -1,0 +1,4 @@
+# Command
+node scripts/ci/validate-k8s-security-policies.mjs
+
+kustomize is required in PATH for Kubernetes security policy validation.

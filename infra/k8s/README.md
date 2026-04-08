@@ -13,11 +13,11 @@ Kubernetes deployment configuration for the active ValueOS shared-environment ru
 | `base/configmap.yaml`             | Validated    | Base config with overlay-required overrides for `node-env` and `app-env` |
 | `base/backend-deployment.yaml`    | Aspirational | Image tags and resource limits need production tuning                    |
 | `base/frontend-*-deployment.yaml` | Aspirational | Blue-green setup defined but not tested                                  |
-| `base/hpa.yaml`                   | Aspirational | HPA metrics and thresholds need load-test validation                     |
-| `base/network-policies.yaml`      | Aspirational | Needs cluster-level NetworkPolicy controller                             |
+| `base/hpa.yaml`                   | Validated    | Promotion evidence recorded in ledger + `infra/k8s/evidence/2026-04-08/` |
+| `base/network-policies.yaml`      | Validated    | Staging verification and security signoff recorded in ledger             |
 | `base/external-secrets.yaml`      | Aspirational | Requires ExternalSecrets operator + AWS/Vault backend                    |
 | `overlays/staging/`               | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
-| `overlays/production/`            | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
+| `overlays/production/`            | Validated    | Promotion workflow evidence captured in ledger                           |
 | `observability/`                  | Aspirational | Full OTEL + Prometheus + Grafana + Loki stack, not deployed              |
 
 ### Promotion criteria by manifest class

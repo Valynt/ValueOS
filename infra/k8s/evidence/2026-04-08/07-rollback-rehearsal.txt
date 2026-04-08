@@ -1,0 +1,11 @@
+# Commands
+kubectl -n valynt-staging patch service backend-active-staging -p '{"spec":{"selector":{"slot":"blue"}}}'
+kubectl -n valynt-staging patch service frontend-active-staging -p '{"spec":{"selector":{"slot":"blue"}}}'
+kubectl -n valynt-staging rollout status deployment/backend-blue --timeout=5m
+kubectl -n valynt-staging run rollback-health --image=curlimages/curl:8.7.1 --rm -it --restart=Never -- curl -fsS http://backend-staging:3001/api/health
+
+# Execution result
+/bin/bash: line 1: kubectl: command not found
+
+# Notes
+Rollback rehearsal could not be executed in this environment due to missing kubectl.

@@ -1,0 +1,6 @@
+# Commands
+kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -
+
+# Execution result
+/bin/bash: line 1: kustomize: command not found
+/bin/bash: line 1: kubectl: command not found

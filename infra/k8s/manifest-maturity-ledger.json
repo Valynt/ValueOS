@@ -1,53 +1,104 @@
 {
-  "schema_version": "1.1",
-  "last_updated": "2026-03-27",
+  "schema_version": "1.2",
+  "last_updated": "2026-04-08",
   "manifests": [
     {
       "class": "deployments",
       "critical": true,
-      "status": "Aspirational",
+      "status": "Validated",
       "minimum_maturity_by_environment": {
         "staging": "Aspirational",
         "production": "Validated"
       },
       "status_owner": "Platform Engineering",
-      "date_validated": "",
+      "date_validated": "2026-04-08",
       "evidence": {
-        "rollout_artifact": "",
-        "load_test_artifact": "",
-        "rollback_artifact": ""
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/06-production-overlay-dryrun.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+      },
+      "metadata": {
+        "promotion_scope": [
+          "infra/k8s/base/network-policies.yaml",
+          "infra/k8s/base/hpa.yaml",
+          "infra/k8s/overlays/production/"
+        ],
+        "security_owner_signoff": {
+          "owner": "Priya Nair",
+          "team": "Security Engineering",
+          "approved": true,
+          "approved_at": "2026-04-08",
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+        }
       }
     },
     {
       "class": "hpa",
       "critical": true,
-      "status": "Aspirational",
+      "status": "Validated",
       "minimum_maturity_by_environment": {
         "staging": "Aspirational",
         "production": "Validated"
       },
       "status_owner": "SRE",
-      "date_validated": "",
+      "date_validated": "2026-04-08",
       "evidence": {
-        "rollout_artifact": "",
-        "load_test_artifact": "",
-        "rollback_artifact": ""
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+      },
+      "metadata": {
+        "promotion_scope": [
+          "infra/k8s/base/network-policies.yaml",
+          "infra/k8s/base/hpa.yaml",
+          "infra/k8s/overlays/production/"
+        ],
+        "security_owner_signoff": {
+          "owner": "Priya Nair",
+          "team": "Security Engineering",
+          "approved": true,
+          "approved_at": "2026-04-08",
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+        }
       }
     },
     {
       "class": "network-policies",
       "critical": true,
-      "status": "Aspirational",
+      "status": "Validated",
       "minimum_maturity_by_environment": {
         "staging": "Aspirational",
         "production": "Validated"
       },
       "status_owner": "Security Engineering",
-      "date_validated": "",
+      "date_validated": "2026-04-08",
       "evidence": {
-        "rollout_artifact": "",
-        "load_test_artifact": "",
-        "rollback_artifact": ""
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/02-network-policy-validation.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/02-network-policy-validation.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+      },
+      "metadata": {
+        "promotion_scope": [
+          "infra/k8s/base/network-policies.yaml",
+          "infra/k8s/base/hpa.yaml",
+          "infra/k8s/overlays/production/"
+        ],
+        "security_owner_signoff": {
+          "owner": "Priya Nair",
+          "team": "Security Engineering",
+          "approved": true,
+          "approved_at": "2026-04-08",
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+        }
       }
     },
     {
