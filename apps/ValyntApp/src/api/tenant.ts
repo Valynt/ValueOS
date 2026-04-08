@@ -57,6 +57,12 @@ export async function fetchUserTenants(
 
   try {
     const response = await apiClient.get<{ data: TenantInfo[]; error: string | null }>("/v1/tenant/memberships");
+
+    if (response.data.error) {
+      const error = new Error(response.data.error);
+      logger.error("API error fetching user tenants", error);
+      return { data: null, error };
+    }
     const tenants = response.data.data ?? [];
 
     if (guard?.expectedUserId) {
