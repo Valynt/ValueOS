@@ -1,0 +1,14 @@
+# Commands
+kubectl -n valynt-staging rollout status deployment/backend-staging --timeout=5m
+kubectl -n valynt-staging rollout status deployment/frontend-staging --timeout=5m
+kubectl -n valynt-staging get pods -o wide
+kubectl -n valynt-staging run healthcheck --image=curlimages/curl:8.7.1 --rm -it --restart=Never -- curl -fsS http://backend-staging:3001/api/health
+
+# Execution result
+/bin/bash: line 11: kubectl: command not found
+/bin/bash: line 12: kubectl: command not found
+/bin/bash: line 13: kubectl: command not found
+/bin/bash: line 14: kubectl: command not found
+
+# Notes
+Attempted workflow execution in local environment. Commands require kubectl and cluster credentials.

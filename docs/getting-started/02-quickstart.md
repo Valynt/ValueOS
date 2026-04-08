@@ -1,189 +1,84 @@
 # 02 Quickstart
 
-> **Note:** References to `pnpm run dx` and `pnpm run dx:*` in this document are design specifications, not implemented package.json scripts. Use `gitpod automations service start <id>` to start services. See `.windsurf/automations.yaml` for the canonical service list.
+**Last Updated**: 2026-04-08
 
-**Last Updated**: 2026-02-08
-
-**Consolidated from 1 source documents**
+This quickstart references only currently supported root scripts from `package.json` and automation tasks/services from `.ona/automations.yaml`.
 
 ---
-
-## How to Run ValueOS - Quick Start Guide
-
-_Source: `HOW_TO_RUN.md`_
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Node.js 20.19.0+
-- pnpm 9.15.0+
+- Node.js 20+
+- pnpm 10+
+- Docker (for local infra workflows)
 
-## One-Command Boot (in devcontainer)
-
-If you're inside the VS Code devcontainer, the environment should already be running:
+## Start ValueOS in the devcontainer (recommended)
 
 ```bash
-# Verify everything is working
-pnpm run dev:verify
+# Install/validate toolchain and dependencies
+ona task run installDeps
 
-# Start the development server
-pnpm dev
+# Start backend and frontend services from .ona/automations.yaml
+gitpod automations service start backend
+gitpod automations service start frontend
 ```
 
-## Local Development (outside devcontainer)
+Equivalent root scripts:
 
 ```bash
-# 1. Install dependencies
+pnpm run dev:backend
+pnpm run dev:frontend
+```
+
+## Local development outside devcontainer
+
+```bash
+# 1) Install dependencies
 pnpm install
 
-# 2. Start infrastructure (Supabase/Kong/Postgres)
-pnpm run dx:up
+# 2) Initialize cloud/local dev wiring
+pnpm run dev:init
 
-# 3. Verify infrastructure is ready
-pnpm run dev:verify
+# 3) Bring up local dev dependencies and services
+pnpm run dev:up
 
-# 4. Start frontend
-pnpm dev
+# 4) Run a health/tooling check
+pnpm run dx:check
 ```
 
-## Verification Commands
+## Common commands (supported)
 
-| Command                      | Purpose                | Pass Criteria             |
-| ---------------------------- | ---------------------- | ------------------------- |
-| `pnpm run dev:verify`        | Full environment check | All Tier 0/1 checks pass  |
-| `pnpm run dev:verify:quick`  | Fast infra check only  | Skips TypeScript signal   |
-| `pnpm run dev:verify:infra`  | Infrastructure only    | Containers + DB + Kong    |
-| `pnpm run typecheck:islands` | Type-safe packages     | 0 errors in green islands |
-| `pnpm run typecheck:signal`  | Full TS debt report    | Informational             |
+| Command | Purpose |
+| --- | --- |
+| `pnpm run dev:frontend` | Start Vite frontend |
+| `pnpm run dev:backend` | Start backend API |
+| `pnpm run dev` | Start frontend + backend together |
+| `pnpm run build` | Build frontend + backend |
+| `pnpm run test` | Run workspace Vitest suite |
+| `pnpm run lint` | Run lint checks via Turbo |
+| `pnpm run check` | Run TypeScript checks via Turbo |
+| `pnpm run db:migrate` | Apply DB migrations |
+| `pnpm run test:rls` | Run RLS/security test suite |
+| `pnpm run dx:check` | Developer environment diagnostics |
 
-## What Gets Checked
+## Compatibility scripts for legacy quickstart commands
 
-### Tier 0: Infrastructure (Must Pass)
+Legacy command names are currently retained as compatibility aliases in root `package.json`:
 
-- ✓ Docker containers running (db, kong, auth, rest, storage, meta)
-- ✓ Database connectivity (SELECT 1 works)
-- ✓ Kong API Gateway responding on port 8000
+- `pnpm run dx:up` → delegates to `pnpm run dev:up`
+- `pnpm run dx:reset` → delegates to `pnpm run dev:reset`
+- `pnpm run dev:verify` → delegates to `pnpm run dx:check`
+- `pnpm run dev:verify:quick` → delegates to `pnpm run dx:check`
+- `pnpm run dev:verify:infra` → delegates to `pnpm run dx:check`
+- `pnpm run typecheck:islands` → delegates to `pnpm run check`
 
-### Tier 1: Application (Must Pass)
+### Deprecation timeline
 
-- ✓ Migrations applied
-- ✓ Dev server can start (Vite config + dependencies present)
+- **2026-04-08**: Compatibility aliases added and documented.
+- **2026-06-30**: Deprecation warnings begin in release notes/CI messaging.
+- **2026-09-30**: Planned removal window for compatibility aliases (major-version change or coordinated developer tooling update).
 
-### Tier 2: Quality (Signals Only)
+## Notes
 
-- 📊 TypeScript error count tracked
-- 📊 Error trend over time
-
-## Troubleshooting
-
-### "Docker containers not running"
-
-```bash
-# Check container status
-docker ps
-
-# If not running, start them
-pnpm run dx:up
-
-# Or with full reset
-pnpm run dx:reset
-```
-
-### "Database connection failed"
-
-```bash
-# Check if DB container is healthy
-docker inspect valueos-db --format '{{.State.Health.Status}}'
-
-# Try direct connection (local dev only — replace password with your PGPASSWORD value)
-psql "postgresql://postgres:<your-PGPASSWORD>@localhost:54322/postgres?sslmode=disable" -c "SELECT 1;"
-```
-
-### "Kong API Gateway not responding"
-
-```bash
-# Check Kong logs
-docker logs valueos-kong
-
-# Verify port
-curl http://localhost:54321/rest/v1/
-```
-
-### "pnpm dev doesn't start"
-
-```bash
-# Ensure dependencies are installed
-pnpm install
-
-# Check for port conflicts
-lsof -i :5173
-```
-
-## TypeScript Status
-
-The repository has ~5,300 TypeScript errors across the codebase. This is tracked but doesn't block development.
-
-**Current Green Islands (0 errors, enforced):**
-
-- `packages/infra`
-
-**Run these to check TypeScript status:**
-
-```bash
-# Full telemetry report
-pnpm run typecheck:signal
-
-# Check only green islands (must pass for PRs)
-pnpm run typecheck:islands
-```
-
-## Environment Variables
-
-Key environment variables are set in `.env.local`:
-
-| Variable            | Purpose               | Default                                                                                                                            |
-| ------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPABASE_URL`      | Supabase API URL      | `http://kong:8000`                                                                                                                 |
-| `DATABASE_URL`      | Postgres connection   | `postgresql://postgres:<PGPASSWORD>@db:5432/postgres?sslmode=disable` — **local dev only; set PGPASSWORD in `.devcontainer/.env`** |
-| `VITE_SUPABASE_URL` | Frontend Supabase URL | `http://localhost:54321`                                                                                                           |
-
-### Secrets management (optional)
-
-For centralized secret injection instead of local `.env` files, ValueOS supports [Infisical](https://infisical.com). After authenticating (`pnpm run infisical:login && pnpm run infisical:init`), start the dev stack with:
-
-```bash
-pnpm run dev:full:infisical
-```
-
-See [Secrets Management with Infisical CLI](../developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli) for the full guide.
-
-## Network Topology (Devcontainer)
-
-When running inside the devcontainer, services are accessed by container name:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Docker Network: valueos-network                             │
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │  valueos-db  │    │ valueos-kong │    │ valueos-auth │  │
-│  │   :5432      │    │    :8000     │    │    :9999     │  │
-│  └──────────────┘    └──────────────┘    └──────────────┘  │
-│         │                   │                              │
-│         └───────────────────┴──────────────────────────────│
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │           devcontainer (app)                          │ │
-│  │  • pnpm dev serves on :5173                           │ │
-│  │  • Connects to services by container name             │ │
-│  └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Related Documentation
-
-- [Green Islands Strategy](./engineering/GREEN_ISLANDS_STRATEGY.md) - TypeScript debt reduction
-- [DX Architecture](./dx-architecture.md) - Development environment internals
-- [Environment Variables](./ENVIRONMENT.md) - Full env var reference
-
----
+- Canonical automation task/service definitions: `.ona/automations.yaml`.
+- Canonical runnable scripts: root `package.json` `scripts` block.

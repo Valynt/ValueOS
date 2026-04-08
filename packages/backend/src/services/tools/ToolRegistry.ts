@@ -16,6 +16,7 @@
 
 import { authorizationPolicyGateway } from "../policy/AuthorizationPolicyGateway.js";
 import { PolicyEnforcementError } from "../policy/PolicyEnforcement.js";
+import { TIER_LIMITS } from "../tenant/TenantLimits.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -29,6 +30,9 @@ import { getMetricsCollector } from "./MetricsCollector.js";
  * Tenant tier types for rate limiting.
  */
 export type TenantTier = 'free' | 'pro' | 'enterprise' | 'internal';
+type TenantTierLookup = (tenantId: string) => string | null | undefined;
+
+const DEFAULT_FALLBACK_TIER: TenantTier = "free";
 
 /**
  * Rate limit configuration per tier.
@@ -69,14 +73,29 @@ interface TokenBucket {
   windowMs: number;
 }
 
-/**
- * Get tenant tier from tenant ID or context.
- * In production, this would query a tenant service or cache.
- */
-function getTenantTier(_tenantId: string): TenantTier {
-  // TODO: Implement actual tier lookup from tenant service
-  // For now, default to pro for most tenants
-  return 'pro';
+function normalizeToolTier(rawTier: string): TenantTier | undefined {
+  switch (rawTier) {
+    case "free":
+      return "free";
+    case "pro":
+    case "starter":
+    case "professional":
+      return "pro";
+    case "enterprise":
+      return "enterprise";
+    case "internal":
+      return "internal";
+    default:
+      return undefined;
+  }
+}
+
+function lookupTenantTierFromEnvironment(tenantId: string): string | undefined {
+  const rawOverrides = process.env["VALUEOS_TENANT_TIER_OVERRIDES"];
+  if (!rawOverrides) return undefined;
+
+  const parsed = JSON.parse(rawOverrides) as Record<string, string>;
+  return parsed[tenantId];
 }
 
 /**
@@ -185,6 +204,13 @@ export class ToolRegistry {
   // Sprint 5.5: Token bucket rate limiting per tenant/tool
   private tokenBuckets: Map<string, TokenBucket> = new Map();
   private tierRateLimits: Record<TenantTier, TierRateLimits> = DEFAULT_TIER_LIMITS;
+  private readonly tenantTierLookup: TenantTierLookup;
+  private readonly fallbackTier: TenantTier;
+
+  constructor(options?: { tenantTierLookup?: TenantTierLookup; fallbackTier?: TenantTier }) {
+    this.tenantTierLookup = options?.tenantTierLookup ?? lookupTenantTierFromEnvironment;
+    this.fallbackTier = options?.fallbackTier ?? DEFAULT_FALLBACK_TIER;
+  }
 
   /**
    * Configure rate limits for a tenant tier.
@@ -208,7 +234,7 @@ export class ToolRegistry {
 
     let bucket = this.tokenBuckets.get(key);
     if (!bucket) {
-      const tier = getTenantTier(tenantId);
+      const tier = this.getTenantTier(tenantId, toolName);
       const limits = this.tierRateLimits[tier];
 
       bucket = {
@@ -223,6 +249,56 @@ export class ToolRegistry {
     }
 
     return bucket;
+  }
+
+  private getTenantTier(tenantId: string, toolName: string): TenantTier {
+    try {
+      const rawTier = this.tenantTierLookup(tenantId);
+      if (!rawTier) {
+        return this.handleTierLookupFallback(tenantId, toolName, "empty_lookup_result");
+      }
+
+      const normalizedTier = normalizeToolTier(rawTier);
+      if (!normalizedTier) {
+        const canonicalTiers = Object.keys(TIER_LIMITS).join(",");
+        return this.handleTierLookupFallback(
+          tenantId,
+          toolName,
+          `unrecognized_tier:${rawTier};canonical=${canonicalTiers}`
+        );
+      }
+
+      return normalizedTier;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "unknown_error";
+      return this.handleTierLookupFallback(tenantId, toolName, `lookup_error:${reason}`);
+    }
+  }
+
+  private handleTierLookupFallback(
+    tenantId: string,
+    toolName: string,
+    reason: string
+  ): TenantTier {
+    logger.warn("tool_registry.tenant_tier_fallback", {
+      tenantId,
+      toolName,
+      reason,
+      fallbackTier: this.fallbackTier,
+    });
+
+    try {
+      getMetricsCollector().recordUsage({
+        tenantId,
+        metric: "tool_registry_tier_fallback_total",
+        quantity: 1,
+        path: `/tools/${toolName}/tier-fallback`,
+      });
+    } catch {
+      // non-fatal metrics failure
+    }
+
+    return this.fallbackTier;
   }
 
   /**

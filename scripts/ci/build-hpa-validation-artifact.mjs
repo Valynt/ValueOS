@@ -100,7 +100,23 @@ function main() {
     }
   }
 
+  const seenClasses = new Set();
   const evaluatedClasses = loadOutput.agent_classes.map((agentMetrics) => {
+    if (typeof agentMetrics.agent_class !== "string" || agentMetrics.agent_class.length === 0) {
+      throw new Error("Each load output entry must include a non-empty agent_class.");
+    }
+
+    if (agentMetrics.scaler_type !== "hpa" && agentMetrics.scaler_type !== "keda") {
+      throw new Error(
+        `Agent class ${agentMetrics.agent_class} has unsupported scaler_type \"${agentMetrics.scaler_type}\".`
+      );
+    }
+
+    if (seenClasses.has(agentMetrics.agent_class)) {
+      throw new Error(`Duplicate agent_class in load output: ${agentMetrics.agent_class}`);
+    }
+    seenClasses.add(agentMetrics.agent_class);
+
     const violations = [];
 
     for (const metricKey of requiredMetricKeys) {

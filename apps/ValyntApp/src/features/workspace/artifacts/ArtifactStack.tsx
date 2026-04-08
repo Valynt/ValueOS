@@ -162,4 +162,4 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export default ArtifactStack;
+export { ArtifactStack };

@@ -119,4 +119,4 @@ export function NarrativeView({
   );
 }
 
-export default NarrativeView;
+export { NarrativeView };

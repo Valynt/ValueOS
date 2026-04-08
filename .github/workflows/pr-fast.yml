@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run gitleaks on PR diff
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
@@ -40,10 +40,10 @@ jobs:
             --report-path=gitleaks-pr.sarif
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: gitleaks-pr.sarif
-          category: secret-scan-pr-diff
+          path: results.sarif
+          name: secret-scan-pr-diff
       - name: Emit lane summary
         if: always()
         run: |
@@ -224,6 +224,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Active app lint
         run: pnpm --dir ${{ matrix.app_dir }} run lint
+      - name: ValyntApp default-export regression guard
+        if: matrix.app == 'valynt-app'
+        run: pnpm run check:valyntapp-default-exports
       - name: Active app typecheck
         run: pnpm --dir ${{ matrix.app_dir }} run typecheck
       - name: Active app build
@@ -351,6 +354,8 @@ jobs:
         run: node scripts/ci/check-launch-readiness-signoff.mjs
       - name: Launch gate docs consistency
         run: node scripts/ci/check-launch-gate-doc-consistency.mjs
+      - name: Launch-readiness audit markdown lint
+        run: pnpm run check:launch-readiness-audit-markdown
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
@@ -1032,7 +1037,7 @@ jobs:
           fi
           echo "Dev routes static check: PASS"
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
@@ -1409,6 +1414,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  scalability-evidence-gate:
+    name: scalability-evidence-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build standardized HPA/KEDA scalability artifact
+        run: |
+          node scripts/ci/build-hpa-validation-artifact.mjs \
+            --load-output=infra/k8s/scalability/load-test-output.sample.json \
+            --thresholds=infra/k8s/scalability-gate-thresholds.json \
+            --artifact-path=artifacts/scalability/hpa-validation.json
+      - name: Validate scalability gate and manifest maturity links
+        run: |
+          node scripts/ci/check-hpa-scalability-gate.mjs \
+            --artifact-path=artifacts/scalability/hpa-validation.json \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json
+      - name: Upload scalability evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-scalability-evidence-gate-${{ github.run_id }}
+          path: artifacts/scalability/hpa-validation.json
+          if-no-files-found: error
+          retention-days: 30
+
   pr-fast:
     name: pr-fast
     runs-on: ubuntu-latest
@@ -1428,6 +1458,7 @@ jobs:
       - flake-gate
       - performance-smoke
       - slo-rule-validation
+      - scalability-evidence-gate
     steps:
       - name: Enforce PR blockers
         run: |
@@ -1478,7 +1509,8 @@ jobs:
             "log-level-production-gate:${{ needs.log-level-production-gate.result }}" \
             "flake-gate:${{ needs.flake-gate.result }}" \
             "performance-smoke:${{ needs.performance-smoke.result }}" \
-            "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
+            "slo-rule-validation:${{ needs.slo-rule-validation.result }}" \
+            "scalability-evidence-gate:${{ needs.scalability-evidence-gate.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
             # Hard-block lanes: must not be skipped AND must succeed.
@@ -1493,7 +1525,8 @@ jobs:
                [ "$lane_name" = "security-gate" ] || \
                [ "$lane_name" = "mfa-production-config-gate" ] || \
                [ "$lane_name" = "log-level-production-gate" ] || \
-               [ "$lane_name" = "e2e-critical" ]; then
+               [ "$lane_name" = "e2e-critical" ] || \
+               [ "$lane_name" = "scalability-evidence-gate" ]; then
               if [ "$status" != "success" ]; then
                 echo "Failing PR gate: $lane_name must succeed (status: $status)"
                 exit 1

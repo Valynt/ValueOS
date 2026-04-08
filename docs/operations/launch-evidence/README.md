@@ -5,7 +5,7 @@ Each subdirectory corresponds to a release version (e.g. `release-1.0/`).
 
 See `docs/operations/release-scope-ga-signoff.md` for the full GA sign-off checklist.
 
-Control mapping source: `docs/operations/launch-evidence/gate-control-matrix.md`.
+Control mapping source: `docs/operations/launch-evidence/control-matrix.md`.
 
 ---
 
@@ -20,6 +20,10 @@ Control mapping source: `docs/operations/launch-evidence/gate-control-matrix.md`
 | DR drill log entry | `docs/operations/dr-drill-log.md` | @team/operations |
 | Skip waiver review | `config/release-risk/release-X.Y-skip-waivers.json` | @team/qa |
 | Accessibility report | `release-X.Y/a11y-report.html` | @team/frontend |
+
+## Launch-readiness audit authoring template
+
+Use `docs/operations/launch-evidence/launch-readiness-audit-template.md` when creating or regenerating launch-readiness audit markdown so top-level sections `1..11` are emitted once and in order.
 
 ---
 

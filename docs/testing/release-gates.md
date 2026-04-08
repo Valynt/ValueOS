@@ -30,10 +30,13 @@ This document defines the CI lane model across `.github/workflows/pr-fast.yml`, 
 ## Localization regression ownership and escalation
 
 - Primary owner for localization regressions detected in `accessibility-audit` is **Frontend Platform** (`@team/frontend`).
+- Frontend Platform triages within **4 business hours**, assigns a DRI, and links evidence (`coverage-dashboard` + pseudo-loc report/screenshot) in the release thread.
+- If the regression remains unresolved for **24 hours** in a release candidate window, escalate to the **release captain** and mark the candidate `at-risk`.
 - If a shipped-locale regression (`en`, `es`) is unresolved by the end of the current release cycle:
   - escalate to **`@team/owners` + release captain** before production approval,
   - record owner, mitigation, and due date in `docs/quality/ux-quality-scorecard.md`,
   - require a time-bound exception in release review docs (`docs/cicd/GO_NO_GO.md`, `docs/cicd/RELEASE_CHECKLIST.md`) or block promotion.
+- A regression that exceeds one full release cycle without closure is automatically treated as a **launch blocker** for the next candidate until `@team/owners` signs a time-bound exception with expiration.
 
 ## Dependency Graph (`needs`)
 
@@ -83,5 +86,5 @@ Failures are tracked in `artifacts/ci-lanes/flake-report/flake-summary.json`.
 - To promote a tracked test to blocking: fix the flake root cause, verify < 2% over 10 consecutive runs, then update this document
 - Nightly governance jobs intentionally avoid PR-style `if:` filters so scheduled runs execute meaningful work instead of mostly skipped lanes.
 - Deploy workflow production promotion consumes the canonical manifest in `scripts/ci/release-gate-manifest.json` through the `release-readiness` aggregate (job id `release-gate-contract`) in `.github/workflows/deploy.yml`. That contract waits for `main-verify` plus local deploy gates (`dast-gate`, `release-manifest-gate`, and `emergency-skip-audit`) before `deploy-production` can start.
-- Deploy workflow also requires `reliability-indicators-gate`, which compiles a blocking artifact at `artifacts/reliability/release-reliability-summary.json` with: SLO burn-rate snapshot, recent incident MTTR, deployment health checks, and rollback drill status.
-- `reliability-indicators-gate` fails if any threshold declared in `docs/go-no-go-criteria.md` (`release-reliability-thresholds` block) is not met.
+- Deploy workflow requires `reliability-indicators-gate`, and release workflow (`.github/workflows/release.yml`) requires `reliability-indicators-release-gate`; both compile the blocking artifact `artifacts/reliability/release-reliability-summary.json` with: SLO burn-rate snapshot, recent incident MTTR, deployment health checks, and rollback drill status.
+- Both reliability indicator jobs fail when any threshold declared in `docs/go-no-go-criteria.md` (`release-reliability-thresholds` block) is not met.

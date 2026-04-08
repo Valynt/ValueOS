@@ -65,8 +65,8 @@ Operational process reference:
 
 ValueOS maintains a public Coordinated Vulnerability Disclosure policy so external researchers have a clear reporting path and safe-harbor expectations.
 
-- Public policy: [Bug Bounty and Coordinated Vulnerability Disclosure (CVD) Program](./bug-bounty-cvd-program.md)
-- Intake channel: `security@valueos.com` (mailto:security@valueos.com)
+- Public policy (canonical): [Bug Bounty and Coordinated Vulnerability Disclosure (CVD) Program](./bug-bounty-cvd-program.md)
+- Intake channel (canonical): `security@valueos.com` (mailto:security@valueos.com)
 - Preferred intake payload: affected endpoint/component, reproduction steps, impact assessment, and proof-of-concept details sufficient for triage reproduction.
 
 ### Disclosure SLA targets
@@ -87,6 +87,7 @@ ValueOS maintains a public Coordinated Vulnerability Disclosure policy so extern
 - **Escalation trigger:** any disclosure ticket that crosses the SLA target without approved exception.
 - **Escalation path:** Security Engineering on-call -> Head of Platform Engineering -> Security & Compliance Program leadership.
 - **Required escalation artifacts:** overdue justification, containment status, revised due date, and executive visibility note in the weekly governance review packet.
+- **Quarterly KPI accountability signal:** each quarter snapshot records `missedSlaCount` and severity-bucket SLA attainment in the CI artifact path below.
 
 ## Audit and Assurance Cadence
 
@@ -120,8 +121,13 @@ Customer-facing trust artifacts are linked to current control/risk snapshots so 
   - `artifacts/security/governance/trust-kpi-snapshot.json`
   - `artifacts/security/governance/open-risks.json`
   - `artifacts/security/governance/stale-controls.json`
-  - `artifacts/security/governance/vdp-kpis.json` (quarterly VDP/CVD SLA and throughput snapshot)
+
+  - `artifacts/security/governance/vdp-kpis.json` (quarterly VDP/CVD SLA + throughput snapshot, including SLA ownership/escalation metadata)
   - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope; CI requires managed signing key via `DATA_RESIDENCY_ARTIFACT_SIGNING_KEY`)
+
   - Policy input used by the gate: `docs/security-compliance/data-residency-controls.json`
+- KPI generation/refresh workflows:
+  - PR + main governance lanes: `.github/workflows/pr-fast.yml` and `.github/workflows/main-verify.yml` (`Extract governance trust KPI snapshots` step)
+  - Scheduled governance lane: `.github/workflows/nightly-governance.yml` (`nightly/security-governance-kpis` job)
 
 For customer assurance responses, include the latest workflow run URL and the artifact files above so control assertions map to timestamped evidence.

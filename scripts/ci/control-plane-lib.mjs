@@ -97,6 +97,15 @@ export function evaluateControlPlane({ matrixRows, jobs, workflowFile, runId, ru
     }
 
     const gates = domainRows.map((row) => {
+      if (!row.gateId) {
+        failures.push(`Matrix row for domain "${domain}" in ${workflowFile} is missing Required Gate Job ID`);
+        return {
+          gate_id: "",
+          required: row.required,
+          status: "missing-gate-id",
+        };
+      }
+
       const gateKey = normalizeKey(row.gateId);
       const actual = jobMap.get(gateKey);
       if (!actual) {
@@ -128,6 +137,9 @@ export function evaluateControlPlane({ matrixRows, jobs, workflowFile, runId, ru
       }
 
       if (!row.required) {
+        if (!row.waiverJustification.trim()) {
+          failures.push(`Waived control "${row.gateId}" for domain "${domain}" is missing waiver justification`);
+        }
         skippedWaivedLedger.push({
           type: "waived_control",
           domain,

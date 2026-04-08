@@ -238,4 +238,4 @@ export function useNotificationCenter() {
   };
 }
 
-export default useNotificationCenter;
+export { useNotificationCenter };

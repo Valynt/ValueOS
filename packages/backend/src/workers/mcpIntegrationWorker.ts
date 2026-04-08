@@ -138,6 +138,7 @@ export function initMcpIntegrationWorkers(): {
     return { validationWorker, syncWorker };
   }
 
+  // WORKER_CLASSIFICATION: tenant-context-restored
   validationWorker = new Worker(
     MCP_VALIDATION_QUEUE,
     async (job: Job<McpQueuePayload>) => {
@@ -178,6 +179,7 @@ export function initMcpIntegrationWorkers(): {
     { connection: getRedis(), concurrency: 5 }
   );
 
+  // WORKER_CLASSIFICATION: tenant-context-restored
   syncWorker = new Worker(
     MCP_SYNC_QUEUE,
     async (job: Job<McpQueuePayload>) => {

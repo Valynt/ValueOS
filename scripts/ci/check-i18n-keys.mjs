@@ -21,12 +21,16 @@ const SOURCE_LOCALE = "en";
 const I18N_CONFIG_PATH = "apps/ValyntApp/src/i18n/index.ts";
 const DEFAULT_MIN_COVERAGE_PERCENT = 90;
 const DEFAULT_MIN_KEY_COMPLETENESS_PERCENT = 100;
+const DEFAULT_NEWLY_DECLARED_LOCALE_MIN_COVERAGE_PERCENT = 100;
+const DEFAULT_NEWLY_DECLARED_LOCALE_MIN_KEY_COMPLETENESS_PERCENT = 100;
 const SRC_DIRS = ["apps/ValyntApp/src", "apps/VOSAcademy/src"];
 
 const cliArgs = process.argv.slice(2);
 const jsonOutPath = getArgValue(cliArgs, "--json-out");
 const minCoverageArg = getArgValue(cliArgs, "--min-coverage");
 const minCompletenessArg = getArgValue(cliArgs, "--min-completeness");
+const minNewLocaleCoverageArg = getArgValue(cliArgs, "--min-new-locale-coverage");
+const minNewLocaleCompletenessArg = getArgValue(cliArgs, "--min-new-locale-completeness");
 
 const parsedMinCoverage = Number.parseInt(
   minCoverageArg ?? process.env.I18N_MIN_COVERAGE_PERCENT ?? `${DEFAULT_MIN_COVERAGE_PERCENT}`,
@@ -44,18 +48,42 @@ const MIN_KEY_COMPLETENESS_PERCENT = Number.isNaN(parsedMinCompleteness)
   ? DEFAULT_MIN_KEY_COMPLETENESS_PERCENT
   : parsedMinCompleteness;
 
+const parsedMinNewLocaleCoverage = Number.parseInt(
+  minNewLocaleCoverageArg ??
+    process.env.I18N_NEW_LOCALE_MIN_COVERAGE_PERCENT ??
+    `${DEFAULT_NEWLY_DECLARED_LOCALE_MIN_COVERAGE_PERCENT}`,
+  10
+);
+const MIN_NEW_LOCALE_COVERAGE_PERCENT = Number.isNaN(parsedMinNewLocaleCoverage)
+  ? DEFAULT_NEWLY_DECLARED_LOCALE_MIN_COVERAGE_PERCENT
+  : parsedMinNewLocaleCoverage;
+
+const parsedMinNewLocaleCompleteness = Number.parseInt(
+  minNewLocaleCompletenessArg ??
+    process.env.I18N_NEW_LOCALE_MIN_KEY_COMPLETENESS_PERCENT ??
+    `${DEFAULT_NEWLY_DECLARED_LOCALE_MIN_KEY_COMPLETENESS_PERCENT}`,
+  10
+);
+const MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT = Number.isNaN(parsedMinNewLocaleCompleteness)
+  ? DEFAULT_NEWLY_DECLARED_LOCALE_MIN_KEY_COMPLETENESS_PERCENT
+  : parsedMinNewLocaleCompleteness;
+
 let hasErrors = false;
 let hasWarnings = false;
 const dashboard = {
   sourceLocale: SOURCE_LOCALE,
   minimumCoveragePercent: MIN_COVERAGE_PERCENT,
   minimumKeyCompletenessPercent: MIN_KEY_COMPLETENESS_PERCENT,
+  newlyDeclaredLocaleMinimumCoveragePercent: MIN_NEW_LOCALE_COVERAGE_PERCENT,
+  newlyDeclaredLocaleMinimumKeyCompletenessPercent: MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT,
   localeDirectories: [],
   totals: {
     localesChecked: 0,
     declaredLocales: 0,
     newlyDeclaredLocales: 0,
     newlyDeclaredLocalesWithMissingCoverage: 0,
+    newlyDeclaredLocalesBelowCoverageThreshold: 0,
+    newlyDeclaredLocalesBelowCompletenessThreshold: 0,
     missingKeys: 0,
     extraKeys: 0,
     localesBelowThreshold: 0,
@@ -251,6 +279,23 @@ for (const i18nRelDir of I18N_DIRS) {
       }
     }
 
+    if (newlyDeclaredLocales.has(locale)) {
+      if (coverage < MIN_NEW_LOCALE_COVERAGE_PERCENT) {
+        console.error(
+          `    ❌ Newly declared locale "${locale}" coverage ${coverage}% is below required ${MIN_NEW_LOCALE_COVERAGE_PERCENT}%`
+        );
+        hasErrors = true;
+        dashboard.totals.newlyDeclaredLocalesBelowCoverageThreshold += 1;
+      }
+      if (keyCompleteness < MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT) {
+        console.error(
+          `    ❌ Newly declared locale "${locale}" key completeness ${keyCompleteness}% is below required ${MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT}%`
+        );
+        hasErrors = true;
+        dashboard.totals.newlyDeclaredLocalesBelowCompletenessThreshold += 1;
+      }
+    }
+
     if (extra.length > 0) {
       console.warn(`    ⚠️  Extra ${extra.length} keys not in source: ${extra.slice(0, 10).join(", ")}${extra.length > 10 ? "..." : ""}`);
       hasWarnings = true;
@@ -277,8 +322,19 @@ for (const i18nRelDir of I18N_DIRS) {
       extraKeys: extra.length,
       coverage,
       keyCompleteness,
+      newlyDeclaredCoverageThreshold: newlyDeclaredLocales.has(locale)
+        ? MIN_NEW_LOCALE_COVERAGE_PERCENT
+        : null,
+      newlyDeclaredKeyCompletenessThreshold: newlyDeclaredLocales.has(locale)
+        ? MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT
+        : null,
       belowThreshold: coverage < MIN_COVERAGE_PERCENT,
       belowCompletenessThreshold: keyCompleteness < MIN_KEY_COMPLETENESS_PERCENT,
+      belowNewlyDeclaredCoverageThreshold:
+        newlyDeclaredLocales.has(locale) && coverage < MIN_NEW_LOCALE_COVERAGE_PERCENT,
+      belowNewlyDeclaredCompletenessThreshold:
+        newlyDeclaredLocales.has(locale) &&
+        keyCompleteness < MIN_NEW_LOCALE_KEY_COMPLETENESS_PERCENT,
     });
   }
 

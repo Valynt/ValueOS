@@ -418,4 +418,4 @@ function getPermissionPreset(level: PermissionLevel): GuestPermissions {
   }
 }
 
-export default ShareModal;
+export { ShareModal };

@@ -347,6 +347,20 @@ describe('WorkflowExecutor.executeStageWithRetry', () => {
     expect((executor as never).registry.markHealthy).toHaveBeenCalledWith('a1');
   });
 
+  it('keeps executeStageWithRetry success contract stable', async () => {
+    (executor as never).retryManager.executeWithRetry.mockResolvedValueOnce({ success: true, response: { data: { out: 1 } }, attempts: 1 });
+    const result = await executor.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: { id: 'a1' } } as never, 'trace-1');
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "output": {
+          "out": 1,
+        },
+        "runtimeFailure": undefined,
+        "status": "completed",
+      }
+    `);
+  });
+
   it('returns failed when rate limit is exceeded inside retry agent execute()', async () => {
     const limited = await makeExecutor(makePolicyMock(), {}, () => false);
     (limited as never).retryManager.executeWithRetry.mockImplementationOnce(async (agent: { execute: () => Promise<unknown> }) => {

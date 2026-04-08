@@ -12,6 +12,8 @@
  *    context, even when jobs run concurrently.
  */
 
+import { readFileSync } from 'node:fs';
+
 import { describe, it, expect, vi } from 'vitest';
 
 import { tenantContextStorage, type TCTPayload } from '../../middleware/tenantContext.js';
@@ -45,6 +47,15 @@ async function simulateWorkerWithTenantContext(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('Worker classification standard', () => {
+  it('marks AlertingRulesWorker as explicit-cross-tenant-safe', () => {
+    const source = readFileSync(new URL('../AlertingRulesWorker.ts', import.meta.url), 'utf8');
+
+    expect(source).toContain('WORKER_CLASSIFICATION: explicit-cross-tenant-safe');
+    expect(source).not.toMatch(/runJobWithTenantContext\(|tenantContextStorage\.run\(/);
+  });
+});
 
 describe('BullMQ tenant context isolation', () => {
   it('exposes the correct tenantId inside a job handler', async () => {

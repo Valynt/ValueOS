@@ -224,4 +224,4 @@ export function useAgentOrchestrator(
   };
 }
 
-export default useAgentOrchestrator;
+export { useAgentOrchestrator };

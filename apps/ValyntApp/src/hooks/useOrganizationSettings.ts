@@ -421,4 +421,4 @@ export function useWorkflowSettings(
   };
 }
 
-export default useOrganizationSettings;
+export { useOrganizationSettings };
