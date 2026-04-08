@@ -282,6 +282,19 @@ The PR pipeline (`pr-fast.yml`) runs **40+ named checks** in a single job, inclu
 - Accessibility audit (WCAG 2.2 AA, axe), i18n coverage
 - OpenAPI validation, compose drift guard, port drift guard
 
+#### Tenant-isolation lane execution model (updated)
+
+- **Non-fork PRs (trusted context):** `tenant-isolation-gate` runs the live Supabase RLS suite with secrets by invoking `node scripts/ci/run-tenant-isolation-rls-suite.mjs`. The script parses the JSON report and fails the lane when executed tests drop below `RLS_MIN_EXECUTED_TESTS` (default `10`).
+- **Fork PRs (untrusted context):** `tenant-isolation-gate` intentionally skips secret-backed live DB execution and runs a static/secrets-free subset (`tests/security/api-tenant-isolation.test.ts`) to preserve tenant-isolation signal without exposing credentials.
+
+#### Periodic control check (recommended)
+
+Add a scheduled CI control that verifies `tenant-isolation-gate` still:
+1. invokes `scripts/ci/run-tenant-isolation-rls-suite.mjs` in trusted (non-fork) context, and
+2. keeps `RLS_MIN_EXECUTED_TESTS` / `min-executed` enforcement active.
+
+A pragmatic implementation is a lightweight policy script (wired into nightly governance) that inspects `.github/workflows/pr-fast.yml` for the script invocation and validates the enforcement guard remains present in `scripts/ci/run-tenant-isolation-rls-suite.mjs`.
+
 ### Deployment Strategy
 
 - **Blue-green on Kubernetes** with Kustomize overlays for staging/production.
