@@ -51,7 +51,8 @@
         "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
         "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
         "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
-        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "scalability_validation_artifact": "artifact://artifacts/scalability/hpa-validation.json"
       },
       "metadata": {
         "promotion_scope": [
@@ -65,6 +66,52 @@
           "approved": true,
           "approved_at": "2026-04-08",
           "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+        },
+        "scalability_validation": {
+          "required_metrics": [
+            "queue_depth_max",
+            "p95_latency_ms",
+            "oscillation_count",
+            "scale_up_time_seconds",
+            "scale_down_time_seconds"
+          ],
+          "agent_classes": {
+            "opportunity": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#opportunity",
+              "last_validated": "2026-04-08"
+            },
+            "target": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#target",
+              "last_validated": "2026-04-08"
+            },
+            "financial-modeling": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#financial-modeling",
+              "last_validated": "2026-04-08"
+            },
+            "integrity": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#integrity",
+              "last_validated": "2026-04-08"
+            },
+            "realization": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#realization",
+              "last_validated": "2026-04-08"
+            },
+            "expansion": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#expansion",
+              "last_validated": "2026-04-08"
+            },
+            "narrative": {
+              "scaler_type": "hpa",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#narrative",
+              "last_validated": "2026-04-08"
+            }
+          }
         }
       }
     },
@@ -131,6 +178,60 @@
         "rollout_artifact": "",
         "load_test_artifact": "",
         "rollback_artifact": ""
+      }
+    },
+    {
+      "class": "keda",
+      "critical": true,
+      "status": "Validated",
+      "minimum_maturity_by_environment": {
+        "staging": "Aspirational",
+        "production": "Validated"
+      },
+      "status_owner": "SRE",
+      "date_validated": "2026-04-08",
+      "evidence": {
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "scalability_validation_artifact": "artifact://artifacts/scalability/hpa-validation.json"
+      },
+      "metadata": {
+        "promotion_scope": [
+          "infra/k8s/base/agents/low-frequency-keda-scaledobjects.yaml",
+          "infra/k8s/overlays/production/"
+        ],
+        "scalability_validation": {
+          "required_metrics": [
+            "queue_depth_max",
+            "p95_latency_ms",
+            "oscillation_count",
+            "scale_up_time_seconds",
+            "scale_down_time_seconds"
+          ],
+          "agent_classes": {
+            "compliance-auditor": {
+              "scaler_type": "keda",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#compliance-auditor",
+              "last_validated": "2026-04-08"
+            },
+            "context-extraction": {
+              "scaler_type": "keda",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#context-extraction",
+              "last_validated": "2026-04-08"
+            },
+            "deal-assembly": {
+              "scaler_type": "keda",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#deal-assembly",
+              "last_validated": "2026-04-08"
+            },
+            "discovery": {
+              "scaler_type": "keda",
+              "validation_artifact": "artifact://artifacts/scalability/hpa-validation.json#discovery",
+              "last_validated": "2026-04-08"
+            }
+          }
+        }
       }
     }
   ]

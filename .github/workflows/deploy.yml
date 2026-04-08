@@ -1036,9 +1036,27 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Build scalability validation artifact from load test output
+        run: |
+          node scripts/ci/build-hpa-validation-artifact.mjs \
+            --load-output=artifacts/scalability/load-test-output.json \
+            --thresholds=infra/k8s/scalability-gate-thresholds.json \
+            --artifact-path=artifacts/scalability/hpa-validation.json
+
+      - name: Block production when HPA/KEDA scalability evidence fails thresholds
+        run: |
+          node scripts/ci/check-hpa-scalability-gate.mjs \
+            --artifact-path=artifacts/scalability/hpa-validation.json \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json
+
       - name: Block production if maturity and evidence artifacts are incomplete
         run: |
-          node scripts/ci/check-k8s-manifest-maturity.mjs             --mode=environment-gate             --environment=production             --ledger-path=infra/k8s/manifest-maturity-ledger.json             --require-critical-evidence-links=true             --require-production-evidence-artifacts=true
+          node scripts/ci/check-k8s-manifest-maturity.mjs \
+            --mode=environment-gate \
+            --environment=production \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json \
+            --require-critical-evidence-links=true \
+            --require-production-evidence-artifacts=true
 
   ux-scorecard-release-log-gate:
     name: UX Scorecard Release Log Gate
