@@ -13,7 +13,8 @@
  *      on a condition that is always false when Supabase secrets are absent
  *   4. UsageEmitter failedEventsBuffer has a documented drain path
  *   5. BullMQ workers restore tenant context from job payload before processing
- *   6. Optional live kubectl checks for messaging, collectors, and monitoring targets
+ *   6. Billing alert metric contract (alerts reference metrics that actually exist)
+ *   7. Optional live kubectl checks for messaging, collectors, and monitoring targets
  *
  * Exit 1 if any check fails.
  */
@@ -208,8 +209,75 @@ console.log('\n5. BullMQ workers restore tenant context');
   }
 }
 
-// ── Check 6: Live Kubernetes state checks (deploy-time gate) ────────────────
-console.log('\n6. Live Kubernetes state checks (messaging, collectors, monitoring)');
+// ── Check 6: Billing alert metric contract ───────────────────────────────────
+console.log('\n6. Billing alert metric contract');
+{
+  const alerts = read('infra/k8s/monitoring/billing-alerts.yaml');
+  const metrics = read('packages/backend/src/metrics/billingMetrics.ts');
+
+  if (!alerts) {
+    fail('infra/k8s/monitoring/billing-alerts.yaml is missing');
+  }
+
+  if (!metrics) {
+    fail('packages/backend/src/metrics/billingMetrics.ts is missing');
+  }
+
+  if (alerts && metrics) {
+    const emittedMetricNames = new Set(
+      [...metrics.matchAll(/name:\s*["']([a-zA-Z_:][a-zA-Z0-9_:]*)["']/g)].map((m) => m[1]),
+    );
+
+    const exprBlocks = [...alerts.matchAll(/expr:\s*\|([\s\S]*?)(?=\n\s*(?:-\s*alert:|#|$))/g)].map((m) => m[1]);
+
+    const promQlKeywords = new Set([
+      'and', 'or', 'unless', 'by', 'without', 'on', 'ignoring', 'group_left', 'group_right',
+      'bool',
+    ]);
+
+    const promQlFunctions = new Set([
+      'rate', 'increase', 'histogram_quantile', 'clamp_min', 'time',
+    ]);
+
+    const contractPrefixes = ['billing_', 'webhook_', 'webhooks_'];
+    const missingMetricRefs = new Set();
+
+    for (const block of exprBlocks) {
+      const normalized = block.replace(/"[^"\n]*"|'[^'\n]*'/g, ' ');
+      for (const match of normalized.matchAll(/[a-zA-Z_:][a-zA-Z0-9_:]*/g)) {
+        const token = match[0];
+
+        if (promQlKeywords.has(token) || promQlFunctions.has(token)) {
+          continue;
+        }
+
+        const isContractMetric = contractPrefixes.some((prefix) => token.startsWith(prefix));
+        if (!isContractMetric) {
+          continue;
+        }
+
+        const baseMetricName = token.replace(/_(bucket|sum|count)$/, '');
+        const hasHistogramDerivative = baseMetricName !== token && emittedMetricNames.has(baseMetricName);
+
+        if (!emittedMetricNames.has(token) && !hasHistogramDerivative) {
+          missingMetricRefs.add(token);
+        }
+      }
+    }
+
+    if (missingMetricRefs.size > 0) {
+      fail(
+        'billing-alerts.yaml references metric(s) not emitted by billingMetrics.ts: '
+          + [...missingMetricRefs].sort().join(', '),
+      );
+    } else {
+      pass('billing-alerts.yaml metric references are emitted by billingMetrics.ts');
+    }
+  }
+}
+
+// ── Check 7: Live Kubernetes state checks (deploy-time gate) ────────────────
+console.log('\n7. Live Kubernetes state checks (messaging, collectors, monitoring)');
 {
   if (!enableLiveChecks) {
     warnLive('Live checks disabled. Set INFRA_READINESS_LIVE_CHECKS=true to validate cluster state.');
