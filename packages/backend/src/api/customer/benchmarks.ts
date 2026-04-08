@@ -4,10 +4,11 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
+import { createRequestSupabaseClient } from '../../lib/supabase.js';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
+import { readGlobalBenchmarksByIndustry } from '../../lib/supabase/privileged/benchmarkCatalog';
 import { customerAccessService } from '../../services/tenant/CustomerAccessService';
 import { extractCustomerAccessToken } from './tokenTransport';
 
@@ -101,9 +102,10 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
 
     const valueCaseId = validation.value_case_id;
     const organizationId = validation.organization_id;
+    const requestScopedSupabase = createRequestSupabaseClient({ accessToken: token, request: req });
 
     // Get value case details
-    const { data: valueCase, error: vcError } = await createServiceRoleSupabaseClient()
+    const { data: valueCase, error: vcError } = await requestScopedSupabase
       .from('value_cases')
       .select('id, company_name, custom_fields')
       .eq('id', valueCaseId)
@@ -130,20 +132,32 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
       return;
     }
 
-    // Benchmarks are global reference data (see customer_read_benchmarks policy),
-    // so keep this query intentionally isolated from tenant-owned filters/tables.
-    let benchmarkQuery = createServiceRoleSupabaseClient()
+    let benchmarkQuery = requestScopedSupabase
       .from('benchmarks')
       .select('*')
       .eq('industry', valueCaseIndustry)
       .order('kpi_name');
 
-    // Filter by specific KPI if provided
     if (kpi_name) {
       benchmarkQuery = benchmarkQuery.eq('kpi_name', kpi_name);
     }
 
-    const { data: benchmarks, error: benchError } = await benchmarkQuery;
+    let { data: benchmarks, error: benchError } = await benchmarkQuery;
+
+    if (benchError) {
+      logger.warn('RLS benchmark query failed; attempting allowlisted privileged fallback', {
+        valueCaseId,
+        organizationId,
+        industry: valueCaseIndustry,
+        errorCode: benchError.code,
+      });
+      const privilegedRead = await readGlobalBenchmarksByIndustry({
+        industry: valueCaseIndustry,
+        kpiName: kpi_name,
+      });
+      benchmarks = privilegedRead.data;
+      benchError = privilegedRead.error;
+    }
 
     if (benchError) {
       logger.error('Failed to fetch benchmarks', benchError);
@@ -155,7 +169,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     }
 
     // Get current metrics for comparison
-    const { data: metrics, error: metricsError } = await createServiceRoleSupabaseClient()
+    const { data: metrics, error: metricsError } = await requestScopedSupabase
       .from('realization_metrics')
       .select('metric_name, actual_value')
       .eq('value_case_id', valueCaseId)
