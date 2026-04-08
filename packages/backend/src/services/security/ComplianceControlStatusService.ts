@@ -17,7 +17,8 @@ import { logger } from "../../lib/logger.js";
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 
-export type ComplianceFramework = "SOC2" | "GDPR" | "ISO27001" | "CCPA";
+export const COMPLIANCE_FRAMEWORKS = ["GDPR", "ISO27001", "CCPA", "SOC2"] as const;
+export type ComplianceFramework = (typeof COMPLIANCE_FRAMEWORKS)[number];
 export type ControlStatus = "pass" | "warn" | "fail";
 
 export interface ControlStatusRecord {
@@ -65,7 +66,7 @@ export interface ComplianceTechnicalSignalStatus {
 }
 
 export interface FrameworkControlVerificationStatus {
-  framework: "GDPR" | "ISO27001" | "CCPA" | "SOC2";
+  framework: ComplianceFramework;
   declared: boolean;
   verified: boolean;
   missingPrerequisites: string[];
@@ -73,7 +74,7 @@ export interface FrameworkControlVerificationStatus {
   signalStatuses: ComplianceTechnicalSignalStatus[];
 }
 
-const FRAMEWORK_SIGNAL_REQUIREMENTS: Record<FrameworkControlVerificationStatus["framework"], ComplianceTechnicalSignalKey[]> = {
+export const FRAMEWORK_SIGNAL_REQUIREMENTS: Record<ComplianceFramework, ComplianceTechnicalSignalKey[]> = {
   GDPR: ["tests_passed", "policies_deployed", "encryption_config_active"],
   ISO27001: ["tests_passed", "encryption_config_active", "retention_jobs_healthy"],
   CCPA: ["tests_passed", "retention_jobs_healthy", "policies_deployed"],
