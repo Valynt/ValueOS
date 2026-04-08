@@ -6,7 +6,7 @@ import path from 'node:path';
 const repoRoot = process.cwd();
 const scanRoot = path.join(repoRoot, 'packages/backend/src');
 
-const allowedMixedCaseRoots = new Set([]);
+const allowedMixedCaseRoots = new Set();
 
 function walkDirectories(dir, collector) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
