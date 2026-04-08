@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCustomerBenchmarks } from '../customer/benchmarks.js';
-import { getCustomerMetrics } from '../customer/metrics.js';
+import { calculateMetricsSummary, getCustomerMetrics } from '../customer/metrics.js';
 import { getCustomerValueCase } from '../customer/value-case.js';
 
 const customerAccessServiceMock = vi.hoisted(() => ({
@@ -137,6 +137,71 @@ describe('Customer Portal API', () => {
 
       expect(customerAccessServiceMock.validateCustomerToken).toHaveBeenCalledWith('body-token');
       expect(statusMock).toHaveBeenCalledWith(401);
+    });
+  });
+
+  describe('calculateMetricsSummary', () => {
+    it('includes zero actuals in achievement average when predicted is non-zero', () => {
+      const summary = calculateMetricsSummary([
+        {
+          id: 'm1',
+          metric_name: 'Revenue',
+          metric_type: 'revenue',
+          predicted_value: 100,
+          predicted_date: '2026-01-01',
+          actual_value: 0,
+          actual_date: '2026-01-15',
+          variance: -100,
+          variance_pct: -100,
+          status: 'off_track',
+          created_at: '2026-01-01',
+          updated_at: '2026-01-15',
+        },
+      ]);
+
+      expect(summary.overall_achievement).toBe(0);
+    });
+
+    it('guards against division by zero when predicted and actual are both zero', () => {
+      const summary = calculateMetricsSummary([
+        {
+          id: 'm1',
+          metric_name: 'Revenue',
+          metric_type: 'revenue',
+          predicted_value: 0,
+          predicted_date: '2026-01-01',
+          actual_value: 0,
+          actual_date: '2026-01-15',
+          variance: 0,
+          variance_pct: 0,
+          status: 'pending',
+          created_at: '2026-01-01',
+          updated_at: '2026-01-15',
+        },
+      ]);
+
+      expect(summary.overall_achievement).toBe(0);
+    });
+
+    it('calculates expected achievement percentage for partial realization', () => {
+      const summary = calculateMetricsSummary([
+        {
+          id: 'm1',
+          metric_name: 'Revenue',
+          metric_type: 'revenue',
+          predicted_value: 50,
+          predicted_date: '2026-01-01',
+          actual_value: 25,
+          actual_date: '2026-01-15',
+          variance: -25,
+          variance_pct: -50,
+          status: 'at_risk',
+          created_at: '2026-01-01',
+          updated_at: '2026-01-15',
+        },
+      ]);
+
+      expect(summary.overall_achievement).toBe(50);
     });
   });
 
