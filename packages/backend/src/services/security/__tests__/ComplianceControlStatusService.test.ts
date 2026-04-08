@@ -14,7 +14,11 @@ vi.mock("../../../lib/logger.js", () => ({
 
 import { createServerSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
-import { ComplianceControlStatusService } from "../ComplianceControlStatusService.js";
+import {
+  COMPLIANCE_FRAMEWORKS,
+  ComplianceControlStatusService,
+  FRAMEWORK_SIGNAL_REQUIREMENTS,
+} from "../ComplianceControlStatusService.js";
 
 const TENANT_ID = "tenant-abc-123";
 
@@ -588,6 +592,24 @@ describe("ComplianceControlStatusService — refreshControlStatus persistence", 
 
 
 describe("ComplianceControlStatusService — framework signal requirements", () => {
+  it("defines framework signal requirements with unique framework keys", () => {
+    const keys = Object.keys(FRAMEWORK_SIGNAL_REQUIREMENTS);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys).toEqual([...COMPLIANCE_FRAMEWORKS]);
+  });
+
+  it("keeps ISO27001 signal requirements normalized to a single key", () => {
+    const requirementsEntries = Object.entries(FRAMEWORK_SIGNAL_REQUIREMENTS);
+    const isoEntries = requirementsEntries.filter(([framework]) => framework === "ISO27001");
+
+    expect(isoEntries).toHaveLength(1);
+    expect(isoEntries[0]?.[1]).toEqual([
+      "tests_passed",
+      "encryption_config_active",
+      "retention_jobs_healthy",
+    ]);
+  });
+
   it("returns each framework exactly once in verification statuses", async () => {
     const service = new ComplianceControlStatusService();
     vi.spyOn(service, "getTechnicalSignalStatuses").mockResolvedValue([
