@@ -149,7 +149,8 @@ These are non-negotiable. No exception process exists for these criteria.
 | Critical controls passing | `check-control-status-critical.mjs` passes | CI output |
 | Control matrix current | `check-ci-security-control-matrix.mjs` passes | CI output |
 | RLS coverage audit current | All tables classified in `docs/db/rls-coverage-audit.md` | Manual review |
-| Tenant isolation verified | `test:rls` passes + static gate passes | CI output |
+| Tenant isolation verified | `test:rls` passes + static gate passes | CI output + link to tenant-isolation lane artifact |
+| Isolation evidence links present | Release decision record includes links for RLS, vector/memory isolation, worker-context isolation artifacts | Release decision issue comments / evidence table |
 | Access review completed | No stale service accounts | `access-review-automation` artifact |
 
 **Owner:** Compliance + Security  
@@ -199,16 +200,16 @@ Staging health criteria during dwell period:
 
 ### Gate Results
 
-| Gate | Result | Owner | Evidence |
-|---|---|---|---|
-| G1 CI Pipeline Integrity | ✅ PASS / ❌ FAIL | | |
-| G2 Test Coverage | ✅ PASS / ❌ FAIL | | |
-| G3 E2E Tests | ✅ PASS / ❌ FAIL | | |
-| G4 Security | ✅ PASS / ❌ FAIL | | |
-| G5 Schema & Data Integrity | ✅ PASS / ❌ FAIL | | |
-| G6 Infrastructure Readiness | ✅ PASS / ❌ FAIL | | |
-| G7 Observability Readiness | ✅ PASS / ❌ FAIL | | |
-| G8 Compliance | ✅ PASS / ❌ FAIL | | |
+| Gate | Result | Owner | Evidence | Isolation Evidence Links (RLS / vector-memory / worker-context) |
+|---|---|---|---|---|
+| G1 CI Pipeline Integrity | ✅ PASS / ❌ FAIL | | | |
+| G2 Test Coverage | ✅ PASS / ❌ FAIL | | | |
+| G3 E2E Tests | ✅ PASS / ❌ FAIL | | | |
+| G4 Security | ✅ PASS / ❌ FAIL | | | |
+| G5 Schema & Data Integrity | ✅ PASS / ❌ FAIL | | | |
+| G6 Infrastructure Readiness | ✅ PASS / ❌ FAIL | | | |
+| G7 Observability Readiness | ✅ PASS / ❌ FAIL | | | |
+| G8 Compliance | ✅ PASS / ❌ FAIL | | | |
 
 ### Soft Gate Exceptions (if any)
 

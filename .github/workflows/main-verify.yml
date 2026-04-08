@@ -559,6 +559,7 @@ jobs:
           node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
+          node scripts/ci/check-backend-service-tenant-query-filters.mjs
 
   tenant-isolation-gate:
     name: tenant-isolation-gate
