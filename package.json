@@ -45,7 +45,7 @@
     "check:catalog-metadata": "node scripts/ci/check-catalog-metadata.mjs",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
-    "db:migrate": "scripts\\db\\apply-migrations-windows.cmd",
+    "db:migrate": "bash scripts/db/apply-migrations.sh",
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
     "check:billing-alert-metrics": "node scripts/ci/check-billing-alert-metrics.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",

@@ -64,7 +64,10 @@ docker ps
 ### 5. Run Database Migrations
 
 ```powershell
-# Use the Windows-compatible migration script
+# Preferred canonical migration entrypoint (works in Git Bash environments)
+pnpm run db:migrate
+
+# Windows-specific fallback (PowerShell/cmd environments)
 pnpm run db:migrate:windows
 ```
 
@@ -123,9 +126,10 @@ For local development without full Supabase:
 
 | Command | Description |
 |---------|-------------|
+| `pnpm run db:migrate` | Run canonical database migrations (cross-platform) |
 | `pnpm run dev:backend:windows` | Start backend on Windows |
 | `pnpm run dev:frontend:windows` | Start frontend on Windows |
-| `pnpm run db:migrate:windows` | Run database migrations |
+| `pnpm run db:migrate:windows` | Windows fallback for database migrations |
 | `pnpm run dev:bootstrap:windows` | Full Windows setup (install + migrate + start) |
 
 ## Troubleshooting
