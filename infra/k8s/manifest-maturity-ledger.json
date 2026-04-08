@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "last_updated": "2026-03-27",
+  "last_updated": "2026-04-08",
   "manifests": [
     {
       "class": "deployments",
@@ -31,7 +31,18 @@
       "evidence": {
         "rollout_artifact": "",
         "load_test_artifact": "",
-        "rollback_artifact": ""
+        "rollback_artifact": "",
+        "scalability_validation": {
+          "artifact_uri": "artifact://artifacts/scalability/hpa-validation.json",
+          "agent_classes": {
+            "hpa_warm_pool": {
+              "validation_result_pointer": "$.agent_class_results.hpa_warm_pool"
+            },
+            "keda_low_frequency": {
+              "validation_result_pointer": "$.agent_class_results.keda_low_frequency"
+            }
+          }
+        }
       }
     },
     {

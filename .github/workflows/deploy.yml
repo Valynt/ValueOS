@@ -752,6 +752,48 @@ jobs:
           set -euo pipefail
           python3 scripts/perf/analyze-k6-benchmark.py
 
+      - name: Capture autoscaling evidence observations
+        env:
+          HPA_WARM_POOL_QUEUE_DEPTH: ${{ vars.HPA_WARM_POOL_QUEUE_DEPTH }}
+          HPA_WARM_POOL_OSCILLATION_COUNT: ${{ vars.HPA_WARM_POOL_OSCILLATION_COUNT }}
+          HPA_WARM_POOL_SCALE_UP_TIME: ${{ vars.HPA_WARM_POOL_SCALE_UP_TIME }}
+          HPA_WARM_POOL_SCALE_DOWN_TIME: ${{ vars.HPA_WARM_POOL_SCALE_DOWN_TIME }}
+          KEDA_LOW_FREQUENCY_QUEUE_DEPTH: ${{ vars.KEDA_LOW_FREQUENCY_QUEUE_DEPTH }}
+          KEDA_LOW_FREQUENCY_OSCILLATION_COUNT: ${{ vars.KEDA_LOW_FREQUENCY_OSCILLATION_COUNT }}
+          KEDA_LOW_FREQUENCY_SCALE_UP_TIME: ${{ vars.KEDA_LOW_FREQUENCY_SCALE_UP_TIME }}
+          KEDA_LOW_FREQUENCY_SCALE_DOWN_TIME: ${{ vars.KEDA_LOW_FREQUENCY_SCALE_DOWN_TIME }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/scalability
+          cat <<JSON > artifacts/scalability/autoscaling-observations.json
+          {
+            "agent_classes": {
+              "hpa_warm_pool": {
+                "queue_depth": ${HPA_WARM_POOL_QUEUE_DEPTH:-null},
+                "oscillation_count": ${HPA_WARM_POOL_OSCILLATION_COUNT:-null},
+                "scale_up_time": ${HPA_WARM_POOL_SCALE_UP_TIME:-null},
+                "scale_down_time": ${HPA_WARM_POOL_SCALE_DOWN_TIME:-null}
+              },
+              "keda_low_frequency": {
+                "queue_depth": ${KEDA_LOW_FREQUENCY_QUEUE_DEPTH:-null},
+                "oscillation_count": ${KEDA_LOW_FREQUENCY_OSCILLATION_COUNT:-null},
+                "scale_up_time": ${KEDA_LOW_FREQUENCY_SCALE_UP_TIME:-null},
+                "scale_down_time": ${KEDA_LOW_FREQUENCY_SCALE_DOWN_TIME:-null}
+              }
+            }
+          }
+          JSON
+
+      - name: Produce and enforce HPA/KEDA scalability validation artifact
+        run: |
+          set -euo pipefail
+          node scripts/ci/generate-hpa-validation-artifact.mjs \
+            --load-summary load-test-summary.json \
+            --load-results load-test-results.json \
+            --thresholds infra/testing/scalability-thresholds.json \
+            --observations artifacts/scalability/autoscaling-observations.json \
+            --output artifacts/scalability/hpa-validation.json
+
       - name: Enforce latency-class promotion gates
         run: |
           set -euo pipefail
@@ -785,6 +827,8 @@ jobs:
             load-test-results.json
             benchmark-artifacts/benchmark-summary.json
             benchmark-artifacts/benchmark-report.md
+            artifacts/scalability/autoscaling-observations.json
+            artifacts/scalability/hpa-validation.json
 
   preprod-slo-guard:
     name: Pre-Prod SLO Guard

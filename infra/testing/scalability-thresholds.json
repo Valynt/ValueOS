@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "metric_thresholds": {
+    "queue_depth": {
+      "operator": "<=",
+      "target": 120,
+      "unit": "messages"
+    },
+    "p95_latency": {
+      "operator": "<=",
+      "target": 3000,
+      "unit": "ms"
+    },
+    "oscillation_count": {
+      "operator": "<=",
+      "target": 4,
+      "unit": "count"
+    },
+    "scale_up_time": {
+      "operator": "<=",
+      "target": 90,
+      "unit": "seconds"
+    },
+    "scale_down_time": {
+      "operator": "<=",
+      "target": 180,
+      "unit": "seconds"
+    }
+  },
+  "required_agent_classes": [
+    "hpa_warm_pool",
+    "keda_low_frequency"
+  ]
+}
