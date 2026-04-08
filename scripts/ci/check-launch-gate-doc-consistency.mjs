@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 
 const GO_NO_GO_PATH = 'docs/go-no-go-criteria.md';
-const MATRIX_PATH = 'docs/operations/launch-evidence/gate-control-matrix.md';
+const MATRIX_PATH = 'docs/operations/launch-evidence/control-matrix.md';
 const DASHBOARD_PATH = 'docs/launch-readiness.md';
 
 function read(path) {
@@ -63,6 +63,40 @@ function parseMatrixRows(markdown) {
     .filter((row) => /^G\d+$/.test(row.gateId));
 }
 
+
+function parseDashboardGateIds(markdown) {
+  const heading = '## Gate status dashboard';
+  const start = markdown.indexOf(heading);
+  if (start === -1) {
+    throw new Error(`Missing heading \`${heading}\` in ${DASHBOARD_PATH}`);
+  }
+
+  const lines = markdown.slice(start + heading.length).split('\n');
+  const table = [];
+  let inTable = false;
+
+  for (const line of lines) {
+    if (line.trim().startsWith('|')) {
+      inTable = true;
+      table.push(line);
+      continue;
+    }
+
+    if (inTable) {
+      break;
+    }
+  }
+
+  if (table.length < 3) {
+    throw new Error(`Could not parse gate status table in ${DASHBOARD_PATH}`);
+  }
+
+  return table
+    .slice(2)
+    .map((row) => row.split('|').map((cell) => cell.trim())[1])
+    .filter((gateId) => /^G\d+$/.test(gateId));
+}
+
 function normalizeThreshold(text) {
   return text
     .replaceAll('≥', '>=')
@@ -82,6 +116,7 @@ const dashboard = read(DASHBOARD_PATH);
 const goNoGoCatalog = parseJsonBlock(goNoGo, 'gate-threshold-catalog', GO_NO_GO_PATH);
 const matrixCatalog = parseJsonBlock(matrix, 'gate-threshold-catalog', MATRIX_PATH);
 const matrixRows = parseMatrixRows(matrix);
+const dashboardGateIds = parseDashboardGateIds(dashboard).sort();
 
 const errors = [];
 
@@ -95,6 +130,10 @@ if (JSON.stringify(goNoGoIds) !== JSON.stringify(matrixCatalogIds)) {
 
 if (JSON.stringify(goNoGoIds) !== JSON.stringify(matrixRowIds)) {
   errors.push(`Gate IDs differ between ${GO_NO_GO_PATH} catalog and ${MATRIX_PATH} table rows.`);
+}
+
+if (JSON.stringify(goNoGoIds) !== JSON.stringify(dashboardGateIds)) {
+  errors.push(`Gate IDs differ between ${GO_NO_GO_PATH} catalog and ${DASHBOARD_PATH} status dashboard.`);
 }
 
 for (const gateId of goNoGoIds) {
@@ -115,7 +154,7 @@ for (const gateId of goNoGoIds) {
   }
 }
 
-if (!dashboard.includes('./operations/launch-evidence/gate-control-matrix.md')) {
+if (!dashboard.includes('./operations/launch-evidence/control-matrix.md')) {
   errors.push(`${DASHBOARD_PATH} must reference the launch gate control matrix.`);
 }
 
