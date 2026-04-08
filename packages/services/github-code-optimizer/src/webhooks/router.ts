@@ -7,9 +7,12 @@ import { logger } from '../utils/logger.js';
 import { webhookHandlers } from './handlers.js';
 
 const router = express.Router();
+interface RawBodyRequest extends express.Request {
+  rawBody?: Buffer;
+}
 
 // Middleware to verify GitHub webhook signature
-const verifyGitHubSignature = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const verifyGitHubSignature = (req: RawBodyRequest, res: express.Response, next: express.NextFunction) => {
   const signature = req.headers['x-hub-signature-256'] as string;
   const eventName = req.headers['x-github-event'] as string;
 
@@ -27,7 +30,7 @@ const verifyGitHubSignature = (req: express.Request, res: express.Response, next
       return;
     }
 
-    const rawBody = (req as any).rawBody;
+    const rawBody = req.rawBody;
     if (!rawBody) {
       logger.error('Raw body not found for signature verification');
       res.status(500).send('Internal Server Error');
@@ -86,36 +89,6 @@ router.post('/github', verifyGitHubSignature, async (req, res) => {
     res.status(500).send('Internal server error');
   }
 });
-
-webhooks.on('push', async ({ id, name, payload }) => {
-  logger.info(`Received ${name} event`, { id });
-  await webhookHandlers.push(payload);
-});
-
-webhooks.on('pull_request', async ({ id, name, payload }) => {
-  logger.info(`Received ${name} event`, { id });
-  await webhookHandlers.pull_request(payload);
-});
-
-webhooks.on('installation', async ({ id, name, payload }) => {
-  logger.info(`Received ${name} event`, { id });
-  await webhookHandlers.installation(payload);
-});
-
-webhooks.on('installation_repositories', async ({ id, name, payload }) => {
-  logger.info(`Received ${name} event`, { id });
-  await webhookHandlers.installation_repositories(payload);
-});
-
-webhooks.onError((error) => {
-  logger.error('Webhook processing error', {
-    error: error.message,
-    name: error.name,
-  });
-});
-
-// Full processing middleware for GitHub Webhooks
-router.use(createNodeMiddleware(webhooks, { path: '/github' }));
 
 // Health check for webhook endpoint
 router.get('/health', (req, res) => {
