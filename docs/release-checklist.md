@@ -31,6 +31,7 @@ Each item must be checked by a named owner. No item may be skipped without a doc
 - [ ] **All CVE waivers current** — no expired waivers
   - Owner: Security
   - Command: `node scripts/ci/check-cve-waivers.mjs`
+  - Artifact proof (exact): `https://github.com/<org>/<repo>/actions/workflows/release-security-required-checks.yml` → open the release branch or production tag run → artifact `cve-waiver-evidence-<run_id>` → file `artifacts/security/cve-waivers/check-cve-waivers-<run_id>.txt` must include `[cve-waivers] ✅`.
 - [ ] **Gitleaks full-history scan passed** — verify latest `main-verify` run
   - Owner: Security
 - [ ] **DAST scan passed on staging** — ZAP baseline shows no HIGH, ≤ 5 MEDIUM
@@ -38,6 +39,7 @@ Each item must be checked by a named owner. No item may be skipped without a doc
 - [ ] **Secret rotation evidence current** — all CRITICAL secrets rotated within 90 days
   - Owner: Security
   - Verify: `secret-rotation-verification` workflow last run
+  - Artifact proof (exact): `https://github.com/<org>/<repo>/actions/workflows/secret-rotation-verification.yml` → open run for current release branch or production tag window → artifact `secret-rotation-evidence-production-<run_id>` contains `artifacts/security/secret-rotation/production-run-<run_id>-attempt-<attempt>.json`.
 
 ### 1.3 Compliance
 

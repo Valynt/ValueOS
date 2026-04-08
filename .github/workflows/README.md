@@ -64,15 +64,23 @@ The README snapshot below **must** stay in sync with that JSON policy.
 {
   "main": [
     "pr-fast",
+    "integration-supabase",
     "staging-deploy-release-gates",
     "codeql",
     "infra-plan (only for PRs touching infra/terraform/**)"
   ],
   "release/*": [
     "pr-fast",
+    "integration-supabase",
     "staging-deploy-release-gates",
     "codeql",
+    "secret-rotation-verification",
+    "check-cve-waivers",
     "infra-plan (only for PRs touching infra/terraform/**)"
+  ],
+  "production-*": [
+    "secret-rotation-verification",
+    "check-cve-waivers"
   ]
 }
 ```

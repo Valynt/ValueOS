@@ -8,6 +8,12 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ```
 ### [DATE] [RULE-ID] — [SHORT DESCRIPTION]
+- **Structured metadata:**
+  - **Owner:** <team-email or team slug>
+  - **rotated_at (UTC):** <YYYY-MM-DDTHH:MM:SSZ | PENDING>
+  - **Secret class:** <provider + key class>
+  - **Ticket:** <incident/change/security ticket id>
+  - **Hash/Fingerprint reference:** <secret fingerprint, key-id, commit-sha, or artifact path>
 - **Status:** Rotated | False positive | Pending
 - **Severity:** Critical | High | Medium | Low
 - **Exposure:** Working tree | Git history | Both
@@ -24,6 +30,12 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ### 2026-04-02 supabase-service-role-jwt — Remediation execution attempt (source incidents: 2026-05-24 + 2026-03-26)
 
+- **Structured metadata:**
+  - **Owner:** team-security@valueos
+  - **rotated_at (UTC):** PENDING
+  - **Secret class:** Supabase JWT (`service_role`, `anon`)
+  - **Ticket:** SEC-2026-1184 / PLAT-2026-447
+  - **Hash/Fingerprint reference:** Projects `wfhdrrpijqygytvoaafc`, `bxaiabnqalurloblfwua`; commits `aca8a162`, `76f85346`, `6d4d6f15`
 - **Status:** ⚠️ BLOCKED — operator-only rotation + Supabase audit-log access required
 - **Severity:** Critical
 - **Exposure:** Git history (per 2026-05-24 and 2026-03-26 incident records)
@@ -50,6 +62,12 @@ Tracks every confirmed or suspected secret exposure, its classification, and the
 
 ### 2026-05-24 supabase-service-role-jwt — Production key rotation required (production-readiness spec)
 
+- **Structured metadata:**
+  - **Owner:** team-security@valueos
+  - **rotated_at (UTC):** PENDING
+  - **Secret class:** Supabase JWT (`service_role`, `anon`)
+  - **Ticket:** SEC-2026-1184 / PLAT-2026-447
+  - **Hash/Fingerprint reference:** Projects `wfhdrrpijqygytvoaafc`, `bxaiabnqalurloblfwua`; commits `aca8a162`, `76f85346`, `6d4d6f15`
 - **Status:** ⚠️ ACTION REQUIRED — rotate keys immediately via Supabase dashboard
 - **Severity:** Critical
 - **Exposure:** Git history (public repository — treat as fully compromised)
@@ -95,6 +113,12 @@ Result: 3 findings, triaged as non-production credentials/test fixtures/placehol
 
 ### 2026-03-26 supabase-service-role-jwt — ⚠️ REAL Supabase project keys in git history — ROTATION REQUIRED
 
+- **Structured metadata:**
+  - **Owner:** team-security@valueos
+  - **rotated_at (UTC):** PENDING
+  - **Secret class:** Supabase JWT (`service_role`, `anon`)
+  - **Ticket:** SEC-2026-1184 / PLAT-2026-447
+  - **Hash/Fingerprint reference:** Projects `wfhdrrpijqygytvoaafc`, `bxaiabnqalurloblfwua`; commits `aca8a162`, `76f85346`, `6d4d6f15`
 - **Status:** ⚠️ PENDING ROTATION — keys must be rotated immediately
 - **Severity:** Critical
 - **Exposure:** Git history (public repository — treat as fully compromised)
