@@ -55,7 +55,7 @@ valueos-dev-setup/
 │   │   └── migrations/         # 43 SQL migration files
 │   ├── prometheus/             # Monitoring configuration
 │   ├── scripts/                # Infrastructure scripts (10 files)
-│   │   ├── supabase-migrate-all.sh    # Master migration script
+│   │   ├── apply-migrations.sh        # Canonical migration script (used by `pnpm run db:migrate`)
 │   │   ├── validate-migrations.sh      # Validation utility
 │   │   ├── rollback-migration.sh       # Rollback utility
 │   │   ├── migration-status.sh         # Status dashboard
@@ -158,11 +158,11 @@ docker compose up -d
 ### Step 3: Run Migrations
 
 ```bash
-# Complete migration automation
-./infra/scripts/supabase-migrate-all.sh --verbose
+# Canonical migration entrypoint
+pnpm run db:migrate
 
-# Or step-by-step
-./infra/scripts/supabase-migrate-all.sh --skip-init  # if already initialized
+# Windows-specific fallback
+pnpm run db:migrate:windows
 ```
 
 ### Step 4: Verify
@@ -274,7 +274,7 @@ make logs
 make health
 
 # Run migrations
-make migrate
+pnpm run db:migrate
 
 # Validate database
 make validate
@@ -284,7 +284,7 @@ make validate
 
 ```bash
 # Complete migration
-./infra/scripts/supabase-migrate-all.sh
+pnpm run db:migrate
 
 # Check status
 ./infra/scripts/migration-status.sh --watch

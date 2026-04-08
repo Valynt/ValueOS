@@ -7,7 +7,15 @@ const workflowsDir = path.join(repoRoot, '.github', 'workflows');
 const packageJsonPath = path.join(repoRoot, 'package.json');
 
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const packageScripts = new Set(Object.keys(packageJson.scripts ?? {}));
+const scripts = packageJson.scripts ?? {};
+const packageScripts = new Set(Object.keys(scripts));
+const canonicalScriptPlatformGuards = [
+  {
+    scriptName: 'db:migrate',
+    canonicalCommand: 'bash scripts/db/apply-migrations.sh',
+    disallowPattern: /(\\|\.cmd\b|\.bat\b|powershell|pwsh|\.ps1\b)/i,
+  },
+];
 const knownPnpmCommands = new Set([
   'add',
   'approve-builds',
@@ -123,6 +131,36 @@ for (const workflowFile of workflowFiles) {
 if (missing.length > 0) {
   console.error('❌ Workflow pnpm script references missing from package.json:');
   for (const item of missing) {
+    console.error(` - ${item}`);
+  }
+  process.exit(1);
+}
+
+const scriptCommandViolations = [];
+for (const guard of canonicalScriptPlatformGuards) {
+  const actualCommand = scripts[guard.scriptName];
+  if (!actualCommand) {
+    scriptCommandViolations.push(
+      `${guard.scriptName} is missing (expected: "${guard.canonicalCommand}")`,
+    );
+    continue;
+  }
+  if (guard.disallowPattern.test(actualCommand)) {
+    scriptCommandViolations.push(
+      `${guard.scriptName} must not point to an OS-specific command ("${actualCommand}")`,
+    );
+    continue;
+  }
+  if (actualCommand !== guard.canonicalCommand) {
+    scriptCommandViolations.push(
+      `${guard.scriptName} drifted from canonical command. expected "${guard.canonicalCommand}" but found "${actualCommand}"`,
+    );
+  }
+}
+
+if (scriptCommandViolations.length > 0) {
+  console.error('❌ Canonical package script drift detected:');
+  for (const item of scriptCommandViolations) {
     console.error(` - ${item}`);
   }
   process.exit(1);
