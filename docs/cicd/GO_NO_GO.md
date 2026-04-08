@@ -42,6 +42,7 @@ These are verified manually in Phase 5 of the release checklist.
 | Criterion | GO | NO-GO |
 |---|---|---|
 | Open incidents | No P0 or P1 incidents open | Any P0 or P1 open |
+| Localization regressions | No unresolved localization regressions in shipped locales (`en`, `es`), or approved time-bound exception with owner | Any unresolved shipped-locale regression without owner/escalation plan |
 | Previous rollback | Post-mortem closed, or no previous rollback | Post-mortem open |
 | Staging soak | ≥ 30 min with no anomalies | Soak incomplete or anomalies observed |
 | On-call coverage | On-call engineer confirmed available | No on-call coverage |
@@ -95,6 +96,14 @@ If any threshold is breached within 5 minutes of the production traffic swap, in
 | Emergency bypass (staging only, never production) | 2 code-owner approvals + incident ticket + post-deploy security scan within 30 min |
 
 Production deploys **cannot** use `skip_tests=true`. The `deploy.yml` workflow enforces this at the `emergency-bypass-authorization` job level.
+
+### Localization escalation policy (release gate)
+
+- Any unresolved localization regression on shipped locales (`en`, `es`) is a **NO-GO** unless there is:
+  1. a documented temporary exception with expiration date,
+  2. an assigned DRI (`@team/frontend`), and
+  3. explicit escalation acknowledgement from `@team/owners` before production approval.
+- Regressions that remain unresolved across one release cycle must be escalated to release captain + engineering leadership and tracked as a launch blocker in the next release candidate.
 
 ---
 

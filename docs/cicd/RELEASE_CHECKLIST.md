@@ -89,6 +89,8 @@ These are manual checks performed by the release owner before requesting product
 - [ ] ⛔ Rollback plan reviewed — migration rollback SQL tested in staging
 - [ ] ⛔ Backup verified — pre-deploy snapshot ID confirmed in deploy audit artifact
 - [ ] ⛔ Change window approved (if organization requires change management)
+- [ ] ⛔ Localization regressions triaged — no unresolved shipped-locale (`en`, `es`) regressions without owner and due date
+- [ ] ⛔ Localization escalation complete (if needed) — unresolved regressions approved by `@team/owners` with a time-bound exception
 - [ ] All release notes written and linked to GitHub Release
 - [ ] Customer-facing changes communicated (if applicable)
 - [ ] Feature flags set correctly for production

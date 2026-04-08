@@ -91,6 +91,11 @@ Closes #
 ## Screenshots/Recordings
 <!-- If applicable, add screenshots or recordings of UI changes -->
 
+## Localization Onboarding Evidence (required when user-facing copy changes)
+- [ ] Coverage diff attached (before/after or CI artifact excerpt from `artifacts/i18n/coverage-dashboard.json`)
+- [ ] Pseudo-localization evidence attached (`en-XA` screenshot(s) and/or run logs from `artifacts/i18n/pseudo-localization-report.json`)
+- [ ] If adding a newly declared locale: locale readiness status updated (`supported` / `in-progress` / `blocked`) in `docs/quality/ux-quality-scorecard.md`
+
 ## Checklist
 <!-- Ensure all items are completed before requesting review -->
 
