@@ -43,6 +43,21 @@ interface EnhancedBillingDashboardProps {
   organizationId: string;
 }
 
+// Wrapper to safely invoke useUsageMetrics if it is available and a function.
+const useSafeUsageMetrics = (organizationId: string) => {
+  if (typeof useUsageMetrics === "function") {
+    return useUsageMetrics(organizationId);
+  }
+
+  return {
+    metrics: null,
+    loading: false,
+    error: null,
+    hasWarnings: false,
+    hasCritical: false,
+  };
+};
+
 export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> = ({
   organizationId,
 }) => {
@@ -57,7 +72,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
     error: usageError,
     hasWarnings,
     hasCritical,
-  } = useUsageMetrics(organizationId);
+  } = useSafeUsageMetrics(organizationId);
 
   // Async state for plan changes
   const { state: upgradeState, execute: executeUpgrade, reset: resetUpgrade } = useAsyncState();
