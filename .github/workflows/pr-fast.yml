@@ -1406,6 +1406,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  scalability-evidence-gate:
+    name: scalability-evidence-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build standardized HPA/KEDA scalability artifact
+        run: |
+          node scripts/ci/build-hpa-validation-artifact.mjs \
+            --load-output=infra/k8s/scalability/load-test-output.sample.json \
+            --thresholds=infra/k8s/scalability-gate-thresholds.json \
+            --artifact-path=artifacts/scalability/hpa-validation.json
+      - name: Validate scalability gate and manifest maturity links
+        run: |
+          node scripts/ci/check-hpa-scalability-gate.mjs \
+            --artifact-path=artifacts/scalability/hpa-validation.json \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json
+      - name: Upload scalability evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-scalability-evidence-gate-${{ github.run_id }}
+          path: artifacts/scalability/hpa-validation.json
+          if-no-files-found: error
+          retention-days: 30
+
   pr-fast:
     name: pr-fast
     runs-on: ubuntu-latest
@@ -1425,6 +1450,7 @@ jobs:
       - flake-gate
       - performance-smoke
       - slo-rule-validation
+      - scalability-evidence-gate
     steps:
       - name: Enforce PR blockers
         run: |
@@ -1475,7 +1501,8 @@ jobs:
             "log-level-production-gate:${{ needs.log-level-production-gate.result }}" \
             "flake-gate:${{ needs.flake-gate.result }}" \
             "performance-smoke:${{ needs.performance-smoke.result }}" \
-            "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
+            "slo-rule-validation:${{ needs.slo-rule-validation.result }}" \
+            "scalability-evidence-gate:${{ needs.scalability-evidence-gate.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
             # Hard-block lanes: must not be skipped AND must succeed.
@@ -1490,7 +1517,8 @@ jobs:
                [ "$lane_name" = "security-gate" ] || \
                [ "$lane_name" = "mfa-production-config-gate" ] || \
                [ "$lane_name" = "log-level-production-gate" ] || \
-               [ "$lane_name" = "e2e-critical" ]; then
+               [ "$lane_name" = "e2e-critical" ] || \
+               [ "$lane_name" = "scalability-evidence-gate" ]; then
               if [ "$status" != "success" ]; then
                 echo "Failing PR gate: $lane_name must succeed (status: $status)"
                 exit 1

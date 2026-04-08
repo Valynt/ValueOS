@@ -64,11 +64,11 @@ function validateLedgerCoverage(ledger, artifactAgentClasses) {
   const kedaCoverage =
     kedaEntry?.metadata?.scalability_validation?.agent_classes ?? {};
 
-  for (const agentClass of artifactAgentClasses) {
-    const coverage = hpaCoverage[agentClass] ?? kedaCoverage[agentClass];
+  for (const { agent_class: agentClass, scaler_type: scalerType } of artifactAgentClasses) {
+    const coverage = scalerType === "keda" ? kedaCoverage[agentClass] : hpaCoverage[agentClass];
     if (!coverage) {
       errors.push(
-        `Ledger scalability coverage missing for agent class \"${agentClass}\".`
+        `Ledger scalability coverage missing for agent class \"${agentClass}\" under scaler_type \"${scalerType}\".`
       );
       continue;
     }
@@ -104,7 +104,22 @@ function main() {
   const allAgentClasses = [];
 
   for (const entry of artifact.agent_classes ?? []) {
-    allAgentClasses.push(entry.agent_class);
+    if (typeof entry.agent_class !== "string" || entry.agent_class.length === 0) {
+      errors.push("Artifact agent_classes entries must include a non-empty agent_class.");
+      continue;
+    }
+
+    if (entry.scaler_type !== "hpa" && entry.scaler_type !== "keda") {
+      errors.push(
+        `Artifact agent class \"${entry.agent_class}\" has unsupported scaler_type \"${entry.scaler_type}\".`
+      );
+      continue;
+    }
+
+    allAgentClasses.push({
+      agent_class: entry.agent_class,
+      scaler_type: entry.scaler_type,
+    });
     if (entry.pass !== true) {
       failingClasses.push(entry.agent_class);
     }

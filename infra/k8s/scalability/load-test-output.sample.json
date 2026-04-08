@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "run_id": "sample-load-test-run",
+    "tool": "k6"
+  },
+  "agent_classes": [
+    {
+      "agent_class": "opportunity",
+      "scaler_type": "hpa",
+      "queue_depth_max": 122,
+      "p95_latency_ms": 1930,
+      "oscillation_count": 1,
+      "scale_up_time_seconds": 74,
+      "scale_down_time_seconds": 201
+    },
+    {
+      "agent_class": "target",
+      "scaler_type": "hpa",
+      "queue_depth_max": 117,
+      "p95_latency_ms": 1870,
+      "oscillation_count": 1,
+      "scale_up_time_seconds": 79,
+      "scale_down_time_seconds": 218
+    },
+    {
+      "agent_class": "financial-modeling",
+      "scaler_type": "hpa",
+      "queue_depth_max": 166,
+      "p95_latency_ms": 2760,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 96,
+      "scale_down_time_seconds": 243
+    },
+    {
+      "agent_class": "integrity",
+      "scaler_type": "hpa",
+      "queue_depth_max": 109,
+      "p95_latency_ms": 1690,
+      "oscillation_count": 1,
+      "scale_up_time_seconds": 71,
+      "scale_down_time_seconds": 198
+    },
+    {
+      "agent_class": "realization",
+      "scaler_type": "hpa",
+      "queue_depth_max": 136,
+      "p95_latency_ms": 2080,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 87,
+      "scale_down_time_seconds": 231
+    },
+    {
+      "agent_class": "expansion",
+      "scaler_type": "hpa",
+      "queue_depth_max": 142,
+      "p95_latency_ms": 2135,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 88,
+      "scale_down_time_seconds": 244
+    },
+    {
+      "agent_class": "narrative",
+      "scaler_type": "hpa",
+      "queue_depth_max": 97,
+      "p95_latency_ms": 1625,
+      "oscillation_count": 1,
+      "scale_up_time_seconds": 68,
+      "scale_down_time_seconds": 194
+    },
+    {
+      "agent_class": "compliance-auditor",
+      "scaler_type": "keda",
+      "queue_depth_max": 84,
+      "p95_latency_ms": 2290,
+      "oscillation_count": 1,
+      "scale_up_time_seconds": 59,
+      "scale_down_time_seconds": 173
+    },
+    {
+      "agent_class": "context-extraction",
+      "scaler_type": "keda",
+      "queue_depth_max": 92,
+      "p95_latency_ms": 2410,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 65,
+      "scale_down_time_seconds": 189
+    },
+    {
+      "agent_class": "deal-assembly",
+      "scaler_type": "keda",
+      "queue_depth_max": 101,
+      "p95_latency_ms": 2510,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 72,
+      "scale_down_time_seconds": 206
+    },
+    {
+      "agent_class": "discovery",
+      "scaler_type": "keda",
+      "queue_depth_max": 114,
+      "p95_latency_ms": 2595,
+      "oscillation_count": 2,
+      "scale_up_time_seconds": 75,
+      "scale_down_time_seconds": 219
+    }
+  ]
+}
