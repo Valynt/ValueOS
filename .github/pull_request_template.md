@@ -92,6 +92,7 @@ Closes #
 <!-- If applicable, add screenshots or recordings of UI changes -->
 
 ## Localization Onboarding Evidence (required when user-facing copy changes)
+- Scope trigger: Any changes under `apps/ValyntApp/src/**` user-visible copy, `apps/ValyntApp/src/i18n/**`, or runtime locale declarations in `apps/ValyntApp/src/i18n/index.ts`.
 - [ ] Coverage diff attached (before/after or CI artifact excerpt from `artifacts/i18n/coverage-dashboard.json`)
 - [ ] Pseudo-localization evidence attached (`en-XA` screenshot(s) and/or run logs from `artifacts/i18n/pseudo-localization-report.json`)
 - [ ] If adding a newly declared locale: locale readiness status updated (`supported` / `in-progress` / `blocked`) in `docs/quality/ux-quality-scorecard.md`

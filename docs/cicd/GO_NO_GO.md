@@ -103,6 +103,10 @@ Production deploys **cannot** use `skip_tests=true`. The `deploy.yml` workflow e
   1. a documented temporary exception with expiration date,
   2. an assigned DRI (`@team/frontend`), and
   3. explicit escalation acknowledgement from `@team/owners` before production approval.
+- Escalation timeline:
+  - `T+0h` detection: `@team/frontend` opens triage item with coverage + pseudo-loc evidence links.
+  - `T+24h` unresolved in release-candidate window: escalate to release captain and flag release as `at-risk`.
+  - End of release cycle unresolved: automatic escalation to `@team/owners`; release remains NO-GO without signed exception.
 - Regressions that remain unresolved across one release cycle must be escalated to release captain + engineering leadership and tracked as a launch blocker in the next release candidate.
 
 ---
