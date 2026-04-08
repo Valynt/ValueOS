@@ -21,6 +21,10 @@ Control mapping source: `docs/operations/launch-evidence/control-matrix.md`.
 | Skip waiver review | `config/release-risk/release-X.Y-skip-waivers.json` | @team/qa |
 | Accessibility report | `release-X.Y/a11y-report.html` | @team/frontend |
 
+## Launch-readiness audit authoring template
+
+Use `docs/operations/launch-evidence/launch-readiness-audit-template.md` when creating or regenerating launch-readiness audit markdown so top-level sections `1..11` are emitted once and in order.
+
 ---
 
 ## Generating reports
