@@ -1,0 +1,104 @@
+name: "Release vX.Y.Z — GO/NO-GO"
+description: "Canonical release decision record driven by docs/go-no-go-criteria.md"
+title: "Release vX.Y.Z — GO/NO-GO"
+labels:
+  - release-decision
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template with [`docs/go-no-go-criteria.md`](../docs/go-no-go-criteria.md) as the canonical definition.
+        Every hard gate must include evidence links tied to the same release SHA.
+
+  - type: input
+    id: release_sha
+    attributes:
+      label: Release commit SHA
+      description: Full commit SHA for this release decision.
+      placeholder: e.g., 0123456789abcdef0123456789abcdef01234567
+    validations:
+      required: true
+
+  - type: input
+    id: decision_timestamp
+    attributes:
+      label: Decision timestamp (UTC)
+      description: ISO-8601 UTC timestamp when GO/NO-GO was finalized.
+      placeholder: "2026-04-08T12:34:56Z"
+    validations:
+      required: true
+
+  - type: input
+    id: release_manager
+    attributes:
+      label: Release manager
+      placeholder: "@release-manager-handle"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: decision
+    attributes:
+      label: Decision
+      options:
+        - GO ✅
+        - NO-GO ❌
+    validations:
+      required: true
+
+  - type: textarea
+    id: gate_results
+    attributes:
+      label: Hard gate results (G1–G8)
+      description: |
+        Required format:
+        | Gate | Result | Owner | Evidence |
+        |---|---|---|---|
+        | G1 CI Pipeline Integrity | ✅ PASS / ❌ FAIL | | |
+        | G2 Test Coverage | ✅ PASS / ❌ FAIL | | |
+        | G3 E2E Tests | ✅ PASS / ❌ FAIL | | |
+        | G4 Security | ✅ PASS / ❌ FAIL | | |
+        | G5 Schema & Data Integrity | ✅ PASS / ❌ FAIL | | |
+        | G6 Infrastructure Readiness | ✅ PASS / ❌ FAIL | | |
+        | G7 Observability Readiness | ✅ PASS / ❌ FAIL | | |
+        | G8 Compliance | ✅ PASS / ❌ FAIL | | |
+      value: |
+        | Gate | Result | Owner | Evidence |
+        |---|---|---|---|
+        | G1 CI Pipeline Integrity |  |  |  |
+        | G2 Test Coverage |  |  |  |
+        | G3 E2E Tests |  |  |  |
+        | G4 Security |  |  |  |
+        | G5 Schema & Data Integrity |  |  |  |
+        | G6 Infrastructure Readiness |  |  |  |
+        | G7 Observability Readiness |  |  |  |
+        | G8 Compliance |  |  |  |
+    validations:
+      required: true
+
+  - type: textarea
+    id: soft_gate_exceptions
+    attributes:
+      label: Soft gate exceptions (if any)
+      description: Document mitigations and owner/time-bound remediation for each exception.
+      placeholder: "None"
+
+  - type: textarea
+    id: staging_dwell
+    attributes:
+      label: Staging dwell evidence
+      description: Include deploy timestamp, healthy-since timestamp, and total dwell duration in minutes (minimum 30).
+      value: |
+        - Staging deployed at:
+        - Staging healthy since:
+        - Dwell duration (minutes):
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Decision rationale
+      description: Summarize why this release is GO/NO-GO, including explicit risk acceptance if GO with soft-gate exceptions.
+    validations:
+      required: true
