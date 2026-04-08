@@ -15,6 +15,7 @@ These are enforced automatically by `pr-fast.yml`. A PR cannot merge unless all 
 - [ ] ⛔ Build — `valynt-app` and `@valueos/backend` build without error
 - [ ] ⛔ Unit tests — all pass, no silent skips
 - [ ] ⛔ RLS gate — all tenant-scoped tables have RLS enabled
+- [ ] ⛔ tenant-isolation-gate test-minimum control — `.github/workflows/pr-fast.yml` must invoke `scripts/ci/run-tenant-isolation-rls-suite.mjs`, and the gate must fail when executed tests are below `RLS_MIN_EXECUTED_TESTS` (default: 10)
 - [ ] ⛔ Migration chain integrity — clean apply from zero succeeds (if migrations changed)
 - [ ] ⛔ Migration rollback files — every forward migration has a `.rollback.sql`
 - [ ] ⛔ CodeQL SAST — 0 new high/critical findings
