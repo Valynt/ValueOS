@@ -1,0 +1,47 @@
+{
+  "owner": "security-engineering@valueos",
+  "program": "vdp-cvd",
+  "publicPolicyPath": "docs/security-compliance/bug-bounty-cvd-program.md",
+  "intakeChannel": {
+    "email": "security@valueos.com"
+  },
+  "slaTargets": {
+    "timeToFirstResponseBusinessDays": 2,
+    "triageBusinessDays": 5,
+    "closureNoticeBusinessDays": 5,
+    "remediationCalendarDaysBySeverity": {
+      "critical": 7,
+      "high": 30,
+      "medium": 90,
+      "low": 180
+    }
+  },
+  "quarterlySnapshots": [
+    {
+      "quarter": "2026-Q1",
+      "reportsReceived": 14,
+      "reportsValidated": 8,
+      "slaPerformance": {
+        "timeToFirstResponseMet": 8,
+        "triageMet": 7,
+        "criticalRemediationMet": 1,
+        "highRemediationMet": 3,
+        "mediumRemediationMet": 2,
+        "lowRemediationMet": 1
+      },
+      "medianTimes": {
+        "timeToFirstResponseHours": 14,
+        "triageHours": 62,
+        "timeToRemediateDays": 19
+      },
+      "openBySeverity": {
+        "critical": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 1
+      },
+      "missedSlaCount": 1,
+      "lastUpdated": "2026-04-01"
+    }
+  ]
+}
