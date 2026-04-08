@@ -121,7 +121,7 @@ Customer-facing trust artifacts are linked to current control/risk snapshots so 
   - `artifacts/security/governance/open-risks.json`
   - `artifacts/security/governance/stale-controls.json`
   - `artifacts/security/governance/vdp-kpis.json` (quarterly VDP/CVD SLA and throughput snapshot)
-  - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope)
+  - `artifacts/security/governance/data-residency-status.json` (tenant-to-region residency assertions for data stores/exports + signature envelope; CI requires managed signing key via `DATA_RESIDENCY_ARTIFACT_SIGNING_KEY`)
   - Policy input used by the gate: `docs/security-compliance/data-residency-controls.json`
 
 For customer assurance responses, include the latest workflow run URL and the artifact files above so control assertions map to timestamped evidence.

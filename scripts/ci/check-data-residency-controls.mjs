@@ -2,7 +2,7 @@
 
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 const DEFAULT_POLICY_PATH = resolve("docs/security-compliance/data-residency-controls.json");
 const DEFAULT_OUTPUT_PATH = resolve("artifacts/security/governance/data-residency-status.json");
@@ -12,6 +12,7 @@ function parseArgs(argv) {
     policyPath: DEFAULT_POLICY_PATH,
     outputPath: DEFAULT_OUTPUT_PATH,
     asOfDate: new Date().toISOString(),
+    requireSigningKey: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -31,6 +32,11 @@ function parseArgs(argv) {
     if (arg === "--as-of") {
       options.asOfDate = argv[index + 1];
       index += 1;
+      continue;
+    }
+
+    if (arg === "--require-signing-key") {
+      options.requireSigningKey = true;
     }
   }
 
@@ -56,14 +62,17 @@ function stableStringify(value) {
   return JSON.stringify(value);
 }
 
-function buildSignature(payload) {
+function buildSignature(payload, { requireSigningKey }) {
   const canonicalPayload = stableStringify(payload);
   const payloadDigest = createHash("sha256").update(canonicalPayload).digest("hex");
 
-  const signingKey =
-    process.env.DATA_RESIDENCY_ARTIFACT_SIGNING_KEY ||
-    process.env.CI_ARTIFACT_SIGNING_KEY ||
-    "local-dev-unsigned";
+  const signingKey = process.env.DATA_RESIDENCY_ARTIFACT_SIGNING_KEY || process.env.CI_ARTIFACT_SIGNING_KEY;
+
+  if (requireSigningKey && !signingKey) {
+    throw new Error(
+      "[data-residency] signing key is required. Set DATA_RESIDENCY_ARTIFACT_SIGNING_KEY or CI_ARTIFACT_SIGNING_KEY.",
+    );
+  }
 
   const keySource = process.env.DATA_RESIDENCY_ARTIFACT_SIGNING_KEY
     ? "DATA_RESIDENCY_ARTIFACT_SIGNING_KEY"
@@ -71,11 +80,14 @@ function buildSignature(payload) {
       ? "CI_ARTIFACT_SIGNING_KEY"
       : "local-dev-fallback";
 
-  const signature = createHmac("sha256", signingKey).update(payloadDigest).digest("hex");
+  const signature = createHmac("sha256", signingKey ?? "local-dev-unsigned")
+    .update(payloadDigest)
+    .digest("hex");
 
   return {
     algorithm: "HMAC-SHA256",
     keySource,
+    signatureMode: keySource === "local-dev-fallback" ? "development-fallback" : "managed-key",
     payloadDigest,
     signature,
     signedAt: new Date().toISOString(),
@@ -185,9 +197,9 @@ function main() {
 
   const policyDocument = readJson(options.policyPath);
   const report = validateResidency(policyDocument, options.asOfDate);
-  report.signature = buildSignature(report);
+  report.signature = buildSignature(report, { requireSigningKey: options.requireSigningKey });
 
-  mkdirSync(resolve(options.outputPath, ".."), { recursive: true });
+  mkdirSync(dirname(options.outputPath), { recursive: true });
   writeFileSync(options.outputPath, `${JSON.stringify(report, null, 2)}\n`);
 
   const status = report.summary.compliant ? "PASS" : "FAIL";
