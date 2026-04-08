@@ -54,9 +54,10 @@ export function useCrossGraphPatterns(
   caseIds: string[]
 ): UseCrossGraphPatternsResult {
   const isEnabled = caseIds.length >= 2;
+  const sortedCaseIds = [...caseIds].sort();
 
   const query = useQuery<CrossGraphPattern[]>({
-    queryKey: ["cross-graph-patterns", ...caseIds.sort()],
+    queryKey: ["cross-graph-patterns", ...sortedCaseIds],
     queryFn: async () => {
       if (caseIds.length < 2) return [];
 
@@ -64,13 +65,13 @@ export function useCrossGraphPatterns(
       // const response = await fetch('/api/graphs/patterns', {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ caseIds }),
+      //   body: JSON.stringify({ caseIds: sortedCaseIds }),
       // });
       // if (!response.ok) throw new Error("Failed to fetch patterns");
       // return response.json();
 
       // Return mock data for development
-      return generateMockPatterns(caseIds);
+      return generateMockPatterns(sortedCaseIds);
     },
     enabled: isEnabled,
     staleTime: 120_000, // 2 minutes
