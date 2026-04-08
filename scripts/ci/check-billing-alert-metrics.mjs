@@ -27,45 +27,50 @@ function parseMetricNamesFromSource(sourceText) {
   return new Set([...sourceText.matchAll(/name:\s*"([a-zA-Z_:][a-zA-Z0-9_:]*)"/g)].map((match) => match[1]));
 }
 
-function extractPromQlExprBlocks(yamlText) {
+function extractPromQlExpressions(yamlText) {
   const lines = yamlText.split('\n');
-  const blocks = [];
+  const expressions = [];
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const match = line.match(/^(\s*)expr:\s*\|\s*$/);
-    if (!match) {
+    const multilineMatch = line.match(/^(\s*)expr:\s*\|\s*$/);
+    if (multilineMatch) {
+      const exprIndent = multilineMatch[1].length;
+      const exprLines = [];
+
+      for (let j = i + 1; j < lines.length; j += 1) {
+        const nextLine = lines[j];
+        if (nextLine.trim().length === 0) {
+          exprLines.push('');
+          continue;
+        }
+
+        const indent = nextLine.match(/^\s*/)?.[0]?.length ?? 0;
+        if (indent <= exprIndent) {
+          i = j - 1;
+          break;
+        }
+
+        exprLines.push(nextLine.trim());
+        if (j === lines.length - 1) {
+          i = j;
+        }
+      }
+
+      if (exprLines.length > 0) {
+        expressions.push(exprLines.join('\n'));
+      }
+
       continue;
     }
 
-    const exprIndent = match[1].length;
-    const exprLines = [];
-
-    for (let j = i + 1; j < lines.length; j += 1) {
-      const nextLine = lines[j];
-      if (nextLine.trim().length === 0) {
-        exprLines.push('');
-        continue;
-      }
-
-      const indent = nextLine.match(/^\s*/)?.[0]?.length ?? 0;
-      if (indent <= exprIndent) {
-        i = j - 1;
-        break;
-      }
-
-      exprLines.push(nextLine.trim());
-      if (j === lines.length - 1) {
-        i = j;
-      }
-    }
-
-    if (exprLines.length > 0) {
-      blocks.push(exprLines.join('\n'));
+    const singleLineMatch = line.match(/^\s*expr:\s*(.+)\s*$/);
+    if (singleLineMatch) {
+      expressions.push(singleLineMatch[1].trim());
     }
   }
 
-  return blocks;
+  return expressions;
 }
 
 function parseManagedMetricReferences(exprBlocks) {
@@ -100,15 +105,14 @@ const manifestMetricNames = new Set((manifest.metrics ?? []).map((entry) => entr
 const missingFromManifest = [...sourceMetricNames].filter((name) => !manifestMetricNames.has(name));
 const unknownInManifest = [...manifestMetricNames].filter((name) => !sourceMetricNames.has(name));
 
-const exprBlocks = extractPromQlExprBlocks(alertRulesYaml);
-const metricReferences = parseManagedMetricReferences(exprBlocks);
+const expressions = extractPromQlExpressions(alertRulesYaml);
+const metricReferences = parseManagedMetricReferences(expressions);
 const normalizedAlertMetricRefs = [...metricReferences].map((metric) => {
   const suffix = histogramSuffixes.find((candidate) => metric.endsWith(candidate));
-  if (!suffix) {
-    return metric;
-  }
+  if (!suffix) return metric;
 
-  return metric.slice(0, -suffix.length);
+  const candidateBaseName = metric.slice(0, -suffix.length);
+  return sourceMetricNames.has(candidateBaseName) ? candidateBaseName : metric;
 });
 const unknownInAlerts = normalizedAlertMetricRefs.filter((metric) => !manifestMetricNames.has(metric));
 

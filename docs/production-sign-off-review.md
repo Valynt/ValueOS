@@ -238,7 +238,7 @@ NATS JetStream, the Prometheus scraping configuration for the billing worker, an
   - What breaks if ignored: Cache entries from worker jobs are shared across all tenants. Audit logs from workers have no `tenant_id`. `CacheService.clear()` in a worker clears all tenants' cache entries.
   - Effort: Low-Medium — add `tenantContextStorage.run(tctPayload, handler)` at the top of each BullMQ job processor. Requires `tenantContext` to be serialized into job payload at enqueue time.
 
-- [ ] **Wire billing alert metrics to actual instrumentation**
+- [x] **Wire billing alert metrics to actual instrumentation** *(resolved 2026-04-08; evidence: commit `eadd913` adds infra readiness contract parsing of `infra/k8s/monitoring/billing-alerts.yaml` and `packages/backend/src/metrics/billingMetrics.ts` with CI fail-on-mismatch)*
   - Why it matters: `billing-alerts.yaml` references metric names (`billing_usage_records_unaggregated`, `billing_stripe_submission_errors_total`, etc.) that do not exist in the backend. All billing alerts are permanently silent.
   - What breaks if ignored: A billing pipeline failure produces no alert. The on-call team has no signal until a customer reports a missing invoice.
   - Effort: Medium — either emit the missing metrics from the billing services, or rewrite the alert expressions to use the metrics that are actually emitted (`recordStripeWebhook`, `recordInvoiceEvent`, `recordBillingJobFailure` from `billingMetrics.ts`).

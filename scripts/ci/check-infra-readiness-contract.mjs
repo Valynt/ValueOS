@@ -13,7 +13,8 @@
  *      on a condition that is always false when Supabase secrets are absent
  *   4. UsageEmitter failedEventsBuffer has a documented drain path
  *   5. BullMQ workers restore tenant context from job payload before processing
- *   6. Optional live kubectl checks for messaging, collectors, and monitoring targets
+ *   6. Billing alerts only reference metrics registered in billingMetrics.ts
+ *   7. Optional live kubectl checks for messaging, collectors, and monitoring targets
  *
  * Exit 1 if any check fails.
  */
@@ -66,6 +67,73 @@ function runKubectl(args) {
     const detail = stderr || stdout || error?.message || 'unknown kubectl error';
     throw new Error(`${cmd} failed: ${detail}`);
   }
+}
+
+const promQlFunctionNames = new Set([
+  'abs', 'absent', 'absent_over_time', 'avg', 'avg_over_time', 'ceil', 'changes', 'clamp', 'clamp_max', 'clamp_min',
+  'count', 'count_over_time', 'day_of_month', 'day_of_week', 'day_of_year', 'delta', 'deriv', 'exp', 'floor', 'histogram_avg',
+  'histogram_count', 'histogram_fraction', 'histogram_quantile', 'histogram_sum', 'holt_winters', 'hour', 'idelta', 'increase',
+  'irate', 'label_join', 'label_replace', 'last_over_time', 'ln', 'log10', 'log2', 'max', 'max_over_time', 'min',
+  'min_over_time', 'minute', 'month', 'predict_linear', 'present_over_time', 'quantile', 'quantile_over_time', 'rate', 'resets',
+  'round', 'scalar', 'sgn', 'sort', 'sort_desc', 'sqrt', 'stddev', 'stddev_over_time', 'stdvar', 'stdvar_over_time',
+  'sum', 'sum_over_time', 'time', 'timestamp', 'vector', 'year', 'bool', 'on', 'ignoring', 'group_left', 'group_right',
+  'and', 'or', 'unless', 'by', 'without'
+]);
+const managedMetricPrefixes = ['billing_', 'webhook_', 'webhooks_', 'partition_', 'subscription_'];
+const histogramSuffixes = ['_bucket', '_sum', '_count'];
+
+function parseMetricNamesFromSource(sourceText) {
+  return new Set([...sourceText.matchAll(/name:\s*"([a-zA-Z_:][a-zA-Z0-9_:]*)"/g)].map((match) => match[1]));
+}
+
+function extractPromQlExpressions(yamlText) {
+  const lines = yamlText.split('\n');
+  const expressions = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const multilineMatch = line.match(/^(\s*)expr:\s*\|\s*$/);
+    if (multilineMatch) {
+      const exprIndent = multilineMatch[1].length;
+      const exprLines = [];
+      for (let j = i + 1; j < lines.length; j += 1) {
+        const nextLine = lines[j];
+        if (nextLine.trim().length === 0) {
+          exprLines.push('');
+          continue;
+        }
+        const indent = nextLine.match(/^\s*/)?.[0]?.length ?? 0;
+        if (indent <= exprIndent) {
+          i = j - 1;
+          break;
+        }
+        exprLines.push(nextLine.trim());
+        if (j === lines.length - 1) {
+          i = j;
+        }
+      }
+      if (exprLines.length > 0) expressions.push(exprLines.join('\n'));
+      continue;
+    }
+
+    const singleLineMatch = line.match(/^\s*expr:\s*(.+)\s*$/);
+    if (singleLineMatch) expressions.push(singleLineMatch[1].trim());
+  }
+
+  return expressions;
+}
+
+function parseManagedMetricReferences(expressions) {
+  const refs = new Set();
+  for (const expr of expressions) {
+    const tokens = expr.match(/\b[a-zA-Z_:][a-zA-Z0-9_:]*\b/g) ?? [];
+    for (const token of tokens) {
+      if (promQlFunctionNames.has(token)) continue;
+      if (token === 'le' || token === 'job_name' || token === 'cronjob' || token === 'queue' || token === 'status' || token === 'event_type' || token === 'metric' || token === 'tenant_id') continue;
+      if (managedMetricPrefixes.some((prefix) => token.startsWith(prefix))) refs.add(token);
+    }
+  }
+  return refs;
 }
 
 console.log('\nInfra Readiness Contract Gate\n');
@@ -208,8 +276,41 @@ console.log('\n5. BullMQ workers restore tenant context');
   }
 }
 
-// ── Check 6: Live Kubernetes state checks (deploy-time gate) ────────────────
-console.log('\n6. Live Kubernetes state checks (messaging, collectors, monitoring)');
+// ── Check 6: Billing alert metrics reference registered backend metrics ──────
+console.log('\n6. Billing alert metric contract');
+{
+  const metricsSource = read('packages/backend/src/metrics/billingMetrics.ts');
+  const billingAlerts = read('infra/k8s/monitoring/billing-alerts.yaml');
+
+  if (!metricsSource) {
+    fail('packages/backend/src/metrics/billingMetrics.ts is missing');
+  }
+  if (!billingAlerts) {
+    fail('infra/k8s/monitoring/billing-alerts.yaml is missing');
+  }
+  if (metricsSource && billingAlerts) {
+    const sourceMetricNames = parseMetricNamesFromSource(metricsSource);
+    const expressions = extractPromQlExpressions(billingAlerts);
+    const metricReferences = parseManagedMetricReferences(expressions);
+    const normalizedRefs = [...metricReferences].map((metric) => {
+      const suffix = histogramSuffixes.find((candidate) => metric.endsWith(candidate));
+      if (!suffix) return metric;
+
+      const candidateBaseName = metric.slice(0, -suffix.length);
+      return sourceMetricNames.has(candidateBaseName) ? candidateBaseName : metric;
+    });
+    const unknownInAlerts = normalizedRefs.filter((metric) => !sourceMetricNames.has(metric));
+
+    if (unknownInAlerts.length > 0) {
+      fail(`billing-alerts.yaml references unregistered billing metrics: ${unknownInAlerts.sort().join(', ')}`);
+    } else {
+      pass(`billing-alerts.yaml references ${metricReferences.size} managed metrics, all registered in billingMetrics.ts`);
+    }
+  }
+}
+
+// ── Check 7: Live Kubernetes state checks (deploy-time gate) ────────────────
+console.log('\n7. Live Kubernetes state checks (messaging, collectors, monitoring)');
 {
   if (!enableLiveChecks) {
     warnLive('Live checks disabled. Set INFRA_READINESS_LIVE_CHECKS=true to validate cluster state.');
