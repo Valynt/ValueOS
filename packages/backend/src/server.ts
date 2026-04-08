@@ -27,12 +27,12 @@ logger.info("[Instrumentation] Express imported successfully");
 
 logger.info("[Instrumentation] CORS imported successfully");
 
-import { createServer, type IncomingMessage } from "http";
+import { createServer } from "http";
 
 import { initializeContext } from "@shared/lib/context";
 import express from "express";
 import type { Application, Request, Response, NextFunction } from "express";
-import { type RawData, WebSocket, WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
 import { agentAdminRouter } from "./api/agentAdmin.js";
@@ -209,12 +209,14 @@ import {
 import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
 import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 import {
+  authenticateWebSocketRequest,
+  type AuthenticatedWebSocket,
   getRequestedTenantId,
   getWebSocketToken,
   parseBearerToken,
 } from "./server/websocket-request-auth.js";
-import { registerServerMiddleware } from "./server/middlewareRegistration.js";
-import { mountServerRoutes } from "./server/routeMounting.js";
+import { registerServerMiddleware } from "./server/register-middleware.js";
+import { mountServerRoutes } from "./server/register-routes.js";
 import {
   validateAuditLogStartupConfig,
   validateInfrastructureConnectivity,
@@ -285,12 +287,6 @@ const onboardingConcurrencyGuard = createConcurrencyBackpressure(
   }
 );
 
-interface AuthenticatedWebSocket extends WebSocket {
-  userId: string;
-  tenantId: string;
-  connectionId: string;
-}
-
 const websocketLimiter = new WebSocketLimiter({
   maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
   maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
@@ -299,204 +295,34 @@ let websocketConnectionCounter = 0;
 
 const tenantResolver = new TenantContextResolver();
 
-async function authenticateWebSocket(
-  ws: WebSocket,
-  req: IncomingMessage
-): Promise<void> {
-  const clientIp = req.socket.remoteAddress;
-  const token = getWebSocketToken(req);
-
-  if (!token) {
-    logger.warn("WebSocket authentication failed: missing token", { clientIp });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Authentication required");
-    return;
-  }
-
-  const verified = await verifyAccessToken(token);
-  if (!verified) {
-    logger.warn("WebSocket authentication failed: invalid token", { clientIp });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
-    return;
-  }
-
-  const claims = verified.claims ?? null;
-  const userId = verified.user?.id ?? claims?.sub;
-
-  if (!userId) {
-    logger.warn("WebSocket authentication failed: missing user id", {
-      clientIp,
-    });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
-    return;
-  }
-
-  let tenantId = extractTenantId(claims, verified.user);
-  if (!tenantId) {
-    const requestedTenantId = getRequestedTenantId(req);
-    if (requestedTenantId) {
-      const hasAccess = await tenantResolver.hasTenantAccess(
-        userId,
-        requestedTenantId
-      );
-      if (!hasAccess) {
-        logger.warn("WebSocket authentication failed: tenant access denied", {
-          clientIp,
-          userId,
-          requestedTenantId,
-        });
-        ws.close(WS_POLICY_VIOLATION_CODE, "Tenant access denied");
-        return;
-      }
-      tenantId = requestedTenantId;
-    }
-  }
-
-  if (!tenantId) {
-    logger.warn("WebSocket authentication failed: missing tenant context", {
-      clientIp,
-      userId,
-    });
-    ws.close(WS_POLICY_VIOLATION_CODE, "Tenant context required");
-    return;
-  }
-
-  const authedSocket = ws as AuthenticatedWebSocket;
-  authedSocket.userId = userId;
-  authedSocket.tenantId = tenantId;
-  authedSocket.connectionId = `${tenantId}:${++websocketConnectionCounter}`;
-
-  logger.info("WebSocket client connected", {
-    clientIp,
-    userId,
-    tenantId,
-    connectionId: authedSocket.connectionId,
-  });
-
-  ws.on("message", (data: RawData) => {
-    const payloadBytes =
-      typeof data === "string"
-        ? Buffer.byteLength(data)
-        : data instanceof ArrayBuffer
-          ? data.byteLength
-          : Array.isArray(data)
-            ? data.reduce((total, segment) => total + segment.byteLength, 0)
-            : data.byteLength;
-
-    const limiterResult = websocketLimiter.evaluateMessage(
-      authedSocket.connectionId,
-      authedSocket.tenantId,
-      payloadBytes
-    );
-
-    if (!limiterResult.allowed && limiterResult.reason) {
-      recordDroppedFrame(limiterResult.reason);
-      recordThrottledClient(authedSocket.tenantId);
-      logSecurityEvent({
-        type: "WEBSOCKET_FRAME_BLOCKED",
-        category: "rate_limiting",
-        severity: "high",
-        outcome: "blocked",
-        reason: limiterResult.reason,
-        userId: authedSocket.userId,
-        tenantId: authedSocket.tenantId,
-        ipAddress: clientIp,
-        metadata: {
-          connectionId: authedSocket.connectionId,
-          payloadBytes,
-          maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
-          maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
-        },
-      });
-
-      ws.close(WS_POLICY_VIOLATION_CODE, "Policy violation");
-      return;
-    }
-
-    try {
-      const textPayload =
-        typeof data === "string"
-          ? data
-          : data instanceof ArrayBuffer
-            ? Buffer.from(data).toString()
-            : Array.isArray(data)
-              ? Buffer.concat(data).toString()
-              : data.toString();
-      const message = JSON.parse(textPayload) as {
-        type?: string;
-        messageId?: string;
-        payload?: unknown;
-      };
-      logger.debug("WebSocket message received", {
-        type: message.type,
-        messageId: message.messageId,
-      });
-
-      switch (message.type) {
-        case "sdui_update": {
-          const senderTenantId = authedSocket.tenantId;
-          wss.clients.forEach(client => {
-            const recipient = client as AuthenticatedWebSocket;
-            if (
-              client !== ws &&
-              client.readyState === WebSocket.OPEN &&
-              recipient.tenantId === senderTenantId
-            ) {
-              client.send(
-                JSON.stringify({
-                  type: "sdui_update",
-                  data: message.payload,
-                  timestamp: new Date().toISOString(),
-                })
-              );
-            }
-          });
-          break;
-        }
-
-        case "ping":
-          ws.send(
-            JSON.stringify({
-              type: "pong",
-              timestamp: new Date().toISOString(),
-            })
-          );
-          break;
-
-        default:
-          logger.warn("Unknown WebSocket message type", { type: message.type });
-      }
-    } catch (error) {
-      logger.error(
-        "Error handling WebSocket message",
-        error instanceof Error ? error : undefined
-      );
-    }
-  });
-
-  ws.on("close", () => {
-    websocketLimiter.releaseConnection(
-      authedSocket.connectionId,
-      authedSocket.tenantId
-    );
-    logger.info("WebSocket client disconnected", {
-      clientIp,
-      userId,
-      tenantId,
-      connectionId: authedSocket.connectionId,
-    });
-  });
-
-  ws.on("error", error => {
-    logger.error("WebSocket error", error instanceof Error ? error : undefined);
-  });
-}
-
-// WebSocket connection handling
+// ============================================================================
+// WebSocket auth + tenant parsing seam
+// ============================================================================
 wss.on("connection", (ws: WebSocket, req) => {
-  void authenticateWebSocket(ws, req);
+  void authenticateWebSocketRequest(
+    ws,
+    req,
+    wss,
+    () => ++websocketConnectionCounter,
+    {
+      verifyAccessToken,
+      extractTenantId,
+      tenantResolver,
+      logger,
+      websocketLimiter,
+      recordDroppedFrame,
+      recordThrottledClient,
+      logSecurityEvent,
+      wsMaxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
+      wsMaxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
+      wsPolicyViolationCode: WS_POLICY_VIOLATION_CODE,
+    }
+  );
 });
 
-// Middleware
+// ============================================================================
+// Middleware/bootstrap registration seam
+// ============================================================================
 registerServerMiddleware({
   app,
   corsOrigins: settings.security.corsOrigins,
@@ -513,6 +339,9 @@ registerServerMiddleware({
   requestAuditMiddleware,
 });
 
+// ============================================================================
+// Route registration seam
+// ============================================================================
 mountServerRoutes({
   app,
   apiRouter,
