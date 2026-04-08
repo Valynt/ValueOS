@@ -20,9 +20,16 @@ interface ActualsData {
   };
 }
 
+interface SubmitFeedbackParams {
+  graphId: string;
+  actuals: ActualsData;
+}
+
 interface UseRealizationFeedbackResult {
-  /** Apply actuals feedback to a graph */
-  applyFeedback: (graph: Graph, actuals: ActualsData) => Graph;
+  /** Apply actuals feedback to a graph without persistence */
+  applyFeedbackLocal: (graph: Graph, actuals: ActualsData) => Graph;
+  /** Submit feedback for persistence */
+  submitFeedback: (params: SubmitFeedbackParams) => Promise<SubmitFeedbackParams>;
   /** Whether feedback is being applied */
   isApplying: boolean;
   /** Error if feedback application failed */
@@ -65,7 +72,7 @@ export function useRealizationFeedback(
 
   // Mutation to submit feedback
   const feedbackMutation = useMutation({
-    mutationFn: async (params: { graphId: string; actuals: ActualsData }) => {
+    mutationFn: async (params: SubmitFeedbackParams) => {
       // TODO: Replace with actual API call
       // await fetch(`/api/graphs/${params.graphId}/feedback`, {
       //   method: "POST",
@@ -79,57 +86,14 @@ export function useRealizationFeedback(
     },
   });
 
-  // Apply feedback to a graph
-  const applyFeedback = useCallback(
-    (graph: Graph, actuals: ActualsData): Graph => {
-      const updatedNodes: Record<string, ValueNode> = {};
+  // Apply feedback to a graph without persistence
+  const applyFeedbackLocal = useCallback((graph: Graph, actuals: ActualsData): Graph => {
+    return applyRealizationFeedback(graph, actuals);
+  }, []);
 
-      Object.entries(graph.nodes).forEach(([nodeId, node]) => {
-        const actualsData = actuals[nodeId];
-        if (!actualsData) {
-          // No actuals for this node, keep as-is
-          updatedNodes[nodeId] = node;
-          return;
-        }
-
-        // Calculate confidence adjustment based on accuracy
-        // High accuracy (>95%) = increase confidence
-        // Low accuracy (<80%) = decrease confidence + flag for review
-        let newConfidence = node.confidence ?? 0.5;
-        const { accuracy } = actualsData;
-
-        if (accuracy >= 0.95) {
-          // Excellent accuracy - boost confidence
-          newConfidence = Math.min(1, newConfidence + 0.1);
-        } else if (accuracy >= 0.85) {
-          // Good accuracy - slight confidence increase
-          newConfidence = Math.min(1, newConfidence + 0.05);
-        } else if (accuracy >= 0.7) {
-          // Fair accuracy - maintain confidence
-          // No change
-        } else {
-          // Poor accuracy - reduce confidence
-          newConfidence = Math.max(0.3, newConfidence - 0.15);
-        }
-
-        updatedNodes[nodeId] = {
-          ...node,
-          confidence: newConfidence,
-          metadata: {
-            ...node.metadata,
-            lastModified: new Date().toISOString(),
-          },
-        };
-      });
-
-      return {
-        ...graph,
-        nodes: updatedNodes,
-        versionId: `${graph.versionId ?? "v0"}-feedback-${Date.now()}`,
-      };
-    },
-    []
-  );
+  const submitFeedback = useCallback((params: SubmitFeedbackParams) => {
+    return feedbackMutation.mutateAsync(params);
+  }, [feedbackMutation]);
 
   // Calculate feedback statistics
   const feedbackStats = useMemo(() => {
@@ -149,7 +113,8 @@ export function useRealizationFeedback(
   }, [actualsQuery.data]);
 
   return {
-    applyFeedback,
+    applyFeedbackLocal,
+    submitFeedback,
     isApplying: feedbackMutation.isPending,
     error: (feedbackMutation.error as Error | null) ?? (actualsQuery.error as Error | null),
     feedbackStats,
