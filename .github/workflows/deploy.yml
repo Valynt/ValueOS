@@ -376,8 +376,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
+          SLO_ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
         run: |
           node scripts/ci/check-release-reliability-indicators.mjs
+      - name: Upload release reliability summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-reliability-summary-${{ github.run_id }}
+          path: artifacts/reliability/release-reliability-summary.json
+          if-no-files-found: warn
 
   # Always emit a deployment audit artifact for non-scheduled runs.
   emergency-skip-audit:

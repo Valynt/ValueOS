@@ -75,4 +75,5 @@ Failures are tracked in `artifacts/ci-lanes/flake-report/flake-summary.json`.
 - To promote a tracked test to blocking: fix the flake root cause, verify < 2% over 10 consecutive runs, then update this document
 - Nightly governance jobs intentionally avoid PR-style `if:` filters so scheduled runs execute meaningful work instead of mostly skipped lanes.
 - Deploy workflow production promotion consumes the canonical manifest in `scripts/ci/release-gate-manifest.json` through the `release-readiness` aggregate (job id `release-gate-contract`) in `.github/workflows/deploy.yml`. That contract waits for `main-verify` plus local deploy gates (`dast-gate`, `release-manifest-gate`, and `emergency-skip-audit`) before `deploy-production` can start.
-- Deploy workflow also requires `reliability-indicators-gate`, which enforces release-time reliability thresholds for critical check pass-rate, flaky-test threshold, and rollback drill recency.
+- Deploy workflow also requires `reliability-indicators-gate`, which compiles a blocking artifact at `artifacts/reliability/release-reliability-summary.json` with: SLO burn-rate snapshot, recent incident MTTR, deployment health checks, and rollback drill status.
+- `reliability-indicators-gate` fails if any threshold declared in `docs/go-no-go-criteria.md` (`release-reliability-thresholds` block) is not met.

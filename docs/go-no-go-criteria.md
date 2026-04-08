@@ -158,6 +158,40 @@ These are non-negotiable. No exception process exists for these criteria.
 
 ---
 
+## Release Reliability Evidence Gate (Blocking)
+
+`reliability-indicators-gate` compiles the release reliability evidence artifact at `artifacts/reliability/release-reliability-summary.json` and blocks promotion when any threshold below is violated.
+
+```json release-reliability-thresholds
+{
+  "slo_burn_rate": {
+    "max_active_alerts": 0
+  },
+  "recent_incident_mttr": {
+    "max_avg_mttr_minutes": 20
+  },
+  "deployment_health": {
+    "minimum_critical_pass_rate_percent": 100,
+    "maximum_flaky_rate_percent": 2,
+    "flaky_check_name": "flake-gate",
+    "critical_checks": [
+      "main-verify",
+      "critical-workflows-gate",
+      "tenant-isolation-gate",
+      "security-gate",
+      "accessibility-audit",
+      "flake-gate",
+      "e2e-critical"
+    ]
+  },
+  "rollback_drill": {
+    "max_drill_age_days": 30
+  }
+}
+```
+
+---
+
 ## Soft Gates — FAIL triggers review, not automatic NO-GO
 
 These require Release Manager judgment. A documented exception with mitigations is required to proceed.
