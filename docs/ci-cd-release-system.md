@@ -42,18 +42,16 @@ PR → [Gate 0: PR Fast] → merge to main
 **Concurrency:** Cancel-in-progress per ref (fast feedback)  
 **Required to merge:** All lanes must pass (enforced via branch protection)
 
-| Lane | What it enforces | Hard gate? |
+| Workflow job name | What it enforces | Hard gate? | Exact fail criteria |
 |---|---|---|
-| `secret-scan` | Gitleaks diff scan — zero secrets in diff | ✅ Yes |
-| `ts-type-ratchet` | TS error count ≤ baseline per package; `any` budget; debt ratchet | ✅ Yes |
-| `lint-runtime-packages` | ESLint zero new warnings on backend/valynt-app/shared | ✅ Yes |
-| `active-app-quality-gates` | Typecheck + build + browser-key governance per shipped app | ✅ Yes |
-| `production-eslint-ratchet` | Production lint profile — allowlist + warning ratchet | ✅ Yes |
-| `unit-component-schema` | Vitest coverage ≥ thresholds; migration hygiene; 60+ static guards | ✅ Yes |
-| `tenant-isolation-static-gate` | Static analysis for missing `organization_id`/`tenant_id` filters | ✅ Yes |
-| `security-sast` | CodeQL SAST (JavaScript/TypeScript) | ✅ Yes |
-| `rls-gate` | RLS lint SQL tests via Supabase local (path-filtered) | ✅ Yes |
-| `migration-chain-integrity` | Clean-apply from zero on Postgres 15 (path-filtered) | ✅ Yes |
+| `secret-scan` | Gitleaks diff scan — zero secrets in diff | ✅ Yes | Any secret finding fails the job. |
+| `lint-runtime-packages` | ESLint runtime lanes (backend, valynt-app, shared) | ✅ Yes | Any lane failure fails `pr-fast`; skipped is not accepted in aggregate gate. |
+| `active-app-quality-gates` | App lint + typecheck + build + browser-key governance | ✅ Yes | Any sub-step failure (including build failure) fails `pr-fast`; skipped is not accepted in aggregate gate. |
+| `unit-component-schema` | Coverage thresholds + migration/schema/docs/security guards | ✅ Yes | Coverage below thresholds or any guard failure fails the job. |
+| `tenant-isolation-gate` | RLS tenant isolation runtime suite + compliance mode report | ✅ Yes | Runtime lane must succeed; skipped is a hard fail. |
+| `e2e-critical` | Critical E2E path + critical integration assertions | ✅ Yes | Any E2E failure, minimum-count failure, or critical `.skip/.only` without valid waiver metadata fails. |
+| `security-gate` | SCA + CVE waiver expiry + Trivy + secret/SAST controls | ✅ Yes | Expired waiver, unwaived high/critical CVE, or any security scanner failure fails. |
+| `pr-fast` | Aggregate enforcement job | ✅ Yes | Explicitly requires success for lint/build/coverage/RLS/E2E/security lanes (not skipped). |
 
 **Coverage thresholds (hard gate — build fails if not met):**
 
@@ -64,17 +62,32 @@ functions:  70%
 branches:   70%
 ```
 
-These are enforced via `--coverage.thresholds.*` flags in the Vitest invocation. Reducing thresholds requires a PR with explicit justification reviewed by the test-coverage owner.
+These are enforced via `--coverage.thresholds.*` flags in the Vitest invocation, and they are required by the aggregate `pr-fast` check. Reducing thresholds requires a PR with explicit justification reviewed by the test-coverage owner.
 
 ### 2.2 Gate 1 — Post-Merge Verification (`main-verify.yml`)
 
 **Trigger:** Push to `main`  
 **Purpose:** Catch anything that slipped through PR gate due to merge conflicts or race conditions.
 
-- Full-history Gitleaks scan (not just diff)
-- DevContainer build validation
-- Re-runs critical static guards on the merged commit
-- Emits `main-verify` required check status (polled by `deploy.yml`)
+Mandatory Gate 1 jobs and hard-fail criteria:
+
+| Workflow job name | Hard fail criteria |
+|---|---|
+| `lint-runtime-packages` | Any lint lane failure (no skipped allowance in aggregate). |
+| `active-app-quality-gates` | Any app build/typecheck/lint failure. |
+| `unit-component-schema` | Coverage threshold miss or guard failure. |
+| `tenant-isolation-gate` | RLS runtime suite failure. |
+| `critical-workflows-gate` | Critical workflow test failure, minimum-count failure, or critical `.skip/.only` without waiver metadata. |
+| `security-gate` | CVE waiver expiry, unwaived high/critical `pnpm audit` findings, or security scanner failures. |
+| `staging-deploy-release-gates` (check name: `main-verify`) | Aggregates mandatory jobs above and fails if any is non-success. |
+
+Additional explicit Gate 1 controls:
+
+- **Undocumented route drift is blocking** via `scripts/ci/express-openapi-security-check.mjs` in `unit-component-schema` (missing OpenAPI operation for a mounted Express route fails).
+- **DAST high-severity fail policy is blocking** via `scripts/ci/check-dast-high-severity-gate.mjs` in `security-gate` (verifies deploy-time `dast-gate` still fails on any HIGH and >5 MEDIUM findings).
+- **Machine-readable gate evidence** is published at:
+  - `artifacts/release-gates/pr-fast/*.json`
+  - `artifacts/release-gates/main-verify/*.json`
 
 ### 2.3 Gate 2 — Release Build (`release.yml`)
 
