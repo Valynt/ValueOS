@@ -1,5 +1,4 @@
 import {
-  createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
@@ -31,7 +30,6 @@ function assertNotTestEnv(caller: string): void {
 
 export {
   assertNotTestEnv,
-  createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,

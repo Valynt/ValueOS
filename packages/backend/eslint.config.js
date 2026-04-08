@@ -98,6 +98,12 @@ export default tseslint.config(
               message:
                 "Deprecated camelCase API path import. Use canonical `src/api/domain-packs/*`.",
             },
+            {
+              group: ["@shared/lib/supabase", "@shared/lib/supabase.js"],
+              importNames: ["createBrowserSupabaseClient"],
+              message:
+                "Browser-only Supabase clients are forbidden in packages/backend. Use request-scoped or privileged backend Supabase helpers.",
+            },
           ],
         },
       ],
