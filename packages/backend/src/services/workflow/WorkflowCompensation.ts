@@ -4,10 +4,44 @@ import {
   CompensationPolicy,
   ExecutedStep,
   LifecycleStage,
-  RollbackState
+  RollbackState,
+  WorkflowStageType
 } from '../../types/workflow';
 
 type CompensationHandler = (context: CompensationContext) => Promise<void>;
+
+interface WorkflowExecutionLogOutputData {
+  artifacts_created?: string[];
+  [key: string]: unknown;
+}
+
+interface WorkflowExecutionLog {
+  stage_id: string;
+  output_data: WorkflowExecutionLogOutputData;
+}
+
+interface RollbackExecutionContext {
+  executed_steps?: ExecutedStep[];
+  rollback_state?: RollbackState;
+  compensation_policy?: CompensationPolicy;
+  [key: string]: unknown;
+}
+
+interface WorkflowExecutionUpdate {
+  context: RollbackExecutionContext;
+  updated_at: string;
+  status?: 'rolled_back';
+  completed_at?: string;
+}
+
+interface RollbackEventMetadata {
+  stages_to_rollback?: number;
+  stage_id?: string;
+  stage_type?: WorkflowStageType;
+  compensator?: string;
+  error?: string;
+  stages_rolled_back?: number;
+}
 
 export class WorkflowCompensation {
   private static readonly ROLLBACK_TIMEOUT_MS = 5000;
@@ -34,13 +68,7 @@ export class WorkflowCompensation {
 
     if (executionError) throw new Error('Failed to fetch execution for rollback');
 
-    const executionContext = execution?.context || {};
-    const executedSteps: ExecutedStep[] = executionContext.executed_steps || [];
-
-    const rollbackState: RollbackState = executionContext.rollback_state || {
-      status: 'idle',
-      completed_steps: []
-    };
+    const { context: executionContext, executedSteps, rollbackState } = this.parseExecutionContext(execution?.context);
 
     if (!execution || executedSteps.length === 0) return;
     if (rollbackState.status === 'completed') return;
@@ -58,10 +86,15 @@ export class WorkflowCompensation {
 
     await this.logRollbackEvent(executionId, 'started', { stages_to_rollback: executedSteps.length });
 
-    const logByStage = new Map<string, any>();
-    for (const log of logs) {
-      if (!logByStage.has(log.stage_id)) {
-        logByStage.set(log.stage_id, log);
+    const logByStage = new Map<string, WorkflowExecutionLog>();
+    for (const rawLog of logs) {
+      const parsedLog = this.parseExecutionLog(rawLog);
+      if (!parsedLog) {
+        continue;
+      }
+
+      if (!logByStage.has(parsedLog.stage_id)) {
+        logByStage.set(parsedLog.stage_id, parsedLog);
       }
     }
 
@@ -80,11 +113,11 @@ export class WorkflowCompensation {
       const compensationContext: CompensationContext = {
         execution_id: executionId,
         stage_id: step.stage_id,
-        artifacts_created: log.output_data?.artifacts_created || [],
-        state_changes: log.output_data || {}
+        artifacts_created: log.output_data.artifacts_created ?? [],
+        state_changes: log.output_data
       };
 
-      const handler = this.resolveHandler(step.compensator, step.stage_type);
+      const handler = this.resolveHandler(step.compensator, step.stage_type as LifecycleStage);
 
       try {
         if (handler) {
@@ -125,13 +158,13 @@ export class WorkflowCompensation {
 
   private async persistRollbackState(
     executionId: string,
-    executionContext: Record<string, any>,
+    executionContext: RollbackExecutionContext,
     rollbackState: RollbackState,
     markRolledBack = false
   ): Promise<void> {
-    const updatedContext = { ...executionContext, rollback_state: rollbackState };
+    const updatedContext: RollbackExecutionContext = { ...executionContext, rollback_state: rollbackState };
 
-    const update: Record<string, any> = {
+    const update: WorkflowExecutionUpdate = {
       context: updatedContext,
       updated_at: new Date().toISOString()
     };
@@ -236,14 +269,14 @@ export class WorkflowCompensation {
     ]);
   }
 
-  private getCompensationPolicy(context: Record<string, any>): CompensationPolicy {
+  private getCompensationPolicy(context: RollbackExecutionContext): CompensationPolicy {
     return context.compensation_policy || 'continue_on_error';
   }
 
   private async logRollbackEvent(
     executionId: string,
     eventType: string,
-    metadata: Record<string, any>
+    metadata: RollbackEventMetadata
   ): Promise<void> {
     await supabase
       .from('workflow_events')
@@ -282,13 +315,114 @@ export class WorkflowCompensation {
 
     if (!logs) return { stages: [] };
 
-    const stages = logs.map(log => ({
-      stage_id: log.stage_id,
-      artifacts_affected: (log.output_data?.artifacts_created || []).length,
-      changes_to_revert: Object.keys(log.output_data || {}).filter(key => key !== 'artifacts_created')
-    }));
+    const stages = logs
+      .map(log => this.parseExecutionLog(log))
+      .filter((log): log is WorkflowExecutionLog => log !== null)
+      .map(log => ({
+        stage_id: log.stage_id,
+        artifacts_affected: log.output_data.artifacts_created?.length ?? 0,
+        changes_to_revert: Object.keys(log.output_data).filter(key => key !== 'artifacts_created')
+      }));
 
     return { stages };
+  }
+
+  private parseExecutionContext(context: unknown): {
+    context: RollbackExecutionContext;
+    executedSteps: ExecutedStep[];
+    rollbackState: RollbackState;
+  } {
+    const parsedContext: RollbackExecutionContext = this.isRecord(context)
+      ? context
+      : {};
+
+    const executedSteps = Array.isArray(parsedContext.executed_steps)
+      ? parsedContext.executed_steps.filter((step): step is ExecutedStep => this.isExecutedStep(step))
+      : [];
+
+    const rollbackState = this.parseRollbackState(parsedContext.rollback_state);
+
+    return {
+      context: parsedContext,
+      executedSteps,
+      rollbackState
+    };
+  }
+
+  private parseExecutionLog(log: unknown): WorkflowExecutionLog | null {
+    if (!this.isRecord(log)) {
+      return null;
+    }
+
+    if (typeof log.stage_id !== 'string' || log.stage_id.length === 0) {
+      return null;
+    }
+
+    const outputData = this.parseOutputData(log.output_data);
+    if (!outputData) {
+      return null;
+    }
+
+    return {
+      stage_id: log.stage_id,
+      output_data: outputData
+    };
+  }
+
+  private parseOutputData(outputData: unknown): WorkflowExecutionLogOutputData | null {
+    if (outputData == null) {
+      return {};
+    }
+
+    if (!this.isRecord(outputData)) {
+      return null;
+    }
+
+    const parsedArtifacts = Array.isArray(outputData.artifacts_created)
+      ? outputData.artifacts_created.filter((artifactId): artifactId is string => typeof artifactId === 'string')
+      : undefined;
+
+    return {
+      ...outputData,
+      ...(parsedArtifacts ? { artifacts_created: parsedArtifacts } : {})
+    };
+  }
+
+  private parseRollbackState(rollbackState: unknown): RollbackState {
+    if (!this.isRecord(rollbackState)) {
+      return {
+        status: 'idle',
+        completed_steps: []
+      };
+    }
+
+    const completedSteps = Array.isArray(rollbackState.completed_steps)
+      ? rollbackState.completed_steps.filter((step): step is string => typeof step === 'string')
+      : [];
+
+    const validStatuses: RollbackState['status'][] = ['idle', 'in_progress', 'completed', 'failed'];
+    const status = validStatuses.includes(rollbackState.status as RollbackState['status'])
+      ? rollbackState.status as RollbackState['status']
+      : 'idle';
+
+    return {
+      status,
+      completed_steps: completedSteps,
+      ...(typeof rollbackState.failed_stage === 'string' ? { failed_stage: rollbackState.failed_stage } : {})
+    };
+  }
+
+  private isExecutedStep(step: unknown): step is ExecutedStep {
+    if (!this.isRecord(step)) {
+      return false;
+    }
+
+    return typeof step.stage_id === 'string'
+      && typeof step.stage_type === 'string';
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 }
 
