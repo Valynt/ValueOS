@@ -205,7 +205,7 @@ All 11 canonical agents + GroundTruthAnalyzer are containerized. Kustomization u
 | Check | Status | Notes |
 |---|---|---|
 | `pnpm audit` — production runtime vulnerabilities | ✅ 0 found | All 31 advisories are dev-only |
-| Previously reported CRITICAL-001 (jspdf) | ✅ Resolved | No longer flagged |
+| Previously reported CRITICAL-001 (jspdf) | ✅ Closed (historical) | Downgraded from active P0: current dependency floor is `jspdf >= 4.2.1`; keep as historical reference only |
 | Previously reported HIGH-002/003 (undici) | ✅ Resolved | No longer flagged |
 | Remaining dev-only advisories (handlebars, flatted, etc.) | ⚠️ Tracked | No production exposure; resolve via `pnpm update` post-launch |
 | RLS policies | ✅ | Validated by `pnpm run test:rls` |
@@ -215,6 +215,8 @@ All 11 canonical agents + GroundTruthAnalyzer are containerized. Kustomization u
 | Secret scanning | ✅ | `.github/workflows/secret-scan.yml` + `.gitleaks.toml` |
 | OPA sidecar on all agent pods | ✅ | All 22 agent deployments include `opa-ext-authz` container |
 | Envoy auth-proxy on all agent pods | ✅ | All 22 agent deployments include `auth-proxy` container |
+
+**Evidence snapshot (2026-04-08 UTC):** Security finding status above was validated against `pnpm-lock.yaml` (`sha256:13476a73f21fb10a341697b8a4da446609194339e95b557e4bd70137b37c4a5e`) and `apps/ValyntApp/package.json` (`sha256:c3f1d995fed443a71bef3936f402e9c81764fbab189f6a1444668a4c28043673`).
 
 **Verify:** `pnpm audit --audit-level high` — confirm 0 production-path findings.
 
@@ -241,10 +243,13 @@ pnpm --filter ValyntApp build
 # 6. Security audit — must show 0 production vulnerabilities
 pnpm audit --audit-level high
 
-# 7. DR validation against staging
+# 7. jsPDF policy check for future audit publication (must be >= 4.2.1)
+node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('apps/ValyntApp/package.json', 'utf8')); const raw = pkg?.dependencies?.jspdf; if (!raw) { console.error('FAIL: dependencies.jspdf is missing'); process.exit(1); } const v = raw.replace(/^[^0-9]*/, '').split('.').map(Number); const ok = v.length >= 3 && (v[0] > 4 || (v[0] === 4 && (v[1] > 2 || (v[1] === 2 && v[2] >= 1)))); if (!ok) { console.error('FAIL: dependencies.jspdf must be >=4.2.1, found ' + raw); process.exit(1); } console.log('PASS: dependencies.jspdf=' + raw + ' (>=4.2.1)');"
+
+# 8. DR validation against staging
 bash scripts/dr-validate.sh staging --simulate-failover --validate-rollback
 
-# 8. Smoke test against staging
+# 9. Smoke test against staging
 bash scripts/pre-deployment-checklist.sh
 ```
 
