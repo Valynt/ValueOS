@@ -19,7 +19,7 @@
 
 These are non-negotiable. No exception process exists for these criteria.
 
-Operational control mapping (owner, CI jobs, artifact paths, waiver governance): [docs/operations/launch-evidence/gate-control-matrix.md](./operations/launch-evidence/gate-control-matrix.md).
+Operational control mapping (owner, CI jobs, artifact paths, waiver governance): [docs/operations/launch-evidence/control-matrix.md](./operations/launch-evidence/control-matrix.md).
 
 OpenSpec requirements intent and traceability: [openspec/specs/production-readiness/spec.md](../openspec/specs/production-readiness/spec.md).
 
