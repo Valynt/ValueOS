@@ -24,6 +24,18 @@ This document turns CI-only UX quality artifacts into a durable release scorecar
 - **Weekly:** refresh the route health summary for the top journeys below.
 - **Before production release:** add the current release's summary to the review log in this document and link the CI run used for sign-off.
 
+## Locale readiness matrix (expansion governance)
+
+Use this matrix to track declared and candidate locales through onboarding. `supported` locales are customer-facing in production, `in-progress` locales are actively onboarding with required evidence, and `blocked` locales are paused pending dependency/risk resolution.
+
+| Locale | Status (`supported` / `in-progress` / `blocked`) | Runtime declared | Key coverage target | Required onboarding evidence | Owner | Escalation trigger |
+| --- | --- | --- | --- | --- | --- | --- |
+| `en` | `supported` | Yes | 100% completeness vs source baseline | `artifacts/i18n/coverage-dashboard.json` entry in release evidence | `@team/frontend` | Any regression below 100% in release candidate |
+| `es` | `supported` | Yes | 100% completeness vs source baseline | Coverage diff + pseudo-loc smoke result linked in PR/release log | `@team/frontend` | Any regression below 100% in release candidate |
+| `en-XA` (QA only) | `in-progress` | No (QA-only pseudo-loc) | Pseudo-localization token integrity = pass; expansion readiness ≥95% | `artifacts/i18n/pseudo-localization-report.json` + pseudo-loc screenshot/log links | `@team/frontend` | Overflow/token-integrity failures remain unresolved after one release cycle |
+| `fr` | `blocked` | No | N/A until declared | Blocker record + owner + target unblock date in localization roadmap | `@team/frontend` + `@team/owners` | Blocker unresolved for >1 release cycle |
+| `de` | `blocked` | No | N/A until declared | Blocker record + owner + target unblock date in localization roadmap | `@team/frontend` + `@team/owners` | Blocker unresolved for >1 release cycle |
+
 ## ValyntApp top user journeys
 
 The journeys below are derived from the lazy-loaded route entry points in `apps/ValyntApp/src/AppRoutes.tsx`. Accessibility expectations map to the repository-wide **WCAG 2.2 AA** CI target, and localization expectations map to the currently shipped locale set of **English (`en`) and Spanish (`es`)** only. They are the routes that must stay visible in UX quality reporting because they are either entry points, core value-delivery flows, or release-critical operational surfaces.

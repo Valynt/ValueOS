@@ -18,6 +18,7 @@ import { execSync } from "child_process";
 const ROOT = resolve(import.meta.dirname, "../..");
 const I18N_DIRS = ["apps/ValyntApp/src/i18n/locales"];
 const SOURCE_LOCALE = "en";
+const I18N_CONFIG_PATH = "apps/ValyntApp/src/i18n/index.ts";
 const DEFAULT_MIN_COVERAGE_PERCENT = 90;
 const DEFAULT_MIN_KEY_COMPLETENESS_PERCENT = 100;
 const SRC_DIRS = ["apps/ValyntApp/src", "apps/VOSAcademy/src"];
@@ -52,6 +53,9 @@ const dashboard = {
   localeDirectories: [],
   totals: {
     localesChecked: 0,
+    declaredLocales: 0,
+    newlyDeclaredLocales: 0,
+    newlyDeclaredLocalesWithMissingCoverage: 0,
     missingKeys: 0,
     extraKeys: 0,
     localesBelowThreshold: 0,
@@ -133,8 +137,55 @@ function findUsedKeys(srcDirs) {
   return used;
 }
 
+function readDeclaredLocales() {
+  const declared = new Set();
+  const configPath = join(ROOT, I18N_CONFIG_PATH);
+  if (!existsSync(configPath)) {
+    return declared;
+  }
+
+  const source = readFileSync(configPath, "utf-8");
+  for (const match of source.matchAll(/^\s*([a-zA-Z-]+)\s*:\s*\(\)\s*=>/gm)) {
+    declared.add(match[1]);
+  }
+
+  return declared;
+}
+
+function readNewlyDeclaredLocales() {
+  const output = new Set();
+  const baseRef =
+    process.env.I18N_BASE_REF ??
+    process.env.GITHUB_BASE_REF ??
+    process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME ??
+    "origin/main";
+
+  try {
+    const diff = execSync(`git diff --unified=0 ${baseRef}...HEAD -- "${I18N_CONFIG_PATH}"`, {
+      cwd: ROOT,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+
+    for (const line of diff.split("\n")) {
+      if (!line.startsWith("+") || line.startsWith("+++")) continue;
+      const localeMatch = line.match(/^\+\s*([a-zA-Z-]+)\s*:\s*\(\)\s*=>/);
+      if (localeMatch) {
+        output.add(localeMatch[1]);
+      }
+    }
+  } catch {
+    // Best-effort only; when unavailable, continue without diff-aware enforcement.
+  }
+
+  return output;
+}
 
 console.log("🌐 Checking i18n translation keys...\n");
+const declaredLocales = readDeclaredLocales();
+const newlyDeclaredLocales = readNewlyDeclaredLocales();
+dashboard.totals.declaredLocales = declaredLocales.size;
+dashboard.totals.newlyDeclaredLocales = newlyDeclaredLocales.size;
 
 for (const i18nRelDir of I18N_DIRS) {
   const i18nDir = join(ROOT, i18nRelDir);
@@ -146,6 +197,16 @@ for (const i18nRelDir of I18N_DIRS) {
   const locales = readdirSync(i18nDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name);
+
+  if (declaredLocales.size > 0) {
+    const missingDeclaredDirectories = [...declaredLocales].filter((locale) => !locales.includes(locale));
+    if (missingDeclaredDirectories.length > 0) {
+      console.error(
+        `  ❌ Declared locale directories missing under ${i18nRelDir}: ${missingDeclaredDirectories.join(", ")}`
+      );
+      hasErrors = true;
+    }
+  }
 
   if (!locales.includes(SOURCE_LOCALE)) {
     console.error(`  ❌ Source locale "${SOURCE_LOCALE}" not found in ${i18nRelDir}`);
@@ -185,6 +246,9 @@ for (const i18nRelDir of I18N_DIRS) {
     if (missing.length > 0) {
       console.error(`    ❌ Missing ${missing.length} keys: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "..." : ""}`);
       hasErrors = true;
+      if (newlyDeclaredLocales.has(locale)) {
+        dashboard.totals.newlyDeclaredLocalesWithMissingCoverage += 1;
+      }
     }
 
     if (extra.length > 0) {
@@ -206,6 +270,8 @@ for (const i18nRelDir of I18N_DIRS) {
 
     dirSummary.locales.push({
       locale,
+      declaredInRuntime: declaredLocales.has(locale),
+      newlyDeclaredInBranch: newlyDeclaredLocales.has(locale),
       keyCount: localeKeys.size,
       missingKeys: missing.length,
       extraKeys: extra.length,
@@ -214,6 +280,14 @@ for (const i18nRelDir of I18N_DIRS) {
       belowThreshold: coverage < MIN_COVERAGE_PERCENT,
       belowCompletenessThreshold: keyCompleteness < MIN_KEY_COMPLETENESS_PERCENT,
     });
+  }
+
+  for (const locale of newlyDeclaredLocales) {
+    if (!locales.includes(locale)) {
+      console.error(`    ❌ Newly declared locale "${locale}" is missing locale files under ${i18nRelDir}`);
+      hasErrors = true;
+      dashboard.totals.newlyDeclaredLocalesWithMissingCoverage += 1;
+    }
   }
 
   dashboard.localeDirectories.push(dirSummary);

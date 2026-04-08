@@ -27,6 +27,14 @@ This document defines the CI lane model across `.github/workflows/pr-fast.yml`, 
 | `nightly/accessibility-trends` | Scheduled accessibility trend publication and severity budget verification | Frontend Platform | Investigate next business day |
 | `nightly/devcontainer-build` | Scheduled devcontainer diagnostics and build reproducibility | Developer Experience | Investigate next business day |
 
+## Localization regression ownership and escalation
+
+- Primary owner for localization regressions detected in `accessibility-audit` is **Frontend Platform** (`@team/frontend`).
+- If a shipped-locale regression (`en`, `es`) is unresolved by the end of the current release cycle:
+  - escalate to **`@team/owners` + release captain** before production approval,
+  - record owner, mitigation, and due date in `docs/quality/ux-quality-scorecard.md`,
+  - require a time-bound exception in release review docs (`docs/cicd/GO_NO_GO.md`, `docs/cicd/RELEASE_CHECKLIST.md`) or block promotion.
+
 ## Dependency Graph (`needs`)
 
 - `pr-fast` depends on `unit-component-schema`, `tenant-isolation-static-gate`, `tenant-isolation-gate`, `security-gate`, and `accessibility-audit`.
