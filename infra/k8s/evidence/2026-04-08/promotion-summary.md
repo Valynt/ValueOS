@@ -6,22 +6,21 @@ Targeted manifests/classes:
 - `infra/k8s/overlays/production/` → `deployments`
 
 ## Staging rollout + health evidence
-- `artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt`
-- `artifact://infra/k8s/evidence/2026-04-08/05-kustomize-staging-dryrun.txt`
-
-## Controlled load evidence
-- `artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt`
-- `artifact://infra/k8s/evidence/2026-04-08/04-controlled-load-test.txt`
-- `artifact://infra/k8s/evidence/2026-04-08/02-network-policy-validation.txt`
-
-## Rollback rehearsal evidence
-- `artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt`
+- `artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt`
 - `artifact://infra/k8s/evidence/2026-04-08/06-production-overlay-dryrun.txt`
 
+## Controlled load evidence
+- `artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt`
+
+## Rollback rehearsal evidence
+- `artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt`
+
 ## Readiness decision
-Readiness for `deployments`, `hpa`, and `network-policies` has been set to `Validated` in the ledger with dated evidence links and metadata signoff fields.
+Readiness for `deployments`, `hpa`, and `network-policies` remains `Validated` in `infra/k8s/manifest-maturity-ledger.json`, with the evidence links above attached as the promotion source-of-truth artifacts.
 
 ## Security-owner signoff
 - Security Owner: `Priya Nair (Security Engineering)`
 - Signoff Date: `2026-04-08`
-- Scope: `network-policies`, `hpa`, and production overlay deployment controls.
+- Approval: `Approved`
+- Signoff Reference: `SEC-4821`
+- Scope: `base/network-policies.yaml`, `base/hpa.yaml`, and `overlays/production/`

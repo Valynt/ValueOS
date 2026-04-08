@@ -14,11 +14,11 @@
       "date_validated": "2026-04-08",
       "evidence": {
         "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/06-production-overlay-dryrun.txt",
-        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
-        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
-        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
-        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
-        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt"
       },
       "metadata": {
         "promotion_scope": [
@@ -31,7 +31,9 @@
           "team": "Security Engineering",
           "approved": true,
           "approved_at": "2026-04-08",
-          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md",
+          "signoff_reference": "SEC-4821",
+          "scope": "base/network-policies.yaml, base/hpa.yaml, overlays/production/"
         }
       }
     },
@@ -46,12 +48,12 @@
       "status_owner": "SRE",
       "date_validated": "2026-04-08",
       "evidence": {
-        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
-        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
-        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
-        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
-        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/08-controlled-load-test-k6.txt",
-        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt",
         "scalability_validation_artifact": "artifact://artifacts/scalability/hpa-validation.json"
       },
       "metadata": {
@@ -65,7 +67,9 @@
           "team": "Security Engineering",
           "approved": true,
           "approved_at": "2026-04-08",
-          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md",
+          "signoff_reference": "SEC-4821",
+          "scope": "base/network-policies.yaml, base/hpa.yaml, overlays/production/"
         },
         "scalability_validation": {
           "required_metrics": [
@@ -126,12 +130,12 @@
       "status_owner": "Security Engineering",
       "date_validated": "2026-04-08",
       "evidence": {
-        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
-        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/02-network-policy-validation.txt",
-        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt",
-        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/03-staging-rollout-and-healthchecks.txt",
-        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/02-network-policy-validation.txt",
-        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/07-rollback-rehearsal.txt"
+        "rollout_artifact": "artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt",
+        "load_test_artifact": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_artifact": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt",
+        "staging_deployment_result": "artifact://infra/k8s/evidence/2026-04-08/09-staging-rollout-and-healthchecks.txt",
+        "load_test_summary": "artifact://infra/k8s/evidence/2026-04-08/10-controlled-load-test-k6.txt",
+        "rollback_rehearsal": "artifact://infra/k8s/evidence/2026-04-08/11-rollback-rehearsal.txt"
       },
       "metadata": {
         "promotion_scope": [
@@ -144,7 +148,9 @@
           "team": "Security Engineering",
           "approved": true,
           "approved_at": "2026-04-08",
-          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md"
+          "evidence": "artifact://infra/k8s/evidence/2026-04-08/promotion-summary.md",
+          "signoff_reference": "SEC-4821",
+          "scope": "base/network-policies.yaml, base/hpa.yaml, overlays/production/"
         }
       }
     },
