@@ -7,7 +7,7 @@
 ## Included (Must-have)
 
 1. US-001 CRM case-creation prefill path runs production-only behavior (mock fallback removed).
-2. US-009 tenant isolation release gate remains blocking (`pnpm run test:rls`).
+2. US-009 tenant isolation release gate remains blocking via `tenant-isolation-gate` in `.github/workflows/pr-fast.yml`: non-fork PRs run the live Supabase-backed suite (`node scripts/ci/run-tenant-isolation-rls-suite.mjs`), while fork PRs run the static subset only.
 3. US-010 audit trail coverage remains mandatory for sensitive operations.
 
 ## Deferred (Post-GA)
