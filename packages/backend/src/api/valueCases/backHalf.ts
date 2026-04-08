@@ -19,19 +19,10 @@ import {
 } from "@valueos/memory/provenance";
 import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
 
-import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
-import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
-import {
-  LLMGateway as FabricLLMGateway,
-  LLMGateway,
-} from "../../lib/agent-fabric/LLMGateway.js";
-import {
-  MemorySystem as FabricMemorySystem,
-  MemorySystem,
-} from "../../lib/agent-fabric/MemorySystem.js";
+import { LLMGateway as FabricLLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
+import { MemorySystem as FabricMemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
@@ -43,6 +34,7 @@ import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOppo
 import { IntegrityResultRepository } from "../../repositories/IntegrityResultRepository.js";
 import { NarrativeDraftRepository } from "../../repositories/NarrativeDraftRepository.js";
 import { RealizationReportRepository } from "../../repositories/RealizationReportRepository.js";
+import { ValueIntegrityService } from "../../services/integrity/ValueIntegrityService.js";
 import { getPdfExportService } from "../../services/export/PdfExportService.js";
 import { getPptxExportService } from "../../services/export/PptxExportService.js";
 import {
@@ -64,142 +56,18 @@ import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.
 import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
 import { getBackHalfLLMGatewayConfig } from "./backHalfFactoryConfig.js";
+import { isAllowedRenderUrl } from "./backHalf.exportGuards.js";
+import { runAgent } from "./backHalf.agentRunner.js";
+import {
+  AsyncExportBodySchema,
+  getCaseId,
+  getTenantId,
+  INTEGRITY_THRESHOLD,
+  PdfExportBodySchema,
+  PptxExportBodySchema,
+} from "./backHalf.shared.js";
 
 import { auditLogService } from "../../services/security/AuditLogService.js";
-
-const INTEGRITY_THRESHOLD = 0.6;
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function getTenantId(req: Request): string {
-  const authReq = req as AuthenticatedRequest;
-  return (
-    authReq.tenantId ??
-    authReq.organizationId ??
-    (authReq.user?.tenant_id as string | undefined) ??
-    ""
-  );
-}
-
-function getCaseId(req: Request): string {
-  return (req.params as Record<string, string>)["id"] ?? "";
-}
-
-const RunAgentBodySchema = z
-  .object({
-    context: z.record(z.unknown()).optional(),
-    parameters: z.record(z.unknown()).optional(),
-  })
-  .strict();
-
-let _factory: ReturnType<typeof createAgentFactory> | null = null;
-function getFactory() {
-  if (!_factory) {
-    _factory = createAgentFactory({
-      llmGateway: new LLMGateway(getBackHalfLLMGatewayConfig()),
-      memorySystem: new MemorySystem(
-        { max_memories: 1000, enable_persistence: true },
-        new SupabaseMemoryBackend()
-      ),
-      circuitBreaker: new CircuitBreaker(),
-    });
-  }
-  return _factory;
-}
-
-async function runAgent(
-  req: Request,
-  res: Response,
-  agentId: string,
-  lifecycleStage: LifecycleStage
-): Promise<Response> {
-  const tenantId = getTenantId(req);
-  const caseId = getCaseId(req);
-  const userId = (req as AuthenticatedRequest).user?.id ?? "unknown";
-
-  if (!tenantId) {
-    return res
-      .status(401)
-      .json({ success: false, error: "Tenant context required" });
-  }
-  if (!caseId) {
-    return res.status(400).json({ success: false, error: "Case ID required" });
-  }
-
-  const parsed = RunAgentBodySchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    return res.status(400).json({
-      success: false,
-      error: "Invalid request body",
-      details: parsed.error.flatten(),
-    });
-  }
-
-  const factory = getFactory();
-  if (!factory.hasFabricAgent(agentId)) {
-    return res
-      .status(404)
-      .json({ success: false, error: `Agent "${agentId}" not registered` });
-  }
-
-  const jobId = uuidv4();
-  const startTime = Date.now();
-
-  try {
-    const agent = factory.create(agentId, tenantId);
-    const context: LifecycleContext = {
-      workspace_id: jobId,
-      organization_id: tenantId,
-      user_id: userId,
-      lifecycle_stage: lifecycleStage,
-      user_inputs: {
-        value_case_id: caseId,
-        ...(parsed.data.parameters ?? {}),
-      },
-      workspace_data: {},
-      previous_stage_outputs: (
-        parsed.data.context as Record<string, unknown> | undefined
-      )?.previous_stage_outputs as Record<string, unknown> | undefined,
-      metadata: { job_id: jobId, value_case_id: caseId },
-    };
-
-    const output = await agent.execute(context);
-    const durationMs = Date.now() - startTime;
-
-    logger.info("Back-half agent run completed", {
-      agentId,
-      caseId,
-      tenantId,
-      userId,
-      status: output.status,
-      duration_ms: durationMs,
-    });
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        jobId,
-        agentId,
-        status: output.status,
-        result: output.result,
-        confidence: output.confidence,
-        duration_ms: durationMs,
-      },
-    });
-  } catch (err) {
-    logger.error("Back-half agent run failed", {
-      agentId,
-      caseId,
-      tenantId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return res
-      .status(500)
-      .json({ success: false, error: "Agent execution failed" });
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Router
@@ -505,67 +373,6 @@ backHalfRouter.post(
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 
-/**
- * Allowed origins for PDF renderUrl (SSRF protection).
- *
- * Only the app's own origin is permitted. Requests to internal network
- * addresses, cloud metadata endpoints, or arbitrary external URLs are blocked.
- * Set PDF_ALLOWED_ORIGINS (comma-separated) to override in non-standard
- * deployments. Falls back to APP_URL, then localhost.
- *
- * Computed once on first call and cached — env vars do not change at runtime
- * and re-parsing on every request would flood logs if APP_URL is misconfigured.
- */
-let _allowedRenderOrigins: string[] | undefined;
-function getAllowedRenderOrigins(): string[] {
-  if (_allowedRenderOrigins !== undefined) return _allowedRenderOrigins;
-
-  const envOrigins = process.env.PDF_ALLOWED_ORIGINS;
-  if (envOrigins) {
-    _allowedRenderOrigins = envOrigins
-      .split(",")
-      .map(o => o.trim())
-      .filter(Boolean);
-    return _allowedRenderOrigins;
-  }
-  const appUrl = process.env.APP_URL ?? "http://localhost:3001";
-  try {
-    _allowedRenderOrigins = [new URL(appUrl).origin];
-  } catch {
-    // APP_URL is misconfigured — log once and cache an empty list so all
-    // renderUrls are rejected rather than crashing the request handler.
-    logger.error(
-      "PDF export: APP_URL is not a valid URL, all renderUrl requests will be blocked",
-      {
-        appUrl,
-      }
-    );
-    _allowedRenderOrigins = [];
-  }
-  return _allowedRenderOrigins;
-}
-
-function isAllowedRenderUrl(rawUrl: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  // Block non-http(s) schemes (file://, gopher://, etc.)
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return false;
-  }
-  const origin = parsed.origin;
-  return getAllowedRenderOrigins().some(allowed => origin === allowed);
-}
-
-const PdfExportBodySchema = z
-  .object({
-    renderUrl: z.string().url(),
-    title: z.string().optional(),
-  })
-  .strict();
 
 backHalfRouter.post(
   "/:id/export/pdf",
@@ -694,12 +501,6 @@ backHalfRouter.post(
 // POST /:id/export/pptx — generate PowerPoint deck for a value case
 // ---------------------------------------------------------------------------
 
-const PptxExportBodySchema = z
-  .object({
-    title: z.string().min(1).max(255).optional(),
-    ownerName: z.string().max(255).optional(),
-  })
-  .strict();
 
 backHalfRouter.post(
   "/:id/export/pptx",
@@ -766,15 +567,6 @@ backHalfRouter.post(
 // Async Export Endpoints (P0 - Async Export Queue)
 // ---------------------------------------------------------------------------
 
-const AsyncExportBodySchema = z
-  .object({
-    format: z.enum(["pdf", "pptx"]),
-    exportType: z.enum(["full", "executive_summary", "financials_only", "hypotheses_only"]).optional(),
-    title: z.string().min(1).max(255).optional(),
-    ownerName: z.string().max(255).optional(),
-    renderUrl: z.string().url().optional(), // Required for PDF
-  })
-  .strict();
 
 /**
  * POST /:id/export/async — Queue an async export job
