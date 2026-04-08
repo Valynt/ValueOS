@@ -351,6 +351,8 @@ jobs:
         run: node scripts/ci/check-launch-readiness-signoff.mjs
       - name: Launch gate docs consistency
         run: node scripts/ci/check-launch-gate-doc-consistency.mjs
+      - name: Launch-readiness audit markdown lint
+        run: pnpm run check:launch-readiness-audit-markdown
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
