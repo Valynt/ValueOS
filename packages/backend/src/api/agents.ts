@@ -1,5 +1,4 @@
 import { logger } from "@shared/lib/logger";
-import { trace } from "@opentelemetry/api";
 import {
   BaseEvent,
   EVENT_TOPICS,
@@ -119,10 +118,13 @@ import type { AgentOutput } from "../types/agent.js";
 import { sanitizeAgentInput } from "../utils/security.js";
 import type { AgentType } from "../services/agent-types.js";
 import {
-  CONFIDENCE_THRESHOLDS,
   GovernanceVetoError,
-  HardenedAgentRunner,
 } from "../lib/agent-fabric/hardening/index.js";
+import {
+  executeWithHardenedRunner,
+  mapGovernanceVetoStatus,
+  requiresHardenedExecution,
+} from "../services/agents/HardenedExecution.js";
 import {
   buildInteractiveSyncDeniedMessage,
   getAgentColdStartClass,
@@ -152,29 +154,6 @@ function getDirectFactory(): ReturnType<typeof createAgentFactory> {
   return _directFactory;
 }
 
-type HardeningRiskTier = keyof typeof CONFIDENCE_THRESHOLDS;
-
-const DIRECT_RUNNER_OUTPUT_SCHEMA = z.unknown();
-
-function resolveHardeningRiskTier(agent: AgentType): HardeningRiskTier {
-  if (agent === "financial-modeling") return "financial";
-  if (agent === "narrative") return "narrative";
-  if (
-    agent === "communicator" ||
-    agent === "company-intelligence" ||
-    agent === "value-eval"
-  ) {
-    return "commitment";
-  }
-  if (agent === "compliance-auditor") return "compliance";
-  return "discovery";
-}
-
-function shouldUseHardening(agent: AgentType): boolean {
-  const tier = resolveHardeningRiskTier(agent);
-  return ["financial", "commitment", "narrative", "compliance"].includes(tier);
-}
-
 async function runAgentWithHardening(params: {
   agentId: AgentType;
   tenantId: string;
@@ -189,37 +168,16 @@ async function runAgentWithHardening(params: {
     value && typeof value === "object"
       ? (value as Record<string, unknown>)
       : { value };
-  const riskTier = resolveHardeningRiskTier(agentId);
-  const runner = new HardenedAgentRunner({
-    agentName: String(agentId),
-    agentVersion: "1.0.0",
-    lifecycleStage: String(lifecycleContext.lifecycle_stage),
+  const hardened = await executeWithHardenedRunner({
+    agentId,
     organizationId: tenantId,
-    allowedTools: new Set(),
-    riskTier,
-    integrityVetoService: null,
-    hitlPort: null,
-  });
-
-  const hardened = await runner.run(
-    {
-      request_id: uuidv4(),
-      trace_id: traceId,
-      session_id: sessionId,
-      user_id: userId,
-      organization_id: tenantId,
-      received_at: new Date().toISOString(),
-    },
+    userId,
+    sessionId,
+    traceId,
     lifecycleContext,
     execute,
-    {
-      prompt: String(lifecycleContext.user_inputs?.query ?? ""),
-      outputSchema: DIRECT_RUNNER_OUTPUT_SCHEMA,
-      riskTier,
-      requiresIntegrityVeto: true,
-      requiresHumanApproval: false,
-    }
-  );
+    prompt: String(lifecycleContext.user_inputs?.query ?? ""),
+  });
 
   logger.info("Direct agent execution governance", {
     agentId,
@@ -228,11 +186,6 @@ async function runAgentWithHardening(params: {
     confidence_overall: hardened.confidence.overall,
     confidence_label: hardened.confidence.label,
   });
-
-  const span = trace.getActiveSpan();
-  span?.setAttribute("agent.governance.verdict", hardened.governance.verdict);
-  span?.setAttribute("agent.confidence.overall", hardened.confidence.overall);
-  span?.setAttribute("agent.confidence.label", hardened.confidence.label);
 
   return {
     agent_id: String(agentId),
@@ -246,9 +199,9 @@ async function runAgentWithHardening(params: {
       model_version: "hardened",
       timestamp: new Date().toISOString(),
       token_usage: {
-        prompt_tokens: hardened.token_usage.input_tokens,
-        completion_tokens: hardened.token_usage.output_tokens,
-        total_tokens: hardened.token_usage.total_tokens,
+        prompt_tokens: hardened.tokenUsage.prompt_tokens,
+        completion_tokens: hardened.tokenUsage.completion_tokens,
+        total_tokens: hardened.tokenUsage.total_tokens,
       },
     },
   };
@@ -617,7 +570,7 @@ router.post(
 
         let output: AgentOutput;
         try {
-          output = shouldUseHardening(agentId as AgentType)
+          output = requiresHardenedExecution(agentId as AgentType)
             ? await runAgentWithHardening({
                 agentId: agentId as AgentType,
                 tenantId,
@@ -630,6 +583,7 @@ router.post(
             : await agent.execute(lifecycleContext);
         } catch (directErr) {
           if (directErr instanceof GovernanceVetoError) {
+            const governanceStatus = mapGovernanceVetoStatus(directErr);
             logger.warn("Direct agent execution vetoed", {
               agentId,
               jobId,
@@ -641,19 +595,16 @@ router.post(
               duration_ms: Date.now() - directStartTime,
               mode: "direct",
             });
-            return void res.status(directErr.verdict === "pending_human" ? 423 : 422).json({
+            return void res.status(governanceStatus.httpStatus).json({
               success: false,
               data: {
                 jobId,
-                status: directErr.verdict === "pending_human" ? "pending_human_review" : "blocked",
+                status: governanceStatus.apiStatus,
                 agentId,
                 mode: "direct",
               },
               error: {
-                code:
-                  directErr.verdict === "pending_human"
-                    ? "AGENT_GOVERNANCE_PENDING_HUMAN"
-                    : "AGENT_GOVERNANCE_VETOED",
+                code: governanceStatus.errorCode,
                 message: directErr.reason,
                 checkpointId: directErr.checkpointId,
               },

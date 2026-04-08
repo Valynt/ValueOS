@@ -566,7 +566,7 @@ describe('UnifiedAgentAPI', () => {
       });
 
       expect(response.success).toBe(false);
-      expect(response.status).toBe('failure');
+      expect(response.status).toBe('pending_human_review');
       expect(response.data).toMatchObject({
         governance_verdict: 'pending_human',
         governance_checkpoint_id: 'cp-1',
