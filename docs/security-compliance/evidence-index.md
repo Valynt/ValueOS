@@ -81,7 +81,7 @@ Each bundle contains:
 - `SHA256SUMS.sig` + `SHA256SUMS.pem` keyless signature material.
 - `reports/compliance/metadata/workflow-run.json` with run metadata.
 - `artifacts/security/governance/data-residency-status.json` — tenant-to-region data store/export residency evaluation with a machine-verifiable signature envelope (`signature.payloadDigest` + `signature.signature`).
-- `artifacts/security/governance/vdp-kpis.json` — quarterly vulnerability disclosure KPI snapshot (SLA performance, intake metadata, and severity-window targets).
+- `artifacts/security/governance/vdp-kpis.json` — quarterly vulnerability disclosure KPI snapshot (public policy path, intake metadata, SLA performance/remediation windows, and ownership/escalation workflow for missed SLAs).
 
 Secret-rotation evidence is published separately as:
 
@@ -126,6 +126,12 @@ The following non-CI artifacts are required for governance traceability:
 - Weekly required-check enforcement artifact: `weekly-required-check-enforcement-<run_id>` from `.github/workflows/required-checks-weekly-compliance.yml`, containing `artifacts/governance/required-check-enforcement-weekly.md` and `.json`.
 - Canonical residency policy map used by CI evidence export: `docs/security-compliance/data-residency-controls.json`.
 - Canonical VDP KPI source map used by CI/governance exports: `docs/security-compliance/vdp-metrics-source.json`.
+
+VDP KPI automation runs in both change-driven and scheduled governance lanes via `scripts/ci/extract-governance-risk-control-kpis.mjs`:
+
+- `.github/workflows/pr-fast.yml`
+- `.github/workflows/main-verify.yml`
+- `.github/workflows/nightly-governance.yml`
 
 Reference workflows:
 

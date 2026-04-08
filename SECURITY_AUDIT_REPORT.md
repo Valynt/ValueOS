@@ -9,6 +9,20 @@
 
 ## Sprint 5 Security Audit Update
 
+## jsPDF blocker readiness update (April 8, 2026)
+
+**Finding:** `jsPDF HTML injection` blocker is **resolved** as of **2026-04-08**.
+
+**Remediation version:** `jspdf@4.2.1` (fixed floor: `>=4.2.1`)
+
+**Anchor verification (required):**
+- `apps/ValyntApp/package.json` dependency anchor confirms `"jspdf": "^4.2.1"`.
+- `pnpm-lock.yaml` resolution anchors contain `jspdf@4.2.1` (no `jspdf@4.2.0` entries).
+
+**Proof artifact:** `docs/release/artifacts/jspdf-readiness-resolution-2026-04-08.md`
+
+---
+
 **Audit date:** Sprint 5 launch readiness review
 **Tool:** `pnpm audit` (full workspace scan)
 
