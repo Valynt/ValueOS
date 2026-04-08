@@ -368,6 +368,202 @@ export class RealizationService {
 
     return (data || []) as unknown as KpiTarget[];
   }
+
+  /**
+   * Get actuals vs projected timeline for a case.
+   * Returns time-series data for charting.
+   */
+  async getActualsTimeline(
+    caseId: string,
+    organizationId: string
+  ): Promise<
+    Array<{
+      date: string;
+      projected: number;
+      actual: number | null;
+      confidenceLower: number;
+      confidenceUpper: number;
+      checkpointId?: string;
+      status: "pending" | "completed" | "missed" | "at_risk";
+    }>
+  > {
+    // Get all checkpoints with their KPI targets for this case
+    const { data: checkpoints, error: checkpointError } = await supabase
+      .from("checkpoints")
+      .select(`
+        id,
+        date,
+        actual_value,
+        status,
+        kpi_targets!inner(
+          target,
+          baseline
+        )
+      `)
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .order("date", { ascending: true });
+
+    if (checkpointError) {
+      logger.error("RealizationService.getActualsTimeline failed", {
+        case_id: caseId,
+        error: checkpointError.message,
+      });
+      throw new Error(`Failed to fetch timeline: ${checkpointError.message}`);
+    }
+
+    if (!checkpoints || checkpoints.length === 0) {
+      return [];
+    }
+
+    // Transform to timeline format with confidence bands (±10%)
+    return checkpoints.map((checkpoint: {
+      id: string;
+      date: string;
+      actual_value?: number;
+      status: string;
+      kpi_targets: { target: number; baseline: number };
+    }) => {
+      const projected = checkpoint.kpi_targets?.target ?? checkpoint.kpi_targets?.baseline ?? 0;
+      const confidenceRange = projected * 0.1; // 10% confidence band
+
+      return {
+        date: checkpoint.date,
+        projected,
+        actual: checkpoint.actual_value ?? null,
+        confidenceLower: projected - confidenceRange,
+        confidenceUpper: projected + confidenceRange,
+        checkpointId: checkpoint.id,
+        status: checkpoint.status as "pending" | "completed" | "missed" | "at_risk",
+      };
+    });
+  }
+
+  /**
+   * Get expansion opportunity signals for a case.
+   * Detects when KPIs consistently exceed targets.
+   */
+  async getExpansionSignals(
+    caseId: string,
+    organizationId: string
+  ): Promise<
+    Array<{
+      caseId: string;
+      triggerType: "kpi_exceeded" | "timeline_ahead" | "scope_increase";
+      kpis: Array<{
+        name: string;
+        targetValue: number;
+        actualValue: number;
+        exceedancePercent: number;
+        consecutiveCheckpoints: number;
+      }>;
+      suggestedAction: string;
+      confidence: "high" | "medium" | "low";
+      generatedAt: string;
+    }>
+  > {
+    // Get completed checkpoints with exceedances
+    const { data: checkpoints, error } = await supabase
+      .from("checkpoints")
+      .select(`
+        id,
+        date,
+        actual_value,
+        status,
+        kpi_targets!inner(
+          metric_name,
+          target
+        )
+      `)
+      .eq("case_id", caseId)
+      .eq("organization_id", organizationId)
+      .eq("status", "exceeded")
+      .order("date", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      logger.error("RealizationService.getExpansionSignals failed", {
+        case_id: caseId,
+        error: error.message,
+      });
+      throw new Error(`Failed to fetch expansion signals: ${error.message}`);
+    }
+
+    if (!checkpoints || checkpoints.length === 0) {
+      return [];
+    }
+
+    // Group by KPI and count consecutive exceedances
+    const kpiGroups = new Map<
+      string,
+      {
+        name: string;
+        targetValue: number;
+        actualValue: number;
+        checkpoints: Array<{ actual?: number }>;
+      }
+    >();
+
+    checkpoints.forEach((checkpoint: {
+      actual_value?: number;
+      kpi_targets: { metric_name: string; target: number };
+    }) => {
+      const kpiName = checkpoint.kpi_targets?.metric_name;
+      const target = checkpoint.kpi_targets?.target ?? 0;
+      const actual = checkpoint.actual_value ?? 0;
+
+      if (!kpiGroups.has(kpiName)) {
+        kpiGroups.set(kpiName, {
+          name: kpiName,
+          targetValue: target,
+          actualValue: actual,
+          checkpoints: [],
+        });
+      }
+
+      kpiGroups.get(kpiName)!.checkpoints.push({ actual: checkpoint.actual_value });
+    });
+
+    // Filter KPIs with 2+ consecutive exceedances
+    const triggeredKpis: Array<{
+      name: string;
+      targetValue: number;
+      actualValue: number;
+      exceedancePercent: number;
+      consecutiveCheckpoints: number;
+    }> = [];
+
+    kpiGroups.forEach((kpi) => {
+      if (kpi.checkpoints.length >= 2) {
+        const exceedance = ((kpi.actualValue - kpi.targetValue) / kpi.targetValue) * 100;
+        triggeredKpis.push({
+          name: kpi.name,
+          targetValue: kpi.targetValue,
+          actualValue: kpi.actualValue,
+          exceedancePercent: exceedance,
+          consecutiveCheckpoints: kpi.checkpoints.length,
+        });
+      }
+    });
+
+    // Require at least 2 KPIs to trigger expansion signal
+    if (triggeredKpis.length < 2) {
+      return [];
+    }
+
+    return [
+      {
+        caseId,
+        triggerType: "kpi_exceeded",
+        kpis: triggeredKpis,
+        suggestedAction: `Consider expansion opportunity: ${triggeredKpis
+          .map((k) => k.name)
+          .join(", ")} exceeded targets for ${triggeredKpis[0]?.consecutiveCheckpoints ?? 2}+ consecutive checkpoints.`,
+        confidence: triggeredKpis.length >= 3 ? "high" : "medium",
+        generatedAt: new Date().toISOString(),
+      },
+    ];
+  }
 }
 
 export default RealizationService;

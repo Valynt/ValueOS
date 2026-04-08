@@ -20,7 +20,10 @@ import { ArtifactEditService } from "../services/artifacts/ArtifactEditService";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository";
 import { ArtifactRepository } from "../services/artifacts/ArtifactRepository";
 import { RequestScopedValueCaseAccessService } from "../services/value/RequestScopedValueCaseAccessService.js";
-import { ARTIFACT_GENERATION_QUEUE_NAME, type ArtifactGenerationJobPayload } from "../workers/ArtifactGenerationWorker.js";
+import {
+  ARTIFACT_GENERATION_QUEUE_NAME,
+  type ArtifactGenerationJobPayload,
+} from "../workers/ArtifactGenerationWorker.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -31,7 +34,13 @@ const router: IRouter = Router();
 
 const GenerateArtifactsSchema = z.object({
   artifactType: z
-    .enum(["executive_summary", "executive_memo", "cfo_recommendation", "customer_narrative", "internal_case"])
+    .enum([
+      "executive_summary",
+      "executive_memo",
+      "cfo_recommendation",
+      "customer_narrative",
+      "internal_case",
+    ])
     .optional(),
   format: z.enum(["markdown", "json", "html"]).optional(),
   readinessScore: z.number().min(0).max(1).optional(),
@@ -49,17 +58,16 @@ const EditArtifactSchema = z.object({
 // Repositories, Services, and Queue
 // ---------------------------------------------------------------------------
 
-const artifactRepo = new ArtifactRepository();
-const artifactJobRepo = new ArtifactJobRepository();
-const editService = new ArtifactEditService();
-
 // Single shared queue instance — avoids opening a new Redis connection per request.
 function createArtifactQueue(): Queue<ArtifactGenerationJobPayload> {
   const config = getAgentMessageQueueConfig();
   const redisUrl = config.redis.url ?? "redis://localhost:6379";
-  return new Queue<ArtifactGenerationJobPayload>(ARTIFACT_GENERATION_QUEUE_NAME, {
-    connection: { url: redisUrl },
-  });
+  return new Queue<ArtifactGenerationJobPayload>(
+    ARTIFACT_GENERATION_QUEUE_NAME,
+    {
+      connection: { url: redisUrl },
+    }
+  );
 }
 const artifactQueue = createArtifactQueue();
 
@@ -94,9 +102,16 @@ router.post(
         throw new Error("artifacts/generate requires req.supabase");
       }
 
-      const canGenerate = await checkPermission(req.supabase, userId, tenantId, "artifacts:create" as never);
+      const canGenerate = await checkPermission(
+        req.supabase,
+        userId,
+        tenantId,
+        "artifacts:create" as never
+      );
       if (!canGenerate) {
-        res.status(403).json({ error: "Insufficient permissions to generate artifacts." });
+        res
+          .status(403)
+          .json({ error: "Insufficient permissions to generate artifacts." });
         return;
       }
 
@@ -116,10 +131,16 @@ router.post(
         return;
       }
 
+      const artifactJobRepo = new ArtifactJobRepository(req.supabase);
+
       // Idempotency: return the existing job if one is already queued or running
       // for this (caseId, artifactType) combination. Prevents duplicate jobs on
       // client retries or double-submits.
-      const existingJob = await artifactJobRepo.findActiveJob(caseId, artifactType, tenantId);
+      const existingJob = await artifactJobRepo.findActiveJob(
+        caseId,
+        artifactType,
+        tenantId
+      );
       if (existingJob) {
         logger.info("artifacts/generate: returning existing active job", {
           jobId: existingJob.id,
@@ -246,11 +267,14 @@ router.get(
       const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
 
-      const artifacts = await artifactRepo.getByCaseId(caseId, tenantId, organizationId);
-
+      const artifacts = await artifactRepo.getByCaseId(
+        caseId,
+        tenantId,
+        organizationId
+      );
       res.json({
         caseId,
-        artifacts: artifacts.map((a) => ({
+        artifacts: artifacts.map(a => ({
           id: a.id,
           artifactType: a.artifact_type,
           status: a.status,
@@ -280,7 +304,12 @@ router.get(
       const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
 
-      const artifact = await artifactRepo.getById(artifactId, tenantId, organizationId);
+      const artifactRepo = new ArtifactRepository(req.supabase);
+      const artifact = await artifactRepo.getById(
+        artifactId,
+        tenantId,
+        organizationId
+      );
 
       if (!artifact || artifact.case_id !== caseId) {
         res.status(404).json({ error: "Artifact not found" });
@@ -322,13 +351,19 @@ router.patch(
       const body = EditArtifactSchema.parse(req.body);
 
       // Verify artifact exists and belongs to this case
-      const artifact = await artifactRepo.getById(artifactId, tenantId, organizationId);
+      const artifactRepo = new ArtifactRepository(req.supabase);
+      const artifact = await artifactRepo.getById(
+        artifactId,
+        tenantId,
+        organizationId
+      );
       if (!artifact || artifact.case_id !== caseId) {
         res.status(404).json({ error: "Artifact not found" });
         return;
       }
 
       // Apply the edit
+      const editService = new ArtifactEditService(req.supabase);
       const result = await editService.editArtifact({
         tenantId,
         organizationId,
@@ -365,20 +400,29 @@ router.get(
     try {
       const { caseId, artifactId } = req.params;
       const tenantId = req.tenantId as string;
-      const organizationId = req.organizationId as string;
-
+      const artifactRepo = new ArtifactRepository(req.supabase);
       // Verify artifact exists and belongs to this case
-      const artifact = await artifactRepo.getById(artifactId, tenantId, organizationId);
+      const artifact = await artifactRepo.getById(
+        artifactId,
+        tenantId,
+        organizationId
+      );
       if (!artifact || artifact.case_id !== caseId) {
         res.status(404).json({ error: "Artifact not found" });
         return;
       }
 
-      const edits = await editService.getEditHistory(tenantId, organizationId, artifactId);
+      const editService = new ArtifactEditService(req.supabase);
+
+      const edits = await editService.getEditHistory(
+        tenantId,
+        organizationId,
+        artifactId
+      );
 
       res.json({
         artifactId,
-        edits: edits.map((e) => ({
+        edits: edits.map(e => ({
           id: e.id,
           fieldPath: e.fieldPath,
           oldValue: e.oldValue,

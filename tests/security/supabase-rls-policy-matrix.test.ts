@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import crypto from "node:crypto";
+
 import {
   createTenantIsolationFixture,
   type TenantIsolationFixture,
@@ -65,22 +67,26 @@ describe("Supabase RLS policy matrix hard gate", () => {
   const targets: RlsTarget[] = [
     {
       table: "agent_sessions",
-      id: "sec-agent-session-a",
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
       tenantColumn: "tenant_id",
       createPayload: tenantId => ({
-        id: "sec-agent-session-a",
+        id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
         tenant_id: tenantId,
+        user_id: crypto.randomUUID(),
+        session_token: "test-token",
+        organization_id: tenantId,
         agent_id: "security-agent",
         status: "active",
       }),
     },
     {
       table: "value_cases",
-      id: "sec-value-case-a",
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
       tenantColumn: "tenant_id",
       createPayload: tenantId => ({
-        id: "sec-value-case-a",
+        id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
         tenant_id: tenantId,
+        organization_id: tenantId,
         name: "Security value case",
         description: "RLS matrix",
         status: "draft",

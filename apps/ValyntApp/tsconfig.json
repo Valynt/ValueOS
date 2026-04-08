@@ -12,14 +12,14 @@
     "skipLibCheck": true,
     "types": [
       "vitest/globals",
-      "node",
-      "@testing-library/jest-dom"
+      "node"
     ],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "jsx": "react-jsx",
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [

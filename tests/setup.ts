@@ -12,7 +12,7 @@ import { resolve } from "path";
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
-import { afterAll, beforeAll, beforeEach } from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
 
 // Load test environment variables
 config({ path: resolve(process.cwd(), ".env.test") });
@@ -47,7 +47,7 @@ export const testAdminClient = SUPABASE_SERVICE_KEY
  * Create a tenant-scoped Supabase client for testing
  */
 export function createTenantClient(tenantId: string): SupabaseClient | null {
-  if (!SUPABASE_ANON_KEY) return null;
+  if (!SUPABASE_ANON_KEY || !SUPABASE_URL) return null;
 
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -114,12 +114,13 @@ afterAll(async () => {
 });
 
 /**
- * Per-test cleanup - runs after each test
+ * Per-test cleanup - runs after each test.
+ *
+ * Previously this was commented out, which meant tests shared state and could
+ * pollute each other. Now cleanup is active by default to ensure test isolation.
  */
-beforeEach(async () => {
-  // Optional: Clean up before each test
-  // Uncomment if needed for strict test isolation
-  // await cleanupTestData();
+afterEach(async () => {
+  await cleanupTestData("test-");
 });
 
 // Export setup utilities

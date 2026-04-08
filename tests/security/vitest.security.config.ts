@@ -16,6 +16,7 @@ export default defineConfig({
     name: "tenant-isolation-rls",
     environment: "node",
     globals: true,
+    setupFiles: ["./tests/setup.ts"],
     include: [
       "tests/security/**/*.test.ts",
       "tests/security/**/*.spec.ts",

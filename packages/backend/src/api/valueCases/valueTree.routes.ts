@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 
 import { AuthenticatedRequest, requireRole } from '../../middleware/auth.js';
 import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js';
+import { createWorkerServiceSupabaseClient } from '../../lib/supabase/privileged/index.js';
 import {
   caseValueTreeService,
   ValueTreeNodeInputSchema,
@@ -31,7 +32,10 @@ export function registerValueTreeRoutes(
       }
 
       try {
-        const repo = new ValueTreeRepository();
+        const supabase = createWorkerServiceSupabaseClient({
+          justification: 'service-role:justified value tree repository access scoped to tenant',
+        });
+        const repo = new ValueTreeRepository(supabase);
         const nodes = await repo.getNodesForCase(caseId, organizationId);
         res.json({ data: nodes });
       } catch (err) {

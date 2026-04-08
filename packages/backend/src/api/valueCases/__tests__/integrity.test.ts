@@ -16,6 +16,7 @@ const mockGetForCase = vi.fn().mockResolvedValue(null);
 
 // Stub heavy infrastructure that the router's import chain pulls in
 vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn() },
 }));
 

@@ -11,7 +11,7 @@ import type { PolicyEngine as PolicyEngineContract } from "../policy-engine/inde
 import { StageTransitionEvent, stageTransitionEventBus } from "./StageTransitionEventBus.js";
 import { AgentRegistry } from "../../services/agents/AgentRegistry.js";
 import { PolicyEngine } from "../policy-engine/index.js";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { createWorkerServiceSupabaseClient } from '../../lib/supabase/privileged/index.js';
 
 interface ApprovalInboxConfig {
   defaultDueInMinutes: number;
@@ -33,7 +33,8 @@ export class ApprovalInbox {
     store?: WorkflowExecutionStore,
     config: Partial<ApprovalInboxConfig> = {},
   ) {
-    this.store = store ?? new WorkflowExecutionStore(createServerSupabaseClient());
+    // service-role:justified ApprovalInbox reads/writes workflow execution state across tenant boundary in runtime context
+    this.store = store ?? new WorkflowExecutionStore(createWorkerServiceSupabaseClient('ApprovalInbox: read/write workflow execution state'));
     this.config = { ...DEFAULT_APPROVAL_INBOX_CONFIG, ...config };
   }
 
@@ -256,7 +257,8 @@ export function getApprovalInbox(): ApprovalInbox {
     return approvalInboxSingleton;
   }
 
-  const supabaseClient = createServerSupabaseClient();
+  // service-role:justified ApprovalInbox singleton initializes workflow store and policy engine in runtime context
+  const supabaseClient = createWorkerServiceSupabaseClient('ApprovalInbox singleton: initialize workflow store and policy engine');
   const store = new WorkflowExecutionStore(supabaseClient);
   const policyEngine = new PolicyEngine({
     supabase: supabaseClient,

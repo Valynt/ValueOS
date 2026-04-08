@@ -18,10 +18,6 @@
 import { z } from 'zod';
 
 import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
-import {
-  BaseGraphWriter,
-  valueGraphService as defaultValueGraphService,
-} from '../../../services/value-graph/index.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -33,7 +29,6 @@ import { resolvePromptTemplate } from '../promptRegistry.js';
 import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { BaseGraphWriter } from '../BaseGraphWriter.js';
 
 
 // ---------------------------------------------------------------------------
@@ -95,9 +90,7 @@ type ExpansionAnalysis = z.infer<typeof ExpansionAnalysisSchema>;
 export class ExpansionAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService, logger);
-
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
+  protected override async _execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
     if (!isValid) {
@@ -137,14 +130,14 @@ export class ExpansionAgent extends BaseAgent {
     await this.writeExpansionToGraph(analysis.opportunities, context);
 
     // Step 4b: Persist to expansion_opportunities table (non-fatal)
-    if (context.value_case_id && context.organization_id) {
+    if (context.workspace_id && context.organization_id) {
       try {
         const repo = new ExpansionOpportunityRepository();
         const runId = context.session_id ?? `run-${Date.now()}`;
         for (const opp of analysis.opportunities) {
           await repo.createOpportunity({
             organization_id: context.organization_id,
-            value_case_id: context.value_case_id,
+            value_case_id: context.workspace_id,
             session_id: context.session_id ?? null,
             agent_run_id: runId,
             title: opp.title,
@@ -166,13 +159,12 @@ export class ExpansionAgent extends BaseAgent {
             gap_analysis: analysis.gap_analysis,
             new_cycle_recommendations: analysis.new_cycle_recommendations,
             recommended_next_steps: analysis.recommended_next_steps,
-            hallucination_check: analysis.hallucination_check ?? null,
             source_agent: this.name,
           });
         }
       } catch (err) {
         logger.warn('ExpansionAgent: failed to persist to expansion_opportunities — continuing', {
-          caseId: context.value_case_id,
+          caseId: context.workspace_id,
           error: (err as Error).message,
         });
       }
@@ -180,34 +172,33 @@ export class ExpansionAgent extends BaseAgent {
 
     // Step 4c: Write Value Graph nodes — VgCapability + use_case_enabled_by_capability edges
     try {
-      const writes: Array<() => Promise<unknown>> = [];
+      const opportunityId = context.workspace_id;
+      const organizationId = context.organization_id;
+
       for (const opp of analysis.opportunities) {
-        const capabilityId = this.graphWriter.generateNodeId(opp.id as string | undefined);
-        writes.push(() =>
-          this.graphWriter.writeCapability(context, {
-            id: capabilityId,
-            name: String(opp.title ?? 'Expansion Capability'),
-            description: String(opp.description ?? ''),
-            category: 'expansion',
-          })
-        );
-        const useCaseId = this.graphWriter.generateNodeId(opp.source_kpi_id as string | undefined);
-        writes.push(() =>
-          this.graphWriter.writeEdge(context, {
-            from_entity_id: useCaseId,
-            from_entity_type: 'use_case',
-            to_entity_id: capabilityId,
-            to_entity_type: 'vg_capability',
-            edge_type: 'use_case_enabled_by_capability',
-            created_by_agent: 'ExpansionAgent',
-            confidence_score: opp.confidence as number | undefined,
-          })
-        );
+        const capabilityId = crypto.randomUUID();
+        await this.valueGraphService.writeCapability({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: String(opp.title ?? 'Expansion Capability'),
+          description: String(opp.description ?? ''),
+          category: 'other',
+        });
+
+        const useCaseId = crypto.randomUUID();
+        await this.valueGraphService.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_id: useCaseId,
+          from_entity_type: 'use_case',
+          to_entity_id: capabilityId,
+          to_entity_type: 'vg_capability',
+          edge_type: 'use_case_enabled_by_capability',
+          created_by_agent: 'ExpansionAgent',
+          confidence_score: opp.confidence as number | undefined,
+        });
       }
-      if (writes.length > 0) {
-        const { succeeded, failed } = await this.graphWriter.safeWriteBatch(writes);
-        logger.info('ExpansionAgent: graph write complete', { succeeded, failed });
-      }
+      logger.info('ExpansionAgent: graph write complete', { opportunitiesWritten: analysis.opportunities.length });
     } catch (err) {
       logger.warn('ExpansionAgent: graph write skipped', { reason: (err as Error).message });
     }
@@ -601,18 +592,17 @@ export class ExpansionAgent extends BaseAgent {
    * expansion opportunity of type 'new_use_case' or 'upsell'.
    * Skips capabilities that already exist in the graph (by name).
    * Per-opportunity isolation: one failure does not abort others.
-   * All writes are fire-and-forget via BaseGraphWriter.safeWrite.
+   * All writes are fire-and-forget via try/catch.
    */
   private async writeExpansionToGraph(
     opportunities: Array<{ title: string; description: string; type: string; confidence: number }>,
     context: LifecycleContext,
   ): Promise<void> {
-    const opportunityId = this.graphWriter['resolveOpportunityId'](context);
+    const opportunityId = context.workspace_id;
     if (!opportunityId) return;
 
     const organizationId = context.organization_id;
-    const safeCtx = { opportunityId, organizationId, agentName: 'ExpansionAgent' };
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService;
 
     // Load existing capability nodes to avoid duplicates
     let existingCapabilityNames = new Set<string>();
@@ -635,33 +625,27 @@ export class ExpansionAgent extends BaseAgent {
 
       try {
         // 1. Write VgCapability node for the new capability
-        const capability = await this.graphWriter['safeWrite'](
-          () => vgs.writeCapability({
-            opportunity_id: opportunityId,
-            organization_id: organizationId,
-            name: opp.title,
-            description: opp.description,
-            category: 'other',
-          }),
-          safeCtx,
-        );
+        const capability = await vgs.writeCapability({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          name: opp.title,
+          description: opp.description,
+          category: 'other',
+        });
         if (!capability) continue;
 
         // 2. Write expansion_extends_node edge: UseCase → VgCapability
-        await this.graphWriter['safeWrite'](
-          () => vgs.writeEdge({
-            opportunity_id: opportunityId,
-            organization_id: organizationId,
-            from_entity_type: 'use_case',
-            from_entity_id: opportunityId,
-            to_entity_type: 'vg_capability',
-            to_entity_id: capability.id,
-            edge_type: 'expansion_extends_node',
-            confidence_score: opp.confidence,
-            created_by_agent: 'ExpansionAgent',
-          }),
-          safeCtx,
-        );
+        await vgs.writeEdge({
+          opportunity_id: opportunityId,
+          organization_id: organizationId,
+          from_entity_type: 'use_case',
+          from_entity_id: opportunityId,
+          to_entity_type: 'vg_capability',
+          to_entity_id: capability.id,
+          edge_type: 'expansion_extends_node',
+          confidence_score: opp.confidence,
+          created_by_agent: 'ExpansionAgent',
+        });
       } catch {
         // Per-opportunity isolation — continue to next
       }

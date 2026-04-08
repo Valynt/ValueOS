@@ -99,3 +99,18 @@ When bumping scanner action versions:
    - `node scripts/ci/check-ci-workflow-scanner-refs.mjs`
    - `node scripts/ci/check-required-check-workflow-consistency.mjs`
 4. Include all related updates in the same PR. Scanner version bumps without paired manifest/workflow consistency updates must be treated as policy violations.
+
+## Control Plane Required Gate Matrix
+
+This matrix is the canonical mapping used by CI drift checks to validate that required control domains are enforced per run.
+
+| Workflow | Domain | Required Gate Job ID | Required | Waiver Justification |
+| --- | --- | --- | --- | --- |
+| `main-verify.yml` | security | `security-gate` | yes | |
+| `main-verify.yml` | tenant-isolation | `tenant-isolation-gate` | yes | |
+| `main-verify.yml` | accessibility | `accessibility-audit` | yes | |
+| `main-verify.yml` | reliability | `main-verify` | yes | |
+| `release.yml` | security | `await-upstream-release-gates` | yes | |
+| `release.yml` | tenant-isolation | `await-upstream-release-gates` | yes | Upstream gate verification includes tenant-isolation status checks before release promotion. |
+| `release.yml` | accessibility | `await-upstream-release-gates` | yes | Upstream gate verification includes accessibility-audit status checks before release promotion. |
+| `release.yml` | reliability | `reproducibility-compare` | yes | |

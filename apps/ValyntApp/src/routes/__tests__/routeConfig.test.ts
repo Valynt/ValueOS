@@ -34,6 +34,14 @@ describe("ValyntApp route config", () => {
       "/settings",
       "/workspace/:caseId",
       "/company",
+      "/work",
+      "/work/cases",
+      "/work/cases/new",
+      "/case/:caseId",
+      "/review/:caseId",
+      "/library/models",
+      "/library/templates",
+      "/library/agents",
     ]);
   });
 

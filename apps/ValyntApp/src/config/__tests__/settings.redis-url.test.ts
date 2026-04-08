@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateRedisUrlForProduction } from "../settings.server";
+import { validateRedisUrlForProduction } from "../settings";
 
 describe("validateRedisUrlForProduction", () => {
   it("rejects passwordless Redis URL in production", () => {

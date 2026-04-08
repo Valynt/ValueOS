@@ -17,28 +17,28 @@ export interface FeatureFlags {
    * Retained for backward compatibility; runtime now uses ExecutionRuntime unconditionally.
    */
   ENABLE_UNIFIED_ORCHESTRATION: boolean;
-  
-  /** 
+
+  /**
    * @deprecated Use ENABLE_UNIFIED_ORCHESTRATION instead
-   * Enable stateless orchestration (fixes singleton state bug) 
+   * Enable stateless orchestration (fixes singleton state bug)
    */
   ENABLE_STATELESS_ORCHESTRATION: boolean;
-  
+
   /** Enable SafeJSON parser (fixes fragile JSON parsing) */
   ENABLE_SAFE_JSON_PARSER: boolean;
-  
+
   /** Enable input sanitization at entry points */
   ENABLE_INPUT_SANITIZATION: boolean;
-  
+
   /** Enable trace ID logging for observability */
   ENABLE_TRACE_LOGGING: boolean;
-  
+
   /** Enable circuit breaker for agent execution */
   ENABLE_CIRCUIT_BREAKER: boolean;
-  
+
   /** Enable rate limiting */
   ENABLE_RATE_LIMITING: boolean;
-  
+
   /** Enable audit logging */
   ENABLE_AUDIT_LOGGING: boolean;
 
@@ -77,6 +77,36 @@ export interface FeatureFlags {
    * Billing deployment: can be rolled out independently.
    */
   ENABLE_BILLING_APPROVAL_WORKFLOWS: boolean;
+
+  /**
+   * Enable new workspace redesign (Phase 6/7)
+   * Phase 7: Gradual rollout starting at 5%
+   */
+  ENABLE_NEW_WORKSPACE: boolean;
+
+  /**
+   * Enable warmth system for case confidence visualization
+   * Phase 7: Enabled by default after testing
+   */
+  ENABLE_WARMTH_SYSTEM: boolean;
+
+  /**
+   * Enable narrative mode in workspace
+   * Phase 7: Part of workspace redesign
+   */
+  ENABLE_NARRATIVE_MODE: boolean;
+
+  /**
+   * Enable copilot mode in workspace
+   * Phase 7: Part of workspace redesign
+   */
+  ENABLE_COPILOT_MODE: boolean;
+
+  /**
+   * Enable real-time events (SSE) for workspace
+   * Phase 7: Disable if stability issues
+   */
+  ENABLE_REALTIME_EVENTS: boolean;
 
   /**
    * Enable automated invoice generation from rated ledger.
@@ -145,6 +175,27 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
       import.meta.env.MODE !== "production" // Default: disabled in prod
     ),
+    // Phase 7: Workspace redesign flags — gradual rollout
+    ENABLE_NEW_WORKSPACE: parseBoolean(
+      import.meta.env.VITE_ENABLE_NEW_WORKSPACE,
+      import.meta.env.MODE !== "production" // Default: enabled in dev, disabled in prod
+    ),
+    ENABLE_WARMTH_SYSTEM: parseBoolean(
+      import.meta.env.VITE_ENABLE_WARMTH_SYSTEM,
+      true // Default: enabled after testing
+    ),
+    ENABLE_NARRATIVE_MODE: parseBoolean(
+      import.meta.env.VITE_ENABLE_NARRATIVE_MODE,
+      true // Default: enabled
+    ),
+    ENABLE_COPILOT_MODE: parseBoolean(
+      import.meta.env.VITE_ENABLE_COPILOT_MODE,
+      true // Default: enabled
+    ),
+    ENABLE_REALTIME_EVENTS: parseBoolean(
+      import.meta.env.VITE_ENABLE_REALTIME_EVENTS,
+      true // Default: enabled, disable if stability issues
+    ),
     // Billing deployment flags — all default OFF for gradual rollout
     ENABLE_BILLING_USAGE_METERING: parseBoolean(
       import.meta.env.VITE_ENABLE_BILLING_USAGE_METERING,
@@ -177,6 +228,13 @@ function loadFeatureFlags(): FeatureFlags {
     valueCommitmentService: flags.ENABLE_VALUE_COMMITMENT_SERVICE,
     agentPlaceholderMode: flags.ENABLE_AGENT_PLACEHOLDER_MODE,
     clientLlmStreaming: flags.ENABLE_CLIENT_LLM_STREAMING,
+    // Phase 7: Workspace redesign
+    newWorkspace: flags.ENABLE_NEW_WORKSPACE,
+    warmthSystem: flags.ENABLE_WARMTH_SYSTEM,
+    narrativeMode: flags.ENABLE_NARRATIVE_MODE,
+    copilotMode: flags.ENABLE_COPILOT_MODE,
+    realtimeEvents: flags.ENABLE_REALTIME_EVENTS,
+    // Billing
     billingUsageMetering: flags.ENABLE_BILLING_USAGE_METERING,
     billingOverageCharging: flags.ENABLE_BILLING_OVERAGE_CHARGING,
     billingApprovalWorkflows: flags.ENABLE_BILLING_APPROVAL_WORKFLOWS,
@@ -218,7 +276,7 @@ export function getDisabledFeatures(): string[] {
 
 /**
  * Rollout percentage for gradual feature enablement
- * 
+ *
  * Usage:
  *   if (shouldEnableForUser(userId, 10)) { // 10% rollout
  *     // Use new feature

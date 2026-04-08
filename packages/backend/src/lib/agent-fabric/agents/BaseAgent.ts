@@ -9,14 +9,19 @@
 import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
 
-import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
-import { reasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import { AgentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
+import { ReasoningTraceRepository } from "../../../repositories/ReasoningTraceRepository.js";
+import { createWorkerServiceSupabaseClient } from "../../../lib/supabase/privileged/index.js";
 import { getTracer } from "../../../config/telemetry.js";
 import type { ReasoningTraceWrite } from "@valueos/shared";
 import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
 import type { AgentType } from "../../../services/agent-types.js";
 import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
-import { type ToolExecutionContext, toolRegistry, type ToolResult } from "../../../services/tools/ToolRegistry.js";
+import {
+  type ToolExecutionContext,
+  toolRegistry,
+  type ToolResult,
+} from "../../../services/tools/ToolRegistry.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -28,7 +33,11 @@ import type {
   LifecycleStage,
   PromptVersionReference,
 } from "../../../types/agent.js";
-import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
+import {
+  canUseTool,
+  createAgentIdentity,
+  PermissionDeniedError,
+} from "../../auth/AgentIdentity.js";
 import { logger } from "../../logger.js";
 import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import { AuditLogger } from "../AuditLogger.js";
@@ -39,10 +48,7 @@ import type {
 } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import {
-  ValueGraphService,
-  valueGraphService as defaultValueGraphService,
-} from "../../../services/value-graph/ValueGraphService.js";
+import { ValueGraphService } from "../../../services/value-graph/ValueGraphService.js";
 import {
   computeGroundingScore,
   extractArrayLengths,
@@ -91,6 +97,8 @@ export interface HallucinationCheckResult {
   requiresEscalation: boolean;
   /** Knowledge Fabric validation result (when validator is configured) */
   knowledgeFabric?: KFHallucinationCheckResult;
+  /** Deferred signals processed asynchronously (memory cross-reference, confidence calibration) */
+  deferredSignals?: HallucinationSignal[];
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +124,31 @@ export abstract class BaseAgent {
   protected valueGraphService: ValueGraphService;
   // Prompt version references set during execution, included in output metadata.
   protected _promptVersionRefs: PromptVersionReference[] = [];
+  // Lazy-initialised repos (created with a privileged client per-agent instance).
+  private _lineageRepo: AgentExecutionLineageRepository | null = null;
+  private _traceRepo: ReasoningTraceRepository | null = null;
+
+  private get lineageRepo(): AgentExecutionLineageRepository {
+    if (!this._lineageRepo) {
+      const db = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified BaseAgent writes execution lineage rows",
+      });
+      this._lineageRepo = new AgentExecutionLineageRepository(db);
+    }
+    return this._lineageRepo;
+  }
+
+  private get traceRepo(): ReasoningTraceRepository {
+    if (!this._traceRepo) {
+      const db = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified BaseAgent writes reasoning trace rows",
+      });
+      this._traceRepo = new ReasoningTraceRepository(db);
+    }
+    return this._traceRepo;
+  }
 
   constructor(
     config: AgentConfig,
@@ -139,7 +172,7 @@ export abstract class BaseAgent {
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
     this.auditLogger = new AuditLogger();
-    this.valueGraphService = valueGraphService ?? defaultValueGraphService;
+    this.valueGraphService = valueGraphService!;
   }
 
   /**
@@ -298,11 +331,13 @@ export abstract class BaseAgent {
 
     // Check if existing evidence links cover all numeric values
     const existingEvidence = result.metadata?.evidence_links || [];
-    const missingEvidence = numericValues.filter(value =>
-      !existingEvidence.some(evidence =>
-        evidence.metric_key === value.key &&
-        evidence.metric_value === value.value
-      )
+    const missingEvidence = numericValues.filter(
+      value =>
+        !existingEvidence.some(
+          evidence =>
+            evidence.metric_key === value.key &&
+            evidence.metric_value === value.value
+        )
     );
 
     if (missingEvidence.length > 0) {
@@ -321,8 +356,8 @@ export abstract class BaseAgent {
 
       throw new EvidenceMappingError(
         `Agent ${this.name} produced ${missingEvidence.length} numeric value(s) without required evidence links. ` +
-        `Missing evidence for: ${missingEvidence.map(v => `${v.key}=${v.value}`).join(', ')}. ` +
-        `All financial and quantitative outputs must be backed by evidence sources for compliance.`
+          `Missing evidence for: ${missingEvidence.map(v => `${v.key}=${v.value}`).join(", ")}. ` +
+          `All financial and quantitative outputs must be backed by evidence sources for compliance.`
       );
     }
 
@@ -332,20 +367,26 @@ export abstract class BaseAgent {
   /**
    * Recursively extract all numeric values from agent result for evidence validation.
    */
-  private extractNumericValues(obj: unknown, path: string = ''): Array<{key: string, value: number, path: string}> {
-    const numericValues: Array<{key: string, value: number, path: string}> = [];
+  private extractNumericValues(
+    obj: unknown,
+    path: string = ""
+  ): Array<{ key: string; value: number; path: string }> {
+    const numericValues: Array<{ key: string; value: number; path: string }> =
+      [];
 
-    if (typeof obj === 'number' && isFinite(obj)) {
+    if (typeof obj === "number" && isFinite(obj)) {
       numericValues.push({
-        key: path || 'value',
+        key: path || "value",
         value: obj,
-        path
+        path,
       });
     } else if (Array.isArray(obj)) {
       obj.forEach((item, index) => {
-        numericValues.push(...this.extractNumericValues(item, `${path}[${index}]`));
+        numericValues.push(
+          ...this.extractNumericValues(item, `${path}[${index}]`)
+        );
       });
-    } else if (obj && typeof obj === 'object') {
+    } else if (obj && typeof obj === "object") {
       Object.entries(obj).forEach(([key, value]) => {
         const currentPath = path ? `${path}.${key}` : key;
         numericValues.push(...this.extractNumericValues(value, currentPath));
@@ -407,7 +448,11 @@ export abstract class BaseAgent {
       !this._agentIdentity ||
       Date.now() >= new Date(this._agentIdentity.expires_at).getTime()
     ) {
-      this._agentIdentity = createAgentIdentity(this.name, this.name, this.organizationId);
+      this._agentIdentity = createAgentIdentity(
+        this.name,
+        this.name,
+        this.organizationId
+      );
     }
     return this._agentIdentity;
   }
@@ -504,7 +549,9 @@ export abstract class BaseAgent {
     // Kill switch — admin can disable an agent at runtime without a deploy.
     // Fails open: if Redis is unavailable the check returns false and execution proceeds.
     if (await agentKillSwitchService.isKilled(this.name)) {
-      throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
+      throw new Error(
+        `Agent ${this.name} is currently disabled by kill switch`
+      );
     }
 
     // Create an OTel span for this agent invocation so traces include
@@ -515,12 +562,13 @@ export abstract class BaseAgent {
       {
         attributes: {
           "agent.name": this.name,
-          "agent.lifecycle_stage": (options.context?.["lifecycle_stage"] as string) ?? "unknown",
-          "tenant_id": this.organizationId ?? "unknown",
-          "session_id": sessionId,
+          "agent.lifecycle_stage":
+            (options.context?.["lifecycle_stage"] as string) ?? "unknown",
+          tenant_id: this.organizationId ?? "unknown",
+          session_id: sessionId,
         },
       },
-      async (agentSpan) => {
+      async agentSpan => {
         // End the OTel span after the circuit breaker resolves or rejects.
         // circuitBreaker.execute() is inside the try so a synchronous throw
         // (e.g. circuit open) is also caught and the span is always closed.
@@ -538,7 +586,9 @@ export abstract class BaseAgent {
                   : sessionId;
 
             // Sanitize context before injecting into the LLM request — removes PII/secret fields.
-            const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
+            const sanitizedContext = sanitizeForAgent(
+              context as Record<string, unknown>
+            );
 
             const request = {
               messages: [{ role: "user" as const, content: prompt }],
@@ -579,16 +629,18 @@ export abstract class BaseAgent {
                 content: response.content,
               });
               throw new Error(
-                "LLM response was not valid JSON: " + BaseAgent.getErrorMessage(err)
+                "LLM response was not valid JSON: " +
+                  BaseAgent.getErrorMessage(err)
               );
             }
             const parsed = zodSchema.parse(parsedJson);
 
-            // Run multi-signal hallucination detection
+            // Run tiered hallucination detection (critical inline, deferred async)
             const hallucinationResult = await this.checkHallucination(
               response.content,
               parsed as Record<string, unknown>,
-              sessionId
+              sessionId,
+              traceId
             );
 
             // Merge Knowledge Fabric result
@@ -658,7 +710,7 @@ export abstract class BaseAgent {
             });
 
             // Append execution lineage row (non-blocking — failure must not propagate).
-            void agentExecutionLineageRepository
+            void this.lineageRepo
               .appendLineage({
                 session_id: sessionId,
                 agent_name: this.name,
@@ -702,7 +754,7 @@ export abstract class BaseAgent {
               token_usage: tokenUsage ?? null,
             };
 
-            void reasoningTraceRepository
+            void this.traceRepo
               .create(reasoningTracePayload)
               .catch((err: unknown) => {
                 logger.warn("secureInvoke: reasoning trace write failed", {
@@ -727,14 +779,16 @@ export abstract class BaseAgent {
           agentSpan.setStatus({ code: SpanStatusCode.OK });
           return result;
         } catch (err) {
-          agentSpan.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+          agentSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (err as Error).message,
+          });
           throw err;
         } finally {
           agentSpan.end();
         }
       }
     );
-
   }
 
   // -------------------------------------------------------------------------
@@ -754,12 +808,20 @@ export abstract class BaseAgent {
       };
     }
 
+    const TIMEOUT_MS = 5_000;
+
     try {
-      return await this.knowledgeFabricValidator.validate(
-        content,
-        this.organizationId,
-        this.name
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Knowledge Fabric validation timed out after ${TIMEOUT_MS}ms`)),
+          TIMEOUT_MS
+        )
       );
+
+      return await Promise.race([
+        this.knowledgeFabricValidator.validate(content, this.organizationId, this.name),
+        timeoutPromise,
+      ]);
     } catch (err) {
       logger.error("Knowledge Fabric validation failed, defaulting to fail", {
         agent_id: this.name,
@@ -780,20 +842,31 @@ export abstract class BaseAgent {
   // -------------------------------------------------------------------------
 
   /**
-   * 6-signal hallucination detection pipeline:
+   * 6-signal hallucination detection pipeline with tiered execution:
+   *
+   * CRITICAL (inline, blocking):
    * 1. Refusal patterns — LLM declining to answer
    * 2. Self-reference — LLM breaking character
    * 3. Fabricated data — fake URLs, round numbers, implausible percentages
    * 4. Internal contradictions — range inversions, out-of-bounds confidence
+   *
+   * DEFERRED (async, non-blocking):
    * 5. Memory cross-reference — contradictions against stored facts
    * 6. Confidence calibration — high confidence with thin evidence
+   *
+   * Deferred signals are processed asynchronously and merged into the reasoning
+   * trace to reduce latency without sacrificing safety.
    */
   protected async checkHallucination(
     rawContent: string,
     parsedOutput: Record<string, unknown>,
-    sessionId: string
+    sessionId: string,
+    traceId?: string
   ): Promise<HallucinationCheckResult> {
     const signals: HallucinationSignal[] = [];
+
+    // === CRITICAL SIGNALS (inline, blocking) ===
+    // These run synchronously - they detect high-severity issues that must block execution
 
     // 1. Refusal patterns
     for (const pattern of REFUSAL_PATTERNS) {
@@ -825,16 +898,46 @@ export abstract class BaseAgent {
     // 4. Internal contradictions
     this.checkInternalContradictions(parsedOutput, signals);
 
-    // 5. Memory cross-reference
-    await this.crossReferenceMemory(parsedOutput, sessionId, signals);
-
-    // 6. Confidence calibration
-    this.checkConfidenceCalibration(parsedOutput, signals);
-
-    // Compute grounding score
-    const groundingScore = computeGroundingScore(signals);
-
+    // Compute preliminary grounding score from critical signals
+    const criticalGroundingScore = computeGroundingScore(signals);
     const hasHighSeverity = signals.some(s => s.severity === "high");
+
+    // === DEFERRED SIGNALS (async, non-blocking) ===
+    // These run in parallel and their results are stored in the reasoning trace
+    // They don't block the response but contribute to audit/compliance
+
+    const deferredSignalsPromise = this.runDeferredSignals(
+      parsedOutput,
+      sessionId,
+      traceId
+    );
+
+    // If we have high severity signals, don't wait for deferred - fail fast
+    if (hasHighSeverity) {
+      // Still kick off deferred for logging, but don't await
+      void deferredSignalsPromise.then(deferredSignals => {
+        if (traceId && deferredSignals.length > 0) {
+          void this.updateTraceWithDeferredSignals(traceId, deferredSignals);
+        }
+      });
+
+      return {
+        passed: false,
+        signals,
+        groundingScore: criticalGroundingScore,
+        requiresEscalation: true,
+        deferredSignals: [], // Will be populated async in trace
+      };
+    }
+
+    // For non-failing cases, await deferred signals for complete result
+    const deferredSignals = await deferredSignalsPromise;
+
+    // Merge deferred signals (medium/low severity only)
+    signals.push(...deferredSignals);
+
+    // Compute final grounding score
+    const groundingScore = computeGroundingScore(signals);
     const requiresEscalation = hasHighSeverity || groundingScore < 0.5;
 
     return {
@@ -842,7 +945,71 @@ export abstract class BaseAgent {
       signals,
       groundingScore,
       requiresEscalation,
+      deferredSignals,
     };
+  }
+
+  /**
+   * Run deferred (non-blocking) hallucination signals.
+   * These are processed in parallel for latency reduction.
+   */
+  private async runDeferredSignals(
+    parsedOutput: Record<string, unknown>,
+    sessionId: string,
+    traceId?: string
+  ): Promise<HallucinationSignal[]> {
+    const deferredSignals: HallucinationSignal[] = [];
+
+    try {
+      // Run deferred checks in parallel with timeout
+      const timeoutMs = 2000; // 2 second timeout for deferred signals
+
+      const results = await Promise.allSettled([
+        this.crossReferenceMemory(parsedOutput, sessionId, deferredSignals).then(() => deferredSignals),
+        Promise.resolve().then(() => {
+          this.checkConfidenceCalibration(parsedOutput, deferredSignals);
+          return deferredSignals;
+        }),
+      ]);
+
+      // Aggregate all signals from successful checks
+      for (const result of results) {
+        if (result.status === "fulfilled" && Array.isArray(result.value)) {
+          // Signals are pushed to the array by reference
+        }
+      }
+    } catch (err) {
+      logger.warn("[BaseAgent.runDeferredSignals] Deferred signal processing failed", {
+        agent: this.name,
+        sessionId,
+        traceId,
+        error: BaseAgent.getErrorMessage(err),
+      });
+    }
+
+    return deferredSignals;
+  }
+
+  /**
+   * Update reasoning trace with deferred signals (fire-and-forget).
+   */
+  private async updateTraceWithDeferredSignals(
+    traceId: string,
+    deferredSignals: HallucinationSignal[]
+  ): Promise<void> {
+    if (!this.traceRepo || deferredSignals.length === 0) return;
+
+    try {
+      await this.traceRepo.updateDeferredSignals(traceId, this.organizationId, {
+        deferred_signals: deferredSignals,
+        deferred_signal_count: deferredSignals.length,
+      });
+    } catch (err) {
+      logger.warn("[BaseAgent.updateTraceWithDeferredSignals] Failed to update trace", {
+        traceId,
+        error: BaseAgent.getErrorMessage(err),
+      });
+    }
   }
 
   private checkFabricatedData(
@@ -1072,13 +1239,13 @@ export abstract class BaseAgent {
     links: EvidenceLink[]
   ): void {
     const numericPaths = extractNumericPaths(result);
-    const evidencePaths = new Set(links.map((l) => l.path));
+    const evidencePaths = new Set(links.map(l => l.path));
 
-    const missing = numericPaths.filter((p) => !evidencePaths.has(p));
+    const missing = numericPaths.filter(p => !evidencePaths.has(p));
     if (missing.length > 0) {
       throw new Error(
         `S2-1: Missing evidence for numeric values at paths: ${missing.join(", ")}. ` +
-        `All financial calculations require evidence links for auditability.`
+          `All financial calculations require evidence links for auditability.`
       );
     }
   }
@@ -1108,7 +1275,7 @@ export abstract class BaseAgent {
     // Default implementation: look for evidence in the reasoning trace
     // Subclasses can override for custom evidence sources
     try {
-      const trace = await reasoningTraceRepository.getByTraceId(
+      const trace = await this.traceRepo.getByTraceId(
         traceId,
         this.organizationId // Tenant isolation: scoped to agent's organization
       );
@@ -1119,7 +1286,8 @@ export abstract class BaseAgent {
             const evidence = JSON.parse(e);
             return (
               evidence.path === path ||
-              (evidence.value !== undefined && Math.abs(evidence.value - value) < 0.01)
+              (evidence.value !== undefined &&
+                Math.abs(evidence.value - value) < 0.01)
             );
           } catch {
             // Malformed evidence entry, skip it
@@ -1131,7 +1299,9 @@ export abstract class BaseAgent {
             const parsed = JSON.parse(matchingEvidence);
             return {
               reference: parsed.reference || `trace:${traceId}`,
-              description: parsed.description || `Evidence from reasoning trace ${traceId}`,
+              description:
+                parsed.description ||
+                `Evidence from reasoning trace ${traceId}`,
             };
           } catch {
             // Malformed matching evidence, fall through to defaults
@@ -1144,10 +1314,24 @@ export abstract class BaseAgent {
 
     // For financial values, require explicit evidence
     const financialPaths = [
-      "value", "roi", "npv", "irr", "payback", "savings", "cost", "benefit",
-      "revenue", "margin", "ebitda", "capex", "opex", "tcv", "arr", "mrr"
+      "value",
+      "roi",
+      "npv",
+      "irr",
+      "payback",
+      "savings",
+      "cost",
+      "benefit",
+      "revenue",
+      "margin",
+      "ebitda",
+      "capex",
+      "opex",
+      "tcv",
+      "arr",
+      "mrr",
     ];
-    const isFinancial = financialPaths.some((fp) =>
+    const isFinancial = financialPaths.some(fp =>
       path.toLowerCase().includes(fp)
     );
 

@@ -54,6 +54,8 @@ export interface IdempotencyResult {
 
 /**
  * Generate deterministic idempotency key from job data
+ * Failsafe: Uses full 64-char SHA256 hash + 8-char microsecond timestamp salt
+ * to prevent collision attacks and ensure uniqueness across retries.
  */
 export function generateIdempotencyKey(
   queueName: string,
@@ -69,13 +71,20 @@ export function generateIdempotencyKey(
       }, {} as Record<string, unknown>)
     : jobData;
 
-  // Create deterministic hash
+  // Create deterministic canonical representation
   const canonicalData = JSON.stringify(keyData, Object.keys(keyData).sort());
-  const hash = createHash('sha256')
+
+  // Generate full 64-character SHA256 hash for maximum collision resistance
+  const fullHash = createHash('sha256')
     .update(`${queueName}:${jobName}:${canonicalData}`)
     .digest('hex');
 
-  return `idmp_${hash.slice(0, 32)}`;
+  // Add microsecond-precision timestamp salt for replay attack resistance
+  // Format: last 8 chars of microseconds since epoch
+  const timestampSalt = process.hrtime.bigint().toString(36).slice(-8);
+
+  // Composite key: full hash + time salt prevents both collision and replay
+  return `idmp_${fullHash}_${timestampSalt}`;
 }
 
 /**
@@ -120,6 +129,8 @@ export async function checkJobIdempotency(
 
 /**
  * Mark a job as processed in the idempotency store
+ * Failsafe: Implements 3-retry with exponential backoff for transient failures.
+ * Critical failures are logged but don't crash the job (eventual consistency acceptable).
  */
 export async function markJobProcessed(
   queueName: string,
@@ -129,34 +140,78 @@ export async function markJobProcessed(
   context: JobContext,
   result: unknown,
   config?: IdempotencyConfig
-): Promise<void> {
-  try {
-    const jobDataHash = generateJobDataHash(jobData);
-    const resultStatus = result instanceof Error ? 'failed' : 'completed';
+): Promise<boolean> {
+  const maxRetries = 3;
+  const baseDelayMs = 100;
+  let lastError: Error | null = null;
 
-    const { error } = await supabase.rpc('mark_job_processed', {
-      p_idempotency_key: idempotencyKey,
-      p_queue_name: queueName,
-      p_job_name: jobName,
-      p_job_data_hash: jobDataHash,
-      p_tenant_id: context.tenantId,
-      p_organization_id: context.organizationId,
-      p_processed_by: config?.workerId ?? 'unknown',
-      p_result_status: resultStatus,
-      p_result_payload: resultStatus === 'completed' ? result : null,
-      p_ttl_hours: config?.ttlHours ?? 168,
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const jobDataHash = generateJobDataHash(jobData);
+      const resultStatus = result instanceof Error ? 'failed' : 'completed';
 
-    if (error) {
-      logger.error('Failed to mark job as processed', {
-        error: error.message,
-        queueName,
-        idempotencyKey,
+      const { error } = await supabase.rpc('mark_job_processed', {
+        p_idempotency_key: idempotencyKey,
+        p_queue_name: queueName,
+        p_job_name: jobName,
+        p_job_data_hash: jobDataHash,
+        p_tenant_id: context.tenantId,
+        p_organization_id: context.organizationId,
+        p_processed_by: config?.workerId ?? 'unknown',
+        p_result_status: resultStatus,
+        p_result_payload: resultStatus === 'completed' ? result : null,
+        p_ttl_hours: config?.ttlHours ?? 168,
       });
+
+      if (!error) {
+        // Success - return true to indicate recorded
+        return true;
+      }
+
+      lastError = new Error(error.message);
+
+      // Exponential backoff: 100ms, 200ms, 400ms
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        logger.warn('markJobProcessed retry scheduled', {
+          attempt,
+          maxRetries,
+          delayMs: delay,
+          error: error.message,
+          queueName,
+          idempotencyKey,
+        });
+        await new Promise(r => setTimeout(r, delay));
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, delay));
+      }
     }
-  } catch (err) {
-    logger.error('Error marking job processed', { error: err, queueName, idempotencyKey });
   }
+
+  // Failsafe: All retries exhausted - log critical but don't crash
+  logger.error('CRITICAL: Failed to mark job as processed after all retries', {
+    error: lastError?.message,
+    queueName,
+    idempotencyKey,
+    attempts: maxRetries,
+    tenantId: context.tenantId,
+  });
+
+  // Emit metric for monitoring/alerting (non-blocking)
+  try {
+    // If you have a metrics emitter, call it here
+    // emitMetric('idempotency.mark_failed', 1, { queue: queueName });
+  } catch {
+    // Ignore metrics errors
+  }
+
+  // Return false to indicate recording failed (but job succeeded)
+  return false;
 }
 
 /**

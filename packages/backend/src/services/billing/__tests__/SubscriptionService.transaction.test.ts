@@ -17,7 +17,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const supabaseMock = { from: vi.fn() };
 
-vi.mock("../../../lib/supabase.js", () => ({ supabase: supabaseMock }));
+vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(), supabase: supabaseMock }));
 
 // ── Stripe mock ────────────────────────────────────────────────────────────
 

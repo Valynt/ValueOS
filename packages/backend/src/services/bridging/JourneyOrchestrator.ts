@@ -78,6 +78,73 @@ export interface ExitConditionResult {
 }
 
 /**
+ * Smart guidance for the next recommended action.
+ */
+export interface NextStepGuidance {
+  /** Unique ID for this guidance */
+  id: string;
+
+  /** Type of guidance */
+  type: "auto_advance" | "action_required" | "suggestion" | "completion";
+
+  /** Priority level */
+  priority: "high" | "medium" | "low";
+
+  /** Human-readable title */
+  title: string;
+
+  /** Detailed description */
+  description: string;
+
+  /** Primary action to take */
+  primaryAction?: {
+    id: string;
+    label: string;
+    surface: "button" | "slash_command" | "keyboard_shortcut";
+    shortcut?: string;
+  };
+
+  /** Secondary actions available */
+  secondaryActions?: Array<{
+    id: string;
+    label: string;
+  }>;
+
+  /** Progress indication for multi-step flows */
+  progress?: {
+    current: number;
+    total: number;
+    label: string;
+  };
+
+  /** Whether this guidance blocks further progress */
+  blocking: boolean;
+
+  /** Dismissible without action */
+  dismissible: boolean;
+}
+
+/**
+ * Inline validation result for real-time feedback.
+ */
+export interface InlineValidation {
+  /** Field or action being validated */
+  target: string;
+
+  /** Validation status */
+  status: "valid" | "invalid" | "pending" | "warning";
+
+  /** Human-readable message */
+  message: string;
+
+  /** Suggested fix if invalid */
+  suggestion?: string;
+
+  /** Auto-fix available */
+  autoFixable?: boolean;
+}
+
+/**
  * Full orchestrator output: everything the frontend needs to render.
  */
 export interface JourneyOrchestratorOutput {
@@ -116,6 +183,20 @@ export interface JourneyOrchestratorOutput {
 
   /** SDUI page sections assembled from artifacts + layout. */
   page_sections: SDUISection[];
+
+  /** Smart next-step guidance for the user. */
+  next_step_guidance: NextStepGuidance[];
+
+  /** Inline validation results for real-time feedback. */
+  inline_validations: InlineValidation[];
+
+  /** Keyboard shortcuts available in current context. */
+  keyboard_shortcuts: Array<{
+    key: string;
+    label: string;
+    action_id: string;
+    scope: "global" | "phase" | "widget";
+  }>;
 }
 
 /**
@@ -223,6 +304,25 @@ export class JourneyOrchestrator {
       interactionMode
     );
 
+    // 7. Generate smart next-step guidance
+    const nextStepGuidance = this.generateNextStepGuidance(
+      phase,
+      exitConditions,
+      canLock,
+      input,
+      uiState
+    );
+
+    // 8. Generate inline validations
+    const inlineValidations = this.generateInlineValidations(
+      phase,
+      exitConditions,
+      artifacts
+    );
+
+    // 9. Resolve keyboard shortcuts for current context
+    const keyboardShortcuts = this.resolveKeyboardShortcuts(phase, uiState);
+
     return {
       phase,
       ui_state: uiState,
@@ -236,6 +336,9 @@ export class JourneyOrchestrator {
       workspace_regions: workspaceRegions,
       active_interrupts: input.active_interrupts,
       page_sections: pageSections,
+      next_step_guidance: nextStepGuidance,
+      inline_validations: inlineValidations,
+      keyboard_shortcuts: keyboardShortcuts,
     };
   }
 
@@ -595,5 +698,219 @@ export class JourneyOrchestrator {
     }
 
     return sections;
+  }
+
+  // ── Smart Guidance Generation ─────────────────────────────────────────
+
+  private generateNextStepGuidance(
+    phase: JourneyPhase,
+    exitConditions: ExitConditionResult[],
+    canLock: boolean,
+    input: JourneyOrchestratorInput,
+    uiState: UIStateMapping | null
+  ): NextStepGuidance[] {
+    const guidance: NextStepGuidance[] = [];
+
+    // Check for auto-advance opportunity
+    if (canLock && input.value_case_status !== "BOARD_READY_LOCKED") {
+      const nextPhase = this.getNextPhase(phase);
+      guidance.push({
+        id: `auto-advance-${phase.lifecycle_stage}`,
+        type: "auto_advance",
+        priority: "high",
+        title: `Ready to advance to ${nextPhase?.label || "next phase"}`,
+        description: `All exit conditions met. You can lock this phase and continue to the ${nextPhase?.label || "next step"}.`,
+        primaryAction: {
+          id: "lock_phase",
+          label: `Lock ${phase.label}`,
+          surface: "button",
+          shortcut: "Ctrl+L",
+        },
+        secondaryActions: [
+          { id: "review_conditions", label: "Review conditions" },
+          { id: "stay_in_phase", label: "Stay in current phase" },
+        ],
+        progress: {
+          current: exitConditions.filter((ec) => ec.passed).length,
+          total: exitConditions.length,
+          label: `${exitConditions.filter((ec) => ec.passed).length} of ${exitConditions.length} conditions met`,
+        },
+        blocking: false,
+        dismissible: true,
+      });
+    }
+
+    // Check for failed exit conditions that need action
+    for (const condition of exitConditions) {
+      if (!condition.passed && condition.condition.type !== "custom") {
+        guidance.push({
+          id: `action-required-${condition.condition.id}`,
+          type: "action_required",
+          priority: condition.condition.type === "min_confidence" ? "high" : "medium",
+          title: this.getConditionActionTitle(condition.condition),
+          description: condition.reason || `Complete: ${condition.condition.description}`,
+          primaryAction: {
+            id: `fix-${condition.condition.id}`,
+            label: this.getConditionActionLabel(condition.condition),
+            surface: "button",
+          },
+          blocking: false,
+          dismissible: true,
+        });
+      }
+    }
+
+    // Add contextual suggestions based on phase
+    if (uiState?.user_actionable && uiState.cta) {
+      guidance.push({
+        id: "suggested-action",
+        type: "suggestion",
+        priority: "low",
+        title: "Suggested next step",
+        description: uiState.cta.label,
+        primaryAction: {
+          id: uiState.cta.action_id,
+          label: uiState.cta.label,
+          surface: "slash_command",
+          shortcut: uiState.cta.action_id.startsWith("lock") ? "Ctrl+L" : "Ctrl+Enter",
+        },
+        blocking: false,
+        dismissible: true,
+      });
+    }
+
+    return guidance.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+  }
+
+  private getNextPhase(currentPhase: JourneyPhase): JourneyPhase | null {
+    const phases = this.experienceModel.phases;
+    const currentIndex = phases.findIndex(
+      (p: JourneyPhase) => p.lifecycle_stage === currentPhase.lifecycle_stage
+    );
+    if (currentIndex >= 0 && currentIndex < phases.length - 1) {
+      return phases[currentIndex + 1];
+    }
+    return null;
+  }
+
+  private getConditionActionTitle(condition: PhaseExitCondition): string {
+    switch (condition.type) {
+      case "min_confidence":
+        return "Increase confidence score";
+      case "no_unresolved_objections":
+        return "Resolve Red Team objections";
+      case "min_items":
+        return `Add more ${condition.target_type || "items"}`;
+      case "all_fields_populated":
+        return "Complete required fields";
+      case "integrity_passed":
+        return "Complete integrity review";
+      default:
+        return "Complete required task";
+    }
+  }
+
+  private getConditionActionLabel(condition: PhaseExitCondition): string {
+    switch (condition.type) {
+      case "min_confidence":
+        return "Review & Improve";
+      case "no_unresolved_objections":
+        return "View Objections";
+      case "min_items":
+        return `Add ${condition.target_type || "Items"}`;
+      case "all_fields_populated":
+        return "Fill Fields";
+      case "integrity_passed":
+        return "Run Integrity Check";
+      default:
+        return "Take Action";
+    }
+  }
+
+  // ── Inline Validation Generation ────────────────────────────────────────
+
+  private generateInlineValidations(
+    phase: JourneyPhase,
+    exitConditions: ExitConditionResult[],
+    _artifacts: TransformedArtifact[]
+  ): InlineValidation[] {
+    const validations: InlineValidation[] = [];
+
+    // Map exit conditions to inline validations
+    for (const result of exitConditions) {
+      validations.push({
+        target: result.condition.id,
+        status: result.passed ? "valid" : "invalid",
+        message: result.passed
+          ? `${result.condition.description} ✓`
+          : result.reason || result.condition.description,
+        suggestion: result.passed ? undefined : this.getValidationSuggestion(result.condition),
+        autoFixable: result.condition.type === "min_items" || result.condition.type === "all_fields_populated",
+      });
+    }
+
+    return validations;
+  }
+
+  private getValidationSuggestion(condition: PhaseExitCondition): string | undefined {
+    switch (condition.type) {
+      case "min_confidence":
+        return "Add evidence or refine assumptions to increase confidence";
+      case "no_unresolved_objections":
+        return "Review and respond to each Red Team objection";
+      case "min_items":
+        return `Create at least ${condition.threshold || 1} ${condition.target_type || "items"}`;
+      case "all_fields_populated":
+        return "Ensure all required fields have values";
+      case "integrity_passed":
+        return "Review assumptions and run integrity check";
+      default:
+        return undefined;
+    }
+  }
+
+  // ── Keyboard Shortcuts Resolution ─────────────────────────────────────
+
+  private resolveKeyboardShortcuts(
+    phase: JourneyPhase,
+    uiState: UIStateMapping | null
+  ): Array<{ key: string; label: string; action_id: string; scope: "global" | "phase" | "widget" }> {
+    const shortcuts: Array<{ key: string; label: string; action_id: string; scope: "global" | "phase" | "widget" }> = [
+      // Global shortcuts
+      { key: "?", label: "Show keyboard shortcuts", action_id: "show_shortcuts", scope: "global" },
+      { key: "/", label: "Open slash command", action_id: "open_slash", scope: "global" },
+      { key: "Esc", label: "Close panel / Cancel", action_id: "escape", scope: "global" },
+
+      // Phase-specific shortcuts
+      { key: "Ctrl+L", label: `Lock ${phase.label}`, action_id: "lock_phase", scope: "phase" },
+      { key: "Ctrl+S", label: "Save / Sync", action_id: "save", scope: "phase" },
+    ];
+
+    // Add workflow-specific shortcuts based on UI state
+    if (uiState?.user_actionable && uiState.cta) {
+      shortcuts.push({
+        key: "Ctrl+Enter",
+        label: uiState.cta.label,
+        action_id: uiState.cta.action_id,
+        scope: "phase",
+      });
+    }
+
+    // Add shortcuts for allowed actions in phase
+    for (const action of phase.allowed_actions) {
+      if (action.surface === "slash_command" && action.slash_command) {
+        shortcuts.push({
+          key: action.slash_command,
+          label: action.label,
+          action_id: action.id,
+          scope: "phase",
+        });
+      }
+    }
+
+    return shortcuts;
   }
 }

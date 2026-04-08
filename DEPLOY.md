@@ -34,11 +34,15 @@ Archived ECS Terraform modules are retained only under `infra/archive/terraform/
 
 ## Prerequisites
 
-- Access to the target Kubernetes cluster
+- Access to the target Kubernetes cluster. If the cluster does not yet exist,
+  follow `infra/CLUSTER_PROVISIONING.md` to create it and install required
+  operators before proceeding.
 - `kubectl` and `kustomize`
 - GitHub environment secrets:
   - `KUBE_CONFIG_STAGING`
   - `KUBE_CONFIG_PRODUCTION`
+  - `PRODUCTION_INGRESS_CERTIFICATE_ARN` (ACM certificate ARN for the production domain)
+  - `PRODUCTION_INGRESS_WAFV2_ACL_ARN` (WAFv2 ACL ARN for the production ALB)
 - Published backend and frontend images from `.github/workflows/deploy.yml`
 
 ## Standard deployment flow

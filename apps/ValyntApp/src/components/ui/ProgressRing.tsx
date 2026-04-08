@@ -1,14 +1,14 @@
 /**
  * ProgressRing Component
- * 
+ *
  * Circular progress indicator with animated value display.
  * Used for engagement scores and KPI progress tracking.
  */
 
-import { forwardRef, useMemo } from 'react';
+import React, { forwardRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
-export interface ProgressRingProps {
+export interface ProgressRingProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Progress value (0-100) */
   value: number;
   /** Maximum value */
@@ -23,8 +23,6 @@ export interface ProgressRingProps {
   showValue?: boolean;
   /** Optional label below value */
   label?: string;
-  /** CSS classes */
-  className?: string;
 }
 
 const variantColors = {
@@ -42,7 +40,7 @@ const bgColors = {
 };
 
 export const ProgressRing = forwardRef<HTMLDivElement, ProgressRingProps>(
-  ({ 
+  ({
     value,
     max = 100,
     size = 96,
@@ -51,21 +49,22 @@ export const ProgressRing = forwardRef<HTMLDivElement, ProgressRingProps>(
     showValue = true,
     label,
     className,
+    ...rest
   }, ref) => {
     const percentage = Math.min(100, Math.max(0, (value / max) * 100));
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percentage / 100) * circumference;
-    
+
     const textSize = useMemo(() => {
       if (size < 64) return 'text-sm';
       if (size < 96) return 'text-lg';
       if (size < 128) return 'text-2xl';
       return 'text-3xl';
     }, [size]);
-    
+
     return (
-      <div ref={ref} className={cn('relative inline-flex items-center justify-center', className)}>
+      <div ref={ref} className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }} {...rest}>
         <svg
           width={size}
           height={size}
@@ -86,6 +85,7 @@ export const ProgressRing = forwardRef<HTMLDivElement, ProgressRingProps>(
             cy={size / 2}
             r={radius}
             fill="none"
+            stroke="currentColor"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -93,7 +93,7 @@ export const ProgressRing = forwardRef<HTMLDivElement, ProgressRingProps>(
             className={cn('transition-all duration-500 ease-out', variantColors[variant])}
           />
         </svg>
-        
+
         {/* Center content */}
         {showValue && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">

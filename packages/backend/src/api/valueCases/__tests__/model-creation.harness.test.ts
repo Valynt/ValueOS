@@ -87,6 +87,7 @@ vi.mock('../../../middleware/rateLimiter', () => ({
 const fakeClient = { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }), insert: vi.fn().mockReturnThis(), update: vi.fn().mockReturnThis(), delete: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis() }) };
 
 vi.mock('../../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: fakeClient,
   createServerSupabaseClient: vi.fn().mockReturnValue(fakeClient),
   createServiceRoleSupabaseClient: vi.fn().mockReturnValue(fakeClient),

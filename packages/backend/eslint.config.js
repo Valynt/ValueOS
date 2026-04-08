@@ -98,6 +98,12 @@ export default tseslint.config(
               message:
                 "Deprecated camelCase API path import. Use canonical `src/api/domain-packs/*`.",
             },
+            {
+              group: ["@shared/lib/supabase", "@shared/lib/supabase.js"],
+              importNames: ["createBrowserSupabaseClient"],
+              message:
+                "Browser-only Supabase clients are forbidden in packages/backend. Use request-scoped or privileged backend Supabase helpers.",
+            },
           ],
         },
       ],
@@ -113,6 +119,17 @@ export default tseslint.config(
             "ImportDeclaration[source.value=/TaskContext$/] > ImportDefaultSpecifier[local.name='TaskContext']",
           message:
             "TaskContext must be imported as a named type export. Use: import type { TaskContext } from '.../TaskContext'.",
+        },
+        // ── Security: ban Math.random() in crypto/auth/billing/secret paths ─────
+        // Math.random() is NOT cryptographically secure. Use crypto.randomBytes()
+        // or the CryptoUtils.generateRandomBytes() wrapper instead.
+        // Sprint 3 fix: this rule prevents regressions after the Math.random →
+        // crypto.randomBytes migration in CryptoUtils.ts and SecretVersioning.ts.
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name='Math'][callee.property.name='random']",
+          message:
+            "Math.random() is not cryptographically secure. Use crypto.randomBytes() or CryptoUtils.generateRandomBytes() for security-sensitive values.",
         },
       ],
     },
@@ -228,6 +245,11 @@ export default tseslint.config(
       "src/workers/**/*.ts",
       "src/repositories/**/*.ts",
       "src/domain/**/adapters/**/*.ts",
+    ],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      "**/__tests__/**/*.ts",
     ],
     rules: {
       "@typescript-eslint/no-explicit-any": "error",

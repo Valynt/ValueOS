@@ -7,6 +7,7 @@ import { ActivateCustomer } from "../activate-customer.js"
 
 // Mock dependencies
 vi.mock("../../../../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

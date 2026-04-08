@@ -13,6 +13,14 @@ fi
 
 load_mode_env "$MODE"
 
+# Load backend overlay for cloud-dev mode (needed for service_role_key, secrets)
+if [[ "$MODE" == "cloud-dev" ]]; then
+  backend_env_file="$PROJECT_ROOT/ops/env/.env.backend.cloud-dev"
+  if [[ -f "$backend_env_file" ]]; then
+    set -a; source "$backend_env_file"; set +a
+  fi
+fi
+
 # For local mode only DATABASE_URL is required — Supabase cloud credentials are
 # not needed to apply migrations via psql. Other modes retain full validation.
 if [[ "$MODE" == "local" ]]; then

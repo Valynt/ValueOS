@@ -1,24 +1,39 @@
-import { NextFunction, Request, Response, Router, RequestHandler } from 'express';
+import {
+  NextFunction,
+  Request,
+  Response,
+  Router,
+  RequestHandler,
+} from "express";
 
-import { logger } from '../../lib/logger.js';
-import { AuthenticatedRequest, requireRole } from '../../middleware/auth.js';
-import { FinancialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js';
-import { hypothesisOutputService } from '../../services/value/HypothesisOutputService.js';
+import { logger } from "../../lib/logger.js";
+import { getRequestSupabaseClient } from "../../lib/supabase.js";
+import { AuthenticatedRequest, requireRole } from "../../middleware/auth.js";
+import { FinancialModelSnapshotRepository } from "../../repositories/FinancialModelSnapshotRepository.js";
+import { hypothesisOutputService } from "../../services/value/HypothesisOutputService.js";
 
-import { ValueCasesRepository } from './repository';
+import { ValueCasesRepository } from "./repository";
 import {
   CreateValueCaseSchema,
   ListValueCasesQuerySchema,
   UpdateValueCaseSchema,
-} from './types';
-import { validateBody, validateQuery, validateUuidParam } from './middleware.js';
+} from "./types";
+import {
+  validateBody,
+  validateQuery,
+  validateUuidParam,
+} from "./middleware.js";
 
 export type ValueCasesRouteLimiters = {
   standardLimiter: RequestHandler;
   strictLimiter: RequestHandler;
 };
 
-async function createCase(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function createCase(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const authReq = req as AuthenticatedRequest;
 
   try {
@@ -26,7 +41,7 @@ async function createCase(req: Request, res: Response, next: NextFunction): Prom
     const valueCase = await repository.create(
       authReq.tenantId!,
       authReq.user!.id,
-      req.body,
+      req.body
     );
 
     res.status(201).json({
@@ -38,12 +53,19 @@ async function createCase(req: Request, res: Response, next: NextFunction): Prom
   }
 }
 
-async function listCases(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function listCases(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const authReq = req as AuthenticatedRequest;
 
   try {
     const repository = ValueCasesRepository.fromRequest(req);
-    const result = await repository.list(authReq.tenantId!, ListValueCasesQuerySchema.parse(req.query));
+    const result = await repository.list(
+      authReq.tenantId!,
+      ListValueCasesQuerySchema.parse(req.query)
+    );
 
     res.status(200).json({
       ...result,
@@ -54,7 +76,11 @@ async function listCases(req: Request, res: Response, next: NextFunction): Promi
   }
 }
 
-async function getCase(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function getCase(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
 
@@ -71,45 +97,54 @@ async function getCase(req: Request, res: Response, next: NextFunction): Promise
   }
 }
 
-async function updateCase(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function updateCase(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
 
   try {
     const requestedStatus = (req.body as Record<string, unknown>)?.status;
-    if (requestedStatus === 'in_review') {
+    if (requestedStatus === "in_review") {
       const organizationId = authReq.tenantId ?? authReq.organizationId;
       if (!req.supabase) {
         res.status(503).json({
-          error: 'INTEGRITY_GATE_UNAVAILABLE',
-          message: 'Integrity gate unavailable. Please retry the transition to in_review.',
+          error: "INTEGRITY_GATE_UNAVAILABLE",
+          message:
+            "Integrity gate unavailable. Please retry the transition to in_review.",
           requestId: authReq.correlationId,
         });
         return;
       } else if (organizationId) {
         const sessionAccessToken = req.session?.access_token;
-        if (typeof sessionAccessToken !== 'string' || sessionAccessToken.length === 0) {
+        if (
+          typeof sessionAccessToken !== "string" ||
+          sessionAccessToken.length === 0
+        ) {
           res.status(401).json({
-            error: 'UNAUTHORIZED',
-            message: 'Missing authenticated session token for integrity gate validation.',
+            error: "UNAUTHORIZED",
+            message:
+              "Missing authenticated session token for integrity gate validation.",
             requestId: authReq.correlationId,
           });
           return;
         }
 
         try {
-          const { valueIntegrityService } = await import(
-            '../../services/integrity/ValueIntegrityService.js'
-          );
+          const { valueIntegrityService } =
+            await import("../../services/integrity/ValueIntegrityService.js");
           const blockResult = await valueIntegrityService.checkHardBlocks(
             caseId,
             organizationId,
-            sessionAccessToken,
+            sessionAccessToken
           );
           if (blockResult.blocked) {
             res.status(422).json({
-              error: 'IntegrityHardBlock',
-              message: 'This case has open critical integrity violations that must be resolved before advancing to in_review.',
+              error: "IntegrityHardBlock",
+              message:
+                "This case has open critical integrity violations that must be resolved before advancing to in_review.",
               blocked: true,
               violations: blockResult.violations,
               soft_warnings: blockResult.soft_warnings,
@@ -117,13 +152,19 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
             return;
           }
         } catch (integrityErr) {
-          logger.error('Integrity gate check failed — blocking in_review transition', {
-            caseId,
-            error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
-          });
+          logger.error(
+            "Integrity gate check failed — blocking in_review transition",
+            {
+              caseId,
+              error:
+                integrityErr instanceof Error
+                  ? integrityErr.message
+                  : String(integrityErr),
+            }
+          );
           res.status(503).json({
-            error: 'INTEGRITY_GATE_UNAVAILABLE',
-            message: 'Integrity gate validation failed. Please retry.',
+            error: "INTEGRITY_GATE_UNAVAILABLE",
+            message: "Integrity gate validation failed. Please retry.",
             requestId: authReq.correlationId,
           });
           return;
@@ -132,7 +173,11 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
     }
 
     const repository = ValueCasesRepository.fromRequest(req);
-    const valueCase = await repository.update(authReq.tenantId!, caseId, req.body);
+    const valueCase = await repository.update(
+      authReq.tenantId!,
+      caseId,
+      req.body
+    );
 
     res.status(200).json({
       data: valueCase,
@@ -143,7 +188,11 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
   }
 }
 
-async function deleteCase(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function deleteCase(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   const { caseId } = req.params;
 
@@ -159,103 +208,123 @@ async function deleteCase(req: Request, res: Response, next: NextFunction): Prom
 
 export function registerCrudRoutes(
   router: Router,
-  { standardLimiter, strictLimiter }: ValueCasesRouteLimiters,
+  { standardLimiter, strictLimiter }: ValueCasesRouteLimiters
 ): void {
   router.post(
-    '/',
+    "/",
     strictLimiter,
-    requireRole(['admin', 'member']),
+    requireRole(["admin", "member"]),
     validateBody(CreateValueCaseSchema),
-    createCase,
+    createCase
   );
 
   router.get(
-    '/',
+    "/",
     standardLimiter,
-    requireRole(['admin', 'member', 'viewer']),
+    requireRole(["admin", "member", "viewer"]),
     validateQuery(ListValueCasesQuerySchema),
-    listCases,
+    listCases
   );
 
   router.get(
-    '/:caseId',
+    "/:caseId",
     standardLimiter,
-    requireRole(['admin', 'member', 'viewer']),
-    validateUuidParam('caseId'),
-    getCase,
+    requireRole(["admin", "member", "viewer"]),
+    validateUuidParam("caseId"),
+    getCase
   );
 
   router.patch(
-    '/:caseId',
+    "/:caseId",
     standardLimiter,
-    requireRole(['admin', 'member']),
-    validateUuidParam('caseId'),
+    requireRole(["admin", "member"]),
+    validateUuidParam("caseId"),
     validateBody(UpdateValueCaseSchema),
-    updateCase,
+    updateCase
   );
 
   router.delete(
-    '/:caseId',
+    "/:caseId",
     strictLimiter,
-    requireRole(['admin']),
-    validateUuidParam('caseId'),
-    deleteCase,
+    requireRole(["admin"]),
+    validateUuidParam("caseId"),
+    deleteCase
   );
 
   router.get(
-    '/:caseId/hypothesis',
+    "/:caseId/hypothesis",
     standardLimiter,
-    requireRole(['admin', 'member', 'viewer']),
-    validateUuidParam('caseId'),
+    requireRole(["admin", "member", "viewer"]),
+    validateUuidParam("caseId"),
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       const authReq = req as AuthenticatedRequest;
       const { caseId } = req.params;
-      const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+      const organizationId =
+        authReq.tenantId ?? (authReq.user?.tenant_id as string | undefined);
 
       if (!organizationId) {
-        res.status(401).json({ error: 'Missing tenant context' });
+        res.status(401).json({ error: "Missing tenant context" });
         return;
       }
 
       try {
-        const output = await hypothesisOutputService.getLatestForCase(caseId, organizationId);
+        const output = await hypothesisOutputService.getLatestForCase(
+          caseId,
+          organizationId
+        );
         if (!output) {
-          res.status(404).json({ data: null, message: 'No hypothesis output found for this case' });
+          res
+            .status(404)
+            .json({
+              data: null,
+              message: "No hypothesis output found for this case",
+            });
           return;
         }
         res.json({ data: output });
       } catch (err) {
         next(err);
       }
-    },
+    }
   );
 
   router.get(
-    '/:caseId/model-snapshots/latest',
+    "/:caseId/model-snapshots/latest",
     standardLimiter,
-    requireRole(['admin', 'member', 'viewer']),
-    validateUuidParam('caseId'),
+    requireRole(["admin", "member", "viewer"]),
+    validateUuidParam("caseId"),
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       const authReq = req as AuthenticatedRequest;
       const { caseId } = req.params;
-      const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+      const organizationId =
+        authReq.tenantId ?? (authReq.user?.tenant_id as string | undefined);
 
       if (!organizationId) {
-        res.status(401).json({ error: 'Missing tenant context' });
+        res.status(401).json({ error: "Missing tenant context" });
         return;
       }
 
       try {
-        const repo = new FinancialModelSnapshotRepository();
-        const snapshot = await repo.getLatestSnapshotForCase(caseId, organizationId);
+        const repo = new FinancialModelSnapshotRepository(
+          getRequestSupabaseClient(req)
+        );
+        const snapshot = await repo.getLatestSnapshotForCase(
+          caseId,
+          organizationId
+        );
         if (!snapshot) {
-          res.status(404).json({ data: null, message: 'No financial model snapshot found for this case' });
+          res
+            .status(404)
+            .json({
+              data: null,
+              message: "No financial model snapshot found for this case",
+            });
           return;
         }
         res.json({ data: snapshot });
       } catch (err) {
         next(err);
       }
-    },
+    }
   );
 }

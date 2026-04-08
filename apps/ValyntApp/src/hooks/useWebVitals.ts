@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Metric, onCLS, onFCP, onFID, onLCP, onTTFB } from "web-vitals";
+import { Metric, onCLS, onFCP, onFID, onLCP, onTTFB, onINP } from "web-vitals";
 
 import { apiClient } from "../api/client/unified-api-client";
 import { logger } from "../lib/logger";
@@ -9,10 +9,9 @@ import { logger } from "../lib/logger";
  */
 export const useWebVitals = () => {
   useEffect(() => {
-    // Track Core Web Vitals
+    // Track Core Web Vitals (CLS, FID, FCP, LCP, TTFB)
     onCLS((metric: Metric) => {
       logger.info("CLS:", metric);
-      // Send to analytics
       sendToAnalytics("CLS", metric);
     });
 
@@ -34,6 +33,12 @@ export const useWebVitals = () => {
     onTTFB((metric: Metric) => {
       logger.info("TTFB:", metric);
       sendToAnalytics("TTFB", metric);
+    });
+
+    // Track INP (Interaction to Next Paint) - newest Core Web Vital
+    onINP((metric: Metric) => {
+      logger.info("INP:", metric);
+      sendToAnalytics("INP", metric);
     });
   }, []);
 };

@@ -210,13 +210,15 @@ export function createSessionContext(
  * Generate secure session ID
  */
 function generateSessionId(): string {
-  // Use crypto.randomUUID if available (Node 14.17+)
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+  // Prefer the Web Crypto API (available in browsers and Node 19+).
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
 
-  // Fallback to timestamp + random
-  return `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  // Node.js built-in crypto — always available in the backend runtime.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeCrypto = require("crypto") as typeof import("crypto");
+  return `session_${nodeCrypto.randomBytes(16).toString("hex")}`;
 }
 
 /**

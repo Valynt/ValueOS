@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+import { getTracer } from "../../../config/telemetry.js";
 import {
   buildEventEnvelope,
   getDomainEventBus,
@@ -30,9 +31,7 @@ import {
   type CustomerNarrativeInput,
   type InternalCaseInput,
 } from "../../../services/artifacts/index.js";
-import {
-  valueGraphService as defaultValueGraphService,
-} from "../../../services/value-graph/index.js";
+import { BaseGraphWriter } from "../BaseGraphWriter.js";
 import type { ValuePath } from "../../../services/value-graph/ValueGraphService.js";
 import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
@@ -173,7 +172,7 @@ export class NarrativeAgent extends BaseAgent {
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
   private readonly artifactRepo = new ArtifactRepository();
-  private graphWriter = new BaseGraphWriter(this.valueGraphService ?? defaultValueGraphService);
+  private graphWriter = new BaseGraphWriter(this.valueGraphService, logger);
 
   // Artifact generators - initialized lazily
   private executiveMemoGenerator: ExecutiveMemoGenerator | null = null;
@@ -448,36 +447,48 @@ export class NarrativeAgent extends BaseAgent {
     }
   }
 
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
-    const startTime = Date.now();
+  override async execute(context: LifecycleContext): Promise<AgentOutput> {
+    const tracer = getTracer();
+    return tracer.startActiveSpan(
+      "agent.execute",
+      {
+        attributes: {
+          "agent.name": this.name,
+          "agent.lifecycle_stage": this.lifecycleStage,
+          tenant_id: this.organizationId ?? "unknown",
+        },
+      },
+      async (span) => {
+        try {
+          const startTime = Date.now();
 
-    const isValid = await this.validateInput(context);
-    if (!isValid) {
-      throw new Error("Invalid input context");
-    }
+          const isValid = await this.validateInput(context);
+          if (!isValid) {
+            throw new Error("Invalid input context");
+          }
 
-    const valueCaseId = context.user_inputs?.value_case_id as
-      | string
-      | undefined;
-    const format =
-      (context.user_inputs?.format as string | undefined) ??
-      "executive_summary";
+          const valueCaseId = context.user_inputs?.value_case_id as
+            | string
+            | undefined;
+          const format =
+            (context.user_inputs?.format as string | undefined) ??
+            "executive_summary";
 
-    // Get readiness score and blockers from context or use defense readiness
-    const readinessScore =
-      (context.user_inputs?.readiness_score as number | undefined) ??
-      ((context.previous_stage_outputs?.integrity as Record<string, unknown> | undefined)?.scores as Record<string, number> | undefined)?.overall ??
-      0;
-    const readinessBlockers =
-      (context.user_inputs?.readiness_blockers as string[] | undefined) ??
-      [];
+          // Get readiness score and blockers from context or use defense readiness
+          const readinessScore =
+            (context.user_inputs?.readiness_score as number | undefined) ??
+            ((context.previous_stage_outputs?.integrity as Record<string, unknown> | undefined)?.scores as Record<string, number> | undefined)?.overall ??
+            0;
+          const readinessBlockers =
+            (context.user_inputs?.readiness_blockers as string[] | undefined) ??
+            [];
 
-    // Determine artifact status based on readiness
-    const artifactStatus: "draft" | "final" = readinessScore < 0.8 ? "draft" : "final";
+          // Determine artifact status based on readiness
+          const artifactStatus: "draft" | "final" = readinessScore < 0.8 ? "draft" : "final";
 
-    // Step 1: Retrieve integrity, KPI, and modeling context via memory handoff.
-    const { claims, integrityScore, vetoDecision, kpis, financialSummary } =
-      await this.retrieveUpstreamDataFromMemory(context);
+          // Step 1: Retrieve integrity, KPI, and modeling context via memory handoff.
+          const { claims, integrityScore, vetoDecision, kpis, financialSummary } =
+            await this.retrieveUpstreamDataFromMemory(context);
     const contractInput = NARRATIVE_AGENT_CONTRACT.inputSchema.safeParse({
       claims,
       integrityScore,
@@ -941,11 +952,18 @@ export class NarrativeAgent extends BaseAgent {
       suggested_next_actions: [
         "Review narrative with stakeholders",
         "Review generated executive artifacts",
-        readinessScore < 0.8 ? "Address readiness blockers to move from draft to final" : "Export business case as PDF",
-        "Proceed to RealizationAgent for implementation planning",
-      ],
-    });
-  }
+          readinessScore < 0.8 ? "Address readiness blockers to move from draft to final" : "Export business case as PDF",
+          "Proceed to RealizationAgent for implementation planning",
+        ],
+      });
+    } catch (error) {
+      span.recordException(error as Error);
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+}
 
   // -------------------------------------------------------------------------
   // Value Graph reads + writes
@@ -966,7 +984,7 @@ export class NarrativeAgent extends BaseAgent {
     if (!opportunityId) return "";
 
     try {
-      const vgs = this.valueGraphService ?? defaultValueGraphService;
+      const vgs = this.valueGraphService;
       const paths: ValuePath[] = await vgs.getValuePaths(opportunityId, context.organization_id);
       if (paths.length === 0) return "";
 
@@ -1006,7 +1024,7 @@ export class NarrativeAgent extends BaseAgent {
     if (!opportunityId || !organizationId) return;
 
     const safeCtx = { opportunityId, organizationId, agentName: "NarrativeAgent" };
-    const vgs = this.valueGraphService ?? defaultValueGraphService;
+    const vgs = this.valueGraphService;
 
     // One edge per proof point — each represents a narrative claim about a hypothesis
     const writes: Array<() => Promise<unknown>> = [];

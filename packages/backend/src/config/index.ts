@@ -13,6 +13,8 @@ export type { EnvironmentConfig, AppEnvironment, LogLevel } from './environment.
 export { llmConfig } from './llm.js'
 
 // Validation
+// Canonical source of truth: ./validateEnv.ts
+// Legacy compatibility shims (for migration only): ./env-validation.ts
 export {
   validateEnv,
   validateLLMConfig,

@@ -376,8 +376,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
+          SLO_ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
         run: |
           node scripts/ci/check-release-reliability-indicators.mjs
+      - name: Upload release reliability summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-reliability-summary-${{ github.run_id }}
+          path: artifacts/reliability/release-reliability-summary.json
+          if-no-files-found: warn
 
   # Always emit a deployment audit artifact for non-scheduled runs.
   emergency-skip-audit:
@@ -1026,9 +1036,27 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Build scalability validation artifact from load test output
+        run: |
+          node scripts/ci/build-hpa-validation-artifact.mjs \
+            --load-output=artifacts/scalability/load-test-output.json \
+            --thresholds=infra/k8s/scalability-gate-thresholds.json \
+            --artifact-path=artifacts/scalability/hpa-validation.json
+
+      - name: Block production when HPA/KEDA scalability evidence fails thresholds
+        run: |
+          node scripts/ci/check-hpa-scalability-gate.mjs \
+            --artifact-path=artifacts/scalability/hpa-validation.json \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json
+
       - name: Block production if maturity and evidence artifacts are incomplete
         run: |
-          node scripts/ci/check-k8s-manifest-maturity.mjs             --mode=environment-gate             --environment=production             --ledger-path=infra/k8s/manifest-maturity-ledger.json             --require-critical-evidence-links=true             --require-production-evidence-artifacts=true
+          node scripts/ci/check-k8s-manifest-maturity.mjs \
+            --mode=environment-gate \
+            --environment=production \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json \
+            --require-critical-evidence-links=true \
+            --require-production-evidence-artifacts=true
 
   ux-scorecard-release-log-gate:
     name: UX Scorecard Release Log Gate
@@ -1042,6 +1070,80 @@ jobs:
         run: |
           node scripts/ci/check-ux-release-log-scorecard.mjs \
             --scorecard docs/quality/ux-quality-scorecard.md
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 3c. DR Validation Recency Gate
+  #     Blocks production deployment if disaster-recovery validation has not
+  #     passed within the last 7 days. dr-validation.yml runs every Monday
+  #     at 04:00 UTC; this gate ensures the result is current before any
+  #     production promotion.
+  # ──────────────────────────────────────────────────────────────────────────
+  dr-validation-recency-gate:
+    name: DR Validation Recency Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - name: Verify DR validation passed within last 7 days
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+            const cutoff = new Date(Date.now() - maxAgeMs);
+
+            // Paginate up to 20 runs — a passing run within 7 days will be
+            // near the top given the Monday schedule.
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner,
+                repo,
+                workflow_id: 'dr-validation.yml',
+                status: 'success',
+                per_page: 20,
+              },
+              (response, done) => {
+                // Stop paginating once we find a recent success or exhaust
+                // runs older than the cutoff.
+                const hasRecent = response.data.some(
+                  r => new Date(r.created_at) > cutoff
+                );
+                const allOld = response.data.every(
+                  r => new Date(r.created_at) <= cutoff
+                );
+                if (hasRecent || allOld) done();
+                return response.data;
+              }
+            );
+
+            const recentPass = runs.find(r => new Date(r.created_at) > cutoff);
+
+            if (!recentPass) {
+              const lastPass = runs[0]
+                ? `Last successful run: ${runs[0].created_at} (${runs[0].html_url})`
+                : 'No successful dr-validation run found.';
+              core.setFailed(
+                `DR validation recency gate failed. No successful dr-validation.yml run in the last 7 days. ` +
+                `${lastPass} ` +
+                `Trigger a manual run at: https://github.com/${owner}/${repo}/actions/workflows/dr-validation.yml`
+              );
+            } else {
+              core.info(
+                `DR validation recency gate passed. ` +
+                `Last successful run: ${recentPass.created_at} (${recentPass.html_url})`
+              );
+            }
+
+  release-manager-signoff-gate:
+    name: Release Manager Sign-off Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require release-manager sign-off + timestamp + release SHA
+        run: node scripts/ci/check-launch-readiness-signoff.mjs --require-release-manager --expected-sha=${{ github.sha }}
 
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
@@ -1059,6 +1161,8 @@ jobs:
         infra-conformance-post-deploy,
         manifest-maturity-production-gate,
         ux-scorecard-release-log-gate,
+        dr-validation-recency-gate,
+        release-manager-signoff-gate,
         release-manifest-gate,
         reliability-indicators-gate,
         secret-rotation-gate,
@@ -1080,6 +1184,45 @@ jobs:
             echo "Production deployment blocked: the canonical release gate contract must succeed." >&2
             exit 1
           fi
+
+      - name: Enforce staging dwell time (minimum 30 minutes)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Download the staging operational verification artifact to read its timestamp.
+            const runId = '${{ github.run_id }}';
+            const artifactName = `post-deploy-verification-staging-${runId}`;
+
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: parseInt(runId),
+            });
+
+            const artifact = artifacts.artifacts.find(a => a.name === artifactName);
+            if (!artifact) {
+              core.setFailed(`Staging dwell check: artifact '${artifactName}' not found. Staging deployment may not have completed.`);
+              return;
+            }
+
+            const deployedAt = new Date(artifact.created_at);
+            const now = new Date();
+            const elapsedMs = now - deployedAt;
+            const elapsedMin = Math.floor(elapsedMs / 60000);
+            const requiredMin = 30;
+
+            core.info(`Staging deployed at: ${deployedAt.toISOString()}`);
+            core.info(`Current time:        ${now.toISOString()}`);
+            core.info(`Elapsed:             ${elapsedMin} minutes (required: ${requiredMin})`);
+
+            if (elapsedMin < requiredMin) {
+              core.setFailed(
+                `Staging dwell time insufficient: ${elapsedMin}m elapsed, ${requiredMin}m required. ` +
+                `Production promotion is blocked until staging has been healthy for at least 30 minutes.`
+              );
+            } else {
+              core.info(`Staging dwell time satisfied: ${elapsedMin}m >= ${requiredMin}m`);
+            }
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -1312,7 +1455,217 @@ jobs:
           path: weekly-reliability-report.md
 
     # ──────────────────────────────────────────────────────────────────────────
-  # 5. Rollback (manual trigger)
+  # 5a. Post-deploy SLO watch (10-minute observation window)
+  #     Polls Prometheus + Alertmanager after traffic switch. Triggers
+  #     automated rollback if any SLO breach threshold is exceeded.
+  # ──────────────────────────────────────────────────────────────────────────
+  post-deploy-slo-watch:
+    name: Post-Deploy SLO Watch (10 min)
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: needs.deploy-production.result == 'success' && github.event_name != 'schedule'
+    environment: production
+    outputs:
+      slo_status: ${{ steps.slo-watch.outputs.slo_status }}
+      breach_reason: ${{ steps.slo-watch.outputs.breach_reason }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+      - name: Watch SLO metrics for 10 minutes
+        id: slo-watch
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
+          ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
+          # Rollback thresholds — must match docs/ci-cd-release-system.md §6.2
+          LATENCY_P95_THRESHOLD_MS: "500"
+          ERROR_RATE_THRESHOLD: "0.01"
+          AUTH_SUCCESS_FLOOR: "0.98"
+          WATCH_DURATION_SECONDS: "600"
+          POLL_INTERVAL_SECONDS: "30"
+          BREACH_SUSTAINED_POLLS: "4"
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "::warning::PROMETHEUS_PRODUCTION_URL or ALERTMANAGER_PRODUCTION_URL not set — skipping metric watch, relying on Alertmanager only."
+          fi
+
+          prom_query() {
+            local query="$1"
+            local auth=()
+            [ -n "${PROMETHEUS_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
+            curl -fsSL "${auth[@]}" --get --data-urlencode "query=${query}" \
+              "${PROMETHEUS_URL%/}/api/v1/query" 2>/dev/null \
+              | jq -r '.data.result[0].value[1] // "0"'
+          }
+
+          am_active_slo_alerts() {
+            local auth=()
+            [ -n "${ALERTMANAGER_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+            curl -fsSL "${auth[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" 2>/dev/null \
+              | jq --arg p "${ALERT_NAME_REGEX}" \
+                '[.[] | select(.status.state == "active" and (.labels.alertname | test($p)))] | length'
+          }
+
+          LATENCY_BREACH=0
+          ERROR_BREACH=0
+          AUTH_BREACH=0
+          ALERT_BREACH=0
+
+          ELAPSED=0
+          POLLS=0
+          BREACH_REASON=""
+
+          echo "Starting 10-minute SLO observation window..."
+          mkdir -p artifacts/post-deploy-slo-watch
+
+          while [ "${ELAPSED}" -lt "${WATCH_DURATION_SECONDS}" ]; do
+            POLLS=$(( POLLS + 1 ))
+            TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+            # Query metrics (gracefully skip if Prometheus unavailable)
+            if [ -n "${PROMETHEUS_URL:-}" ]; then
+              P95_MS=$(prom_query \
+                'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[2m])) by (le)) * 1000')
+              ERROR_RATE=$(prom_query \
+                'sum(rate(http_requests_total{job=~"backend|api",status=~"5.."}[2m])) / sum(rate(http_requests_total{job=~"backend|api"}[2m]))')
+              AUTH_RATE=$(prom_query \
+                'slo:auth_success:ratio_rate5m')
+            else
+              P95_MS="0"; ERROR_RATE="0"; AUTH_RATE="1"
+            fi
+
+            ACTIVE_ALERTS=0
+            [ -n "${ALERTMANAGER_URL:-}" ] && ACTIVE_ALERTS=$(am_active_slo_alerts)
+
+            # Evaluate thresholds
+            P95_BREACH=$(echo "${P95_MS} ${LATENCY_P95_THRESHOLD_MS}" | awk '{print ($1 > $2) ? 1 : 0}')
+            ERR_BREACH=$(echo "${ERROR_RATE} ${ERROR_RATE_THRESHOLD}" | awk '{print ($1 > $2) ? 1 : 0}')
+            AUTH_FAIL=$(echo "${AUTH_RATE} ${AUTH_SUCCESS_FLOOR}" | awk '{print ($1 < $2 && $1 > 0) ? 1 : 0}')
+
+            [ "${P95_BREACH}" = "1" ] && LATENCY_BREACH=$(( LATENCY_BREACH + 1 )) || LATENCY_BREACH=0
+            [ "${ERR_BREACH}" = "1" ] && ERROR_BREACH=$(( ERROR_BREACH + 1 )) || ERROR_BREACH=0
+            [ "${AUTH_FAIL}" = "1" ] && AUTH_BREACH=$(( AUTH_BREACH + 1 )) || AUTH_BREACH=0
+            [ "${ACTIVE_ALERTS}" -gt 0 ] && ALERT_BREACH=$(( ALERT_BREACH + 1 )) || ALERT_BREACH=0
+
+            echo "${TIMESTAMP} poll=${POLLS} p95=${P95_MS}ms err=${ERROR_RATE} auth=${AUTH_RATE} alerts=${ACTIVE_ALERTS}" \
+              >> artifacts/post-deploy-slo-watch/watch-log.txt
+
+            printf "[%s] poll=%d p95=%.1fms err=%.4f auth=%.4f alerts=%d (latency_streak=%d err_streak=%d auth_streak=%d alert_streak=%d)\n" \
+              "${TIMESTAMP}" "${POLLS}" "${P95_MS}" "${ERROR_RATE}" "${AUTH_RATE}" "${ACTIVE_ALERTS}" \
+              "${LATENCY_BREACH}" "${ERROR_BREACH}" "${AUTH_BREACH}" "${ALERT_BREACH}"
+
+            # Trigger rollback if any metric breaches threshold for BREACH_SUSTAINED_POLLS consecutive polls
+            if [ "${LATENCY_BREACH}" -ge "${BREACH_SUSTAINED_POLLS}" ]; then
+              BREACH_REASON="p95 latency ${P95_MS}ms > ${LATENCY_P95_THRESHOLD_MS}ms sustained ${BREACH_SUSTAINED_POLLS} polls"
+              break
+            fi
+            if [ "${ERROR_BREACH}" -ge "${BREACH_SUSTAINED_POLLS}" ]; then
+              BREACH_REASON="5xx error rate ${ERROR_RATE} > ${ERROR_RATE_THRESHOLD} sustained ${BREACH_SUSTAINED_POLLS} polls"
+              break
+            fi
+            if [ "${AUTH_BREACH}" -ge "${BREACH_SUSTAINED_POLLS}" ]; then
+              BREACH_REASON="auth success rate ${AUTH_RATE} < ${AUTH_SUCCESS_FLOOR} sustained ${BREACH_SUSTAINED_POLLS} polls"
+              break
+            fi
+            if [ "${ALERT_BREACH}" -ge "${BREACH_SUSTAINED_POLLS}" ]; then
+              BREACH_REASON="active SLO burn-rate alerts sustained ${BREACH_SUSTAINED_POLLS} polls"
+              break
+            fi
+
+            sleep "${POLL_INTERVAL_SECONDS}"
+            ELAPSED=$(( ELAPSED + POLL_INTERVAL_SECONDS ))
+          done
+
+          if [ -n "${BREACH_REASON}" ]; then
+            echo "::error::SLO breach detected: ${BREACH_REASON}"
+            echo "slo_status=breach" >> "$GITHUB_OUTPUT"
+            echo "breach_reason=${BREACH_REASON}" >> "$GITHUB_OUTPUT"
+
+            # Automated rollback — switch active services back to blue slot
+            echo "Initiating automated rollback to blue slot..."
+            kubectl -n valynt patch service backend-active-production \
+              -p '{"spec":{"selector":{"slot":"blue"}}}'
+            kubectl -n valynt patch service frontend-active-production \
+              -p '{"spec":{"selector":{"slot":"blue"}}}'
+            echo "Traffic switched back to blue slot."
+
+            # Emit rollback artifact — BREACH_REASON is a shell variable set above
+            python3 - <<PY
+          import json, os
+          from datetime import datetime, timezone
+          artifact = {
+            "event": "automated-rollback",
+            "trigger": "slo-breach",
+            "breach_reason": """${BREACH_REASON}""",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "sha": "${{ github.sha }}",
+            "rollback_target": "blue",
+            "services_patched": ["backend-active-production", "frontend-active-production"],
+          }
+          with open("artifacts/post-deploy-slo-watch/rollback-event.json", "w") as f:
+            json.dump(artifact, f, indent=2)
+          PY
+            exit 1
+          else
+            echo "SLO observation window passed — no breaches detected."
+            echo "slo_status=healthy" >> "$GITHUB_OUTPUT"
+            echo "breach_reason=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload SLO watch artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: post-deploy-slo-watch-${{ github.run_id }}
+          path: artifacts/post-deploy-slo-watch/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Open incident issue on SLO breach
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const breachReason = '${{ steps.slo-watch.outputs.breach_reason }}';
+            const sha = '${{ github.sha }}';
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[AUTO-ROLLBACK] SLO breach after production deploy ${sha.slice(0,8)}`,
+              body: [
+                '## Automated rollback triggered',
+                '',
+                `- **SHA**: \`${sha}\``,
+                `- **Breach reason**: ${breachReason}`,
+                `- **Workflow run**: ${runUrl}`,
+                `- **Rollback**: traffic switched back to blue slot automatically`,
+                '',
+                '### Required actions',
+                '- [ ] Confirm blue slot is serving traffic correctly',
+                '- [ ] Investigate breach cause in Grafana / Loki',
+                '- [ ] File root cause analysis within 48 hours',
+                '- [ ] Resolve before re-attempting production deployment',
+              ].join('\n'),
+              labels: ['incident', 'automated-rollback', 'priority:high'],
+            });
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 5b. Rollback (deploy-time failure — smoke test or kubectl failure)
+  #     SLO-triggered rollback is handled by post-deploy-slo-watch above.
   # ──────────────────────────────────────────────────────────────────────────
   rollback:
     name: Rollback Production
@@ -1333,9 +1686,11 @@ jobs:
 
       - name: Switch back to blue slot
         run: |
-          kubectl -n valynt patch service backend-active \
+          kubectl -n valynt patch service backend-active-production \
             -p '{"spec":{"selector":{"slot":"blue"}}}'
-          echo "Rolled back to blue slot"
+          kubectl -n valynt patch service frontend-active-production \
+            -p '{"spec":{"selector":{"slot":"blue"}}}'
+          echo "Rolled back to blue slot (deploy-time failure)"
 
   # ──────────────────────────────────────────────────────────────────────────
   # 6. Deferred validation follow-up (only when skip_tests emergency bypass was used)

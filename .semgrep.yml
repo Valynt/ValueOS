@@ -1,0 +1,188 @@
+rules:
+  # ── SQL Injection ──────────────────────────────────────────────────────────
+  - id: valueos-sql-string-concat
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $DB.rpc($NAME, ... + $INPUT + ...)
+          - pattern: |
+              $DB.from($TABLE).select(... + $INPUT + ...)
+          - pattern: |
+              `... ${$INPUT} ...SELECT...`
+          - pattern: |
+              `... ${$INPUT} ...INSERT...`
+          - pattern: |
+              `... ${$INPUT} ...UPDATE...`
+          - pattern: |
+              `... ${$INPUT} ...DELETE...`
+    message: >
+      Potential SQL injection via string concatenation. Use parameterized
+      queries or Supabase builder methods instead ($INPUT).
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+
+  # ── XSS / Dangerous HTML ──────────────────────────────────────────────────
+  - id: valueos-dangerouslysetinnerhtml
+    pattern: dangerouslySetInnerHTML={...}
+    message: >
+      Use of dangerouslySetInnerHTML detected. Ensure the input is sanitized
+      via DOMPurify or the shared sanitizeHtml utility.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+
+  # ── Command Injection ─────────────────────────────────────────────────────
+  - id: valueos-command-injection
+    patterns:
+      - pattern-either:
+          - pattern: child_process.exec($CMD, ...)
+          - pattern: child_process.execSync($CMD, ...)
+          - pattern: require("child_process").exec($CMD, ...)
+    message: >
+      Potential command injection. Prefer child_process.execFile with explicit
+      argument arrays over exec/execSync with string commands.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+
+  # ── Insecure Crypto ────────────────────────────────────────────────────────
+  - id: valueos-weak-crypto-algorithm
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash("md5")
+          - pattern: crypto.createHash("sha1")
+          - pattern: crypto.createCipher(...)
+    message: >
+      Avoid weak cryptographic algorithms (MD5, SHA-1) and deprecated
+      createCipher. Use SHA-256+ and createCipheriv with authenticated
+      encryption (AES-256-GCM).
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: ["CWE-327"]
+      owasp: ["A02:2021"]
+
+  # ── Hardcoded Secrets ──────────────────────────────────────────────────────
+  - id: valueos-hardcoded-secret
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $KEY = "sk_live_..."
+          - pattern: |
+              const $KEY = "sk-..."
+          - pattern: |
+              const $KEY = "eyJhbGciOiJIUzI1NiIs..."
+    message: >
+      Hardcoded secret detected. Use environment variables or the
+      RuntimeSecretStore for credential management.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: ["CWE-798"]
+      owasp: ["A07:2021"]
+
+  # ── Tenant Isolation: Bare supabase proxy ──────────────────────────────────
+  - id: valueos-deprecated-supabase-proxy
+    pattern: |
+      import { supabase } from "...lib/supabase..."
+    message: >
+      Deprecated bare `supabase` import. Use getRequestSupabaseClient(req) for
+      HTTP handlers or createWorkerServiceSupabaseClient() for background jobs.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: ["CWE-284"]
+      confidence: HIGH
+
+  # ── Tenant Isolation: Missing org filter ───────────────────────────────────
+  - id: valueos-deprecated-createserversupabaseclient
+    pattern: createServerSupabaseClient(...)
+    message: >
+      Deprecated createServerSupabaseClient(). Migrate to
+      createWorkerServiceSupabaseClient("justification") or
+      getRequestSupabaseClient(req).
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: ["CWE-284"]
+
+  # ── Direct LLM Calls (bypass secureInvoke) ────────────────────────────────
+  - id: valueos-direct-llm-call
+    patterns:
+      - pattern-either:
+          - pattern: llmGateway.complete(...)
+          - pattern: llmGateway.chat(...)
+          - pattern: this.llm.complete(...)
+    message: >
+      Direct LLM gateway call detected. Production agents must use
+      this.secureInvoke() which provides circuit-breaking, Zod validation,
+      and hallucination detection.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: correctness
+      confidence: MEDIUM
+
+  # ── Eval / Function constructor ────────────────────────────────────────────
+  - id: valueos-no-eval
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+    message: >
+      eval() and new Function() are forbidden. They enable code injection
+      and break CSP policies.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: ["CWE-95"]
+      owasp: ["A03:2021"]
+
+  # ── Unvalidated Redirect ───────────────────────────────────────────────────
+  - id: valueos-open-redirect
+    patterns:
+      - pattern-either:
+          - pattern: res.redirect($URL)
+          - pattern: response.redirect($URL)
+    message: >
+      Ensure redirect target is validated against an allowlist to prevent
+      open redirect vulnerabilities.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: ["CWE-601"]
+      owasp: ["A01:2021"]
+
+  # ── Service-role without justification ─────────────────────────────────────
+  - id: valueos-service-role-no-justification
+    patterns:
+      - pattern: createServiceRoleSupabaseClient(...)
+      - pattern-not-inside: |
+          // service-role:justified ...
+          ...
+    message: >
+      Service-role client created without a justification comment.
+      Add a `// service-role:justified <reason>` comment above the call.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: ["CWE-284"]
+      confidence: LOW

@@ -27,6 +27,7 @@ const privilegedClientMock = {
 };
 
 vi.mock('../../lib/supabase/privileged/index.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createPlatformAdminSupabaseClient: vi.fn(() => privilegedClientMock),
 }));
 

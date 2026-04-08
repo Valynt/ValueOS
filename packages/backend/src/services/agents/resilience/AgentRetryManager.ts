@@ -10,6 +10,7 @@
 import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "../../../lib/logger.js";
+import { getRedisClient } from "../../../lib/redis.js";
 import { AgentType } from "../../agent-types.js";
 import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent.js";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService.js";
@@ -107,12 +108,16 @@ export class AgentRetryManager {
   private retryHistory: Map<string, RetryResult[]> = new Map();
   private maxHistorySize: number = 1000;
 
-  // Global rate limit state for self-healing
-  private globalRateLimitActive: boolean = false;
-  private globalRateLimitUntil: number = 0;
-  private globalRateLimitBackoffMs: number = 1000; // Start with 1 second
-  private rateLimitIncidents: number = 0;
-  private lastRateLimitTime: number = 0;
+  // Per-tenant rate limit state is stored in Redis so all replicas share
+  // the same view. In-process Map was a B-6 blocker: each pod maintained
+  // independent state, allowing a tenant that hit the LLM rate limit on
+  // one replica to continue hammering the API from other replicas.
+  //
+  // Redis key format: agent:ratelimit:{tenantId}
+  // Value: JSON-serialised TenantRateLimitState
+  // TTL: backoffMs + 60 s buffer (auto-expires stale entries)
+  private static readonly REDIS_RATE_LIMIT_PREFIX = "agent:ratelimit:";
+  private static readonly REDIS_RATE_LIMIT_ROLE = "control-plane" as const;
 
   private constructor() {
     this.initializeDefaultPolicies();
@@ -622,30 +627,88 @@ export class AgentRetryManager {
   // ============================================================================
 
   /**
-   * Check if global rate limit is active and wait if necessary
+   * Build the Redis key for a tenant's rate-limit state.
    */
-  private async checkGlobalRateLimit(requestId: string): Promise<void> {
-    if (!this.globalRateLimitActive) {
+  private rateLimitKey(tenantId: string): string {
+    return `${AgentRetryManager.REDIS_RATE_LIMIT_PREFIX}${tenantId}`;
+  }
+
+  /**
+   * Read per-tenant rate-limit state from Redis.
+   * Falls back to "no active limit" if Redis is unavailable so that a Redis
+   * outage does not block all LLM traffic.
+   */
+  private async getRateLimitState(
+    tenantId: string
+  ): Promise<{ active: boolean; until: number; backoffMs: number; incidents: number; lastTime: number } | null> {
+    try {
+      const client = await getRedisClient(AgentRetryManager.REDIS_RATE_LIMIT_ROLE);
+      if (!client) return null;
+      const raw = await client.get(this.rateLimitKey(tenantId));
+      if (!raw) return null;
+      return JSON.parse(raw) as { active: boolean; until: number; backoffMs: number; incidents: number; lastTime: number };
+    } catch (err) {
+      logger.warn("Failed to read rate-limit state from Redis, assuming no active limit", {
+        tenantId,
+        error: (err as Error).message,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Persist per-tenant rate-limit state to Redis with an automatic TTL so
+   * stale entries self-expire even if the reset path is never reached.
+   */
+  private async setRateLimitState(
+    tenantId: string,
+    state: { active: boolean; until: number; backoffMs: number; incidents: number; lastTime: number }
+  ): Promise<void> {
+    try {
+      const client = await getRedisClient(AgentRetryManager.REDIS_RATE_LIMIT_ROLE);
+      if (!client) return;
+      // TTL = backoff window + 60 s safety buffer, minimum 60 s
+      const ttlSeconds = Math.max(60, Math.ceil((state.backoffMs + 60_000) / 1000));
+      await client.set(this.rateLimitKey(tenantId), JSON.stringify(state), "EX", ttlSeconds);
+    } catch (err) {
+      logger.warn("Failed to persist rate-limit state to Redis", {
+        tenantId,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Check if rate limit backoff is active for the given tenant and wait if necessary.
+   * State is read from Redis so all replicas share the same view (B-6 fix).
+   */
+  private async checkGlobalRateLimit(requestId: string, organizationId?: string): Promise<void> {
+    const tenantId = organizationId ?? "global";
+    const state = await this.getRateLimitState(tenantId);
+    if (!state?.active) {
       return;
     }
 
     const now = Date.now();
-    if (now < this.globalRateLimitUntil) {
-      const waitTime = this.globalRateLimitUntil - now;
-      logger.warn("Global rate limit active, delaying request", {
+    if (now < state.until) {
+      const waitTime = state.until - now;
+      logger.warn("Tenant rate limit active, delaying request", {
         requestId,
+        organizationId: tenantId,
         waitTime,
-        backoffMs: this.globalRateLimitBackoffMs,
-        incidents: this.rateLimitIncidents,
+        backoffMs: state.backoffMs,
+        incidents: state.incidents,
       });
 
       await this.sleep(waitTime);
     } else {
-      // Rate limit period expired, reset
-      this.globalRateLimitActive = false;
-      logger.info("Global rate limit period expired, resuming normal operations", {
+      // Backoff period expired — clear the active flag in Redis
+      state.active = false;
+      await this.setRateLimitState(tenantId, state);
+      logger.info("Tenant rate limit period expired, resuming normal operations", {
         requestId,
-        incidents: this.rateLimitIncidents,
+        organizationId: tenantId,
+        incidents: state.incidents,
       });
     }
   }
@@ -667,36 +730,52 @@ export class AgentRetryManager {
   }
 
   /**
-   * Handle global rate limit by applying exponential backoff
+   * Handle a rate-limit error for a specific tenant by applying per-tenant
+   * exponential backoff. State is written to Redis so all replicas back off
+   * together (B-6 fix).
    */
-  private handleGlobalRateLimit(requestId: string): void {
-    this.rateLimitIncidents++;
-    this.lastRateLimitTime = Date.now();
+  private handleGlobalRateLimit(requestId: string, organizationId?: string): void {
+    const tenantId = organizationId ?? "global";
+    // Fire-and-forget: read current state, update, persist.
+    // We do not await here to avoid blocking the retry path.
+    void (async () => {
+      const existing = (await this.getRateLimitState(tenantId)) ?? {
+        active: false,
+        until: 0,
+        backoffMs: 1000,
+        incidents: 0,
+        lastTime: 0,
+      };
 
-    // Apply exponential backoff: double the delay, max 5 minutes
-    this.globalRateLimitBackoffMs = Math.min(this.globalRateLimitBackoffMs * 2, 300000);
-    this.globalRateLimitUntil = Date.now() + this.globalRateLimitBackoffMs;
-    this.globalRateLimitActive = true;
+      existing.incidents++;
+      existing.lastTime = Date.now();
+      // Exponential backoff: double the delay, max 5 minutes
+      existing.backoffMs = Math.min(existing.backoffMs * 2, 300_000);
+      existing.until = Date.now() + existing.backoffMs;
+      existing.active = true;
+      await this.setRateLimitState(tenantId, existing);
 
-    logger.warn("Global rate limit triggered, applying exponential backoff", {
-      requestId,
-      backoffMs: this.globalRateLimitBackoffMs,
-      incidents: this.rateLimitIncidents,
-      until: new Date(this.globalRateLimitUntil).toISOString(),
-    });
-
-    // Record telemetry
-    agentTelemetryService.recordTelemetryEvent({
-      type: "agent_fabric_global_rate_limit",
-      agentType: "system" as AgentType,
-      data: {
+      logger.warn("Tenant rate limit triggered, applying exponential backoff", {
         requestId,
-        backoffMs: this.globalRateLimitBackoffMs,
-        incidents: this.rateLimitIncidents,
-        activeUntil: this.globalRateLimitUntil,
-      },
-      severity: "warning",
-    });
+        organizationId: tenantId,
+        backoffMs: existing.backoffMs,
+        incidents: existing.incidents,
+        until: new Date(existing.until).toISOString(),
+      });
+
+      agentTelemetryService.recordTelemetryEvent({
+        type: "agent_fabric_global_rate_limit",
+        agentType: "system" as AgentType,
+        data: {
+          requestId,
+          organizationId: tenantId,
+          backoffMs: existing.backoffMs,
+          incidents: existing.incidents,
+          activeUntil: existing.until,
+        },
+        severity: "warning",
+      });
+    })();
   }
 
   // ============================================================================
@@ -732,8 +811,8 @@ export class AgentRetryManager {
     };
 
     try {
-      // Check global rate limit before execution
-      await this.checkGlobalRateLimit(context.requestId);
+      // Check per-tenant rate limit before execution
+      await this.checkGlobalRateLimit(context.requestId, context.organizationId);
 
       // Execute with timeout
       const response = await this.executeWithTimeout(agent, request, options.attemptTimeout);
@@ -788,9 +867,9 @@ export class AgentRetryManager {
         severity: "error",
       });
 
-      // Check for rate limit errors and trigger global backoff
+      // Check for rate limit errors and trigger per-tenant backoff
       if (this.isRateLimitError(retryError)) {
-        this.handleGlobalRateLimit(context.requestId);
+        this.handleGlobalRateLimit(context.requestId, context.organizationId);
       }
 
       // Check if we should retry

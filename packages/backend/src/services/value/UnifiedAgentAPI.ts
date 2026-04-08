@@ -15,6 +15,7 @@
  */
 
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
+import { trace } from "@opentelemetry/api";
 import { SDUIPageDefinition, validateSDUISchema } from "@valueos/sdui";
 import { v4 as uuidv4 } from "uuid";
 
@@ -36,6 +37,14 @@ import {
   GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
 import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
+import {
+  GovernanceVetoError,
+} from "../../lib/agent-fabric/hardening/index.js";
+import {
+  executeWithHardenedRunner,
+  mapGovernanceVetoStatus,
+  requiresHardenedExecution,
+} from "../agents/HardenedExecution.js";
 
 // ============================================================================
 // Types
@@ -726,7 +735,16 @@ export class UnifiedAgentAPI {
         },
       };
 
-      const agentOutput = await agent.execute(lifecycleContext);
+      const shouldHarden = requiresHardenedExecution(request.agent);
+      const agentOutput = shouldHarden
+        ? await this.executeWithHardening({
+            request,
+            lifecycleContext,
+            traceId,
+            organizationId,
+            execute: (ctx) => agent.execute(ctx),
+          })
+        : await agent.execute(lifecycleContext);
       const duration = Date.now() - startTime;
 
       logger.info("Local fabric agent executed", {
@@ -781,6 +799,91 @@ export class UnifiedAgentAPI {
           traceId,
         },
       };
+    }
+  }
+
+  private async executeWithHardening(params: {
+    request: UnifiedAgentRequest;
+    lifecycleContext: LifecycleContext;
+    traceId: string;
+    organizationId: string;
+    execute: (ctx: LifecycleContext) => Promise<import("../../types/agent.js").AgentOutput>;
+  }): Promise<import("../../types/agent.js").AgentOutput> {
+    const { request, lifecycleContext, traceId, organizationId, execute } = params;
+    const normalizeResult = (value: unknown): Record<string, unknown> =>
+      value && typeof value === "object"
+        ? (value as Record<string, unknown>)
+        : { value };
+
+    try {
+      const hardened = await executeWithHardenedRunner({
+        agentId: request.agent,
+        organizationId,
+        userId: request.userId || "system",
+        sessionId: request.sessionId || traceId,
+        traceId,
+        lifecycleContext,
+        execute,
+        prompt: request.query,
+      });
+
+      logger.info("Local fabric agent governance verdict", {
+        agent: request.agent,
+        traceId,
+        governance_verdict: hardened.governance.verdict,
+        confidence_overall: hardened.confidence.overall,
+        confidence_label: hardened.confidence.label,
+      });
+
+      return {
+        agent_id: String(request.agent),
+        agent_type: request.agent,
+        lifecycle_stage: lifecycleContext.lifecycle_stage,
+        status: "success",
+        result: normalizeResult(hardened.output),
+        confidence: hardened.confidence.label,
+        metadata: {
+          execution_time_ms: 0,
+          model_version: "hardened",
+          timestamp: new Date().toISOString(),
+          token_usage: hardened.tokenUsage,
+        },
+      };
+    } catch (error) {
+      if (error instanceof GovernanceVetoError) {
+        const governanceStatus = mapGovernanceVetoStatus(error);
+        logger.warn("Local fabric agent governance veto", {
+          agent: request.agent,
+          traceId,
+          verdict: error.verdict,
+          reason: error.reason,
+          checkpoint_id: error.checkpointId,
+        });
+
+        const span = trace.getActiveSpan();
+        span?.setAttribute("agent.governance.verdict", error.verdict);
+        span?.setAttribute("agent.governance.reason", error.reason);
+
+        return {
+          agent_id: String(request.agent),
+          agent_type: request.agent,
+          lifecycle_stage: lifecycleContext.lifecycle_stage,
+          status: governanceStatus.apiStatus,
+          result: {
+            governance_verdict: error.verdict,
+            governance_reason: error.reason,
+            governance_checkpoint_id: error.checkpointId,
+          },
+          confidence: "low",
+          warnings: [error.reason],
+          metadata: {
+            execution_time_ms: 0,
+            model_version: "hardened",
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+      throw error;
     }
   }
 

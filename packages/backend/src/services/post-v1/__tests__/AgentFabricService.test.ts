@@ -58,6 +58,7 @@ const createSupabaseMock = (tables: TableData) => ({
 vi.mock('../../../lib/supabase.js', async () => {
   const actual = await vi.importActual<typeof import('../../../lib/supabase.js')>('../../../lib/supabase.js');
   return {
+    assertNotTestEnv: vi.fn(),
     ...actual,
     supabase: {
       from: vi.fn(),

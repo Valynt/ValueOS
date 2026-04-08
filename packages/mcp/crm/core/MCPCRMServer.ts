@@ -5,6 +5,8 @@
  * Uses tenant-level OAuth connections.
  */
 
+import { randomBytes } from "crypto";
+
 import { logger } from "../../lib/logger";
 import { supabase } from "../../lib/supabase";
 import {
@@ -638,7 +640,7 @@ export class MCPCRMServer {
     args: Record<string, unknown>
   ): Promise<MCPCRMToolResult> {
     const startTime = Date.now();
-    const requestId = `crm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = `crm-${Date.now()}-${randomBytes(6).toString("hex")}`;
     const responseBuilder = new MCPResponseBuilder(
       toolName,
       undefined,

@@ -5,7 +5,6 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
   GitGraph,
   LogOut,
   Settings,
@@ -23,22 +22,28 @@ import { cn } from "@/lib/utils";
 
 // Primary product surfaces — shown prominently in nav.
 const primaryNavItems = [
-  { path: "/dashboard", label: "My Work", icon: Zap },
-  { path: "/opportunities", label: "Cases", icon: Briefcase },
-  { path: "/living-value-graph", label: "Value Graph", icon: GitGraph },
+  { path: "work", label: "Home", icon: Zap },
+  { path: "work/cases", label: "My Work", icon: Briefcase },
+  { path: "living-value-graph", label: "Value Graph", icon: GitGraph },
 ];
 
 // Platform surfaces — shown below a divider, less prominent.
 const platformNavItems = [
-  { path: "/models", label: "Models", icon: Boxes },
-  { path: "/agents", label: "Agents", icon: Bot },
-  { path: "/company", label: "Company Intel", icon: Building2 },
-  { path: "/billing", label: "Billing", icon: CreditCard },
-  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "library/models", label: "Models", icon: Boxes },
+  { path: "agents", label: "Agents", icon: Bot },
+  { path: "company", label: "Company Intel", icon: Building2 },
+  { path: "settings", label: "Settings", icon: Settings },
 ];
 
 interface SidebarProps {
   onClose?: () => void;
+}
+
+const TENANT_PATH_RE = /^\/org\/[^/]+\//;
+
+function toNavKey(pathname: string): string {
+  const match = TENANT_PATH_RE.exec(pathname);
+  return match ? pathname.slice(match[0].length) : pathname.replace(/^\//, "");
 }
 
 export function Sidebar({ onClose }: SidebarProps) {
@@ -49,7 +54,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     useNavigationPersonalization();
 
   useEffect(() => {
-    trackRouteVisit(location.pathname);
+    trackRouteVisit(toNavKey(location.pathname));
   }, [location.pathname, trackRouteVisit]);
 
   // Sort within each group by usage, preserving group boundaries.
@@ -110,7 +115,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav aria-label="Main navigation" className="flex-1 px-3 py-4">
         {/* Primary product surfaces */}
         <div className="space-y-1">
           {prioritizedNavItems

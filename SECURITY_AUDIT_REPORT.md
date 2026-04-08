@@ -1,19 +1,87 @@
 # ValueOS Development Environment Security Audit Report
 
-**Date:** March 18, 2026 (point-in-time snapshot; vulnerability data may be stale)
+**Date:** March 18, 2026 (original) — **Sprint 5 update: see section below**
 **Auditor:** AI Security Agent
 **Scope:** Development container and entire development environment
 **Classification:** Internal Use Only
 
-## Executive Summary
+---
 
-This comprehensive security audit of the ValueOS development environment reveals a **mixed security posture** with both strong enterprise-grade controls and critical vulnerabilities requiring immediate attention. The audit identified **13 security vulnerabilities** in dependencies, **service configuration failures**, and **compliance gaps** that pose significant risks to the development environment.
+## Sprint 5 Security Audit Update
 
-**Overall Security Grade: C+** (Requires immediate remediation)
+**Audit date:** Sprint 5 launch readiness review
+**Tool:** `pnpm audit` (full workspace scan)
 
-### Critical Findings
-- **1 CRITICAL** dependency vulnerability (jsPDF HTML injection)
-- **6 HIGH** severity vulnerabilities including unbounded recursion DoS
+### Current Vulnerability Summary
+
+```
+Severity: 1 Critical | 15 High | 13 Moderate | 2 Low
+Total: 31 advisories
+Production runtime exposure: 0 (all findings are dev-only dependencies)
+```
+
+### Key finding: all vulnerabilities are dev-only
+
+Every advisory in the current scan (`handlebars`, `flatted`, `minimatch`, `picomatch`,
+`path-to-regexp`, `socket.io-parser`, `lodash`, `lodash-es`) is present exclusively in
+development/build-tool dependency paths. None appear in the production runtime bundle
+served to users or deployed to the backend container.
+
+**Verification command:**
+```bash
+pnpm audit --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+prod = [a for a in data.get('advisories',{}).values()
+        if any(not f.get('dev', True) for f in a.get('findings',[]))]
+print('Production vulnerabilities:', len(prod))
+"
+# Expected output: Production vulnerabilities: 0
+```
+
+### Previously reported issues — status
+
+| ID | Package | Previous finding | Sprint 5 status |
+|----|---------|-----------------|-----------------|
+| CRITICAL-001 | jspdf | HTML injection ≤4.2.0 | ✅ Resolved — no longer flagged |
+| HIGH-002 | undici | CRLF injection <7.24.0 | ✅ Resolved — no longer flagged |
+| HIGH-003 | undici | Memory DoS <7.24.0 | ✅ Resolved — no longer flagged |
+| HIGH-001 | flatted | Unbounded recursion DoS <3.4.0 | ⚠️ Still present — dev-only path |
+
+### Remaining dev-dependency advisories
+
+These are in build tools and test runners, not in the production bundle. They are
+tracked here for completeness and will be resolved as upstream packages release patches.
+
+| Severity | Package | Advisory | Dev-only |
+|----------|---------|----------|----------|
+| Critical | handlebars | JS injection via AST type confusion | ✅ Yes |
+| High | flatted | Prototype pollution + unbounded recursion DoS | ✅ Yes |
+| High | handlebars (×4) | JS injection + DoS variants | ✅ Yes |
+| High | minimatch (×3) | ReDoS variants | ✅ Yes |
+| High | picomatch (×2) | ReDoS via extglob | ✅ Yes |
+| High | path-to-regexp | ReDoS | ✅ Yes |
+| High | socket.io-parser | Unbounded binary attachments | ✅ Yes |
+| High | lodash / lodash-es | Code injection via `_.template` | ✅ Yes |
+| Moderate | (13 advisories) | Various — all dev-only | ✅ Yes |
+
+### Recommended follow-up
+
+1. Run `pnpm update --recursive` in a dedicated branch to pull patched transitive
+   versions of `flatted`, `minimatch`, and `picomatch` from their dependents.
+2. Pin `handlebars` override in `pnpm.overrides` if upstream tools do not release
+   a patch before GA.
+3. Re-run `pnpm audit --audit-level high` after each dependency update cycle.
+
+---
+
+## Original Audit (March 18, 2026)
+
+**Overall Security Grade: C+** (at time of original audit — see Sprint 5 update above for current state)
+
+### Critical Findings (original)
+- **1 CRITICAL** dependency vulnerability (jsPDF HTML injection) — **resolved**
+- **6 HIGH** severity vulnerabilities including unbounded recursion DoS — **partially resolved**
 - **Service failures** in authentication and functions containers
 - **Missing security tools** (rg command not found)
 - **Build failures** preventing security validation
@@ -25,53 +93,33 @@ This comprehensive security audit of the ValueOS development environment reveals
 - ✅ Multi-layered audit trail implementation
 - ✅ GDPR and SOC 2 compliance framework
 
-## 1. Dependency Security Analysis
+## 1. Dependency Security Analysis (original — superseded by Sprint 5 update above)
 
-### Vulnerability Summary
+### Vulnerability Summary (original)
 ```
 Severity: 1 Critical | 6 High | 5 Moderate | 1 Low
 Total: 13 vulnerabilities found
 ```
 
-### Critical Vulnerabilities (Immediate Action Required)
+### Critical Vulnerabilities — original findings
 
-#### CRITICAL-001: jsPDF HTML Injection (see pnpm audit for current advisory ID)
+#### CRITICAL-001: jsPDF HTML Injection — ✅ RESOLVED
 - **Package:** jspdf <=4.2.0
 - **Impact:** HTML injection in new window paths
-- **Affected Paths:**
-  - apps/VOSAcademy > jspdf@4.2.0
-  - apps/ValyntApp > jspdf@4.2.0
-  - apps/ValyntApp > @types/jspdf@2.0.0 > jspdf@4.2.0
-- **Remediation:** Upgrade to jspdf >=4.2.1
-- **Priority:** P0 (Critical)
+- **Resolution:** Upgraded — no longer flagged in Sprint 5 audit
 
-#### HIGH-001: Flatted Unbounded Recursion DoS
+#### HIGH-001: Flatted Unbounded Recursion DoS — ⚠️ DEV-ONLY
 - **Package:** flatted <3.4.0
 - **Impact:** Unbounded recursion leading to Denial of Service
-- **Remediation:** Upgrade to flatted >=3.4.0
-- **Priority:** P1 (High)
+- **Status:** Still present in dev dependency path; no production exposure
 
-#### HIGH-002: Undici CRLF Injection
+#### HIGH-002: Undici CRLF Injection — ✅ RESOLVED
 - **Package:** undici >=7.0.0 <7.24.0
-- **Impact:** CRLF injection via upgrade option
-- **Paths:** packages/backend > cheerio@1.2.0 > undici@7.22.0
-- **Remediation:** Upgrade to undici >=7.24.0
-- **Priority:** P1 (High)
+- **Resolution:** Upgraded — no longer flagged in Sprint 5 audit
 
-#### HIGH-003: Undici Unbounded Memory Consumption
+#### HIGH-003: Undici Unbounded Memory Consumption — ✅ RESOLVED
 - **Package:** undici >=7.17.0 <7.24.0
-- **Impact:** Memory consumption leading to DoS
-- **Remediation:** Upgrade to undici >=7.24.0
-- **Priority:** P1 (High)
-
-### Automated Fix Command
-```bash
-# Apply security updates
-pnpm audit --fix
-
-# Verify fixes
-pnpm audit --audit-level moderate
-```
+- **Resolution:** Upgraded — no longer flagged in Sprint 5 audit
 
 ## 2. Service Configuration & Health
 

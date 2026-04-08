@@ -117,9 +117,11 @@ function buildMockSupabase() {
 }
 
 const mockSupabase = buildMockSupabase();
+const createRequestSupabaseClientMock = vi.fn(() => mockSupabase);
 
-vi.mock("@shared/lib/supabase", () => ({
-  getSupabaseClient: () => mockSupabase,
+vi.mock("../../../lib/supabase.js", () => ({
+  createRequestSupabaseClient: createRequestSupabaseClientMock,
+  assertNotTestEnv: vi.fn(),
 }));
 
 vi.mock("../../../services/tenant/CustomerAccessService", () => ({
@@ -151,7 +153,7 @@ describe("customer-portal-cross-tenant-metrics", () => {
     const { getCustomerMetrics } = await import("../metrics.js");
 
     const req = {
-      params: { token: "valid-token" },
+      headers: { authorization: "Bearer valid-token" },
       query: { period: "all", metric_type: "all" },
     } as unknown as Request;
 
@@ -164,6 +166,9 @@ describe("customer-portal-cross-tenant-metrics", () => {
     await getCustomerMetrics(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
+    expect(createRequestSupabaseClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: "valid-token", request: req })
+    );
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         value_case_id: SHARED_VALUE_CASE_ID,
@@ -182,5 +187,35 @@ describe("customer-portal-cross-tenant-metrics", () => {
     expect(payload.metrics).toHaveLength(1);
     expect(payload.metrics.every((metric) => metric.organization_id === ORG_A)).toBe(true);
     expect(payload.metrics.every((metric) => metric.id !== "metric-b1")).toBe(true);
+  });
+
+  it("uses validated organization_id to prevent token-regression cross-tenant reads", async () => {
+    const { customerAccessService } = await import("../../../services/tenant/CustomerAccessService");
+    vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValueOnce({
+      is_valid: true,
+      value_case_id: SHARED_VALUE_CASE_ID,
+      organization_id: ORG_B,
+      error_message: null,
+    });
+
+    const { getCustomerMetrics } = await import("../metrics.js");
+    const req = {
+      headers: { authorization: "Bearer valid-token" },
+      query: { period: "all", metric_type: "all" },
+    } as unknown as Request;
+
+    const json = vi.fn();
+    const res = {
+      status: vi.fn().mockReturnValue({ json }),
+      json,
+    } as unknown as Response;
+
+    await getCustomerMetrics(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const payload = json.mock.calls[0]?.[0] as { metrics: Array<{ id: string; organization_id: string }> };
+    expect(payload.metrics).toHaveLength(1);
+    expect(payload.metrics[0]?.id).toBe("metric-b1");
+    expect(payload.metrics[0]?.organization_id).toBe(ORG_B);
   });
 });

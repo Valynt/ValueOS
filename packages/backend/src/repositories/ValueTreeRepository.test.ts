@@ -8,6 +8,7 @@ const { loggerWarn, loggerInfo, loggerError } = vi.hoisted(() => ({
 
 // Mock supabase before importing the repository
 vi.mock('../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),
@@ -47,7 +48,7 @@ describe('ValueTreeRepository', () => {
   let repo: ValueTreeRepository;
 
   beforeEach(() => {
-    repo = new ValueTreeRepository();
+    repo = new ValueTreeRepository(supabase);
     vi.clearAllMocks();
   });
 

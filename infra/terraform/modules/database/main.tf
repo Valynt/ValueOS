@@ -115,6 +115,83 @@ resource "aws_db_instance" "main" {
 
 # --- Outputs ---
 
+# ---------------------------------------------------------------------------
+# AWS Backup plan — extends retention beyond the 35-day RDS automated limit.
+#
+# Production: 90-day retention via daily backups.
+# Staging:    30-day retention via daily backups.
+#
+# The backup_retention_days variable controls automated backups (max 35 days).
+# This plan handles the longer-retention requirement independently.
+# ---------------------------------------------------------------------------
+
+variable "aws_backup_retention_days" {
+  description = "AWS Backup vault retention (days). Production: 90, Staging: 30."
+  type        = number
+  default     = 30
+}
+
+resource "aws_backup_vault" "db" {
+  name = "${var.name_prefix}-db-backup-vault"
+  tags = {
+    Name        = "${var.name_prefix}-db-backup-vault"
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_backup_plan" "db_daily" {
+  name = "${var.name_prefix}-db-daily-backup"
+
+  rule {
+    rule_name         = "daily-backup"
+    target_vault_name = aws_backup_vault.db.name
+    schedule          = "cron(0 2 * * ? *)"  # 02:00 UTC daily
+
+    lifecycle {
+      delete_after = var.aws_backup_retention_days
+    }
+
+    recovery_point_tags = {
+      BackupType  = "daily"
+      Environment = var.name_prefix
+    }
+  }
+
+  tags = {
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_backup_selection" "db" {
+  name         = "${var.name_prefix}-db-selection"
+  plan_id      = aws_backup_plan.db_daily.id
+  iam_role_arn = aws_iam_role.backup.arn
+
+  resources = [aws_db_instance.main.arn]
+}
+
+resource "aws_iam_role" "backup" {
+  name = "${var.name_prefix}-aws-backup-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "backup.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "backup" {
+  role       = aws_iam_role.backup.name
+  policy_arn = "arn:aws:iam::aws:policies/service-role/AWSBackupServiceRolePolicyForBackup"
+}
+
+output "backup_vault_arn" {
+  value = aws_backup_vault.db.arn
+}
+
 output "endpoint" {
   value = "${aws_db_instance.main.endpoint}"
 }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-03-27",
+  "lastUpdated": "2026-04-08",
   "requiredChecksByBranch": {
     "main": [
       {
@@ -52,10 +52,34 @@
         "notes": "CodeQL static analysis gate from .github/workflows/codeql.yml."
       },
       {
+        "check": "secret-rotation-verification",
+        "required": true,
+        "notes": "Release-security required check ensuring current production secret rotation evidence."
+      },
+      {
+        "check": "check-cve-waivers",
+        "required": true,
+        "notes": "Release-security required check ensuring no unwaived/expired high-critical dependency CVE waivers."
+      },
+      {
         "check": "infra-plan",
         "required": true,
         "scope": "only for PRs touching infra/terraform/**",
         "notes": "Terraform plan gate for infrastructure changes."
+      }
+    ]
+  },
+  "requiredChecksByTag": {
+    "production-*": [
+      {
+        "check": "secret-rotation-verification",
+        "required": true,
+        "notes": "Production tag gate for current secret rotation verification evidence."
+      },
+      {
+        "check": "check-cve-waivers",
+        "required": true,
+        "notes": "Production tag gate for non-expired CVE waiver compliance."
       }
     ]
   },

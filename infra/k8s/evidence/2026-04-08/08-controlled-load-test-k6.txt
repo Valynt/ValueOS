@@ -1,0 +1,8 @@
+# Commands
+k6 run tests/load/staging-24h.js --duration=10m --vus=100
+
+# Execution result
+/bin/bash: line 1: k6: command not found
+
+# Notes
+Controlled staging load test command captured per runbook, but k6 is unavailable in this environment.

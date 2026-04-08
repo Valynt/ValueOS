@@ -238,10 +238,10 @@ NATS JetStream, the Prometheus scraping configuration for the billing worker, an
   - What breaks if ignored: Cache entries from worker jobs are shared across all tenants. Audit logs from workers have no `tenant_id`. `CacheService.clear()` in a worker clears all tenants' cache entries.
   - Effort: Low-Medium — add `tenantContextStorage.run(tctPayload, handler)` at the top of each BullMQ job processor. Requires `tenantContext` to be serialized into job payload at enqueue time.
 
-- [ ] **Wire billing alert metrics to actual instrumentation**
-  - Why it matters: `billing-alerts.yaml` references metric names (`billing_usage_records_unaggregated`, `billing_stripe_submission_errors_total`, etc.) that do not exist in the backend. All billing alerts are permanently silent.
-  - What breaks if ignored: A billing pipeline failure produces no alert. The on-call team has no signal until a customer reports a missing invoice.
-  - Effort: Medium — either emit the missing metrics from the billing services, or rewrite the alert expressions to use the metrics that are actually emitted (`recordStripeWebhook`, `recordInvoiceEvent`, `recordBillingJobFailure` from `billingMetrics.ts`).
+- [x] **Wire billing alert metrics to actual instrumentation** ✅ Resolved 2026-04-08
+  - Resolution evidence: CI contract check now parses `infra/k8s/monitoring/billing-alerts.yaml` and `packages/backend/src/metrics/billingMetrics.ts`, and fails when an alert references a non-existent metric (`scripts/ci/check-infra-readiness-contract.mjs`, commit `df6d56f`).
+  - Why it mattered: `billing-alerts.yaml` references metric names (`billing_usage_records_unaggregated`, `billing_stripe_submission_errors_total`, etc.) that must exist in backend instrumentation, otherwise alerts are silent.
+  - Prior risk if ignored: A billing pipeline failure could produce no alert; on-call would get no signal until customer impact.
 
 - [ ] **Add a minimum-test-count assertion to the tenant-isolation-gate job**
   - Why it matters: A job that passes because all tests were skipped is indistinguishable from one that passed because all tests ran and passed.
@@ -270,7 +270,7 @@ The score is 2.5 because confidence in a production sign-off requires evidence o
 
 - The metering pipeline has never run end-to-end (NATS not deployed)
 - The RLS policies have never been tested against real Postgres
-- The billing alert rules reference metrics that do not exist
+- Billing alert correctness is now contract-gated in CI; remaining observability risk is deployment/runtime verification in staging
 - The LLM cache has a confirmed cross-tenant data path
 - 90% of production traces will be invisible at the default sample rate
 

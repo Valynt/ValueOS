@@ -1,24 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/supabase.js", () => ({
-  supabase: { from: vi.fn() },
+const { mockGaugeSet, mockCounterInc } = vi.hoisted(() => ({
+  mockGaugeSet: vi.fn(),
+  mockCounterInc: vi.fn(),
 }));
 
-const mockGaugeSet = vi.fn();
-const mockCounterInc = vi.fn();
+vi.mock("../lib/supabase/privileged/index.js", () => ({
+  assertNotTestEnv: vi.fn(),
+  createCronSupabaseClient: vi.fn(),
+}));
 
 vi.mock("../lib/observability/index.js", () => ({
   createObservableGauge: vi.fn(() => ({ set: mockGaugeSet })),
   createCounter: vi.fn(() => ({ inc: mockCounterInc, add: vi.fn() })),
 }));
 
-import { supabase } from "../lib/supabase.js";
-
+import { createCronSupabaseClient } from "../lib/supabase/privileged/index.js";
 import { checkTableVolume, recordPartialLoad } from "./dataVolume.js";
 
-const mockFrom = supabase.from as ReturnType<typeof vi.fn>;
+const mockFrom = vi.fn();
+const mockCronClient = createCronSupabaseClient as ReturnType<typeof vi.fn>;
 
-/** Build a chain that returns a specific count for .select(..., { count: "exact" }) */
 function makeCountChain(count: number | null, error: unknown = null) {
   return {
     select: vi.fn().mockReturnThis(),
@@ -30,10 +32,10 @@ function makeCountChain(count: number | null, error: unknown = null) {
 describe("checkTableVolume", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCronClient.mockReturnValue({ from: mockFrom });
   });
 
   it("emits row delta gauge with 24 h count", async () => {
-    // First call: 24 h window → 10 rows; second call: 7-day window → 70 rows
     mockFrom
       .mockReturnValueOnce(makeCountChain(10))
       .mockReturnValueOnce(makeCountChain(70));
@@ -45,7 +47,6 @@ describe("checkTableVolume", () => {
   });
 
   it("detects anomaly when 24 h delta drops >50% below 7-day average", async () => {
-    // 7-day total = 70 → daily avg = 10; today = 3 → drop = 70% → anomaly
     mockFrom
       .mockReturnValueOnce(makeCountChain(3))
       .mockReturnValueOnce(makeCountChain(70));
@@ -56,8 +57,7 @@ describe("checkTableVolume", () => {
     expect(mockCounterInc).toHaveBeenCalledWith({ table: "hypothesis_outputs" });
   });
 
-  it("does not flag anomaly when drop is ≤50%", async () => {
-    // 7-day total = 70 → daily avg = 10; today = 6 → drop = 40% → no anomaly
+  it("does not flag anomaly when drop is <=50%", async () => {
     mockFrom
       .mockReturnValueOnce(makeCountChain(6))
       .mockReturnValueOnce(makeCountChain(70));

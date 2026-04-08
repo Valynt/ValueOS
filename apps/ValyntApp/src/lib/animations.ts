@@ -310,3 +310,60 @@ export const pageTransition: Variants = {
     transition: { duration: 0.2, ease: easings.accelerate },
   },
 };
+
+// ============================================
+// WARMTH ANIMATIONS (Phase 4: Hardening)
+// ============================================
+
+export const warmthAnimations = {
+  solidify: {
+    keyframes: `@keyframes solidify {
+      0% { border-style: dashed; transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { border-style: solid; transform: scale(1); }
+    }`,
+    duration: '300ms',
+    easing: 'ease-out',
+  },
+  glow: {
+    keyframes: `@keyframes glow {
+      0%, 100% { box-shadow: 0 0 4px var(--blue-300); }
+      50% { box-shadow: 0 0 12px var(--blue-400); }
+    }`,
+    duration: '2s',
+    easing: 'ease-in-out',
+    iteration: 'infinite',
+  },
+  pulseAttention: {
+    keyframes: `@keyframes pulse-attention {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }`,
+    duration: '1.5s',
+    easing: 'ease-in-out',
+    iteration: 'infinite',
+  },
+} as const;
+
+// CSS class names for warmth animations
+export const warmthAnimationClasses = {
+  solidify: 'animate-solidify',
+  glow: 'animate-glow',
+  pulseAttention: 'animate-pulse-attention',
+} as const;
+
+// Inject warmth animation keyframes into document
+export function injectWarmthAnimationStyles(): void {
+  if (typeof document === 'undefined') return;
+
+  const styleId = 'warmth-animations';
+  if (document.getElementById(styleId)) return;
+
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = Object.values(warmthAnimations)
+    .map(a => a.keyframes)
+    .join('\n');
+  document.head.appendChild(style);
+}
+

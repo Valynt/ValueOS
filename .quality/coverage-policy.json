@@ -11,6 +11,34 @@
       "name": "design-system",
       "path": "packages/components/design-system/src",
       "min_lines_pct": 60
+    },
+    {
+      "name": "backend-middleware",
+      "path": "packages/backend/src/middleware",
+      "min_lines_pct": 70,
+      "rationale": "B-7: Auth, tenant context, RBAC, and rate-limiting middleware are the primary security enforcement layer. Gaps here directly translate to exploitable attack surface.",
+      "added": "2026-04-06"
+    },
+    {
+      "name": "backend-agents",
+      "path": "packages/backend/src/services/agents",
+      "min_lines_pct": 65,
+      "rationale": "B-7: Agent execution paths handle LLM calls, billing events, and tenant-scoped data. Untested agents can silently produce incorrect outputs or leak cross-tenant data.",
+      "added": "2026-04-06"
+    },
+    {
+      "name": "backend-billing",
+      "path": "packages/backend/src/services/billing",
+      "min_lines_pct": 75,
+      "rationale": "B-7: Billing code is revenue-critical. Errors here cause direct financial loss. The 75% floor is intentionally higher than other zones.",
+      "added": "2026-04-06"
+    },
+    {
+      "name": "backend-metering",
+      "path": "packages/backend/src/services/metering",
+      "min_lines_pct": 70,
+      "rationale": "B-7: Metering drives billing. Silent metering failures result in unbilled usage.",
+      "added": "2026-04-06"
     }
   ],
   "ratchet": {

@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 
 const CONTROL_STATUS_PATH = resolve("docs/security-compliance/control-status.json");
 const RISK_REGISTER_PATH = resolve("docs/security-compliance/risk-register.json");
+const VDP_METRICS_SOURCE_PATH = resolve("docs/security-compliance/vdp-metrics-source.json");
 
 const CLOSED_CONTROL_STATUSES = new Set(["completed", "done", "closed", "accepted-risk", "waived"]);
 const CLOSED_RISK_STATUSES = new Set(["mitigated", "closed"]);
@@ -86,6 +87,7 @@ function main() {
 
   const controlPayload = safeParseJson(CONTROL_STATUS_PATH, { controls: [] });
   const riskPayload = safeParseJson(RISK_REGISTER_PATH, { risks: [] });
+  const vdpMetricsPayload = safeParseJson(VDP_METRICS_SOURCE_PATH, { quarterlySnapshots: [] });
 
   const controls = Array.isArray(controlPayload.controls) ? controlPayload.controls : [];
   const risks = Array.isArray(riskPayload.risks) ? riskPayload.risks : [];
@@ -141,6 +143,7 @@ function main() {
   const openRiskOutputPath = resolve(options.outputDir, "open-risks.json");
   const staleControlOutputPath = resolve(options.outputDir, "stale-controls.json");
   const snapshotOutputPath = resolve(options.outputDir, "trust-kpi-snapshot.json");
+  const vdpKpiOutputPath = resolve(options.outputDir, "vdp-kpis.json");
 
   writeFileSync(openRiskOutputPath, `${JSON.stringify({ asOfDate: options.asOfDate, openRisks }, null, 2)}\n`);
   writeFileSync(staleControlOutputPath, `${JSON.stringify({ asOfDate: options.asOfDate, staleControls }, null, 2)}\n`);
@@ -172,8 +175,31 @@ function main() {
     )}\n`,
   );
 
+  const quarterlySnapshots = Array.isArray(vdpMetricsPayload.quarterlySnapshots)
+    ? vdpMetricsPayload.quarterlySnapshots
+    : [];
+
+  const latestQuarterSnapshot =
+    quarterlySnapshots.length > 0 ? quarterlySnapshots[quarterlySnapshots.length - 1] : null;
+
+  writeFileSync(
+    vdpKpiOutputPath,
+    `${JSON.stringify(
+      {
+        asOfDate: options.asOfDate,
+        publicPolicyPath: vdpMetricsPayload.publicPolicyPath ?? null,
+        intakeChannel: vdpMetricsPayload.intakeChannel ?? null,
+        slaTargets: vdpMetricsPayload.slaTargets ?? null,
+        latestQuarterSnapshot,
+        quarterlySnapshotCount: quarterlySnapshots.length,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
   console.log(
-    `[governance-kpi] extracted ${openRisks.length} open risks and ${staleControls.length} stale controls into ${options.outputDir}`,
+    `[governance-kpi] extracted ${openRisks.length} open risks, ${staleControls.length} stale controls, and ${quarterlySnapshots.length} VDP quarter snapshots into ${options.outputDir}`,
   );
 }
 

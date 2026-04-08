@@ -14,9 +14,9 @@
  * targets, and for IntegrityAgent to validate.
  */
 
-import { ProvenanceTracker } from '@valueos/memory/provenance';
-import Decimal from 'decimal.js';
-import { z } from 'zod';
+import { ProvenanceTracker } from "@valueos/memory/provenance";
+import Decimal from "decimal.js";
+import { z } from "zod";
 
 import {
   calculateIRR,
@@ -26,28 +26,31 @@ import {
   roundTo,
   sensitivityAnalysis,
   toDecimalArray,
-} from '../../../domain/economic-kernel/economic_kernel.js';
-import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
-import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
+} from "../../../domain/economic-kernel/economic_kernel.js";
+import { FinancialModelSnapshotRepository } from "../../../repositories/FinancialModelSnapshotRepository.js";
+import { SupabaseProvenanceStore } from "../../../services/workflows/SagaAdapters.js";
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
-} from '../../../types/agent.js';
-import { logger } from '../../logger.js';
-// service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../../supabase.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
-import { renderTemplate } from '../promptUtils.js';
+} from "../../../types/agent.js";
+import { logger } from "../../logger.js";
+// service-role:justified agent provenance tracking requires elevated DB access for cross-table writes
+import { createWorkerServiceSupabaseClient } from "../../supabase/privileged/index.js";
+import { resolvePromptTemplate } from "../promptRegistry.js";
+import { renderTemplate } from "../promptUtils.js";
 
-import { BaseAgent } from './BaseAgent.js';
-import { mapCategoryToValueDriverType, mapUnitToVgMetricUnit } from '../../../services/value-graph/valueDriverUtils.js';
+import { BaseAgent } from "./BaseAgent.js";
+import {
+  mapCategoryToValueDriverType,
+  mapUnitToVgMetricUnit,
+} from "../../../services/value-graph/valueDriverUtils.js";
 import {
   FinancialModelingInputSchema,
   FinancialModelingOutputSchema,
   runEvidenceConfidenceGovernance,
-} from './agent-schemas.js';
+} from "./agent-schemas.js";
 
 type FinancialModelingOutput = z.infer<typeof FinancialModelingOutputSchema>;
 
@@ -100,7 +103,10 @@ function getProvenanceTracker(organizationId: string): ProvenanceTracker {
     return existingTracker;
   }
 
-  const client = createServerSupabaseClient();
+  const client = createWorkerServiceSupabaseClient({
+    justification:
+      "service-role:justified agent provenance store requires cross-table writes",
+  });
   const store = new SupabaseProvenanceStore(client, organizationId);
   const tracker = new ProvenanceTracker(store);
   provenanceTrackersByTenant.set(organizationId, tracker);
@@ -112,13 +118,14 @@ export class FinancialModelingAgent extends BaseAgent {
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
-    const contractInput = FINANCIAL_MODELING_AGENT_CONTRACT.inputSchema.safeParse(context);
+    const contractInput =
+      FINANCIAL_MODELING_AGENT_CONTRACT.inputSchema.safeParse(context);
     if (!contractInput.success) {
-      throw new Error('Invalid input context');
+      throw new Error("Invalid input context");
     }
     const isValid = await this.validateInput(context);
     if (!isValid) {
-      throw new Error('Invalid input context');
+      throw new Error("Invalid input context");
     }
 
     // Step 1: Retrieve hypotheses from OpportunityAgent memory
@@ -126,8 +133,10 @@ export class FinancialModelingAgent extends BaseAgent {
 
     if (hypotheses.length === 0) {
       return this.buildOutput(
-        { error: 'No hypotheses found in memory. Run OpportunityAgent first.' },
-        'failure', 'low', startTime,
+        { error: "No hypotheses found in memory. Run OpportunityAgent first." },
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -135,17 +144,28 @@ export class FinancialModelingAgent extends BaseAgent {
     const domainContext = await this.loadDomainPackContext(context);
 
     // Step 3: Use LLM to structure financial assumptions and cash flow projections
-    const llmOutput = await this.generateProjections(context, hypotheses, domainContext);
+    const llmOutput = await this.generateProjections(
+      context,
+      hypotheses,
+      domainContext
+    );
     if (!llmOutput) {
       return this.buildOutput(
-        { error: 'Financial projection generation failed.' },
-        'failure', 'low', startTime,
+        { error: "Financial projection generation failed." },
+        "failure",
+        "low",
+        startTime
       );
     }
-    const averageConfidence = llmOutput.projections.reduce((sum, projection) => sum + projection.confidence, 0)
-      / llmOutput.projections.length;
-    const evidenceCoverage = llmOutput.projections.filter((projection) => projection.data_sources.length > 0).length
-      / llmOutput.projections.length;
+    const averageConfidence =
+      llmOutput.projections.reduce(
+        (sum, projection) => sum + projection.confidence,
+        0
+      ) / llmOutput.projections.length;
+    const evidenceCoverage =
+      llmOutput.projections.filter(
+        projection => projection.data_sources.length > 0
+      ).length / llmOutput.projections.length;
     const complianceDecision = runEvidenceConfidenceGovernance({
       averageConfidence,
       evidenceCoverage,
@@ -155,12 +175,12 @@ export class FinancialModelingAgent extends BaseAgent {
     if (!complianceDecision.approved) {
       return this.buildOutput(
         {
-          error: 'Financial model rejected by compliance engine.',
+          error: "Financial model rejected by compliance engine.",
           reason: complianceDecision.reason,
         },
-        'failure',
-        'low',
-        startTime,
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -168,20 +188,38 @@ export class FinancialModelingAgent extends BaseAgent {
     const computedModels = this.computeFinancials(llmOutput);
 
     // Step 4b: Build three scenarios (conservative/base/upside) with EVF decomposition
-    const dealContext = context.user_inputs?.deal_context as Record<string, unknown> | undefined;
+    const dealContext = context.user_inputs?.deal_context as
+      | Record<string, unknown>
+      | undefined;
     const scenarios = this.buildScenarios(llmOutput.projections, dealContext);
-    const scenarioFinancials = this.computeScenarioFinancials(scenarios, llmOutput.projections);
+    const scenarioFinancials = this.computeScenarioFinancials(
+      scenarios,
+      llmOutput.projections
+    );
 
     // Step 5: Store models in memory for TargetAgent and IntegrityAgent
     await this.storeModelsInMemory(context, computedModels, llmOutput);
 
     // Step 5b: Persist snapshot to DB for frontend reads
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    const valueCaseId = context.user_inputs?.value_case_id as
+      | string
+      | undefined;
     if (valueCaseId) {
-      await this.persistSnapshot(valueCaseId, context.organization_id, computedModels, llmOutput);
+      await this.persistSnapshot(
+        valueCaseId,
+        context.organization_id,
+        computedModels,
+        llmOutput
+      );
       // Persist scenarios to scenarios table
-      const baseAssumptions = scenarios.find(s => s.scenarioType === 'base')?.assumptions || {};
-      await this.persistScenarios(valueCaseId, context.organization_id, scenarioFinancials, baseAssumptions);
+      const baseAssumptions =
+        scenarios.find(s => s.scenarioType === "base")?.assumptions || {};
+      await this.persistScenarios(
+        valueCaseId,
+        context.organization_id,
+        scenarioFinancials,
+        baseAssumptions
+      );
     }
 
     // Step 6: Build SDUI sections
@@ -189,7 +227,9 @@ export class FinancialModelingAgent extends BaseAgent {
 
     // Step 7: Aggregate results
     const totalNPV = computedModels.reduce((sum, m) => sum + m.npv, 0);
-    const avgConfidence = computedModels.reduce((sum, m) => sum + m.confidence, 0) / computedModels.length;
+    const avgConfidence =
+      computedModels.reduce((sum, m) => sum + m.confidence, 0) /
+      computedModels.length;
     const positiveNPVCount = computedModels.filter(m => m.npv > 0).length;
 
     const result = {
@@ -206,13 +246,20 @@ export class FinancialModelingAgent extends BaseAgent {
     // Step 8: Write models to the Value Graph (fire-and-forget)
     await this.writeModelsToGraph(computedModels, context);
 
-    return this.buildOutput(result, 'success', this.toConfidenceLevel(avgConfidence), startTime, {
-      reasoning: `Built ${computedModels.length} financial models from ${hypotheses.length} hypotheses. ` +
-        `Total portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
-        `${positiveNPVCount}/${computedModels.length} models have positive NPV. ` +
-        `Average confidence: ${(avgConfidence * 100).toFixed(0)}%.`,
-      suggested_next_actions: llmOutput.recommended_next_steps,
-    });
+    return this.buildOutput(
+      result,
+      "success",
+      this.toConfidenceLevel(avgConfidence),
+      startTime,
+      {
+        reasoning:
+          `Built ${computedModels.length} financial models from ${hypotheses.length} hypotheses. ` +
+          `Total portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
+          `${positiveNPVCount}/${computedModels.length} models have positive NPV. ` +
+          `Average confidence: ${(avgConfidence * 100).toFixed(0)}%.`,
+        suggested_next_actions: llmOutput.recommended_next_steps,
+      }
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -220,21 +267,27 @@ export class FinancialModelingAgent extends BaseAgent {
   // -------------------------------------------------------------------------
 
   private async retrieveHypotheses(
-    context: LifecycleContext,
-  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
+    context: LifecycleContext
+  ): Promise<
+    Array<{ id: string; content: string; metadata: Record<string, unknown> }>
+  > {
     try {
       const memories = await this.memorySystem.retrieve({
-        agent_id: 'opportunity',
-        memory_type: 'semantic',
+        agent_id: "opportunity",
+        memory_type: "semantic",
         limit: 15,
         organization_id: context.organization_id,
         workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.verified === true && m.metadata?.category)
-        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
+        .map(m => ({
+          id: m.id,
+          content: m.content,
+          metadata: m.metadata || {},
+        }));
     } catch (err) {
-      logger.warn('FinancialModelingAgent: failed to retrieve hypotheses', {
+      logger.warn("FinancialModelingAgent: failed to retrieve hypotheses", {
         error: (err as Error).message,
       });
       return [];
@@ -246,20 +299,23 @@ export class FinancialModelingAgent extends BaseAgent {
    * sector-specific discount rates, risk profiles, and benchmark ranges.
    */
   private async loadDomainPackContext(
-    context: LifecycleContext,
+    context: LifecycleContext
   ): Promise<string> {
     try {
       const domainPack = context.workspace_data?.domain_pack as
-        { sector?: string; discount_rate?: number; risk_profile?: string } | undefined;
+        | { sector?: string; discount_rate?: number; risk_profile?: string }
+        | undefined;
       if (domainPack) {
-        return `Sector: ${domainPack.sector || 'general'}. ` +
+        return (
+          `Sector: ${domainPack.sector || "general"}. ` +
           `Default discount rate: ${domainPack.discount_rate ?? 0.1}. ` +
-          `Risk profile: ${domainPack.risk_profile || 'moderate'}.`;
+          `Risk profile: ${domainPack.risk_profile || "moderate"}.`
+        );
       }
     } catch {
       // Domain pack is optional
     }
-    return 'No domain pack available. Use general financial assumptions.';
+    return "No domain pack available. Use general financial assumptions.";
   }
 
   // -------------------------------------------------------------------------
@@ -268,32 +324,47 @@ export class FinancialModelingAgent extends BaseAgent {
 
   private async generateProjections(
     context: LifecycleContext,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    domainContext: string,
+    hypotheses: Array<{
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }>,
+    domainContext: string
   ): Promise<FinancialModelingOutput | null> {
-    const hypothesisContext = hypotheses.map((h, i) => {
-      const m = h.metadata;
-      const impact = m.estimated_impact as { low?: number; high?: number; unit?: string } | undefined;
-      return `${i + 1}. ${h.content}
+    const hypothesisContext = hypotheses
+      .map((h, i) => {
+        const m = h.metadata;
+        const impact = m.estimated_impact as
+          | { low?: number; high?: number; unit?: string }
+          | undefined;
+        return `${i + 1}. ${h.content}
    Category: ${m.category}
-   Confidence: ${m.confidence ?? 'unknown'}
-   ${impact ? `Estimated impact: ${impact.low}-${impact.high} ${impact.unit}` : ''}`;
-    }).join('\n\n');
+   Confidence: ${m.confidence ?? "unknown"}
+   ${impact ? `Estimated impact: ${impact.low}-${impact.high} ${impact.unit}` : ""}`;
+      })
+      .join("\n\n");
 
-    const systemPromptTemplate = resolvePromptTemplate('financial_modeling_system');
-    const userPromptTemplate = resolvePromptTemplate('financial_modeling_user');
+    const systemPromptTemplate = resolvePromptTemplate(
+      "financial_modeling_system"
+    );
+    const userPromptTemplate = resolvePromptTemplate("financial_modeling_user");
     this.setPromptVersionReferences(
       [
-        { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
+        {
+          key: systemPromptTemplate.key,
+          version: systemPromptTemplate.version,
+        },
         { key: userPromptTemplate.key, version: userPromptTemplate.version },
       ],
-      [systemPromptTemplate.approval, userPromptTemplate.approval],
+      [systemPromptTemplate.approval, userPromptTemplate.approval]
     );
 
     const systemPrompt = `${renderTemplate(systemPromptTemplate.template, { domainContext })}
 
 JSON-only mode: Respond with a single strict JSON object that matches the contract exactly. Do not emit markdown, commentary, or code fences.`;
-    const userPrompt = renderTemplate(userPromptTemplate.template, { hypothesisContext });
+    const userPrompt = renderTemplate(userPromptTemplate.template, {
+      hypothesisContext,
+    });
 
     try {
       return await this.secureInvoke<FinancialModelingOutput>(
@@ -306,14 +377,14 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
           confidenceThresholds: { low: 0.6, high: 0.85 },
           userId: context.user_id,
           context: {
-            agent: 'financial-modeling',
+            agent: "financial-modeling",
             organization_id: context.organization_id,
             hypothesis_count: hypotheses.length,
           },
-        },
+        }
       );
     } catch (err) {
-      logger.error('FinancialModelingAgent: projection generation failed', {
+      logger.error("FinancialModelingAgent: projection generation failed", {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -326,10 +397,10 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
    * Each scenario uses p25/p50/p75 from benchmark ranges.
    */
   private buildScenarios(
-    baseProjections: FinancialModelingOutput['projections'],
-    dealContext?: Record<string, unknown>,
+    baseProjections: FinancialModelingOutput["projections"],
+    dealContext?: Record<string, unknown>
   ): Array<{
-    scenarioType: 'conservative' | 'base' | 'upside';
+    scenarioType: "conservative" | "base" | "upside";
     assumptions: Record<string, number>;
     evfDecomposition: {
       revenueUplift: number;
@@ -339,18 +410,24 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     };
   }> {
     // Extract benchmark ranges from deal context if available
-    const benchmarks = dealContext?.benchmarks as Array<{ metric: string; p25: number; p50: number; p75: number }> || [];
+    const benchmarks =
+      (dealContext?.benchmarks as Array<{
+        metric: string;
+        p25: number;
+        p50: number;
+        p75: number;
+      }>) || [];
 
     // Category mapping for EVF decomposition
     const categoryToEVF = (category: string): keyof typeof baseEVF => {
       const map: Record<string, keyof typeof baseEVF> = {
-        'revenue_growth': 'revenueUplift',
-        'cost_reduction': 'costReduction',
-        'risk_mitigation': 'riskMitigation',
-        'efficiency': 'efficiencyGain',
-        'productivity': 'efficiencyGain',
+        revenue_growth: "revenueUplift",
+        cost_reduction: "costReduction",
+        risk_mitigation: "riskMitigation",
+        efficiency: "efficiencyGain",
+        productivity: "efficiencyGain",
       };
-      return map[category] || 'efficiencyGain';
+      return map[category] || "efficiencyGain";
     };
 
     // Calculate base EVF decomposition
@@ -370,7 +447,7 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     // Build three scenarios with different confidence levels
     const scenarios = [
       {
-        scenarioType: 'conservative' as const,
+        scenarioType: "conservative" as const,
         assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.25),
         evfDecomposition: {
           revenueUplift: baseEVF.revenueUplift * 0.7,
@@ -380,12 +457,12 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         },
       },
       {
-        scenarioType: 'base' as const,
+        scenarioType: "base" as const,
         assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.5),
         evfDecomposition: baseEVF,
       },
       {
-        scenarioType: 'upside' as const,
+        scenarioType: "upside" as const,
         assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.75),
         evfDecomposition: {
           revenueUplift: baseEVF.revenueUplift * 1.3,
@@ -403,29 +480,38 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
    * Build assumption set at a given percentile (p25/p50/p75).
    */
   private buildAssumptionSet(
-    projections: FinancialModelingOutput['projections'],
-    benchmarks: Array<{ metric: string; p25: number; p50: number; p75: number }>,
-    percentile: number,
+    projections: FinancialModelingOutput["projections"],
+    benchmarks: Array<{
+      metric: string;
+      p25: number;
+      p50: number;
+      p75: number;
+    }>,
+    percentile: number
   ): Record<string, number> {
     const assumptions: Record<string, number> = {};
 
     for (const proj of projections) {
       const benchmark = benchmarks.find(b =>
-        proj.hypothesis_description.toLowerCase().includes(b.metric.toLowerCase())
+        proj.hypothesis_description
+          .toLowerCase()
+          .includes(b.metric.toLowerCase())
       );
 
       if (benchmark) {
         // Use benchmark percentile
-        const value = percentile <= 0.25 ? benchmark.p25
-          : percentile <= 0.5 ? benchmark.p50
-          : benchmark.p75;
+        const value =
+          percentile <= 0.25
+            ? benchmark.p25
+            : percentile <= 0.5
+              ? benchmark.p50
+              : benchmark.p75;
         assumptions[proj.hypothesis_id] = value;
       } else {
         // Scale from base projection
         const baseValue = proj.total_benefit;
-        const multiplier = percentile <= 0.25 ? 0.7
-          : percentile <= 0.5 ? 1.0
-          : 1.3;
+        const multiplier =
+          percentile <= 0.25 ? 0.7 : percentile <= 0.5 ? 1.0 : 1.3;
         assumptions[proj.hypothesis_id] = baseValue * multiplier;
       }
     }
@@ -438,7 +524,7 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
    */
   private computeScenarioFinancials(
     scenarios: Array<{
-      scenarioType: 'conservative' | 'base' | 'upside';
+      scenarioType: "conservative" | "base" | "upside";
       assumptions: Record<string, number>;
       evfDecomposition: {
         revenueUplift: number;
@@ -447,9 +533,9 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         efficiencyGain: number;
       };
     }>,
-    baseProjections: FinancialModelingOutput['projections'],
+    baseProjections: FinancialModelingOutput["projections"]
   ): Array<{
-    scenarioType: 'conservative' | 'base' | 'upside';
+    scenarioType: "conservative" | "base" | "upside";
     roi: number;
     npv: number;
     paybackMonths: number | null;
@@ -463,7 +549,8 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     return scenarios.map(scenario => {
       // Compute scaled cash flows based on scenario assumptions
       const scaledFlows = baseProjections.map(proj => {
-        const scenarioValue = scenario.assumptions[proj.hypothesis_id] || proj.total_benefit;
+        const scenarioValue =
+          scenario.assumptions[proj.hypothesis_id] || proj.total_benefit;
         const scaleFactor = scenarioValue / proj.total_benefit;
 
         // Scale all cash flows except initial investment (period 0)
@@ -477,8 +564,9 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       const maxPeriods = Math.max(...scaledFlows.map(f => f.length));
 
       for (let i = 0; i < maxPeriods; i++) {
-        const periodSum = scaledFlows.reduce((sum, flows) =>
-          sum + (flows[i] || 0), 0
+        const periodSum = scaledFlows.reduce(
+          (sum, flows) => sum + (flows[i] || 0),
+          0
         );
         aggregatedFlows.push(periodSum);
       }
@@ -495,17 +583,19 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         .filter((_, idx) => idx > 0)
         .reduce((a, b) => a + b, 0);
       const totalInvestment = Math.abs(aggregatedFlows[0] || 0);
-      const roi = totalInvestment > 0
-        ? (totalBenefits - totalInvestment) / totalInvestment
-        : 0;
+      const roi =
+        totalInvestment > 0
+          ? (totalBenefits - totalInvestment) / totalInvestment
+          : 0;
 
       return {
         scenarioType: scenario.scenarioType,
         roi: Number(roundTo(new Decimal(roi), 4)),
         npv: Number(roundTo(npv, 2)),
-        paybackMonths: paybackResult.period !== null
-          ? Math.round(paybackResult.period * 12)
-          : null,
+        paybackMonths:
+          paybackResult.period !== null
+            ? Math.round(paybackResult.period * 12)
+            : null,
         evfDecomposition: scenario.evfDecomposition,
       };
     });
@@ -518,7 +608,7 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     caseId: string,
     organizationId: string,
     scenarios: Array<{
-      scenarioType: 'conservative' | 'base' | 'upside';
+      scenarioType: "conservative" | "base" | "upside";
       roi: number;
       npv: number;
       paybackMonths: number | null;
@@ -529,9 +619,12 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         efficiencyGain: number;
       };
     }>,
-    assumptionsSnapshot: Record<string, number>,
+    assumptionsSnapshot: Record<string, number>
   ): Promise<void> {
-    const supabase = createServerSupabaseClient();
+    const supabase = createWorkerServiceSupabaseClient({
+      justification:
+        "service-role:justified agent scenario persistence scoped to organization_id",
+    });
 
     const records = scenarios.map(scenario => ({
       id: `scn_${Date.now()}_${scenario.scenarioType}`,
@@ -546,17 +639,17 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       created_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('scenarios').insert(records);
+    const { error } = await supabase.from("scenarios").insert(records);
 
     if (error) {
-      logger.error('Failed to persist scenarios', {
+      logger.error("Failed to persist scenarios", {
         caseId,
         error: error.message,
       });
       throw new Error(`Failed to persist scenarios: ${error.message}`);
     }
 
-    logger.info('Persisted scenarios to database', {
+    logger.info("Persisted scenarios to database", {
       caseId,
       scenarioCount: records.length,
     });
@@ -596,15 +689,15 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       }
 
       // Sensitivity analysis on discount rate
-      const sensitivityResults: ComputedModel['sensitivity'] = [];
+      const sensitivityResults: ComputedModel["sensitivity"] = [];
       if (output.sensitivity_parameters) {
         for (const param of output.sensitivity_parameters) {
-          if (param.name.toLowerCase().includes('discount')) {
+          if (param.name.toLowerCase().includes("discount")) {
             const result = sensitivityAnalysis(
               param.name,
               new Decimal(param.base_value),
               param.perturbations.map(p => new Decimal(p)),
-              (paramValue: Decimal) => calculateNPV(flows, paramValue),
+              (paramValue: Decimal) => calculateNPV(flows, paramValue)
             );
             sensitivityResults.push({
               parameter: result.parameterName,
@@ -622,10 +715,10 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
               param.perturbations.map(p => new Decimal(p)),
               (multiplier: Decimal) => {
                 const scaledFlows = flows.map((f, i) =>
-                  i === 0 ? f : f.times(multiplier),
+                  i === 0 ? f : f.times(multiplier)
                 );
                 return calculateNPV(scaledFlows, rate);
-              },
+              }
             );
             sensitivityResults.push({
               parameter: result.parameterName,
@@ -673,20 +766,20 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
   private async storeModelsInMemory(
     context: LifecycleContext,
     models: ComputedModel[],
-    llmOutput: FinancialModelingOutput,
+    llmOutput: FinancialModelingOutput
   ): Promise<void> {
     // Store each computed model
     for (const model of models) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
-          'financial-modeling',
-          'semantic',
+          "financial-modeling",
+          "semantic",
           `FinancialModel: ${model.hypothesis_description} — ROI: ${(model.roi * 100).toFixed(1)}%, NPV: $${Math.round(model.npv).toLocaleString()}, ` +
-            `IRR: ${model.irr !== null ? (model.irr * 100).toFixed(1) + '%' : 'N/A'}, ` +
-            `Payback: ${model.payback_fractional !== null ? model.payback_fractional.toFixed(1) + ' periods' : 'N/A'}.`,
+            `IRR: ${model.irr !== null ? (model.irr * 100).toFixed(1) + "%" : "N/A"}, ` +
+            `Payback: ${model.payback_fractional !== null ? model.payback_fractional.toFixed(1) + " periods" : "N/A"}.`,
           {
-            type: 'financial_model',
+            type: "financial_model",
             hypothesis_id: model.hypothesis_id,
             category: model.category,
             roi: model.roi,
@@ -706,10 +799,10 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
             organization_id: context.organization_id,
             importance: model.npv > 0 ? 0.85 : 0.6,
           },
-          context.organization_id,
+          context.organization_id
         );
       } catch (err) {
-        logger.warn('FinancialModelingAgent: failed to store model', {
+        logger.warn("FinancialModelingAgent: failed to store model", {
           hypothesis_id: model.hypothesis_id,
           error: (err as Error).message,
         });
@@ -721,21 +814,21 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       const totalNPV = models.reduce((sum, m) => sum + m.npv, 0);
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
-        'financial-modeling',
-        'semantic',
+        "financial-modeling",
+        "semantic",
         `PortfolioSummary: ${models.length} models. Total NPV: $${Math.round(totalNPV).toLocaleString()}. ${llmOutput.portfolio_summary}`,
         {
-          type: 'portfolio_summary',
+          type: "portfolio_summary",
           models_count: models.length,
           total_npv: totalNPV,
           key_assumptions: llmOutput.key_assumptions,
           organization_id: context.organization_id,
           importance: 0.9,
         },
-        context.organization_id,
+        context.organization_id
       );
     } catch (err) {
-      logger.warn('FinancialModelingAgent: failed to store portfolio summary', {
+      logger.warn("FinancialModelingAgent: failed to store portfolio summary", {
         error: (err as Error).message,
       });
     }
@@ -747,50 +840,52 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
 
   private buildSDUISections(
     models: ComputedModel[],
-    llmOutput: FinancialModelingOutput,
+    llmOutput: FinancialModelingOutput
   ): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
 
     const totalNPV = models.reduce((sum, m) => sum + m.npv, 0);
-    const avgConfidence = models.reduce((sum, m) => sum + m.confidence, 0) / models.length;
+    const avgConfidence =
+      models.reduce((sum, m) => sum + m.confidence, 0) / models.length;
     const positiveCount = models.filter(m => m.npv > 0).length;
 
     // Summary card
     sections.push({
-      type: 'component',
-      component: 'AgentResponseCard',
+      type: "component",
+      component: "AgentResponseCard",
       version: 1,
       props: {
         response: {
-          agentId: 'financial-modeling',
-          agentName: 'Financial Modeling Agent',
+          agentId: "financial-modeling",
+          agentName: "Financial Modeling Agent",
           timestamp: new Date().toISOString(),
-          content: `${llmOutput.portfolio_summary}\n\nTotal portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
+          content:
+            `${llmOutput.portfolio_summary}\n\nTotal portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
             `${positiveCount}/${models.length} models have positive NPV.`,
           confidence: avgConfidence,
-          status: 'completed',
+          status: "completed",
         },
         showReasoning: true,
         showActions: true,
-        stage: 'modeling',
+        stage: "modeling",
       },
     });
 
     // Value tree chart — NPV per model
     sections.push({
-      type: 'component',
-      component: 'InteractiveChart',
+      type: "component",
+      component: "InteractiveChart",
       version: 1,
       props: {
-        type: 'bar',
+        type: "bar",
         data: models.map(m => ({
           name: m.hypothesis_description.slice(0, 40),
           npv: m.npv,
           roi: m.roi * 100,
         })),
-        title: 'Financial Model NPV by Hypothesis',
-        xAxisLabel: 'Hypothesis',
-        yAxisLabel: `NPV (${models[0]?.currency || 'USD'})`,
+        title: "Financial Model NPV by Hypothesis",
+        xAxisLabel: "Hypothesis",
+        yAxisLabel: `NPV (${models[0]?.currency || "USD"})`,
         showLegend: true,
         showTooltip: true,
       },
@@ -798,8 +893,8 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
 
     // Value tree card with model details
     sections.push({
-      type: 'component',
-      component: 'ValueTreeCard',
+      type: "component",
+      component: "ValueTreeCard",
       version: 1,
       props: {
         models: models.map(m => ({
@@ -807,15 +902,16 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
           category: m.category,
           roi: `${(m.roi * 100).toFixed(1)}%`,
           npv: `$${Math.round(m.npv).toLocaleString()}`,
-          irr: m.irr !== null ? `${(m.irr * 100).toFixed(1)}%` : 'N/A',
-          payback: m.payback_fractional !== null
-            ? `${m.payback_fractional.toFixed(1)} ${m.period_type} periods`
-            : 'N/A',
+          irr: m.irr !== null ? `${(m.irr * 100).toFixed(1)}%` : "N/A",
+          payback:
+            m.payback_fractional !== null
+              ? `${m.payback_fractional.toFixed(1)} ${m.period_type} periods`
+              : "N/A",
           confidence: m.confidence,
           investment: `$${Math.round(m.total_investment).toLocaleString()}`,
           benefit: `$${Math.round(m.total_benefit).toLocaleString()}`,
         })),
-        title: 'Value Tree',
+        title: "Value Tree",
       },
     });
 
@@ -825,18 +921,18 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       const firstSensitivity = allSensitivity[0];
       if (firstSensitivity) {
         sections.push({
-          type: 'component',
-          component: 'InteractiveChart',
+          type: "component",
+          component: "InteractiveChart",
           version: 1,
           props: {
-            type: 'line',
+            type: "line",
             data: firstSensitivity.points.map(p => ({
               name: `${p.multiplier}`,
               npv: p.npv,
             })),
             title: `Sensitivity: ${firstSensitivity.parameter}`,
             xAxisLabel: firstSensitivity.parameter,
-            yAxisLabel: 'NPV',
+            yAxisLabel: "NPV",
             showLegend: false,
             showTooltip: true,
           },
@@ -859,23 +955,29 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
     caseId: string,
     organizationId: string,
     models: ComputedModel[],
-    llmOutput: FinancialModelingOutput,
+    llmOutput: FinancialModelingOutput
   ): Promise<void> {
     // Pick the model with the highest NPV as the representative summary
     const best = models.reduce((a, b) => (b.npv > a.npv ? b : a), models[0]);
-    const avgPayback = models
-      .map(m => m.payback_period)
-      .filter((p): p is number => p !== null)
-      .reduce((sum, p, _, arr) => sum + p / arr.length, 0) || null;
+    const avgPayback =
+      models
+        .map(m => m.payback_period)
+        .filter((p): p is number => p !== null)
+        .reduce((sum, p, _, arr) => sum + p / arr.length, 0) || null;
 
     try {
-      const repo = new FinancialModelSnapshotRepository();
+      const db = createWorkerServiceSupabaseClient({
+        justification:
+          "service-role:justified FinancialModelingAgent persists financial model snapshots",
+      });
+      const repo = new FinancialModelSnapshotRepository(db);
       await repo.createSnapshot({
         case_id: caseId,
         organization_id: organizationId,
         roi: best ? best.roi : undefined,
         npv: best ? best.npv : undefined,
-        payback_period_months: avgPayback !== null ? Math.round(avgPayback * 12) : undefined,
+        payback_period_months:
+          avgPayback !== null ? Math.round(avgPayback * 12) : undefined,
         assumptions_json: llmOutput.key_assumptions,
         outputs_json: {
           models: models.map(m => ({
@@ -889,11 +991,12 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
           })),
           portfolio_summary: llmOutput.portfolio_summary,
           total_npv: models.reduce((s, m) => s + m.npv, 0),
-          average_confidence: models.reduce((s, m) => s + m.confidence, 0) / models.length,
+          average_confidence:
+            models.reduce((s, m) => s + m.confidence, 0) / models.length,
         },
         source_agent: this.name,
       });
-      logger.info('FinancialModelingAgent: persisted snapshot', {
+      logger.info("FinancialModelingAgent: persisted snapshot", {
         case_id: caseId,
         organization_id: organizationId,
         model_count: models.length,
@@ -903,22 +1006,22 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
       // ROI/NPV figure back to the FinancialModelingAgent run that produced it.
       const tracker = getProvenanceTracker(organizationId);
       await Promise.allSettled(
-        models.map((model) =>
+        models.map(model =>
           tracker.record({
             valueCaseId: caseId,
             claimId: model.hypothesis_id,
-            dataSource: 'FinancialModelingAgent:financial_model_snapshot',
+            dataSource: "FinancialModelingAgent:financial_model_snapshot",
             evidenceTier: 2, // Internal analysis — Tier 2 per EvidenceTiering classification
-            formula: `ROI=${model.roi?.toFixed(2)};NPV=${model.npv?.toFixed(0)};IRR=${model.irr?.toFixed(2) ?? 'n/a'}`,
+            formula: `ROI=${model.roi?.toFixed(2)};NPV=${model.npv?.toFixed(0)};IRR=${model.irr?.toFixed(2) ?? "n/a"}`,
             agentId: this.name,
             agentVersion: this.version,
             confidenceScore: model.confidence,
-          }),
-        ),
+          })
+        )
       );
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
-      logger.error('FinancialModelingAgent: failed to persist snapshot', {
+      logger.error("FinancialModelingAgent: failed to persist snapshot", {
         case_id: caseId,
         error: (err as Error).message,
       });
@@ -950,10 +1053,11 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
    */
   private async writeModelsToGraph(
     models: ComputedModel[],
-    context: LifecycleContext,
+    context: LifecycleContext
   ): Promise<void> {
-    const opportunityId = (context.user_inputs?.value_case_id as string | undefined)
-      ?? context.workspace_id;
+    const opportunityId =
+      (context.user_inputs?.value_case_id as string | undefined) ??
+      context.workspace_id;
     const organizationId = context.organization_id;
 
     if (!opportunityId || !organizationId) {
@@ -962,10 +1066,17 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
 
     try {
       // Load existing graph nodes written by OpportunityAgent
-      const graph = await this.valueGraphService.getGraphForOpportunity(opportunityId, organizationId);
+      const graph = await this.valueGraphService.getGraphForOpportunity(
+        opportunityId,
+        organizationId
+      );
 
-      const capabilityNodes = graph.nodes.filter(n => n.entity_type === 'vg_capability');
-      const valueDriverNodes = graph.nodes.filter(n => n.entity_type === 'vg_value_driver');
+      const capabilityNodes = graph.nodes.filter(
+        n => n.entity_type === "vg_capability"
+      );
+      const valueDriverNodes = graph.nodes.filter(
+        n => n.entity_type === "vg_value_driver"
+      );
 
       for (const model of models) {
         const driverType = mapCategoryToValueDriverType(model.category);
@@ -975,12 +1086,14 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
           opportunity_id: opportunityId,
           organization_id: organizationId,
           name: model.hypothesis_description,
-          unit: mapUnitToVgMetricUnit('usd'),
-          baseline_value: model.total_investment > 0 ? model.total_investment : null,
+          unit: mapUnitToVgMetricUnit("usd"),
+          baseline_value:
+            model.total_investment > 0 ? model.total_investment : null,
           target_value: model.total_benefit > 0 ? model.total_benefit : null,
-          impact_timeframe_months: model.cash_flows.length > 0
-            ? model.cash_flows.length - 1  // period 0 = investment; remaining = returns
-            : null,
+          impact_timeframe_months:
+            model.cash_flows.length > 0
+              ? model.cash_flows.length - 1 // period 0 = investment; remaining = returns
+              : null,
         });
 
         // 2. capability_impacts_metric: VgCapability → VgMetric
@@ -989,16 +1102,23 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         // source_hypothesis_id is added to VgCapability (Sprint 49).
         const nameMatchedCap = capabilityNodes.find(n => {
           const data = n.data as { name?: string };
-          return data.name && model.hypothesis_description.toLowerCase()
-            .includes(data.name.toLowerCase().split(' ')[0]);
+          return (
+            data.name &&
+            model.hypothesis_description
+              .toLowerCase()
+              .includes(data.name.toLowerCase().split(" ")[0])
+          );
         });
         if (!nameMatchedCap && capabilityNodes.length > 0) {
-          logger.warn('FinancialModelingAgent: no name-matched VgCapability for model; falling back to first node', {
-            opportunityId,
-            organizationId,
-            hypothesisDescription: model.hypothesis_description,
-            fallbackCapabilityId: capabilityNodes[0].entity_id,
-          });
+          logger.warn(
+            "FinancialModelingAgent: no name-matched VgCapability for model; falling back to first node",
+            {
+              opportunityId,
+              organizationId,
+              hypothesisDescription: model.hypothesis_description,
+              fallbackCapabilityId: capabilityNodes[0].entity_id,
+            }
+          );
         }
         const matchedCap = nameMatchedCap ?? capabilityNodes[0];
 
@@ -1006,20 +1126,23 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
           await this.valueGraphService.writeEdge({
             opportunity_id: opportunityId,
             organization_id: organizationId,
-            from_entity_type: 'vg_capability',
+            from_entity_type: "vg_capability",
             from_entity_id: matchedCap.entity_id,
-            to_entity_type: 'vg_metric',
+            to_entity_type: "vg_metric",
             to_entity_id: metric.id,
-            edge_type: 'capability_impacts_metric',
+            edge_type: "capability_impacts_metric",
             confidence_score: model.confidence,
-            created_by_agent: 'FinancialModelingAgent',
+            created_by_agent: "FinancialModelingAgent",
           });
         } else {
-          logger.warn('FinancialModelingAgent: no VgCapability node found for model', {
-            opportunityId,
-            organizationId,
-            hypothesisId: model.hypothesis_id,
-          });
+          logger.warn(
+            "FinancialModelingAgent: no VgCapability node found for model",
+            {
+              opportunityId,
+              organizationId,
+              hypothesisId: model.hypothesis_id,
+            }
+          );
         }
 
         // 3. metric_maps_to_value_driver: VgMetric → VgValueDriver
@@ -1048,21 +1171,24 @@ JSON-only mode: Respond with a single strict JSON object that matches the contra
         await this.valueGraphService.writeEdge({
           opportunity_id: opportunityId,
           organization_id: organizationId,
-          from_entity_type: 'vg_metric',
+          from_entity_type: "vg_metric",
           from_entity_id: metric.id,
-          to_entity_type: 'vg_value_driver',
+          to_entity_type: "vg_value_driver",
           to_entity_id: driverNodeId,
-          edge_type: 'metric_maps_to_value_driver',
+          edge_type: "metric_maps_to_value_driver",
           confidence_score: model.confidence,
-          created_by_agent: 'FinancialModelingAgent',
+          created_by_agent: "FinancialModelingAgent",
         });
       }
     } catch (err) {
-      logger.warn('FinancialModelingAgent: failed to write models to Value Graph', {
-        opportunityId,
-        organizationId,
-        error: (err as Error).message,
-      });
+      logger.warn(
+        "FinancialModelingAgent: failed to write models to Value Graph",
+        {
+          opportunityId,
+          organizationId,
+          error: (err as Error).message,
+        }
+      );
     }
   }
 }

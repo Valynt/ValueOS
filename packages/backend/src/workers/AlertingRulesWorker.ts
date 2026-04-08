@@ -2,7 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { AlertingService } from '../services/billing/AlertingService.js';
 
@@ -48,11 +48,10 @@ export function initAlertingRulesWorker(): Worker {
   if (_worker) {
     return _worker;
   }
-  if (!supabase) {
-    throw new Error('Supabase billing not configured');
-  }
-
-  const alertingService = new AlertingService(supabase);
+  // service-role:justified AlertingRulesWorker evaluates billing alert rules across all tenants on a schedule
+  const alertingService = new AlertingService(
+    createWorkerServiceSupabaseClient('AlertingRulesWorker: evaluate billing alert rules across tenants')
+  );
   _worker = new Worker(
     ALERTING_QUEUE_NAME,
     async () => {

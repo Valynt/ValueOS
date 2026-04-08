@@ -21,41 +21,50 @@
  *   workflow_watchdog_failures_total
  */
 
-import { Queue, Worker, type Job } from 'bullmq';
-import Redis from 'ioredis';
+import { Queue, Worker, type Job } from "bullmq";
+import Redis from "ioredis";
 
-import { createLogger } from '../lib/logger.js';
-import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
-import { getMetricsRegistry } from '../middleware/metricsMiddleware.js';
-import { Counter } from 'prom-client';
+import { createLogger } from "../lib/logger.js";
+import { createWorkerServiceSupabaseClient } from "../lib/supabase/privileged/index.js";
+import { getMetricsRegistry } from "../middleware/metricsMiddleware.js";
+import { Counter } from "prom-client";
 
-const logger = createLogger({ component: 'WorkflowWatchdogWorker' });
+const logger = createLogger({ component: "WorkflowWatchdogWorker" });
 
-export const WATCHDOG_QUEUE_NAME = 'workflow-watchdog';
+export const WATCHDOG_QUEUE_NAME = "workflow-watchdog";
 
-const INTERVAL_MINUTES = parseInt(process.env.WATCHDOG_INTERVAL_MINUTES ?? '5', 10);
-const TIMEOUT_MINUTES = parseInt(process.env.WATCHDOG_TIMEOUT_MINUTES ?? '30', 10);
-const MAX_REQUEUE_ATTEMPTS = parseInt(process.env.WATCHDOG_MAX_REQUEUE_ATTEMPTS ?? '2', 10);
+const INTERVAL_MINUTES = parseInt(
+  process.env.WATCHDOG_INTERVAL_MINUTES ?? "5",
+  10
+);
+const TIMEOUT_MINUTES = parseInt(
+  process.env.WATCHDOG_TIMEOUT_MINUTES ?? "30",
+  10
+);
+const MAX_REQUEUE_ATTEMPTS = parseInt(
+  process.env.WATCHDOG_MAX_REQUEUE_ATTEMPTS ?? "2",
+  10
+);
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 
 const registry = getMetricsRegistry();
 
 const workflowStuckDetectedTotal = new Counter({
-  name: 'workflow_stuck_detected_total',
-  help: 'Number of workflow executions detected as stuck by the watchdog',
+  name: "workflow_stuck_detected_total",
+  help: "Number of workflow executions detected as stuck by the watchdog",
   registers: [registry],
 });
 
 const workflowWatchdogRunsTotal = new Counter({
-  name: 'workflow_watchdog_runs_total',
-  help: 'Total watchdog job executions',
+  name: "workflow_watchdog_runs_total",
+  help: "Total watchdog job executions",
   registers: [registry],
 });
 
 const workflowWatchdogFailuresTotal = new Counter({
-  name: 'workflow_watchdog_failures_total',
-  help: 'Watchdog job executions that failed',
+  name: "workflow_watchdog_failures_total",
+  help: "Watchdog job executions that failed",
   registers: [registry],
 });
 
@@ -71,7 +80,7 @@ export interface WatchdogJobPayload {
 let _redis: Redis | null = null;
 function getRedis(): Redis {
   if (!_redis) {
-    _redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+    _redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
   }
@@ -88,7 +97,7 @@ export function getWatchdogQueue(): Queue<WatchdogJobPayload> {
       connection: getRedis(),
       defaultJobOptions: {
         attempts: 2,
-        backoff: { type: 'fixed', delay: 30_000 },
+        backoff: { type: "fixed", delay: 30_000 },
         removeOnComplete: { age: 7 * 86_400 },
         removeOnFail: { age: 30 * 86_400 },
       },
@@ -100,14 +109,14 @@ export function getWatchdogQueue(): Queue<WatchdogJobPayload> {
 export async function scheduleWatchdogJob(): Promise<void> {
   const queue = getWatchdogQueue();
   await queue.add(
-    'watchdog',
+    "watchdog",
     { scheduledAt: new Date().toISOString(), timeoutMinutes: TIMEOUT_MINUTES },
     {
       repeat: { every: INTERVAL_MINUTES * 60 * 1000 },
-      jobId: 'workflow-watchdog-repeatable',
+      jobId: "workflow-watchdog-repeatable",
     }
   );
-  logger.info('Workflow watchdog job scheduled', {
+  logger.info("Workflow watchdog job scheduled", {
     intervalMinutes: INTERVAL_MINUTES,
     timeoutMinutes: TIMEOUT_MINUTES,
   });
@@ -123,21 +132,32 @@ interface StuckExecution {
   started_at: string;
 }
 
-export async function detectAndResolveStuckWorkflows(timeoutMinutes: number): Promise<{
+/**
+ * SECURITY NOTE: This function intentionally reads across all tenants.
+ * It is a system-level watchdog (cron) — not user-facing. Results never
+ * leave the server process. Write operations target per-row primary keys.
+ * Privileged access is justified via createWorkerServiceSupabaseClient.
+ */
+export async function detectAndResolveStuckWorkflows(
+  timeoutMinutes: number
+): Promise<{
   detected: number;
   requeued: number;
   failed: number;
 }> {
   const supabase = createWorkerServiceSupabaseClient({
-    justification: 'service-role:justified workflow watchdog scans and updates stuck executions',
+    justification:
+      "service-role:justified workflow watchdog scans and updates stuck executions",
   });
-  const cutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000).toISOString();
+  const cutoff = new Date(
+    Date.now() - timeoutMinutes * 60 * 1000
+  ).toISOString();
 
   const { data: stuck, error } = await supabase
-    .from('workflow_executions')
-    .select('id, tenant_id, workflow_id, iteration_count, started_at')
-    .eq('status', 'running')
-    .lt('started_at', cutoff);
+    .from("workflow_executions")
+    .select("id, tenant_id, workflow_id, iteration_count, started_at")
+    .eq("status", "running")
+    .lt("started_at", cutoff);
 
   if (error) {
     throw new Error(`Watchdog query failed: ${error.message}`);
@@ -146,11 +166,11 @@ export async function detectAndResolveStuckWorkflows(timeoutMinutes: number): Pr
   const executions = (stuck ?? []) as StuckExecution[];
 
   if (executions.length === 0) {
-    logger.info('Watchdog: no stuck workflows detected', { timeoutMinutes });
+    logger.info("Watchdog: no stuck workflows detected", { timeoutMinutes });
     return { detected: 0, requeued: 0, failed: 0 };
   }
 
-  logger.warn('Watchdog: stuck workflows detected', {
+  logger.warn("Watchdog: stuck workflows detected", {
     count: executions.length,
     timeoutMinutes,
   });
@@ -166,18 +186,20 @@ export async function detectAndResolveStuckWorkflows(timeoutMinutes: number): Pr
     if (isRetryable) {
       // Reset to pending for retry
       const { error: updateErr } = await supabase
-        .from('workflow_executions')
+        .from("workflow_executions")
         .update({
-          status: 'pending',
+          status: "pending",
           error_message: `Watchdog: reset after ${timeoutMinutes}m timeout (attempt ${exec.iteration_count + 1})`,
         })
-        .eq('id', exec.id);
+        .eq("id", exec.id);
 
       if (updateErr) {
-        logger.error('Watchdog: failed to requeue execution', updateErr, { executionId: exec.id });
+        logger.error("Watchdog: failed to requeue execution", updateErr, {
+          executionId: exec.id,
+        });
       } else {
         requeued++;
-        logger.info('Watchdog: execution requeued', {
+        logger.info("Watchdog: execution requeued", {
           executionId: exec.id,
           tenantId: exec.tenant_id,
           iterationCount: exec.iteration_count,
@@ -186,20 +208,22 @@ export async function detectAndResolveStuckWorkflows(timeoutMinutes: number): Pr
     } else {
       // Permanently fail — exceeded max requeue attempts
       const { error: failErr } = await supabase
-        .from('workflow_executions')
+        .from("workflow_executions")
         .update({
-          status: 'failed',
+          status: "failed",
           is_completed: true,
           completed_at: new Date().toISOString(),
           error_message: `watchdog_timeout: execution exceeded ${timeoutMinutes}m and max requeue attempts (${MAX_REQUEUE_ATTEMPTS})`,
         })
-        .eq('id', exec.id);
+        .eq("id", exec.id);
 
       if (failErr) {
-        logger.error('Watchdog: failed to mark execution as failed', failErr, { executionId: exec.id });
+        logger.error("Watchdog: failed to mark execution as failed", failErr, {
+          executionId: exec.id,
+        });
       } else {
         failed++;
-        logger.warn('Watchdog: execution permanently failed', {
+        logger.warn("Watchdog: execution permanently failed", {
           executionId: exec.id,
           tenantId: exec.tenant_id,
           iterationCount: exec.iteration_count,
@@ -208,7 +232,7 @@ export async function detectAndResolveStuckWorkflows(timeoutMinutes: number): Pr
     }
   }
 
-  logger.info('Watchdog: resolution complete', {
+  logger.info("Watchdog: resolution complete", {
     detected: executions.length,
     requeued,
     failed,
@@ -229,16 +253,24 @@ export function initWorkflowWatchdogWorker(): Worker<WatchdogJobPayload> {
     WATCHDOG_QUEUE_NAME,
     async (job: Job<WatchdogJobPayload>) => {
       const { timeoutMinutes } = job.data;
-      logger.info('Workflow watchdog job started', { jobId: job.id, timeoutMinutes });
+      logger.info("Workflow watchdog job started", {
+        jobId: job.id,
+        timeoutMinutes,
+      });
 
       workflowWatchdogRunsTotal.inc();
 
       try {
         const result = await detectAndResolveStuckWorkflows(timeoutMinutes);
-        logger.info('Workflow watchdog job complete', { jobId: job.id, ...result });
+        logger.info("Workflow watchdog job complete", {
+          jobId: job.id,
+          ...result,
+        });
       } catch (err) {
         workflowWatchdogFailuresTotal.inc();
-        logger.error('Workflow watchdog job failed', err as Error, { jobId: job.id });
+        logger.error("Workflow watchdog job failed", err as Error, {
+          jobId: job.id,
+        });
         throw err;
       }
     },
@@ -248,12 +280,12 @@ export function initWorkflowWatchdogWorker(): Worker<WatchdogJobPayload> {
     }
   );
 
-  _worker.on('failed', (job, err) => {
-    logger.error('Watchdog job permanently failed', err, { jobId: job?.id });
+  _worker.on("failed", (job, err) => {
+    logger.error("Watchdog job permanently failed", err, { jobId: job?.id });
     workflowWatchdogFailuresTotal.inc();
   });
 
-  logger.info('WorkflowWatchdogWorker initialised', {
+  logger.info("WorkflowWatchdogWorker initialised", {
     queue: WATCHDOG_QUEUE_NAME,
     intervalMinutes: INTERVAL_MINUTES,
     timeoutMinutes: TIMEOUT_MINUTES,

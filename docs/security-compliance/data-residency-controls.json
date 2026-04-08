@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "2026-04-08.1",
+  "tenants": [
+    {
+      "tenantId": "tenant-us-enterprise",
+      "residencyPolicy": "strict",
+      "primaryRegion": "us-east-1",
+      "allowedRegions": ["us-east-1"]
+    },
+    {
+      "tenantId": "tenant-eu-enterprise",
+      "residencyPolicy": "strict",
+      "primaryRegion": "eu-west-1",
+      "allowedRegions": ["eu-west-1"]
+    },
+    {
+      "tenantId": "tenant-global-standard",
+      "residencyPolicy": "multi-region",
+      "primaryRegion": "us-east-1",
+      "allowedRegions": ["us-east-1", "eu-west-1"]
+    }
+  ],
+  "dataStores": [
+    {
+      "storeId": "supabase-primary",
+      "tenantId": "tenant-us-enterprise",
+      "storeType": "postgres",
+      "region": "us-east-1"
+    },
+    {
+      "storeId": "redis-cache",
+      "tenantId": "tenant-us-enterprise",
+      "storeType": "redis",
+      "region": "us-east-1"
+    },
+    {
+      "storeId": "supabase-primary",
+      "tenantId": "tenant-eu-enterprise",
+      "storeType": "postgres",
+      "region": "eu-west-1"
+    },
+    {
+      "storeId": "blob-archive",
+      "tenantId": "tenant-global-standard",
+      "storeType": "object-storage",
+      "region": "eu-west-1"
+    }
+  ],
+  "exportDestinations": [
+    {
+      "exportId": "audit-export-s3",
+      "tenantId": "tenant-us-enterprise",
+      "provider": "s3",
+      "region": "us-east-1"
+    },
+    {
+      "exportId": "evidence-export-s3",
+      "tenantId": "tenant-eu-enterprise",
+      "provider": "s3",
+      "region": "eu-west-1"
+    },
+    {
+      "exportId": "analytics-export-gcs",
+      "tenantId": "tenant-global-standard",
+      "provider": "gcs",
+      "region": "us-east-1"
+    }
+  ]
+}

@@ -5,15 +5,19 @@
  * Handles CRUD operations with tenant isolation.
  */
 
+import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger.js";
-import { supabase } from "../../lib/supabase.js";
 
 export interface ArtifactRecord {
   id: string;
   tenant_id: string;
   organization_id: string;
   case_id: string;
-  artifact_type: "executive_memo" | "cfo_recommendation" | "customer_narrative" | "internal_case";
+  artifact_type:
+    | "executive_memo"
+    | "cfo_recommendation"
+    | "customer_narrative"
+    | "internal_case";
   content_json: Record<string, unknown>;
   status: "draft" | "final";
   readiness_score_at_generation: number;
@@ -36,11 +40,13 @@ export interface CreateArtifactInput {
 }
 
 export class ArtifactRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
   /**
    * Create a new artifact record.
    */
   async create(input: CreateArtifactInput): Promise<ArtifactRecord> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("case_artifacts")
       .insert({
         tenant_id: input.tenantId,
@@ -57,7 +63,9 @@ export class ArtifactRepository {
       .single();
 
     if (error || !data) {
-      logger.error("ArtifactRepository: Failed to create artifact", { error: error?.message });
+      logger.error("ArtifactRepository: Failed to create artifact", {
+        error: error?.message,
+      });
       throw new Error(`Failed to create artifact: ${error?.message}`);
     }
 
@@ -72,7 +80,7 @@ export class ArtifactRepository {
     tenantId: string,
     organizationId: string
   ): Promise<ArtifactRecord | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("case_artifacts")
       .select()
       .eq("id", artifactId)
@@ -84,7 +92,9 @@ export class ArtifactRepository {
       if (error.code === "PGRST116") {
         return null; // Not found
       }
-      logger.error("ArtifactRepository: Failed to fetch artifact", { error: error.message });
+      logger.error("ArtifactRepository: Failed to fetch artifact", {
+        error: error.message,
+      });
       throw new Error(`Failed to fetch artifact: ${error.message}`);
     }
 
@@ -99,16 +109,12 @@ export class ArtifactRepository {
     tenantId: string,
     organizationId: string
   ): Promise<ArtifactRecord[]> {
-    const { data, error } = await supabase
-      .from("case_artifacts")
-      .select()
-      .eq("case_id", caseId)
-      .eq("tenant_id", tenantId)
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await this.supabase;
 
     if (error) {
-      logger.error("ArtifactRepository: Failed to fetch artifacts", { error: error.message });
+      logger.error("ArtifactRepository: Failed to fetch artifacts", {
+        error: error.message,
+      });
       throw new Error(`Failed to fetch artifacts: ${error.message}`);
     }
 
@@ -124,7 +130,7 @@ export class ArtifactRepository {
     organizationId: string,
     status: "draft" | "final"
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from("case_artifacts")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", artifactId)
@@ -132,7 +138,9 @@ export class ArtifactRepository {
       .eq("organization_id", organizationId);
 
     if (error) {
-      logger.error("ArtifactRepository: Failed to update artifact status", { error: error.message });
+      logger.error("ArtifactRepository: Failed to update artifact status", {
+        error: error.message,
+      });
       throw new Error(`Failed to update artifact status: ${error.message}`);
     }
   }
@@ -145,7 +153,7 @@ export class ArtifactRepository {
     tenantId: string,
     organizationId: string
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from("case_artifacts")
       .delete()
       .eq("id", artifactId)
@@ -153,7 +161,9 @@ export class ArtifactRepository {
       .eq("organization_id", organizationId);
 
     if (error) {
-      logger.error("ArtifactRepository: Failed to delete artifact", { error: error.message });
+      logger.error("ArtifactRepository: Failed to delete artifact", {
+        error: error.message,
+      });
       throw new Error(`Failed to delete artifact: ${error.message}`);
     }
   }

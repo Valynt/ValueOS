@@ -53,6 +53,10 @@ function createSupabaseMock(records: QueryRecord[]) {
         select: vi.fn(() => chain),
         update: vi.fn(() => chain),
         upsert: vi.fn(() => ({ error: null })),
+        maybeSingle: vi.fn(async () => ({
+          data: { id: "ctx-1", metadata: {}, version: 1 },
+          error: null,
+        })),
         single: vi.fn(async () => ({
           data: { entity_status: {} },
           error: null,

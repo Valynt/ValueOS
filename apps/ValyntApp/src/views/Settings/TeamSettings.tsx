@@ -1,103 +1,114 @@
-import { logger } from "@lib/logger";
+import { logger } from "@/lib/logger";
 import {
   AlertCircle,
-  Archive,
   Bell,
-  Check,
   Download,
   FileText,
   Loader2,
+  Lock,
   Mail,
   MessageSquare,
+  RotateCcw,
+  Save,
   Upload,
   Workflow,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 
-import { SettingsSection } from "../../components/settings";
-import { useDebouncedState } from "../../hooks/useDebounce";
+import {
+  AuditIndicator,
+  SettingsAlert,
+  SettingsSection,
+} from "@/components/settings";
+import { Button } from "@/components/ui/button";
+import {
+  useTeamNotifications,
+} from "@/hooks/useOrganizationSettings";
+import { useSettingsSubscription } from "@/hooks/useSettings";
+import { useConfigAccess } from "@/hooks/useConfigAccess";
+import { useToast } from "@/app/providers/ToastProvider";
 
+import { WorkflowSettings } from "./WorkflowSettings";
 
-interface NotificationSettings {
-  mentions: boolean;
-  taskAssignments: boolean;
-  weeklyDigest: boolean;
-  projectUpdates: boolean;
-  emailNotifications: boolean;
-  slackNotifications: boolean;
+interface TeamSettingsProps {
+  organizationId: string;
+  userRole: "tenant_admin" | "vendor_admin" | "user" | "viewer";
 }
 
-interface WorkflowSettings {
-  defaultTaskStatus: string;
-  requireApproval: boolean;
-  autoArchive: boolean;
-  archiveDays: number;
-  defaultAssignee: string;
-}
+export const TeamSettings: React.FC<TeamSettingsProps> = ({
+  organizationId,
+  userRole,
+}) => {
+  // Real-time sync across tabs
+  useSettingsSubscription("organization", organizationId);
 
-export const TeamSettings: React.FC = () => {
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    mentions: true,
-    taskAssignments: true,
-    weeklyDigest: true,
-    projectUpdates: false,
-    emailNotifications: true,
-    slackNotifications: false,
-  });
+  // Permission check
+  const { checkAccess } = useConfigAccess(userRole);
+  const webhooksAccess = checkAccess("webhooks");
 
-  const [workflow, setWorkflow] = useState<WorkflowSettings>({
-    defaultTaskStatus: "todo",
-    requireApproval: false,
-    autoArchive: true,
-    archiveDays: 90,
-    defaultAssignee: "unassigned",
-  });
+  // Backend-connected notification settings
+  const {
+    values,
+    isLoading,
+    error,
+    updateSetting,
+    pendingFields,
+    dirtyFields,
+    markDirty,
+    markClean,
+    revert,
+    canEdit,
+  } = useTeamNotifications(organizationId, userRole);
 
-  // Debounced archive days input to reduce API pressure
-  const [archiveDays, debouncedArchiveDays, setArchiveDays] = useDebouncedState(
-    workflow.archiveDays,
-    500
+  // Toast notifications for user feedback
+  const { toast } = useToast();
+
+  // Track last saved timestamp for UX feedback
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  const effectiveCanEdit = canEdit && webhooksAccess.canEdit;
+
+  // Get values with fallbacks
+  const getBoolValue = useCallback(
+    (key: string) => Boolean(values[key]),
+    [values]
   );
 
-  // Update workflow when debounced value changes
-  useEffect(() => {
-    setWorkflow(prev => ({
-      ...prev,
-      archiveDays: debouncedArchiveDays,
-    }));
-  }, [debouncedArchiveDays]);
+  // Handle toggle changes
+  const handleToggle = useCallback(
+    (key: string) => (checked: boolean) => {
+      void updateSetting(key, checked);
+      markDirty(key);
+    },
+    [updateSetting, markDirty]
+  );
 
-  const [importing, setImporting] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  // Bulk save with timestamp tracking
+  const handleBulkSave = useCallback(async () => {
+    const promises = Array.from(dirtyFields).map((key) =>
+      updateSetting(key, values[key])
+    );
+    await Promise.all(promises);
+    dirtyFields.forEach((key) => markClean(key));
+    setLastSavedAt(new Date());
+    toast({
+      title: "Settings saved",
+      description: `Successfully saved ${promises.length} setting${promises.length !== 1 ? "s" : ""}`,
+      variant: "success",
+    });
+  }, [dirtyFields, values, updateSetting, markClean, toast]);
 
-  const handleNotificationToggle = (key: keyof NotificationSettings) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const handleWorkflowChange = (key: keyof WorkflowSettings, value: WorkflowSettings[typeof key]) => {
-    setWorkflow((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleSaveSettings = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const handleExportSettings = async () => {
-    setExporting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+  // Export settings
+  const handleExport = useCallback(() => {
     const settings = {
-      notifications,
-      workflow,
+      notifications: {
+        mentions: getBoolValue("notifications.mentions"),
+        taskAssignments: getBoolValue("notifications.taskAssignments"),
+        weeklyDigest: getBoolValue("notifications.weeklyDigest"),
+        projectUpdates: getBoolValue("notifications.projectUpdates"),
+        emailNotifications: getBoolValue("notifications.emailNotifications"),
+        slackNotifications: getBoolValue("notifications.slackNotifications"),
+      },
       exportedAt: new Date().toISOString(),
       version: "1.0",
     };
@@ -111,46 +122,183 @@ export const TeamSettings: React.FC = () => {
     a.download = `workspace-settings-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }, [getBoolValue]);
 
-    setExporting(false);
-  };
+  // Import settings with user-facing error feedback
+  const handleImport = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-  const handleImportSettings = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+      // Validate file type and size
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+      if (file.size > MAX_FILE_SIZE) {
+        const errorMsg = "Import failed: File too large (max 5MB)";
+        logger.error(errorMsg);
+        toast({ title: errorMsg, variant: "error" });
+        return;
+      }
+      if (!file.type.match(/json/) && !file.name.endsWith('.json')) {
+        const errorMsg = "Import failed: Invalid file type (expected JSON)";
+        logger.error(errorMsg);
+        toast({ title: errorMsg, variant: "error" });
+        return;
+      }
 
-    setImporting(true);
-    try {
-      const text = await file.text();
-      const imported = JSON.parse(text);
+      try {
+        const text = await file.text();
 
-      if (imported.notifications) setNotifications(imported.notifications);
-      if (imported.workflow) setWorkflow(imported.workflow);
+        // Check text size before parsing
+        if (text.length > MAX_FILE_SIZE) {
+          const errorMsg = "Import failed: Content too large";
+          logger.error(errorMsg);
+          toast({ title: errorMsg, variant: "error" });
+          return;
+        }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      logger.error("Import failed:", error);
-    } finally {
-      setImporting(false);
-    }
-  };
+        const imported = JSON.parse(text) as unknown;
+
+        // Validate basic structure
+        if (!imported || typeof imported !== "object") {
+          const errorMsg = "Import failed: Invalid JSON structure";
+          logger.error(errorMsg);
+          toast({ title: errorMsg, variant: "error" });
+          return;
+        }
+
+        const data = imported as Record<string, unknown>;
+        let importCount = 0;
+        if (data.notifications && typeof data.notifications === "object") {
+          Object.entries(data.notifications).forEach(([key, value]) => {
+            const settingKey = `notifications.${key}`;
+            void updateSetting(settingKey, value);
+            markDirty(settingKey);
+            importCount++;
+          });
+        }
+
+        if (importCount > 0) {
+          toast({
+            title: "Settings imported",
+            description: `${importCount} notification setting${importCount !== 1 ? "s" : ""} imported. Click "Save all" to apply.`,
+            variant: "success",
+          });
+        } else {
+          toast({
+            title: "No settings found",
+            description: "The imported file contains no notification settings",
+            variant: "warning",
+          });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        logger.error("Import failed:", err);
+        toast({
+          title: "Import failed",
+          description: errorMsg,
+          variant: "error",
+        });
+      }
+
+      // Reset file input
+      event.target.value = "";
+    },
+    [updateSetting, markDirty, toast]
+  );
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SettingsAlert
+        type="error"
+        title="Failed to load team settings"
+        description={error.message}
+      />
+    );
+  }
+
+  const hasDirtyFields = dirtyFields.size > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Screen reader announcements for status changes */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {hasDirtyFields && `${dirtyFields.size} unsaved change${dirtyFields.size !== 1 ? "s" : ""}`}
+        {!hasDirtyFields && lastSavedAt && `All changes saved at ${lastSavedAt.toLocaleTimeString()}`}
+      </div>
+
+      {/* Floating bulk action bar */}
+      {hasDirtyFields && effectiveCanEdit && (
+        <div className="sticky top-4 z-10 mb-4 animate-in slide-in-from-top-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between shadow-sm">
+            <span className="text-sm text-amber-800">
+              {dirtyFields.size} unsaved change{dirtyFields.size !== 1 ? "s" : ""}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={revert}
+                className="text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Discard
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void handleBulkSave()}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                <Save className="h-4 w-4 mr-1" />
+                Save all
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only indicator */}
+      {!effectiveCanEdit && (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+          <Lock className="h-4 w-4" />
+          <span>
+            You have view-only access to these settings.
+            {webhooksAccess.denialReason && ` ${webhooksAccess.denialReason}`}
+          </span>
+        </div>
+      )}
+
       <SettingsSection
         title="Notification Preferences"
-        description="Configure how workspace members receive notifications"
-        actions={
-          saveSuccess && (
-            <div className="flex items-center space-x-2 text-sm text-emerald-600">
-              <Check className="h-4 w-4" />
-              <span>Settings saved</span>
-            </div>
-          )
+        description={
+          <div className="flex flex-col gap-1">
+            <span>Configure how workspace members receive notifications</span>
+            {lastSavedAt && (
+              <span className="text-xs text-muted-foreground">
+                Last saved: {lastSavedAt.toLocaleTimeString()}
+              </span>
+            )}
+            <AuditIndicator
+              entry={{
+                id: "1",
+                settingKey: "notifications.email",
+                userId: "system",
+                userEmail: "system",
+                timestamp: new Date().toISOString(),
+                action: "update",
+                newValue: "enabled",
+              }}
+            />
+          </div>
         }
       >
         <div className="space-y-4">
@@ -169,11 +317,15 @@ export const TeamSettings: React.FC = () => {
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={notifications.mentions}
-                  onChange={() => handleNotificationToggle("mentions")}
+                  checked={getBoolValue("notifications.mentions")}
+                  onChange={(e) => handleToggle("notifications.mentions")(e.target.checked)}
+                  disabled={!effectiveCanEdit || pendingFields.has("notifications.mentions")}
                   aria-label="@Mentions"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.mentions") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -193,11 +345,15 @@ export const TeamSettings: React.FC = () => {
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={notifications.taskAssignments}
-                  onChange={() => handleNotificationToggle("taskAssignments")}
+                  checked={getBoolValue("notifications.taskAssignments")}
+                  onChange={(e) => handleToggle("notifications.taskAssignments")(e.target.checked)}
+                  disabled={!effectiveCanEdit || pendingFields.has("notifications.taskAssignments")}
                   aria-label="Task Assignments"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.taskAssignments") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -215,11 +371,15 @@ export const TeamSettings: React.FC = () => {
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={notifications.weeklyDigest}
-                  onChange={() => handleNotificationToggle("weeklyDigest")}
+                  checked={getBoolValue("notifications.weeklyDigest")}
+                  onChange={(e) => handleToggle("notifications.weeklyDigest")(e.target.checked)}
+                  disabled={!effectiveCanEdit || pendingFields.has("notifications.weeklyDigest")}
                   aria-label="Weekly Digest"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.weeklyDigest") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
 
@@ -237,11 +397,15 @@ export const TeamSettings: React.FC = () => {
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={notifications.projectUpdates}
-                  onChange={() => handleNotificationToggle("projectUpdates")}
+                  checked={getBoolValue("notifications.projectUpdates")}
+                  onChange={(e) => handleToggle("notifications.projectUpdates")(e.target.checked)}
+                  disabled={!effectiveCanEdit || pendingFields.has("notifications.projectUpdates")}
                   aria-label="Project Updates"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                {pendingFields.has("notifications.projectUpdates") && (
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                )}
               </label>
             </div>
           </div>
@@ -262,13 +426,17 @@ export const TeamSettings: React.FC = () => {
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={notifications.emailNotifications}
-                    onChange={() =>
-                      handleNotificationToggle("emailNotifications")
+                    checked={getBoolValue("notifications.emailNotifications")}
+                    onChange={(e) =>
+                      handleToggle("notifications.emailNotifications")(e.target.checked)
                     }
+                    disabled={!effectiveCanEdit || pendingFields.has("notifications.emailNotifications")}
                     aria-label="Email Notifications"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                  {pendingFields.has("notifications.emailNotifications") && (
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                  )}
                 </label>
               </div>
 
@@ -283,13 +451,17 @@ export const TeamSettings: React.FC = () => {
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={notifications.slackNotifications}
-                    onChange={() =>
-                      handleNotificationToggle("slackNotifications")
+                    checked={getBoolValue("notifications.slackNotifications")}
+                    onChange={(e) =>
+                      handleToggle("notifications.slackNotifications")(e.target.checked)
                     }
+                    disabled={!effectiveCanEdit || pendingFields.has("notifications.slackNotifications")}
                     aria-label="Slack Notifications"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                  {pendingFields.has("notifications.slackNotifications") && (
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin text-muted-foreground" aria-hidden="true" />
+                  )}
                 </label>
               </div>
             </div>
@@ -301,125 +473,7 @@ export const TeamSettings: React.FC = () => {
         title="Workflow Settings"
         description="Configure default workflows and automation rules"
       >
-        <div className="space-y-4 max-w-2xl">
-          <div>
-            <label
-              htmlFor="defaultTaskStatus"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Default Task Status
-            </label>
-            <select
-              id="defaultTaskStatus"
-              value={workflow.defaultTaskStatus}
-              onChange={(e) =>
-                handleWorkflowChange("defaultTaskStatus", e.target.value)
-              }
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="review">Review</option>
-              <option value="done">Done</option>
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              New tasks will be created with this status by default
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="defaultAssignee"
-              className="block text-sm font-medium text-foreground mb-2"
-            >
-              Default Assignee
-            </label>
-            <select
-              id="defaultAssignee"
-              value={workflow.defaultAssignee}
-              onChange={(e) =>
-                handleWorkflowChange("defaultAssignee", e.target.value)
-              }
-              className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="unassigned">Unassigned</option>
-              <option value="creator">Task Creator</option>
-              <option value="project_owner">Project Owner</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-            <div className="flex items-start space-x-3">
-              <Check className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="font-medium text-foreground">Require Approval</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Tasks must be approved before marking as complete
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={workflow.requireApproval}
-                onChange={(e) =>
-                  handleWorkflowChange("requireApproval", e.target.checked)
-                }
-                aria-label="Require Approval"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-start space-x-3">
-                <Archive className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-medium text-foreground">
-                    Auto-Archive Projects
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Automatically archive inactive projects
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="sr-only peer"
-                  checked={workflow.autoArchive}
-                  onChange={(e) =>
-                    handleWorkflowChange("autoArchive", e.target.checked)
-                  }
-                  aria-label="Auto-Archive Projects"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            {workflow.autoArchive && (
-              <div className="ml-8 pt-3 border-t border-border">
-                <label
-                  htmlFor="archiveDays"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  Archive after (days)
-                </label>
-                <input
-                  id="archiveDays"
-                  type="number"
-                  value={archiveDays}
-                  onChange={(e) => setArchiveDays(parseInt(e.target.value) || 30)}
-                  min="30"
-                  max="365"
-                  className="w-32 px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        <WorkflowSettings organizationId={organizationId} userRole={userRole} />
       </SettingsSection>
 
       <SettingsSection
@@ -444,30 +498,20 @@ export const TeamSettings: React.FC = () => {
 
             <div className="flex space-x-3">
               <button
-                onClick={handleExportSettings}
-                disabled={exporting}
-                className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
+                onClick={handleExport}
+                className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {exporting ? "Exporting..." : "Export Settings"}
+                <Download className="h-4 w-4 mr-2" />
+                Export Settings
               </button>
 
               <label className="flex items-center px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer">
-                {importing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4 mr-2" />
-                )}
-                {importing ? "Importing..." : "Import Settings"}
+                <Upload className="h-4 w-4 mr-2" />
+                Import Settings
                 <input
                   type="file"
                   accept=".json"
-                  onChange={handleImportSettings}
-                  disabled={importing}
+                  onChange={handleImport}
                   className="hidden"
                 />
               </label>
@@ -476,14 +520,6 @@ export const TeamSettings: React.FC = () => {
         </div>
       </SettingsSection>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSaveSettings}
-          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg shadow-light-blue-sm hover:bg-primary/90 transition-colors"
-        >
-          Save All Settings
-        </button>
-      </div>
     </div>
   );
 };

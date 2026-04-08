@@ -78,6 +78,7 @@ vi.mock('../../lib/supabase.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../../lib/supabase.js')>();
 
   return {
+    assertNotTestEnv: vi.fn(),
     ...actual,
     createServerSupabaseClient: vi.fn(),
     createUserSupabaseClient: vi.fn(),

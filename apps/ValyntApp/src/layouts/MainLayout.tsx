@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
-import { AgentChatSidebar } from "./AgentChatSidebar";
+import { LazyAgentChatSidebar } from "./LazyAgentChatSidebar";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * PageTransition — lightweight opacity fade on route change.
- * No layout shift, no jank, no heavy animation library needed.
+ * Single RAF + timeout ensures the browser commits opacity-0 before restoring visibility.
  */
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -20,11 +20,10 @@ function PageTransition({ children }: { children: React.ReactNode }) {
     if (location.key !== prevKey.current) {
       prevKey.current = location.key;
       setVisible(false);
-      // Two nested rAFs ensure the browser commits the opacity-0 frame before
-      // restoring opacity-1. A single rAF can be batched with the state update
-      // on fast machines, making the transition invisible.
+      // Single RAF + 10ms timeout is sufficient for modern browsers
+      // The timeout ensures the paint frame is committed before showing content
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
+        setTimeout(() => setVisible(true), 10);
       });
     }
   }, [location.key]);
@@ -134,7 +133,7 @@ export function MainLayout() {
         </div>
 
         {/* Agent chat */}
-        <AgentChatSidebar open={agentOpen} onClose={closeAgent} />
+        <LazyAgentChatSidebar open={agentOpen} onClose={closeAgent} />
       </div>
     </>
   );

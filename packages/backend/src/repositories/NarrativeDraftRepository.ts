@@ -7,6 +7,7 @@
 
 import { createLogger } from '@shared/lib/logger';
 
+// service-role:justified repositories/ allowlisted; no request JWT available for background agent/worker writes
 import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ service: 'NarrativeDraftRepository' });

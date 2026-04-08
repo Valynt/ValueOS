@@ -11,6 +11,7 @@ import { WorkspaceStateService } from '../WorkspaceStateService.js'
 // Mock dependencies
 vi.mock('../CacheService');
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({

@@ -125,7 +125,7 @@ make down
 make logs
 
 # Apply migrations
-make migrate
+pnpm run db:migrate
 
 # Run tests
 make test
@@ -169,8 +169,8 @@ docker compose restart postgres
 ### Migration errors
 
 ```bash
-# Dry run migrations
-make migrate-dry
+# Re-run canonical migrations
+pnpm run db:migrate
 
 # Check migration files
 ls -la infra/postgres/migrations/

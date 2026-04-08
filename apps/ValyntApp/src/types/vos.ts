@@ -265,7 +265,6 @@ export interface TelemetryEvent {
 
 export interface RealizationReport {
   id: string;
-  value_commit_id: string;
   value_case_id: string;
   report_period_start: string;
   report_period_end: string;
@@ -274,6 +273,20 @@ export interface RealizationReport {
   generated_at: string;
   generated_by?: string;
   metadata: Record<string, unknown>;
+  // Extended fields from RealizationService.getLatestReport()
+  kpis?: Array<{
+    name: string;
+    committed_value: number;
+    realized_value: number;
+    unit: string;
+    variance_percentage: number;
+    direction: "over" | "under" | "on_target";
+  }>;
+  milestones?: Array<{ title: string; status: string; due_date: string }>;
+  risks?: Array<{ description: string; severity: string }>;
+  overall_realization_rate?: number | null;
+  recommendations?: string[];
+  report_date?: string;
 }
 
 export interface RealizationResult {

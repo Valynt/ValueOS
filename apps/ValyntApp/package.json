@@ -50,6 +50,7 @@
     "dompurify": "^3.3.1",
     "elkjs": "^0.9.3",
     "framer-motion": "^12.23.22",
+    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "hyperformula": "^3.1.0",
     "isomorphic-dompurify": "^2.30.0",
@@ -70,7 +71,8 @@
     "web-vitals": "4.2.4",
     "zod": "^3.25.76",
     "zundo": "^2.1.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "d3-force": "^3.0.0"
   },
   "devDependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1004.0",
@@ -81,6 +83,7 @@
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
     "@types/cors": "^2.8.19",
+    "@types/d3-force": "^3.0.10",
     "@types/express": "^5.0.6",
     "@types/html2canvas": "^1.0.0",
     "@types/jsonwebtoken": "^9.0.10",

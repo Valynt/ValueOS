@@ -981,7 +981,7 @@ infisical run --env=test -- pnpm test
 
 ### Required Local Variables
 
-When `SECRETS_PROVIDER=infisical`, the backend expects these values in the environment (either from your local-only env file or from `infisical run`):
+When `SECRETS_PROVIDER=infisical`, the backend expects these values in the environment. Put them in `ops/env/.env.backend.local` for the local path, or inject them at startup with `infisical run`:
 
 - `INFISICAL_SITE_URL`
 - `INFISICAL_CLIENT_ID`

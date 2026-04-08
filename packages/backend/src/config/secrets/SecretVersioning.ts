@@ -8,6 +8,8 @@
  * Created: 2024-11-29
  */
 
+import { randomBytes } from "node:crypto";
+
 import { logger } from '../../lib/logger.js'
 
 import type { ISecretProvider, SecretMetadata, SecretValue } from './ISecretProvider.js'
@@ -67,11 +69,12 @@ export class SecretVersioning {
   }
 
   /**
-   * Generate version ID
+   * Generate version ID using cryptographically secure random bytes.
+   * Math.random() was replaced with crypto.randomBytes() (Sprint 3 security fix).
    */
   private generateVersionId(): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = randomBytes(4).toString("hex"); // 8 hex chars
     return `v${timestamp}-${random}`;
   }
 

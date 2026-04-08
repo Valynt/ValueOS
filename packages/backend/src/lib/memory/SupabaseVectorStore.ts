@@ -15,7 +15,7 @@ import type { ProvenanceRecord } from '@valueos/memory';
 import type { VectorChunk, VectorStore } from '@valueos/memory';
 
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../supabase.js';
+import { createWorkerServiceSupabaseClient } from '../supabase/privileged/index.js';
 
 const logger = createLogger({ service: 'SupabaseVectorStore' });
 
@@ -75,10 +75,11 @@ function chunkToInsert(chunk: VectorChunk): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 export class SupabaseVectorStore implements VectorStore {
-  private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private supabase: ReturnType<typeof createWorkerServiceSupabaseClient>;
 
   constructor() {
-    this.supabase = createServerSupabaseClient();
+    // service-role:justified SupabaseVectorStore writes/reads agent memory embeddings across tenant boundary in worker context
+    this.supabase = createWorkerServiceSupabaseClient('SupabaseVectorStore: read/write agent memory embeddings');
   }
 
   async insertChunk(chunk: VectorChunk): Promise<void> {

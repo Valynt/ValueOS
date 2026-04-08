@@ -24,8 +24,14 @@ import { z } from "zod";
 import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
 import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
-import { LLMGateway as FabricLLMGateway, LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
-import { MemorySystem as FabricMemorySystem, MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
+import {
+  LLMGateway as FabricLLMGateway,
+  LLMGateway,
+} from "../../lib/agent-fabric/LLMGateway.js";
+import {
+  MemorySystem as FabricMemorySystem,
+  MemorySystem,
+} from "../../lib/agent-fabric/MemorySystem.js";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
@@ -33,13 +39,21 @@ import { AuthenticatedRequest, requireAuth } from "../../middleware/auth.js";
 import { rateLimiters } from "../../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../../middleware/tenantDbContext.js";
-import { agentExecutionLineageRepository } from "../../repositories/AgentExecutionLineageRepository.js";
 import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOpportunityRepository.js";
 import { IntegrityResultRepository } from "../../repositories/IntegrityResultRepository.js";
 import { NarrativeDraftRepository } from "../../repositories/NarrativeDraftRepository.js";
 import { RealizationReportRepository } from "../../repositories/RealizationReportRepository.js";
 import { getPdfExportService } from "../../services/export/PdfExportService.js";
 import { getPptxExportService } from "../../services/export/PptxExportService.js";
+import {
+  ExportJobRepository,
+  type CreateExportJobInput,
+  type ExportFormat,
+} from "../../services/export/ExportJobRepository.js";
+import {
+  getAsyncExportQueue,
+  type ExportJobPayload,
+} from "../../workers/AsyncExportWorker.js";
 import {
   type LifecycleContext as OrchestratorLifecycleContext,
   ValueLifecycleOrchestrator,
@@ -51,7 +65,7 @@ import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenera
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
 import { getBackHalfLLMGatewayConfig } from "./backHalfFactoryConfig.js";
 
-import { ValueIntegrityService } from "../../services/integrity/ValueIntegrityService.js";
+import { auditLogService } from "../../services/security/AuditLogService.js";
 
 const INTEGRITY_THRESHOLD = 0.6;
 
@@ -224,7 +238,10 @@ backHalfRouter.get(
       const integrityService = new ValueIntegrityService();
 
       // Calculate current integrity score
-      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityResult = await integrityService.calculateIntegrity(
+        caseId,
+        tenantId
+      );
       const integrityScore = integrityResult.score ?? 0;
 
       // Check for hard blocks (critical violations)
@@ -234,7 +251,8 @@ backHalfRouter.get(
         req.headers.authorization?.replace("Bearer ", "") ?? ""
       );
 
-      const canAdvance = integrityScore >= INTEGRITY_THRESHOLD && !hardBlockResult.blocked;
+      const canAdvance =
+        integrityScore >= INTEGRITY_THRESHOLD && !hardBlockResult.blocked;
 
       // Build remediation instructions if blocked
       const remediationInstructions: string[] = [];
@@ -270,7 +288,9 @@ backHalfRouter.get(
             warnings: hardBlockResult.soft_warnings.length,
             blocked: hardBlockResult.blocked,
           },
-          remediationInstructions: canAdvance ? undefined : remediationInstructions,
+          remediationInstructions: canAdvance
+            ? undefined
+            : remediationInstructions,
           nextStage: canAdvance ? "narrative" : undefined,
         },
       });
@@ -562,7 +582,10 @@ backHalfRouter.post(
     // Integrity check: block export if score < 0.6
     try {
       const integrityService = new ValueIntegrityService();
-      const integrityResult = await integrityService.calculateIntegrity(caseId, tenantId);
+      const integrityResult = await integrityService.calculateIntegrity(
+        caseId,
+        tenantId
+      );
       const integrityScore = integrityResult.score ?? 0;
 
       if (integrityScore < INTEGRITY_THRESHOLD) {
@@ -588,7 +611,10 @@ backHalfRouter.post(
         requestId,
         failClosed: true,
         exportBlocked: true,
-        error: integrityErr instanceof Error ? integrityErr.message : String(integrityErr),
+        error:
+          integrityErr instanceof Error
+            ? integrityErr.message
+            : String(integrityErr),
       });
 
       return res.status(503).json({
@@ -737,20 +763,483 @@ backHalfRouter.post(
 );
 
 // ---------------------------------------------------------------------------
+// Async Export Endpoints (P0 - Async Export Queue)
+// ---------------------------------------------------------------------------
+
+const AsyncExportBodySchema = z
+  .object({
+    format: z.enum(["pdf", "pptx"]),
+    exportType: z.enum(["full", "executive_summary", "financials_only", "hypotheses_only"]).optional(),
+    title: z.string().min(1).max(255).optional(),
+    ownerName: z.string().max(255).optional(),
+    renderUrl: z.string().url().optional(), // Required for PDF
+  })
+  .strict();
+
+/**
+ * POST /:id/export/async — Queue an async export job
+ *
+ * Creates an export job in the queue and returns a job ID.
+ * Client can poll GET /:id/export/jobs/:jobId or use SSE for progress.
+ */
+backHalfRouter.post(
+  "/:id/export/async",
+  ...auth,
+  rateLimiters.strict,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const caseId = getCaseId(req);
+    const userId = (req as AuthenticatedRequest).user?.id ?? "unknown";
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+    if (!caseId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Case ID required" });
+    }
+
+    const parsed = AsyncExportBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ success: false, error: parsed.error.message });
+    }
+
+    const { format, exportType, title, ownerName, renderUrl } = parsed.data;
+
+    // PDF requires renderUrl
+    if (format === "pdf" && !renderUrl) {
+      return res.status(400).json({
+        success: false,
+        error: "renderUrl is required for PDF exports",
+      });
+    }
+
+    // SSRF protection for PDF
+    if (format === "pdf" && renderUrl && !isAllowedRenderUrl(renderUrl)) {
+      return res.status(400).json({
+        success: false,
+        error: "renderUrl must point to the application origin",
+      });
+    }
+
+    // Integrity check
+    try {
+      const integrityService = new ValueIntegrityService();
+      const integrityResult = await integrityService.calculateIntegrity(
+        caseId,
+        tenantId
+      );
+      const integrityScore = integrityResult.score ?? 0;
+
+      if (integrityScore < INTEGRITY_THRESHOLD) {
+        return res.status(403).json({
+          success: false,
+          error: "Integrity check failed",
+          message: `Cannot export: integrity score (${(integrityScore * 100).toFixed(0)}%) is below the required threshold (${(INTEGRITY_THRESHOLD * 100).toFixed(0)}%).`,
+          integrityScore,
+          threshold: INTEGRITY_THRESHOLD,
+        });
+      }
+
+      // Create export job record
+      const jobRepo = new ExportJobRepository();
+      const job = await jobRepo.create({
+        tenantId,
+        organizationId: tenantId,
+        caseId,
+        userId,
+        format: format as ExportFormat,
+        exportType: exportType ?? "full",
+        title,
+        ownerName,
+        renderUrl,
+        integrityScoreAtExport: integrityScore,
+      });
+
+      // Queue the job
+      const queue = getAsyncExportQueue();
+      const jobPayload: ExportJobPayload = {
+        jobId: job.id,
+        tenantId,
+        organizationId: tenantId,
+        caseId,
+        userId,
+        format: format as ExportFormat,
+        exportType: exportType ?? "full",
+        title,
+        ownerName,
+        renderUrl,
+        traceId: uuidv4(),
+      };
+
+      await queue.add(`export-${job.id}`, jobPayload, {
+        jobId: job.id,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      });
+
+      logger.info("Async export job queued", {
+        jobId: job.id,
+        caseId,
+        tenantId,
+        format,
+      });
+
+      return res.status(202).json({
+        success: true,
+        data: {
+          jobId: job.id,
+          status: job.status,
+          message: `Export job queued. Use GET /export/jobs/${job.id}/status to check progress.`,
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Async export job creation failed", {
+        caseId,
+        tenantId,
+        error: message,
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to create export job",
+      });
+    }
+  }
+);
+
+/**
+ * GET /:id/export/jobs/:jobId/status — Get export job status and progress
+ */
+backHalfRouter.get(
+  "/:id/export/jobs/:jobId/status",
+  ...auth,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const jobId = (req.params as { jobId: string }).jobId;
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+    if (!jobId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Job ID required" });
+    }
+
+    try {
+      const jobRepo = new ExportJobRepository();
+      const job = await jobRepo.findById(jobId, tenantId);
+
+      if (!job) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Export job not found" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: job.id,
+          status: job.status,
+          progressPercent: job.progress_percent,
+          currentStep: job.current_step,
+          progressSteps: job.progress_steps,
+          format: job.format,
+          exportType: job.export_type,
+          signedUrl: job.signed_url,
+          signedUrlExpiresAt: job.signed_url_expires_at,
+          fileSizeBytes: job.file_size_bytes,
+          errorMessage: job.error_message,
+          createdAt: job.created_at,
+          startedAt: job.started_at,
+          completedAt: job.completed_at,
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Export job status fetch failed", {
+        jobId,
+        tenantId,
+        error: message,
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch export job status",
+      });
+    }
+  }
+);
+
+/**
+ * GET /:id/export/jobs/:jobId/events — SSE stream for real-time progress
+ * Alternative: GET /:id/export/jobs/:jobId/events?poll=true for polling
+ */
+backHalfRouter.get(
+  "/:id/export/jobs/:jobId/events",
+  ...auth,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const caseId = getCaseId(req);
+    const jobId = (req.params as { jobId: string }).jobId;
+    const since = req.query.since as string | undefined;
+    const usePolling = req.query.poll === "true";
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+    if (!caseId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Case ID required" });
+    }
+    if (!jobId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Job ID required" });
+    }
+
+    try {
+      const jobRepo = new ExportJobRepository();
+
+      // Polling mode - return events as JSON
+      if (usePolling) {
+        const events = await jobRepo.getEvents(jobId, tenantId, caseId, since);
+        return res.status(200).json({
+          success: true,
+          data: events,
+        });
+      }
+
+      // SSE mode - set up streaming
+      const job = await jobRepo.findById(jobId, tenantId);
+      if (!job) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Export job not found" });
+      }
+
+      // Verify the job belongs to this case (prevents case ID enumeration)
+      if (job.case_id !== caseId) {
+        return res
+          .status(403)
+          .json({ success: false, error: "Access denied" });
+      }
+
+      // Set up SSE headers
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      // Send initial job state
+      res.write(`data: ${JSON.stringify({ type: "init", job })}\n\n`);
+
+      // For SSE, we'll close after sending current state + recent events
+      // In production, this would use a pub/sub mechanism (Redis, etc.)
+      const events = await jobRepo.getEvents(jobId, tenantId, caseId, since);
+      for (const event of events) {
+        res.write(`data: ${JSON.stringify({ type: "event", event })}\n\n`);
+      }
+
+      res.write(`data: ${JSON.stringify({ type: "ready" })}\n\n`);
+      res.end();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Export job events fetch failed", {
+        jobId,
+        tenantId,
+        error: message,
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch export job events",
+      });
+    }
+  }
+);
+
+/**
+ * GET /:id/export/history — Get export history for a case (P1)
+ */
+backHalfRouter.get(
+  "/:id/export/history",
+  ...auth,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const caseId = getCaseId(req);
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+    if (!caseId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Case ID required" });
+    }
+
+    try {
+      const jobRepo = new ExportJobRepository();
+      const exports = await jobRepo.findCompletedByCase(caseId, tenantId, limit);
+
+      return res.status(200).json({
+        success: true,
+        data: exports.map((job) => ({
+          id: job.id,
+          format: job.format,
+          exportType: job.export_type,
+          title: job.title,
+          status: job.status,
+          fileSizeBytes: job.file_size_bytes,
+          signedUrl: job.signed_url,
+          signedUrlExpiresAt: job.signed_url_expires_at,
+          integrityScoreAtExport: job.integrity_score_at_export,
+          readinessScoreAtExport: job.readiness_score_at_export,
+          createdAt: job.created_at,
+          completedAt: job.completed_at,
+        })),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Export history fetch failed", {
+        caseId,
+        tenantId,
+        error: message,
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch export history",
+      });
+    }
+  }
+);
+
+/**
+ * POST /:id/export/jobs/:jobId/refresh — Refresh an expired signed URL
+ */
+backHalfRouter.post(
+  "/:id/export/jobs/:jobId/refresh",
+  ...auth,
+  rateLimiters.strict,
+  async (req: Request, res: Response) => {
+    const tenantId = getTenantId(req);
+    const jobId = (req.params as { jobId: string }).jobId;
+
+    if (!tenantId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Tenant context required" });
+    }
+    if (!jobId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Job ID required" });
+    }
+
+    try {
+      const jobRepo = new ExportJobRepository();
+      const job = await jobRepo.findById(jobId, tenantId);
+
+      if (!job) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Export job not found" });
+      }
+
+      if (job.status !== "completed" || !job.storage_path) {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot refresh URL for incomplete export",
+        });
+      }
+
+      // Generate new signed URL (1 hour)
+      const { supabase } = await import("../../lib/supabase.js");
+      const { data: signedData, error: signError } = await supabase.storage
+        .from("exports")
+        .createSignedUrl(job.storage_path, 60 * 60);
+
+      if (signError || !signedData?.signedUrl) {
+        throw new Error(
+          `Failed to create signed URL: ${signError?.message ?? "unknown"}`
+        );
+      }
+
+      await jobRepo.refreshSignedUrl(
+        jobId,
+        tenantId,
+        signedData.signedUrl,
+        new Date(Date.now() + 60 * 60 * 1000)
+      );
+
+      // Audit log the URL refresh for sensitive financial export access
+      await auditLogService.logAudit({
+        tenantId,
+        userId: (req as AuthenticatedRequest).user?.id ?? "unknown",
+        userName: (req as AuthenticatedRequest).user?.email ?? "unknown",
+        userEmail: (req as AuthenticatedRequest).user?.email ?? "",
+        action: "export_url_refresh",
+        resourceType: "export_job",
+        resourceId: jobId,
+        caseId: job.case_id,
+        details: {
+          format: job.format,
+          exportType: job.export_type,
+          integrityScoreAtExport: job.integrity_score_at_export,
+        },
+        severity: "info",
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          signedUrl: signedData.signedUrl,
+          signedUrlExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Signed URL refresh failed", {
+        jobId,
+        tenantId,
+        error: message,
+      });
+      return res.status(500).json({
+        success: false,
+        error: "Failed to refresh signed URL",
+      });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // GET /:id/provenance/:claimId — claim lineage chain
 // ---------------------------------------------------------------------------
 
 function getBackHalfProvenanceTracker(
   client: Request["supabase"],
-  tenantId: string,
+  tenantId: string
 ): ProvenanceTracker {
   if (!client) {
-    throw new Error("Authenticated Supabase context required for provenance lookups");
+    throw new Error(
+      "Authenticated Supabase context required for provenance lookups"
+    );
   }
 
   const store = new SupabaseProvenanceStore(
     client as unknown as ReturnType<typeof createClient>,
-    tenantId,
+    tenantId
   ) as unknown as ProvenanceStore;
   return new ProvenanceTracker(store);
 }
@@ -805,9 +1294,13 @@ backHalfRouter.get(
 // POST /:id/run-loop — trigger the hypothesis-first core loop
 // ---------------------------------------------------------------------------
 
-function createOrchestrator(supabaseClient: Request["supabase"]): ValueLifecycleOrchestrator {
+function createOrchestrator(
+  supabaseClient: Request["supabase"]
+): ValueLifecycleOrchestrator {
   if (!supabaseClient) {
-    throw new Error("Authenticated Supabase context required for lifecycle orchestration");
+    throw new Error(
+      "Authenticated Supabase context required for lifecycle orchestration"
+    );
   }
 
   return new ValueLifecycleOrchestrator(
@@ -853,7 +1346,10 @@ backHalfRouter.post(
     logger.info("run-loop triggered", { caseId, tenantId, userId, sessionId });
 
     try {
-      const result = await createOrchestrator(req.supabase).runHypothesisLoop(caseId, context);
+      const result = await createOrchestrator(req.supabase).runHypothesisLoop(
+        caseId,
+        context
+      );
 
       logger.info("run-loop completed", {
         caseId,

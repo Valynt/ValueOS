@@ -13,6 +13,7 @@ const _db = vi.hoisted(() => ({ processedIds: new Set<string>() }));
 // Path relative to test file (src/services/billing/__tests__/) must resolve to
 // the same module WebhookService imports: src/lib/supabase.js
 vi.mock('../../../lib/supabase.js', () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: vi.fn(() => ({ from: vi.fn() })),
   supabase: {
     from: vi.fn().mockImplementation((table: string) => ({

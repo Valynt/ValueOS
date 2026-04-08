@@ -3,6 +3,9 @@ import type { SDUIComponent } from "./types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ModeSelector } from "@/components/mode/ModeSelector";
+import { InspectorPanel } from "@/components/value/InspectorPanel";
+import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 
 interface SDUIRendererProps {
   component: SDUIComponent;
@@ -82,6 +85,77 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
             </li>
           ))}
         </ul>
+      );
+
+    // Warmth component extensions
+    case "warmth_card": {
+      const warmth = (props.warmth as string) || "forming";
+      const warmthClasses: Record<string, string> = {
+        forming: "border-amber-400 bg-amber-50",
+        firm: "border-blue-400 bg-white",
+        verified: "border-emerald-400 bg-emerald-50",
+      };
+      return (
+        <div className={`rounded-lg border-2 p-4 ${warmthClasses[warmth]}`}>
+          {props.title && <h3 className="font-semibold mb-2">{String(props.title)}</h3>}
+          {props.content && <p className="text-sm text-gray-700">{String(props.content)}</p>}
+        </div>
+      );
+    }
+
+    case "warmth_badge": {
+      const warmth = (props.warmth as string) || "forming";
+      const badgeClasses: Record<string, string> = {
+        forming: "bg-amber-100 text-amber-800",
+        firm: "bg-blue-100 text-blue-800",
+        verified: "bg-emerald-100 text-emerald-800",
+      };
+      return (
+        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badgeClasses[warmth]}`}>
+          {warmth}
+        </span>
+      );
+    }
+
+    case "mode_selector":
+      return (
+        <ModeSelector
+          activeMode={props.activeMode as string}
+          onModeChange={(mode: string) => onAction?.("mode_change", { mode })}
+          availableModes={props.availableModes as string[]}
+          warmthState={props.warmthState as string}
+        />
+      );
+
+    case "narrative_stream":
+      return (
+        <div className="space-y-4">
+          {children?.map((child) => (
+            <SDUIRenderer key={child.id} component={child} onAction={onAction} />
+          ))}
+        </div>
+      );
+
+    case "inspector_panel":
+      return (
+        <InspectorPanel
+          node={props.node as unknown}
+          warmth={props.warmth as string}
+          operationalState={props.operationalState as unknown}
+          onShowLineage={() => onAction?.("show_lineage", {})}
+          onEdit={() => onAction?.("edit", {})}
+          onRequestEvidence={() => onAction?.("request_evidence", {})}
+        />
+      );
+
+    case "copilot_panel":
+      return (
+        <CopilotPanel
+          caseId={props.caseId as string}
+          warmth={props.warmth as string}
+          onNavigateToNode={(nodeId: string) => onAction?.("navigate_to_node", { nodeId })}
+          onSwitchMode={(mode: string) => onAction?.("switch_mode", { mode })}
+        />
       );
 
     default:

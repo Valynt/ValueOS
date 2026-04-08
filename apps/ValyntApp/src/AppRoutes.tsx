@@ -6,6 +6,7 @@
 import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
+import { LayoutSkeleton } from "./components/common/LayoutSkeleton";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
@@ -13,7 +14,6 @@ import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { NotificationProvider } from "./components/shell/NotificationCenter";
-import { LoadingSpinner } from "./components/common/LoadingSpinner";
 import { ToastProvider } from "./components/common/Toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
@@ -36,8 +36,12 @@ const SignupPage = lazy(() =>
     default: m.ModernSignupPage,
   }))
 );
-const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
-const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
+const ResetPasswordPage = lazy(() =>
+  import("./views/Auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage }))
+);
+const AuthCallback = lazy(() =>
+  import("./views/Auth/AuthCallback").then((m) => ({ default: m.AuthCallback }))
+);
 const GuestAccessPage = lazy(() =>
   import("./pages/guest/GuestAccessPage").then((m) => ({
     default: m.GuestAccessPage,
@@ -57,39 +61,79 @@ const EnvironmentBanner = lazy(() =>
 
 // Lazy load app shell + pages
 const MainLayout = lazy(() => import("./layouts/MainLayout").then((m) => ({ default: m.MainLayout })));
-const Dashboard = lazy(() => import("./views/Dashboard"));
-const Opportunities = lazy(() => import("./views/Opportunities"));
-const OpportunityDetail = lazy(() => import("./views/OpportunityDetail"));
+const Dashboard = lazy(() => import("./views/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Opportunities = lazy(() => import("./views/Opportunities").then((m) => ({ default: m.Opportunities })));
+const OpportunityDetail = lazy(() => import("./views/OpportunityDetail").then((m) => ({ default: m.OpportunityDetail })));
 const ValueCaseCanvas = lazy(() =>
   import("./views/ValueCaseCanvas").then((m) => ({
     default: m.ValueCaseCanvas,
   })),
 );
-const Models = lazy(() => import("./views/Models"));
-const ModelDetail = lazy(() => import("./views/ModelDetail"));
-const Agents = lazy(() => import("./views/Agents"));
-const AgentDetail = lazy(() => import("./views/AgentDetail"));
-const Integrations = lazy(() => import("./views/Integrations"));
+const Models = lazy(() => import("./views/Models").then((m) => ({ default: m.Models })));
+const ModelDetail = lazy(() => import("./views/ModelDetail").then((m) => ({ default: m.ModelDetail })));
+const Agents = lazy(() => import("./views/Agents").then((m) => ({ default: m.Agents })));
+const AgentDetail = lazy(() => import("./views/AgentDetail").then((m) => ({ default: m.AgentDetail })));
+const Integrations = lazy(() => import("./views/Integrations").then((m) => ({ default: m.Integrations })));
 const SettingsLayout = lazy(() =>
   import("./pages/settings/SettingsLayout").then((m) => ({ default: m.SettingsLayout }))
 );
-const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
-const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
-const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
-const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
-const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
-const LivingValueGraphPage = lazy(() => import("./views/LivingValueGraphPage"));
+const CompanyOnboarding = lazy(() =>
+  import("./views/CompanyOnboarding").then((m) => ({ default: m.CompanyOnboarding }))
+);
+const CreateOrganization = lazy(() =>
+  import("./views/CreateOrganization").then((m) => ({ default: m.CreateOrganization }))
+);
+const CompanyKnowledge = lazy(() =>
+  import("./views/CompanyKnowledge").then((m) => ({ default: m.CompanyKnowledge }))
+);
+const ValueCaseWorkspace = lazy(() =>
+  import("./views/ValueCaseWorkspace").then((m) => ({ default: m.ValueCaseWorkspace }))
+);
+const AgentAdminPage = lazy(() =>
+  import("./views/Admin/AgentAdminPage").then((m) => ({ default: m.AgentAdminPage }))
+);
+const LivingValueGraphPage = lazy(() =>
+  import("./views/LivingValueGraphPage").then((m) => ({ default: m.LivingValueGraphPage }))
+);
+
+// Warmth-era surfaces (Phase 3)
+const ReviewPage = lazy(() =>
+  import("./features/review/ReviewPage").then((m) => ({ default: m.ReviewPage }))
+);
+const CaseListPage = lazy(() =>
+  import("./features/cases/CaseListPage").then((m) => ({ default: m.CaseListPage }))
+);
+const RealizationReviewPage = lazy(() =>
+  import("./views/RealizationReviewPage").then((m) => ({ default: m.RealizationReviewPage }))
+);
+const TemplatesPlaceholder = lazy(() =>
+  import("./views/TemplatesPlaceholder").then((m) => ({ default: m.TemplatesPlaceholder }))
+);
 
 // V1 Surface Views
-const DealAssemblyWorkspace = lazy(() => import("./views/DealAssemblyWorkspace"));
-const ValueModelWorkbench = lazy(() => import("./views/ValueModelWorkbench"));
-const IntegrityDashboard = lazy(() => import("./views/IntegrityDashboard"));
-const ExecutiveOutputStudio = lazy(() => import("./views/ExecutiveOutputStudio"));
-const RealizationTracker = lazy(() => import("./views/RealizationTracker"));
-const BillingPortal = lazy(() => import("./views/BillingPortal"));
+const DealAssemblyWorkspace = lazy(() =>
+  import("./views/DealAssemblyWorkspace").then((m) => ({ default: m.DealAssemblyWorkspace }))
+);
+const ValueModelWorkbench = lazy(() =>
+  import("./views/ValueModelWorkbench").then((m) => ({ default: m.ValueModelWorkbench }))
+);
+const IntegrityDashboard = lazy(() =>
+  import("./views/IntegrityDashboard").then((m) => ({ default: m.IntegrityDashboard }))
+);
+const ExecutiveOutputStudio = lazy(() =>
+  import("./views/ExecutiveOutputStudio").then((m) => ({ default: m.ExecutiveOutputStudio }))
+);
+const RealizationTracker = lazy(() =>
+  import("./views/RealizationTracker").then((m) => ({ default: m.RealizationTracker }))
+);
+const BillingPortal = lazy(() =>
+  import("./views/BillingPortal").then((m) => ({ default: m.BillingPortal }))
+);
 
 // Academy v2 (migrated from VOSAcademy)
-const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
+const AcademyV2Routes = lazy(() =>
+  import("./features/academy-v2/routes").then((m) => ({ default: m.AcademyV2Routes }))
+);
 const MainLayoutSkipLinkHarness = lazy(() =>
   import("./views/testing/MainLayoutSkipLinkHarness").then((m) => ({
     default: m.MainLayoutSkipLinkHarness,
@@ -112,7 +156,7 @@ function TenantAwareRedirect({ leafPath }: { leafPath: string }) {
   const { currentTenant, isLoading } = useTenant();
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <LayoutSkeleton variant="embedded" />;
   }
 
   if (!currentTenant) {
@@ -132,7 +176,7 @@ function LegacyTenantRouteBridge() {
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <LayoutSkeleton variant="embedded" />;
   }
   if (!currentTenant) {
     return <Navigate to="/create-org" replace />;
@@ -175,7 +219,7 @@ export function AppRoutes() {
                       <SDUIStateProvider _supabase={supabase}>
                         <SDUIHumanCheckpointProvider>
                           <CommandPaletteProvider>
-                            <Suspense fallback={<LoadingSpinner />}>
+                            <Suspense fallback={<LayoutSkeleton variant="fullscreen" />}>
                               <Routes>
                                 {/* Public Auth Routes */}
                                 {publicRoutePaths.map((path) => (
@@ -268,12 +312,26 @@ export function AppRoutes() {
                                           </Route>
                                         </Route>
 
-                                        <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
-                                        <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
-                                        <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
-                                        <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
-                                        <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
-                                        <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
+                                        {/* H-4: Per-route ErrorBoundaries for workspace views so a crash in one
+                                            workspace pane does not unmount the entire application. */}
+                                        {/* Warmth-era routes — coexist with legacy during 90-day bridge */}
+                                        <Route path="work" element={<Dashboard />} />
+                                        <Route path="work/cases" element={<CaseListPage />} />
+                                        <Route path="work/cases/new" element={<Opportunities />} />
+                                        <Route path="case/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
+                                        <Route path="review/:caseId" element={<ReviewPage />} />
+                                        <Route path="review/:caseId/actuals" element={<RealizationReviewPage />} />
+                                        <Route path="library/models" element={<Models />} />
+                                        <Route path="library/templates" element={<TemplatesPlaceholder />} />
+                                        <Route path="library/agents" element={<Agents />} />
+
+                                        {/* V1 workspace routes */}
+                                        <Route path="workspace/:caseId" element={<ErrorBoundary context="value-case-workspace"><ValueCaseWorkspace /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/assembly" element={<ErrorBoundary context="deal-assembly"><DealAssemblyWorkspace /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/model" element={<ErrorBoundary context="value-model-workbench"><ValueModelWorkbench /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/integrity" element={<ErrorBoundary context="integrity-dashboard"><IntegrityDashboard /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/outputs" element={<ErrorBoundary context="executive-output-studio"><ExecutiveOutputStudio /></ErrorBoundary>} />
+                                        <Route path="workspace/:caseId/realization" element={<ErrorBoundary context="realization-tracker"><RealizationTracker /></ErrorBoundary>} />
                                         <Route
                                           element={
                                             <PermissionRoute
@@ -283,14 +341,25 @@ export function AppRoutes() {
                                         >
                                           <Route path="billing" element={<BillingPortal />} />
                                         </Route>
-                                        <Route path="company" element={<CompanyKnowledge />} />
+                                        <Route path="company" element={<ErrorBoundary context="company-knowledge"><CompanyKnowledge /></ErrorBoundary>} />
                                         <Route
                                           path="living-value-graph/:opportunityId?/:caseId?"
-                                          element={<LivingValueGraphPage />}
+                                          element={<ErrorBoundary context="living-value-graph"><LivingValueGraphPage /></ErrorBoundary>}
                                         />
-                                        <Route path="academy/*" element={<AcademyV2Routes />} />
+                                        <Route path="academy/*" element={<ErrorBoundary context="academy"><AcademyV2Routes /></ErrorBoundary>} />
                                       </Route>
                                     </Route>
+
+                                    {/* Warmth-era non-tenant routes also bridge to canonical tenant URL */}
+                                    <Route path="/work" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/work/cases" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/work/cases/new" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/case/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/review/:caseId" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/review/:caseId/actuals" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/models" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/templates" element={<LegacyTenantRouteBridge />} />
+                                    <Route path="/library/agents" element={<LegacyTenantRouteBridge />} />
 
                                     {/* Legacy non-tenant routes bridge to canonical tenant URL */}
                                     <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />

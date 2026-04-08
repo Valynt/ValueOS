@@ -8,7 +8,10 @@
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
 
-import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
+import {
+  assertRealNetworkAllowed,
+  isRealNetworkAllowed,
+} from "./runtimeGuards";
 
 // ---------------------------------------------------------------------------
 // Global prom-client mock — prevents "metric already registered" errors
@@ -23,10 +26,22 @@ const mockRegistry = {
 
 vi.mock("prom-client", () => ({
   Registry: vi.fn(() => mockRegistry),
-  Counter: vi.fn(() => ({ inc: vi.fn(), labels: vi.fn(() => ({ inc: vi.fn() })) })),
-  Histogram: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
-  Gauge: vi.fn(() => ({ set: vi.fn(), labels: vi.fn(() => ({ set: vi.fn() })) })),
-  Summary: vi.fn(() => ({ observe: vi.fn(), labels: vi.fn(() => ({ observe: vi.fn() })) })),
+  Counter: vi.fn(() => ({
+    inc: vi.fn(),
+    labels: vi.fn(() => ({ inc: vi.fn() })),
+  })),
+  Histogram: vi.fn(() => ({
+    observe: vi.fn(),
+    labels: vi.fn(() => ({ observe: vi.fn() })),
+  })),
+  Gauge: vi.fn(() => ({
+    set: vi.fn(),
+    labels: vi.fn(() => ({ set: vi.fn() })),
+  })),
+  Summary: vi.fn(() => ({
+    observe: vi.fn(),
+    labels: vi.fn(() => ({ observe: vi.fn() })),
+  })),
   collectDefaultMetrics: vi.fn(),
 }));
 
@@ -66,7 +81,9 @@ vi.mock("ioredis", () => {
         operations.push(() => redis.publish(...args));
         return chain;
       }),
-      exec: vi.fn(async () => Promise.all(operations.map((operation) => operation()))),
+      exec: vi.fn(async () =>
+        Promise.all(operations.map(operation => operation()))
+      ),
     };
     return chain;
   };
@@ -75,7 +92,10 @@ vi.mock("ioredis", () => {
     private readonly kv = new Map<string, string>();
     private readonly sets = new Map<string, Set<string>>();
     private readonly hashes = new Map<string, Map<string, string>>();
-    private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    private readonly listeners = new Map<
+      string,
+      Array<(...args: unknown[]) => void>
+    >();
 
     constructor(_url?: string, _options?: Record<string, unknown>) {}
 
@@ -137,7 +157,7 @@ vi.mock("ioredis", () => {
 
     async sadd(key: string, ...values: string[]) {
       const set = this.sets.get(key) ?? new Set<string>();
-      values.forEach((value) => set.add(value));
+      values.forEach(value => set.add(value));
       this.sets.set(key, set);
       return set.size;
     }
@@ -146,7 +166,7 @@ vi.mock("ioredis", () => {
       const set = this.sets.get(key);
       if (!set) return 0;
       let removed = 0;
-      values.forEach((value) => {
+      values.forEach(value => {
         if (set.delete(value)) removed += 1;
       });
       return removed;
@@ -178,6 +198,13 @@ vi.mock("ioredis", () => {
     async subscribe(..._channels: string[]) {
       return 1;
     }
+
+    async flushall() {
+      this.kv.clear();
+      this.sets.clear();
+      this.hashes.clear();
+      return "OK";
+    }
   }
 
   return {
@@ -185,6 +212,59 @@ vi.mock("ioredis", () => {
     Redis: MockRedis,
   };
 });
+
+// ---------------------------------------------------------------------------
+// Global agent-fabric mocks — provides LLMGateway and MemorySystem.
+// ---------------------------------------------------------------------------
+
+vi.mock("../lib/agent-fabric/LLMGateway.js", () => ({
+  LLMGateway: class {
+    constructor(_provider?: string) {}
+    complete = vi.fn().mockImplementation(async (requestBody: any) => {
+      const metadata = requestBody.metadata || {};
+      const tenantId =
+        metadata.tenant_id ||
+        metadata.tenantId ||
+        metadata.organization_id ||
+        metadata.organizationId;
+
+      if (!tenantId) {
+        throw new Error(
+          "LLMGateway: Missing tenant/organization ID in metadata"
+        );
+      }
+      return { content: "{}" };
+    });
+  },
+}));
+
+vi.mock("../lib/agent-fabric/MemorySystem.js", () => ({
+  MemorySystem: class {
+    constructor(_config?: unknown) {}
+    store = vi.fn().mockImplementation(async (memory: any) => {
+      if (!memory.organization_id) {
+        throw new Error("MemorySystem: Missing organization_id in store()");
+      }
+      return "mem_1";
+    });
+    retrieve = vi.fn().mockImplementation(async (query: any) => {
+      if (!query.organization_id) {
+        throw new Error("MemorySystem: Missing organization_id in retrieve()");
+      }
+      return [];
+    });
+    storeSemanticMemory = vi.fn().mockImplementation(async (...args: any[]) => {
+      const organizationId = args[5]; // 6th parameter
+      if (!organizationId) {
+        throw new Error(
+          "MemorySystem: Missing organizationId in storeSemanticMemory()"
+        );
+      }
+      return "mem_1";
+    });
+    clear = vi.fn().mockResolvedValue(0);
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Global logger mock — provides createLogger as a fallback for all tests.
@@ -263,8 +343,8 @@ vi.mock("@shared/lib/logger", () => ({
 process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
 process.env.SUPABASE_ANON_KEY ??= "test-anon-key";
-
-
+process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
+process.env.VALUEOS_TEST_ALLOW_SUPABASE = "true";
 
 // LLM config
 process.env.LLM_PROVIDER ??= "together";
@@ -279,10 +359,13 @@ if (originalFetch && !isRealNetworkAllowed()) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
-      const target = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+      const target =
+        typeof input === "string" || input instanceof URL
+          ? String(input)
+          : input.url;
       assertRealNetworkAllowed(target);
       return originalFetch(input);
-    }),
+    })
   );
 }
 
@@ -303,6 +386,13 @@ beforeEach(async () => {
   const EntitlementsService = entitlementsModule.EntitlementsService;
   if (typeof EntitlementsService?.setInstance === "function") {
     EntitlementsService.setInstance(new EntitlementsService(supabase));
+  }
+
+  // Flush Redis mock between tests
+  const redisModule = await import("ioredis");
+  const redis = new (redisModule as any).default();
+  if (typeof redis.flushall === "function") {
+    await redis.flushall();
   }
 });
 

@@ -75,6 +75,37 @@
   }
 }
 
+/* ============================================================================
+ * Warmth System
+ * Three-state perceptual model: forming → firm → verified
+ * ============================================================================ */
+
+@keyframes warmth-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes warmth-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0); }
+  50% { box-shadow: 0 0 8px 2px rgb(59 130 246 / 0.15); }
+}
+
+@layer components {
+  .warmth-forming {
+    @apply border-dashed border-amber-300 bg-amber-50;
+    animation: warmth-pulse 3s ease-in-out infinite;
+  }
+
+  .warmth-firm {
+    @apply border-solid border-blue-200 bg-white;
+  }
+
+  .warmth-verified {
+    @apply border-solid border-blue-500 bg-blue-50;
+    animation: warmth-glow 2s ease-in-out infinite;
+  }
+}
+
 /*
  * Tenant theme scoping: Only apply theme tokens when [data-theme] is set.
  * Example: <div data-theme="ai-indigo"> ... </div>

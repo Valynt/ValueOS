@@ -43,10 +43,12 @@ function isReadinessComponent(value: unknown): value is ReadinessComponent {
 function isReadinessGaugeData(value: unknown): value is ReadinessGaugeData {
   if (typeof value !== "object" || value === null) return false;
   const data = value as Record<string, unknown>;
-  
+
   return (
     "compositeScore" in data &&
     typeof data.compositeScore === "number" &&
+    (data.compositeScore as number) >= 0 &&
+    (data.compositeScore as number) <= 1 &&
     "status" in data &&
     ["presentation-ready", "draft", "blocked"].includes(data.status as string) &&
     "components" in data &&
@@ -99,17 +101,17 @@ export function ReadinessGauge({ data }: WidgetProps) {
   // Calculate circle properties
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (compositeScore / 100) * circumference;
+  const strokeDashoffset = circumference - compositeScore * circumference;
 
   const getScoreColor = React.useCallback((score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 50) return "text-amber-600";
+    if (score >= 0.8) return "text-green-600";
+    if (score >= 0.5) return "text-amber-600";
     return "text-red-600";
   }, []);
 
   const getScoreBg = React.useCallback((score: number) => {
-    if (score >= 80) return "bg-green-500";
-    if (score >= 50) return "bg-amber-500";
+    if (score >= 0.8) return "bg-green-500";
+    if (score >= 0.5) return "bg-amber-500";
     return "bg-red-500";
   }, []);
 

@@ -18,7 +18,7 @@ import { Queue, Worker, type Job } from 'bullmq';
 
 import { logger } from '../lib/logger.js';
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
 import { getAgentMessageQueueConfig } from '../config/ServiceConfigManager.js';
 import { attachQueueMetrics } from '../observability/queueMetrics.js';
 import { CertificateJobRepository } from '../services/certificates/CertificateJobRepository.js';
@@ -155,7 +155,8 @@ async function processCertificateJob(job: Job<CertificateGenerationJobPayload>):
     traceId,
   });
 
-  const supabase = createServerSupabaseClient();
+  // service-role:justified CertificateGenerationWorker writes certificate job state across tenant boundary
+  const supabase = createWorkerServiceSupabaseClient('CertificateGenerationWorker: write certificate job state');
 
   try {
     // Mark job as running

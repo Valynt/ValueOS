@@ -33,7 +33,7 @@ import { parseCorsAllowlist } from "@shared/config/cors";
 import { initializeContext } from "@shared/lib/context";
 import compression from "compression";
 import cors from "cors";
-import * as express from "express";
+import express from "express";
 import type { Application, Request, Response, NextFunction } from "express";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 
@@ -81,6 +81,7 @@ import { integrityRouter } from "./api/integrity.js";
 import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
 import { reasoningTracesRouter } from "./api/reasoningTraces.js";
 import { valueGraphRouter as valueGraphCaseRouter } from "./routes/value-graph.js";
+import realizationRouter from './routes/realization.js';
 import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
 import experienceRouter from "./api/experience.js";
@@ -145,6 +146,16 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction) {
+      logger.error(
+        "Telemetry modules required in production but failed to initialize — aborting startup",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+      process.exit(1);
+    }
     logger.warn(
       "Telemetry modules not available, running without observability",
       {
@@ -506,7 +517,7 @@ const stripeRawParser = express.raw({
   type: "application/json",
   limit: "256kb",
 });
-const jsonParser = express.json();
+const jsonParser = express.json({ limit: '100kb' });
 app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
     stripeRawParser(req, _res, next);
@@ -658,16 +669,27 @@ app.use("/api", experienceStreamRouter);
 app.use(
   "/api/documents",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   documentRouter
 );
 app.use("/api/docs", docsApiRouter);
-app.use("/api", requireAuth, tenantContextMiddleware(), artifactsRouter);
-app.use("/api/referrals", referralsRouter);
+app.use("/api", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), artifactsRouter);
+// SECURITY (B-5 + H-1): referrals router requires auth, tenant alignment, and
+// tenant context at the mount point. ReferralService uses the RLS-scoped client.
+app.use(
+  "/api/referrals",
+  requireAuth,
+  requireTenantRequestAlignment(),
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  referralsRouter
+);
 app.use(
   "/api/usage",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   usageRouter
@@ -683,6 +705,10 @@ app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
 app.use("/api/v1/graph", valueGraphRouter);
 app.use("/api/v1/audit-logs", auditLogsRouter);
+// H-1: requireTenantRequestAlignment is applied at the individual route level
+// for /api/v1/* routes because they share a common /api/v1 prefix. The
+// alignment check requires the organizationId to be present in the request
+// body or query, which is enforced per-route in the respective routers.
 app.use("/api/v1/cases", valueCasesRouter);
 // Integrity endpoints — mounted on the same /api/v1/cases prefix so
 // /:caseId/integrity and /:caseId/integrity/resolve/:id resolve correctly.
@@ -690,7 +716,9 @@ app.use("/api/v1/cases", integrityRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
 // Value Graph API — Sprint 49
-app.use("/api/v1/cases", valueGraphCaseRouter);
+app.use('/api/v1/cases', valueGraphRouter);
+// Realization API — mounted for post-sale value tracking
+app.use('/api', realizationRouter);
 // Reasoning traces — Sprint 52
 app.use("/api/v1", reasoningTracesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
@@ -700,17 +728,19 @@ app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
 app.use(
   "/api/compliance/evidence",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   complianceEvidenceRouter
 );
 app.use("/api/approval-inbox", approvalInboxRouter);
 
-app.use("/api/trpc", requireAuth, tenantContextMiddleware(), appTrpcMiddleware);
+app.use("/api/trpc", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), appTrpcMiddleware);
 
 // Academy tRPC endpoint (mounted under /api/academy)
 app.use(
   "/api/academy",
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   academyTrpcMiddleware
 );

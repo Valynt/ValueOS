@@ -131,8 +131,15 @@ export function ModelStage() {
 
       {/* Error */}
       {isError && !isLoading && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-700">
-          Failed to load value tree data.
+        <div role="alert" className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-700 flex items-center justify-between">
+          <span>Failed to load value tree data.</span>
+          <button
+            onClick={() => runTarget.mutate({})}
+            disabled={runTarget.isPending}
+            className="ml-3 px-3 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-[12px] font-medium rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 

@@ -23,6 +23,13 @@ function normalizeRequiredChecks(policy) {
     });
   }
 
+  for (const [tagPattern, checks] of Object.entries(policy.requiredChecksByTag ?? {})) {
+    normalized[tagPattern] = checks.map((entry) => {
+      const hasScope = typeof entry.scope === "string" && entry.scope.trim().length > 0;
+      return hasScope ? `${entry.check} (${entry.scope})` : entry.check;
+    });
+  }
+
   return normalized;
 }
 

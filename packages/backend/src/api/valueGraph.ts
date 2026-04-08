@@ -27,6 +27,7 @@
 
 import { createLogger } from "@shared/lib/logger";
 import type { NextFunction, Request, Response, Router } from "express";
+import { createLogger } from "../lib/logger.js";
 import { Router as ExpressRouter } from "express";
 import { z } from "zod";
 
@@ -38,14 +39,14 @@ import { validateOpportunityAccess } from "../middleware/validateOpportunityAcce
 import { auditLogService } from "../services/security/AuditLogService.js";
 import { claimEvidenceGraphService } from "../services/value-graph/ClaimEvidenceGraphService.js";
 import {
-  valueGraphService,
+  ValueGraphService,
   type WriteEdgeInput,
 } from "../services/value-graph/ValueGraphService.js";
 
 const logger = createLogger({ component: "valueGraph.router" });
 
 // ---------------------------------------------------------------------------
-// UUID validation helper (used by the Sprint 50 endpoint)
+// UUID validation helper
 // ---------------------------------------------------------------------------
 
 const UUID_RE =
@@ -62,13 +63,25 @@ function isValidUuid(value: unknown): value is string {
 const WriteEdgeBodySchema = z.object({
   from_entity_id: z.string().uuid(),
   from_entity_type: z.enum([
-    "account", "stakeholder", "use_case", "vg_capability",
-    "vg_metric", "vg_value_driver", "evidence", "value_hypothesis",
+    "account",
+    "stakeholder",
+    "use_case",
+    "vg_capability",
+    "vg_metric",
+    "vg_value_driver",
+    "evidence",
+    "value_hypothesis",
   ]),
   to_entity_id: z.string().uuid(),
   to_entity_type: z.enum([
-    "account", "stakeholder", "use_case", "vg_capability",
-    "vg_metric", "vg_value_driver", "evidence", "value_hypothesis",
+    "account",
+    "stakeholder",
+    "use_case",
+    "vg_capability",
+    "vg_metric",
+    "vg_value_driver",
+    "evidence",
+    "value_hypothesis",
   ]),
   edge_type: z.enum([
     "use_case_enabled_by_capability",
@@ -92,14 +105,6 @@ const UpdateNodeBodySchema = z.object({
   ontology_version: z.string().optional(),
 });
 
-// ---------------------------------------------------------------------------
-// Helper — extract tenantId from request
-// ---------------------------------------------------------------------------
-
-function getTenantId(req: Request): string {
-  return req.tenantId ?? (req.user?.tenant_id as string) ?? "";
-}
-
 // ===========================================================================
 // Sprint 49 router — full CRUD API, mounted at /api/v1/graph
 // ===========================================================================
@@ -110,7 +115,7 @@ export const valueGraphRouter: Router = ExpressRouter();
 valueGraphRouter.use(
   requireAuth,
   tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
+  tenantDbContextMiddleware()
 );
 
 // validateOpportunityAccess is applied per-route (after params are parsed)
@@ -125,12 +130,13 @@ valueGraphRouter.get(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
 
     try {
+      const valueGraphService = new ValueGraphService(req.supabase);
       const graph = await valueGraphService.getGraphForOpportunity(
         opportunityId,
-        organizationId,
+        organizationId
       );
 
       const edgeCounts: Record<string, number> = {};
@@ -142,9 +148,14 @@ valueGraphRouter.get(
         opportunity_id: opportunityId,
         organization_id: organizationId,
         node_counts: {
-          capabilities: graph.nodes.filter((n) => n.entity_type === "vg_capability").length,
-          metrics: graph.nodes.filter((n) => n.entity_type === "vg_metric").length,
-          value_drivers: graph.nodes.filter((n) => n.entity_type === "vg_value_driver").length,
+          capabilities: graph.nodes.filter(
+            n => n.entity_type === "vg_capability"
+          ).length,
+          metrics: graph.nodes.filter(n => n.entity_type === "vg_metric")
+            .length,
+          value_drivers: graph.nodes.filter(
+            n => n.entity_type === "vg_value_driver"
+          ).length,
           total: graph.nodes.length,
         },
         edge_counts: {
@@ -153,10 +164,13 @@ valueGraphRouter.get(
         },
       });
     } catch (err) {
-      logger.error("GET /summary failed", { opportunityId, error: (err as Error).message });
+      logger.error("GET /summary failed", {
+        opportunityId,
+        error: (err as Error).message,
+      });
       res.status(500).json({ error: "Failed to load graph summary." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -168,20 +182,19 @@ valueGraphRouter.get(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
     const entityType = req.query["entity_type"] as string | undefined;
-    const page = Math.max(1, parseInt(String(req.query["page"] ?? "1"), 10));
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query["limit"] ?? "50"), 10)));
 
     try {
+      const valueGraphService = new ValueGraphService(req.supabase);
       const graph = await valueGraphService.getGraphForOpportunity(
         opportunityId,
-        organizationId,
+        organizationId
       );
 
       let nodes = graph.nodes;
       if (entityType) {
-        nodes = nodes.filter((n) => n.entity_type === entityType);
+        nodes = nodes.filter(n => n.entity_type === entityType);
       }
 
       const total = nodes.length;
@@ -195,10 +208,13 @@ valueGraphRouter.get(
         pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       });
     } catch (err) {
-      logger.error("GET /nodes failed", { opportunityId, error: (err as Error).message });
+      logger.error("GET /nodes failed", {
+        opportunityId,
+        error: (err as Error).message,
+      });
       res.status(500).json({ error: "Failed to load graph nodes." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -210,12 +226,13 @@ valueGraphRouter.get(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
 
     try {
+      const valueGraphService = new ValueGraphService(req.supabase);
       const graph = await valueGraphService.getGraphForOpportunity(
         opportunityId,
-        organizationId,
+        organizationId
       );
 
       res.json({
@@ -225,10 +242,13 @@ valueGraphRouter.get(
         edges: graph.edges,
       });
     } catch (err) {
-      logger.error("GET /export failed", { opportunityId, error: (err as Error).message });
+      logger.error("GET /export failed", {
+        opportunityId,
+        error: (err as Error).message,
+      });
       res.status(500).json({ error: "Failed to export graph." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -240,10 +260,14 @@ valueGraphRouter.get(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
 
     try {
-      const paths = await valueGraphService.getValuePaths(opportunityId, organizationId);
+      const valueGraphService = new ValueGraphService(req.supabase);
+      const paths = await valueGraphService.getValuePaths(
+        opportunityId,
+        organizationId
+      );
 
       res.json({
         opportunity_id: opportunityId,
@@ -251,10 +275,13 @@ valueGraphRouter.get(
         paths,
       });
     } catch (err) {
-      logger.error("GET /paths failed", { opportunityId, error: (err as Error).message });
+      logger.error("GET /paths failed", {
+        opportunityId,
+        error: (err as Error).message,
+      });
       res.status(500).json({ error: "Failed to load value paths." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -266,19 +293,23 @@ valueGraphRouter.post(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
 
     const parsed = WriteEdgeBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid request body.", details: parsed.error.flatten() });
+      res.status(400).json({
+        error: "Invalid request body.",
+        details: parsed.error.flatten(),
+      });
       return;
     }
 
     try {
+      const valueGraphService = new ValueGraphService(req.supabase);
       const edge = await valueGraphService.writeEdge({
-        ...(parsed.data as WriteEdgeInput),
-        opportunity_id: opportunityId,
         organization_id: organizationId,
+        opportunity_id: opportunityId,
+        ...(parsed.data as any),
       });
 
       res.status(201).json({
@@ -287,18 +318,24 @@ valueGraphRouter.post(
         edge,
       });
     } catch (err) {
-      logger.error("POST /edges failed", { opportunityId, error: (err as Error).message });
+      logger.error("POST /edges failed", {
+        opportunityId,
+        error: (err as Error).message,
+      });
       res.status(500).json({ error: "Failed to create edge." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
-// Node table constants — used to validate the source_table returned by the
-// resolve_value_graph_node RPC before using it in a .from() call.
+// Node table constants
 // ---------------------------------------------------------------------------
 
-const VALID_NODE_TABLES = ["vg_capabilities", "vg_metrics", "vg_value_drivers"] as const;
+const VALID_NODE_TABLES = [
+  "vg_capabilities",
+  "vg_metrics",
+  "vg_value_drivers",
+] as const;
 type NodeTable = (typeof VALID_NODE_TABLES)[number];
 
 function isValidNodeTable(value: unknown): value is NodeTable {
@@ -314,17 +351,22 @@ valueGraphRouter.patch(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
     const { nodeId } = req.params;
 
     const parsed = UpdateNodeBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid request body.", details: parsed.error.flatten() });
+      res.status(400).json({
+        error: "Invalid request body.",
+        details: parsed.error.flatten(),
+      });
       return;
     }
 
     if (Object.keys(parsed.data).length === 0) {
-      res.status(400).json({ error: "Request body must contain at least one field to update." });
+      res.status(400).json({
+        error: "Request body must contain at least one field to update.",
+      });
       return;
     }
 
@@ -363,11 +405,14 @@ valueGraphRouter.patch(
       const resolvedTyped = resolved as { source_table: string };
 
       if (!isValidNodeTable(resolvedTyped.source_table)) {
-        logger.error("PATCH /nodes/:nodeId: unexpected source_table from resolver", {
-          opportunityId,
-          nodeId,
-          source_table: resolvedTyped.source_table,
-        });
+        logger.error(
+          "PATCH /nodes/:nodeId: unexpected source_table from resolver",
+          {
+            opportunityId,
+            nodeId,
+            source_table: resolvedTyped.source_table,
+          }
+        );
         res.status(500).json({ error: "Failed to update node." });
         return;
       }
@@ -399,7 +444,7 @@ valueGraphRouter.patch(
       });
       res.status(500).json({ error: "Failed to update node." });
     }
-  },
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -411,7 +456,7 @@ valueGraphRouter.delete(
   ...withOpportunityAccess,
   async (req: Request, res: Response): Promise<void> => {
     const opportunityId = req.opportunityId!;
-    const organizationId = getTenantId(req);
+    const organizationId = req.organizationId!;
     const { nodeId } = req.params;
     const userId = req.user?.id ?? req.userId ?? "unknown";
 
@@ -450,11 +495,14 @@ valueGraphRouter.delete(
       const resolvedTyped = resolved as { source_table: string };
 
       if (!isValidNodeTable(resolvedTyped.source_table)) {
-        logger.error("DELETE /nodes/:nodeId: unexpected source_table from resolver", {
-          opportunityId,
-          nodeId,
-          source_table: resolvedTyped.source_table,
-        });
+        logger.error(
+          "DELETE /nodes/:nodeId: unexpected source_table from resolver",
+          {
+            opportunityId,
+            nodeId,
+            source_table: resolvedTyped.source_table,
+          }
+        );
         res.status(500).json({ error: "Failed to delete node." });
         return;
       }
@@ -503,7 +551,7 @@ valueGraphRouter.delete(
       });
       res.status(500).json({ error: "Failed to delete node." });
     }
-  },
+  }
 );
 
 // ===========================================================================
@@ -544,13 +592,14 @@ opportunityValueGraphRouter.get(
     }
 
     try {
+      const valueGraphService = new ValueGraphService(req.supabase);
       const [graph, paths] = await Promise.all([
         valueGraphService.getGraphForOpportunity(opportunityId, organizationId),
         valueGraphService.getValuePaths(opportunityId, organizationId),
       ]);
 
       const sortedPaths = [...paths].sort(
-        (a, b) => b.path_confidence - a.path_confidence,
+        (a, b) => b.path_confidence - a.path_confidence
       );
 
       res.json({ graph, paths: sortedPaths });
@@ -562,9 +611,8 @@ opportunityValueGraphRouter.get(
       });
       next(err);
     }
-  },
+  }
 );
-
 
 opportunityValueGraphRouter.get(
   "/:opportunityId/claim-evidence/claims",
@@ -574,30 +622,45 @@ opportunityValueGraphRouter.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { opportunityId } = req.params;
     const organizationId = req.tenantId;
-    const claimId = typeof req.query["claim_id"] === "string" ? req.query["claim_id"] : undefined;
+    const claimId =
+      typeof req.query["claim_id"] === "string"
+        ? req.query["claim_id"]
+        : undefined;
 
     if (!isValidUuid(opportunityId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "opportunityId must be a valid UUID",
+      });
       return;
     }
 
     if (claimId && !isValidUuid(claimId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "claim_id must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "claim_id must be a valid UUID",
+      });
       return;
     }
 
     if (!organizationId) {
-      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      res
+        .status(401)
+        .json({ error: "UNAUTHORIZED", message: "Tenant context required" });
       return;
     }
 
     try {
-      const view = await claimEvidenceGraphService.getClaimCentricView(opportunityId, organizationId, claimId);
+      const view = await claimEvidenceGraphService.getClaimCentricView(
+        opportunityId,
+        organizationId,
+        claimId
+      );
       res.json(view);
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 opportunityValueGraphRouter.get(
@@ -608,30 +671,45 @@ opportunityValueGraphRouter.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { opportunityId } = req.params;
     const organizationId = req.tenantId;
-    const evidenceId = typeof req.query["evidence_id"] === "string" ? req.query["evidence_id"] : undefined;
+    const evidenceId =
+      typeof req.query["evidence_id"] === "string"
+        ? req.query["evidence_id"]
+        : undefined;
 
     if (!isValidUuid(opportunityId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "opportunityId must be a valid UUID",
+      });
       return;
     }
 
     if (evidenceId && !isValidUuid(evidenceId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "evidence_id must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "evidence_id must be a valid UUID",
+      });
       return;
     }
 
     if (!organizationId) {
-      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      res
+        .status(401)
+        .json({ error: "UNAUTHORIZED", message: "Tenant context required" });
       return;
     }
 
     try {
-      const view = await claimEvidenceGraphService.getEvidenceCentricView(opportunityId, organizationId, evidenceId);
+      const view = await claimEvidenceGraphService.getEvidenceCentricView(
+        opportunityId,
+        organizationId,
+        evidenceId
+      );
       res.json(view);
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 opportunityValueGraphRouter.get(
@@ -642,28 +720,43 @@ opportunityValueGraphRouter.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { opportunityId } = req.params;
     const organizationId = req.tenantId;
-    const claimId = typeof req.query["claim_id"] === "string" ? req.query["claim_id"] : undefined;
+    const claimId =
+      typeof req.query["claim_id"] === "string"
+        ? req.query["claim_id"]
+        : undefined;
 
     if (!isValidUuid(opportunityId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "opportunityId must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "opportunityId must be a valid UUID",
+      });
       return;
     }
 
     if (claimId && !isValidUuid(claimId)) {
-      res.status(400).json({ error: "VALIDATION_ERROR", message: "claim_id must be a valid UUID" });
+      res.status(400).json({
+        error: "VALIDATION_ERROR",
+        message: "claim_id must be a valid UUID",
+      });
       return;
     }
 
     if (!organizationId) {
-      res.status(401).json({ error: "UNAUTHORIZED", message: "Tenant context required" });
+      res
+        .status(401)
+        .json({ error: "UNAUTHORIZED", message: "Tenant context required" });
       return;
     }
 
     try {
-      const drift = await claimEvidenceGraphService.getConfidenceDrift(opportunityId, organizationId, claimId);
+      const drift = await claimEvidenceGraphService.getConfidenceDrift(
+        opportunityId,
+        organizationId,
+        claimId
+      );
       res.json(drift);
     } catch (err) {
       next(err);
     }
-  },
+  }
 );

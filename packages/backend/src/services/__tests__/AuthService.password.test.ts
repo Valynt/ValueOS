@@ -18,6 +18,7 @@ import {
 const mocks = setupAuthMocks();
 
 vi.mock("../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { auth: mocks.mockSupabaseAuth },
 }));
 

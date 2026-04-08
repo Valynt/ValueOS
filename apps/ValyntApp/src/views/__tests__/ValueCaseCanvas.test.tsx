@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,12 @@ const useWorkflowExecutionViewModelMock = vi.fn();
 vi.mock("@/hooks/useCases", () => ({ useCase: (...args: unknown[]) => mockUseCase(...args) }));
 vi.mock("@/hooks/useDomainPacks", () => ({ useMergedContext: () => ({ data: null }) }));
 vi.mock("@/hooks/useCaseExport", () => ({ usePptxExport: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }) }));
+vi.mock("@/hooks/company-context", () => ({
+  useTargetAlignment: () => ({ data: null, isLoading: false, error: null }),
+}));
+vi.mock("@/contexts/CompanyContextProvider", () => ({
+  useCompanyValueContext: () => ({ companyContext: null, isReady: false }),
+}));
 vi.mock("@/components/ui/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/features/workflow/hooks/useWorkflowExecutionViewModel", () => ({ useWorkflowExecutionViewModel: () => useWorkflowExecutionViewModelMock() }));
 
@@ -22,6 +28,9 @@ vi.mock("../canvas/ExpansionStage", () => ({ ExpansionStage: () => <div>Expansio
 vi.mock("../canvas/ValueGraphStage", () => ({ ValueGraphStage: () => <div>Value graph stage</div> }));
 vi.mock("../canvas/AgentThread", () => ({ AgentThread: () => <div>Agent thread</div> }));
 vi.mock("../canvas/EvidenceDrawer", () => ({ EvidenceDrawer: () => null }));
+vi.mock("@/features/workflow/components/HandoffTimelineCards", () => ({
+  HandoffTimelineCards: () => <div data-testid="handoff-timeline-cards" />,
+}));
 
 function renderCanvas(initialPath = "/opportunities/opp-1/cases/case-1") {
   return render(

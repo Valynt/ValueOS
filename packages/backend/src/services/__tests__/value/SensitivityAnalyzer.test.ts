@@ -5,7 +5,7 @@ import { createMockSupabase } from "../helpers/testHelpers.js";
 
 vi.mock("../../../lib/supabase.js", async () => {
   const { createMockSupabase } = await import("../helpers/testHelpers.js");
-  return { supabase: createMockSupabase() };
+  return { assertNotTestEnv: vi.fn(), supabase: createMockSupabase() };
 });
 
 const BASE_INPUT = {

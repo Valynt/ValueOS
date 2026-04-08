@@ -4,7 +4,7 @@ All env files live in `ops/env/`. Files without `.example` in the name are gitig
 
 ## Gitignored (contain secrets)
 
-```
+```text
 ops/env/.env.cloud-dev
 ops/env/.env.frontend.cloud-dev
 ops/env/.env.backend.cloud-dev
@@ -17,7 +17,7 @@ ops/env/.env.prod
 
 ## Safe to commit (placeholders only)
 
-```
+```text
 ops/env/.env.base                        # Variable reference (every var the app reads)
 ops/env/.env.local.example               # Local dev template
 ops/env/.env.staging.template            # Staging template (production-parity)
@@ -54,7 +54,7 @@ pnpm run dev:backend:infisical      # Start backend with injected secrets
 pnpm run dev:full:infisical         # Start full stack with injected secrets
 ```
 
-When using Infisical, set `SECRETS_PROVIDER=infisical` and the `INFISICAL_*` variables in your `.env` file (see `ops/env/.env.local.example` for the template). The `infisical run` wrapper exports all project secrets as environment variables, complementing any values already set in `.env`.
+When using Infisical, keep `SECRETS_PROVIDER=infisical` and the `INFISICAL_*` variables in the backend-only file (`ops/env/.env.backend.local`) or inject them at process start with `infisical run`. The shared file (`ops/env/.env.local`) should not contain Infisical client credentials.
 
 Full setup: [Secrets Management with Infisical CLI](../docs/developer-experience/dev-environment.md#5-secrets-management-with-infisical-cli).
 Architecture: [Infisical Secrets Management](../docs/security-compliance/infisical-secrets-management.md).
@@ -151,7 +151,8 @@ No local Postgres, Redis, or NATS required. These services are either hosted (Su
 
 Shared: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 Backend: `DATABASE_URL`, `DATABASE_POOL_ROLE`, `DATABASE_EXPECTED_CONCURRENCY`
-Optional: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`, `SECRETS_PROVIDER` (set to `infisical` to use Infisical — requires `INFISICAL_*` vars)
+Optional shared: `REDIS_URL`, `NATS_URL`, `BLS_API_KEY`, `CENSUS_API_KEY`
+Optional backend-only: `SECRETS_PROVIDER` (set to `infisical` to use Infisical) plus `INFISICAL_SITE_URL`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID`, `INFISICAL_ENVIRONMENT`
 
 ### `test`
 

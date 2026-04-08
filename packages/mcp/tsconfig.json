@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
@@ -19,9 +21,20 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@mcp-common/*": ["./common/*"]
+      "@mcp-common/*": [
+        "./common/*"
+      ],
+      "@backend/*": [
+        "../backend/src/*"
+      ]
     }
   },
-  "include": ["common/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": [
+    "common/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
 }

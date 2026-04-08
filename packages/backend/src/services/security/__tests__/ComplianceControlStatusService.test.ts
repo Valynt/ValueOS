@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock supabase before importing the service
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn() })) },
   createServerSupabaseClient: vi.fn(),
 }));
@@ -581,6 +582,71 @@ describe("ComplianceControlStatusService — refreshControlStatus persistence", 
       tenantId: TENANT_ID,
       controlIds: expect.arrayContaining(["mfa_coverage", "encryption_at_rest_coverage", "key_rotation_freshness", "audit_integrity_checks"]),
       error: "audit insert failed",
+    });
+  });
+});
+
+
+describe("ComplianceControlStatusService — framework signal requirements", () => {
+  it("returns each framework exactly once in verification statuses", async () => {
+    const service = new ComplianceControlStatusService();
+    vi.spyOn(service, "getTechnicalSignalStatuses").mockResolvedValue([
+      { key: "tests_passed", status: "pass", description: "tests", evidence_pointer: "audit://tests", observed_at: new Date().toISOString() },
+      { key: "policies_deployed", status: "pass", description: "policies", evidence_pointer: "audit://policies", observed_at: new Date().toISOString() },
+      { key: "retention_jobs_healthy", status: "pass", description: "retention", evidence_pointer: "audit://retention", observed_at: new Date().toISOString() },
+      { key: "encryption_config_active", status: "pass", description: "encryption", evidence_pointer: "audit://encryption", observed_at: new Date().toISOString() },
+    ]);
+
+    const statuses = await service.getFrameworkVerificationStatuses(TENANT_ID);
+    const frameworks = statuses.map((status) => status.framework);
+
+    expect(new Set(frameworks).size).toBe(frameworks.length);
+    expect(frameworks).toEqual(["GDPR", "ISO27001", "CCPA", "SOC2"]);
+  });
+
+  it("uses deterministic required signals per framework", async () => {
+    const service = new ComplianceControlStatusService();
+    vi.spyOn(service, "getTechnicalSignalStatuses").mockResolvedValue([
+      {
+        key: "tests_passed",
+        status: "pass",
+        description: "tests",
+        evidence_pointer: "audit://tests",
+        observed_at: new Date().toISOString(),
+      },
+      {
+        key: "policies_deployed",
+        status: "pass",
+        description: "policies",
+        evidence_pointer: "audit://policies",
+        observed_at: new Date().toISOString(),
+      },
+      {
+        key: "retention_jobs_healthy",
+        status: "pass",
+        description: "retention",
+        evidence_pointer: "audit://retention",
+        observed_at: new Date().toISOString(),
+      },
+      {
+        key: "encryption_config_active",
+        status: "pass",
+        description: "encryption",
+        evidence_pointer: "audit://encryption",
+        observed_at: new Date().toISOString(),
+      },
+    ]);
+
+    const statuses = await service.getFrameworkVerificationStatuses(TENANT_ID);
+    const requiredSignalsByFramework = Object.fromEntries(
+      statuses.map((status) => [status.framework, status.requiredSignals])
+    );
+
+    expect(requiredSignalsByFramework).toEqual({
+      GDPR: ["tests_passed", "policies_deployed", "encryption_config_active"],
+      ISO27001: ["tests_passed", "encryption_config_active", "retention_jobs_healthy"],
+      CCPA: ["tests_passed", "retention_jobs_healthy", "policies_deployed"],
+      SOC2: ["tests_passed", "policies_deployed", "retention_jobs_healthy"],
     });
   });
 });

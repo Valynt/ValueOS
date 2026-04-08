@@ -65,7 +65,7 @@ export class UnifiedApiClient {
   private lastFallbackNoticeAt?: number;
   private interceptors: {
     request: Array<(config: RequestConfig) => RequestConfig>;
-    response: Array<(response: ApiResponse) => ApiResponse>;
+    response: Array<(response: ApiResponse<unknown>) => ApiResponse<unknown>>;
     error: Array<(error: ApiError) => ApiError>;
   };
 
@@ -99,7 +99,7 @@ export class UnifiedApiClient {
     this.interceptors.request.push(interceptor);
   }
 
-  addResponseInterceptor(interceptor: (response: ApiResponse) => ApiResponse): void {
+  addResponseInterceptor(interceptor: (response: ApiResponse<unknown>) => ApiResponse<unknown>): void {
     this.interceptors.response.push(interceptor);
   }
 
@@ -222,7 +222,7 @@ export class UnifiedApiClient {
       // Apply response interceptors
       let finalResponse = parsedResponse;
       for (const interceptor of this.interceptors.response) {
-        finalResponse = interceptor(finalResponse);
+        finalResponse = interceptor(finalResponse as ApiResponse<unknown>) as ApiResponse<T>;
       }
 
       // Add metadata
@@ -367,9 +367,9 @@ export class UnifiedApiClient {
     return sanitizeInput(withoutMarkup, { allowHtml: false, maxLength });
   }
 
-  private async makeRequestWithRetry(config: RequestInit & { url: string }): Promise<Response> {
+  private async makeRequestWithRetry(config: RequestInit & { url: string; retryAttempts?: number; timeout?: number }): Promise<Response> {
     const maxRetries = config.retryAttempts ?? this.config.retryAttempts;
-    let lastError: Error;
+    let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -412,7 +412,7 @@ export class UnifiedApiClient {
       }
     }
 
-    throw lastError;
+    throw lastError ?? new Error("Request failed after retries");
   }
 
   private async parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -498,6 +498,10 @@ export class UnifiedApiClient {
 
   clearAuthToken(): void {
     this.config.authToken = undefined;
+  }
+
+  getAuthToken(): string | undefined {
+    return this.config.authToken;
   }
 
   /**
@@ -603,10 +607,22 @@ export const api = {
   getHypotheses: (caseId: string) => apiClient.get(`/api/cases/${caseId}/hypotheses`),
   acceptHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/accept`),
   rejectHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/reject`),
+  promoteHypothesisToAssumption: (caseId: string, hypothesisId: string, data?: unknown) =>
+    apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/promote`, data),
   getAssumptions: (caseId: string) => apiClient.get(`/api/cases/${caseId}/assumptions`),
   updateAssumption: (caseId: string, assumptionId: string, data: unknown) => apiClient.patch(`/api/cases/${caseId}/assumptions/${assumptionId}`, data),
   getScenarios: (caseId: string) => apiClient.get(`/api/cases/${caseId}/scenarios`),
   getSensitivity: (caseId: string) => apiClient.get(`/api/cases/${caseId}/sensitivity`),
+
+  updateArtifactConfidence: (caseId: string, artifactId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/artifacts/${artifactId}/confidence`, data),
+  updateHypothesisConfidence: (caseId: string, hypothesisId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/hypotheses/${hypothesisId}/confidence`, data),
+  updateAssumptionConfidence: (caseId: string, assumptionId: string, data: unknown) =>
+    apiClient.patch(`/api/cases/${caseId}/assumptions/${assumptionId}/confidence`, data),
+
+  // Journey Orchestration
+  getJourneyState: (caseId: string) => apiClient.get(`/api/cases/${caseId}/journey`),
 
   // Integrity
   getReadiness: (caseId: string) => apiClient.get(`/api/cases/${caseId}/readiness`),
@@ -623,6 +639,14 @@ export const api = {
   getBaseline: (caseId: string) => apiClient.get(`/api/cases/${caseId}/baseline`),
   getCheckpoints: (caseId: string) => apiClient.get(`/api/cases/${caseId}/baseline/checkpoints`),
   approveCase: (caseId: string) => apiClient.post(`/api/cases/${caseId}/approve`),
+
+  // Notifications
+  getNotifications: (params?: { limit?: number; offset?: number; unreadOnly?: boolean }) =>
+    apiClient.get("/api/notifications", params),
+  markNotificationRead: (notificationId: string) =>
+    apiClient.post(`/api/notifications/${notificationId}/read`),
+  markAllNotificationsRead: (notificationIds?: string[]) =>
+    apiClient.post("/api/notifications/read-all", { notificationIds }),
 
   // Billing
   getBillingSummary: () => apiClient.get("/billing/summary"),

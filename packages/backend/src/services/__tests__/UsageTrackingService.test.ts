@@ -30,6 +30,7 @@ const mockFrom = vi.fn(() => ({
 
 // Mock @supabase/supabase-js for createClient
 vi.mock('@supabase/supabase-js', () => ({
+  assertNotTestEnv: vi.fn(),
   createClient: vi.fn(() => ({
     from: mockFrom,
   })),
@@ -37,6 +38,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 // Mock ../../lib/supabase for publicSupabase
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: mockFrom,
   },

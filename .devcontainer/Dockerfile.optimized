@@ -56,7 +56,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       libgcc-s1 \
       libatomic1 \
       procps \
-      net-tools; \
+      net-tools \
+      dnsutils; \
     rm -rf /var/lib/apt/lists/*
 
 # Install Node.js from upstream (deterministic, reproducible)

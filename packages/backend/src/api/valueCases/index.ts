@@ -18,6 +18,8 @@ import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js';
 
 import { auditLogService } from '../../services/security/AuditLogService.js';
 
+import { registerConfidenceRoutes } from './confidence.routes.js';
+import { registerJourneyRoutes } from './journey.routes.js';
 import baselineRouter from './baseline.js';
 import { backHalfRouter } from './backHalf.js';
 import { handleError } from './errors.js';
@@ -380,6 +382,8 @@ router.post('/:caseId/checkpoints/review', strictLimiter, requireRole(['admin', 
 registerValueTreeRoutes(router, { standardLimiter });
 registerIntegrityRoutes(router, { standardLimiter });
 registerEconomicRoutes(router, { standardLimiter });
+registerConfidenceRoutes(router, { standardLimiter, strictLimiter });
+registerJourneyRoutes(router, { standardLimiter, strictLimiter });
 registerCrudRoutes(router, { standardLimiter, strictLimiter });
 
 router.use('/', backHalfRouter);

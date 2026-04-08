@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks for transitive dependencies ────────────────────────────────────────
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   createServerSupabaseClient: () => ({
     from: () => ({
       select: () => ({

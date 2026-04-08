@@ -5,6 +5,7 @@ vi.mock("../../../services/core/SecurityLogger.js", () => ({
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(function () {
       return { insert: vi.fn().mockResolvedValue({ error: null }), select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) };

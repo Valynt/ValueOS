@@ -54,17 +54,36 @@ APPROVED_PATTERNS=(
   "apps/ValyntApp/src/services/security/APIKeyRotationService.ts"
   "packages/backend/src/services/billing/FinanceExportService.ts"
   "packages/backend/src/services/metering/UsageSink.ts"
-  "packages/backend/src/repositories/"
+  # repositories/ and lib/agent-fabric/agents/ are intentionally excluded from
+  # APPROVED_PATTERNS. Every service_role usage in those directories must carry
+  # an explicit "service-role:justified <reason>" comment at the call site.
+  # This forces per-callsite review and prevents silent accumulation of bypasses.
 
   # Backend infrastructure (lib, config, env)
+  # Note: repositories/ and lib/agent-fabric/agents/ are intentionally excluded.
+  # Every service_role usage in those directories must carry an explicit
+  # "service-role:justified <reason>" comment at the call site.
   "packages/backend/src/lib/supabase.ts"
   "packages/backend/src/lib/env.ts"
+  "packages/backend/src/lib/supabase/privileged/"
   "packages/backend/src/config/schema.ts"
   "packages/backend/src/config/settings.ts"
   "packages/backend/src/config/validateEnv.ts"
+  "packages/backend/src/config/env-validation.ts"
   "packages/backend/src/services/LLMCostTracker.ts"
+  "packages/backend/src/services/llm/LLMCostTracker.ts"
+  "packages/backend/src/services/metering/UsageAggregator.ts"
+  "packages/backend/src/services/secrets/TenantSecretRepository.ts"
+  "packages/backend/src/middleware/auth.ts"
+  "packages/backend/src/api/health/"
+  "packages/backend/src/runtime/approval-inbox/"
+  "packages/backend/src/services/integrity/ValueIntegrityService.ts"
+  "apps/ValyntApp/src/lib/supabase.server.ts"
+  "packages/shared/src/lib/tenantVerification.ts"
 
-  # Backend API routes and repositories
+  # Backend API routes
+  # Note: repositories/ and agents/ are NOT in this list — those paths require
+  # an explicit "service-role:justified" comment at every call site instead.
   "packages/backend/src/api/billing/webhooks.ts"
   "packages/backend/src/api/customer/"
   "packages/backend/src/api/conversations/"
@@ -103,12 +122,15 @@ APPROVED_PATTERNS=(
   "scripts/verify/"
 )
 
-# Patterns that indicate direct service-role client creation
+# Patterns that indicate direct service-role client creation.
+# createServiceRoleSupabaseClient is included so direct calls (not just the
+# deprecated shim) are caught in repositories/ and agents/ without justification.
 SEARCH_PATTERNS=(
   "SUPABASE_SERVICE_ROLE_KEY"
   "supabaseServiceRoleKey"
   "serviceRoleKey"
   "createServerSupabaseClient"
+  "createServiceRoleSupabaseClient"
   "getAdminSupabaseClient"
   "getServerSupabase"
 )
@@ -123,11 +145,13 @@ for pattern in "${SEARCH_PATTERNS[@]}"; do
     # Strip repo root prefix
     rel="${file#"$REPO_ROOT/"}"
 
-    # Skip non-source files
+    # Skip non-source files and test infrastructure
     case "$rel" in
       *.test.ts|*.spec.ts|*.test.js|*.spec.js|*.bench.ts|*.bench.js|*.md|*.sql|*.sh|*.json|*.d.ts|*.js.map|*.d.ts.map) continue ;;
       */__benchmarks__/*|*/__tests__/*|*/benchmarks/*|*/test/*) continue ;;
+      */__mocks__/*|*/mocks/*|*vitest.config*|*jest.config*) continue ;;
       node_modules/*|.windsurf/*|*/node_modules/*) continue ;;
+      tests/*|scripts/legacy/*|scripts/test-*|scripts/seed-*|scripts/verify/*) continue ;;
     esac
 
     # Skip compiled output directories
@@ -157,11 +181,17 @@ done
 
 if [ "$violations" -gt 0 ]; then
   echo ""
-  echo "ERROR: Found $violations unauthorized service-role key usage(s)."
-  echo "Either:"
-  echo "  1. Refactor to use createRequestSupabaseClient() with user JWT"
-  echo "  2. Add file to APPROVED_PATTERNS in this script"
-  echo "  3. Add '// service-role:justified' comment with explanation"
+  echo "ERROR: Found $violations unauthorized service-role client usage(s)."
+  echo ""
+  echo "For files in repositories/ or lib/agent-fabric/agents/:"
+  echo "  Add a '// service-role:justified <reason>' comment at the call site."
+  echo "  The reason must explain why an RLS client cannot be used."
+  echo ""
+  echo "For all other files:"
+  echo "  1. Refactor to use createRequestSupabaseClient() with the caller's JWT"
+  echo "  2. Add the file to APPROVED_PATTERNS in scripts/check-service-role-usage.sh"
+  echo "     (requires team review — do not add repositories/ or agents/ broadly)"
+  echo "  3. Add '// service-role:justified <reason>' at the specific call site"
   exit 1
 fi
 

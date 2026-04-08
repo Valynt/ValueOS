@@ -124,8 +124,11 @@ export class SalesforceOAuth {
    *
    * Redirect the user's browser to this URL to initiate the OAuth flow.
    * The `state` parameter is auto-generated for CSRF protection.
+   *
+   * When `usePKCE` is true, the code challenge is computed with SHA-256
+   * via SubtleCrypto, which is why this method is async.
    */
-  getAuthorizationUrl(overrideState?: string): AuthorizationUrlResult {
+  async getAuthorizationUrl(overrideState?: string): Promise<AuthorizationUrlResult> {
     const state = overrideState ?? generateState();
     const params = new URLSearchParams({
       response_type: "code",
@@ -140,7 +143,7 @@ export class SalesforceOAuth {
 
     if (this.config.usePKCE) {
       codeVerifier = generateCodeVerifier();
-      const codeChallenge = generateCodeChallenge(codeVerifier);
+      const codeChallenge = await generateCodeChallengeS256(codeVerifier);
       params.set("code_challenge", codeChallenge);
       params.set("code_challenge_method", "S256");
     }
@@ -290,24 +293,14 @@ function generateCodeVerifier(): string {
   return base64UrlEncode(bytes);
 }
 
-function generateCodeChallenge(verifier: string): string {
-  // For environments without SubtleCrypto (e.g. tests), fall back to plain
-  // In production, the async version with SHA-256 should be used
-  // This is a synchronous S256 placeholder using a simple hash
-  // Real implementation should use: await crypto.subtle.digest('SHA-256', ...)
-  return verifier; // Placeholder — see note below
+async function generateCodeChallengeS256(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return base64UrlEncode(new Uint8Array(digest));
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
   const base64 = btoa(String.fromCharCode(...bytes));
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-
-// NOTE: For production PKCE, replace generateCodeChallenge with:
-//
-// async function generateCodeChallengeAsync(verifier: string): Promise<string> {
-//   const encoder = new TextEncoder();
-//   const data = encoder.encode(verifier);
-//   const digest = await crypto.subtle.digest('SHA-256', data);
-//   return base64UrlEncode(new Uint8Array(digest));
-// }

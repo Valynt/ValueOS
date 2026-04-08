@@ -325,3 +325,11 @@ docker-compose logs -f github-code-optimizer
 - Docker & Docker Compose
 - GitHub Personal Access Token
 - OpenRouter API key
+
+## Support & Maintenance
+
+This package follows **Option A (workspace-aligned maintenance)**.
+
+- **Support level:** Experimental (`valueos.supportTier: experimental`), maintained on a best-effort basis by `team-devex`.
+- **Dependency policy:** Dev tooling is kept aligned with workspace standards (TypeScript, Vitest, ESLint, and `@typescript-eslint/*`) to reduce drift and keep local development predictable.
+- **CI/release expectations:** The package remains excluded from root Vitest and release automation per `valueos.ci` metadata in `package.json`; changes are validated through package-local scripts.

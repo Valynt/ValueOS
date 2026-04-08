@@ -1,5 +1,4 @@
 import {
-  createBrowserSupabaseClient,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
@@ -24,13 +23,13 @@ function assertNotTestEnv(caller: string): void {
     !process.env["VALUEOS_TEST_ALLOW_SUPABASE"]
   ) {
     throw new Error(
-      `Unexpected Supabase client creation during tests (${caller}). Mock src/lib/supabase.ts or set VALUEOS_TEST_REAL_INTEGRATION=true for an explicit integration run.`,
+      `Unexpected Supabase client creation during tests (${caller}). Mock src/lib/supabase.ts or set VALUEOS_TEST_REAL_INTEGRATION=true for an explicit integration run.`
     );
   }
 }
 
 export {
-  createBrowserSupabaseClient,
+  assertNotTestEnv,
   createRequestRlsSupabaseClient,
   createRequestSupabaseClient,
   createServiceRoleSupabaseClient,
@@ -43,7 +42,7 @@ export type { ServiceRoleSupabaseClient };
 const deprecatedSupabaseCompatCounter = createCounter(
   "deprecated_supabase_api_usage_total",
   "Deprecated backend Supabase compatibility API usage by callsite",
-  ["api", "callsite"],
+  ["api", "callsite"]
 );
 
 const deprecatedSupabaseWarningOnceByCallsite = new Set<string>();
@@ -54,13 +53,19 @@ function resolveDeprecatedCallsite(): string {
   const frame = stack
     .split("\n")
     .slice(2)
-    .map((line) => line.trim())
-    .find((line) => !line.includes("src/lib/supabase.ts") && !line.includes("src/lib/supabase.js"));
+    .map(line => line.trim())
+    .find(
+      line =>
+        !line.includes("src/lib/supabase.ts") &&
+        !line.includes("src/lib/supabase.js")
+    );
 
   return frame ?? "unknown";
 }
 
-function logDeprecatedCompatUsage(api: "createServerSupabaseClient" | "getSupabaseClient"): void {
+function logDeprecatedCompatUsage(
+  api: "createServerSupabaseClient" | "getSupabaseClient"
+): void {
   const callsite = resolveDeprecatedCallsite();
 
   deprecatedSupabaseCompatCounter.inc({ api, callsite });
@@ -85,7 +90,7 @@ function logDeprecatedCompatUsage(api: "createServerSupabaseClient" | "getSupaba
     {
       code: DEPRECATION_WARNING_CODE,
       type: "DeprecationWarning",
-    },
+    }
   );
 }
 
@@ -93,7 +98,9 @@ function logDeprecatedCompatUsage(api: "createServerSupabaseClient" | "getSupaba
  * @deprecated Prefer createRequestSupabaseClient({ accessToken }) so the RLS-safe
  * monorepo helper is explicit at the call site.
  */
-export const createUserSupabaseClient = (userAccessToken: string): RequestScopedRlsSupabaseClient => {
+export const createUserSupabaseClient = (
+  userAccessToken: string
+): RequestScopedRlsSupabaseClient => {
   return createRequestSupabaseClient({ accessToken: userAccessToken });
 };
 

@@ -66,6 +66,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  secret-rotation-sla-gate:
+    name: secret-rotation-sla-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Fail on unresolved ACTION REQUIRED secret incidents older than SLA
+        run: node scripts/ci/check-secret-rotation-action-required-sla.mjs
+
   ts-type-ratchet:
     name: ts-type-ratchet
     runs-on: ubuntu-latest
@@ -334,9 +347,15 @@ jobs:
         run: node scripts/ci/check-docs-workspace-topology.mjs
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
+      - name: Launch readiness gate/sign-off consistency
+        run: node scripts/ci/check-launch-readiness-signoff.mjs
+      - name: Launch gate docs consistency
+        run: node scripts/ci/check-launch-gate-doc-consistency.mjs
 
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
+      - name: Waiver ownership metadata guard
+        run: node scripts/ci/check-waiver-ownership-metadata.mjs
 
       - name: OpenAPI canonical path allowlist guard
         run: node scripts/ci/check-openapi-file-allowlist.mjs
@@ -489,6 +508,19 @@ jobs:
           node scripts/ci/extract-governance-risk-control-kpis.mjs \
             --output-dir artifacts/security/governance
 
+      - name: Data residency controls gate + signed governance artifact
+        run: |
+          node scripts/ci/check-data-residency-controls.mjs \
+            --policy docs/security-compliance/data-residency-controls.json \
+            --output artifacts/security/governance/data-residency-status.json
+
+      - name: Manifest maturity gap report (warning — production gate enforces hard block)
+        # Surfaces which critical K8s manifest classes still need evidence links
+        # before production deployment. Does not fail the PR; the hard gate lives
+        # in deploy.yml manifest-maturity-production-gate. Output appears in the
+        # GitHub Actions step summary so owners can track progress.
+        run: node scripts/ci/report-manifest-maturity-gaps.mjs
+
       - name: Emit lane summary
         if: always()
         run: |
@@ -542,6 +574,7 @@ jobs:
           node scripts/ci/check-dev-terraform-db-guardrails.mjs
           bash scripts/ci/check-permissive-rls.sh
           bash scripts/ci/check-migration-rls-required.sh
+          node scripts/ci/check-backend-service-tenant-query-filters.mjs
       - name: Emit lane summary
         if: always()
         run: |
@@ -608,6 +641,12 @@ jobs:
         run: |
           npx vitest run --config tests/security/vitest.security.config.ts \
             tests/security/api-tenant-isolation.test.ts \
+            packages/memory/tests/tenant-vector-isolation.test.ts \
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
+            packages/backend/src/workers/__tests__/tenantContextBootstrap.test.ts \
+            packages/backend/src/workers/__tests__/WorkerTenantBoundaryIsolation.test.ts \
+            packages/backend/src/workers/__tests__/BullMQTenantIsolation.test.ts \
+            packages/backend/src/workers/__tests__/BullMQTenantIsolation.behavioral.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --outputFile.junit=reports/compliance/rls/vitest-rls-fork.junit.xml
@@ -653,6 +692,56 @@ jobs:
           path: |
             reports/compliance/**
             artifacts/ci-lanes/tenant-isolation-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  chaos-resilience-gate:
+    name: chaos-resilience-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Chaos — DB transient outage recovery
+        run: npx vitest run tests/chaos/db-transient-outage.test.ts --reporter=verbose
+      - name: Chaos — Redis / BullMQ queue outage
+        run: npx vitest run tests/chaos/queue-outage.test.ts --reporter=verbose
+      - name: Chaos — LLM provider outage (circuit breaker)
+        run: npx vitest run tests/chaos/llm-provider-outage.test.ts --reporter=verbose
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/chaos-resilience-gate
+          cat > artifacts/ci-lanes/chaos-resilience-gate/summary.md <<EOF_SUMMARY
+          # chaos-resilience-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF_SUMMARY
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-chaos-resilience-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/chaos-resilience-gate/**
           if-no-files-found: warn
           retention-days: 30
 
@@ -830,6 +919,8 @@ jobs:
             --reporter=html,json \
             --output=artifacts/e2e \
             --retries=1
+      - name: Critical-path skip/only waiver metadata guard
+        run: node scripts/ci/check-critical-skip-only.mjs
       - name: Assert critical E2E executed test count and pass rate
         run: |
           node scripts/ci/assert-test-minimums.mjs \
@@ -837,7 +928,7 @@ jobs:
             --label "critical-e2e" \
             --report artifacts/e2e/playwright-report.json \
             --min-executed 12 \
-            --min-pass-rate 90
+            --min-pass-rate 100
       - name: Run critical billing + security integration suites
         run: |
           mkdir -p artifacts/critical-integration
@@ -918,6 +1009,8 @@ jobs:
         run: |
           pnpm audit --audit-level=high --json > npm-audit-report.json || true
           node scripts/ci/check-cve-waivers.mjs --audit-file=npm-audit-report.json
+      - name: DAST high-severity fail policy guard
+        run: node scripts/ci/check-dast-high-severity-gate.mjs
       - name: Dev routes static check — child_process must be behind dynamic import
         run: |
           set -euo pipefail
@@ -1385,26 +1478,61 @@ jobs:
             "slo-rule-validation:${{ needs.slo-rule-validation.result }}"; do
             status="${lane#*:}"
             lane_name="${lane%%:*}"
-            # These gates must not be skipped — skipped means the check did not run.
-            # e2e-critical is included here: it contains security-multi-tenancy.spec.ts
-            # and real-backend-critical-flows.spec.ts. A skipped run is a missing gate.
-            if [ "$lane_name" = "secret-scan" ] || [ "$lane_name" = "tenant-isolation-gate" ] || [ "$lane_name" = "mfa-production-config-gate" ] || [ "$lane_name" = "log-level-production-gate" ] || [ "$lane_name" = "e2e-critical" ]; then
-              if [ "$status" != "success" ] && [ "$status" != "failure" ]; then
-                echo "Failing PR gate: $lane_name has unexpected status: $status"
+            # Hard-block lanes: must not be skipped AND must succeed.
+            # e2e-critical contains security-multi-tenancy.spec.ts and
+            # real-backend-critical-flows.spec.ts — a skip OR failure is a
+            # missing gate.
+            if [ "$lane_name" = "secret-scan" ] || \
+               [ "$lane_name" = "lint-runtime-packages" ] || \
+               [ "$lane_name" = "active-app-quality-gates" ] || \
+               [ "$lane_name" = "unit-component-schema" ] || \
+               [ "$lane_name" = "tenant-isolation-gate" ] || \
+               [ "$lane_name" = "security-gate" ] || \
+               [ "$lane_name" = "mfa-production-config-gate" ] || \
+               [ "$lane_name" = "log-level-production-gate" ] || \
+               [ "$lane_name" = "e2e-critical" ]; then
+              if [ "$status" != "success" ]; then
+                echo "Failing PR gate: $lane_name must succeed (status: $status)"
                 exit 1
               fi
-            else
-              if [ "$lane_name" = "e2e-critical" ]; then
-                if [ "$status" != "success" ]; then
-                  echo "Failing PR gate due to lane status: $lane"
-                  exit 1
-                fi
-              elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-                echo "Failing PR gate due to lane status: $lane"
-                exit 1
-              fi
+            elif [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Failing PR gate due to lane status: $lane"
+              exit 1
             fi
           done
+      - name: Publish mandatory gate summaries (JSON)
+        if: always()
+        run: |
+          mkdir -p artifacts/release-gates/pr-fast
+          cat > artifacts/release-gates/pr-fast/lint.json <<EOF_SUMMARY
+          {"gate":"lint","job":"lint-runtime-packages","status":"${{ needs.lint-runtime-packages.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/build.json <<EOF_SUMMARY
+          {"gate":"build","job":"active-app-quality-gates","status":"${{ needs.active-app-quality-gates.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/coverage-thresholds.json <<EOF_SUMMARY
+          {"gate":"coverage-thresholds","job":"unit-component-schema","status":"${{ needs.unit-component-schema.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/rls-tests.json <<EOF_SUMMARY
+          {"gate":"rls-tests","job":"tenant-isolation-gate","status":"${{ needs.tenant-isolation-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/e2e-critical-path-guard.json <<EOF_SUMMARY
+          {"gate":"e2e-critical-path-guard","job":"e2e-critical","status":"${{ needs.e2e-critical.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/cve-waiver-expiry.json <<EOF_SUMMARY
+          {"gate":"cve-waiver-expiry","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/dast-high-severity-fail.json <<EOF_SUMMARY
+          {"gate":"dast-high-severity-fail","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+      - name: Upload mandatory gate summaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gates-pr-fast-${{ github.run_id }}
+          path: artifacts/release-gates/pr-fast/**
+          if-no-files-found: warn
+          retention-days: 30
 
   integration-supabase:
     name: integration-supabase

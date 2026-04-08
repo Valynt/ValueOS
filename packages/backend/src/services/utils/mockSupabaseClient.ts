@@ -28,6 +28,10 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
            filters.push({ type: 'in', column, values });
            return builder;
         },
+        ilike: (column: string, value: string) => {
+           filters.push({ type: 'ilike', column, value });
+           return builder;
+        },
         maybeSingle: async () => {
              const res = applyFilters(currentData, filters);
              return { data: res[0] || null, error: null };
@@ -48,6 +52,10 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
         },
         order: (column: string, { ascending }: { ascending: boolean } = { ascending: true }) => {
             sort = { column, ascending };
+            return builder;
+        },
+        range: (from: number, to: number) => {
+            // we will just ignore pagination for the mock since it's just tests
             return builder;
         },
         then: (resolve: Function, reject: Function) => {
@@ -108,6 +116,10 @@ function matchesFilters(row: Record<string, unknown>, filters: Array<{ column: s
             if (row[f.column] !== f.value) return false;
         } else if (f.type === 'in') {
             if (!f.values.includes(row[f.column])) return false;
+        } else if (f.type === 'ilike') {
+            const val = String(row[f.column] || '').toLowerCase();
+            const pattern = String(f.value || '').toLowerCase().replace(/%/g, '.*');
+            if (!new RegExp(`^${pattern}$`).test(val)) return false;
         }
     }
     return true;

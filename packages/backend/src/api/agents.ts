@@ -114,8 +114,17 @@ import { getMetricsCollector } from "../services/monitoring/MetricsCollector.js"
 import { getEventSourcingService } from "../services/post-v1/EventSourcingService.js";
 import { getEventProducer } from "../services/realtime/EventProducer.js";
 import type { LifecycleContext, LifecycleStage } from "../types/agent.js";
+import type { AgentOutput } from "../types/agent.js";
 import { sanitizeAgentInput } from "../utils/security.js";
 import type { AgentType } from "../services/agent-types.js";
+import {
+  GovernanceVetoError,
+} from "../lib/agent-fabric/hardening/index.js";
+import {
+  executeWithHardenedRunner,
+  mapGovernanceVetoStatus,
+  requiresHardenedExecution,
+} from "../services/agents/HardenedExecution.js";
 import {
   buildInteractiveSyncDeniedMessage,
   getAgentColdStartClass,
@@ -143,6 +152,59 @@ function getDirectFactory(): ReturnType<typeof createAgentFactory> {
     });
   }
   return _directFactory;
+}
+
+async function runAgentWithHardening(params: {
+  agentId: AgentType;
+  tenantId: string;
+  userId: string;
+  sessionId: string;
+  traceId: string;
+  lifecycleContext: LifecycleContext;
+  execute: (ctx: LifecycleContext) => Promise<AgentOutput>;
+}): Promise<AgentOutput> {
+  const { agentId, tenantId, userId, sessionId, traceId, lifecycleContext, execute } = params;
+  const normalizeResult = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : { value };
+  const hardened = await executeWithHardenedRunner({
+    agentId,
+    organizationId: tenantId,
+    userId,
+    sessionId,
+    traceId,
+    lifecycleContext,
+    execute,
+    prompt: String(lifecycleContext.user_inputs?.query ?? ""),
+  });
+
+  logger.info("Direct agent execution governance", {
+    agentId,
+    traceId,
+    governance_verdict: hardened.governance.verdict,
+    confidence_overall: hardened.confidence.overall,
+    confidence_label: hardened.confidence.label,
+  });
+
+  return {
+    agent_id: String(agentId),
+    agent_type: agentId,
+    lifecycle_stage: lifecycleContext.lifecycle_stage,
+    status: "success",
+    result: normalizeResult(hardened.output),
+    confidence: hardened.confidence.label,
+    metadata: {
+      execution_time_ms: 0,
+      model_version: "hardened",
+      timestamp: new Date().toISOString(),
+      token_usage: {
+        prompt_tokens: hardened.tokenUsage.prompt_tokens,
+        completion_tokens: hardened.tokenUsage.completion_tokens,
+        total_tokens: hardened.tokenUsage.total_tokens,
+      },
+    },
+  };
 }
 
 const router: ReturnType<typeof Router> = Router();
@@ -506,7 +568,50 @@ router.post(
           metadata: { job_id: jobId, mode: "direct" },
         };
 
-        const output = await agent.execute(lifecycleContext);
+        let output: AgentOutput;
+        try {
+          output = requiresHardenedExecution(agentId as AgentType)
+            ? await runAgentWithHardening({
+                agentId: agentId as AgentType,
+                tenantId,
+                userId,
+                sessionId: sessionId ?? jobId,
+                traceId: jobId,
+                lifecycleContext,
+                execute: (ctx) => agent.execute(ctx),
+              })
+            : await agent.execute(lifecycleContext);
+        } catch (directErr) {
+          if (directErr instanceof GovernanceVetoError) {
+            const governanceStatus = mapGovernanceVetoStatus(directErr);
+            logger.warn("Direct agent execution vetoed", {
+              agentId,
+              jobId,
+              tenantId,
+              userId,
+              verdict: directErr.verdict,
+              reason: directErr.reason,
+              checkpoint_id: directErr.checkpointId,
+              duration_ms: Date.now() - directStartTime,
+              mode: "direct",
+            });
+            return void res.status(governanceStatus.httpStatus).json({
+              success: false,
+              data: {
+                jobId,
+                status: governanceStatus.apiStatus,
+                agentId,
+                mode: "direct",
+              },
+              error: {
+                code: governanceStatus.errorCode,
+                message: directErr.reason,
+                checkpointId: directErr.checkpointId,
+              },
+            });
+          }
+          throw directErr;
+        }
         const durationMs = Date.now() - directStartTime;
 
         logger.info("Direct agent execution completed", {

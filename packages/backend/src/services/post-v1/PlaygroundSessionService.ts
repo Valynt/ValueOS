@@ -1,9 +1,9 @@
 /**
  * Playground Session Service
- * 
+ *
  * Redis-backed transient draft state for the Artifact Builder Playground.
  * Supports rapid experimentation without database overhead.
- * 
+ *
  * Features:
  * - Session lifecycle management (create, load, save, commit, discard)
  * - Undo/redo with operation history
@@ -17,7 +17,6 @@ import Redis, { type Redis as RedisClientType } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../../lib/logger.js'
-import { supabase } from '../../lib/supabase.js'
 import {
   AutoSaveCheckpoint,
   CommitOptions,
@@ -31,19 +30,6 @@ import {
   UpdateSessionOptions,
   validateSession,
 } from '../workflow/PlaygroundSessionSchema';
-
-interface AgentSessionOrganizationRow {
-  organization_id: string;
-}
-
-function isAgentSessionOrganizationRow(data: unknown): data is AgentSessionOrganizationRow {
-  if (typeof data !== 'object' || data === null) {
-    return false;
-  }
-
-  const record = data as Record<string, unknown>;
-  return typeof record.organization_id === 'string';
-}
 
 /**
  * Playground Session Service
@@ -156,40 +142,7 @@ export class PlaygroundSessionService {
     }
 
     if (!orgId) {
-      try {
-        const { data, error } = await supabase
-          .from('agent_sessions')
-          .select('organization_id')
-          .eq('id', sessionId)
-          .single();
-
-        if (error) {
-          logger.warn('Error fetching session organizationId when loading session', {
-            sessionId,
-            error: error.message,
-          });
-          return null;
-        }
-
-        if (!data || !isAgentSessionOrganizationRow(data)) {
-          logger.warn('No valid organizationId found for session when loading session', {
-            sessionId,
-          });
-          return null;
-        }
-
-        orgId = data.organization_id;
-      } catch (err) {
-        logger.warn('Unable to fetch session organizationId when loading session', {
-          sessionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return null;
-      }
-    }
-
-    if (!orgId) {
-      logger.warn('Missing organizationId for playground session; refusing to load from Redis', {
+      logger.warn('Missing organizationId bootstrap key for playground session; refusing to load from Redis', {
         sessionId,
       });
       return null;

@@ -10,10 +10,10 @@
  * is handled by service_role via the DSR API.
  */
 
-import { z } from 'zod';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-import { logger } from '../lib/logger.js';
-import { supabase } from '../lib/supabase.js';
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -28,7 +28,9 @@ export const AgentExecutionLineageWriteSchema = z.object({
   db_writes: z.array(z.unknown()).default([]),
 });
 
-export type AgentExecutionLineageWrite = z.infer<typeof AgentExecutionLineageWriteSchema>;
+export type AgentExecutionLineageWrite = z.infer<
+  typeof AgentExecutionLineageWriteSchema
+>;
 
 export interface AgentExecutionLineageRow {
   id: string;
@@ -60,34 +62,44 @@ export interface LineagePage {
 // ---------------------------------------------------------------------------
 
 export class AgentExecutionLineageRepository {
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
+
   /**
    * Append a lineage row. Non-blocking — errors are logged but not re-thrown
    * so a lineage write failure never propagates to the agent's main path.
    */
-  async appendLineage(data: AgentExecutionLineageWrite): Promise<string | null> {
+  async appendLineage(
+    data: AgentExecutionLineageWrite
+  ): Promise<string | null> {
     const parsed = AgentExecutionLineageWriteSchema.safeParse(data);
     if (!parsed.success) {
-      logger.warn('AgentExecutionLineageRepository: invalid write payload', {
+      logger.warn("AgentExecutionLineageRepository: invalid write payload", {
         errors: parsed.error.issues,
       });
       return null;
     }
 
     try {
-      const { data: row, error } = await supabase
-        .from('agent_execution_lineage')
+      const { data: row, error } = await this.db
+        .from("agent_execution_lineage")
         .insert(parsed.data)
-        .select('id')
+        .select("id")
         .single();
 
       if (error) {
-        logger.warn('AgentExecutionLineageRepository: insert failed', { error: error.message });
+        logger.warn("AgentExecutionLineageRepository: insert failed", {
+          error: error.message,
+        });
         return null;
       }
 
       return (row as { id: string }).id;
     } catch (err) {
-      logger.warn('AgentExecutionLineageRepository: unexpected error', {
+      logger.warn("AgentExecutionLineageRepository: unexpected error", {
         error: err instanceof Error ? err.message : String(err),
       });
       return null;
@@ -104,16 +116,16 @@ export class AgentExecutionLineageRepository {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error, count } = await supabase
-      .from('agent_execution_lineage')
-      .select('*', { count: 'exact' })
-      .eq('session_id', opts.caseId)
-      .eq('organization_id', opts.organizationId)
-      .order('created_at', { ascending: false })
+    const { data, error, count } = await this.db
+      .from("agent_execution_lineage")
+      .select("*", { count: "exact" })
+      .eq("session_id", opts.caseId)
+      .eq("organization_id", opts.organizationId)
+      .order("created_at", { ascending: false })
       .range(from, to);
 
     if (error) {
-      logger.error('AgentExecutionLineageRepository: query failed', {
+      logger.error("AgentExecutionLineageRepository: query failed", {
         error: error.message,
         caseId: opts.caseId,
         organizationId: opts.organizationId,
@@ -130,4 +142,5 @@ export class AgentExecutionLineageRepository {
   }
 }
 
-export const agentExecutionLineageRepository = new AgentExecutionLineageRepository();
+// No module-level singleton — callers must inject an RLS-scoped SupabaseClient.
+// Example: new AgentExecutionLineageRepository(requestScopedClient)

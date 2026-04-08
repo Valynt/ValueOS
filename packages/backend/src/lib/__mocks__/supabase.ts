@@ -32,6 +32,7 @@ export const mockSupabaseClient = {
   removeAllChannels: vi.fn(),
 };
 
+export const assertNotTestEnv = vi.fn();
 export const createServerSupabaseClient = vi.fn(() => mockSupabaseClient);
 export const createServiceRoleSupabaseClient = vi.fn(() => mockSupabaseClient);
 export const createUserSupabaseClient = vi.fn(() => mockSupabaseClient);

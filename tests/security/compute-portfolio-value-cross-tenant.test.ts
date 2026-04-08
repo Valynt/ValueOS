@@ -124,7 +124,7 @@ describe.skipIf(SKIP)("compute_portfolio_value — cross-tenant isolation", () =
         organization_id: tenantB,
         tenant_id:       tenantB,
         name:            "Tenant B confidential case",
-        status:          "published",
+        status:          "committed",
         quality_score:   0.9,
         metadata:        { projected_value: 999999 },
       })

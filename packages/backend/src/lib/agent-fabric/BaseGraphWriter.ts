@@ -89,7 +89,7 @@ export interface SafeWriteResult {
 export class BaseGraphWriter {
   private readonly service: ValueGraphService;
 
-  constructor(service: ValueGraphService = valueGraphService) {
+  constructor(service: ValueGraphService) {
     this.service = service;
   }
 

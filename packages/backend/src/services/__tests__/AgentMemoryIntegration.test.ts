@@ -7,6 +7,7 @@ vi.mock('../AgentAPI');
 vi.mock('../../lib/agent-fabric/MemorySystem');
 vi.mock('../../lib/agent-fabric/LLMGateway');
 vi.mock('../../lib/supabase', () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),

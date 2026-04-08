@@ -16,6 +16,7 @@ vi.mock("../../../lib/logger.js", () => ({
 }));
 
 vi.mock("../../../lib/supabase", () => ({
+  assertNotTestEnv: vi.fn(),
   supabase: {},
 }));
 

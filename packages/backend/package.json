@@ -20,6 +20,7 @@
     "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
     "typecheck:strict:zones": "pnpm run typecheck:strict:boundaries && pnpm run typecheck:strict:capabilities",
     "lint": "eslint src/ --max-warnings=2443",
+    "cache:prewarm": "tsx src/scripts/prewarm-llm-cache.ts",
     "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "check:service-role-boundaries": "node ../../scripts/ci/check-backend-service-role-boundaries.mjs",
     "test": "vitest run --reporter=verbose",
@@ -33,6 +34,7 @@
     "typecheck:strict:capabilities": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data"
   },
   "dependencies": {
+    "zustand": "^5.0.10",
     "@infisical/sdk": "^5.0.0",
     "@aws-sdk/client-iam": "^3.1012.0",
     "@aws-sdk/client-secrets-manager": "^3.989.0",

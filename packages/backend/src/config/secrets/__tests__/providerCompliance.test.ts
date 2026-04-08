@@ -111,6 +111,7 @@ vi.mock('../../../lib/supabase', () => {
   };
 
   return {
+    assertNotTestEnv: vi.fn(),
     supabase: null,
     createBrowserSupabaseClient: vi.fn(() => {
       throw new Error('createBrowserSupabaseClient() is only available in browser tests');

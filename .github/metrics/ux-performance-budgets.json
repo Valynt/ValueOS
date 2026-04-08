@@ -1,6 +1,7 @@
 {
+  "_budgetTierNote": "maxChunkJsKb (400) is the CI-reportable warning tier. vite.config.ts enforces a build-breaking ceiling of 500KB per chunk. Chunks between 400-500KB pass the build but are flagged for review.",
   "bundle": {
-    "maxTotalJsKb": 700,
+    "maxTotalJsKb": 500,
     "maxChunkJsKb": 400
   },
   "routeLoadMs": {
@@ -18,16 +19,45 @@
     "/billing": 2800
   },
   "routeChunks": {
-    "ModernLoginPage": { "maxKb": 15 },
-    "ModernSignupPage": { "maxKb": 15 },
-    "ResetPasswordPage": { "maxKb": 10 },
-    "Dashboard": { "maxKb": 15 },
-    "Opportunities": { "maxKb": 35 },
-    "OpportunityDetail": { "maxKb": 35 },
-    "SettingsPage": { "maxKb": 20 },
-    "BillingPortal": { "maxKb": 20 },
-    "ValueModelWorkbench": { "maxKb": 15 },
-    "ValueCaseCanvas": { "maxKb": 90 }
+    "ModernLoginPage": {
+      "maxKb": 15
+    },
+    "ModernSignupPage": {
+      "maxKb": 15
+    },
+    "ResetPasswordPage": {
+      "maxKb": 10
+    },
+    "Dashboard": {
+      "maxKb": 15
+    },
+    "Opportunities": {
+      "maxKb": 35
+    },
+    "OpportunityDetail": {
+      "maxKb": 35
+    },
+    "SettingsPage": {
+      "maxKb": 20
+    },
+    "BillingPortal": {
+      "maxKb": 20
+    },
+    "ValueModelWorkbench": {
+      "maxKb": 15
+    },
+    "ValueCaseCanvas": {
+      "maxKb": 90
+    },
+    "WorkspacePage": {
+      "maxKb": 90
+    },
+    "ReviewPage": {
+      "maxKb": 40
+    },
+    "CaseListPage": {
+      "maxKb": 25
+    }
   },
   "vendorTrend": {
     "enabled": true,

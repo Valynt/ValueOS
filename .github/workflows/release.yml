@@ -178,9 +178,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Build scalability validation artifact from load test output
+        run: |
+          node scripts/ci/build-hpa-validation-artifact.mjs \
+            --load-output=artifacts/scalability/load-test-output.json \
+            --thresholds=infra/k8s/scalability-gate-thresholds.json \
+            --artifact-path=artifacts/scalability/hpa-validation.json
+
+      - name: Block release when HPA/KEDA scalability evidence fails thresholds
+        run: |
+          node scripts/ci/check-hpa-scalability-gate.mjs \
+            --artifact-path=artifacts/scalability/hpa-validation.json \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json
+
       - name: Block release if critical manifests lack evidence links
         run: |
-          node scripts/ci/check-k8s-manifest-maturity.mjs             --mode=release-gate             --environment=production             --ledger-path=infra/k8s/manifest-maturity-ledger.json             --require-critical-evidence-links=true
+          node scripts/ci/check-k8s-manifest-maturity.mjs \
+            --mode=release-gate \
+            --environment=production \
+            --ledger-path=infra/k8s/manifest-maturity-ledger.json \
+            --require-critical-evidence-links=true
 
   secret-rotation-evidence-release-gate:
     name: Secret Rotation Evidence Release Gate
@@ -563,3 +580,72 @@ jobs:
                 console.log(`Uploaded ${fileName} to ${tag}`);
               }
             }
+
+  control-plane-summary:
+    name: control-plane-summary
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - reproducibility-compare
+      - await-upstream-release-gates
+      - manifest-maturity-release-gate
+      - secret-rotation-evidence-release-gate
+      - release
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - name: Collect executed jobs for this run
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              per_page: 100,
+            });
+            const normalized = jobs.map((job) => ({
+              id: job.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+              name: job.name,
+              status: job.status,
+              conclusion: job.conclusion,
+              html_url: job.html_url,
+            }));
+            fs.mkdirSync(path.join(process.cwd(), 'artifacts/ops'), { recursive: true });
+            fs.writeFileSync(
+              path.join(process.cwd(), 'artifacts/ops/workflow-jobs.json'),
+              JSON.stringify(normalized, null, 2)
+            );
+      - name: Drift check (control matrix vs executed gates)
+        run: |
+          node scripts/ci/check-control-matrix-drift.mjs \
+            --workflow-file=release.yml \
+            --matrix-path=.github/workflows/CI_CONTROL_MATRIX.md \
+            --jobs-json=artifacts/ops/workflow-jobs.json \
+            --run-id=${{ github.run_id }} \
+            --run-attempt=${{ github.run_attempt }}
+      - name: Generate control plane summary artifact
+        if: always()
+        run: |
+          node scripts/ci/generate-control-plane-summary.mjs \
+            --workflow-file=release.yml \
+            --matrix-path=.github/workflows/CI_CONTROL_MATRIX.md \
+            --jobs-json=artifacts/ops/workflow-jobs.json \
+            --output=artifacts/ops/control-plane-summary.json \
+            --run-id=${{ github.run_id }} \
+            --run-attempt=${{ github.run_attempt }}
+      - name: Upload control plane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: control-plane-summary-release-${{ github.run_id }}
+          path: artifacts/ops/**
+          if-no-files-found: warn
+          retention-days: 90

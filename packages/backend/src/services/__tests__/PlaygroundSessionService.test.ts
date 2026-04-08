@@ -503,6 +503,19 @@ describe('PlaygroundSessionService', () => {
       const updated = await service.loadSession(session.sessionId);
       expect(updated).toBeNull();
     });
+
+    it('should fail closed when the session organization bootstrap key is missing', async () => {
+      const session = await service.createSession({
+        userId: 'user-123',
+        organizationId: 'org-456',
+        initialLayout: mockLayout,
+      });
+
+      await mockRedisClient.del(`playground:session:org:${session.sessionId}`);
+
+      const updated = await service.loadSession(session.sessionId);
+      expect(updated).toBeNull();
+    });
   });
 
   describe('statistics', () => {

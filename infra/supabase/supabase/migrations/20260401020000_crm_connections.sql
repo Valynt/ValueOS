@@ -46,19 +46,32 @@ CREATE INDEX IF NOT EXISTS idx_crm_connections_key_version
 
 ALTER TABLE public.crm_connections ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY crm_connections_tenant_select ON public.crm_connections
-  FOR SELECT USING (security.user_has_tenant_access(tenant_id::text));
+-- Idempotent policy creation
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'crm_connections' AND policyname = 'crm_connections_tenant_select') THEN
+    CREATE POLICY crm_connections_tenant_select ON public.crm_connections
+      FOR SELECT USING (security.user_has_tenant_access(tenant_id::text));
+  END IF;
 
-CREATE POLICY crm_connections_tenant_insert ON public.crm_connections
-  FOR INSERT WITH CHECK (security.user_has_tenant_access(tenant_id::text));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'crm_connections' AND policyname = 'crm_connections_tenant_insert') THEN
+    CREATE POLICY crm_connections_tenant_insert ON public.crm_connections
+      FOR INSERT WITH CHECK (security.user_has_tenant_access(tenant_id::text));
+  END IF;
 
-CREATE POLICY crm_connections_tenant_update ON public.crm_connections
-  FOR UPDATE
-  USING (security.user_has_tenant_access(tenant_id::text))
-  WITH CHECK (security.user_has_tenant_access(tenant_id::text));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'crm_connections' AND policyname = 'crm_connections_tenant_update') THEN
+    CREATE POLICY crm_connections_tenant_update ON public.crm_connections
+      FOR UPDATE
+      USING (security.user_has_tenant_access(tenant_id::text))
+      WITH CHECK (security.user_has_tenant_access(tenant_id::text));
+  END IF;
 
-CREATE POLICY crm_connections_tenant_delete ON public.crm_connections
-  FOR DELETE USING (security.user_has_tenant_access(tenant_id::text));
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'crm_connections' AND policyname = 'crm_connections_tenant_delete') THEN
+    CREATE POLICY crm_connections_tenant_delete ON public.crm_connections
+      FOR DELETE USING (security.user_has_tenant_access(tenant_id::text));
+  END IF;
+END;
+$$;
 
 -- authenticated users may manage their own connection rows (status, metadata)
 -- but must never read the encrypted token values — those are service_role only.

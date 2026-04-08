@@ -68,6 +68,7 @@ const { db, replaceNodesForCaseMock, deleteNodesForCaseMock, updateStatusMock, u
     const rollbackExecutionMock = vi.fn(async () => undefined);
 
     vi.mock("../../../lib/supabase.js", () => ({
+  assertNotTestEnv: vi.fn(),
       supabase: supabaseMock,
       createServerSupabaseClient: vi.fn(() => supabaseMock),
     }));

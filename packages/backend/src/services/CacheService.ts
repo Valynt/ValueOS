@@ -21,6 +21,7 @@
 import { createClient } from "redis";
 
 import { createLogger } from "../lib/logger.js";
+import { MissingTenantContextError } from "../lib/errors.js";
 import { tenantContextStorage } from "../middleware/tenantContext.js";
 
 const logger = createLogger({ component: "CacheService" });
@@ -101,7 +102,7 @@ export class CacheService {
       // startup rather than silently serving stale or incorrect data.
       throw new Error(
         "CacheService: REDIS_URL must be set in production. " +
-        "In-memory fallback is not safe for multi-pod deployments."
+          "In-memory fallback is not safe for multi-pod deployments."
       );
     } else {
       logger.warn("cache-service-fallback-mode", {
@@ -115,8 +116,27 @@ export class CacheService {
 
   // ── Key helpers ────────────────────────────────────────────────────────────
 
+  /**
+   * Returns the current tenant ID from async context storage.
+   *
+   * SECURITY: Throws MissingTenantContextError if no tenant context is present.
+   * Falling back to a global namespace would allow cross-tenant cache poisoning —
+   * data written by one tenant could be read by another. Fail loudly instead.
+   *
+   * Callers that legitimately need a non-tenant-scoped cache (e.g., system-level
+   * caches) should use a dedicated service that does not extend CacheService.
+   */
   private currentTid(): string {
-    return tenantContextStorage.getStore()?.tid ?? "global";
+    const tid = tenantContextStorage.getStore()?.tid;
+    if (!tid) {
+      throw new MissingTenantContextError(
+        'CacheService requires tenant context. ' +
+        'Ensure tenantContextMiddleware() runs before any CacheService operation. ' +
+        'Falling back to a global namespace is not permitted — it would allow ' +
+        'cross-tenant cache poisoning.'
+      );
+    }
+    return tid;
   }
 
   /** Base prefix without version: tenant:{tid}:{namespace} */
@@ -160,10 +180,10 @@ export class CacheService {
   async get<T>(key: string): Promise<T | null> {
     if (this.redisClient) {
       try {
-        const raw = await this.redisClient.eval(LUA_GET, {
+        const raw = (await this.redisClient.eval(LUA_GET, {
           keys: [this.versionKey(), this.basePrefix()],
           arguments: [key],
-        }) as string | null;
+        })) as string | null;
         if (raw === null) return null;
         return JSON.parse(raw) as T;
       } catch {
@@ -275,7 +295,7 @@ export class CacheService {
     if (options?.storage === "redis" && this.redisClient) {
       // Use the versioned delete path so keys are resolved against the current
       // namespace version, consistent with get() and set().
-      await Promise.all(keys.map((k) => this.delete(k)));
+      await Promise.all(keys.map(k => this.delete(k)));
     } else {
       // In-memory path: keys are stored under basePrefix(), not a raw ns option.
       for (const k of keys) {

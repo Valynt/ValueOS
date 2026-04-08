@@ -7,6 +7,12 @@ interface TenantBootstrapOptions {
 }
 
 export function resolveTenantContextId(options: TenantBootstrapOptions): string {
+  if (options.tenantId && options.organizationId && options.tenantId !== options.organizationId) {
+    throw new Error(
+      `${options.workerName}: tenant context mismatch (tenantId=${options.tenantId}, organizationId=${options.organizationId})`,
+    );
+  }
+
   const candidate = options.tenantId ?? options.organizationId;
   if (!candidate || typeof candidate !== 'string' || candidate.trim().length === 0) {
     throw new Error(`${options.workerName}: job payload missing tenant context (tenantId/organizationId)`);

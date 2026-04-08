@@ -16,6 +16,7 @@ import {
   UnifiedAgentAPI,
   UnifiedAgentRequest,
 } from "../value/UnifiedAgentAPI.js";
+import { GovernanceVetoError, HardenedAgentRunner } from "../../lib/agent-fabric/hardening/index.js";
 
 vi.mock("../../lib/supabase.js");
 
@@ -465,6 +466,111 @@ describe('UnifiedAgentAPI', () => {
     it('should allow disabling circuit breaker', () => {
       const customApi = new UnifiedAgentAPI({ enableCircuitBreaker: false });
       expect((customApi as any).config.enableCircuitBreaker).toBe(false);
+    });
+  });
+
+  describe('Local hardening execution', () => {
+    it('uses HardenedAgentRunner for financial/commitment/narrative/external-facing agents', async () => {
+      __setEnvSourceForTests({ NODE_ENV: 'development', VITE_AGENT_API_URL: '', AGENT_API_URL: '' });
+      const runSpy = vi.spyOn(HardenedAgentRunner.prototype, 'run').mockResolvedValue({
+        output: { roi: 0.2 },
+        confidence: {
+          overall: 0.81,
+          evidence_quality: 0.8,
+          grounding: 0.8,
+          label: 'high',
+        },
+        cache_hit: false,
+        attempts: 1,
+        trace_id: 'trace-1',
+        token_usage: {
+          input_tokens: 10,
+          output_tokens: 10,
+          total_tokens: 20,
+          estimated_cost_usd: 0.01,
+        },
+        governance: {
+          verdict: 'approved',
+          decided_by: 'policy',
+          decided_at: new Date().toISOString(),
+        },
+        safety: {
+          verdict: 'passed',
+          injection_signals: [],
+          tool_violations: [],
+          pii_detected: false,
+          schema_valid: true,
+          schema_errors: [],
+          sanitized_prompt: 'safe',
+        },
+      } as any);
+
+      const agentExecute = vi.fn().mockResolvedValue({
+        agent_id: 'financial-modeling',
+        agent_type: 'financial-modeling',
+        lifecycle_stage: 'MODELING',
+        status: 'success',
+        result: { roi: 0.2 },
+        confidence: 'high',
+        metadata: {
+          execution_time_ms: 1,
+          model_version: 'v1',
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      const apiWithFactory = new UnifiedAgentAPI({
+        agentFactory: {
+          hasFabricAgent: () => true,
+          create: () => ({
+            lifecycleStage: 'MODELING',
+            execute: agentExecute,
+          }),
+        } as any,
+      });
+
+      const response = await apiWithFactory.invoke({
+        agent: 'financial-modeling',
+        query: 'Calculate ROI',
+        userId: 'user-1',
+        sessionId: 'session-1',
+        context: { organization_id: 'org-1' },
+      });
+
+      expect(response.success).toBe(true);
+      expect(runSpy).toHaveBeenCalledOnce();
+    });
+
+    it('maps GovernanceVetoError to deterministic failure payload', async () => {
+      __setEnvSourceForTests({ NODE_ENV: 'development', VITE_AGENT_API_URL: '', AGENT_API_URL: '' });
+      vi.spyOn(HardenedAgentRunner.prototype, 'run').mockRejectedValue(
+        new GovernanceVetoError('communicator', 'pending_human', 'Needs approval', 'cp-1')
+      );
+
+      const apiWithFactory = new UnifiedAgentAPI({
+        agentFactory: {
+          hasFabricAgent: () => true,
+          create: () => ({
+            lifecycleStage: 'COMMUNICATE',
+            execute: vi.fn().mockResolvedValue({}),
+          }),
+        } as any,
+      });
+
+      const response = await apiWithFactory.invoke({
+        agent: 'communicator',
+        query: 'Draft customer-ready summary',
+        userId: 'user-1',
+        sessionId: 'session-1',
+        context: { organization_id: 'org-1' },
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.status).toBe('pending_human_review');
+      expect(response.data).toMatchObject({
+        governance_verdict: 'pending_human',
+        governance_checkpoint_id: 'cp-1',
+      });
     });
   });
 });

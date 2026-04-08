@@ -7,17 +7,19 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
-import { AlertCircle, Download, FileText, Lock, Sparkles } from "lucide-react";
-import React, { useState } from "react";
+import { AlertCircle, Download, FileSpreadsheet, FileText, Lock, Sparkles } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { apiClient } from "@/api/client/unified-api-client";
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import { ExportHistoryPanel } from "@/components/ExportHistoryPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
+import { useAsyncExport, useExportJobStatus } from "@/hooks/useExportJobs";
 import { usePdfExport } from "@/hooks/useCaseExport";
 import { buildTenantPath, safeNavigate } from "@/lib/safeNavigation";
 
@@ -68,12 +70,19 @@ export function ExecutiveOutputStudio() {
   const [activeTab, setActiveTab] = useState<ArtifactType>("executive-memo");
   const [provenanceClaimId, setProvenanceClaimId] = useState<string | undefined>();
   const [exportError, setExportError] = useState<string | null>(null);
+  const [activeExportJobId, setActiveExportJobId] = useState<string | null>(null);
 
   const { data: artifacts, isLoading: artifactsLoading, error: artifactsError } = useArtifacts(caseId);
   const { data: readiness } = useReadiness(caseId);
   const { data: gateStatus } = useIntegrityGate(caseId);
   const generateArtifacts = useGenerateArtifacts(caseId);
   const pdfExport = usePdfExport(caseId);
+  const asyncExport = useAsyncExport(caseId);
+
+  // Track active async export job
+  const { data: activeJob } = useExportJobStatus(caseId, activeExportJobId ?? undefined, {
+    enabled: !!activeExportJobId,
+  });
 
   const activeArtifact = artifacts?.find((a) => a.type === activeTab);
 
@@ -107,7 +116,43 @@ export function ExecutiveOutputStudio() {
     );
   };
 
-  const canExportPdf = gateStatus?.canAdvance ?? false;
+  const handleAsyncExport = async (format: "pdf" | "pptx") => {
+    setExportError(null);
+
+    // Check integrity gate before export
+    if (!gateStatus?.canAdvance) {
+      setExportError(
+        gateStatus?.remediationInstructions?.join(" ") ??
+        "Integrity check failed. Please resolve issues before exporting."
+      );
+      return;
+    }
+
+    try {
+      const result = await asyncExport.mutateAsync({
+        format,
+        exportType: "full",
+        title: `Business Case - ${caseId}`,
+        ownerName: undefined,
+        renderUrl: format === "pdf" ? `${window.location.origin}/org/${caseId}/outputs?pdf=true` : undefined,
+      });
+
+      setActiveExportJobId(result.jobId);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed");
+    }
+  };
+
+  // Clear active job when completed or failed
+  useEffect(() => {
+    if (activeJob?.status === "completed" && activeJob.signedUrl) {
+      window.open(activeJob.signedUrl, "_blank", "noopener,noreferrer");
+      setActiveExportJobId(null);
+    } else if (activeJob?.status === "failed") {
+      setExportError(activeJob.errorMessage ?? "Export failed");
+      setActiveExportJobId(null);
+    }
+  }, [activeJob]);
   const integrityScore = gateStatus?.gate.integrityScore ?? 0;
   const integrityThreshold = gateStatus?.gate.threshold ?? 0.6;
 
@@ -142,6 +187,11 @@ export function ExecutiveOutputStudio() {
     }
     : null;
 
+  const canExportPdf = gateStatus?.canAdvance ?? false;
+
+  // Show progress if async export is active
+  const showExportProgress = activeExportJobId && activeJob && activeJob.status === "running";
+
   return (
     <div className="h-full flex flex-col">
       <div className="px-6 py-4 border-b bg-card">
@@ -154,16 +204,42 @@ export function ExecutiveOutputStudio() {
           </div>
           <div className="flex items-center gap-3">
             {hasArtifacts && (
-              <Button
-                onClick={handlePdfExport}
-                disabled={pdfExport.isPending || !canExportPdf}
-                variant="outline"
-                className="flex items-center gap-2"
-                title={!canExportPdf ? "Resolve integrity issues before exporting" : undefined}
-              >
-                <Download className="w-4 h-4" />
-                {pdfExport.isPending ? "Exporting..." : "Export PDF"}
-              </Button>
+              <>
+                {showExportProgress ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-blue-700">
+                      {activeJob?.currentStep ?? "Exporting..."}
+                      {activeJob?.progressPercent !== undefined && (
+                        <span className="ml-2">({activeJob.progressPercent}%)</span>
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      onClick={() => handleAsyncExport("pptx")}
+                      disabled={asyncExport.isPending || !canExportPdf}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      title={!canExportPdf ? "Resolve integrity issues before exporting" : undefined}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      {asyncExport.isPending ? "Queueing..." : "Export PPTX"}
+                    </Button>
+                    <Button
+                      onClick={handlePdfExport}
+                      disabled={pdfExport.isPending || !canExportPdf}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      title={!canExportPdf ? "Resolve integrity issues before exporting" : undefined}
+                    >
+                      <Download className="w-4 h-4" />
+                      {pdfExport.isPending ? "Exporting..." : "Export PDF"}
+                    </Button>
+                  </>
+                )}
+              </>
             )}
             {!hasArtifacts && (
               <Button
@@ -188,7 +264,7 @@ export function ExecutiveOutputStudio() {
           </Alert>
         )}
 
-        {!canExportPdf && hasArtifacts && (
+        {!canExportPdf && hasArtifacts && !showExportProgress && (
           <Alert className="mb-6 bg-red-50 border-red-200">
             <Lock className="h-4 w-4 text-red-600" />
             <AlertTitle className="text-red-800">Integrity Gate Closed</AlertTitle>
@@ -223,6 +299,13 @@ export function ExecutiveOutputStudio() {
               presentation.
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Export History Panel - P1 */}
+        {hasArtifacts && (
+          <div className="mb-6">
+            <ExportHistoryPanel caseId={caseId} />
+          </div>
         )}
 
         {!hasArtifacts ? (

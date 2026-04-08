@@ -26,6 +26,31 @@ spec:
         component: billing
     spec:
       serviceAccountName: valynt-backend
+      # Wait for NATS JetStream to be ready before starting the worker.
+      # Without this, the worker starts before NATS is available and crashes
+      # on the first connect attempt. The MeteringQueue reconnect options
+      # handle transient mid-run disconnects, but the initial connect still
+      # fails fast if NATS is not yet listening.
+      initContainers:
+        - name: wait-for-nats
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for NATS at metering-nats:4222..."
+              until nc -z metering-nats 4222; do
+                echo "NATS not ready — retrying in 2s"
+                sleep 2
+              done
+              echo "NATS is ready."
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
       containers:
         - name: billing-aggregator-worker
           image: ghcr.io/valynt/valueos-backend:IMAGE_TAG_PLACEHOLDER

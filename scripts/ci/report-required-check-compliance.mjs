@@ -9,6 +9,9 @@ const workflowMap = {
   "staging-deploy-release-gates": ".github/workflows/main-verify.yml",
   codeql: ".github/workflows/codeql.yml",
   "infra-plan": ".github/workflows/terraform.yml",
+  "secret-rotation-verification": ".github/workflows/release-security-required-checks.yml",
+  "check-cve-waivers": ".github/workflows/release-security-required-checks.yml",
+  "integration-supabase": ".github/workflows/main-verify.yml",
 };
 
 function asIsoDate(date) {
@@ -43,6 +46,11 @@ async function main() {
   const allChecks = new Set();
 
   for (const checks of Object.values(policy.requiredChecksByBranch ?? {})) {
+    for (const entry of checks) {
+      allChecks.add(entry.check);
+    }
+  }
+  for (const checks of Object.values(policy.requiredChecksByTag ?? {})) {
     for (const entry of checks) {
       allChecks.add(entry.check);
     }

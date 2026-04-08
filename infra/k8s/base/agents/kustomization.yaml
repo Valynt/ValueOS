@@ -15,13 +15,17 @@ resources:
   - role.yaml
   - rolebinding.yaml
   - prometheus-adapter-rules.yaml
+  # Batch 1 (Sprints 1-4) — core lifecycle agents
   - opportunity
   - target
   - expansion
   - integrity
   - realization
-  - company-intelligence
   - financial-modeling
+  - narrative
+  - groundtruth
+  # Batch 1 (Sprints 1-4) — extended fabric agents
+  - company-intelligence
   - value-mapping
   - system-mapper
   - intervention-designer
@@ -31,11 +35,16 @@ resources:
   - communicator
   - research
   - benchmark
-  - narrative
-  - groundtruth
+  # Batch 2-4 (Sprint 5) — remaining canonical agents
+  - compliance-auditor
+  - context-extraction
+  - deal-assembly
+  - discovery
+  # Autoscaling
   - core-lifecycle-hpa.yaml
   - analysis-agents-hpa.yaml
   - remaining-agents-hpa-part2.yaml
+  - sprint5-agents-hpa.yaml
   - low-frequency-keda-scaledobjects.yaml
 
 labels:

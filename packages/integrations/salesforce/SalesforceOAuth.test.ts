@@ -82,18 +82,22 @@ describe("SalesforceOAuth constructor — loginUrl allowlist", () => {
 });
 
 describe("SalesforceOAuth.getAuthorizationUrl", () => {
-  it("returns a URL, state, and optional codeVerifier", () => {
+  it("returns a URL, state, and optional codeVerifier", async () => {
     const oauth = new SalesforceOAuth(BASE_CONFIG);
-    const result = oauth.getAuthorizationUrl();
+    const result = await oauth.getAuthorizationUrl();
     expect(result.url).toContain("https://login.salesforce.com/services/oauth2/authorize");
     expect(result.state).toBeTruthy();
     expect(result.codeVerifier).toBeUndefined();
   });
 
-  it("includes code_challenge when usePKCE is true", () => {
+  it("includes code_challenge when usePKCE is true", async () => {
     const oauth = new SalesforceOAuth({ ...BASE_CONFIG, usePKCE: true });
-    const result = oauth.getAuthorizationUrl();
+    const result = await oauth.getAuthorizationUrl();
     expect(result.url).toContain("code_challenge");
+    expect(result.url).toContain("code_challenge_method=S256");
     expect(result.codeVerifier).toBeTruthy();
+    // Verify the challenge is not the plain verifier (i.e. S256 was applied)
+    const url = new URL(result.url);
+    expect(url.searchParams.get("code_challenge")).not.toBe(result.codeVerifier);
   });
 });

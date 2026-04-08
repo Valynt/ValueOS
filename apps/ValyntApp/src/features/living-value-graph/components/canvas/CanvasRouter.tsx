@@ -4,6 +4,7 @@
 
 import { Graph } from '../../types/graph.types';
 import { CanvasView } from '../../types/ui.types';
+import { SensitivityView } from '../SensitivityView';
 
 interface CanvasRouterProps {
   activeView: CanvasView;
@@ -33,17 +34,6 @@ function ScenarioCompareView() {
   );
 }
 
-function SensitivityView() {
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-neutral-50">
-      <div className="text-center">
-        <h3 className="text-lg font-medium text-neutral-700 mb-2">Sensitivity Analysis</h3>
-        <p className="text-sm text-neutral-500">Tornado chart and impact ranking</p>
-      </div>
-    </div>
-  );
-}
-
 function TimelineView() {
   return (
     <div className="w-full h-full flex items-center justify-center bg-neutral-50">
@@ -55,14 +45,14 @@ function TimelineView() {
   );
 }
 
-export function CanvasRouter({ activeView }: CanvasRouterProps) {
+export function CanvasRouter({ activeView, graph }: CanvasRouterProps) {
   switch (activeView) {
     case 'waterfall':
       return <WaterfallView />;
     case 'scenario':
       return <ScenarioCompareView />;
     case 'sensitivity':
-      return <SensitivityView />;
+      return graph ? <SensitivityView graph={graph} /> : <div className="w-full h-full flex items-center justify-center">Loading...</div>;
     case 'timeline':
       return <TimelineView />;
     case 'tree':

@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { supabase as serverSupabase } from "../lib/supabase.js";
-
-export const projectStatuses = ["planned", "active", "paused", "completed"] as const;
+export const projectStatuses = [
+  "planned",
+  "active",
+  "paused",
+  "completed",
+] as const;
 export type ProjectStatus = (typeof projectStatuses)[number];
 
 export interface ProjectRecord {
@@ -48,9 +51,12 @@ export interface UpdateProjectInput {
 }
 
 export class ProjectRepository {
-  constructor(private readonly db: SupabaseClient = serverSupabase) {}
+  constructor(private readonly db: SupabaseClient) {}
 
-  async findByName(organizationId: string, normalizedName: string): Promise<ProjectRecord | null> {
+  async findByName(
+    organizationId: string,
+    normalizedName: string
+  ): Promise<ProjectRecord | null> {
     const { data, error } = await this.db
       .from("projects")
       .select("*")
@@ -76,13 +82,20 @@ export class ProjectRepository {
       updated_at: now,
     };
 
-    const { data, error } = await this.db.from("projects").insert(row).select("*").single();
+    const { data, error } = await this.db
+      .from("projects")
+      .insert(row)
+      .select("*")
+      .single();
 
     if (error) throw error;
     return data as ProjectRecord;
   }
 
-  async list(organizationId: string, options: ProjectListOptions): Promise<ProjectListResult> {
+  async list(
+    organizationId: string,
+    options: ProjectListOptions
+  ): Promise<ProjectListResult> {
     const from = (options.page - 1) * options.pageSize;
     const to = from + options.pageSize - 1;
 
@@ -99,7 +112,9 @@ export class ProjectRepository {
 
     if (options.search) {
       const escaped = options.search.replace(/%/g, "\\%").replace(/,/g, "\\,");
-      query = query.or(`name.ilike.%${escaped}%,description.ilike.%${escaped}%`);
+      query = query.or(
+        `name.ilike.%${escaped}%,description.ilike.%${escaped}%`
+      );
     }
 
     const { data, count, error } = await query;
@@ -111,7 +126,10 @@ export class ProjectRepository {
     };
   }
 
-  async getById(organizationId: string, projectId: string): Promise<ProjectRecord | null> {
+  async getById(
+    organizationId: string,
+    projectId: string
+  ): Promise<ProjectRecord | null> {
     const { data, error } = await this.db
       .from("projects")
       .select("*")
@@ -126,13 +144,15 @@ export class ProjectRepository {
   async update(
     organizationId: string,
     projectId: string,
-    input: UpdateProjectInput,
+    input: UpdateProjectInput
   ): Promise<ProjectRecord | null> {
     const { data, error } = await this.db
       .from("projects")
       .update({
         ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.description !== undefined
+          ? { description: input.description }
+          : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
         ...(input.tags !== undefined ? { tags: input.tags } : {}),
         updated_at: new Date().toISOString(),

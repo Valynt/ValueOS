@@ -8,9 +8,8 @@
  */
 
 import { z } from "zod";
-
+import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger.js";
-import { supabase } from "../../lib/supabase.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -43,6 +42,8 @@ export interface EditResult {
 // ---------------------------------------------------------------------------
 
 export class ArtifactEditService {
+  constructor(private readonly supabase: SupabaseClient) {}
+
   /**
    * Persist a user edit to the artifact_edits table and apply to artifact content.
    */
@@ -55,7 +56,7 @@ export class ArtifactEditService {
     });
 
     // Validate tenant access before proceeding
-    const { data: artifact, error: fetchError } = await supabase
+    const { data: artifact, error: fetchError } = await this.supabase
       .from("case_artifacts")
       .select("content_json, tenant_id, organization_id")
       .eq("id", input.artifactId)
@@ -64,16 +65,19 @@ export class ArtifactEditService {
       .single();
 
     if (fetchError || !artifact) {
-      logger.error("ArtifactEditService: Artifact not found or tenant mismatch", {
-        artifactId: input.artifactId,
-        tenantId: input.tenantId,
-        error: fetchError?.message,
-      });
+      logger.error(
+        "ArtifactEditService: Artifact not found or tenant mismatch",
+        {
+          artifactId: input.artifactId,
+          tenantId: input.tenantId,
+          error: fetchError?.message,
+        }
+      );
       throw new Error("Artifact not found or access denied");
     }
 
     // Store the edit record in artifact_edits
-    const { data: editRecord, error: editError } = await supabase
+    const { data: editRecord, error: editError } = await this.supabase
       .from("artifact_edits")
       .insert({
         tenant_id: input.tenantId,
@@ -97,10 +101,14 @@ export class ArtifactEditService {
 
     // Apply the edit to the artifact content
     const previousContent = artifact.content_json as Record<string, unknown>;
-    const updatedContent = this.applyEdit(previousContent, input.fieldPath, input.newValue);
+    const updatedContent = this.applyEdit(
+      previousContent,
+      input.fieldPath,
+      input.newValue
+    );
 
     // Update the artifact with new content
-    const { error: updateError } = await supabase
+    const { error: updateError } = await this.supabase
       .from("case_artifacts")
       .update({
         content_json: updatedContent,
@@ -139,18 +147,22 @@ export class ArtifactEditService {
     tenantId: string,
     organizationId: string,
     artifactId: string
-  ): Promise<Array<{
-    id: string;
-    fieldPath: string;
-    oldValue: string | null;
-    newValue: string;
-    editedByUserId: string;
-    reason: string | null;
-    createdAt: string;
-  }>> {
-    const { data, error } = await supabase
+  ): Promise<
+    Array<{
+      id: string;
+      fieldPath: string;
+      oldValue: string | null;
+      newValue: string;
+      editedByUserId: string;
+      reason: string | null;
+      createdAt: string;
+    }>
+  > {
+    const { data, error } = await this.supabase
       .from("artifact_edits")
-      .select("id, field_path, old_value, new_value, edited_by_user_id, reason, created_at")
+      .select(
+        "id, field_path, old_value, new_value, edited_by_user_id, reason, created_at"
+      )
       .eq("artifact_id", artifactId)
       .eq("tenant_id", tenantId)
       .eq("organization_id", organizationId)
@@ -164,7 +176,7 @@ export class ArtifactEditService {
       throw new Error("Failed to fetch edit history");
     }
 
-    return (data || []).map((edit) => ({
+    return (data || []).map(edit => ({
       id: edit.id,
       fieldPath: edit.field_path,
       oldValue: edit.old_value,
@@ -189,7 +201,11 @@ export class ArtifactEditService {
     let current: Record<string, unknown> = result;
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      if (!(key in current) || typeof current[key] !== "object" || current[key] === null) {
+      if (
+        !(key in current) ||
+        typeof current[key] !== "object" ||
+        current[key] === null
+      ) {
         current[key] = {};
       }
       current = current[key] as Record<string, unknown>;
@@ -210,7 +226,7 @@ export class ArtifactEditService {
     artifactId: string,
     userId: string
   ): Promise<boolean> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("case_artifacts")
       .select("id")
       .eq("id", artifactId)

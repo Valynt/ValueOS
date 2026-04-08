@@ -5,6 +5,11 @@
  * - Generate referral codes
  * - Claim referrals
  * - View referral statistics and rewards
+ *
+ * SECURITY (B-5): All authenticated endpoints now pass `req` as the
+ * ReferralRequestContext so ReferralService uses an RLS-scoped Supabase
+ * client. The mount point in server.ts also applies requireAuth +
+ * tenantContextMiddleware() + tenantDbContextMiddleware() before this router.
  */
 
 import { createLogger } from "@shared/lib/logger";
@@ -74,7 +79,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const result = await referralService.generateReferralCode(userId);
+    const result = await referralService.generateReferralCode(userId, req);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -114,7 +119,9 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * POST /api/referrals/claim
- * Claim a referral code (public endpoint)
+ * Claim a referral code (public endpoint — no auth required)
+ *
+ * Uses service-role client internally via a controlled DB function.
  */
 router.post(
   "/claim",
@@ -155,9 +162,6 @@ router.post(
         referral_code: sanitizeForLogging(referral_code) as string,
       });
 
-      // Note: We don't audit log here since user might not be authenticated yet
-      // Audit logging will happen when they complete signup
-
       return res.json({
         success: true,
         referral_id: result.referral_id,
@@ -178,7 +182,7 @@ router.post(
 
 /**
  * GET /api/referrals/dashboard
- * Get referral dashboard for authenticated user
+ * Get referral dashboard for authenticated user (RLS-scoped)
  */
 router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -188,13 +192,13 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const dashboard = await referralService.getReferralDashboard(userId);
+    const dashboard = await referralService.getReferralDashboard(userId, req);
 
     if (!dashboard) {
       // Try to generate a referral code if none exists
-      const codeResult = await referralService.generateReferralCode(userId);
+      const codeResult = await referralService.generateReferralCode(userId, req);
       if (codeResult.success && codeResult.referral_code) {
-        const newDashboard = await referralService.getReferralDashboard(userId);
+        const newDashboard = await referralService.getReferralDashboard(userId, req);
         return res.json({ success: true, dashboard: newDashboard });
       }
 
@@ -221,7 +225,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/referrals/stats
- * Get referral statistics for authenticated user
+ * Get referral statistics for authenticated user (RLS-scoped)
  */
 router.get("/stats", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -231,7 +235,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const stats = await referralService.getReferralStats(userId);
+    const stats = await referralService.getReferralStats(userId, req);
 
     if (!stats) {
       return res.status(404).json({ error: "Referral stats not found" });
@@ -257,7 +261,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/referrals/rewards
- * Get rewards for authenticated user
+ * Get rewards for authenticated user (RLS-scoped)
  */
 router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -272,7 +276,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const rewards = await referralService.getUserRewards(userId, limit);
+    const rewards = await referralService.getUserRewards(userId, req, limit);
 
     logger.info("Referral rewards retrieved", {
       userId: sanitizeForLogging(userId) as string,
@@ -295,7 +299,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/referrals/referrals
- * Get referral list for authenticated user
+ * Get referral list for authenticated user (RLS-scoped)
  */
 router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -310,7 +314,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const referrals = await referralService.getUserReferrals(userId, limit);
+    const referrals = await referralService.getUserReferrals(userId, req, limit);
 
     logger.info("User referrals retrieved", {
       userId: sanitizeForLogging(userId) as string,
@@ -333,7 +337,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
 
 /**
  * POST /api/referrals/validate
- * Validate a referral code (public endpoint)
+ * Validate a referral code (public endpoint — uses service-role read-only check)
  */
 router.post(
   "/validate",
@@ -375,7 +379,8 @@ router.post(
 /**
  * POST /api/referrals/complete
  * Complete a referral (internal use - when user converts to paying customer)
- * This endpoint should be called by the billing system after successful subscription
+ * This endpoint should be called by the billing system after successful subscription.
+ * Uses service-role client via audited database function.
  */
 router.post(
   "/complete",
@@ -441,7 +446,7 @@ router.post(
 
 /**
  * DELETE /api/referrals/deactivate
- * Deactivate user's referral code
+ * Deactivate user's referral code (RLS-scoped: own codes only)
  */
 router.delete(
   "/deactivate",
@@ -454,7 +459,7 @@ router.delete(
         return res.status(401).json({ error: "User not authenticated" });
       }
 
-      const success = await referralService.deactivateReferralCode(userId);
+      const success = await referralService.deactivateReferralCode(userId, req);
 
       if (!success) {
         return res

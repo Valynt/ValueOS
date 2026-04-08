@@ -15,6 +15,9 @@ const useWorkflowExecutionViewModelMock = vi.fn();
 vi.mock("react-router-dom", () => ({
   Link: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   useParams: () => ({ oppId: "opp-1", caseId: "case-1" }),
+  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: "/opportunities/opp-1/cases/case-1" }),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
 }));
 
 vi.mock("@/hooks/useDomainPacks", () => ({
@@ -37,6 +40,14 @@ vi.mock("@/hooks/useCaseExport", () => ({
   }),
 }));
 
+vi.mock("@/hooks/company-context", () => ({
+  useTargetAlignment: () => ({ data: null, isLoading: false, error: null }),
+}));
+
+vi.mock("@/contexts/CompanyContextProvider", () => ({
+  useCompanyValueContext: () => ({ companyContext: null, isReady: false }),
+}));
+
 vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
@@ -54,6 +65,9 @@ vi.mock("../canvas/ModelStage", () => ({ ModelStage: () => <div>Model</div> }));
 vi.mock("../canvas/NarrativeStage", () => ({ NarrativeStage: () => <div>Narrative</div> }));
 vi.mock("../canvas/RealizationStage", () => ({ RealizationStage: () => <div>Realization</div> }));
 vi.mock("../canvas/ValueGraphStage", () => ({ ValueGraphStage: () => <div>Value Graph</div> }));
+vi.mock("@/features/workflow/components/HandoffTimelineCards", () => ({
+  HandoffTimelineCards: () => <div data-testid="handoff-timeline-cards" />,
+}));
 
 describe("ValueCaseCanvas workflow state presentation", () => {
   const cases: WorkflowViewState[] = [

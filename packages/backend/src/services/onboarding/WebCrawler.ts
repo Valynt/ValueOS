@@ -10,7 +10,8 @@
  */
 
 import { logger } from '../../lib/logger.js';
-import { type WebScraperResult, WebScraperService } from '../WebScraperService.js';
+import { type ExtractedWebEntity, type WebScraperResult, WebScraperService } from '../WebScraperService.js';
+import type { LLMCompletable } from '../../lib/llm/secureLLMWrapper.js';
 
 // ---------------------------------------------------------------------------
 // Public types (unchanged — consumed by ResearchJobWorker + SuggestionExtractor)
@@ -28,6 +29,8 @@ export interface CrawledPage {
   title?: string;
   /** Raw HTML or markdown content — alias for text used by some callers. */
   content?: string;
+  /** Optional per-page entities extracted by WebScraperService LLM stage. */
+  entities?: ExtractedWebEntity[];
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +127,16 @@ interface ScoredLink {
   score: number;
 }
 
+export interface CrawlOptions {
+  entityExtraction?: {
+    enabled: boolean;
+    tenantId: string;
+    llmGateway: LLMCompletable;
+    maxEntitiesPerPage?: number;
+    model?: string;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Main crawl function
 // ---------------------------------------------------------------------------
@@ -133,7 +146,7 @@ interface ScoredLink {
  * Uses WebScraperService for content extraction (cheerio, SSRF protection).
  * Prioritizes high-value paths like /products and /solutions.
  */
-export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
+export async function crawlWebsite(websiteUrl: string, options?: CrawlOptions): Promise<CrawlResult> {
   const startTime = Date.now();
   const pages: CrawledPage[] = [];
   const visited = new Set<string>();
@@ -165,7 +178,20 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
     logger.debug('Crawling URL', { url, score: getLinkScore(url) });
 
     // Use the production scraper for content extraction
-    const result: WebScraperResult | null = await scraper.scrape(url, 1);
+    let result: WebScraperResult | null = null;
+    const extractionOptions = options?.entityExtraction;
+    if (extractionOptions?.enabled) {
+      result = await scraper.scrapeWithEntityExtraction({
+        url,
+        tenantId: extractionOptions.tenantId,
+        llmGateway: extractionOptions.llmGateway,
+        maxRetries: 1,
+        maxEntities: extractionOptions.maxEntitiesPerPage ?? 12,
+        model: extractionOptions.model,
+      });
+    } else {
+      result = await scraper.scrape(url, 1);
+    }
     if (!result || result.main_content.length < 50) continue;
 
     // Combine title + h1s + main content for richer text
@@ -179,7 +205,13 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
     const remaining = MAX_TOTAL_CHARS - totalChars;
     const trimmedText = fullText.substring(0, remaining);
 
-    pages.push({ url, text: trimmedText });
+    pages.push({
+      url,
+      text: trimmedText,
+      title: result.title,
+      content: trimmedText,
+      entities: result.entity_extraction?.entities,
+    });
     totalChars += trimmedText.length;
 
     // Discover links and add to queue with scores

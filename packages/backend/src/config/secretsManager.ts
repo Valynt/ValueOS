@@ -25,7 +25,7 @@ import {
 import { getEnvVar } from '../lib/env';
 import { logger } from '../lib/logger.js'
 // service-role:justified worker/service requires elevated DB access for background processing
-import { createServerSupabaseClient } from '../lib/supabase.js'
+import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js'
 import { RbacService, type RbacUser } from '../services/auth/RbacService.js'
 
 import { getDatabaseUrl } from './database.js'
@@ -188,7 +188,8 @@ export class MultiTenantSecretsManager {
 
     // First: try role-backed RBAC.
     try {
-      const supabase = createServerSupabaseClient();
+      // service-role:justified secretsManager checks user roles for secret access authorization
+      const supabase = createWorkerServiceSupabaseClient('secretsManager: check user roles for secret access');
 
       const { data: userRoles, error } = await supabase
         .from('user_roles')
@@ -252,7 +253,8 @@ export class MultiTenantSecretsManager {
       try {
         let supabase;
         try {
-          supabase = createServerSupabaseClient();
+          // service-role:justified secretsManager checks permissions for secret retrieval
+          supabase = createWorkerServiceSupabaseClient('secretsManager: check permissions for secret retrieval');
         } catch (e: unknown) {
           logger.warn('Failed to create Supabase client for permission check', { error: e });
           return {
@@ -356,7 +358,8 @@ export class MultiTenantSecretsManager {
     }
 
     try {
-      const supabase = createServerSupabaseClient();
+      // service-role:justified secretsManager reads secret paths from DB for resolution
+      const supabase = createWorkerServiceSupabaseClient('secretsManager: read secret paths for resolution');
 
       let secretPath: string | undefined;
       try {

@@ -1,0 +1,43 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true
+  },
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**"
+  ],
+  "include": [
+    "src/lib/warmth.ts",
+    "src/lib/events.ts",
+    "src/components/warmth/**/*.ts",
+    "src/components/warmth/**/*.tsx",
+    "src/components/mode/**/*.ts",
+    "src/components/mode/**/*.tsx",
+    "src/components/copilot/**/*.ts",
+    "src/components/copilot/**/*.tsx",
+    "src/components/review/**/*.ts",
+    "src/components/review/**/*.tsx",
+    "src/hooks/queries/**/*.ts",
+    "src/hooks/mutations/**/*.ts",
+    "src/hooks/warmth/**/*.ts",
+    "src/hooks/mode/**/*.ts",
+    "src/features/workspace/**/*.ts",
+    "src/features/workspace/**/*.tsx",
+    "src/features/review/**/*.ts",
+    "src/features/review/**/*.tsx",
+    "src/features/settings/**/*.ts",
+    "src/features/settings/**/*.tsx"
+  ]
+}

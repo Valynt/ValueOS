@@ -1,6 +1,6 @@
 /**
  * ShareModal
- * 
+ *
  * Modal for generating and managing guest access links.
  */
 
@@ -28,6 +28,7 @@ interface ShareModalProps {
   caseId: string;
   caseTitle: string;
   companyName: string;
+  defaultShareTarget?: 'review' | 'workspace';
 }
 
 type PermissionLevel = 'view' | 'comment' | 'edit';
@@ -39,6 +40,7 @@ export function ShareModal({
   caseId,
   caseTitle,
   companyName,
+  defaultShareTarget = 'review',
 }: ShareModalProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -97,7 +99,7 @@ export function ShareModal({
 
   const handleCopyLink = useCallback(() => {
     if (!generatedLink) return;
-    
+
     navigator.clipboard.writeText(generatedLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -107,16 +109,19 @@ export function ShareModal({
     if (!generatedLink || !email) return;
 
     const subject = encodeURIComponent(`${caseTitle} - Value Calculator Access`);
+    const shareTarget = permissionLevel === 'view' ? 'review' : defaultShareTarget;
+    const targetPath = shareTarget === 'review' ? `/review/${caseId}` : `/case/${caseId}`;
     const body = encodeURIComponent(
       `Hi ${name},\n\n` +
-      `You've been invited to view the value analysis for ${companyName}.\n\n` +
-      `Click here to access the interactive value calculator:\n${generatedLink}\n\n` +
+      `You've been invited to ${permissionLevel === 'view' ? 'review' : 'collaborate on'} the value analysis for ${companyName}.\n\n` +
+      `Click here to access${permissionLevel === 'view' ? ' the executive review' : ''}:\n${generatedLink}\n\n` +
+      `Direct link: ${window.location.origin}${targetPath}\n\n` +
       `This link will expire ${getExpirationLabel(expiration)}.\n\n` +
       `Best regards`
     );
 
     window.open(`mailto:${email}?subject=${subject}&body=${body}`);
-  }, [generatedLink, email, name, caseTitle, companyName, expiration]);
+  }, [generatedLink, email, name, caseTitle, companyName, expiration, permissionLevel, defaultShareTarget, caseId]);
 
   const handleReset = useCallback(() => {
     setGeneratedLink(null);
@@ -132,7 +137,7 @@ export function ShareModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -199,7 +204,7 @@ export function ShareModal({
                   <PermissionButton
                     icon={Eye}
                     label="View Only"
-                    description="Can view and export"
+                    description="Review surface access"
                     selected={permissionLevel === 'view'}
                     onClick={() => setPermissionLevel('view')}
                   />

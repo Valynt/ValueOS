@@ -39,6 +39,10 @@ export const SagaStateEnumSchema = z.enum([
   "COMPOSING",
   "REFINING",
   "FINALIZED",
+  "TRACKING",
+  "REALIZED",
+  "AT_RISK",
+  "EXPANSION_READY",
 ]);
 export type SagaStateEnum = z.infer<typeof SagaStateEnumSchema>;
 

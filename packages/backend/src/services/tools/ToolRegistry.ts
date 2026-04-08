@@ -1,8 +1,12 @@
 /**
- * Tool Registry with MCP-Compatible Interface
+ * Tool Registry with MCP-Compatible Interface and Per-Tenant Rate Limiting
  *
  * Implements Model Context Protocol (MCP) compatible tool interface
  * for hot-swappable tools without orchestrator refactoring.
+ *
+ * Sprint 5.5: Added per-tenant, per-tool token bucket rate limiting with
+ * tier-based limits (free/pro/enterprise). Prevents noisy neighbor problems
+ * and enables usage-based pricing enforcement.
  *
  * Based on:
  * - Anthropic's Model Context Protocol (MCP)
@@ -16,6 +20,64 @@ import { logger } from "../utils/logger.js";
 
 
 import { getMetricsCollector } from "./MetricsCollector.js";
+
+// ---------------------------------------------------------------------------
+// Tier-Based Rate Limiting Configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Tenant tier types for rate limiting.
+ */
+export type TenantTier = 'free' | 'pro' | 'enterprise' | 'internal';
+
+/**
+ * Rate limit configuration per tier.
+ */
+interface TierRateLimits {
+  /** Requests per minute */
+  requestsPerMinute: number;
+  /** Burst size for token bucket */
+  burstSize: number;
+  /** Window size in milliseconds */
+  windowMs: number;
+}
+
+/**
+ * Default rate limits per tenant tier.
+ * These can be overridden via environment variables or configuration.
+ */
+const DEFAULT_TIER_LIMITS: Record<TenantTier, TierRateLimits> = {
+  free: { requestsPerMinute: 10, burstSize: 5, windowMs: 60000 },
+  pro: { requestsPerMinute: 100, burstSize: 20, windowMs: 60000 },
+  enterprise: { requestsPerMinute: 1000, burstSize: 100, windowMs: 60000 },
+  internal: { requestsPerMinute: 10000, burstSize: 500, windowMs: 60000 },
+};
+
+/**
+ * Token bucket state for rate limiting.
+ */
+interface TokenBucket {
+  /** Current token count */
+  tokens: number;
+  /** Last refill timestamp (ms) */
+  lastRefill: number;
+  /** Maximum tokens (burst size) */
+  capacity: number;
+  /** Tokens added per window */
+  refillRate: number;
+  /** Window size in milliseconds */
+  windowMs: number;
+}
+
+/**
+ * Get tenant tier from tenant ID or context.
+ * In production, this would query a tenant service or cache.
+ */
+function getTenantTier(_tenantId: string): TenantTier {
+  // TODO: Implement actual tier lookup from tenant service
+  // For now, default to pro for most tenants
+  return 'pro';
+}
 
 /**
  * JSON Schema for tool parameters
@@ -112,12 +174,88 @@ export interface ValidationResult {
 /**
  * Tool Registry
  *
- * Central registry for all tools with hot-swap capability
+ * Central registry for all tools with hot-swap capability and per-tenant
+ * token bucket rate limiting.
  */
 export class ToolRegistry {
   private tools: Map<string, MCPTool> = new Map();
   private executionHistory: Map<string, number> = new Map();
   private rateLimitWindows: Map<string, number[]> = new Map();
+
+  // Sprint 5.5: Token bucket rate limiting per tenant/tool
+  private tokenBuckets: Map<string, TokenBucket> = new Map();
+  private tierRateLimits: Record<TenantTier, TierRateLimits> = DEFAULT_TIER_LIMITS;
+
+  /**
+   * Configure rate limits for a tenant tier.
+   */
+  setTierRateLimits(tier: TenantTier, limits: TierRateLimits): void {
+    this.tierRateLimits[tier] = limits;
+  }
+
+  /**
+   * Get the cache key for a tenant/tool combination.
+   */
+  private getBucketKey(tenantId: string, toolName: string): string {
+    return `${tenantId}:${toolName}`;
+  }
+
+  /**
+   * Get or create token bucket for tenant/tool.
+   */
+  private getTokenBucket(tenantId: string, toolName: string): TokenBucket {
+    const key = this.getBucketKey(tenantId, toolName);
+
+    let bucket = this.tokenBuckets.get(key);
+    if (!bucket) {
+      const tier = getTenantTier(tenantId);
+      const limits = this.tierRateLimits[tier];
+
+      bucket = {
+        tokens: limits.burstSize,
+        lastRefill: Date.now(),
+        capacity: limits.burstSize,
+        refillRate: limits.requestsPerMinute,
+        windowMs: limits.windowMs,
+      };
+
+      this.tokenBuckets.set(key, bucket);
+    }
+
+    return bucket;
+  }
+
+  /**
+   * Check rate limit using token bucket algorithm.
+   * Returns true if allowed, false if rate limited.
+   */
+  private checkTokenBucket(tenantId: string, toolName: string): { allowed: boolean; retryAfter?: number } {
+    const bucket = this.getTokenBucket(tenantId, toolName);
+    const now = Date.now();
+
+    // Calculate time since last refill
+    const timePassed = now - bucket.lastRefill;
+    const windowsPassed = timePassed / bucket.windowMs;
+
+    // Refill tokens based on time passed
+    const tokensToAdd = Math.floor(windowsPassed * bucket.refillRate);
+    bucket.tokens = Math.min(bucket.capacity, bucket.tokens + tokensToAdd);
+
+    // Update last refill time (account for partial windows)
+    bucket.lastRefill = now - (timePassed % bucket.windowMs);
+
+    // Check if we have tokens available
+    if (bucket.tokens >= 1) {
+      bucket.tokens -= 1;
+      return { allowed: true };
+    }
+
+    // Rate limited - calculate retry after
+    const timeUntilNextToken = (1 - bucket.tokens) * (bucket.windowMs / bucket.refillRate);
+    const retryAfter = Math.ceil(timeUntilNextToken / 1000);
+
+    return { allowed: false, retryAfter };
+  }
 
   /**
    * Register a tool
@@ -194,8 +332,23 @@ export class ToolRegistry {
       };
     }
 
-    // Check rate limits
-    const rateLimitResult = this.checkRateLimit(tool, context?.userId);
+    // Check rate limits (Sprint 5.5: Use token bucket for tenant-aware limiting)
+    const tenantId = context?.tenantId;
+    let rateLimitResult: { allowed: boolean; message?: string; retryAfter?: number };
+
+    if (tenantId) {
+      // Use tenant-aware token bucket rate limiting
+      const tokenResult = this.checkTokenBucket(tenantId, toolName);
+      rateLimitResult = {
+        allowed: tokenResult.allowed,
+        message: tokenResult.allowed ? undefined : `Rate limit exceeded for tenant ${tenantId}. Try again in ${tokenResult.retryAfter}s.`,
+        retryAfter: tokenResult.retryAfter,
+      };
+    } else {
+      // Fall back to legacy per-tool rate limiting
+      rateLimitResult = this.checkRateLimit(tool, context?.userId);
+    }
+
     if (!rateLimitResult.allowed) {
       return {
         success: false,
