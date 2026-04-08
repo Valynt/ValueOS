@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { tenantContextStorage } from '../../middleware/tenantContext.js';
@@ -47,5 +49,54 @@ describe('Worker tenant boundary isolation', () => {
 
     expect(observedTenant).toBe('payload-tenant');
     expect(observedTenant).not.toBe('ambient-tenant');
+  });
+});
+
+describe('Worker classification guardrails', () => {
+  const workerFiles = [
+    {
+      path: '../AlertingRulesWorker.ts',
+      expectedClassifications: ['explicit-cross-tenant-safe'],
+    },
+    {
+      path: '../crmWorker.ts',
+      expectedClassifications: [
+        'tenant-context-restored',
+        'tenant-context-restored',
+        'tenant-context-restored',
+      ],
+    },
+    {
+      path: '../mcpIntegrationWorker.ts',
+      expectedClassifications: ['tenant-context-restored', 'tenant-context-restored'],
+    },
+  ] as const;
+
+  it('requires every new Worker(...) to declare a classification status marker', () => {
+    for (const workerFile of workerFiles) {
+      const source = readFileSync(new URL(workerFile.path, import.meta.url), 'utf8');
+      const constructorCount = (source.match(/new\s+Worker\s*\(/g) ?? []).length;
+      const statusMarkers = [
+        ...source.matchAll(
+          /WORKER_CLASSIFICATION:\s*(tenant-context-restored|explicit-cross-tenant-safe)/g,
+        ),
+      ].map((match) => match[1]);
+
+      expect(constructorCount).toBe(workerFile.expectedClassifications.length);
+      expect(statusMarkers).toEqual(workerFile.expectedClassifications);
+    }
+  });
+
+  it('enforces tenant-context-restored workers to bootstrap ALS context', () => {
+    for (const workerFile of workerFiles) {
+      const source = readFileSync(new URL(workerFile.path, import.meta.url), 'utf8');
+      const includesTenantContextRestored = workerFile.expectedClassifications.includes('tenant-context-restored');
+
+      if (!includesTenantContextRestored) {
+        continue;
+      }
+
+      expect(source).toMatch(/tenantContextStorage\.run\(|runJobWithTenantContext\(/);
+    }
   });
 });
