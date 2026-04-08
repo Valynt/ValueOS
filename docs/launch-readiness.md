@@ -5,11 +5,11 @@ source_commit: HEAD
 status: active
 ---
 
-# Launch Readiness
+# Launch Readiness Dashboard
 
-Canonical gate definition: [docs/go-no-go-criteria.md](./go-no-go-criteria.md).
+Normative GO/NO-GO criteria live only in [docs/go-no-go-criteria.md](./go-no-go-criteria.md). Operational control ownership, CI job mapping, thresholds, artifact paths, and waiver policy live in [docs/operations/launch-evidence/gate-control-matrix.md](./operations/launch-evidence/gate-control-matrix.md).
 
-This document is an evidence index only. Readiness claims must be backed by objective evidence links (workflow run URL, artifact path, and release SHA).
+Requirements intent and traceability source: [openspec/specs/production-readiness/spec.md](../openspec/specs/production-readiness/spec.md).
 
 ## Release metadata
 
@@ -20,47 +20,26 @@ This document is an evidence index only. Readiness claims must be backed by obje
 | Release decision issue | `https://github.com/<org>/<repo>/issues/<id>` |
 | Last updated (UTC) | `2026-04-08T00:00:00Z` |
 
-## Gate evidence matrix
+## Gate status dashboard
 
-| Gate | Status | Workflow run URL | Artifact / evidence path | Release SHA |
+| Gate ID | Status | Evidence run URL | Artifact bundle | Owner sign-off |
 |---|---|---|---|---|
-| G1 CI Pipeline Integrity | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/ci-lanes/ | `<RELEASE_SHA>` |
-| G2 Test Coverage | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | coverage/coverage-summary.json | `<RELEASE_SHA>` |
-| G3 E2E Tests | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | playwright-report/ + artifacts/e2e/ | `<RELEASE_SHA>` |
-| G4 Security | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/security/ + .gitleaks.toml checks | `<RELEASE_SHA>` |
-| G5 Schema & Data Integrity | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/db/ + migration rollback evidence | `<RELEASE_SHA>` |
-| G6 Infrastructure Readiness | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | infra/k8s/manifest-maturity-ledger.json + artifacts/infra/ | `<RELEASE_SHA>` |
-| G7 Observability Readiness | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/observability/ + runbook links | `<RELEASE_SHA>` |
-| G8 Compliance | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/compliance/ + docs/security-compliance/evidence-index.md | `<RELEASE_SHA>` |
+| G1 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/ci-lanes/ | [ ] |
+| G2 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | coverage/coverage-summary.json | [ ] |
+| G3 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | playwright-report/ + artifacts/e2e/ | [ ] |
+| G4 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/security/ | [ ] |
+| G5 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/db/ | [ ] |
+| G6 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/infra/ | [ ] |
+| G7 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/observability/ | [ ] |
+| G8 | INCOMPLETE | https://github.com/<org>/<repo>/actions/runs/<run_id> | artifacts/compliance/ | [ ] |
 
-## Go/No-Go sign-off table
+## Decision precondition
 
-> Rule: A gate must not be marked `COMPLETE` above unless its corresponding row here is checked.
+Production deploy remains blocked until all gate statuses are `COMPLETE`, all owner sign-offs are checked, and the release manager final decision is recorded in the release decision issue for the same release SHA.
 
-| Gate / Role | Sign-off | Timestamp (UTC) | Release SHA | Evidence |
-|---|---|---|---|---|
-| G1 CI Pipeline Integrity (Platform Engineering) | [ ] |  |  |  |
-| G2 Test Coverage (QA Lead) | [ ] |  |  |  |
-| G3 E2E Tests (QA Lead) | [ ] |  |  |  |
-| G4 Security (Security) | [ ] |  |  |  |
-| G5 Schema & Data Integrity (Backend Lead + SRE) | [ ] |  |  |  |
-| G6 Infrastructure Readiness (Platform Engineering + SRE) | [ ] |  |  |  |
-| G7 Observability Readiness (SRE) | [ ] |  |  |  |
-| G8 Compliance (Compliance + Security) | [ ] |  |  |  |
-| Release Manager (final decision authority) | [ ] |  |  | https://github.com/<org>/<repo>/issues/<id> |
 
-## Production deploy precondition
+## Release manager decision
 
-Production deploy is blocked unless all conditions below are true:
-
-1. Every hard gate (G1–G8) in the Gate evidence matrix is `COMPLETE`.
-2. Every corresponding sign-off row is checked.
-3. Release Manager row is checked with:
-   - UTC timestamp,
-   - release SHA that matches the deployment commit,
-   - link to the GO/NO-GO issue.
-
-CI enforcement:
-
-- `node scripts/ci/check-launch-readiness-signoff.mjs`
-- `node scripts/ci/check-launch-readiness-signoff.mjs --require-release-manager --expected-sha "$GITHUB_SHA"`
+| Final GO/NO-GO sign-off | Timestamp (UTC) | Release SHA | Decision issue |
+|---|---|---|---|
+| [ ] |  |  | https://github.com/<org>/<repo>/issues/<id> |

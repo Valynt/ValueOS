@@ -320,6 +320,8 @@ jobs:
         run: node scripts/ci/check-docs-workspace-topology.mjs
       - name: Docs date integrity + compliance artifact
         run: node scripts/ci/check-docs-date-integrity.mjs
+      - name: Launch gate docs consistency
+        run: node scripts/ci/check-launch-gate-doc-consistency.mjs
       - name: Eventing architecture matrix guard
         run: pnpm run check:eventing-architecture
       - name: Ownership metadata guard
