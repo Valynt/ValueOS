@@ -5,6 +5,31 @@
   "intakeChannel": {
     "email": "security@valueos.com"
   },
+  "ownershipAndEscalation": {
+    "primaryOwner": "Security Engineering",
+    "remediationOwner": "Impacted engineering service owner",
+    "escalationTrigger": "Disclosure ticket exceeds SLA target without approved exception",
+    "escalationPath": [
+      "Security Engineering on-call",
+      "Head of Platform Engineering",
+      "Security & Compliance Program leadership"
+    ],
+    "missedSlaRequiredArtifacts": [
+      "Overdue justification",
+      "Containment status",
+      "Revised due date",
+      "Executive visibility note in weekly governance review packet"
+    ]
+  },
+  "kpiAutomation": {
+    "generatorScript": "scripts/ci/extract-governance-risk-control-kpis.mjs",
+    "artifactPath": "artifacts/security/governance/vdp-kpis.json",
+    "workflowSources": [
+      ".github/workflows/pr-fast.yml",
+      ".github/workflows/main-verify.yml",
+      ".github/workflows/nightly-governance.yml"
+    ]
+  },
   "slaTargets": {
     "timeToFirstResponseBusinessDays": 2,
     "triageBusinessDays": 5,
