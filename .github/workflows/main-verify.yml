@@ -648,6 +648,8 @@ jobs:
             --reporter=verbose \
             --reporter=json \
             --outputFile.json=artifacts/critical-workflows/vitest-critical-workflows.json
+      - name: Critical-path skip/only waiver metadata guard
+        run: node scripts/ci/check-critical-skip-only.mjs
       - name: Assert critical-workflows executed test count and pass rate
         run: |
           node scripts/ci/assert-test-minimums.mjs \
@@ -794,8 +796,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Dependency policy — block vulnerable jspdf lockfile resolutions
         run: node scripts/ci/check-jspdf-version-policy.mjs
-      - name: SCA — pnpm audit (fail on high/critical)
-        run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+      - name: SCA — pnpm audit (fail on unwaived high/critical)
+        run: |
+          pnpm audit --audit-level=high --json > npm-audit-report.json || true
+          node scripts/ci/check-cve-waivers.mjs --audit-file=npm-audit-report.json
+      - name: DAST high-severity fail policy guard
+        run: node scripts/ci/check-dast-high-severity-gate.mjs
       - name: Secret scan — gitleaks
         uses: gitleaks/gitleaks-action@v2.3.6
         env:
@@ -1030,6 +1036,9 @@ jobs:
     name: main-verify
     runs-on: ubuntu-latest
     needs:
+      - lint-runtime-packages
+      - active-app-quality-gates
+      - unit-component-schema
       - tenant-isolation-gate
       - critical-workflows-gate
       - security-gate
@@ -1044,12 +1053,15 @@ jobs:
         run: |
           # Pre-existing lanes: skipped is acceptable (branch-conditional jobs)
           for lane in \
+            "lint-runtime-packages:${{ needs.lint-runtime-packages.result }}" \
+            "active-app-quality-gates:${{ needs.active-app-quality-gates.result }}" \
+            "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             status="${lane#*:}"
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+            if [ "$status" != "success" ]; then
               echo "Gate failed: $lane"
               exit 1
             fi
@@ -1083,6 +1095,39 @@ jobs:
             echo "❌ Health check failed: expected 200 from $STAGING_HEALTHCHECK_URL, got $HTTP_CODE"
             exit 1
           fi
+      - name: Publish mandatory gate summaries (JSON)
+        if: always()
+        run: |
+          mkdir -p artifacts/release-gates/main-verify
+          cat > artifacts/release-gates/main-verify/lint.json <<EOF_SUMMARY
+          {"gate":"lint","job":"lint-runtime-packages","status":"${{ needs.lint-runtime-packages.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/build.json <<EOF_SUMMARY
+          {"gate":"build","job":"active-app-quality-gates","status":"${{ needs.active-app-quality-gates.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/coverage-thresholds.json <<EOF_SUMMARY
+          {"gate":"coverage-thresholds","job":"unit-component-schema","status":"${{ needs.unit-component-schema.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/rls-tests.json <<EOF_SUMMARY
+          {"gate":"rls-tests","job":"tenant-isolation-gate","status":"${{ needs.tenant-isolation-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/e2e-critical-path-guard.json <<EOF_SUMMARY
+          {"gate":"e2e-critical-path-guard","job":"critical-workflows-gate","status":"${{ needs.critical-workflows-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/cve-waiver-expiry.json <<EOF_SUMMARY
+          {"gate":"cve-waiver-expiry","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/main-verify/dast-high-severity-fail.json <<EOF_SUMMARY
+          {"gate":"dast-high-severity-fail","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+      - name: Upload mandatory gate summaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gates-main-verify-${{ github.run_id }}
+          path: artifacts/release-gates/main-verify/**
+          if-no-files-found: warn
+          retention-days: 30
 
   devcontainer-build:
     name: devcontainer-build

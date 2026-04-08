@@ -173,6 +173,10 @@ for (const route of allRoutes) {
   const op = openapiOps.get(opKey) ?? null;
   const protectedInSpec = !!(op?.security && op.security.length > 0);
 
+  if (!op) {
+    violations.push({ type: 'undocumented_route_drift', route: opKey });
+  }
+
   if (op) {
     if (meta.auth === 'required' && !protectedInSpec) {
       violations.push({ type: 'auth_protected_not_documented', route: opKey });

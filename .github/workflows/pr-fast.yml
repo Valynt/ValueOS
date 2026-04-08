@@ -887,6 +887,8 @@ jobs:
             --reporter=html,json \
             --output=artifacts/e2e \
             --retries=1
+      - name: Critical-path skip/only waiver metadata guard
+        run: node scripts/ci/check-critical-skip-only.mjs
       - name: Assert critical E2E executed test count and pass rate
         run: |
           node scripts/ci/assert-test-minimums.mjs \
@@ -975,6 +977,8 @@ jobs:
         run: |
           pnpm audit --audit-level=high --json > npm-audit-report.json || true
           node scripts/ci/check-cve-waivers.mjs --audit-file=npm-audit-report.json
+      - name: DAST high-severity fail policy guard
+        run: node scripts/ci/check-dast-high-severity-gate.mjs
       - name: Dev routes static check — child_process must be behind dynamic import
         run: |
           set -euo pipefail
@@ -1447,7 +1451,11 @@ jobs:
             # real-backend-critical-flows.spec.ts — a skip OR failure is a
             # missing gate.
             if [ "$lane_name" = "secret-scan" ] || \
+               [ "$lane_name" = "lint-runtime-packages" ] || \
+               [ "$lane_name" = "active-app-quality-gates" ] || \
+               [ "$lane_name" = "unit-component-schema" ] || \
                [ "$lane_name" = "tenant-isolation-gate" ] || \
+               [ "$lane_name" = "security-gate" ] || \
                [ "$lane_name" = "mfa-production-config-gate" ] || \
                [ "$lane_name" = "log-level-production-gate" ] || \
                [ "$lane_name" = "e2e-critical" ]; then
@@ -1460,6 +1468,39 @@ jobs:
               exit 1
             fi
           done
+      - name: Publish mandatory gate summaries (JSON)
+        if: always()
+        run: |
+          mkdir -p artifacts/release-gates/pr-fast
+          cat > artifacts/release-gates/pr-fast/lint.json <<EOF_SUMMARY
+          {"gate":"lint","job":"lint-runtime-packages","status":"${{ needs.lint-runtime-packages.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/build.json <<EOF_SUMMARY
+          {"gate":"build","job":"active-app-quality-gates","status":"${{ needs.active-app-quality-gates.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/coverage-thresholds.json <<EOF_SUMMARY
+          {"gate":"coverage-thresholds","job":"unit-component-schema","status":"${{ needs.unit-component-schema.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/rls-tests.json <<EOF_SUMMARY
+          {"gate":"rls-tests","job":"tenant-isolation-gate","status":"${{ needs.tenant-isolation-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/e2e-critical-path-guard.json <<EOF_SUMMARY
+          {"gate":"e2e-critical-path-guard","job":"e2e-critical","status":"${{ needs.e2e-critical.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/cve-waiver-expiry.json <<EOF_SUMMARY
+          {"gate":"cve-waiver-expiry","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+          cat > artifacts/release-gates/pr-fast/dast-high-severity-fail.json <<EOF_SUMMARY
+          {"gate":"dast-high-severity-fail","job":"security-gate","status":"${{ needs.security-gate.result }}","required":true}
+          EOF_SUMMARY
+      - name: Upload mandatory gate summaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gates-pr-fast-${{ github.run_id }}
+          path: artifacts/release-gates/pr-fast/**
+          if-no-files-found: warn
+          retention-days: 30
 
   integration-supabase:
     name: integration-supabase
