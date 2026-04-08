@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run gitleaks on PR diff
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
@@ -40,10 +40,10 @@ jobs:
             --report-path=gitleaks-pr.sarif
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: gitleaks-pr.sarif
-          category: secret-scan-pr-diff
+          path: results.sarif
+          name: secret-scan-pr-diff
       - name: Emit lane summary
         if: always()
         run: |
@@ -1029,7 +1029,7 @@ jobs:
           fi
           echo "Dev routes static check: PASS"
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.6
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-05T20:51:29.700Z",
+  "generated_at": "2026-04-07T01:31:49.931Z",
   "strict_zones": [
     "packages/backend/src",
     "apps/ValyntApp/src/services",
@@ -17,8 +17,8 @@
     ]
   },
   "dead_exports": {
-    "total": 2318,
-    "strict": 1795,
+    "total": 3181,
+    "strict": 2616,
     "top20": [
       {
         "location": "packages/memory/index.ts:41",

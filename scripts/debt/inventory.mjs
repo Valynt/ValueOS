@@ -18,10 +18,26 @@ function loadStrictZones() {
 }
 
 function listCodeFiles() {
-  const output = execSync(`rg --files -g '*.{ts,tsx,js,jsx,mjs,cjs,tf}' apps packages scripts infra`, {
-    encoding: "utf8",
-  });
-  return output.split("\n").filter(Boolean);
+  const exts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".tf"]);
+  const dirs = ["apps", "packages", "scripts", "infra"];
+  const res = [];
+
+  function walk(dir) {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "build") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile() && exts.has(path.extname(entry.name))) {
+        res.push(fullPath);
+      }
+    }
+  }
+
+  for (const dir of dirs) walk(path.join(repoRoot, dir));
+  return res.map((p) => path.relative(repoRoot, p).split(path.sep).join("/"));
 }
 
 function inStrictZone(file, strictZones) {

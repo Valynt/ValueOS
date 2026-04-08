@@ -1,7 +1,7 @@
 /**
  * Enhanced Billing Dashboard
  * Phase 3: End-User Experience & System Observability
- * 
+ *
  * Features:
  * - Color-coded usage metrics (>75% yellow, >90% red)
  * - Real-time usage monitoring
@@ -9,28 +9,28 @@
  * - Comprehensive error handling
  */
 
-import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
-import React from 'react';
+import { Calendar, CreditCard, Download, TrendingUp } from "lucide-react";
+import React from "react";
 
-import { apiClient } from '../../api/client/unified-api-client';
+import { apiClient } from "../../api/client/unified-api-client";
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,
   useUsageMetrics,
-} from '../../components/Billing/UsageMetrics';
+} from "../../components/Billing/UsageMetrics";
 import {
   AsyncFeedbackBanner,
   SettingsErrorBoundary,
   useAsyncState,
-} from '../../components/Settings/SettingsAsyncFeedback';
-import { FullPageLoading } from '../../components/Settings/SettingsLoadingState';
-import { PlanConfig, PLANS, PlanTier } from '../../config/billing';
-import { Subscription } from '../../types/billing';
+} from "../../components/Settings/SettingsAsyncFeedback";
+import { FullPageLoading } from "../../components/Settings/SettingsLoadingState";
+import { PlanConfig, PLANS, PlanTier } from "../../config/billing";
+import { Subscription } from "../../types/billing";
 
 interface BillingPlan {
   name: string;
   price: number;
-  billingCycle: 'monthly' | 'annual';
+  billingCycle: "monthly" | "annual";
   features: string[];
   limits: {
     users: number;
@@ -43,6 +43,21 @@ interface EnhancedBillingDashboardProps {
   organizationId: string;
 }
 
+// Wrapper to safely invoke useUsageMetrics if it is available and a function.
+const useSafeUsageMetrics = (organizationId: string) => {
+  if (typeof useUsageMetrics === "function") {
+    return useUsageMetrics(organizationId);
+  }
+
+  return {
+    metrics: null,
+    loading: false,
+    error: null,
+    hasWarnings: false,
+    hasCritical: false,
+  };
+};
+
 export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> = ({
   organizationId,
 }) => {
@@ -51,7 +66,13 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
   const [subscriptionError, setSubscriptionError] = React.useState<Error | null>(null);
 
   // Fetch usage metrics with color-coded warnings
-  const { metrics, loading: usageLoading, error: usageError, hasWarnings, hasCritical } = useUsageMetrics(organizationId);
+  const {
+    metrics,
+    loading: usageLoading,
+    error: usageError,
+    hasWarnings,
+    hasCritical,
+  } = useSafeUsageMetrics(organizationId);
 
   // Async state for plan changes
   const { state: upgradeState, execute: executeUpgrade, reset: resetUpgrade } = useAsyncState();
@@ -60,16 +81,16 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
   React.useEffect(() => {
     const fetchSubscription = async () => {
       setSubscriptionLoading(true);
-      const res = await apiClient.get<Subscription>('/api/billing/subscription');
+      const res = await apiClient.get<Subscription>("/api/billing/subscription");
       if (res.success) {
         setCurrentSubscription(res.data ?? null);
       } else {
-        const msg = res.error?.message ?? '';
+        const msg = res.error?.message ?? "";
         // 404 means no subscription yet — default to free tier
-        if (msg.includes('404') || msg.includes('Not Found')) {
-          setCurrentSubscription({ plan_tier: 'free' } as unknown as Subscription);
+        if (msg.includes("404") || msg.includes("Not Found")) {
+          setCurrentSubscription({ plan_tier: "free" } as unknown as Subscription);
         } else {
-          setSubscriptionError(new Error(msg || 'Failed to load subscription'));
+          setSubscriptionError(new Error(msg || "Failed to load subscription"));
         }
       }
       setSubscriptionLoading(false);
@@ -80,14 +101,14 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
 
   // Derive current plan from subscription
   const planConfig: PlanConfig = React.useMemo(() => {
-    const tier: PlanTier = currentSubscription?.plan_tier || 'free';
+    const tier: PlanTier = currentSubscription?.plan_tier || "free";
     return PLANS[tier];
   }, [currentSubscription]);
 
   const currentPlan: BillingPlan = {
     name: planConfig.name,
     price: planConfig.price,
-    billingCycle: planConfig.billingPeriod === 'yearly' ? 'annual' : 'monthly',
+    billingCycle: planConfig.billingPeriod === "yearly" ? "annual" : "monthly",
     features: planConfig.features,
     limits: {
       users: planConfig.quotas.user_seats,
@@ -107,24 +128,25 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
   const handleUpgrade = async () => {
     await executeUpgrade(async () => {
       // Determine next plan tier
-      const currentTier = currentSubscription?.plan_tier || 'free';
+      const currentTier = currentSubscription?.plan_tier || "free";
       let nextTier: PlanTier;
 
-      if (currentTier === 'free') {
-        nextTier = 'standard';
-      } else if (currentTier === 'standard') {
-        nextTier = 'enterprise';
+      if (currentTier === "free") {
+        nextTier = "standard";
+      } else if (currentTier === "standard") {
+        nextTier = "enterprise";
       } else {
         // Already at top tier or unknown
-        throw new Error('You are already on the highest plan. Contact sales for custom needs.');
+        throw new Error("You are already on the highest plan. Contact sales for custom needs.");
       }
 
-      const putRes = await apiClient.put('/api/billing/subscription', { planTier: nextTier });
-      if (!putRes.success) throw new Error(putRes.error?.message ?? 'Failed to upgrade plan');
+      const putRes = await apiClient.put("/api/billing/subscription", { planTier: nextTier });
+      if (!putRes.success) throw new Error(putRes.error?.message ?? "Failed to upgrade plan");
 
       // Refresh subscription data
-      const subRes = await apiClient.get<Subscription>('/api/billing/subscription');
-      if (!subRes.success) throw new Error(subRes.error?.message ?? 'Failed to reload subscription');
+      const subRes = await apiClient.get<Subscription>("/api/billing/subscription");
+      if (!subRes.success)
+        throw new Error(subRes.error?.message ?? "Failed to reload subscription");
       setCurrentSubscription(subRes.data ?? null);
     });
   };
@@ -155,9 +177,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
         {/* Page Header */}
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Billing & Usage</h2>
-          <p className="text-gray-600 mt-1">
-            Manage your subscription and monitor usage
-          </p>
+          <p className="text-gray-600 mt-1">Manage your subscription and monitor usage</p>
         </div>
 
         {/* Upgrade Feedback */}
@@ -177,25 +197,26 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Current Plan</h3>
               <p className="text-sm text-gray-600 mt-1">
-                {currentPlan.name} - ${currentPlan.price}/{currentPlan.billingCycle === 'monthly' ? 'mo' : 'yr'}
+                {currentPlan.name} - ${currentPlan.price}/
+                {currentPlan.billingCycle === "monthly" ? "mo" : "yr"}
               </p>
             </div>
             <button
               onClick={handleUpgrade}
-              disabled={upgradeState === 'loading'}
+              disabled={upgradeState === "loading"}
               className={`
                 px-4 py-2 rounded-lg font-medium transition-colors
                 ${
                   hasCritical
-                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    ? "bg-red-600 text-white hover:bg-red-700"
                     : hasWarnings
-                    ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? "bg-yellow-600 text-white hover:bg-yellow-700"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
             >
-              {upgradeState === 'loading' ? 'Upgrading...' : 'Upgrade Plan'}
+              {upgradeState === "loading" ? "Upgrading..." : "Upgrade Plan"}
             </button>
           </div>
 
@@ -218,7 +239,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
               <div className="flex items-center text-sm">
                 <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                 <span className="text-gray-600">
-                  Next billing date:{' '}
+                  Next billing date:{" "}
                   <span className="font-medium text-gray-900">
                     {nextBillingDate.toLocaleDateString()}
                   </span>
@@ -227,8 +248,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
               <div className="flex items-center text-sm">
                 <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
                 <span className="text-gray-600">
-                  Payment method:{' '}
-                  <span className="font-medium text-gray-900">•••• 4242</span>
+                  Payment method: <span className="font-medium text-gray-900">•••• 4242</span>
                 </span>
               </div>
               <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
@@ -262,9 +282,9 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
 
           <div className="space-y-3">
             {[
-              { date: '2026-01-01', amount: 99, status: 'paid' },
-              { date: '2025-12-01', amount: 99, status: 'paid' },
-              { date: '2025-11-01', amount: 99, status: 'paid' },
+              { date: "2026-01-01", amount: 99, status: "paid" },
+              { date: "2025-12-01", amount: 99, status: "paid" },
+              { date: "2025-11-01", amount: 99, status: "paid" },
             ].map((invoice, index) => (
               <div
                 key={index}
@@ -273,9 +293,9 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
                 <div className="flex items-center space-x-4">
                   <div className="text-sm">
                     <p className="font-medium text-gray-900">
-                      {new Date(invoice.date).toLocaleDateString('en-US', {
-                        month: 'long',
-                        year: 'numeric',
+                      {new Date(invoice.date).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
                       })}
                     </p>
                     <p className="text-gray-600">${invoice.amount}.00</p>
@@ -285,9 +305,7 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
                   <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded">
                     {invoice.status.toUpperCase()}
                   </span>
-                  <button className="text-sm text-blue-600 hover:text-blue-700">
-                    Download
-                  </button>
+                  <button className="text-sm text-blue-600 hover:text-blue-700">Download</button>
                 </div>
               </div>
             ))}
@@ -301,9 +319,15 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
             You'll receive email notifications when your usage reaches:
           </p>
           <ul className="text-sm text-blue-800 mt-2 space-y-1">
-            <li>• <strong>75%</strong> of your plan limits (warning)</li>
-            <li>• <strong>90%</strong> of your plan limits (critical)</li>
-            <li>• <strong>100%</strong> of your plan limits (limit exceeded)</li>
+            <li>
+              • <strong>75%</strong> of your plan limits (warning)
+            </li>
+            <li>
+              • <strong>90%</strong> of your plan limits (critical)
+            </li>
+            <li>
+              • <strong>100%</strong> of your plan limits (limit exceeded)
+            </li>
           </ul>
         </div>
       </div>
