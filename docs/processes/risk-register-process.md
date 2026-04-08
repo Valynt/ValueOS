@@ -80,8 +80,8 @@ The risk program publishes the following trust KPIs in each weekly governance pa
 
 ### KPI publication and evidence requirements
 
-- KPI snapshots are generated in CI using `node scripts/ci/extract-governance-risk-control-kpis.mjs` and attached as artifacts.
-- Governance reviewers must attach the latest `trust-kpi-snapshot.json`, `open-risks.json`, and `stale-controls.json` outputs to quarterly records.
+- KPI snapshots are generated in CI and scheduled governance runs using `node scripts/ci/extract-governance-risk-control-kpis.mjs` and attached as artifacts.
+- Governance reviewers must attach the latest `trust-kpi-snapshot.json`, `open-risks.json`, `stale-controls.json`, and `vdp-kpis.json` outputs to quarterly records.
 - Any KPI target breach requires either a dated remediation commitment or an approved risk acceptance record with expiry.
 
 ## Quarterly Integrated Review Process

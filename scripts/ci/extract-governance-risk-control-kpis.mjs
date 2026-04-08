@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 
 const CONTROL_STATUS_PATH = resolve("docs/security-compliance/control-status.json");
 const RISK_REGISTER_PATH = resolve("docs/security-compliance/risk-register.json");
+const VDP_METRICS_PATH = resolve("docs/security-compliance/vdp-metrics.json");
 
 const CLOSED_CONTROL_STATUSES = new Set(["completed", "done", "closed", "accepted-risk", "waived"]);
 const CLOSED_RISK_STATUSES = new Set(["mitigated", "closed"]);
@@ -72,6 +73,93 @@ function isClosedControlStatus(status) {
   return CLOSED_CONTROL_STATUSES.has(status.trim().toLowerCase());
 }
 
+
+function safeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function calculatePercentage(numerator, denominator) {
+  if (typeof numerator !== "number" || typeof denominator !== "number" || denominator <= 0) {
+    return null;
+  }
+
+  return Number(((numerator / denominator) * 100).toFixed(2));
+}
+
+function sanitizeSeverityWindow(value) {
+  if (!value || typeof value !== "object") {
+    return { withinSla: 0, total: 0, adherencePct: null };
+  }
+
+  const withinSla = safeNumber(value.withinSla) ?? 0;
+  const total = safeNumber(value.total) ?? 0;
+  return {
+    withinSla,
+    total,
+    adherencePct: calculatePercentage(withinSla, total),
+  };
+}
+
+function buildVdpKpiSnapshot(vdpPayload, asOfDate) {
+  const program = vdpPayload && typeof vdpPayload.program === "object" ? vdpPayload.program : {};
+  const slaTargets = vdpPayload && typeof vdpPayload.slaTargets === "object" ? vdpPayload.slaTargets : {};
+  const quarterlySnapshot =
+    vdpPayload && typeof vdpPayload.quarterlySnapshot === "object" ? vdpPayload.quarterlySnapshot : {};
+  const ownership = vdpPayload && typeof vdpPayload.ownership === "object" ? vdpPayload.ownership : {};
+
+  const reportsReceived = safeNumber(quarterlySnapshot.reportsReceived) ?? 0;
+  const reportsValidated = safeNumber(quarterlySnapshot.reportsValidated) ?? 0;
+  const firstResponseWithinSlaCount = safeNumber(quarterlySnapshot.firstResponseWithinSlaCount) ?? 0;
+  const triageWithinSlaCount = safeNumber(quarterlySnapshot.triageWithinSlaCount) ?? 0;
+  const remediationBySeverity =
+    quarterlySnapshot.remediationWithinSlaBySeverity &&
+    typeof quarterlySnapshot.remediationWithinSlaBySeverity === "object"
+      ? quarterlySnapshot.remediationWithinSlaBySeverity
+      : {};
+
+  const openSlaBreaches = Array.isArray(quarterlySnapshot.openSlaBreaches)
+    ? quarterlySnapshot.openSlaBreaches
+    : [];
+
+  return {
+    asOfDate,
+    quarter: typeof quarterlySnapshot.quarter === "string" ? quarterlySnapshot.quarter : null,
+    period: {
+      start: parseDateOnly(quarterlySnapshot.periodStart),
+      end: parseDateOnly(quarterlySnapshot.periodEnd),
+    },
+    intake: {
+      policyUrl: typeof program.publicPolicyUrl === "string" ? program.publicPolicyUrl : null,
+      channels: Array.isArray(program.intakeChannels) ? program.intakeChannels : [],
+    },
+    slaTargets: {
+      timeToFirstResponseBusinessDays: safeNumber(slaTargets.timeToFirstResponseBusinessDays),
+      triageCompletionBusinessDays: safeNumber(slaTargets.triageCompletionBusinessDays),
+      remediationWindowDaysBySeverity:
+        slaTargets.remediationWindowDaysBySeverity &&
+        typeof slaTargets.remediationWindowDaysBySeverity === "object"
+          ? slaTargets.remediationWindowDaysBySeverity
+          : {},
+    },
+    kpis: {
+      reportsReceived,
+      reportsValidated,
+      firstResponseSlaAdherencePct: calculatePercentage(firstResponseWithinSlaCount, reportsValidated),
+      triageSlaAdherencePct: calculatePercentage(triageWithinSlaCount, reportsValidated),
+      remediationSlaAdherenceBySeverity: {
+        critical: sanitizeSeverityWindow(remediationBySeverity.critical),
+        high: sanitizeSeverityWindow(remediationBySeverity.high),
+        medium: sanitizeSeverityWindow(remediationBySeverity.medium),
+        low: sanitizeSeverityWindow(remediationBySeverity.low),
+      },
+      openSlaBreachCount: openSlaBreaches.length,
+      openSlaBreaches,
+    },
+    ownershipAndEscalation: ownership,
+    generatedBy: "scripts/ci/extract-governance-risk-control-kpis.mjs",
+  };
+}
+
 function isClosedRiskStatus(status) {
   if (typeof status !== "string") {
     return false;
@@ -86,6 +174,7 @@ function main() {
 
   const controlPayload = safeParseJson(CONTROL_STATUS_PATH, { controls: [] });
   const riskPayload = safeParseJson(RISK_REGISTER_PATH, { risks: [] });
+  const vdpPayload = safeParseJson(VDP_METRICS_PATH, {});
 
   const controls = Array.isArray(controlPayload.controls) ? controlPayload.controls : [];
   const risks = Array.isArray(riskPayload.risks) ? riskPayload.risks : [];
@@ -141,6 +230,7 @@ function main() {
   const openRiskOutputPath = resolve(options.outputDir, "open-risks.json");
   const staleControlOutputPath = resolve(options.outputDir, "stale-controls.json");
   const snapshotOutputPath = resolve(options.outputDir, "trust-kpi-snapshot.json");
+  const vdpKpiOutputPath = resolve(options.outputDir, "vdp-kpis.json");
 
   writeFileSync(openRiskOutputPath, `${JSON.stringify({ asOfDate: options.asOfDate, openRisks }, null, 2)}\n`);
   writeFileSync(staleControlOutputPath, `${JSON.stringify({ asOfDate: options.asOfDate, staleControls }, null, 2)}\n`);
@@ -172,8 +262,13 @@ function main() {
     )}\n`,
   );
 
+  writeFileSync(
+    vdpKpiOutputPath,
+    `${JSON.stringify(buildVdpKpiSnapshot(vdpPayload, options.asOfDate), null, 2)}\n`,
+  );
+
   console.log(
-    `[governance-kpi] extracted ${openRisks.length} open risks and ${staleControls.length} stale controls into ${options.outputDir}`,
+    `[governance-kpi] extracted ${openRisks.length} open risks, ${staleControls.length} stale controls, and VDP KPI snapshot into ${options.outputDir}`,
   );
 }
 

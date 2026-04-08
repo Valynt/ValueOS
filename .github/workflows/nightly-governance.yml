@@ -256,6 +256,38 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
+
+  nightly-governance-kpi-snapshot:
+    name: nightly/governance-kpi-snapshot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Extract governance KPI artifacts
+        run: |
+          node scripts/ci/extract-governance-risk-control-kpis.mjs \
+            --output-dir artifacts/security/governance
+      - name: Upload governance KPI artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-governance-kpis-${{ github.run_id }}
+          path: |
+            artifacts/security/governance/trust-kpi-snapshot.json
+            artifacts/security/governance/open-risks.json
+            artifacts/security/governance/stale-controls.json
+            artifacts/security/governance/vdp-kpis.json
+          if-no-files-found: error
+          retention-days: 90
+
   nightly-devcontainer-build:
     name: nightly/devcontainer-build
     runs-on: ubuntu-latest

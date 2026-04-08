@@ -1,0 +1,41 @@
+{
+  "program": {
+    "name": "ValueOS VDP/CVD",
+    "publicPolicyUrl": "docs/security-compliance/bug-bounty-cvd-program.md",
+    "intakeChannels": [
+      "mailto:security@valueos.com",
+      "https://github.com/ValueOS/ValueOS/security/advisories/new"
+    ]
+  },
+  "slaTargets": {
+    "timeToFirstResponseBusinessDays": 2,
+    "triageCompletionBusinessDays": 5,
+    "remediationWindowDaysBySeverity": {
+      "critical": 7,
+      "high": 30,
+      "medium": 90,
+      "low": 180
+    }
+  },
+  "quarterlySnapshot": {
+    "quarter": "2026-Q1",
+    "periodStart": "2026-01-01",
+    "periodEnd": "2026-03-31",
+    "reportsReceived": 0,
+    "reportsValidated": 0,
+    "firstResponseWithinSlaCount": 0,
+    "triageWithinSlaCount": 0,
+    "remediationWithinSlaBySeverity": {
+      "critical": { "withinSla": 0, "total": 0 },
+      "high": { "withinSla": 0, "total": 0 },
+      "medium": { "withinSla": 0, "total": 0 },
+      "low": { "withinSla": 0, "total": 0 }
+    },
+    "openSlaBreaches": []
+  },
+  "ownership": {
+    "programOwner": "Security Engineering",
+    "remediationOwnerRole": "Engineering Manager",
+    "escalationOwner": "Head of Security & Compliance Program"
+  }
+}

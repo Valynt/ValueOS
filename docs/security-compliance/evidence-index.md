@@ -122,6 +122,7 @@ The following non-CI artifacts are required for governance traceability:
 - Vendor remediation tracker with action IDs, owners, due dates, and closure evidence.
 - Quarterly risk review summary linked to incident and compliance outputs.
 - Weekly required-check enforcement artifact: `weekly-required-check-enforcement-<run_id>` from `.github/workflows/required-checks-weekly-compliance.yml`, containing `artifacts/governance/required-check-enforcement-weekly.md` and `.json`.
+- VDP quarterly KPI snapshot artifact: `artifacts/security/governance/vdp-kpis.json` produced by `scripts/ci/extract-governance-risk-control-kpis.mjs` in PR/main lanes and `.github/workflows/nightly-governance.yml`.
 
 Reference workflows:
 
