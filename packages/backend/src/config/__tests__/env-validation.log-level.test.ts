@@ -1,7 +1,7 @@
 /**
- * env-validation.ts — LOG_LEVEL startup validation tests
+ * validateEnv.ts — LOG_LEVEL startup validation tests
  *
- * Covers validateLogLevel() behaviour wired into validateEnvironment():
+ * Covers validateLogLevel() behaviour wired into validateEnv():
  * - Invalid values are rejected in all environments.
  * - LOG_LEVEL=debug is rejected in staging and production.
  * - Valid values are accepted in development.
@@ -10,19 +10,13 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-// Suppress stdout/stderr noise from validateEnvironment's progress messages.
-vi.mock("../environment.js", () => ({
-  writeStdout: () => {},
-  writeStderr: () => {},
-}));
-
 // AuditLogEncryptionConfig imports CryptoUtils which may not be available in
 // the test environment. Stub it out — we are not testing audit log encryption here.
 vi.mock("../../services/agents/AuditLogEncryptionConfig.js", () => ({
   validateAuditLogEncryptionConfig: () => [],
 }));
 
-import { validateEnvironment } from "../env-validation.js";
+import { validateEnv } from "../validateEnv.js";
 
 /** Minimal env that passes all other validators in development. */
 function devEnv(overrides: Record<string, string> = {}): Record<string, string> {
@@ -61,41 +55,47 @@ function productionEnv(overrides: Record<string, string> = {}): Record<string, s
   };
 }
 
-describe("validateEnvironment — LOG_LEVEL validation", () => {
+describe("validateEnv — LOG_LEVEL validation", () => {
   describe("invalid values", () => {
     it("rejects LOG_LEVEL=verbose in development", () => {
-      const result = validateEnvironment(devEnv({ LOG_LEVEL: "verbose" }));
+      process.env = devEnv({ LOG_LEVEL: "verbose" });
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("Invalid LOG_LEVEL"))).toBe(true);
     });
 
     it("rejects LOG_LEVEL=silent in development", () => {
-      const result = validateEnvironment(devEnv({ LOG_LEVEL: "silent" }));
+      process.env = devEnv({ LOG_LEVEL: "silent" });
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("Invalid LOG_LEVEL"))).toBe(true);
     });
 
     it("rejects LOG_LEVEL=trace in development", () => {
-      const result = validateEnvironment(devEnv({ LOG_LEVEL: "trace" }));
+      process.env = devEnv({ LOG_LEVEL: "trace" });
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("Invalid LOG_LEVEL"))).toBe(true);
     });
 
     it("rejects LOG_LEVEL=WARN (wrong case treated as invalid)", () => {
       // The validator lowercases before checking, so "WARN" → "warn" is valid.
       // This test documents that behaviour explicitly.
-      const result = validateEnvironment(devEnv({ LOG_LEVEL: "WARN" }));
+      process.env = devEnv({ LOG_LEVEL: "WARN" });
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("Invalid LOG_LEVEL"))).toBe(false);
     });
   });
 
   describe("debug rejected in secure environments", () => {
     it("rejects LOG_LEVEL=debug in staging", () => {
-      const result = validateEnvironment(stagingEnv({ LOG_LEVEL: "debug" }));
+      process.env = stagingEnv({ LOG_LEVEL: "debug" });
+      const result = validateEnv();
       expect(
         result.errors.some((e) => e.includes("LOG_LEVEL=debug is not permitted in staging"))
       ).toBe(true);
     });
 
     it("rejects LOG_LEVEL=debug in production", () => {
-      const result = validateEnvironment(productionEnv({ LOG_LEVEL: "debug" }));
+      process.env = productionEnv({ LOG_LEVEL: "debug" });
+      const result = validateEnv();
       expect(
         result.errors.some((e) => e.includes("LOG_LEVEL=debug is not permitted in production"))
       ).toBe(true);
@@ -106,7 +106,8 @@ describe("validateEnvironment — LOG_LEVEL validation", () => {
     it.each(["debug", "info", "warn", "error"])(
       "accepts LOG_LEVEL=%s in development",
       (level) => {
-        const result = validateEnvironment(devEnv({ LOG_LEVEL: level }));
+        process.env = devEnv({ LOG_LEVEL: level });
+        const result = validateEnv();
         expect(result.errors.some((e) => e.includes("LOG_LEVEL"))).toBe(false);
       }
     );
@@ -114,7 +115,8 @@ describe("validateEnvironment — LOG_LEVEL validation", () => {
     it.each(["info", "warn", "error"])(
       "accepts LOG_LEVEL=%s in staging",
       (level) => {
-        const result = validateEnvironment(stagingEnv({ LOG_LEVEL: level }));
+        process.env = stagingEnv({ LOG_LEVEL: level });
+        const result = validateEnv();
         expect(result.errors.some((e) => e.includes("LOG_LEVEL"))).toBe(false);
       }
     );
@@ -122,7 +124,8 @@ describe("validateEnvironment — LOG_LEVEL validation", () => {
     it.each(["info", "warn", "error"])(
       "accepts LOG_LEVEL=%s in production",
       (level) => {
-        const result = validateEnvironment(productionEnv({ LOG_LEVEL: level }));
+        process.env = productionEnv({ LOG_LEVEL: level });
+        const result = validateEnv();
         expect(result.errors.some((e) => e.includes("LOG_LEVEL"))).toBe(false);
       }
     );
@@ -132,14 +135,16 @@ describe("validateEnvironment — LOG_LEVEL validation", () => {
     it("is accepted in development (runtime defaults to info)", () => {
       const env = devEnv();
       delete (env as Record<string, string | undefined>).LOG_LEVEL;
-      const result = validateEnvironment(env);
+      process.env = env as NodeJS.ProcessEnv;
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("LOG_LEVEL"))).toBe(false);
     });
 
     it("is accepted in staging", () => {
       const env = stagingEnv();
       delete (env as Record<string, string | undefined>).LOG_LEVEL;
-      const result = validateEnvironment(env);
+      process.env = env as NodeJS.ProcessEnv;
+      const result = validateEnv();
       expect(result.errors.some((e) => e.includes("LOG_LEVEL"))).toBe(false);
     });
   });
