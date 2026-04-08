@@ -8,10 +8,11 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "test": "vitest run",
-    "test:watch": "vitest run --watch",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest --watch",
+    "lint": "pnpm exec eslint \"src/**/*.ts\"",
+    "lint:fix": "pnpm exec eslint \"src/**/*.ts\" --fix",
+    "typecheck": "pnpm exec tsc --noEmit"
   },
   "dependencies": {
     "@octokit/webhooks": "^13.2.6",
@@ -37,11 +38,11 @@
     "@types/node-cron": "^3.0.11",
     "@types/supertest": "^6.0.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
-    "vitest": "^1.1.0",
-    "eslint": "^8.56.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0"
+    "typescript": "5.9.3",
+    "vitest": "^3.2.4",
+    "eslint": "^9.39.4",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0"
   },
   "engines": {
     "node": ">=18.0.0"
