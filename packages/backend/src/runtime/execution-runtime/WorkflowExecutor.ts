@@ -8,13 +8,11 @@
 
 import { Span, SpanStatusCode } from "@opentelemetry/api";
 import { type RuntimeFailureDetails } from "@valueos/shared";
-import { securityLogger } from "../../services/core/SecurityLogger.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { getTracer } from "../../config/telemetry.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { logger } from "../../lib/logger.js";
-import { assertTenantContextMatch } from "../../lib/tenant/assertTenantContextMatch.js";
 import {
   recordAgentInvocation,
   recordWorkflowDeadlineViolation,
@@ -73,6 +71,15 @@ import {
 } from "./stage-failure-policy.js";
 import { WorkflowPersistence } from "./workflow-persistence.js";
 import { SnapshotAndHandoffHelper } from "./snapshot-and-handoff.js";
+import {
+  buildStageContextWithTenantValidation,
+  buildWorkflowStageDecisionContext,
+} from "./workflow-stage-context.js";
+import {
+  buildHitlPendingApprovalResult,
+  buildRetryAwareRuntimeFailure,
+} from "./workflow-stage-retry-decision.js";
+import { WorkflowPersistenceInteractions } from "./workflow-persistence-interactions.js";
 
 // ============================================================================
 // Internal types
@@ -99,6 +106,7 @@ export class WorkflowExecutor {
   private readonly retryManager = AgentRetryManager.getInstance();
   private readonly executionPersistence: WorkflowExecutionPersistencePort;
   private readonly workflowPersistence: WorkflowPersistence;
+  private readonly persistenceInteractions: WorkflowPersistenceInteractions;
   private readonly snapshotAndHandoffHelper: SnapshotAndHandoffHelper;
   private readonly runtimePathTag: RuntimeMigrationPathTag;
   private readonly valueTreeRepo: ValueTreeRepository;
@@ -128,6 +136,9 @@ export class WorkflowExecutor {
         getNodesForCase: async () => [],
       } as ValueTreeRepository);
     this.workflowPersistence = new WorkflowPersistence(this.executionPersistence);
+    this.persistenceInteractions = new WorkflowPersistenceInteractions(
+      this.workflowPersistence
+    );
     this.snapshotAndHandoffHelper = new SnapshotAndHandoffHelper(
       this.valueTreeRepo,
       this.executionPersistence,
@@ -142,28 +153,11 @@ export class WorkflowExecutor {
     context: WorkflowStageContextDTO,
     source: string
   ): WorkflowStageContextDTO {
-    assertTenantContextMatch({
-      expectedTenantId: authoritativeOrganizationId,
-      actualTenantId: context.organizationId,
-      source: `${source}.organizationId`,
-    });
-    assertTenantContextMatch({
-      expectedTenantId: authoritativeOrganizationId,
-      actualTenantId: context.organization_id,
-      source: `${source}.organization_id`,
-    });
-    assertTenantContextMatch({
-      expectedTenantId: authoritativeOrganizationId,
-      actualTenantId: context.tenantId,
-      source: `${source}.tenantId`,
-    });
-
-    return {
-      ...context,
-      organizationId: authoritativeOrganizationId,
-      organization_id: authoritativeOrganizationId,
-      tenantId: authoritativeOrganizationId,
-    };
+    return buildStageContextWithTenantValidation(
+      authoritativeOrganizationId,
+      context,
+      source
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -408,35 +402,25 @@ export class WorkflowExecutor {
           this._buildStageDecisionContext(stage, context)
         );
         if (hitlResult.hitl_required) {
-          const output = {
-            rule_id: hitlResult.details.rule_id,
-            confidence_score: hitlResult.details.confidence_score,
+          const pendingApprovalResult = buildHitlPendingApprovalResult({
             traceId,
-            reason: hitlResult.hitl_reason,
             stageId: stage.id,
             organizationId:
               context.organizationId ??
               context.organization_id ??
-              context.tenantId,
-          };
-
-          securityLogger.log({
-            category: "autonomy",
-            action: "hitl_pending_approval",
-            severity: "warning",
-            metadata: output,
+              context.tenantId ??
+              "",
+            hitlReason: hitlResult.hitl_reason,
+            ruleId: hitlResult.details.rule_id,
+            confidenceScore: hitlResult.details.confidence_score,
           });
-
           span.setAttributes({
             "agent.retry_count": 0,
             "agent.latency_ms": Date.now() - start,
           });
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
-          return {
-            status: "pending_approval",
-            output,
-          };
+          return pendingApprovalResult;
         }
 
         const stageRetryConfig = buildStageRetryConfig(
@@ -535,17 +519,10 @@ export class WorkflowExecutor {
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
           const attempts = retryResult.attempts ?? 1;
-          const runtimeFailure =
-            attempts > 1
-              ? this.buildFailureDetails({
-                  failureClass: "transient-degraded",
-                  severity: "degraded",
-                  machineReasonCode: "TRANSIENT_RETRY_RECOVERED",
-                  diagnosis: `Stage recovered after ${attempts} attempts.`,
-                  confidence: 0.72,
-                  blastRadiusEstimate: "single-stage",
-                })
-              : undefined;
+          const runtimeFailure = buildRetryAwareRuntimeFailure(
+            attempts,
+            this.buildFailureDetails.bind(this)
+          );
 
           return {
             status: "completed",
@@ -775,35 +752,7 @@ export class WorkflowExecutor {
     stage: WorkflowStage,
     context: WorkflowStageContextDTO
   ): import("@shared/domain/DecisionContext.js").DecisionContext {
-    const confidence =
-      typeof context.opportunity_confidence_score === "number"
-        ? context.opportunity_confidence_score
-        : typeof context.confidence_score === "number"
-          ? context.confidence_score
-          : 0.5;
-
-    const organizationId = String(
-      context.organizationId ??
-        context.organization_id ??
-        context.tenantId ??
-        ""
-    );
-    const opportunityId = String(
-      context.opportunityId ??
-        context.opportunity_id ??
-        "00000000-0000-0000-0000-000000000000"
-    );
-
-    return {
-      organization_id: organizationId,
-      opportunity: {
-        id: opportunityId,
-        lifecycle_stage: stage.agent_type,
-        confidence_score: confidence,
-        value_maturity: "low",
-      },
-      is_external_artifact_action: isExternalArtifactWorkflowStage(stage),
-    };
+    return buildWorkflowStageDecisionContext(stage, context);
   }
 
   private async _persistAndUpdate(
@@ -813,7 +762,7 @@ export class WorkflowExecutor {
     status: WorkflowStatus,
     stageId: string | null
   ): Promise<void> {
-    await this.workflowPersistence.persistAndUpdate(
+    await this.persistenceInteractions.persistAndUpdate(
       executionId,
       organizationId,
       record,
@@ -829,7 +778,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     record: WorkflowExecutionRecord
   ): Promise<void> {
-    await this.workflowPersistence.updateStatus(
+    await this.persistenceInteractions.updateStatus(
       executionId,
       organizationId,
       status,
@@ -849,7 +798,7 @@ export class WorkflowExecutor {
     stageId: string | null,
     metadata: Record<string, unknown>
   ): Promise<void> {
-    await this.workflowPersistence.recordWorkflowEvent(
+    await this.persistenceInteractions.recordWorkflowEvent(
       executionId,
       organizationId,
       eventType,
@@ -863,7 +812,7 @@ export class WorkflowExecutor {
     organizationId: string,
     errorMessage: string
   ): Promise<void> {
-    await this.workflowPersistence.handleWorkflowFailure(
+    await this.persistenceInteractions.handleWorkflowFailure(
       executionId,
       organizationId,
       errorMessage

@@ -29,10 +29,7 @@ logger.info("[Instrumentation] CORS imported successfully");
 
 import { createServer, type IncomingMessage } from "http";
 
-import { parseCorsAllowlist } from "@shared/config/cors";
 import { initializeContext } from "@shared/lib/context";
-import compression from "compression";
-import cors from "cors";
 import express from "express";
 import type { Application, Request, Response, NextFunction } from "express";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
@@ -86,7 +83,6 @@ import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
 import experienceRouter from "./api/experience.js";
 import experienceStreamRouter from "./api/experience-stream.js";
-import { getConfig } from "./config/environment.js";
 import {
   secretHealthMiddleware,
   validateSecretsOnStartup,
@@ -96,7 +92,6 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
-import { validateAuditLogEncryptionConfig } from "./services/agents/AuditLogEncryptionConfig.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import { appTrpcMiddleware } from "./api/trpc/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
@@ -218,6 +213,13 @@ import {
   getWebSocketToken,
   parseBearerToken,
 } from "./server/websocket-request-auth.js";
+import { registerServerMiddleware } from "./server/middlewareRegistration.js";
+import { mountServerRoutes } from "./server/routeMounting.js";
+import {
+  validateAuditLogStartupConfig,
+  validateInfrastructureConnectivity,
+  validateProductionMfaStartup,
+} from "./server/startupLifecycle.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 const WS_MAX_MESSAGES_PER_SECOND = Number(
   process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30"
@@ -495,314 +497,95 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 // Middleware
-const corsOrigins = parseCorsAllowlist(
-  settings.security.corsOrigins.join(","),
-  {
-    source: "settings.security.corsOrigins",
-    credentials: true,
-    requireNonEmpty: true,
-  }
-);
-app.use(
-  cors({
-    origin: corsOrigins,
-    credentials: true,
-  })
-);
-app.use(compression());
-// Preserve the raw body buffer for Stripe webhook signature verification.
-// All other routes receive the normal JSON-parsed body.
-// Parsers are instantiated once and reused across requests.
-const stripeRawParser = express.raw({
-  type: "application/json",
-  limit: "256kb",
-});
-const jsonParser = express.json({ limit: '100kb' });
-app.use((req: Request, _res: Response, next: NextFunction) => {
-  if (req.path.startsWith("/api/billing/webhooks")) {
-    stripeRawParser(req, _res, next);
-  } else if (/^\/api\/crm\/[^/]+\/webhook(?:\/)?$/.test(req.path)) {
-    next();
-  } else {
-    jsonParser(req, _res, next);
-  }
-});
-app.use(requestIdMiddleware); // Request ID and timing (must be early)
-app.use(accessLogMiddleware); // Access logging
-app.use(cspNonceMiddleware);
-app.use(securityHeadersMiddleware);
-app.use(cachingMiddleware); // HTTP caching headers
-app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-  if (!stateChangingMethods.has(req.method)) {
-    return next();
-  }
-  // Skip cookie-based CSRF checks only for Bearer-token requests that do not
-  // carry cookies. If cookies are present, enforce CSRF protection.
-  const authHeader = String(req.headers["authorization"] ?? "");
-  const hasCookieHeader =
-    typeof req.headers.cookie === "string" &&
-    req.headers.cookie.trim().length > 0;
-  if (/^\s*Bearer\s+/i.test(authHeader) && !hasCookieHeader) {
-    return next();
-  }
-  return csrfProtectionMiddleware(req, res, next);
+registerServerMiddleware({
+  app,
+  corsOrigins: settings.security.corsOrigins,
+  requestIdMiddleware,
+  accessLogMiddleware,
+  cspNonceMiddleware,
+  securityHeadersMiddleware,
+  cachingMiddleware,
+  csrfTokenMiddleware,
+  csrfProtectionMiddleware,
+  tracingMiddleware,
+  metricsMiddleware,
+  latencyMetricsMiddleware,
+  requestAuditMiddleware,
 });
 
-// Conditionally add telemetry middleware
-if (tracingMiddleware) {
-  app.use(tracingMiddleware()); // Add tracing middleware early
-}
-if (metricsMiddleware) {
-  app.use(metricsMiddleware());
-}
-if (latencyMetricsMiddleware) {
-  app.use(latencyMetricsMiddleware());
-}
-
-app.use(requestAuditMiddleware());
-
-// Health check
-app.use(healthRouter);
-
-// Conditionally add metrics endpoint
-if (getMetricsRegistry) {
-  app.get(
-    "/metrics",
-    serviceIdentityMiddleware,
-    async (_req: Request, res: Response) => {
-      const registry = getMetricsRegistry();
-      res.set("Content-Type", registry.contentType);
-      res.end(await registry.metrics());
-    }
-  );
-}
-
-// Conditionally add latency metrics endpoint
-if (typeof getLatencySnapshot === "function") {
-  app.get(
-    "/metrics/latency",
-    serviceIdentityMiddleware,
-    (_req: Request, res: Response) => {
-      res.json({
-        routes: getLatencySnapshot(),
-        timestamp: new Date().toISOString(),
-      });
-    }
-  );
-}
-// CSP Reporting Endpoint
-app.post(
-  "/api/csp-report",
-  express.json({ type: "application/csp-report" }),
-  cspReportHandler
-);
-
-// Secret Health Check Endpoints
-app.get("/health/secrets/public", secretHealthMiddleware({ mode: "public" }));
-app.get(
-  "/health/secrets",
+mountServerRoutes({
+  app,
+  apiRouter,
+  healthRouter,
   serviceIdentityMiddleware,
-  secretHealthMiddleware({ mode: "privileged" })
-);
-
-// Well-known MCP discovery document
-app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
-
-// Mount routes
-// Apply standard rate limiting to all API routes by default
-app.use("/api", rateLimiters.standard);
-// Auth endpoints get a tighter limit (20/min, fail-closed) on top of the standard one.
-app.use("/api/auth", rateLimiters.auth);
-
-apiRouter.use("/billing", billingRouter);
-apiRouter.use("/tenant/context", tenantContextRouter);
-apiRouter.use(
-  "/projects",
+  getMetricsRegistry,
+  getLatencySnapshot,
+  cspReportHandler,
+  secretHealthMiddleware,
+  serveMcpCapabilitiesDocument,
+  rateLimiters,
   requireAuth,
-  tenantContextMiddleware(),
-  projectsRouter
-);
-apiRouter.use(
-  "/initiatives",
-  requireAuth,
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-  initiativesRouter
-);
-app.use("/api", apiRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
-app.use("/api/admin/agents", agentAdminRouter);
-app.use("/api/admin/security", securityMonitoringRouter);
-app.use("/api/admin/compliance", complianceRouter);
-app.use(
-  "/api/agents",
-  serviceIdentityMiddleware,
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
+  requireTenantRequestAlignment,
+  tenantContextMiddleware,
+  tenantDbContextMiddleware,
   billingAccessEnforcement,
   agentExecutionLimiter,
   agentsConcurrencyGuard,
-  agentsRouter
-);
-app.use(
-  "/api/groundtruth",
-  serviceIdentityMiddleware,
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-  billingAccessEnforcement,
-  agentExecutionLimiter,
   groundtruthConcurrencyGuard,
-  groundtruthRouter
-);
-app.use("/api/llm", llmConcurrencyGuard, llmRouter);
-app.use("/api/mcp", mcpDiscoveryRouter);
-app.use("/api", workflowRouter);
-app.use("/api", experienceRouter);
-app.use("/api", experienceStreamRouter);
-app.use(
-  "/api/documents",
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-  documentRouter
-);
-app.use("/api/docs", docsApiRouter);
-app.use("/api", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), artifactsRouter);
-// SECURITY (B-5 + H-1): referrals router requires auth, tenant alignment, and
-// tenant context at the mount point. ReferralService uses the RLS-scoped client.
-app.use(
-  "/api/referrals",
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-  referralsRouter
-);
-app.use(
-  "/api/usage",
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  tenantDbContextMiddleware(),
-  usageRouter
-);
-app.use("/api/analytics", analyticsRouter);
-app.use("/api/dsr", dsrRouter);
-app.use("/api/teams", teamsRouter);
-app.use("/api/integrations", integrationsRouter);
-app.use("/api/mcp-integrations", mcpIntegrationsRouter);
-app.use("/api/crm", crmRouter);
-app.use("/api/value-drivers", valueDriversRouter);
-app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
-app.use("/api/v1/domain-packs", domainPacksRouter);
-app.use("/api/v1/graph", valueGraphRouter);
-app.use("/api/v1/audit-logs", auditLogsRouter);
-// H-1: requireTenantRequestAlignment is applied at the individual route level
-// for /api/v1/* routes because they share a common /api/v1 prefix. The
-// alignment check requires the organizationId to be present in the request
-// body or query, which is enforced per-route in the respective routers.
-app.use("/api/v1/cases", valueCasesRouter);
-// Integrity endpoints — mounted on the same /api/v1/cases prefix so
-// /:caseId/integrity and /:caseId/integrity/resolve/:id resolve correctly.
-app.use("/api/v1/cases", integrityRouter);
-// Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
-app.use("/api/v1/value-cases", valueCasesRouter);
-// Value Graph API — Sprint 49
-app.use('/api/v1/cases', valueGraphRouter);
-// Realization API — mounted for post-sale value tracking
-app.use('/api', realizationRouter);
-// Reasoning traces — Sprint 52
-app.use("/api/v1", reasoningTracesRouter);
-app.use("/api/v1/value-commitments", valueCommitmentsRouter);
-app.use("/api/v1/opportunities", opportunityValueGraphRouter);
-app.use("/api/v1/tenant/context", tenantContextRouter);
-app.use("/api/v1", requireAuth, tenantContextMiddleware(), secretAuditRouter);
-app.use(
-  "/api/compliance/evidence",
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  complianceEvidenceRouter
-);
-app.use("/api/approval-inbox", approvalInboxRouter);
-
-app.use("/api/trpc", requireAuth, requireTenantRequestAlignment(), tenantContextMiddleware(), appTrpcMiddleware);
-
-// Academy tRPC endpoint (mounted under /api/academy)
-app.use(
-  "/api/academy",
-  requireAuth,
-  requireTenantRequestAlignment(),
-  tenantContextMiddleware(),
-  academyTrpcMiddleware
-);
-
-// Mount checkpoint HITL endpoints
-// getCheckpointMiddleware() always returned null in the UAO facade; preserve that behaviour.
-const checkpointMiddleware = null;
-if (checkpointMiddleware) {
-  app.use(
-    "/api/checkpoints",
-    requireAuth,
-    tenantContextMiddleware(),
-    createCheckpointRouter(checkpointMiddleware)
-  );
-
-  const approvalActionSecret = process.env.APPROVAL_ACTION_SECRET;
-  const approvalWebhookSecret = process.env.APPROVAL_WEBHOOK_SECRET;
-  if (!approvalActionSecret || !approvalWebhookSecret) {
-    throw new Error(
-      "APPROVAL_ACTION_SECRET and APPROVAL_WEBHOOK_SECRET must be set. " +
-        "These secrets protect approval webhook signatures and must not use defaults."
-    );
-  }
-  const signer = new NotificationActionSigner({
-    secret: approvalActionSecret,
-  });
-  const supabaseClient = createServerSupabaseClient();
-  const webhookService = new ApprovalWebhookService({
-    signer,
-    checkpointMiddleware,
-    webhookSigningSecret: approvalWebhookSecret,
-    transitionApprovalRequest: async ({
-      requestId,
-      tenantId,
-      approved,
-      actorId,
-      reason,
-    }) => {
-      await supabaseClient
-        .from("approval_requests")
-        .update({
-          status: approved ? "approved" : "rejected",
-          updated_at: new Date().toISOString(),
-          metadata: {
-            decision_source: "webhook",
-            actor_id: actorId,
-            reason: reason || null,
-          },
-        })
-        .eq("id", requestId)
-        .eq("tenant_id", tenantId);
-    },
-    audit: async (event, details) => {
-      logger.info(`approval_webhook:${event}`, details);
-    },
-  });
-
-  app.use(
-    "/api/approvals/webhooks",
-    createApprovalWebhookRouter(webhookService)
-  );
-}
+  llmConcurrencyGuard,
+  onboardingConcurrencyGuard,
+  appTrpcMiddleware,
+  academyTrpcMiddleware,
+  createCheckpointRouter,
+  createApprovalWebhookRouter,
+  createServerSupabaseClient,
+  ApprovalWebhookService,
+  NotificationActionSigner,
+  logger,
+  authRouter,
+  adminRouter,
+  agentAdminRouter,
+  securityMonitoringRouter,
+  complianceRouter,
+  agentsRouter,
+  groundtruthRouter,
+  llmRouter,
+  mcpDiscoveryRouter,
+  workflowRouter,
+  experienceRouter,
+  experienceStreamRouter,
+  documentRouter,
+  docsApiRouter,
+  artifactsRouter,
+  referralsRouter,
+  usageRouter,
+  analyticsRouter,
+  dsrRouter,
+  teamsRouter,
+  integrationsRouter,
+  mcpIntegrationsRouter,
+  crmRouter,
+  valueDriversRouter,
+  onboardingRouter,
+  domainPacksRouter,
+  valueGraphRouter,
+  auditLogsRouter,
+  valueCasesRouter,
+  integrityRouter,
+  valueGraphCaseRouter,
+  realizationRouter,
+  reasoningTracesRouter,
+  valueCommitmentsRouter,
+  opportunityValueGraphRouter,
+  tenantContextRouter,
+  tenantContextRouterV1: tenantContextRouter,
+  secretAuditRouter,
+  complianceEvidenceRouter,
+  approvalInboxRouter,
+  billingRouter,
+  projectsRouter,
+  initiativesRouter,
+});
 
 await registerDevRoutes(app);
 
@@ -811,110 +594,6 @@ app.use(notFoundHandler);
 
 // Global error handler (must be last)
 app.use(globalErrorHandler);
-
-/**
- * Validate that required infrastructure dependencies are reachable before
- * the server begins accepting traffic. Only runs in production.
- *
- * Redis: required for rate limiting, caching, and BullMQ queues.
- * NATS:  required if NATS_URL is set (messaging bus for domain events).
- *
- * Throws on failure so the process exits with a non-zero code and the
- * container orchestrator can restart or alert.
- */
-async function validateInfrastructureConnectivity(): Promise<void> {
-  logger.info("[Startup] Validating infrastructure connectivity");
-
-  // ── Redis ──────────────────────────────────────────────────────────────────
-  const redisUrl = process.env.REDIS_URL;
-  if (!redisUrl) {
-    throw new Error(
-      "Production startup failed: REDIS_URL is not set. " +
-        "Redis is required for rate limiting, caching, and job queues."
-    );
-  }
-
-  try {
-    const { getRedisClient } = await import("./lib/redisClient.js");
-    const redis = getRedisClient();
-    const pong = await Promise.race([
-      redis.ping(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Redis ping timeout after 5s")), 5000)
-      ),
-    ]);
-    if (pong !== "PONG") {
-      throw new Error(`Unexpected Redis ping response: ${String(pong)}`);
-    }
-    logger.info("[Startup] Redis connectivity verified");
-  } catch (err) {
-    throw new Error(
-      `Production startup failed: Redis is unreachable. ${(err as Error).message}`
-    );
-  }
-
-  // ── NATS ───────────────────────────────────────────────────────────────────
-  // NATS is optional — only validated if NATS_URL is explicitly set.
-  const natsUrl = process.env.NATS_URL;
-  if (natsUrl) {
-    try {
-      // Dynamic import to avoid loading the NATS client when not configured.
-      const nats = await import("nats");
-      const nc = await Promise.race([
-        nats.connect({ servers: natsUrl, timeout: 5000 }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("NATS connection timeout after 5s")),
-            5000
-          )
-        ),
-      ]);
-      await nc.close();
-      logger.info("[Startup] NATS connectivity verified", { natsUrl });
-    } catch (err) {
-      throw new Error(
-        `Production startup failed: NATS is unreachable at ${natsUrl}. ${(err as Error).message}`
-      );
-    }
-  } else {
-    logger.info(
-      "[Startup] NATS_URL not set — skipping NATS connectivity check"
-    );
-  }
-
-  logger.info("[Startup] Infrastructure connectivity validated");
-}
-
-function validateAuditLogStartupConfig(): void {
-  const auditLogEncryptionErrors = validateAuditLogEncryptionConfig(
-    process.env
-  );
-
-  if (auditLogEncryptionErrors.length > 0) {
-    throw new Error(auditLogEncryptionErrors.join(" "));
-  }
-}
-
-function validateProductionMfaStartup(): void {
-  if (settings.NODE_ENV !== "production") {
-    return;
-  }
-
-  const mfaOverrideEnabled = process.env.MFA_PRODUCTION_OVERRIDE === "true";
-  const { auth } = getConfig();
-
-  if (!auth.mfaEnabled && !mfaOverrideEnabled) {
-    throw new Error(
-      "Refusing production startup: MFA is not enabled. Set MFA_ENABLED=true or set MFA_PRODUCTION_OVERRIDE=true only for emergency recovery."
-    );
-  }
-
-  if (!auth.mfaEnabled && mfaOverrideEnabled) {
-    logger.warn(
-      "Production startup override in use: MFA is disabled because MFA_PRODUCTION_OVERRIDE=true. This should only be used for emergency recovery."
-    );
-  }
-}
 
 async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Starting backend server initialization");
@@ -943,7 +622,7 @@ async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Validating production requirements");
   validateServiceIdentityConfig();
   validateAuditLogStartupConfig();
-  validateProductionMfaStartup();
+  validateProductionMfaStartup(settings, logger);
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
@@ -954,7 +633,7 @@ async function startServer(): Promise<void> {
   // Fail fast before accepting traffic so that misconfigured pods are
   // immediately visible rather than silently degrading.
   if (settings.NODE_ENV === "production") {
-    await validateInfrastructureConnectivity();
+    await validateInfrastructureConnectivity(logger);
   }
 
   // 3. Initialize infrastructure

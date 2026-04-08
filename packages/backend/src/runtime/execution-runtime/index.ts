@@ -38,6 +38,15 @@ import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecuto
 
 export { QueryExecutor, WorkflowExecutor };
 export type { QueryExecutorConfig, WorkflowExecutorConfig };
+export {
+  buildStageContextWithTenantValidation,
+  buildWorkflowStageDecisionContext,
+} from "./workflow-stage-context.js";
+export {
+  buildHitlPendingApprovalResult,
+  buildRetryAwareRuntimeFailure,
+} from "./workflow-stage-retry-decision.js";
+export { WorkflowPersistenceInteractions } from "./workflow-persistence-interactions.js";
 
 // ============================================================================
 // ExecutionRuntime — thin wiring class
