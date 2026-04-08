@@ -199,6 +199,32 @@ jobs:
             --ledger-path=infra/k8s/manifest-maturity-ledger.json \
             --require-critical-evidence-links=true
 
+  reliability-indicators-release-gate:
+    name: Reliability Indicators Release Gate
+    runs-on: ubuntu-latest
+    needs: [manifest-maturity-release-gate]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+      - name: Enforce release reliability evidence thresholds
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
+          SLO_ALERT_NAME_REGEX: '^SLOBurnRate_'
+        run: node scripts/ci/check-release-reliability-indicators.mjs
+      - name: Upload release reliability summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-reliability-summary-${{ github.run_id }}
+          path: artifacts/reliability/release-reliability-summary.json
+          if-no-files-found: warn
+
   secret-rotation-evidence-release-gate:
     name: Secret Rotation Evidence Release Gate
     runs-on: ubuntu-latest
@@ -219,6 +245,7 @@ jobs:
         reproducibility-compare,
         await-upstream-release-gates,
         manifest-maturity-release-gate,
+        reliability-indicators-release-gate,
         secret-rotation-evidence-release-gate,
       ]
     steps:
