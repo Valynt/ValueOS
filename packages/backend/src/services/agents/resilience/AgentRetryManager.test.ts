@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentType } from "../../agent-types.js";
+import type { IAgent } from "../core/IAgent.js";
 import type { RetryAttempt, RetryResult } from "./AgentRetryTypes.js";
 import { AgentRetryManager } from "./AgentRetryManager.js";
 
@@ -270,5 +271,64 @@ describe("AgentRetryManager.executeContractAwareRetry", () => {
     expect(result.error?.code).toBe("BUSINESS_RULE_VALIDATION_FAILED");
     expect(result.error?.retryable).toBe(false);
     expect(generator).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AgentRetryManager.executeWithRetry", () => {
+  const manager = AgentRetryManager.getInstance();
+
+  beforeEach(() => {
+    manager.reset();
+  });
+
+  it("keeps executeWithRetry result contract stable for immediate success", async () => {
+    const agent = {
+      getAgentType: () => "opportunity" as AgentType,
+      execute: vi.fn().mockResolvedValue({
+        success: true,
+        data: { answer: "ok" },
+      }),
+    } as unknown as IAgent;
+
+    const result = await manager.executeWithRetry(agent, {
+      agentType: "opportunity",
+      query: "test",
+      sessionId: "session-1",
+      userId: "user-1",
+      organizationId: "org-1",
+      context: {},
+      timeout: 1000,
+    });
+
+    expect({
+      success: result.success,
+      totalAttempts: result.totalAttempts,
+      fallbackUsed: result.fallbackUsed,
+      strategy: result.strategy,
+      statistics: result.statistics,
+    }).toMatchInlineSnapshot(`
+      {
+        "fallbackUsed": false,
+        "statistics": {
+          "agentPerformance": {
+            "opportunity": {
+              "attempts": 1,
+              "avgDuration": 1,
+              "successRate": 1,
+              "successes": 1,
+            },
+          },
+          "avgAttemptDuration": 1,
+          "errorDistribution": {},
+          "successRateByAttempt": {
+            "1": 100,
+          },
+          "totalRetryDelay": 0,
+        },
+        "strategy": "exponential_backoff",
+        "success": true,
+        "totalAttempts": 1,
+      }
+    `);
   });
 });
