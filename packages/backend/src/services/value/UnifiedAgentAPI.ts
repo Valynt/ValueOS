@@ -18,7 +18,6 @@ import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { trace } from "@opentelemetry/api";
 import { SDUIPageDefinition, validateSDUISchema } from "@valueos/sdui";
 import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
 
 import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
 import { logger } from "../lib/logger.js"
@@ -39,33 +38,13 @@ import {
 } from "./GroundtruthAPI";
 import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 import {
-  CONFIDENCE_THRESHOLDS,
   GovernanceVetoError,
-  HardenedAgentRunner,
 } from "../../lib/agent-fabric/hardening/index.js";
-
-type HardeningRiskTier = keyof typeof CONFIDENCE_THRESHOLDS;
-
-const GENERIC_HARDENED_OUTPUT_SCHEMA = z.unknown();
-
-function resolveHardeningRiskTier(agent: AgentType): HardeningRiskTier {
-  if (agent === "financial-modeling") return "financial";
-  if (agent === "narrative") return "narrative";
-  if (agent === "compliance-auditor") return "compliance";
-  if (
-    agent === "communicator" ||
-    agent === "company-intelligence" ||
-    agent === "value-eval"
-  ) {
-    return "commitment";
-  }
-  return "discovery";
-}
-
-function shouldUseHardening(agent: AgentType): boolean {
-  const tier = resolveHardeningRiskTier(agent);
-  return ["financial", "commitment", "narrative", "compliance"].includes(tier);
-}
+import {
+  executeWithHardenedRunner,
+  mapGovernanceVetoStatus,
+  requiresHardenedExecution,
+} from "../agents/HardenedExecution.js";
 
 // ============================================================================
 // Types
@@ -756,15 +735,13 @@ export class UnifiedAgentAPI {
         },
       };
 
-      const riskTier = resolveHardeningRiskTier(request.agent);
-      const shouldHarden = shouldUseHardening(request.agent);
+      const shouldHarden = requiresHardenedExecution(request.agent);
       const agentOutput = shouldHarden
         ? await this.executeWithHardening({
             request,
             lifecycleContext,
             traceId,
             organizationId,
-            riskTier,
             execute: (ctx) => agent.execute(ctx),
           })
         : await agent.execute(lifecycleContext);
@@ -830,45 +807,25 @@ export class UnifiedAgentAPI {
     lifecycleContext: LifecycleContext;
     traceId: string;
     organizationId: string;
-    riskTier: HardeningRiskTier;
     execute: (ctx: LifecycleContext) => Promise<import("../../types/agent.js").AgentOutput>;
   }): Promise<import("../../types/agent.js").AgentOutput> {
-    const { request, lifecycleContext, traceId, organizationId, riskTier, execute } = params;
+    const { request, lifecycleContext, traceId, organizationId, execute } = params;
     const normalizeResult = (value: unknown): Record<string, unknown> =>
       value && typeof value === "object"
         ? (value as Record<string, unknown>)
         : { value };
-    const runner = new HardenedAgentRunner({
-      agentName: String(request.agent),
-      agentVersion: "1.0.0",
-      lifecycleStage: String(lifecycleContext.lifecycle_stage),
-      organizationId,
-      allowedTools: new Set(),
-      riskTier,
-      integrityVetoService: null,
-      hitlPort: null,
-    });
 
     try {
-      const hardened = await runner.run(
-        {
-          request_id: uuidv4(),
-          trace_id: traceId,
-          session_id: request.sessionId || traceId,
-          user_id: request.userId || "system",
-          organization_id: organizationId,
-          received_at: new Date().toISOString(),
-        },
+      const hardened = await executeWithHardenedRunner({
+        agentId: request.agent,
+        organizationId,
+        userId: request.userId || "system",
+        sessionId: request.sessionId || traceId,
+        traceId,
         lifecycleContext,
         execute,
-        {
-          prompt: request.query,
-          outputSchema: GENERIC_HARDENED_OUTPUT_SCHEMA,
-          riskTier,
-          requiresIntegrityVeto: true,
-          requiresHumanApproval: false,
-        }
-      );
+        prompt: request.query,
+      });
 
       logger.info("Local fabric agent governance verdict", {
         agent: request.agent,
@@ -877,11 +834,6 @@ export class UnifiedAgentAPI {
         confidence_overall: hardened.confidence.overall,
         confidence_label: hardened.confidence.label,
       });
-
-      const span = trace.getActiveSpan();
-      span?.setAttribute("agent.governance.verdict", hardened.governance.verdict);
-      span?.setAttribute("agent.confidence.overall", hardened.confidence.overall);
-      span?.setAttribute("agent.confidence.label", hardened.confidence.label);
 
       return {
         agent_id: String(request.agent),
@@ -894,15 +846,12 @@ export class UnifiedAgentAPI {
           execution_time_ms: 0,
           model_version: "hardened",
           timestamp: new Date().toISOString(),
-          token_usage: {
-            prompt_tokens: hardened.token_usage.input_tokens,
-            completion_tokens: hardened.token_usage.output_tokens,
-            total_tokens: hardened.token_usage.total_tokens,
-          },
+          token_usage: hardened.tokenUsage,
         },
       };
     } catch (error) {
       if (error instanceof GovernanceVetoError) {
+        const governanceStatus = mapGovernanceVetoStatus(error);
         logger.warn("Local fabric agent governance veto", {
           agent: request.agent,
           traceId,
@@ -919,7 +868,7 @@ export class UnifiedAgentAPI {
           agent_id: String(request.agent),
           agent_type: request.agent,
           lifecycle_stage: lifecycleContext.lifecycle_stage,
-          status: "failure",
+          status: governanceStatus.apiStatus,
           result: {
             governance_verdict: error.verdict,
             governance_reason: error.reason,
