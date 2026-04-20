@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "dompurify": "^3.3.1",
+    "dompurify": "^3.4.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.10"
   },
