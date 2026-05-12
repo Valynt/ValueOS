@@ -1145,6 +1145,23 @@ jobs:
       - name: Require release-manager sign-off + timestamp + release SHA
         run: node scripts/ci/check-launch-readiness-signoff.mjs --require-release-manager --expected-sha=${{ github.sha }}
 
+  layer3-readiness-evidence-gate:
+    name: Layer 3 Readiness Evidence Gate
+    runs-on: ubuntu-latest
+    needs: [preprod-launch-gate]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate Layer 3 readiness evidence manifest
+        run: node scripts/ci/check-layer3-readiness-evidence.mjs
+      - name: Upload Layer 3 readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer3-readiness-report-${{ github.run_id }}
+          path: artifacts/ci/layer3-readiness-report.md
+          if-no-files-found: warn
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
@@ -1163,6 +1180,7 @@ jobs:
         ux-scorecard-release-log-gate,
         dr-validation-recency-gate,
         release-manager-signoff-gate,
+        layer3-readiness-evidence-gate,
         release-manifest-gate,
         reliability-indicators-gate,
         secret-rotation-gate,
