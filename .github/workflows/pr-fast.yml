@@ -579,6 +579,16 @@ jobs:
       - uses: pnpm/action-setup@v5
         with:
           run_install: false
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Static tenant boundary guards
@@ -619,8 +629,7 @@ jobs:
     # skipped — the pr-fast gate treats skipped as a failure for this lane.
     permissions:
       contents: read
-      # id-token: write is only needed for OIDC-based secret access on non-fork PRs.
-      # Fork PRs run without this permission; live-DB steps are skipped via per-step if:.
+      id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -681,6 +690,8 @@ jobs:
           VALUEOS_TEST_REAL_INTEGRATION: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          GITHUB_ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           node scripts/ci/report-suite-execution-modes.mjs \
             --lane tenant-isolation-gate \

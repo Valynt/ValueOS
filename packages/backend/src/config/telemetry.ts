@@ -466,7 +466,10 @@ function getHeaderValue(input: string | string[] | undefined): string | undefine
 export function tracingMiddleware() {
   return (req: Request & { tenantId?: string; traceContext?: { traceId: string; spanId: string } }, res: Response, next: NextFunction) => {
     const tracer = getTracer();
-    const span = tracer.startSpan(`http.${req.method} ${req.path}`) as SpanType;
+    const canonicalPath = req.route?.path
+      ? `${req.baseUrl ?? ''}${String(req.route.path)}`
+      : (req.baseUrl ? `${req.baseUrl}${req.path}` : req.path);
+    const span = tracer.startSpan(`http.${req.method} ${canonicalPath}`) as SpanType;
 
     const tenantId =
       getHeaderValue(req.headers["x-tenant-id"]) ??
@@ -479,7 +482,7 @@ export function tracingMiddleware() {
     span.setAttributes({
       'http.method': req.method,
       'http.url': req.url,
-      'http.target': req.path,
+      'http.target': canonicalPath,
       'http.user_agent': req.get('user-agent') || 'unknown',
       'tenant_id': tenantId,
       'trace_id': incomingTraceId ?? 'unknown',
