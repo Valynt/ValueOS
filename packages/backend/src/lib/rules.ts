@@ -27,6 +27,7 @@ import { logger } from './logger.js';
 interface CacheEntry {
   permissions: string[];
   expiresAt: number;
+  authVersion: string;
 }
 
 // Simple in-process LRU-style cache: max 2000 entries, 30 s TTL.
@@ -40,25 +41,59 @@ export function __resetPermissionCacheForTests(): void {
   permissionCache.clear();
 }
 
-function getCachedPermissions(userId: string, tenantId: string): string[] | null {
-  const key = `${tenantId}:${userId}`;
+export function invalidatePermissionCache(userId: string, tenantId: string): void {
+  const keyPrefix = `${tenantId}:${userId}:`;
+  for (const key of permissionCache.keys()) {
+    if (key.startsWith(keyPrefix)) {
+      permissionCache.delete(key);
+    }
+  }
+}
+
+function buildPermissionCacheKey(userId: string, tenantId: string, authVersion: string): string {
+  return `${tenantId}:${userId}:${authVersion}`;
+}
+
+function getCachedPermissions(
+  userId: string,
+  tenantId: string,
+  authVersion: string,
+  requestId?: string
+): string[] | null {
+  const key = buildPermissionCacheKey(userId, tenantId, authVersion);
   const entry = permissionCache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
     permissionCache.delete(key);
     return null;
   }
+  logger.info('governance.permission_cache', {
+    outcome: 'hit',
+    userId,
+    tenantId,
+    authVersion,
+    requestId: requestId ?? 'unknown',
+  });
   return entry.permissions;
 }
 
-function setCachedPermissions(userId: string, tenantId: string, permissions: string[]): void {
-  const key = `${tenantId}:${userId}`;
+function setCachedPermissions(
+  userId: string,
+  tenantId: string,
+  authVersion: string,
+  permissions: string[]
+): void {
+  const key = buildPermissionCacheKey(userId, tenantId, authVersion);
   // Evict oldest entry when at capacity (Map preserves insertion order).
   if (permissionCache.size >= PERMISSION_CACHE_MAX) {
     const firstKey = permissionCache.keys().next().value;
     if (firstKey !== undefined) permissionCache.delete(firstKey);
   }
-  permissionCache.set(key, { permissions, expiresAt: Date.now() + PERMISSION_CACHE_TTL_MS });
+  permissionCache.set(key, {
+    permissions,
+    authVersion,
+    expiresAt: Date.now() + PERMISSION_CACHE_TTL_MS,
+  });
 }
 
 // ============================================================================
@@ -250,9 +285,21 @@ function hasElevatedRole(roles: string[]): boolean {
  * Distinguishes between a DB error and an inactive/missing membership so
  * callers can produce accurate denial reasons.
  */
-async function resolvePermissions(userId: string, tenantId: string): Promise<string[]> {
-  const cached = getCachedPermissions(userId, tenantId);
+async function resolvePermissions(
+  userId: string,
+  tenantId: string,
+  requestId?: string
+): Promise<string[]> {
+  const authVersion = 'v1';
+  const cached = getCachedPermissions(userId, tenantId, authVersion, requestId);
   if (cached !== null) return cached;
+  logger.info('governance.permission_cache', {
+    outcome: 'miss',
+    userId,
+    tenantId,
+    authVersion,
+    requestId: requestId ?? 'unknown',
+  });
 
   const supabase = createServerSupabaseClient();
 
@@ -331,7 +378,7 @@ async function resolvePermissions(userId: string, tenantId: string): Promise<str
     if (row.permission) granted.push(row.permission as string);
   }
 
-  setCachedPermissions(userId, tenantId, granted);
+  setCachedPermissions(userId, tenantId, authVersion, granted);
   return granted;
 }
 
@@ -488,7 +535,24 @@ export async function enforceRulesDetailed(
     // Layer 2: RBAC — resolve permissions and check action authorization
     // ------------------------------------------------------------------
 
-    const granted = await resolvePermissions(ctx.actor.userId, ctx.actor.tenantId);
+    const highRiskAction =
+      ctx.action.name === 'proposal.publish' || isDestructiveAction(ctx.action.name);
+    if (highRiskAction) {
+      invalidatePermissionCache(ctx.actor.userId, ctx.actor.tenantId);
+      logger.info('governance.permission_cache', {
+        outcome: 'bypass',
+        userId: ctx.actor.userId,
+        tenantId: ctx.actor.tenantId,
+        action: ctx.action.name,
+        requestId: ctx.actor.sessionId ?? 'unknown',
+      });
+    }
+
+    const granted = await resolvePermissions(
+      ctx.actor.userId,
+      ctx.actor.tenantId,
+      ctx.actor.sessionId
+    );
 
     if (granted.length === 0) {
       // resolvePermissions returns [] on inactive membership or DB error — deny.

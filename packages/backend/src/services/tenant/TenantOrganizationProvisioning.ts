@@ -1,4 +1,5 @@
 import { logger } from '../../lib/logger.js';
+import { invalidatePermissionCache } from '../../lib/rules.js';
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 
@@ -151,6 +152,7 @@ export async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
       if (assignError) {
         throw new Error(`Failed to assign owner role: ${assignError.message}`);
       }
+      invalidatePermissionCache(config.ownerId, tenantId);
       logger.debug(`Assigned owner role to ${config.ownerId} for tenant ${tenantId}`);
     }
   }
