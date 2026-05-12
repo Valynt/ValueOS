@@ -116,6 +116,83 @@ export interface IntegrityVetoResult {
   confidence_delta: number;
   /** When true, the agent should re-refine rather than hard-fail. */
   re_refine: boolean;
+  failure_state: IntegrityVetoFailureState;
+}
+
+
+export type IntegrityVetoOutageMode = "healthy" | "transient" | "sustained";
+
+export interface IntegrityVetoFailureState {
+  outage_mode: IntegrityVetoOutageMode;
+  failures_in_window: number;
+  first_failure_at?: string;
+  last_failure_at?: string;
+}
+
+export interface IntegrityVetoFailureTracker {
+  recordSuccess(input: IntegrityVetoInput): IntegrityVetoFailureState;
+  recordFailure(input: IntegrityVetoInput): IntegrityVetoFailureState;
+  getState(input: IntegrityVetoInput): IntegrityVetoFailureState;
+}
+
+interface InMemoryFailureConfig {
+  failureWindowMs: number;
+  sustainedFailureCount: number;
+}
+
+class InMemoryIntegrityVetoFailureTracker implements IntegrityVetoFailureTracker {
+  private readonly state = new Map<string, { failureTimestamps: number[] }>();
+  private readonly config: InMemoryFailureConfig;
+
+  constructor(config?: Partial<InMemoryFailureConfig>) {
+    this.config = {
+      failureWindowMs: config?.failureWindowMs ?? 5 * 60 * 1000,
+      sustainedFailureCount: config?.sustainedFailureCount ?? 3,
+    };
+  }
+
+  recordSuccess(input: IntegrityVetoInput): IntegrityVetoFailureState {
+    this.state.delete(this.key(input));
+    return { outage_mode: "healthy", failures_in_window: 0 };
+  }
+
+  recordFailure(input: IntegrityVetoInput): IntegrityVetoFailureState {
+    const key = this.key(input);
+    const now = Date.now();
+    const current = this.state.get(key) ?? { failureTimestamps: [] };
+    const timestamps = [...current.failureTimestamps, now].filter(
+      ts => now - ts <= this.config.failureWindowMs
+    );
+    this.state.set(key, { failureTimestamps: timestamps });
+    return this.buildState(timestamps);
+  }
+
+  getState(input: IntegrityVetoInput): IntegrityVetoFailureState {
+    const key = this.key(input);
+    const now = Date.now();
+    const current = this.state.get(key);
+    if (!current) return { outage_mode: "healthy", failures_in_window: 0 };
+    const timestamps = current.failureTimestamps.filter(ts => now - ts <= this.config.failureWindowMs);
+    this.state.set(key, { failureTimestamps: timestamps });
+    return this.buildState(timestamps);
+  }
+
+  private buildState(timestamps: number[]): IntegrityVetoFailureState {
+    if (timestamps.length === 0) {
+      return { outage_mode: "healthy", failures_in_window: 0 };
+    }
+
+    return {
+      outage_mode: timestamps.length >= this.config.sustainedFailureCount ? "sustained" : "transient",
+      failures_in_window: timestamps.length,
+      first_failure_at: new Date(timestamps[0]).toISOString(),
+      last_failure_at: new Date(timestamps[timestamps.length - 1]).toISOString(),
+    };
+  }
+
+  private key(input: IntegrityVetoInput): string {
+    return `${input.organizationId}:${input.agentName}`;
+  }
 }
 
 /**
@@ -169,6 +246,7 @@ export async function runIntegrityVeto(
         issues: [],
         confidence_delta: 0,
         re_refine: result.reRefine ?? false,
+        failure_state: { outage_mode: "healthy", failures_in_window: 0 },
       };
     }
 
@@ -196,6 +274,7 @@ export async function runIntegrityVeto(
       issues,
       confidence_delta: -0.2,
       re_refine: false,
+      failure_state: { outage_mode: "healthy", failures_in_window: 0 },
     };
   } catch (err) {
     logger.error("IntegrityVeto check failed — failing open", {
@@ -216,6 +295,7 @@ export async function runIntegrityVeto(
       ],
       confidence_delta: -0.05,
       re_refine: false,
+      failure_state: { outage_mode: "transient", failures_in_window: 1 },
     };
   }
 }
@@ -305,10 +385,16 @@ export interface GovernanceCheckResult {
 }
 
 export class GovernanceLayer {
+  private readonly integrityFailureTracker: IntegrityVetoFailureTracker;
+
   constructor(
     private readonly integrityVetoService: IntegrityVetoServicePort | null,
-    private readonly hitlPort: HITLCheckpointPort | null
-  ) {}
+    private readonly hitlPort: HITLCheckpointPort | null,
+    integrityFailureTracker?: IntegrityVetoFailureTracker
+  ) {
+    this.integrityFailureTracker =
+      integrityFailureTracker ?? new InMemoryIntegrityVetoFailureTracker();
+  }
 
   async evaluate(input: GovernanceCheckInput): Promise<GovernanceCheckResult> {
     let confidence = { ...input.confidence };
@@ -329,8 +415,50 @@ export class GovernanceLayer {
         this.integrityVetoService
       );
 
+      const failureState = vetoResult.failure_state.outage_mode === "healthy"
+        ? this.integrityFailureTracker.recordSuccess({
+            output: input.output,
+            agentName: input.agentName,
+            agentType: input.agentType,
+            traceId: input.traceId,
+            sessionId: input.sessionId,
+            organizationId: input.organizationId,
+          })
+        : this.integrityFailureTracker.recordFailure({
+            output: input.output,
+            agentName: input.agentName,
+            agentType: input.agentType,
+            traceId: input.traceId,
+            sessionId: input.sessionId,
+            organizationId: input.organizationId,
+          });
+
+      if (failureState.outage_mode !== "healthy") {
+        logger.warn("governance.integrity_veto.degraded", {
+          event: "governance.integrity_veto.degraded",
+          agent: input.agentName,
+          organization_id: input.organizationId,
+          trace_id: input.traceId,
+          session_id: input.sessionId,
+          outage_mode: failureState.outage_mode,
+          failures_in_window: failureState.failures_in_window,
+        });
+      }
+
       issues.push(...vetoResult.issues);
       re_refine = vetoResult.re_refine;
+
+      if (failureState.outage_mode === "sustained") {
+        const sustainedVerdict = input.riskTier === "financial" || input.riskTier === "compliance" ? "vetoed" : "pending_human";
+        const decision: GovernanceDecision = {
+          verdict: sustainedVerdict,
+          decided_by: "GovernanceLayer",
+          decided_at: new Date().toISOString(),
+          reason: `IntegrityVeto service degraded (sustained outage). Risk-tier policy escalated to ${sustainedVerdict}.`,
+          integrity_issues: issues.length > 0 ? issues : undefined,
+        };
+        return { decision, adjusted_confidence: confidence, release: false };
+      }
 
       if (vetoResult.vetoed) {
         const decision: GovernanceDecision = {

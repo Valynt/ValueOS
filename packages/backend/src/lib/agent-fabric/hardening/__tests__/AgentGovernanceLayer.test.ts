@@ -223,6 +223,52 @@ describe("GovernanceLayer", () => {
     expect(result.release).toBe(false);
   });
 
+  it("fails open with confidence penalty for transient IntegrityVeto failures", async () => {
+    const integrityVetoService: IntegrityVetoServicePort = {
+      evaluateIntegrityVeto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
+    };
+
+    const layer = new GovernanceLayer(integrityVetoService, null);
+    const result = await layer.evaluate({
+      ...baseInput,
+      confidence: makeConfidence(0.80),
+      requiresIntegrityVeto: true,
+      riskTier: "financial",
+    });
+
+    expect(result.adjusted_confidence.overall).toBeCloseTo(0.75, 5);
+    expect(result.decision.verdict).toBe("approved");
+    expect(result.release).toBe(true);
+  });
+
+  it("escalates to pending_human on sustained IntegrityVeto failures for low-risk tiers", async () => {
+    const integrityVetoService: IntegrityVetoServicePort = {
+      evaluateIntegrityVeto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
+    };
+
+    const layer = new GovernanceLayer(integrityVetoService, null);
+    await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "discovery" });
+    await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "discovery" });
+    const third = await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "discovery" });
+
+    expect(third.decision.verdict).toBe("pending_human");
+    expect(third.release).toBe(false);
+  });
+
+  it("escalates to vetoed on sustained IntegrityVeto failures for high-risk tiers", async () => {
+    const integrityVetoService: IntegrityVetoServicePort = {
+      evaluateIntegrityVeto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
+    };
+
+    const layer = new GovernanceLayer(integrityVetoService, null);
+    await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "financial" });
+    await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "financial" });
+    const third = await layer.evaluate({ ...baseInput, requiresIntegrityVeto: true, riskTier: "financial" });
+
+    expect(third.decision.verdict).toBe("vetoed");
+    expect(third.release).toBe(false);
+  });
+
   it("fails open when IntegrityAgent service throws", async () => {
     const integrityVetoService: IntegrityVetoServicePort = {
       evaluateIntegrityVeto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
