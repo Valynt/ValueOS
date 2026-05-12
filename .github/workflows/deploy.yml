@@ -1152,6 +1152,30 @@ jobs:
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     steps:
       - uses: actions/checkout@v6
+      - name: Detect Layer 3 tenant migration scope
+        id: layer3-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD~1)"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          CHANGED_FILES="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" || true)"
+          echo "LAYER3_CHANGED_FILES<<EOF" >> "$GITHUB_ENV"
+          echo "${CHANGED_FILES}" >> "$GITHUB_ENV"
+          echo "EOF" >> "$GITHUB_ENV"
+
+          if echo "${CHANGED_FILES}" | rg -q '^(scripts/migrations/migrate_tenant_ids\.py|scripts/migrations/028_l3_tenant_standardization\.py|scripts/migrations/create_composite_tenant_indexes\.py|scripts/migrations/layer3/|packages/backend/src/lib/graph/)'; then
+            echo "LAYER3_TENANT_MIGRATION_REQUIRED=true" >> "$GITHUB_ENV"
+          else
+            echo "LAYER3_TENANT_MIGRATION_REQUIRED=false" >> "$GITHUB_ENV"
+          fi
       - name: Validate Layer 3 readiness evidence manifest
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report

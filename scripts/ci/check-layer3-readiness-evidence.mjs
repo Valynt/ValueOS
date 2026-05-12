@@ -21,6 +21,65 @@ function changedControlsFromManifest(manifest) {
     .sort();
 }
 
+function parseBooleanEnv(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) {
+    return false;
+  }
+  throw new Error(`invalid boolean env value: ${value}`);
+}
+
+function parseChangedFilesInput(rawValue) {
+  if (!rawValue) {
+    return [];
+  }
+  return rawValue
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function evaluateApplicabilityContext() {
+  const explicitRequired = parseBooleanEnv(process.env.LAYER3_TENANT_MIGRATION_REQUIRED);
+  const changedFiles = parseChangedFilesInput(process.env.LAYER3_CHANGED_FILES);
+
+  const matchers = [
+    /^scripts\/migrations\/migrate_tenant_ids\.py$/,
+    /^scripts\/migrations\/028_l3_tenant_standardization\.py$/,
+    /^scripts\/migrations\/create_composite_tenant_indexes\.py$/,
+    /^scripts\/migrations\/layer3\//,
+    /^packages\/backend\/src\/lib\/graph\//,
+  ];
+
+  const matchedChangedFiles = changedFiles.filter((changedFile) => matchers.some((matcher) => matcher.test(changedFile)));
+  const derivedRequired = matchedChangedFiles.length > 0;
+  const layer3TenantMigrationChanged = explicitRequired ?? derivedRequired;
+
+  return {
+    layer3TenantMigrationChanged,
+    explicitRequired,
+    changedFiles,
+    matchedChangedFiles,
+    source: explicitRequired == null ? 'changed-files' : 'env-override',
+  };
+}
+
+function isCheckRequired(check, applicabilityContext) {
+  if (!check.requiredWhen) {
+    return check.required !== false;
+  }
+  if (!(check.requiredWhen in applicabilityContext)) {
+    throw new Error(`unknown requiredWhen condition: ${check.requiredWhen}`);
+  }
+  return Boolean(applicabilityContext[check.requiredWhen]);
+}
+
 function readPathValue(source, dottedPath) {
   return dottedPath.split('.').reduce((acc, key) => {
     if (acc == null || typeof acc !== 'object' || !(key in acc)) {
@@ -104,8 +163,19 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
   const passedChecks = [];
   const failedChecks = [];
   const openRisks = [];
+  const skippedChecks = [];
+  const applicabilityContext = evaluateApplicabilityContext();
 
   for (const check of manifest.checks ?? []) {
+    if (!isCheckRequired(check, applicabilityContext)) {
+      skippedChecks.push({
+        id: check.id,
+        name: check.name,
+        reason: 'not applicable',
+      });
+      continue;
+    }
+
     const failures = [];
     const staleArtifacts = [];
 
@@ -154,6 +224,8 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     failedChecks,
     changedControls: changedControlsFromManifest(manifest),
     openRisks,
+    skippedChecks,
+    applicabilityContext,
     productionReady: failedChecks.length === 0,
   };
 }
@@ -165,6 +237,7 @@ export function buildLayer3ReadinessReport(result) {
   lines.push(`- Generated at: ${new Date().toISOString()}`);
   lines.push(`- Max artifact age (hours): ${result.maxArtifactAgeHours}`);
   lines.push(`- Production-ready verdict: ${result.productionReady ? 'PASS' : 'FAIL'}`);
+  lines.push(`- Layer 3 tenant migration changed: ${result.applicabilityContext.layer3TenantMigrationChanged ? 'yes' : 'no'} (${result.applicabilityContext.source})`);
   lines.push('');
 
   lines.push('## Passed checks');
@@ -173,6 +246,16 @@ export function buildLayer3ReadinessReport(result) {
   } else {
     for (const check of result.passedChecks) {
       lines.push(`- ✅ ${check.id} (${check.name})`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Skipped checks');
+  if (result.skippedChecks.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const check of result.skippedChecks) {
+      lines.push(`- ⏭️ ${check.id} (${check.name}): skipped (${check.reason})`);
     }
   }
   lines.push('');

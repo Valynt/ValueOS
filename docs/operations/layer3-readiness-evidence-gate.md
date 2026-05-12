@@ -26,6 +26,10 @@ It requires these check artifacts:
 6. tenant-isolation tests (JSON)
 7. tenant migration readiness checklist artifact (markdown/text)
 
+The tenant migration checklist check is conditionally required via manifest field:
+
+- `requiredWhen: "layer3TenantMigrationChanged"`
+
 ## Semantic validation behavior
 
 After existence and freshness validation, the gate parses artifact payloads and enforces validator-specific semantics:
@@ -56,6 +60,19 @@ The gate fails closed on:
    - `artifacts/ci/layer3-readiness-report.md`
 4. If the gate fails, fix any missing/stale/invalid evidence listed under **Failed checks** and **Open risks**, then re-run the command.
 5. In CI, download artifact `layer3-readiness-report-<run_id>` from the deploy workflow for audit traceability.
+
+### Conditional applicability and audit behavior
+
+The gate computes `layer3TenantMigrationChanged` from either:
+
+1. explicit CI override: `LAYER3_TENANT_MIGRATION_REQUIRED=true|false`, or
+2. changed-file context: `LAYER3_CHANGED_FILES` (newline/comma-delimited list).
+
+If `requiredWhen` evaluates to `false` for a check, the report records:
+
+- `⏭️ <check-id> ... skipped (not applicable)`
+
+If `requiredWhen` evaluates to `true`, the check is fully enforced (artifact existence + age + semantic validator contract).
 
 ## Report sections per run
 
