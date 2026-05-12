@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { logger } from "../../logger.js";
+import { z } from "zod";
 import { CONFIDENCE_THRESHOLDS } from "./AgentHardeningTypes.js";
 
 export interface DriftGuardConfig {
@@ -30,6 +31,47 @@ export interface DriftCheckResult {
 }
 
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
+const MIN_RECONCILIATION_INTERVAL_MS = 1_000;
+const MAX_RECONCILIATION_INTERVAL_MS = 3_600_000;
+
+const DriftGuardIntervalSchema = z
+  .number()
+  .int()
+  .finite()
+  .min(MIN_RECONCILIATION_INTERVAL_MS)
+  .max(MAX_RECONCILIATION_INTERVAL_MS);
+
+interface ParsedIntervalResult {
+  value: number;
+  usedDefault: boolean;
+}
+
+export function validateDriftGuardIntervalMs(
+  rawValue: string | undefined,
+  fallbackValue: number = DEFAULT_RECONCILIATION_MS
+): ParsedIntervalResult {
+  if (rawValue === undefined) {
+    return { value: fallbackValue, usedDefault: false };
+  }
+
+  const trimmed = rawValue.trim();
+  const candidate = Number(trimmed);
+  const valid = DriftGuardIntervalSchema.safeParse(candidate).success;
+
+  if (valid) {
+    return { value: candidate, usedDefault: false };
+  }
+
+  logger.warn("agent.drift_guard.invalid_interval_ms", {
+    env_var: "AGENT_DRIFT_GUARD_INTERVAL_MS",
+    raw_value: rawValue,
+    default_value: fallbackValue,
+    min_value: MIN_RECONCILIATION_INTERVAL_MS,
+    max_value: MAX_RECONCILIATION_INTERVAL_MS,
+  });
+
+  return { value: fallbackValue, usedDefault: true };
+}
 
 export function readDriftGuardConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DriftGuardConfig {
   const baselineVersion = env.AGENT_DRIFT_GUARD_BASELINE_VERSION ?? env.RELEASE_VERSION ?? env.GIT_SHA;
@@ -42,7 +84,7 @@ export function readDriftGuardConfigFromEnv(env: NodeJS.ProcessEnv = process.env
   return {
     enabled: env.AGENT_DRIFT_GUARD_ENABLED !== "false",
     strictMode: env.AGENT_DRIFT_GUARD_STRICT === "true",
-    reconciliationIntervalMs: Number(env.AGENT_DRIFT_GUARD_INTERVAL_MS ?? DEFAULT_RECONCILIATION_MS),
+    reconciliationIntervalMs: validateDriftGuardIntervalMs(env.AGENT_DRIFT_GUARD_INTERVAL_MS).value,
     baselineVersion: baselineVersion.trim(),
   };
 }
