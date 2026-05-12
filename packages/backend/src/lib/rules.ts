@@ -75,7 +75,7 @@ function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryCont
     action_name: ctx.actionName,
   };
 
-  driftDetectedTotal.inc(labels);
+  if (outcome === 'detected') driftDetectedTotal.inc(labels);
   if (outcome === 'remediated') driftRemediatedTotal.inc(labels);
   if (outcome === 'unresolved') driftUnresolvedTotal.inc(labels);
   if (outcome === 'denied') driftDeniedTotal.inc(labels);
@@ -88,7 +88,6 @@ function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryCont
     stage: ctx.stage,
     actionName: ctx.actionName,
     sessionId: ctx.sessionId ?? 'unknown',
-    requestId: ctx.sessionId ?? 'unknown',
     ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
   });
 }
