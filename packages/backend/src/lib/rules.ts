@@ -21,6 +21,7 @@ import { createServerSupabaseClient } from './supabase.js';
 import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
 import { createCounter } from './observability/index.js';
+import { evaluateGovernanceDrift } from './governance/driftPrimitives.js';
 
 // ---------------------------------------------------------------------------
 // Permission cache
@@ -472,62 +473,6 @@ async function getProposalGovernanceStatus(
   };
 }
 
-function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): boolean {
-  if (requiredFields.length === 0) return true;
-  if (!payload || typeof payload !== 'object') return false;
-  return requiredFields.every((field) => {
-    const value = (payload as Record<string, unknown>)[field];
-    return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
-  });
-}
-
-async function runDriftChecks(
-  ctx: GovernanceContext,
-  granted: string[]
-): Promise<DriftAssessment[]> {
-  const assessments: DriftAssessment[] = [];
-
-  // 1) Actor role/permission freshness vs cached grants.
-  if (ctx.actor.roles.length > 0 && granted.length === 0) {
-    assessments.push({
-      driftDetected: true,
-      driftType: 'ROLE_PERMISSION_STALENESS',
-      severity: 'high',
-      remediationAction: 'REFRESH_PERMISSIONS',
-      details: 'Actor roles are present but resolved permissions are empty.',
-    });
-  }
-
-  // 2) Workflow approval consistency for prod-gated actions.
-  if (ctx.environment.stage === 'prod' && PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)) {
-    const approvals = ctx.workflow?.approvals ?? [];
-    if (!approvals.includes(ctx.action.name) || !ctx.workflow?.workflowId) {
-      assessments.push({
-        driftDetected: true,
-        driftType: 'WORKFLOW_APPROVAL_INCONSISTENCY',
-        severity: 'high',
-        remediationAction: 'REQUIRE_APPROVAL',
-        details: 'Prod-gated action missing matching workflow approval context.',
-      });
-    }
-  }
-
-  // 3) Critical config invariants (stage-sensitive required fields).
-  const requiredFields = governanceConfig.stageRequiredFields[ctx.environment.stage] ?? [];
-  if (!hasRequiredPayloadFields(ctx.action.payload, requiredFields)) {
-    assessments.push({
-      driftDetected: true,
-      driftType: 'CRITICAL_CONFIG_INVARIANT',
-      severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
-      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
-      details: `Missing required stage-sensitive fields: ${requiredFields.join(', ')}`,
-    });
-  }
-
-  return assessments;
-}
-
-
 interface EnforcementAttemptState {
   refreshAttempted: boolean;
 }
@@ -560,7 +505,7 @@ async function tryRefreshPermissionsRemediation(
     ctx.actor.sessionId
   );
 
-  const refreshDrift = await runDriftChecks(ctx, refreshedGranted);
+  const refreshDrift = evaluateGovernanceDrift(ctx, refreshedGranted);
   const hasRefreshDrift = refreshDrift.some(
     (assessment) => assessment.driftDetected && assessment.remediationAction === 'REFRESH_PERMISSIONS'
   );
@@ -803,7 +748,7 @@ async function evaluateRulesDetailed(
     // ------------------------------------------------------------------
     // Layer 6: Drift checks
     // ------------------------------------------------------------------
-    const driftAssessments = await runDriftChecks(ctx, granted);
+    const driftAssessments = evaluateGovernanceDrift(ctx, granted);
     const detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
 
     if (detectedDrift.length > 0) {

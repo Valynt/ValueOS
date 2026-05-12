@@ -52,6 +52,14 @@ import {
   scheduleWatchdogJob,
   WATCHDOG_QUEUE_NAME,
 } from './WorkflowWatchdogWorker.js';
+
+import {
+  getGovernanceDriftReconciliationQueue,
+  GOVERNANCE_DRIFT_RECONCILIATION_QUEUE,
+  initGovernanceDriftReconciliationWorker,
+  scheduleGovernanceDriftReconciliationJob,
+} from './GovernanceDriftReconciliationWorker.js';
+
 import {
   ALERTING_QUEUE_NAME,
   closeAlertingRulesWorker,
@@ -140,6 +148,21 @@ try {
   });
 }
 
+
+try {
+  initGovernanceDriftReconciliationWorker();
+  scheduleGovernanceDriftReconciliationJob().catch((err) => {
+    logger.warn('Failed to schedule governance drift reconciliation job', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Governance drift reconciliation worker initialized');
+} catch (err) {
+  logger.warn('Governance drift reconciliation worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 try {
   initAlertingRulesWorker();
   scheduleAlertingEvaluationJob().catch((err) => {
@@ -181,6 +204,11 @@ const queueHealthSamplers = [
     queue: getCertificateGenerationQueue,
     queueName: 'certificate-generation',
     workerClass: 'certificate-generation-worker',
+  },
+  {
+    queue: getGovernanceDriftReconciliationQueue,
+    queueName: GOVERNANCE_DRIFT_RECONCILIATION_QUEUE,
+    workerClass: 'governance-drift-reconciliation-worker',
   },
   {
     queue: getAlertingQueue,
