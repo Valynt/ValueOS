@@ -47,12 +47,30 @@ export interface ConfidenceEvaluationResult {
  * Returns the governance verdict and the thresholds that were applied so
  * the decision is fully auditable.
  */
+export class InvalidRiskTierError extends Error {
+  readonly code = "INVALID_RISK_TIER" as const;
+
+  constructor(readonly riskTier: string) {
+    super(`Invalid risk tier: '${riskTier}'`);
+    this.name = "InvalidRiskTierError";
+  }
+}
+
+function isValidRiskTier(
+  riskTier: string
+): riskTier is keyof typeof CONFIDENCE_THRESHOLDS {
+  return Object.prototype.hasOwnProperty.call(CONFIDENCE_THRESHOLDS, riskTier);
+}
+
 export function evaluateConfidence(
   confidence: ConfidenceBreakdown,
   riskTier: string
 ): ConfidenceEvaluationResult {
-  const thresholds =
-    CONFIDENCE_THRESHOLDS[riskTier] ?? CONFIDENCE_THRESHOLDS["discovery"]!;
+  if (!isValidRiskTier(riskTier)) {
+    throw new InvalidRiskTierError(riskTier);
+  }
+
+  const thresholds = CONFIDENCE_THRESHOLDS[riskTier];
   const score = confidence.overall;
 
   if (score >= thresholds.accept) {
@@ -268,7 +286,7 @@ export async function createHITLCheckpoint(
 export interface GovernanceCheckInput {
   output: unknown;
   confidence: ConfidenceBreakdown;
-  riskTier: string;
+  riskTier: keyof typeof CONFIDENCE_THRESHOLDS;
   agentName: string;
   agentType: string;
   traceId: string;
@@ -337,7 +355,33 @@ export class GovernanceLayer {
     }
 
     // ── Step 2: Confidence threshold evaluation ──────────────────────────
-    const confidenceResult = evaluateConfidence(confidence, input.riskTier);
+    let confidenceResult: ConfidenceEvaluationResult;
+
+    try {
+      confidenceResult = evaluateConfidence(confidence, input.riskTier);
+    } catch (error) {
+      if (error instanceof InvalidRiskTierError) {
+        const decision: GovernanceDecision = {
+          verdict: "vetoed",
+          decided_by: "ConfidenceThresholdPolicy",
+          decided_at: new Date().toISOString(),
+          reason: "invalid risk tier",
+          integrity_issues: issues.length > 0 ? issues : undefined,
+        };
+
+        logger.error("governance.invalid_risk_tier", {
+          agent: input.agentName,
+          trace_id: input.traceId,
+          session_id: input.sessionId,
+          organization_id: input.organizationId,
+          risk_tier: error.riskTier,
+          governance_reason: decision.reason,
+        });
+
+        return { decision, adjusted_confidence: confidence, release: false };
+      }
+      throw error;
+    }
 
     if (confidenceResult.verdict === "vetoed") {
       const decision: GovernanceDecision = {
