@@ -56,6 +56,14 @@
       "id": "tenant-migration-readiness-checklist",
       "name": "Tenant migration readiness checklist artifact",
       "required": true,
+      "requiredWhen": {
+        "anyChangedFileMatches": [
+          "packages/backend/src/lib/graph/**",
+          "scripts/graph/migrations/**",
+          "scripts/graph/migrate_tenant_ids.py",
+          "scripts/graph/create_composite_tenant_indexes.py"
+        ]
+      },
       "artifacts": [
         "artifacts/layer3/tenant-migration-readiness-checklist.md"
       ]

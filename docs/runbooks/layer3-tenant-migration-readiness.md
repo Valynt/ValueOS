@@ -10,6 +10,8 @@ This runbook defines migration readiness, execution controls, and acceptance cri
 
 Use this runbook for staging and production approvals whenever a release changes Layer 3 graph tenant identity fields, constraints, or indexes.
 
+Conditional enforcement in CI is driven by `scripts/ci/layer3-release-readiness-manifest.json` (`requiredWhen`) and changed-file context passed from `.github/workflows/deploy.yml` (`LAYER3_CHANGED_FILES`).
+
 ---
 
 ## Scope and risks
@@ -207,3 +209,5 @@ Production approval is blocked unless:
 - Staging evidence includes all required artifacts.
 - All five acceptance criteria pass.
 - Release owner and reviewer explicitly acknowledge this runbook in the deployment PR.
+
+If the release scope does **not** include matching Layer 3 graph/migration file changes, the Layer 3 readiness evidence gate marks this runbook artifact check as `skipped (not applicable)` in `artifacts/ci/layer3-readiness-report.md` for audit traceability.

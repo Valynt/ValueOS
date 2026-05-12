@@ -1,6 +1,6 @@
 # Layer 3 Readiness Evidence Gate
 
-This gate is an additive pre-promotion control in `.github/workflows/deploy.yml` and does **not** change production runtime behavior. It blocks promotion only when required Layer 3 evidence artifacts are missing or stale.
+This gate is an additive pre-promotion control in `.github/workflows/deploy.yml` and does **not** change production runtime behavior. It blocks promotion only when required Layer 3 evidence artifacts are missing or stale, and supports conditional requirements via `requiredWhen`.
 
 ## Required evidence checks
 
@@ -16,7 +16,17 @@ It requires these check artifacts:
 4. schema-contract check
 5. route compatibility check
 6. tenant-isolation tests
-7. tenant migration readiness checklist artifact
+7. tenant migration readiness checklist artifact (**conditionally required**)
+
+### Conditional requirement semantics
+
+The readiness evaluator loads changed-file context from CI (`LAYER3_CHANGED_FILES`) and evaluates `requiredWhen` conditions in the manifest.
+
+- If a check has no `requiredWhen`, it is always required.
+- If `requiredWhen` evaluates true, the check is enforced (artifact presence + staleness validation).
+- If `requiredWhen` evaluates false, the report records the check as `skipped (not applicable)` and the gate does not fail on that check.
+
+For `tenant-migration-readiness-checklist`, enforcement is activated when release-scope changed files match graph/migration paths declared in `scripts/ci/layer3-release-readiness-manifest.json`.
 
 ## Operator procedure
 
@@ -26,7 +36,7 @@ It requires these check artifacts:
 3. Review the generated report:
    - `artifacts/ci/layer3-readiness-report.md`
 4. If the gate fails, fix any missing or stale evidence listed under **Failed checks** and **Open risks**, then re-run the command.
-5. In CI, download artifact `layer3-readiness-report-<run_id>` from the deploy workflow for audit traceability.
+5. In CI, download artifact `layer3-readiness-report-<run_id>` from the deploy workflow for audit traceability, including evidence of any `skipped (not applicable)` decisions.
 
 ## Report sections per run
 
@@ -34,6 +44,7 @@ The gate report always includes:
 
 - Passed checks
 - Failed checks
+- Skipped checks
 - Changed controls
 - Open risks
 - Production-ready verdict
