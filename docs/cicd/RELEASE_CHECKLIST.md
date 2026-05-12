@@ -86,6 +86,8 @@ These are manual checks performed by the release owner before requesting product
 - [ ] ⛔ No open P0 or P1 incidents
 - [ ] ⛔ Previous rollback post-mortem closed (if applicable)
 - [ ] ⛔ Staging soak complete (≥ 30 min, no anomalies in Prometheus/Grafana)
+- [ ] ⛔ Layer 3 tenant migration readiness artifact attached for Layer 3 graph changes (runbook: `docs/runbooks/layer3-tenant-migration-readiness.md`)
+- [ ] ⛔ Staging query outputs/log evidence attached before production approval (pre/post migration verification + index/constraint checks)
 - [ ] ⛔ On-call engineer confirmed available for deploy window
 - [ ] ⛔ Rollback plan reviewed — migration rollback SQL tested in staging
 - [ ] ⛔ Backup verified — pre-deploy snapshot ID confirmed in deploy audit artifact
