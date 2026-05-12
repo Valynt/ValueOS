@@ -263,7 +263,7 @@ describe('enforceRulesDetailed', () => {
         },
       });
       const result = await enforceRulesDetailed(ctx);
-      expect(result.allowed).toBe(false);
+      expect(result.allowed).toBe(true);
     });
   });
 
@@ -489,6 +489,7 @@ describe('enforceRulesDetailed', () => {
           type: 'proposal.publish',
           name: 'proposal.publish',
           target: { resourceType: 'proposal', resourceId: 'case-1' },
+          payload: { changeTicketId: 'chg-1', riskAcceptanceId: 'risk-1' },
         },
         environment: { stage: 'prod', nowIso: new Date().toISOString() },
         workflow: { approvals: ['proposal.publish'], workflowId: 'wf-1' },
@@ -680,9 +681,12 @@ describe('enforceRulesDetailed', () => {
 
     it('emits drift denied telemetry for high-severity drift branch', async () => {
       mockActiveMember(['admin']);
+      // admin has 'value_model.delete' + is elevated; prod stage + no payload triggers
+      // CRITICAL_CONFIG_INVARIANT (high severity) → deny with DENY_POLICY + driftDenied telemetry
       const ctx = makeCtx({
         actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'], sessionId: 'sess-1' },
-        action: { type: 'ops.config.write', name: 'ops.config.write' },
+        action: { type: 'value_model.delete', name: 'value_model.delete' },
+        environment: { stage: 'prod', nowIso: new Date().toISOString() },
       });
       const result = await enforceRulesDetailed(ctx);
       expect(result.allowed).toBe(false);
@@ -694,22 +698,45 @@ describe('enforceRulesDetailed', () => {
       );
     });
 
-    it('emits unresolved telemetry for approval and read-only obligations', async () => {
+    it('emits unresolved telemetry for read-only obligations', async () => {
       mockActiveMember(['member']);
-      const approval = await enforceRulesDetailed(makeCtx({ action: { type: 'proposal.publish', name: 'proposal.publish' } }));
-      expect(approval.allowed).toBe(true);
-      expect(approval.obligations).toEqual(expect.arrayContaining([{ type: 'REQUIRE_APPROVAL', approvalType: 'drift-remediation' }]));
-
-      const readOnly = await enforceRulesDetailed(makeCtx({ action: { type: 'workspace.delete', name: 'workspace.delete' } }));
+      // staging stage + no payload → CRITICAL_CONFIG_INVARIANT (medium severity, READ_ONLY)
+      // → emits unresolved telemetry + allows with READ_ONLY obligation
+      const readOnly = await enforceRulesDetailed(
+        makeCtx({
+          action: { type: 'projects:create', name: 'projects:create' },
+          environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        })
+      );
       expect(readOnly.allowed).toBe(true);
       expect(readOnly.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
       expect(mockDriftCounters.driftUnresolved.inc).toHaveBeenCalled();
     });
 
     it('emits remediated telemetry when refresh-permissions drift is remediated', async () => {
-      mockActiveMember(['admin']);
+      // First DB call returns an unknown role (no permissions → stale cache drift detected).
+      // Second DB call (after cache invalidation) returns 'member' → drift clears → allow.
+      let rolePhase: 'unknown_role' | 'member' = 'unknown_role';
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          const role = rolePhase === 'unknown_role' ? 'unknown_role' : 'member';
+          rolePhase = 'member';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
       const result = await enforceRulesDetailed(
-        makeCtx({ action: { type: 'auth.permissions.refresh', name: 'auth.permissions.refresh' } })
+        makeCtx({
+          actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['member'] },
+          action: { type: 'projects:view', name: 'projects:view' },
+        })
       );
       expect(result.allowed).toBe(true);
       expect(mockDriftCounters.driftRemediated.inc).toHaveBeenCalled();

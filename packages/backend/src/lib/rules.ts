@@ -783,6 +783,13 @@ export async function enforceRulesDetailed(
     if (detectedDrift.length > 0) {
       matchedRules.push('layer6-drift-check');
 
+      const telemetryContext: DriftTelemetryContext = {
+        stage: ctx.environment.stage,
+        actionName: ctx.action.name,
+        tenantId: ctx.actor.tenantId,
+        sessionId: ctx.actor.sessionId,
+      };
+
       const requiresPermissionRefresh = detectedDrift.some(
         (d) => d.remediationAction === 'REFRESH_PERMISSIONS'
       );
@@ -793,6 +800,10 @@ export async function enforceRulesDetailed(
         matchedRules.push('layer6-refresh-attempted');
 
         if (remediationResult.remediated) {
+          // Emit telemetry for each REFRESH_PERMISSIONS drift that was successfully remediated
+          for (const drift of detectedDrift.filter((d) => d.remediationAction === 'REFRESH_PERMISSIONS')) {
+            emitDriftTelemetry(drift, telemetryContext, 'remediated');
+          }
           granted = remediationResult.granted;
           matchedRules.push('layer6-refresh-remediated');
           driftAssessments = await runDriftChecks(ctx, granted);
@@ -840,13 +851,6 @@ export async function enforceRulesDetailed(
         }
         return allow(evaluatedAt, matchedRules);
       }
-
-      const telemetryContext: DriftTelemetryContext = {
-        stage: ctx.environment.stage,
-        actionName: ctx.action.name,
-        tenantId: ctx.actor.tenantId,
-        sessionId: ctx.actor.sessionId,
-      };
 
       const highSeverityDrift = detectedDrift.find((d) => d.severity === 'high');
       if (highSeverityDrift) {
