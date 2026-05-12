@@ -393,6 +393,26 @@ Environment configuration:
 This gives Layer 5 a deterministic anti-drift control loop with optional
 automated remediation (unknown tier correction fallback in non-strict mode).
 
+#### Coordinated reconciliation (multi-instance)
+
+In horizontally scaled deployments, drift reconciliation must be coordinated so
+only one process performs a fresh evaluation while peers consume a shared
+artifact. Use a shared key-value store (Redis recommended) with two keys:
+
+- Lock key: `agent-drift-guard:reconcile-lock`
+- Artifact key: `agent-drift-guard:latest-artifact`
+
+Operational guidance:
+
+- Set lock TTL short (5-30s). It should exceed one reconciliation pass but not
+  block peers for an entire interval if a process crashes.
+- Set artifact TTL to at least 2x `AGENT_DRIFT_GUARD_INTERVAL_MS` so stale
+  readers can still get the most recent safe decision if a single run misses.
+- If lock acquisition fails and no artifact exists, fall back to local
+  evaluation (fail-safe) and repopulate shared state on success.
+- In strict mode, a drift-positive artifact should be treated the same as a
+  local strict-mode drift detection: block execution before LLM invocation.
+
 ---
 
 ## 6. Safety

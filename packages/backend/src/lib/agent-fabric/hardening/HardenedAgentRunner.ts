@@ -39,7 +39,12 @@ import type {
   TokenUsage,
 } from "./AgentHardeningTypes.js";
 import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES, GovernanceVetoError } from "./AgentHardeningTypes.js";
-import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv } from "./AgentDriftGuard.js";
+import {
+  AgentDriftGuard,
+  fingerprintSchema,
+  readDriftGuardConfigFromEnv,
+  type DriftSharedStateAdapter,
+} from "./AgentDriftGuard.js";
 import { safetyLayer } from "./AgentSafetyLayer.js";
 import {
   GovernanceLayer,
@@ -127,6 +132,7 @@ export interface HardenedAgentRunnerConfig {
   /** Governance dependencies. Null disables the respective gate. */
   integrityVetoService?: IntegrityVetoServicePort | null;
   hitlPort?: HITLCheckpointPort | null;
+  driftSharedState?: DriftSharedStateAdapter;
 }
 
 export type AgentExecuteFn = (context: LifecycleContext) => Promise<AgentOutput>;
@@ -146,7 +152,7 @@ export class HardenedAgentRunner {
     this.retryConfig = { ...DEFAULT_RETRY, ...config.retry };
     this.auditLogger = new AuditLogger();
     this.defaultTimeoutMs = config.defaultTimeoutMs ?? 30_000;
-    this.driftGuard = new AgentDriftGuard(readDriftGuardConfigFromEnv());
+    this.driftGuard = new AgentDriftGuard(readDriftGuardConfigFromEnv(), config.driftSharedState);
   }
 
   /**
@@ -173,12 +179,14 @@ export class HardenedAgentRunner {
     const requestedRiskTier = options.riskTier ?? this.config.riskTier;
     let riskTier = requestedRiskTier;
 
-    if (this.driftGuard.shouldRun()) {
-      const drift = this.driftGuard.check({
+    const shouldRunLocally = this.driftGuard.shouldRun();
+    const drift = await this.driftGuard.reconcile({
         agentName: this.config.agentName,
         riskTier: requestedRiskTier,
         outputSchemaFingerprint: fingerprintSchema(options.outputSchema._def),
       });
+
+    if (shouldRunLocally || drift.source === "shared_cache") {
 
       if (drift.driftDetected && this.driftGuard.isStrictMode()) {
         throw new Error(`[${this.config.agentName}] Drift guard blocked execution: ${drift.reasons.join(", ")}`);

@@ -18,6 +18,19 @@ import { HardenedAgentRunner, type HardenedAgentRunnerConfig } from "../Hardened
 import { GovernanceVetoError } from "../AgentHardeningTypes.js";
 import type { RequestEnvelope, HardenedInvokeOptions } from "../AgentHardeningTypes.js";
 import type { LifecycleContext, AgentOutput } from "../../../../types/agent.js";
+import type { DriftEvaluationArtifact, DriftSharedStateAdapter } from "../AgentDriftGuard.js";
+
+class InMemorySharedDriftState implements DriftSharedStateAdapter {
+  private lockHeld = false;
+  private artifact: DriftEvaluationArtifact | null = null;
+  async acquireReconciliationLock(): Promise<boolean> {
+    if (this.lockHeld) return false;
+    this.lockHeld = true;
+    return true;
+  }
+  async readLatestArtifact(): Promise<DriftEvaluationArtifact | null> { return this.artifact; }
+  async writeLatestArtifact(_key: string, artifact: DriftEvaluationArtifact): Promise<void> { this.artifact = artifact; }
+}
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -601,5 +614,24 @@ describe("Drift guard", () => {
 
     expect(result.governance.verdict).toBe("approved");
     expect(executeFn).toHaveBeenCalledOnce();
+  });
+
+  it("coordinates drift reconciliation across runner instances", async () => {
+    process.env.AGENT_DRIFT_GUARD_STRICT = "false";
+    const shared = new InMemorySharedDriftState();
+    const runnerA = makeRunner({ driftSharedState: shared });
+    const runnerB = makeRunner({ driftSharedState: shared });
+    const executeA = vi.fn().mockResolvedValue(makeSuccessOutput());
+    const executeB = vi.fn().mockResolvedValue(makeSuccessOutput());
+
+    const [resA, resB] = await Promise.all([
+      runnerA.run<TestOutput>(ENVELOPE, CONTEXT, executeA, { ...BASE_OPTIONS, riskTier: "not_a_tier" as never }),
+      runnerB.run<TestOutput>(ENVELOPE, CONTEXT, executeB, { ...BASE_OPTIONS, riskTier: "not_a_tier" as never }),
+    ]);
+
+    expect(resA.governance.verdict).toBe("approved");
+    expect(resB.governance.verdict).toBe("approved");
+    expect(executeA).toHaveBeenCalledOnce();
+    expect(executeB).toHaveBeenCalledOnce();
   });
 });
