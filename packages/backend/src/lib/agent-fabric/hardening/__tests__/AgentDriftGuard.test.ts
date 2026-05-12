@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv } from "../AgentDriftGuard.js";
+import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv, validateDriftGuardIntervalMs } from "../AgentDriftGuard.js";
 import { HardenedAgentRunner, type HardenedAgentRunnerConfig } from "../HardenedAgentRunner.js";
 import type { AgentOutput, LifecycleContext } from "../../../../types/agent.js";
 import type { HardenedInvokeOptions, RequestEnvelope } from "../AgentHardeningTypes.js";
@@ -81,13 +81,24 @@ describe("AgentDriftGuard config/env parsing", () => {
     expect(cfg.baselineVersion).toBe("release-2026.05.12+abc1234");
   });
 
-  it("accepts invalid numeric interval as NaN for defensive caller handling", () => {
+  it("falls back to default and logs warning on malformed interval", () => {
+    const warn = vi.spyOn(logger, "warn");
     const cfg = readDriftGuardConfigFromEnv({
       AGENT_DRIFT_GUARD_BASELINE_VERSION: "release-2026.05.12+abc1234",
       AGENT_DRIFT_GUARD_INTERVAL_MS: "not-a-number",
     });
 
-    expect(Number.isNaN(cfg.reconciliationIntervalMs)).toBe(true);
+    expect(cfg.reconciliationIntervalMs).toBe(300_000);
+    expect(warn).toHaveBeenCalledWith(
+      "agent.drift_guard.invalid_interval_ms",
+      expect.objectContaining({
+        env_var: "AGENT_DRIFT_GUARD_INTERVAL_MS",
+        raw_value: "not-a-number",
+        default_value: 300_000,
+        min_value: 1_000,
+        max_value: 3_600_000,
+      })
+    );
   });
 
   it("parses explicit disable and strict toggles", () => {
@@ -209,5 +220,23 @@ describe("HardenedAgentRunner drift integration", () => {
       "agent.drift_detected",
       expect.objectContaining({ requested_risk_tier: "unknown", applied_risk_tier: "discovery" })
     );
+  });
+});
+
+describe("validateDriftGuardIntervalMs", () => {
+  it("accepts inclusive boundaries", () => {
+    expect(validateDriftGuardIntervalMs("1000").value).toBe(1000);
+    expect(validateDriftGuardIntervalMs("3600000").value).toBe(3_600_000);
+  });
+
+  it("rejects out-of-range, non-integer, and non-finite values", () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    expect(validateDriftGuardIntervalMs("999").value).toBe(300_000);
+    expect(validateDriftGuardIntervalMs("3600001").value).toBe(300_000);
+    expect(validateDriftGuardIntervalMs("1000.5").value).toBe(300_000);
+    expect(validateDriftGuardIntervalMs("Infinity").value).toBe(300_000);
+
+    expect(warn).toHaveBeenCalledTimes(4);
   });
 });

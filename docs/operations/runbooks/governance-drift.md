@@ -104,3 +104,20 @@ Rollout order (must be followed):
 - Validate tenant isolation by sampling records: every record in a run must carry the source `tenantId`; no cross-tenant workflow IDs should appear in a single job context.
 - Validate permission correctness by checking the evaluated actor against current `user_roles` + `user_permissions` rows for the same tenant.
 - If Redis is degraded, pause producer scheduling first, keep evaluator retries enabled, and alert platform on-call if DLQ rate exceeds normal baseline for two consecutive intervals.
+
+
+## Agent drift guard env range (operations)
+
+For hardening runtime checks in `AgentDriftGuard`, configure:
+
+- `AGENT_DRIFT_GUARD_INTERVAL_MS`: integer milliseconds in **[1000, 3600000]**.
+  - Default: `300000` (5 minutes).
+  - Invalid examples (fallback + warning): empty string, non-numeric, float, `<1000`, `>3600000`, `Infinity`.
+  - Invalid values emit structured warning log `agent.drift_guard.invalid_interval_ms` with:
+    - `env_var`, `raw_value`, `default_value`, `min_value`, `max_value`.
+
+Operator action on warnings:
+
+1. Locate the deployment source of the bad env override.
+2. Correct value into the valid integer range.
+3. Redeploy/restart worker or service and verify warning stops appearing.
