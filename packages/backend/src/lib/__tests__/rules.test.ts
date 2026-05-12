@@ -45,6 +45,7 @@ vi.mock('../supabase.js', () => ({
   supabase: {
     from: mockSupabaseFrom,
   },
+  assertNotTestEnv: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -620,13 +621,74 @@ describe('enforceRulesDetailed', () => {
       expect(mockDriftCounters.driftUnresolved.inc).toHaveBeenCalled();
     });
 
-    it('emits remediated telemetry when refresh-permissions drift is remediated', async () => {
-      mockActiveMember(['admin']);
-      const result = await enforceRulesDetailed(
-        makeCtx({ action: { type: 'auth.permissions.refresh', name: 'auth.permissions.refresh' } })
-      );
+    it('stale-cache drift detected then remediated successfully', async () => {
+      let callCount = 0;
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          callCount += 1;
+          const role = callCount === 1 ? 'ghost' : 'member';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
       expect(result.allowed).toBe(true);
+      expect(result.audit.matchedRules).toContain('layer6-refresh-remediated');
       expect(mockDriftCounters.driftRemediated.inc).toHaveBeenCalled();
+    });
+
+    it('stale-cache drift remediation fails and request is denied', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'ghost' }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(result.audit.matchedRules).toContain('layer6-refresh-failed-closed');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.refresh.failed_closed',
+        expect.objectContaining({ action: 'value_trees:edit' })
+      );
+    });
+
+    it('concurrent role change during refresh still fails closed', async () => {
+      let refreshPhase = 0;
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          refreshPhase += 1;
+          const role = refreshPhase === 1 ? 'ghost' : 'viewer';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(result.audit.matchedRules).toContain('layer6-refresh-failed-closed');
     });
 
     it('emits observability markers and reason-code mapping for anti-drift denials', async () => {
