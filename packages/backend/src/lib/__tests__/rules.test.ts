@@ -61,6 +61,26 @@ vi.mock('../logger.js', () => ({
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
+
+const { mockDriftCounters } = vi.hoisted(() => ({
+  mockDriftCounters: {
+    driftDetected: { inc: vi.fn(), add: vi.fn() },
+    driftRemediated: { inc: vi.fn(), add: vi.fn() },
+    driftUnresolved: { inc: vi.fn(), add: vi.fn() },
+    driftDenied: { inc: vi.fn(), add: vi.fn() },
+  },
+}));
+
+vi.mock('../observability/index.js', () => ({
+  createCounter: (name: string) => {
+    if (name === 'drift_detected_total') return mockDriftCounters.driftDetected;
+    if (name === 'drift_remediated_total') return mockDriftCounters.driftRemediated;
+    if (name === 'drift_unresolved_total') return mockDriftCounters.driftUnresolved;
+    if (name === 'drift_denied_total') return mockDriftCounters.driftDenied;
+    return { inc: vi.fn(), add: vi.fn() };
+  },
+}));
+
 import {
   __resetPermissionCacheForTests,
   enforceRules,
@@ -655,6 +675,44 @@ describe('enforceRulesDetailed', () => {
       const second = await enforceRulesDetailed(makeCtx());
       expect(second.allowed).toBe(false);
       expect(second.reasonCode).toBe('DENY_UNAUTHORIZED');
+    });
+
+
+    it('emits drift denied telemetry for high-severity drift branch', async () => {
+      mockActiveMember(['admin']);
+      const ctx = makeCtx({
+        actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'], sessionId: 'sess-1' },
+        action: { type: 'ops.config.write', name: 'ops.config.write' },
+      });
+      const result = await enforceRulesDetailed(ctx);
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(mockDriftCounters.driftDenied.inc).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.telemetry',
+        expect.objectContaining({ outcome: 'denied', sessionId: 'sess-1', requestId: 'sess-1' })
+      );
+    });
+
+    it('emits unresolved telemetry for approval and read-only obligations', async () => {
+      mockActiveMember(['member']);
+      const approval = await enforceRulesDetailed(makeCtx({ action: { type: 'proposal.publish', name: 'proposal.publish' } }));
+      expect(approval.allowed).toBe(true);
+      expect(approval.obligations).toEqual(expect.arrayContaining([{ type: 'REQUIRE_APPROVAL', approvalType: 'drift-remediation' }]));
+
+      const readOnly = await enforceRulesDetailed(makeCtx({ action: { type: 'workspace.delete', name: 'workspace.delete' } }));
+      expect(readOnly.allowed).toBe(true);
+      expect(readOnly.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
+      expect(mockDriftCounters.driftUnresolved.inc).toHaveBeenCalled();
+    });
+
+    it('emits remediated telemetry when refresh-permissions drift is remediated', async () => {
+      mockActiveMember(['admin']);
+      const result = await enforceRulesDetailed(
+        makeCtx({ action: { type: 'auth.permissions.refresh', name: 'auth.permissions.refresh' } })
+      );
+      expect(result.allowed).toBe(true);
+      expect(mockDriftCounters.driftRemediated.inc).toHaveBeenCalled();
     });
 
     it('emits observability markers and reason-code mapping for anti-drift denials', async () => {
