@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import { HardenedAgentRunner, type HardenedAgentRunnerConfig } from "../HardenedAgentRunner.js";
 import { GovernanceVetoError } from "../AgentHardeningTypes.js";
+import { AgentDriftGuard, InMemoryDriftCheckpointStore } from "../AgentDriftGuard.js";
 import type { RequestEnvelope, HardenedInvokeOptions } from "../AgentHardeningTypes.js";
 import type { LifecycleContext, AgentOutput } from "../../../../types/agent.js";
 
@@ -556,12 +557,14 @@ describe("Drift guard", () => {
   beforeEach(() => {
     process.env.AGENT_DRIFT_GUARD_ENABLED = "true";
     process.env.AGENT_DRIFT_GUARD_INTERVAL_MS = "0";
+    process.env.AGENT_DRIFT_GUARD_CHECKPOINT_SOURCE = "memory";
   });
 
   afterEach(() => {
     delete process.env.AGENT_DRIFT_GUARD_ENABLED;
     delete process.env.AGENT_DRIFT_GUARD_STRICT;
     delete process.env.AGENT_DRIFT_GUARD_INTERVAL_MS;
+    delete process.env.AGENT_DRIFT_GUARD_CHECKPOINT_SOURCE;
   });
 
   it("blocks execution in strict mode when risk tier is invalid", async () => {
@@ -586,5 +589,38 @@ describe("Drift guard", () => {
     ).rejects.toThrow(/invalid risk tier/i);
 
     expect(executeFn).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe("Drift guard distributed checkpointing", () => {
+  it("allows only one instance to acquire reconciliation lease", async () => {
+    const store = new InMemoryDriftCheckpointStore();
+    const g1 = new AgentDriftGuard({ enabled: true, strictMode: false, reconciliationIntervalMs: 0 }, store, "a", 5000);
+    const g2 = new AgentDriftGuard({ enabled: true, strictMode: false, reconciliationIntervalMs: 0 }, store, "b", 5000);
+    const scope = "TestAgent:org:1.0.0";
+
+    const [r1, r2] = await Promise.all([g1.shouldRun(scope), g2.shouldRun(scope)]);
+    expect([r1, r2].filter(Boolean)).toHaveLength(1);
+  });
+
+  it("persists checkpoint across guard instances (restart behavior)", async () => {
+    const store = new InMemoryDriftCheckpointStore();
+    const scope = "TestAgent:org:1.0.0";
+    const g1 = new AgentDriftGuard({ enabled: true, strictMode: false, reconciliationIntervalMs: 100000 }, store, "a", 5000);
+
+    expect(await g1.shouldRun(scope)).toBe(true);
+    await g1.check({ agentName: "TestAgent", riskTier: "discovery", outputSchemaFingerprint: "1234567890abcdef" }, scope);
+
+    const g2 = new AgentDriftGuard({ enabled: true, strictMode: false, reconciliationIntervalMs: 100000 }, store, "b", 5000);
+    expect(await g2.shouldRun(scope)).toBe(false);
+  });
+
+  it("falls back cleanly when lease is already held", async () => {
+    const store = new InMemoryDriftCheckpointStore();
+    const scope = "TestAgent:org:1.0.0";
+    await store.acquireLease(scope, "holder", 10000);
+    const contender = new AgentDriftGuard({ enabled: true, strictMode: false, reconciliationIntervalMs: 0 }, store, "contender", 5000);
+    expect(await contender.shouldRun(scope)).toBe(false);
   });
 });

@@ -39,7 +39,7 @@ import type {
   TokenUsage,
 } from "./AgentHardeningTypes.js";
 import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES, GovernanceVetoError } from "./AgentHardeningTypes.js";
-import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv } from "./AgentDriftGuard.js";
+import { AgentDriftGuard, fingerprintSchema, InMemoryDriftCheckpointStore, RedisDriftCheckpointStore, readDriftGuardConfigFromEnv } from "./AgentDriftGuard.js";
 import { safetyLayer } from "./AgentSafetyLayer.js";
 import {
   GovernanceLayer,
@@ -137,6 +137,7 @@ export class HardenedAgentRunner {
   private readonly auditLogger: AuditLogger;
   private readonly defaultTimeoutMs: number;
   private readonly driftGuard: AgentDriftGuard;
+  private readonly driftCheckpointSource: string;
 
   constructor(private readonly config: HardenedAgentRunnerConfig) {
     this.governance = new GovernanceLayer(
@@ -146,7 +147,10 @@ export class HardenedAgentRunner {
     this.retryConfig = { ...DEFAULT_RETRY, ...config.retry };
     this.auditLogger = new AuditLogger();
     this.defaultTimeoutMs = config.defaultTimeoutMs ?? 30_000;
-    this.driftGuard = new AgentDriftGuard(readDriftGuardConfigFromEnv());
+    const checkpointSource = process.env.AGENT_DRIFT_GUARD_CHECKPOINT_SOURCE ?? "memory";
+    const driftStore = checkpointSource === "memory" ? new InMemoryDriftCheckpointStore() : new RedisDriftCheckpointStore();
+    this.driftCheckpointSource = checkpointSource;
+    this.driftGuard = new AgentDriftGuard(readDriftGuardConfigFromEnv(), driftStore);
   }
 
   /**
@@ -172,11 +176,20 @@ export class HardenedAgentRunner {
     const maxRetries = options.maxRetries ?? this.retryConfig.maxRetries;
     const riskTier = options.riskTier ?? this.config.riskTier;
 
-    if (this.driftGuard.shouldRun()) {
-      const drift = this.driftGuard.check({
+    const reconciliationScope = `${this.config.agentName}:${envelope.organization_id}:${this.config.agentVersion}`;
+
+    if (await this.driftGuard.shouldRun(reconciliationScope)) {
+      const drift = await this.driftGuard.check({
         agentName: this.config.agentName,
         riskTier,
         outputSchemaFingerprint: fingerprintSchema(options.outputSchema._def),
+      }, reconciliationScope);
+
+      logger.info("agent.reconciliation_run", {
+        reconciliation_scope: reconciliationScope,
+        instance_id: process.env.HOSTNAME ?? `instance-${process.pid}` ,
+        checkpoint_source: this.driftCheckpointSource,
+        agent: this.config.agentName,
       });
 
       if (drift.driftDetected && this.driftGuard.isStrictMode()) {
