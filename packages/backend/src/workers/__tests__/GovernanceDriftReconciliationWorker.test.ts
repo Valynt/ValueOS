@@ -221,3 +221,47 @@ describe('producer failure hardening', () => {
     );
   });
 });
+
+
+describe('validateGovernanceDriftReconciliationIntervalMinutes', () => {
+  it('accepts a valid interval value', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'development';
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    expect(module.validateGovernanceDriftReconciliationIntervalMinutes('30')).toBe(30);
+  });
+
+  it('falls back for invalid string in non-prod', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'development';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    expect(module.validateGovernanceDriftReconciliationIntervalMinutes('not-a-number')).toBe(15);
+    warnSpy.mockRestore();
+  });
+
+  it('falls back for zero and negative values in non-prod', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'development';
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    expect(module.validateGovernanceDriftReconciliationIntervalMinutes('0')).toBe(15);
+    expect(module.validateGovernanceDriftReconciliationIntervalMinutes('-10')).toBe(15);
+  });
+
+  it('fails fast in production for invalid config', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'production';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = '15';
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    expect(() => module.validateGovernanceDriftReconciliationIntervalMinutes('invalid')).toThrow(
+      'Invalid governance drift reconciliation interval configuration',
+    );
+  });
+
+  it('uses fallback default in non-production environments', async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = 'test';
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    expect(module.validateGovernanceDriftReconciliationIntervalMinutes(undefined)).toBe(15);
+  });
+});

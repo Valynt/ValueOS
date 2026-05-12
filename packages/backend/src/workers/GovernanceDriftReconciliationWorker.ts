@@ -9,7 +9,37 @@ import type { DriftAssessment, GovernanceContext } from '../lib/rules.js';
 
 const logger = createLogger({ component: 'GovernanceDriftReconciliationWorker' });
 export const GOVERNANCE_DRIFT_RECONCILIATION_QUEUE = 'governance-drift-reconciliation';
-const INTERVAL_MINUTES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES ?? 15);
+const DEFAULT_INTERVAL_MINUTES = 15;
+const MIN_INTERVAL_MINUTES = 1;
+const MAX_INTERVAL_MINUTES = 1_440;
+
+export function validateGovernanceDriftReconciliationIntervalMinutes(rawValue = process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES): number {
+  const parsed = Number(rawValue);
+  const isValid = Number.isFinite(parsed) && parsed > 0 && parsed >= MIN_INTERVAL_MINUTES && parsed <= MAX_INTERVAL_MINUTES;
+
+  if (isValid) return parsed;
+
+  const stage = process.env.NODE_ENV ?? 'development';
+  const isProd = stage === 'production';
+  const context = {
+    stage,
+    envKey: 'GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES',
+    rawValue: rawValue ?? null,
+    defaultValue: DEFAULT_INTERVAL_MINUTES,
+    minValue: MIN_INTERVAL_MINUTES,
+    maxValue: MAX_INTERVAL_MINUTES,
+    reason: 'governance drift reconciliation interval must be a finite positive number within bounds',
+  };
+
+  if (isProd) {
+    throw new Error(`Invalid governance drift reconciliation interval configuration: ${JSON.stringify(context)}`);
+  }
+
+  logger.warn('governance.drift.reconciliation.invalid_interval', context);
+  return DEFAULT_INTERVAL_MINUTES;
+}
+
+const INTERVAL_MINUTES = validateGovernanceDriftReconciliationIntervalMinutes();
 const DEFAULT_BATCH_SIZE = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE ?? 250);
 const MAX_RETRIES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES ?? 5);
 const REMEDIATION_MODE_ENV_KEY = 'GOVERNANCE_DRIFT_RECONCILIATION_MODE';
@@ -71,9 +101,13 @@ export const getGovernanceDriftReconciliationQueue = () => (_queue ??= new Queue
 }));
 
 export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> {
+  const intervalMinutes = validateGovernanceDriftReconciliationIntervalMinutes();
+
+  logger.info('governance.drift.reconciliation.schedule', { intervalMinutes });
+
   await getGovernanceDriftReconciliationQueue().add('reconcile-governance-drift', {
     kind: 'produce',
-  }, { repeat: { every: INTERVAL_MINUTES * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
+  }, { repeat: { every: intervalMinutes * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
 }
 
 interface ResolvedActorAccess {
