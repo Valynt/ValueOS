@@ -457,7 +457,22 @@ jobs:
           pnpm run check:telemetry-completeness
           pnpm run check:observability-deployment-gates
 
+      - name: Inject Layer 5 metadata for release artifact packaging
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          LAYER5_SOURCE_DOC_PATH: docs/operations/layer5-production-readiness.md
+          LAYER5_INJECTED_DOC_PATH: artifacts/operations/layer5-production-readiness.generated.md
+        run: node scripts/ci/inject-layer5-metadata.mjs
+
+      - name: Guard Layer 5 report placeholders in packaged artifact input
+        env:
+          LAYER5_REPORT_PATH: artifacts/operations/layer5-production-readiness.generated.md
+        run: node scripts/ci/check-layer5-injected-metadata.mjs
+
       - name: Generate Layer 5 readiness artifacts (release candidate evidence)
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          LAYER5_REPORT_PATH: artifacts/operations/layer5-production-readiness.generated.md
         run: node scripts/ci/generate-layer5-readiness-artifacts.mjs
 
       - name: Upload Layer 5 readiness artifacts

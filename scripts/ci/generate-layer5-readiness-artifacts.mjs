@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DOC_PATH = 'docs/operations/layer5-production-readiness.md';
+const DOC_PATH = process.env.LAYER5_REPORT_PATH ?? 'docs/operations/layer5-production-readiness.md';
 const runId = process.env.GITHUB_RUN_ID ?? 'local';
 const sha = process.env.GITHUB_SHA ?? 'local';
 const generatedAt = new Date().toISOString();
