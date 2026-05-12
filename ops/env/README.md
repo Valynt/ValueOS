@@ -152,6 +152,16 @@ The backend governance engine (`packages/backend/src/lib/rules.ts`) now loads po
 
 If unset, all governance variables fall back to existing defaults for backward compatibility.
 
+## Agent drift guard configuration (backend)
+
+`AgentDriftGuard` (`packages/backend/src/lib/agent-fabric/hardening/AgentDriftGuard.ts`) accepts the following environment variables:
+
+| Variable | Default | Allowed range/format | Behavior on invalid value |
+| --- | --- | --- | --- |
+| `AGENT_DRIFT_GUARD_ENABLED` | `true` | `true` / `false` | Defaults to enabled unless explicitly set to `false`. |
+| `AGENT_DRIFT_GUARD_STRICT` | `false` | `true` / `false` | Defaults to non-strict mode unless explicitly set to `true`. |
+| `AGENT_DRIFT_GUARD_INTERVAL_MS` | `300000` | Finite integer milliseconds between `1000` (1s) and `86400000` (24h), inclusive. | Falls back to `300000` and emits `agent.drift_guard.invalid_interval_ms` warning with offending value. |
+
 ## Required variables by mode
 
 ### `cloud-dev`
