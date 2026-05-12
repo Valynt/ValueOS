@@ -21,6 +21,7 @@ import { createServerSupabaseClient } from './supabase.js';
 import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
 import { evaluateGovernanceDrift, type DriftAssessment } from './governance/driftPrimitives.js';
+import { createCounter } from './observability/index.js';
 
 // ---------------------------------------------------------------------------
 // Permission cache
@@ -36,6 +37,62 @@ interface CacheEntry {
 // Avoids a hard dependency on an external cache library while still
 // eliminating the majority of repeated DB round-trips on the hot path.
 const governanceConfig = loadGovernanceConfig();
+
+const driftDetectedTotal = createCounter(
+  'drift_detected_total',
+  'Total detected governance drift events',
+  ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
+);
+const driftRemediatedTotal = createCounter(
+  'drift_remediated_total',
+  'Total governance drift events remediated automatically',
+  ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
+);
+const driftUnresolvedTotal = createCounter(
+  'drift_unresolved_total',
+  'Total governance drift events that remain unresolved',
+  ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
+);
+const driftDeniedTotal = createCounter(
+  'drift_denied_total',
+  'Total governance drift events resulting in denied decisions',
+  ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
+);
+
+interface DriftTelemetryContext {
+  stage: GovernanceContext['environment']['stage'];
+  actionName: string;
+  tenantId?: string;
+  sessionId?: string;
+}
+
+function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryContext, outcome: 'detected' | 'remediated' | 'unresolved' | 'denied'): void {
+  const labels = {
+    drift_type: assessment.driftType ?? 'UNKNOWN',
+    severity: assessment.severity ?? 'unknown',
+    remediation_action: assessment.remediationAction ?? 'NONE',
+    stage: ctx.stage,
+    action_name: ctx.actionName,
+  };
+
+  driftDetectedTotal.inc(labels);
+  if (outcome === 'remediated') driftRemediatedTotal.inc(labels);
+  if (outcome === 'unresolved') driftUnresolvedTotal.inc(labels);
+  if (outcome === 'denied') driftDeniedTotal.inc(labels);
+
+  logger.warn('governance.drift.telemetry', {
+    outcome,
+    driftType: assessment.driftType ?? 'UNKNOWN',
+    severity: assessment.severity ?? 'unknown',
+    remediationAction: assessment.remediationAction ?? 'NONE',
+    stage: ctx.stage,
+    actionName: ctx.actionName,
+    sessionId: ctx.sessionId ?? 'unknown',
+    requestId: ctx.sessionId ?? 'unknown',
+    ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
+  });
+}
+
 const PERMISSION_CACHE_TTL_MS = governanceConfig.permissionCacheTtlMs;
 const PERMISSION_CACHE_MAX = governanceConfig.permissionCacheMax;
 const permissionCache = new Map<string, CacheEntry>();
@@ -406,7 +463,6 @@ async function getProposalGovernanceStatus(
   };
 }
 
-
 // ============================================================================
 // Core evaluation engine
 // ============================================================================
@@ -610,8 +666,16 @@ export async function enforceRulesDetailed(
     if (detectedDrift.length > 0) {
       matchedRules.push('layer6-drift-check');
 
+      const telemetryContext: DriftTelemetryContext = {
+        stage: ctx.environment.stage,
+        actionName: ctx.action.name,
+        tenantId: ctx.actor.tenantId,
+        sessionId: ctx.actor.sessionId,
+      };
+
       const highSeverityDrift = detectedDrift.find((d) => d.severity === 'high');
       if (highSeverityDrift) {
+        emitDriftTelemetry(highSeverityDrift, telemetryContext, 'denied');
         return deny(
           'DENY_POLICY',
           highSeverityDrift.details ?? 'Governance drift detected at high severity.',
@@ -626,6 +690,11 @@ export async function enforceRulesDetailed(
       }
       if (detectedDrift.some((d) => d.remediationAction === 'READ_ONLY')) {
         obligations.push({ type: 'READ_ONLY' });
+      }
+
+      for (const drift of detectedDrift) {
+        const outcome = drift.remediationAction === 'REFRESH_PERMISSIONS' ? 'remediated' : 'unresolved';
+        emitDriftTelemetry(drift, telemetryContext, outcome);
       }
 
       return allow(evaluatedAt, matchedRules, obligations);
