@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "layer": "layer3",
   "description": "Layer 3 production-hardening readiness evidence requirements.",
   "maxArtifactAgeHours": 24,
@@ -8,6 +8,11 @@
       "id": "workflow-state-tests",
       "name": "Workflow-state tests",
       "required": true,
+      "validator": "json-path-equals",
+      "formatVersion": 1,
+      "successPath": "success",
+      "expectedValue": true,
+      "requiredPaths": ["success", "summary.passed", "summary.failed"],
       "artifacts": [
         "artifacts/layer3/workflow-state-tests.json"
       ]
@@ -16,6 +21,11 @@
       "id": "drift-primitive-tests",
       "name": "Drift primitive tests",
       "required": true,
+      "validator": "json-path-equals",
+      "formatVersion": 1,
+      "successPath": "success",
+      "expectedValue": true,
+      "requiredPaths": ["success", "summary.passed", "summary.failed"],
       "artifacts": [
         "artifacts/layer3/drift-primitive-tests.json"
       ]
@@ -24,6 +34,9 @@
       "id": "migration-head-check",
       "name": "Migration head check",
       "required": true,
+      "validator": "text-markers",
+      "successMarkers": ["CHECK: PASS"],
+      "failureMarkers": ["CHECK: FAIL", "ERROR", "FAILED"],
       "artifacts": [
         "artifacts/layer3/migration-head-check.log"
       ]
@@ -32,6 +45,11 @@
       "id": "schema-contract-check",
       "name": "Schema contract check",
       "required": true,
+      "validator": "json-path-equals",
+      "formatVersion": 1,
+      "successPath": "success",
+      "expectedValue": true,
+      "requiredPaths": ["success", "contractsValidated", "breakingChanges"],
       "artifacts": [
         "artifacts/layer3/schema-contract-check.json"
       ]
@@ -40,6 +58,11 @@
       "id": "route-compatibility-check",
       "name": "Route compatibility check",
       "required": true,
+      "validator": "json-path-equals",
+      "formatVersion": 1,
+      "successPath": "success",
+      "expectedValue": true,
+      "requiredPaths": ["success", "routesValidated", "incompatibleRoutes"],
       "artifacts": [
         "artifacts/layer3/route-compatibility-check.json"
       ]
@@ -48,6 +71,11 @@
       "id": "tenant-isolation-tests",
       "name": "Tenant isolation tests",
       "required": true,
+      "validator": "json-path-equals",
+      "formatVersion": 1,
+      "successPath": "success",
+      "expectedValue": true,
+      "requiredPaths": ["success", "suite", "summary.passed", "summary.failed"],
       "artifacts": [
         "artifacts/layer3/tenant-isolation-tests.json"
       ]
@@ -56,6 +84,9 @@
       "id": "tenant-migration-readiness-checklist",
       "name": "Tenant migration readiness checklist artifact",
       "required": true,
+      "validator": "text-markers",
+      "successMarkers": ["Layer 3 Tenant Migration Readiness Checklist", "Post-migration verification"],
+      "failureMarkers": ["TODO", "TBD", "MISSING"],
       "artifacts": [
         "artifacts/layer3/tenant-migration-readiness-checklist.md"
       ]
