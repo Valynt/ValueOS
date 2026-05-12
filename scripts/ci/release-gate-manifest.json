@@ -156,5 +156,21 @@
       "quality-gate",
       "stability-seal"
     ]
+  },
+  "layer4ReadinessEvidence": {
+    "artifactPath": "artifacts/ci/layer4-readiness-evidence.json",
+    "maxArtifactAgeHours": 24,
+    "requiredChecks": [
+      {
+        "id": "architecture-drift-gate",
+        "artifactId": "architecture-drift-gate",
+        "expectedStatus": "pass"
+      },
+      {
+        "id": "compliance-evidence-completeness",
+        "artifactId": "compliance-evidence-completeness",
+        "expectedStatus": "pass"
+      }
+    ]
   }
 }
