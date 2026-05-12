@@ -66,6 +66,7 @@ import {
   enforceRulesDetailed,
   GovernanceContext,
 } from '../rules.js';
+import { logger } from '../logger.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -480,6 +481,93 @@ describe('enforceRulesDetailed', () => {
   // -------------------------------------------------------------------------
 
   describe('fail-closed', () => {
+    it('returns DENY_UNAUTHORIZED when user_permissions query fails', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'user_roles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => Promise.resolve({ data: [{ role: 'member' }], error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === 'user_permissions') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { message: 'permissions query failed' },
+                  }),
+              }),
+            }),
+          };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(logger.error).toHaveBeenCalledWith(
+        'governance: DB error fetching user permissions — denying (fail-closed)',
+        expect.objectContaining({ denialReason: 'db_error' })
+      );
+    });
+
+    it('denies with DENY_UNAUTHORIZED on mixed query state (membership success, roles success, permissions failure)', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'user_roles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === 'user_permissions') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () =>
+                  Promise.resolve({ data: null, error: { message: 'partial DB outage' } }),
+              }),
+            }),
+          };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+    });
+
     it('returns DENY_POLICY when DB throws during permission resolution', async () => {
       mockDbError();
       const result = await enforceRulesDetailed(makeCtx());
