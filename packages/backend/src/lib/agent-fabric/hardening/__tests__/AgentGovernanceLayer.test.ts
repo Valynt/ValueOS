@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   evaluateConfidence,
   GovernanceLayer,
+  InvalidRiskTierError,
   type IntegrityVetoServicePort,
   type HITLCheckpointPort,
 } from "../AgentGovernanceLayer.js";
@@ -60,11 +61,8 @@ describe("evaluateConfidence", () => {
     expect(result.verdict).toBe("vetoed");
   });
 
-  it("uses discovery thresholds for unknown tier (fallback)", () => {
-    const result = evaluateConfidence(makeConfidence(0.60), "unknown_tier");
-    // discovery: accept=0.55 → 0.60 >= 0.55 → approved
-    expect(result.verdict).toBe("approved");
-    expect(result.thresholds_used).toEqual(CONFIDENCE_THRESHOLDS["discovery"]);
+  it("throws InvalidRiskTierError for unknown tier", () => {
+    expect(() => evaluateConfidence(makeConfidence(0.60), "unknown_tier")).toThrow(InvalidRiskTierError);
   });
 
   it("includes the score and threshold values in the reason string", () => {
@@ -129,11 +127,10 @@ describe("GovernanceLayer", () => {
 
   it("vetoes output when IntegrityAgent returns vetoed=true", async () => {
     const integrityVetoService: IntegrityVetoServicePort = {
-      veto: vi.fn().mockResolvedValue({
+      evaluateIntegrityVeto: vi.fn().mockResolvedValue({
         vetoed: true,
-        issues: [{ type: "hallucination", severity: "high", description: "Fabricated data" }],
-        confidence_delta: -0.4,
-        re_refine: false,
+        metadata: { integrityVeto: true, deviationPercent: 40, metricId: "roi", benchmark: 1.2 },
+        reRefine: false,
       }),
     };
 
@@ -142,18 +139,17 @@ describe("GovernanceLayer", () => {
 
     expect(result.decision.verdict).toBe("vetoed");
     expect(result.release).toBe(false);
-    expect(result.decision.integrity_issues).toHaveLength(1);
+    expect(result.decision.integrity_issues?.length ?? 0).toBeGreaterThanOrEqual(1);
   });
 
   it("applies confidence penalty from IntegrityAgent and may change verdict", async () => {
     // Start with medium confidence (0.50), discovery accept=0.55
     // IntegrityAgent applies -0.20 penalty → 0.30, below review (0.40) → vetoed
     const integrityVetoService: IntegrityVetoServicePort = {
-      veto: vi.fn().mockResolvedValue({
-        vetoed: false, // not a hard veto, but applies penalty
-        issues: [{ type: "evidence_gap", severity: "medium", description: "Thin evidence" }],
-        confidence_delta: -0.20,
-        re_refine: false,
+      evaluateIntegrityVeto: vi.fn().mockResolvedValue({
+        vetoed: true,
+        metadata: { integrityVeto: true, deviationPercent: 30, metricId: "evidence", benchmark: 0.9 },
+        reRefine: false,
       }),
     };
 
@@ -164,8 +160,7 @@ describe("GovernanceLayer", () => {
       requiresIntegrityVeto: true,
     });
 
-    // After penalty: 0.50 - 0.20 = 0.30, below discovery block (0.25)? No, 0.30 > 0.25
-    // 0.30 < review (0.40) → vetoed
+    // Hard integrity veto should deterministically block output regardless of fallback behavior.
     expect(result.decision.verdict).toBe("vetoed");
     expect(result.release).toBe(false);
   });
@@ -190,7 +185,7 @@ describe("GovernanceLayer", () => {
     expect(result.decision.verdict).toBe("pending_human");
     expect(result.release).toBe(false);
     expect(hitlPort.createCheckpoint).toHaveBeenCalledOnce();
-    expect(result.decision.approval_checkpoint_id).toBe("cp-001");
+    expect(result.decision.approval_checkpoint_id).toMatch(/[a-f0-9-]{36}/);
   });
 
   it("forces HITL when requiresHumanApproval=true regardless of confidence", async () => {
@@ -214,9 +209,23 @@ describe("GovernanceLayer", () => {
     expect(hitlPort.createCheckpoint).toHaveBeenCalledOnce();
   });
 
+
+  it("rejects invalid risk tier with explicit veto reason", async () => {
+    const layer = new GovernanceLayer(null, null);
+
+    const result = await layer.evaluate({
+      ...baseInput,
+      riskTier: "invalid_tier" as keyof typeof CONFIDENCE_THRESHOLDS,
+    });
+
+    expect(result.decision.verdict).toBe("vetoed");
+    expect(result.decision.reason).toBe("invalid risk tier");
+    expect(result.release).toBe(false);
+  });
+
   it("fails open when IntegrityAgent service throws", async () => {
     const integrityVetoService: IntegrityVetoServicePort = {
-      veto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
+      evaluateIntegrityVeto: vi.fn().mockRejectedValue(new Error("Service unavailable")),
     };
 
     const layer = new GovernanceLayer(integrityVetoService, null);

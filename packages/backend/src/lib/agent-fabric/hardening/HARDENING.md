@@ -79,6 +79,10 @@ Production-grade reliability, governance, and auditability for the ValueOS agent
 ║                                                                              ║
 ║  Step 2 — Confidence Threshold Policy                                        ║
 ║                                                                              ║
+║  Anti-drift safeguard: risk tier must match a canonical key in              ║
+║  CONFIDENCE_THRESHOLDS. Unknown tiers are explicitly vetoed with            ║
+║  reason `invalid risk tier` (no fallback to discovery).                     ║
+║                                                                              ║
 ║  Risk Tier   │ accept │ review │ block   Verdict                            ║
 ║  ────────────┼────────┼────────┼──────   ──────────────────────────────     ║
 ║  financial   │  0.75  │  0.60  │ 0.40    score >= accept  → approved        ║

@@ -406,6 +406,8 @@ export class HardenedAgentRunner {
           : "human_approval_required";
 
       const failureInfo = FAILURE_RESPONSES[scenario];
+      const invalidRiskTier = governanceResult.decision.reason === "invalid risk tier";
+
       logger.warn("agent.governance_blocked", {
         agent: this.config.agentName,
         verdict: governanceResult.decision.verdict,
@@ -413,6 +415,26 @@ export class HardenedAgentRunner {
         scenario,
         system_action: failureInfo.system_action,
         request_id: envelope.request_id,
+        trace_id: envelope.trace_id,
+        session_id: envelope.session_id,
+        organization_id: envelope.organization_id,
+        governance_risk_tier: riskTier,
+        governance_invalid_risk_tier: invalidRiskTier,
+      });
+
+      await this.auditLogger.logAgentSecurity({
+        agentName: this.config.agentName,
+        tenantId: envelope.organization_id,
+        userId: envelope.user_id,
+        action: invalidRiskTier ? "governance_invalid_risk_tier" : "governance_blocked",
+        details: {
+          request_id: envelope.request_id,
+          trace_id: envelope.trace_id,
+          session_id: envelope.session_id,
+          risk_tier: riskTier,
+          verdict: governanceResult.decision.verdict,
+          reason: governanceResult.decision.reason ?? "",
+        },
       });
 
       throw new GovernanceVetoError(
