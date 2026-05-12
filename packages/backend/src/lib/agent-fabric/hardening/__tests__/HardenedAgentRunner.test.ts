@@ -550,3 +550,41 @@ describe("GovernanceVetoError", () => {
     expect(err.message).not.toContain("checkpoint");
   });
 });
+
+
+describe("Drift guard", () => {
+  beforeEach(() => {
+    process.env.AGENT_DRIFT_GUARD_ENABLED = "true";
+    process.env.AGENT_DRIFT_GUARD_INTERVAL_MS = "0";
+  });
+
+  afterEach(() => {
+    delete process.env.AGENT_DRIFT_GUARD_ENABLED;
+    delete process.env.AGENT_DRIFT_GUARD_STRICT;
+    delete process.env.AGENT_DRIFT_GUARD_INTERVAL_MS;
+  });
+
+  it("blocks execution in strict mode when risk tier is invalid", async () => {
+    process.env.AGENT_DRIFT_GUARD_STRICT = "true";
+    const runner = makeRunner();
+    const executeFn = vi.fn().mockResolvedValue(makeSuccessOutput());
+
+    await expect(
+      runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, { ...BASE_OPTIONS, riskTier: "not_a_tier" as never })
+    ).rejects.toThrow(/Drift guard blocked execution/);
+
+    expect(executeFn).not.toHaveBeenCalled();
+  });
+
+  it("allows execution in non-strict mode while logging drift", async () => {
+    process.env.AGENT_DRIFT_GUARD_STRICT = "false";
+    const runner = makeRunner();
+    const executeFn = vi.fn().mockResolvedValue(makeSuccessOutput());
+
+    await expect(
+      runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, { ...BASE_OPTIONS, riskTier: "not_a_tier" as never })
+    ).rejects.toThrow(/invalid risk tier/i);
+
+    expect(executeFn).toHaveBeenCalledOnce();
+  });
+});
