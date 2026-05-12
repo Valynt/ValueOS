@@ -138,6 +138,20 @@ For the staging compose stack, browser and external API traffic must enter throu
 
 The Express backend binds to `API_PORT` (default `3001`), read by `packages/backend/src/config/settings.ts`. `BACKEND_PORT` in env files is used only to construct `BACKEND_ORIGIN` and `CORS_ALLOWED_ORIGINS` in the prep scripts — it does not change what port the server listens on. Set both to `3001` to keep them consistent.
 
+## Governance policy configuration (backend)
+
+The backend governance engine (`packages/backend/src/lib/rules.ts`) now loads policy constants from env-backed typed config (`packages/backend/src/config/governance.ts`) and validates values at startup via `validateEnvOrThrow()`.
+
+| Variable | Default | Allowed range/format | Production recommendation |
+| --- | --- | --- | --- |
+| `GOVERNANCE_PERMISSION_CACHE_TTL_MS` | `30000` (30s) | Integer `1000` to `300000` | Keep between `15000` and `60000` to balance permission freshness vs DB load. |
+| `GOVERNANCE_PERMISSION_CACHE_MAX` | `2000` | Integer `1` to `10000` | Set high enough to cover hot active-user set per pod (typically `1000-5000`). |
+| `GOVERNANCE_DESTRUCTIVE_ACTIONS` | `value_model.delete,case.delete,tenant.delete,user.delete,artifact.delete,commitment.delete,value_tree.delete,integration.delete,api_key.delete` | Comma-separated action names | Keep defaults unless governance has formally approved additional destructive operations. |
+| `GOVERNANCE_ELEVATED_ROLES` | `admin,owner` | Comma-separated role names | Keep minimal and explicit (typically `admin,owner` only). |
+| `GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS` | `proposal.publish,value_model.finalize,commitment.publish` | Comma-separated action names | Keep defaults; only extend when introducing new externally committing operations. |
+
+If unset, all governance variables fall back to existing defaults for backward compatibility.
+
 ## Required variables by mode
 
 ### `cloud-dev`
