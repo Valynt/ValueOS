@@ -102,7 +102,8 @@
     "dev:verify:infra": "pnpm run dx:check",
     "typecheck:islands": "pnpm run check",
     "check:docs:script-references": "node scripts/ci/check-docs-script-references.mjs",
-    "check:layer3-wrapper-exceptions": "node scripts/ci/check-layer3-wrapper-exceptions.mjs"
+    "check:layer3-wrapper-exceptions": "node scripts/ci/check-layer3-wrapper-exceptions.mjs",
+    "test:layer4-contract-compatibility": "pnpm --filter @valueos/backend exec vitest run src/lib/governance/contracts/__tests__/layer4ContractCompatibility.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
