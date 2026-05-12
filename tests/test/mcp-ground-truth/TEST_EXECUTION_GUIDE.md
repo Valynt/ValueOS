@@ -10,11 +10,11 @@
 
 ### Prerequisites
 
-1. **Environment Setup:**
+1. **Environment Setup (ValueOS monorepo):**
 
    ```bash
-   cd /workspaces/ValueCanvas
-   npm install
+   cd /workspace/ValueOS
+   pnpm install
    ```
 
 2. **Environment Variables:**
@@ -29,34 +29,70 @@
 
 3. **Verify Installation:**
    ```bash
-   npm test -- --version
+   pnpm vitest --version
    ```
 
 ### Run All Tests
 
 ```bash
-# Run all MCP Ground Truth tests
-npm test test/mcp-ground-truth
+# Run MCP workspace tests (includes ground-truth package tests)
+pnpm --filter @valueos/mcp test
 
 # Run with coverage
-npm test test/mcp-ground-truth -- --coverage
+pnpm vitest --project mcp-ground-truth --coverage
 
 # Run in watch mode
-npm test test/mcp-ground-truth -- --watch
+pnpm vitest --project mcp-ground-truth --watch
 ```
 
 ### Run Specific Test Phases
 
 ```bash
 # Phase 1: Analyst/Developer Features
-npm test test/mcp-ground-truth/phase1-analyst-developer.test.ts
+pnpm vitest tests/test/mcp-ground-truth/phase1-analyst-developer.test.ts
 
 # Phase 2: AI Query Generation
-npm test test/mcp-ground-truth/phase2-ai-query-generation.test.ts
+pnpm vitest tests/test/mcp-ground-truth/phase2-ai-query-generation.test.ts
 
 # Phase 3: Integration and Governance (when implemented)
-npm test test/mcp-ground-truth/phase3-integration-governance.test.ts
+pnpm vitest tests/test/mcp-ground-truth/phase3-integration-governance.test.ts
 ```
+
+### Path Alignment Decision (2026-05-12)
+
+- ✅ MCP package target exists: `packages/mcp/ground-truth/`
+- ✅ Backend integration target exists: `packages/backend/src/services/ground-truth/`
+- ❌ `services/layer5-ground-truth/` is not present in this workspace
+
+For this guide, the selected primary target is **`packages/mcp/ground-truth/`** with backend service checks in **`packages/backend/src/services/ground-truth/`**.
+
+### Execution Checklist (Path-Aligned)
+
+1. Verify MCP package path:
+   ```bash
+   test -d packages/mcp/ground-truth
+   ```
+2. Verify backend integration path:
+   ```bash
+   test -d packages/backend/src/services/ground-truth
+   ```
+3. Confirm MCP tests are discoverable in workspace config:
+   ```bash
+   rg -n \"mcp-ground-truth|packages/mcp/ground-truth\" vitest.config.ts packages/mcp/vitest.config.ts
+   ```
+4. Run MCP package suite:
+   ```bash
+   pnpm --filter @valueos/mcp test
+   ```
+5. Run focused Ground Truth phase tests:
+   ```bash
+   pnpm vitest tests/test/mcp-ground-truth/phase1-analyst-developer.test.ts
+   pnpm vitest tests/test/mcp-ground-truth/phase2-ai-query-generation.test.ts
+   ```
+6. Run stabilization pass (only after steps 1-5 are green):
+   ```bash
+   pnpm vitest --project mcp-ground-truth --maxWorkers=1 --reporter=verbose
+   ```
 
 ---
 
