@@ -2,6 +2,9 @@
 
 This document defines on-call thresholds for governance drift telemetry emitted by `enforceRulesDetailed()`.
 
+Related readiness standard: `docs/security-compliance/layer4-governance-drift-readiness.md`.
+
+
 ## Metrics
 
 - `drift_detected_total`
