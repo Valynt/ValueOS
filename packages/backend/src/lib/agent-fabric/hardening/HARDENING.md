@@ -296,6 +296,25 @@ When vetoed:
 
 Fail-open behavior: if the IntegrityAgent service is unavailable, the veto check
 is skipped with a warning log. The output proceeds with a confidence penalty applied.
+Short transient failures remain fail-open. Sustained failures now trigger degraded
+governance mode:
+- `financial` and `compliance` tiers: force `vetoed` until integrity health recovers.
+- `discovery`, `narrative`, `commitment` tiers: force `pending_human`.
+- Structured degradation signal emitted: `governance.integrity_veto.degraded` with
+  `agent`, `organization_id`, `trace_id`, `risk_tier`, `outage_mode`, and
+  `sustained_failure`.
+
+### Layer 5 governance operations — IntegrityVeto degraded remediation
+
+When alerts or logs show sustained `governance.integrity_veto.degraded`:
+1. Confirm scope (`organization_id`, `agent`, `trace_id`) and outage mode.
+2. Validate IntegrityVeto dependency health (upstream service, queue latency, timeout
+   saturation, and resilience/circuit state).
+3. Keep high-risk tiers blocked (`vetoed`) and manually review queued low-risk outputs.
+4. Execute service recovery (restart failed workers/pods, clear queue backlog, or
+   rollback latest IntegrityVeto deploy) and monitor error-rate return to baseline.
+5. After stabilization, verify normal `outage_mode=healthy` events and close incident
+   with impacted trace IDs + tenant scope recorded.
 
 ### Confidence thresholds
 

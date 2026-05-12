@@ -91,6 +91,42 @@ export interface IntegrityVetoInput {
   organizationId: string;
 }
 
+type GovernanceOutageMode = "healthy" | "degraded_transient" | "degraded_sustained";
+interface IntegrityFailureWindowState {
+  count: number;
+  firstFailureAtMs: number;
+  lastFailureAtMs: number;
+}
+const integrityFailureWindows = new Map<string, IntegrityFailureWindowState>();
+const INTEGRITY_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const INTEGRITY_SUSTAINED_FAILURE_THRESHOLD = 3;
+
+function getIntegrityFailureWindowKey(input: IntegrityVetoInput): string {
+  return `${input.organizationId}:${input.agentName}`;
+}
+
+function recordIntegrityFailure(input: IntegrityVetoInput): IntegrityFailureWindowState {
+  const now = Date.now();
+  const key = getIntegrityFailureWindowKey(input);
+  const existing = integrityFailureWindows.get(key);
+  if (!existing || now - existing.firstFailureAtMs > INTEGRITY_FAILURE_WINDOW_MS) {
+    const next = { count: 1, firstFailureAtMs: now, lastFailureAtMs: now };
+    integrityFailureWindows.set(key, next);
+    return next;
+  }
+  const next = {
+    count: existing.count + 1,
+    firstFailureAtMs: existing.firstFailureAtMs,
+    lastFailureAtMs: now,
+  };
+  integrityFailureWindows.set(key, next);
+  return next;
+}
+
+function clearIntegrityFailureState(input: IntegrityVetoInput): void {
+  integrityFailureWindows.delete(getIntegrityFailureWindowKey(input));
+}
+
 export interface IntegrityVetoResult {
   vetoed: boolean;
   issues: IntegrityIssueRecord[];
@@ -98,6 +134,8 @@ export interface IntegrityVetoResult {
   confidence_delta: number;
   /** When true, the agent should re-refine rather than hard-fail. */
   re_refine: boolean;
+  outage_mode: GovernanceOutageMode;
+  sustained_failure: boolean;
 }
 
 /**
@@ -125,6 +163,15 @@ export interface IntegrityVetoServicePort {
     };
     reRefine?: boolean;
   }>;
+  getIntegrityHealthState?(scope: {
+    organizationId: string;
+    agentName: string;
+  }): {
+    sustainedFailure: boolean;
+    outageMode: "degraded_transient" | "degraded_sustained";
+    failureCount?: number;
+    windowMs?: number;
+  } | null;
 }
 
 /**
@@ -146,11 +193,14 @@ export async function runIntegrityVeto(
     });
 
     if (!result.vetoed) {
+      clearIntegrityFailureState(input);
       return {
         vetoed: false,
         issues: [],
         confidence_delta: 0,
         re_refine: result.reRefine ?? false,
+        outage_mode: "healthy",
+        sustained_failure: false,
       };
     }
 
@@ -178,12 +228,31 @@ export async function runIntegrityVeto(
       issues,
       confidence_delta: -0.2,
       re_refine: false,
+      outage_mode: "healthy",
+      sustained_failure: false,
     };
   } catch (err) {
+    const failureState = recordIntegrityFailure(input);
+    const delegatedHealth = service.getIntegrityHealthState?.({
+      organizationId: input.organizationId,
+      agentName: input.agentName,
+    });
+    const sustainedFailure =
+      delegatedHealth?.sustainedFailure ??
+      failureState.count >= INTEGRITY_SUSTAINED_FAILURE_THRESHOLD;
+    const outageMode = delegatedHealth?.outageMode
+      ? delegatedHealth.outageMode
+      : sustainedFailure
+        ? "degraded_sustained"
+        : "degraded_transient";
     logger.error("IntegrityVeto check failed — failing open", {
       agent: input.agentName,
+      organization_id: input.organizationId,
       trace_id: input.traceId,
       error: err instanceof Error ? err.message : String(err),
+      outage_mode: outageMode,
+      failure_count_window: delegatedHealth?.failureCount ?? failureState.count,
+      failure_window_ms: delegatedHealth?.windowMs ?? INTEGRITY_FAILURE_WINDOW_MS,
     });
     // Fail open: a broken integrity check should not silently block all outputs.
     // The failure is logged; the caller can decide whether to escalate.
@@ -198,6 +267,8 @@ export async function runIntegrityVeto(
       ],
       confidence_delta: -0.05,
       re_refine: false,
+      outage_mode: outageMode,
+      sustained_failure: sustainedFailure,
     };
   }
 }
@@ -314,6 +385,18 @@ export class GovernanceLayer {
       issues.push(...vetoResult.issues);
       re_refine = vetoResult.re_refine;
 
+      if (vetoResult.outage_mode !== "healthy") {
+        logger.warn("governance.integrity_veto.degraded", {
+          event: "governance.integrity_veto.degraded",
+          agent: input.agentName,
+          organization_id: input.organizationId,
+          trace_id: input.traceId,
+          outage_mode: vetoResult.outage_mode,
+          sustained_failure: vetoResult.sustained_failure,
+          risk_tier: input.riskTier,
+        });
+      }
+
       if (vetoResult.vetoed) {
         const decision: GovernanceDecision = {
           verdict: "vetoed",
@@ -321,6 +404,31 @@ export class GovernanceLayer {
           decided_at: new Date().toISOString(),
           reason: vetoResult.issues[0]?.description ?? "Integrity veto triggered.",
           integrity_issues: vetoResult.issues,
+        };
+        return { decision, adjusted_confidence: confidence, release: false };
+      }
+
+      if (vetoResult.sustained_failure) {
+        const severeRisk = input.riskTier === "financial" || input.riskTier === "compliance";
+        const reason = `IntegrityVeto service is in sustained degraded mode for agent '${input.agentName}' (risk tier: ${input.riskTier}).`;
+
+        if (severeRisk) {
+          const decision: GovernanceDecision = {
+            verdict: "vetoed",
+            decided_by: "GovernanceLayer",
+            decided_at: new Date().toISOString(),
+            reason: `${reason} Blocking output until IntegrityVeto health recovers.`,
+            integrity_issues: issues.length > 0 ? issues : undefined,
+          };
+          return { decision, adjusted_confidence: confidence, release: false };
+        }
+
+        const decision: GovernanceDecision = {
+          verdict: "pending_human",
+          decided_by: "GovernanceLayer",
+          decided_at: new Date().toISOString(),
+          reason: `${reason} Requiring manual approval while degraded.`,
+          integrity_issues: issues.length > 0 ? issues : undefined,
         };
         return { decision, adjusted_confidence: confidence, release: false };
       }
