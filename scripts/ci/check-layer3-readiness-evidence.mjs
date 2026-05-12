@@ -15,15 +15,49 @@ function loadManifest(manifestPath) {
   return JSON.parse(payload);
 }
 
-function changedControlsFromManifest(manifest) {
-  return manifest.checks
-    .map((check) => check.id)
-    .sort();
+function normalizeReleaseDiff(releaseDiff) {
+  const changedFiles = Array.isArray(releaseDiff?.changedFiles) ? releaseDiff.changedFiles : [];
+  const changedChecks = Array.isArray(releaseDiff?.changedChecks) ? releaseDiff.changedChecks : [];
+  const changedInterfaces = Array.isArray(releaseDiff?.changedInterfaces) ? releaseDiff.changedInterfaces : [];
+
+  return {
+    changedFiles,
+    changedChecks,
+    changedInterfaces,
+  };
 }
 
-export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs() }) {
+function hasPrefixMatch(targetPath, changedFiles) {
+  return changedFiles.some((changedFile) => changedFile === targetPath || changedFile.startsWith(`${targetPath}/`));
+}
+
+function changedControlsFromManifest(manifest, releaseDiffInput = {}) {
+  const releaseDiff = normalizeReleaseDiff(releaseDiffInput);
+
+  const impactedControls = [];
+
+  for (const check of manifest.checks ?? []) {
+    const ownership = manifest.checkOwnership?.[check.id] ?? {};
+    const ownershipPaths = Array.isArray(ownership.paths) ? ownership.paths : [];
+    const ownershipInterfaces = Array.isArray(ownership.interfaces) ? ownership.interfaces : [];
+
+    const impactedByCheckId = releaseDiff.changedChecks.includes(check.id);
+    const impactedByPath = ownershipPaths.some((ownedPath) => hasPrefixMatch(ownedPath, releaseDiff.changedFiles));
+    const impactedByInterface = ownershipInterfaces.some((ownedInterface) => releaseDiff.changedInterfaces.includes(ownedInterface));
+
+    if (impactedByCheckId || impactedByPath || impactedByInterface) {
+      impactedControls.push(check.id);
+    }
+  }
+
+  return impactedControls.sort();
+}
+
+export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs(), releaseDiff = {} }) {
   const maxArtifactAgeHours = Number(manifest.maxArtifactAgeHours ?? 24);
   const maxArtifactAgeMs = maxArtifactAgeHours * 60 * 60 * 1000;
+  const changedControls = changedControlsFromManifest(manifest, releaseDiff);
+  const changedControlSet = new Set(changedControls);
 
   const passedChecks = [];
   const failedChecks = [];
@@ -65,11 +99,23 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     passedChecks.push({ id: check.id, name: check.name });
   }
 
+  const unchangedControls = (manifest.checks ?? [])
+    .map((check) => check.id)
+    .filter((checkId) => !changedControlSet.has(checkId))
+    .sort();
+
+  const missingEvidenceImpactedControls = failedChecks
+    .map((check) => check.id)
+    .filter((checkId) => changedControlSet.has(checkId))
+    .sort();
+
   return {
     maxArtifactAgeHours,
     passedChecks,
     failedChecks,
-    changedControls: changedControlsFromManifest(manifest),
+    changedControls,
+    unchangedControls,
+    missingEvidenceImpactedControls,
     openRisks,
     productionReady: failedChecks.length === 0,
   };
@@ -107,9 +153,33 @@ export function buildLayer3ReadinessReport(result) {
   }
   lines.push('');
 
-  lines.push('## Changed controls');
-  for (const control of result.changedControls) {
-    lines.push(`- ${control}`);
+  lines.push('## Controls impacted by this release');
+  if (result.changedControls.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.changedControls) {
+      lines.push(`- ${control}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Controls unchanged in this release');
+  if (result.unchangedControls.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.unchangedControls) {
+      lines.push(`- ${control}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Impacted controls with missing evidence');
+  if (result.missingEvidenceImpactedControls.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.missingEvidenceImpactedControls) {
+      lines.push(`- ${control}`);
+    }
   }
   lines.push('');
 
@@ -136,12 +206,27 @@ function writeReport(reportPath, reportMarkdown) {
   fs.writeFileSync(reportPath, reportMarkdown, 'utf8');
 }
 
+function parseReleaseDiffFromEnv() {
+  const payload = process.env.LAYER3_RELEASE_DIFF_JSON;
+  if (!payload) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(payload);
+  } catch (error) {
+    console.error('❌ Invalid LAYER3_RELEASE_DIFF_JSON payload. Expected valid JSON.');
+    throw error;
+  }
+}
+
 function main() {
   const manifestPath = process.env.LAYER3_READINESS_MANIFEST_PATH ?? DEFAULT_MANIFEST_PATH;
   const reportPath = process.env.LAYER3_READINESS_REPORT_PATH ?? DEFAULT_REPORT_PATH;
 
   const manifest = loadManifest(manifestPath);
-  const result = evaluateLayer3Readiness({ manifest });
+  const releaseDiff = parseReleaseDiffFromEnv();
+  const result = evaluateLayer3Readiness({ manifest, releaseDiff });
   const report = buildLayer3ReadinessReport(result);
 
   writeReport(reportPath, report);

@@ -1152,7 +1152,47 @@ jobs:
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     steps:
       - uses: actions/checkout@v6
+      - name: Compute release diff inputs for Layer 3 gate
+        id: layer3-diff
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.before }}"
+          HEAD_SHA="${{ github.sha }}"
+
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
+          fi
+
+          if [ -z "${BASE_SHA}" ]; then
+            echo "Unable to determine base SHA for diff; defaulting to no-op release diff."
+            CHANGED_FILES_JSON="[]"
+          else
+            CHANGED_FILES_JSON="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          fi
+
+          CHANGED_INTERFACES_JSON="$(printf '%s' "${CHANGED_FILES_JSON}" | jq -c '
+            [
+              (if any(.[]; startswith("packages/backend/src/routes/") or startswith("packages/backend/src/api/")) then "http-route-contract" else empty end),
+              (if any(.[]; startswith("packages/shared/src/domain/") or startswith("packages/backend/src/types/")) then "schema-contract" else empty end),
+              (if any(.[]; startswith("supabase/migrations/")) then "database-migration-head" else empty end)
+            ] | unique
+          ')"
+
+          LAYER3_RELEASE_DIFF_JSON="$(jq -nc \
+            --argjson changedFiles "${CHANGED_FILES_JSON}" \
+            --argjson changedChecks "[]" \
+            --argjson changedInterfaces "${CHANGED_INTERFACES_JSON}" \
+            '{changedFiles: $changedFiles, changedChecks: $changedChecks, changedInterfaces: $changedInterfaces}')"
+
+          {
+            echo 'layer3_release_diff_json<<EOF'
+            echo "${LAYER3_RELEASE_DIFF_JSON}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Validate Layer 3 readiness evidence manifest
+        env:
+          LAYER3_RELEASE_DIFF_JSON: ${{ steps.layer3-diff.outputs.layer3_release_diff_json }}
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report
         if: always()

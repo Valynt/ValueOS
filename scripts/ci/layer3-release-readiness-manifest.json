@@ -3,6 +3,36 @@
   "layer": "layer3",
   "description": "Layer 3 production-hardening readiness evidence requirements.",
   "maxArtifactAgeHours": 24,
+  "checkOwnership": {
+    "workflow-state-tests": {
+      "paths": ["packages/backend/src/runtime", "packages/backend/src/data/lifecycleWorkflows.ts"],
+      "interfaces": ["workflow-state-contract"]
+    },
+    "drift-primitive-tests": {
+      "paths": ["packages/backend/src/lib/agent-fabric/hardening", "packages/backend/src/runtime/PolicyEngine"],
+      "interfaces": ["drift-primitives"]
+    },
+    "migration-head-check": {
+      "paths": ["supabase/migrations", "scripts/db"],
+      "interfaces": ["database-migration-head"]
+    },
+    "schema-contract-check": {
+      "paths": ["packages/shared/src/domain", "packages/backend/src/types"],
+      "interfaces": ["schema-contract"]
+    },
+    "route-compatibility-check": {
+      "paths": ["packages/backend/src/routes", "packages/backend/src/api"],
+      "interfaces": ["http-route-contract"]
+    },
+    "tenant-isolation-tests": {
+      "paths": ["packages/backend/src/services/tenant", "packages/backend/src/lib/supabase"],
+      "interfaces": ["tenant-isolation"]
+    },
+    "tenant-migration-readiness-checklist": {
+      "paths": ["docs/cicd", "scripts/ci"],
+      "interfaces": ["tenant-migration-readiness"]
+    }
+  },
   "checks": [
     {
       "id": "workflow-state-tests",
