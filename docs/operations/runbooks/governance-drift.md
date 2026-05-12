@@ -5,6 +5,8 @@
 - Worker: `GovernanceDriftReconciliationWorker` (BullMQ queue `governance-drift-reconciliation`).
 - Schedule: every `GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES` (default **15 minutes**).
 - Runs independently from user-traffic request paths and continuously samples for Layer 6 drift signatures.
+- Producer/evaluator pattern: each interval first runs a producer pass that discovers active tenant + workflow contexts, then enqueues one evaluator job per tenant/workflow/action scope (no synthetic system actor context).
+- Bounded fan-out: producer discovery is capped by `GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE` (default **250 tenant memberships** per schedule tick).
 - Remediation mode:
   - `auto-safe`: automatically remediates safe cases (`REFRESH_PERMISSIONS`, `READ_ONLY` style state/cache refresh constraints).
   - `approval-gated`: records drift and escalates unresolved/high-risk items for explicit approval.
@@ -32,7 +34,9 @@
 
 ## Failure handling
 
-- BullMQ retry policy applies per worker defaults; repeated failures keep jobs in failed state for triage.
+- Retry guardrails: evaluator and producer jobs use exponential backoff with jitter and bounded attempts (`GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES`, default **5**).
+- Idempotency: evaluator job IDs are deterministic per tenant/user/action/workflow scope to prevent duplicate replay amplification during Redis outages or scheduler retries.
+- Dead-letter path: exhausted jobs are forwarded to `governance-drift-reconciliation-dlq` and must emit `governance.drift.reconciliation.dead_lettered` for incident routing.
 - If scheduling fails at startup, `workerMain` logs a warning and continues serving other workers; restart worker deployment after env/config correction.
 - If reconciliation repeatedly escalates unresolved high-risk drift, force `approval-gated` mode and pause risky rollout actions.
 
@@ -52,3 +56,18 @@
 
 - File RCA with policy and payload examples.
 - Add/extend tests under `packages/backend/src/workers/__tests__/GovernanceDriftReconciliationWorker.test.ts` and `packages/backend/src/lib/__tests__/rules.test.ts`.
+
+
+## Backlog handling
+
+1. Inspect `governance-drift-reconciliation` waiting/active/failed counts and isolate whether producer or evaluator jobs are accumulating.
+2. If producer backlog grows, temporarily reduce `GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE` and increase worker replicas to restore queue latency.
+3. If evaluator backlog grows for one tenant, shard triage by `tenantId` and `workflowId` from structured logs; do not pause global reconciliation unless Redis/DB is unstable globally.
+4. Replay DLQ jobs only after root cause is fixed (schema drift, permission table outage, Redis instability), preserving original idempotency keys.
+
+## Incident triage checklist
+
+- Confirm unresolved **high-severity** drift remains fail-closed (`escalatedForApproval=true`, not remediated).
+- Validate tenant isolation by sampling records: every record in a run must carry the source `tenantId`; no cross-tenant workflow IDs should appear in a single job context.
+- Validate permission correctness by checking the evaluated actor against current `user_roles` + `user_permissions` rows for the same tenant.
+- If Redis is degraded, pause producer scheduling first, keep evaluator retries enabled, and alert platform on-call if DLQ rate exceeds normal baseline for two consecutive intervals.
