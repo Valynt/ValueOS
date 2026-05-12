@@ -1,5 +1,6 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import Redis from 'ioredis';
+import { z } from 'zod';
 
 import { createLogger } from '../lib/logger.js';
 import { createCounter } from '../lib/observability/index.js';
@@ -12,6 +13,7 @@ export const GOVERNANCE_DRIFT_RECONCILIATION_QUEUE = 'governance-drift-reconcili
 const INTERVAL_MINUTES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES ?? 15);
 const DEFAULT_BATCH_SIZE = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE ?? 250);
 const MAX_RETRIES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES ?? 5);
+const GovernanceDriftReconciliationModeSchema = z.enum(['auto-safe', 'approval-gated']);
 
 const GOVERNANCE_DRIFT_RECONCILIATION_DLQ = 'governance-drift-reconciliation-dlq';
 
@@ -39,6 +41,10 @@ export interface GovernanceDriftReconciliationEvalJobPayload {
   grantedPermissions: string[];
   remediationMode: 'auto-safe' | 'approval-gated';
   idempotencyKey: string;
+}
+
+export function getGovernanceDriftReconciliationMode(): 'auto-safe' | 'approval-gated' {
+  return GovernanceDriftReconciliationModeSchema.parse(process.env.GOVERNANCE_DRIFT_RECONCILIATION_MODE ?? 'approval-gated');
 }
 
 export type GovernanceDriftQueuePayload = GovernanceDriftReconciliationJobPayload | GovernanceDriftReconciliationEvalJobPayload;
@@ -116,7 +122,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
       await queue.add('evaluate-governance-drift', {
         kind: 'evaluate',
         idempotencyKey,
-        remediationMode: 'approval-gated',
+        remediationMode: getGovernanceDriftReconciliationMode(),
         grantedPermissions,
         context: {
           actor: { userId, tenantId, roles: [] },

@@ -8,8 +8,18 @@
 - Producer/evaluator pattern: each interval first runs a producer pass that discovers active tenant + workflow contexts, then enqueues one evaluator job per tenant/workflow/action scope (no synthetic system actor context).
 - Bounded fan-out: producer discovery is capped by `GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE` (default **250 tenant memberships** per schedule tick).
 - Remediation mode:
+  - Env var: `GOVERNANCE_DRIFT_RECONCILIATION_MODE`.
+  - Default: `approval-gated` (backward-compatible fail-closed behavior).
+  - Allowed values: `auto-safe` | `approval-gated`.
   - `auto-safe`: automatically remediates safe cases (`REFRESH_PERMISSIONS`, `READ_ONLY` style state/cache refresh constraints).
   - `approval-gated`: records drift and escalates unresolved/high-risk items for explicit approval.
+
+### Changing remediation mode
+
+1. Update `GOVERNANCE_DRIFT_RECONCILIATION_MODE` in the worker environment configuration.
+2. Roll out the worker deployment so new producer jobs are enqueued with the new mode.
+3. Verify via logs that `governance.drift.reconciliation` records reflect expected behavior (`remediated=true` only when mode is `auto-safe` and drift action is safe).
+4. For incident containment or uncertain drift posture, explicitly set `GOVERNANCE_DRIFT_RECONCILIATION_MODE=approval-gated` and redeploy workers.
 
 ## Signals and telemetry
 
