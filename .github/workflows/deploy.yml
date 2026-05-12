@@ -1182,12 +1182,26 @@ for (const file of files) {
 process.stdout.write(JSON.stringify(Array.from(interfaces).sort()));
 ' "${CHANGED_FILES_JSON}")"
 
+          LAYER3_TENANT_MIGRATION_REQUIRED="$(node -e '
+const files = JSON.parse(process.argv[1]);
+const required = files.some((file) =>
+  file.startsWith("supabase/migrations/") ||
+  file.startsWith("scripts/db/") ||
+  file.includes("layer3") ||
+  file.includes("tenant_id") ||
+  file.includes("tenantId")
+);
+process.stdout.write(required ? "true" : "false");
+' "${CHANGED_FILES_JSON}")"
+
           RELEASE_DIFF_JSON="$(jq -cn --argjson changedFiles "${CHANGED_FILES_JSON}" --argjson changedChecks "[]" --argjson changedInterfaces "${CHANGED_INTERFACES_JSON}" '{changedFiles: $changedFiles, changedChecks: $changedChecks, changedInterfaces: $changedInterfaces}')"
 
           echo "release_diff_json=${RELEASE_DIFF_JSON}" >> "$GITHUB_OUTPUT"
+          echo "layer3_tenant_migration_required=${LAYER3_TENANT_MIGRATION_REQUIRED}" >> "$GITHUB_OUTPUT"
       - name: Validate Layer 3 readiness evidence manifest
         env:
           LAYER3_RELEASE_DIFF_JSON: ${{ steps.layer3-release-diff.outputs.release_diff_json }}
+          LAYER3_TENANT_MIGRATION_REQUIRED: ${{ steps.layer3-release-diff.outputs.layer3_tenant_migration_required }}
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report
         if: always()

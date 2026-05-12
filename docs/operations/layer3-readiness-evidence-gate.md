@@ -16,7 +16,7 @@ Each check now declares a validator contract:
 - `requiredPaths`: required JSON fields (JSON checks)
 - `successMarkers` + `failureMarkers`: required/forbidden strings (text/log checks)
 
-It requires these check artifacts:
+It requires these check artifacts (with conditional enforcement where declared in the manifest):
 
 1. workflow-state tests (JSON)
 2. drift primitive tests (JSON)
@@ -25,6 +25,19 @@ It requires these check artifacts:
 5. route compatibility check (JSON)
 6. tenant-isolation tests (JSON)
 7. tenant migration readiness checklist artifact (markdown/text)
+
+
+## Conditional enforcement (tenant migration checklist)
+
+`tenant-migration-readiness-checklist` is only required when Layer 3 tenant graph/migration scope is in the release diff.
+
+Applicability resolution order:
+
+1. `LAYER3_TENANT_MIGRATION_REQUIRED` CI env var override (`true`/`false`).
+2. `LAYER3_RELEASE_DIFF_JSON.changedFiles` matching manifest `requiredWhen` prefixes/patterns.
+
+When not applicable, the report records this check as `skipped (not applicable)` and does not fail the gate.
+When applicable, artifact existence, freshness, and semantic validation remain mandatory.
 
 ## Semantic validation behavior
 

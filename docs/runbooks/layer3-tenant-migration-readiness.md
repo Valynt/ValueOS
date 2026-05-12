@@ -186,7 +186,7 @@ Recommended initial thresholds (update with environment baselines):
 
 ## Release process integration (required)
 
-For **every deployment PR/release containing Layer 3 graph changes**, attach a required checklist artifact:
+For deployment PRs/releases where Layer 3 tenant graph/migration scope changed, attach a required checklist artifact (conditional gate enforcement):
 
 - `artifacts/layer3/tenant-migration-readiness-checklist.md`
 
@@ -224,6 +224,7 @@ Attach all artifacts in deployment PR/release evidence bundle:
 
 Production approval is blocked unless:
 
-- Staging evidence includes all required artifacts.
+- If Layer 3 tenant graph/migration scope changed: staging evidence includes all required artifacts.
+- If that scope did not change: the readiness gate may mark the checklist `skipped (not applicable)` with release-diff evidence.
 - All five acceptance criteria pass.
 - Release owner and reviewer explicitly acknowledge this runbook in the deployment PR.

@@ -123,7 +123,24 @@
       ],
       "artifacts": [
         "artifacts/layer3/tenant-migration-readiness-checklist.md"
-      ]
+      ],
+      "requiredWhen": {
+        "anyChangedPathPrefixes": [
+          "scripts/db/layer3/",
+          "scripts/db/",
+          "supabase/migrations/",
+          "packages/backend/src/services/graph/",
+          "packages/backend/src/lib/graph/"
+        ],
+        "anyChangedPatterns": [
+          "**/*tenant*id*",
+          "**/*tenant*_id*",
+          "**/*migration*layer3*",
+          "**/*layer3*tenant*"
+        ],
+        "envVar": "LAYER3_TENANT_MIGRATION_REQUIRED",
+        "description": "Required only when Layer 3 tenant graph/migration scope changed."
+      }
     }
   ],
   "controlOwnership": {

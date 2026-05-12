@@ -55,6 +55,58 @@ function readPathValue(source, dottedPath) {
   }, source);
 }
 
+function globToRegExp(pattern) {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '__DOUBLE_STAR__')
+    .replace(/\*/g, '[^/]*')
+    .replace(/__DOUBLE_STAR__/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
+}
+
+function parseBooleanFromEnv(value) {
+  if (value == null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return null;
+}
+
+function checkRequiredWhen(check, releaseDiff) {
+  const config = check.requiredWhen;
+  if (!config) {
+    return { applicable: true, reason: 'always required' };
+  }
+
+  const { changedFiles } = normalizeReleaseDiff(releaseDiff);
+  const changedFilesNormalized = changedFiles.map((entry) => String(entry));
+
+  if (config.envVar) {
+    const parsed = parseBooleanFromEnv(process.env[config.envVar]);
+    if (parsed != null) {
+      return {
+        applicable: parsed,
+        reason: `${config.envVar}=${process.env[config.envVar]} (CI override)`,
+      };
+    }
+  }
+
+  const pathPrefixes = Array.isArray(config.anyChangedPathPrefixes) ? config.anyChangedPathPrefixes : [];
+  const patterns = Array.isArray(config.anyChangedPatterns) ? config.anyChangedPatterns : [];
+  const patternRegexes = patterns.map(globToRegExp);
+
+  const prefixMatch = changedFilesNormalized.some((changedFile) => pathPrefixes.some((prefix) => changedFile.startsWith(prefix)));
+  const patternMatch = changedFilesNormalized.some((changedFile) => patternRegexes.some((pattern) => pattern.test(changedFile)));
+  const applicable = prefixMatch || patternMatch;
+
+  return {
+    applicable,
+    reason: applicable
+      ? 'matched changed files in release scope'
+      : 'no Layer 3 tenant graph/migration files changed in release scope',
+  };
+}
+
 function validateJsonArtifact({ check, artifactPath, artifact }) {
   const rawPayload = fs.readFileSync(artifactPath, 'utf8');
   let parsed;
@@ -128,9 +180,21 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
 
   const passedChecks = [];
   const failedChecks = [];
+  const skippedChecks = [];
   const openRisks = [];
 
   for (const check of manifest.checks ?? []) {
+    const applicability = checkRequiredWhen(check, releaseDiff);
+    if (!applicability.applicable) {
+      skippedChecks.push({
+        id: check.id,
+        name: check.name,
+        reason: applicability.reason,
+        status: 'skipped (not applicable)',
+      });
+      continue;
+    }
+
     const failures = [];
     const staleArtifacts = [];
 
@@ -186,6 +250,7 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     maxArtifactAgeHours,
     passedChecks,
     failedChecks,
+    skippedChecks,
     controlsImpacted,
     controlsUnchanged,
     controlsMissingEvidenceDespiteImpact: failedImpacted,
@@ -209,6 +274,16 @@ export function buildLayer3ReadinessReport(result) {
   } else {
     for (const check of result.passedChecks) {
       lines.push(`- ✅ ${check.id} (${check.name})`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Skipped checks');
+  if (result.skippedChecks.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const check of result.skippedChecks) {
+      lines.push(`- ⏭️ ${check.id} (${check.name}) — skipped (not applicable): ${check.reason}`);
     }
   }
   lines.push('');
@@ -264,19 +339,23 @@ export function buildLayer3ReadinessReport(result) {
       lines.push(`- ${risk}`);
     }
   }
+
   lines.push('');
-
-  lines.push('## Production-ready verdict');
-  lines.push(result.productionReady
-    ? '- ✅ Ready for additive pre-promotion Layer 3 gate.'
-    : '- ❌ Not ready for promotion: required Layer 3 evidence is missing, stale, or semantically invalid.');
-
-  return `${lines.join('\n')}\n`;
+  return lines.join('\n');
 }
 
-function writeReport(reportPath, reportMarkdown) {
-  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
-  fs.writeFileSync(reportPath, reportMarkdown, 'utf8');
+function loadReleaseDiffFromEnv() {
+  const raw = process.env.LAYER3_RELEASE_DIFF_JSON;
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed ? parsed : {};
+  } catch (error) {
+    throw new Error(`invalid LAYER3_RELEASE_DIFF_JSON: ${error.message}`);
+  }
 }
 
 function main() {
@@ -284,19 +363,23 @@ function main() {
   const reportPath = process.env.LAYER3_READINESS_REPORT_PATH ?? DEFAULT_REPORT_PATH;
 
   const manifest = loadManifest(manifestPath);
-  const releaseDiff = JSON.parse(process.env.LAYER3_RELEASE_DIFF_JSON ?? "{}");
-  const result = evaluateLayer3Readiness({ manifest, releaseDiff });
-  const report = buildLayer3ReadinessReport(result);
+  const releaseDiff = loadReleaseDiffFromEnv();
 
-  writeReport(reportPath, report);
-  console.log(`Layer 3 readiness report written to ${reportPath}`);
+  const result = evaluateLayer3Readiness({
+    manifest,
+    baseDir: process.cwd(),
+    releaseDiff,
+  });
+
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, buildLayer3ReadinessReport(result), 'utf8');
 
   if (!result.productionReady) {
-    console.error('❌ Layer 3 readiness evidence gate failed. See report for missing/stale/invalid artifacts.');
+    console.error(`Layer 3 readiness failed. See report: ${reportPath}`);
     process.exit(1);
   }
 
-  console.log('✅ Layer 3 readiness evidence gate passed.');
+  console.log(`Layer 3 readiness passed. Report: ${reportPath}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
