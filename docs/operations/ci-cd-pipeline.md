@@ -138,6 +138,7 @@ Detailed test stages (within or adjacent to `ci:verify`):
 6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
 7. Security gate lanes now split across `.github/workflows/pr-fast.yml`, `.github/workflows/main-verify.yml`, and `.github/workflows/deploy.yml`: `security-gate` remains a blocker for PR and main verification, while `dast-gate` stays in deploy-time promotion checks. Within `security-gate`, SBOM generation is a required merge check and the lane fails if `sbom.json` is missing or empty.
 8. Deployment promotion checks in `.github/workflows/deploy.yml`: `dast-gate` must pass before `build-images`, is required by `preprod-launch-gate`, and is therefore a pre-production blocker before `deploy-production`.
+9. Layer 3 promotion evidence checks in `.github/workflows/deploy.yml`: `layer3-readiness-evidence-gate` runs as an additive pre-promotion control and blocks promotion only when required evidence artifacts are missing or stale. Operator procedure and report format are documented in `docs/operations/layer3-readiness-evidence-gate.md`.
 
 Architecture & operational notes:
 
