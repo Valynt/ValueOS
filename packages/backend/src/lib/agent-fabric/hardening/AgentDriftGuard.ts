@@ -29,12 +29,39 @@ export interface DriftCheckResult {
 }
 
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
+const MIN_RECONCILIATION_MS = 1_000;
+const MAX_RECONCILIATION_MS = 24 * 60 * 60 * 1_000;
+
+function parseReconciliationIntervalMs(
+  value: string | undefined,
+  defaultValue: number = DEFAULT_RECONCILIATION_MS
+): number {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  const isFiniteInteger = Number.isFinite(parsed) && Number.isInteger(parsed);
+  const inRange = parsed >= MIN_RECONCILIATION_MS && parsed <= MAX_RECONCILIATION_MS;
+
+  if (!isFiniteInteger || !inRange) {
+    logger.warn("agent.drift_guard.invalid_interval_ms", {
+      offending_value: value,
+      fallback_interval_ms: defaultValue,
+      min_interval_ms: MIN_RECONCILIATION_MS,
+      max_interval_ms: MAX_RECONCILIATION_MS,
+    });
+    return defaultValue;
+  }
+
+  return parsed;
+}
 
 export function readDriftGuardConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DriftGuardConfig {
   return {
     enabled: env.AGENT_DRIFT_GUARD_ENABLED !== "false",
     strictMode: env.AGENT_DRIFT_GUARD_STRICT === "true",
-    reconciliationIntervalMs: Number(env.AGENT_DRIFT_GUARD_INTERVAL_MS ?? DEFAULT_RECONCILIATION_MS),
+    reconciliationIntervalMs: parseReconciliationIntervalMs(env.AGENT_DRIFT_GUARD_INTERVAL_MS),
   };
 }
 
