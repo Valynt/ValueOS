@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 
 const DOC_PATH = 'docs/operations/layer5-production-readiness.md';
+const forceBaselineValidation = process.argv.includes('--baseline') || process.env.LAYER5_BASELINE_VALIDATION === 'true';
 const baseSha = process.env.CI_BASE_SHA || process.env.GITHUB_BASE_SHA || 'origin/main';
 const headSha = process.env.CI_HEAD_SHA || process.env.GITHUB_SHA || 'HEAD';
 
@@ -26,7 +27,7 @@ const layer5Patterns = [
 ];
 const isLayer5Impacting = changed.some((f) => layer5Patterns.some((re) => re.test(f)));
 
-if (!isLayer5Impacting) {
+if (!isLayer5Impacting && !forceBaselineValidation) {
   console.log('ℹ️ No Layer 5-impacting changes detected; readiness gate not required.');
   process.exit(0);
 }
@@ -56,4 +57,8 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log(`✅ Layer 5 readiness gate passed for Layer 5-impacting changes (${changed.length} files changed).`);
+if (forceBaselineValidation) {
+  console.log(`✅ Layer 5 readiness baseline integrity passed (${changed.length} files inspected).`);
+} else {
+  console.log(`✅ Layer 5 readiness gate passed for Layer 5-impacting changes (${changed.length} files changed).`);
+}
