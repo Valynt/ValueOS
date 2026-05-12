@@ -1152,7 +1152,31 @@ jobs:
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     steps:
       - uses: actions/checkout@v6
+      - name: Compute changed files for Layer 3 applicability
+        id: layer3-changed-files
+        run: |
+          set -euo pipefail
+          BASE_SHA="${{ github.event.before }}"
+          HEAD_SHA="${{ github.sha }}"
+
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
+          fi
+
+          if [ -z "${BASE_SHA}" ]; then
+            CHANGED_FILES="$(git show --name-only --pretty='' "${HEAD_SHA}")"
+          else
+            CHANGED_FILES="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
+          fi
+
+          {
+            echo 'changed_files<<EOF'
+            echo "${CHANGED_FILES}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Validate Layer 3 readiness evidence manifest
+        env:
+          LAYER3_CHANGED_FILES: ${{ steps.layer3-changed-files.outputs.changed_files }}
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report
         if: always()

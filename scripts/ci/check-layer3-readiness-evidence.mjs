@@ -21,15 +21,90 @@ function changedControlsFromManifest(manifest) {
     .sort();
 }
 
-export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs() }) {
+function parseChangedFiles(value) {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((entry) => typeof entry === 'string' && entry.trim().length > 0);
+    }
+  } catch {
+    // Fall through to newline/CSV parsing below.
+  }
+
+  return value
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function globPatternToRegExp(pattern) {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regexPattern = escaped
+    .replace(/\*\*/g, '__DOUBLE_STAR__')
+    .replace(/\*/g, '[^/]*')
+    .replace(/__DOUBLE_STAR__/g, '.*');
+  return new RegExp(`^${regexPattern}$`);
+}
+
+function resolveApplicabilityFromCondition(requiredWhen, changedFiles) {
+  if (!requiredWhen) {
+    return { applicable: true, reason: 'always required' };
+  }
+
+  const patterns = Array.isArray(requiredWhen.anyChangedFileMatches)
+    ? requiredWhen.anyChangedFileMatches
+    : [];
+  if (patterns.length === 0) {
+    return { applicable: true, reason: 'requiredWhen provided without anyChangedFileMatches patterns' };
+  }
+
+  const matchedFiles = [];
+  for (const pattern of patterns) {
+    const matcher = globPatternToRegExp(pattern);
+    for (const file of changedFiles) {
+      if (matcher.test(file)) {
+        matchedFiles.push(file);
+      }
+    }
+  }
+
+  if (matchedFiles.length > 0) {
+    return {
+      applicable: true,
+      reason: `requiredWhen matched changed file(s): ${[...new Set(matchedFiles)].join(', ')}`,
+    };
+  }
+
+  return {
+    applicable: false,
+    reason: `requiredWhen not met (patterns: ${patterns.join(', ')})`,
+  };
+}
+
+export function evaluateLayer3Readiness({ manifest, changedFiles = [], baseDir = process.cwd(), now = nowMs() }) {
   const maxArtifactAgeHours = Number(manifest.maxArtifactAgeHours ?? 24);
   const maxArtifactAgeMs = maxArtifactAgeHours * 60 * 60 * 1000;
 
   const passedChecks = [];
   const failedChecks = [];
+  const skippedChecks = [];
   const openRisks = [];
 
   for (const check of manifest.checks ?? []) {
+    const applicability = resolveApplicabilityFromCondition(check.requiredWhen, changedFiles);
+    if (!applicability.applicable) {
+      skippedChecks.push({
+        id: check.id,
+        name: check.name,
+        reason: applicability.reason,
+      });
+      continue;
+    }
+
     const failures = [];
     const staleArtifacts = [];
 
@@ -69,7 +144,9 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     maxArtifactAgeHours,
     passedChecks,
     failedChecks,
+    skippedChecks,
     changedControls: changedControlsFromManifest(manifest),
+    changedFiles,
     openRisks,
     productionReady: failedChecks.length === 0,
   };
@@ -103,6 +180,17 @@ export function buildLayer3ReadinessReport(result) {
       for (const failure of check.failures) {
         lines.push(`  - ${failure}`);
       }
+    }
+  }
+  lines.push('');
+
+  lines.push('## Skipped checks');
+  if (result.skippedChecks.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const check of result.skippedChecks) {
+      lines.push(`- ⏭️ ${check.id} (${check.name}): skipped (not applicable)`);
+      lines.push(`  - ${check.reason}`);
     }
   }
   lines.push('');
@@ -141,7 +229,13 @@ function main() {
   const reportPath = process.env.LAYER3_READINESS_REPORT_PATH ?? DEFAULT_REPORT_PATH;
 
   const manifest = loadManifest(manifestPath);
-  const result = evaluateLayer3Readiness({ manifest });
+  const changedFiles = parseChangedFiles(
+    process.env.LAYER3_CHANGED_FILES
+      ?? process.env.CHANGED_FILES
+      ?? process.env.GITHUB_CHANGED_FILES
+      ?? ''
+  );
+  const result = evaluateLayer3Readiness({ manifest, changedFiles });
   const report = buildLayer3ReadinessReport(result);
 
   writeReport(reportPath, report);
