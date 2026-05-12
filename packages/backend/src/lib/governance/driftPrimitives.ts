@@ -33,6 +33,28 @@ function getPayload(payload: unknown): Record<string, unknown> {
   return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
 }
 
+function resolveDriftPolicy(ctx: GovernanceContext, policyType: keyof typeof DRIFT_POLICIES) {
+  return ctx.environment.stage === 'prod' ? DRIFT_POLICIES[policyType].prod : DRIFT_POLICIES[policyType].nonProd;
+}
+
+function pushSignalDrift(
+  assessments: DriftAssessment[],
+  ctx: GovernanceContext,
+  driftType: DriftAssessment['driftType'],
+  policyType: keyof typeof DRIFT_POLICIES,
+  signalType: 'missing' | 'mismatch',
+  details: string,
+): void {
+  const policy = resolveDriftPolicy(ctx, policyType);
+  assessments.push({
+    driftDetected: true,
+    driftType,
+    severity: policy.severity,
+    remediationAction: policy.remediationAction,
+    details: `[${signalType.toUpperCase()}] ${details}; policy=${policy.severity}/${policy.remediationAction}`,
+  });
+}
+
 export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[]): DriftAssessment[] {
   const assessments: DriftAssessment[] = [];
   const payload = getPayload(ctx.action.payload);
@@ -80,41 +102,74 @@ export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[
 
   const schemaHashExpected = governanceConfig.schemaHashExpected;
   const schemaHashObserved = typeof payload.schema_manifest_hash === 'string' ? payload.schema_manifest_hash : undefined;
-  if (schemaHashExpected && schemaHashObserved && schemaHashObserved !== schemaHashExpected) {
-    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.schema.prod : DRIFT_POLICIES.schema.nonProd;
-    assessments.push({
-      driftDetected: true,
-      driftType: 'SCHEMA_CONTRACT_DRIFT',
-      severity: policy.severity,
-      remediationAction: policy.remediationAction,
-      details: `Schema contract drift: observed ${schemaHashObserved} expected ${schemaHashExpected}; policy=${policy.severity}/${policy.remediationAction}`,
-    });
+  if (schemaHashExpected) {
+    if (!schemaHashObserved) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'SCHEMA_CONTRACT_DRIFT',
+        'schema',
+        'missing',
+        `Schema contract drift signal missing: schema_manifest_hash; expected ${schemaHashExpected}`,
+      );
+    } else if (schemaHashObserved !== schemaHashExpected) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'SCHEMA_CONTRACT_DRIFT',
+        'schema',
+        'mismatch',
+        `Schema contract drift: observed ${schemaHashObserved} expected ${schemaHashExpected}`,
+      );
+    }
   }
 
   const expectedMigrationHead = governanceConfig.appMigrationHead;
   const runtimeMigrationHead = typeof payload.runtime_migration_head === 'string' ? payload.runtime_migration_head : undefined;
-  if (expectedMigrationHead && runtimeMigrationHead && runtimeMigrationHead !== expectedMigrationHead) {
-    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.migration.prod : DRIFT_POLICIES.migration.nonProd;
-    assessments.push({
-      driftDetected: true,
-      driftType: 'MIGRATION_HEAD_DRIFT',
-      severity: policy.severity,
-      remediationAction: policy.remediationAction,
-      details: `Migration head drift: runtime ${runtimeMigrationHead} expected ${expectedMigrationHead}; policy=${policy.severity}/${policy.remediationAction}`,
-    });
+  if (expectedMigrationHead) {
+    if (!runtimeMigrationHead) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'MIGRATION_HEAD_DRIFT',
+        'migration',
+        'missing',
+        `Migration head drift signal missing: runtime_migration_head; expected ${expectedMigrationHead}`,
+      );
+    } else if (runtimeMigrationHead !== expectedMigrationHead) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'MIGRATION_HEAD_DRIFT',
+        'migration',
+        'mismatch',
+        `Migration head drift: runtime ${runtimeMigrationHead} expected ${expectedMigrationHead}`,
+      );
+    }
   }
 
   const expectedContractVersion = governanceConfig.requiredPayloadContractVersion;
   const runtimeContractVersion = typeof payload.contract_version === 'string' ? payload.contract_version : undefined;
-  if (expectedContractVersion && runtimeContractVersion && runtimeContractVersion !== expectedContractVersion) {
-    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.validationContract.prod : DRIFT_POLICIES.validationContract.nonProd;
-    assessments.push({
-      driftDetected: true,
-      driftType: 'VALIDATION_CONTRACT_DRIFT',
-      severity: policy.severity,
-      remediationAction: policy.remediationAction,
-      details: `Validation contract drift: runtime ${runtimeContractVersion} expected ${expectedContractVersion}; policy=${policy.severity}/${policy.remediationAction}`,
-    });
+  if (expectedContractVersion) {
+    if (!runtimeContractVersion) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'VALIDATION_CONTRACT_DRIFT',
+        'validationContract',
+        'missing',
+        `Validation contract drift signal missing: contract_version; expected ${expectedContractVersion}`,
+      );
+    } else if (runtimeContractVersion !== expectedContractVersion) {
+      pushSignalDrift(
+        assessments,
+        ctx,
+        'VALIDATION_CONTRACT_DRIFT',
+        'validationContract',
+        'mismatch',
+        `Validation contract drift: runtime ${runtimeContractVersion} expected ${expectedContractVersion}`,
+      );
+    }
   }
 
   return assessments;
