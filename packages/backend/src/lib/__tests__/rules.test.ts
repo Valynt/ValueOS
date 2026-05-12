@@ -604,7 +604,7 @@ describe('enforceRulesDetailed', () => {
       expect(mockDriftCounters.driftDenied.inc).toHaveBeenCalled();
       expect(logger.warn).toHaveBeenCalledWith(
         'governance.drift.telemetry',
-        expect.objectContaining({ outcome: 'denied', sessionId: 'sess-1', requestId: 'sess-1' })
+        expect.objectContaining({ outcome: 'denied', sessionId: 'sess-1' })
       );
     });
 

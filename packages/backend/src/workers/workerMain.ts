@@ -60,6 +60,13 @@ import {
   scheduleAlertingEvaluationJob,
 } from './AlertingRulesWorker.js';
 
+import {
+  getGovernanceDriftQueue,
+  GOVERNANCE_DRIFT_QUEUE_NAME,
+  initGovernanceDriftReconciliationWorker,
+  scheduleGovernanceDriftReconciliationJob,
+} from './GovernanceDriftReconciliationWorker.js';
+
 const logger = createLogger({ component: 'WorkerMain' });
 
 logger.info('Starting standalone worker process');
@@ -140,6 +147,21 @@ try {
   });
 }
 
+
+try {
+  initGovernanceDriftReconciliationWorker();
+  scheduleGovernanceDriftReconciliationJob().catch((err) => {
+    logger.warn('Failed to schedule governance drift reconciliation job', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  logger.info('Governance drift reconciliation worker initialized');
+} catch (err) {
+  logger.warn('Governance drift reconciliation worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 try {
   initAlertingRulesWorker();
   scheduleAlertingEvaluationJob().catch((err) => {
@@ -186,6 +208,11 @@ const queueHealthSamplers = [
     queue: getAlertingQueue,
     queueName: ALERTING_QUEUE_NAME,
     workerClass: 'alerting-rules-worker',
+  },
+  {
+    queue: getGovernanceDriftQueue,
+    queueName: GOVERNANCE_DRIFT_QUEUE_NAME,
+    workerClass: 'governance-drift-reconciliation-worker',
   },
 ] as const;
 

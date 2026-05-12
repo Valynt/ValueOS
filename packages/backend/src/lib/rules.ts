@@ -20,6 +20,7 @@
 import { createServerSupabaseClient } from './supabase.js';
 import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
+import { evaluateGovernanceDrift, type DriftAssessment } from './governance/driftPrimitives.js';
 import { createCounter } from './observability/index.js';
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryCont
     action_name: ctx.actionName,
   };
 
-  driftDetectedTotal.inc(labels);
+  if (outcome === 'detected') driftDetectedTotal.inc(labels);
   if (outcome === 'remediated') driftRemediatedTotal.inc(labels);
   if (outcome === 'unresolved') driftUnresolvedTotal.inc(labels);
   if (outcome === 'denied') driftDeniedTotal.inc(labels);
@@ -87,7 +88,6 @@ function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryCont
     stage: ctx.stage,
     actionName: ctx.actionName,
     sessionId: ctx.sessionId ?? 'unknown',
-    requestId: ctx.sessionId ?? 'unknown',
     ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
   });
 }
@@ -181,16 +181,6 @@ export interface GovernanceAudit {
   matchedRules: string[];
 }
 
-export interface DriftAssessment {
-  driftDetected: boolean;
-  driftType?:
-    | 'ROLE_PERMISSION_STALENESS'
-    | 'WORKFLOW_APPROVAL_INCONSISTENCY'
-    | 'CRITICAL_CONFIG_INVARIANT';
-  severity?: 'low' | 'medium' | 'high';
-  remediationAction?: 'REQUIRE_APPROVAL' | 'READ_ONLY' | 'REFRESH_PERMISSIONS';
-  details?: string;
-}
 
 export interface GovernanceDecision {
   allowed: boolean;
@@ -472,61 +462,6 @@ async function getProposalGovernanceStatus(
   };
 }
 
-function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): boolean {
-  if (requiredFields.length === 0) return true;
-  if (!payload || typeof payload !== 'object') return false;
-  return requiredFields.every((field) => {
-    const value = (payload as Record<string, unknown>)[field];
-    return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
-  });
-}
-
-async function runDriftChecks(
-  ctx: GovernanceContext,
-  granted: string[]
-): Promise<DriftAssessment[]> {
-  const assessments: DriftAssessment[] = [];
-
-  // 1) Actor role/permission freshness vs cached grants.
-  if (ctx.actor.roles.length > 0 && granted.length === 0) {
-    assessments.push({
-      driftDetected: true,
-      driftType: 'ROLE_PERMISSION_STALENESS',
-      severity: 'high',
-      remediationAction: 'REFRESH_PERMISSIONS',
-      details: 'Actor roles are present but resolved permissions are empty.',
-    });
-  }
-
-  // 2) Workflow approval consistency for prod-gated actions.
-  if (ctx.environment.stage === 'prod' && PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)) {
-    const approvals = ctx.workflow?.approvals ?? [];
-    if (!approvals.includes(ctx.action.name) || !ctx.workflow?.workflowId) {
-      assessments.push({
-        driftDetected: true,
-        driftType: 'WORKFLOW_APPROVAL_INCONSISTENCY',
-        severity: 'high',
-        remediationAction: 'REQUIRE_APPROVAL',
-        details: 'Prod-gated action missing matching workflow approval context.',
-      });
-    }
-  }
-
-  // 3) Critical config invariants (stage-sensitive required fields).
-  const requiredFields = governanceConfig.stageRequiredFields[ctx.environment.stage] ?? [];
-  if (!hasRequiredPayloadFields(ctx.action.payload, requiredFields)) {
-    assessments.push({
-      driftDetected: true,
-      driftType: 'CRITICAL_CONFIG_INVARIANT',
-      severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
-      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
-      details: `Missing required stage-sensitive fields: ${requiredFields.join(', ')}`,
-    });
-  }
-
-  return assessments;
-}
-
 // ============================================================================
 // Core evaluation engine
 // ============================================================================
@@ -724,7 +659,7 @@ export async function enforceRulesDetailed(
     // ------------------------------------------------------------------
     // Layer 6: Drift checks
     // ------------------------------------------------------------------
-    const driftAssessments = await runDriftChecks(ctx, granted);
+    const driftAssessments = evaluateGovernanceDrift(ctx, granted, PROD_APPROVAL_REQUIRED_ACTIONS);
     const detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
 
     if (detectedDrift.length > 0) {
