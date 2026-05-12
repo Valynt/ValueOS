@@ -588,22 +588,36 @@ describe('enforceRulesDetailed', () => {
       expect(result.allowed).toBe(true);
     });
 
-    it('denies tampered approval payload, stale approval, wrong tenant/resource, and replayed approval', async () => {
-      const baseNow = new Date();
+    it('denies contract-drift permutations with deterministic rule attribution', async () => {
+      const baseNow = new Date('2026-05-12T10:00:00.000Z');
       const makeApproval = (overrides: Record<string, unknown> = {}) => {
         const approvedAt = (overrides.approvedAt as string) ?? baseNow.toISOString();
         const payload = {
           tenantId: (overrides.tenantId as string) ?? 'tenant-1',
-          actionName: 'proposal.publish',
+          actionName: (overrides.actionName as string) ?? 'proposal.publish',
           resourceType: (overrides.resourceType as string) ?? 'proposal',
           resourceId: (overrides.resourceId as string) ?? 'case-1',
-          requestId: 'session-1',
-          sessionId: 'session-1',
+          requestId: (overrides.requestId as string) ?? 'session-1',
+          sessionId: (overrides.sessionId as string) ?? 'session-1',
           approvedAt,
-          nonce: 'nonce-1',
-          approvalSequence: 1,
+          nonce: (overrides.nonce as string) ?? 'nonce-1',
+          approvalSequence: (overrides.approvalSequence as number) ?? 1,
         };
-        return { ...payload, signatureHash: buildApprovalHash(payload) };
+        return {
+          actionName: payload.actionName,
+          approvalSchemaVersion: (overrides.approvalSchemaVersion as string) ?? 'v1',
+          sourceSystemId: 'rules.test',
+          approvedAt,
+          requestId: payload.requestId,
+          sessionId: payload.sessionId,
+          tenantId: payload.tenantId,
+          resourceType: payload.resourceType,
+          resourceId: payload.resourceId,
+          signature: (overrides.signature as string) ?? 'sig-1',
+          nonce: payload.nonce,
+          approvalSequence: payload.approvalSequence,
+          signatureHash: buildApprovalHash(payload),
+        };
       };
       const mockCommon = (persisted: Record<string, unknown> | null) => {
         mockSupabaseFrom.mockImplementation((table: string) => {
@@ -632,26 +646,37 @@ describe('enforceRulesDetailed', () => {
         });
       };
       const baseCtx = makeCtx({ actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'], sessionId: 'session-1' }, action: { type: 'proposal.publish', name: 'proposal.publish', target: { resourceType: 'proposal', resourceId: 'case-1' } }, environment: { stage: 'prod', nowIso: baseNow.toISOString() } });
+      const persistedBase = { tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: '', nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null };
+
+      const cases: Array<{ name: string; approval: Record<string, unknown>; persisted?: Record<string, unknown> | null }> = [
+        { name: 'missing signature', approval: { signature: undefined } },
+        { name: 'empty signature', approval: { signature: '' } },
+        { name: 'unsupported approvalSchemaVersion', approval: { approvalSchemaVersion: 'v2' } },
+        { name: 'tenantId mismatch', approval: { tenantId: 'tenant-2' } },
+        { name: 'resourceType mismatch', approval: { resourceType: 'value_case' } },
+        { name: 'resourceId mismatch', approval: { resourceId: 'case-2' } },
+        { name: 'actionName mismatch', approval: { actionName: 'proposal.archive' } },
+        { name: 'requestId mismatch', approval: { requestId: 'session-2' } },
+        { name: 'invalid approvedAt format', approval: { approvedAt: 'not-an-iso-date' } },
+        { name: 'expired approvedAt timestamp', approval: { approvedAt: new Date(baseNow.getTime() - 16 * 60 * 1000).toISOString() } },
+        { name: 'stage mismatch (approval for non-prod used in prod)', approval: { approvalSchemaVersion: 'v1-dev' } },
+      ];
+
+      for (const driftCase of cases) {
+        const contract = makeApproval(driftCase.approval);
+        const persisted = driftCase.persisted ?? { ...persistedBase, signature_hash: contract.signatureHash };
+        mockCommon(persisted);
+        const result = await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [contract] } });
+        expect(result.allowed, driftCase.name).toBe(false);
+        expect(result.reasonCode, driftCase.name).toBe('DENY_MISSING_APPROVAL');
+        expect(result.audit.matchedRules, driftCase.name).toContain('prod-approval-required');
+      }
 
       const valid = makeApproval();
-      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: valid.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
-      const tampered = await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [{ ...valid, resourceId: 'case-2' }] } });
-      expect(tampered.reasonCode).toBe('DENY_MISSING_APPROVAL');
-
-      const staleApprovedAt = new Date(baseNow.getTime() - 16 * 60 * 1000).toISOString();
-      const stale = makeApproval({ approvedAt: staleApprovedAt });
-      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: stale.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
-      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [stale] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
-
-      const wrongTenant = makeApproval({ tenantId: 'tenant-2' });
-      mockCommon({ tenant_id: 'tenant-2', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: wrongTenant.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
-      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [wrongTenant] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
-
-      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: valid.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: 'already-used' });
-      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [valid] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
+      mockCommon({ ...persistedBase, signature_hash: valid.signatureHash });
+      const allowed = await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [valid] } });
+      expect(allowed.allowed).toBe(true);
     });
-  });
-
   describe('Layer 6 — anti-drift', () => {
     it('corrects stale cache when role changed from admin to viewer and denies', async () => {
       mockActiveMember(['admin']);

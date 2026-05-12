@@ -422,6 +422,7 @@ async function findValidApprovalContract(ctx: GovernanceContext): Promise<Approv
     const resourceTypeMatches = !!targetResourceType && contract.resourceType === targetResourceType;
     const resourceIdMatches = !!targetResourceId && contract.resourceId === targetResourceId;
     const hasTamperDetectionField = typeof contract.signature === 'string' || typeof contract.signatureHash === 'string';
+    const schemaVersionMatches = contract.approvalSchemaVersion === 'v1';
     const expectedHash = createHmac('sha256', APPROVAL_SIGNATURE_SECRET)
       .update(
         JSON.stringify({
@@ -448,6 +449,7 @@ async function findValidApprovalContract(ctx: GovernanceContext): Promise<Approv
       resourceTypeMatches &&
       resourceIdMatches &&
       hasTamperDetectionField &&
+      schemaVersionMatches &&
       signatureHashMatches
     ) {
       const { data: persisted, error } = await supabase
@@ -491,6 +493,7 @@ async function findValidApprovalContract(ctx: GovernanceContext): Promise<Approv
         resourceTypeMatches,
         resourceIdMatches,
         hasTamperDetectionField,
+        schemaVersionMatches,
         signatureHashMatches,
       },
     });
