@@ -561,6 +561,71 @@ describe('enforceRulesDetailed', () => {
       const result = await enforceRulesDetailed(ctx);
       expect(result.allowed).toBe(true);
     });
+
+    it('denies malformed or inconsistent approval contracts via table-driven permutations', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        if (table === 'value_cases') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 5, required_evidence_count: 3 }, error: null }) }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const nowIso = new Date().toISOString();
+      const expiredIso = new Date(Date.now() - (25 * 60 * 60 * 1000)).toISOString();
+      const baseApproval = {
+        actionName: 'proposal.publish',
+        approvalSchemaVersion: 'v1',
+        sourceSystemId: 'rules.test',
+        approvedAt: nowIso,
+        requestId: 'session-1',
+        tenantId: 'tenant-1',
+        resourceType: 'proposal',
+        resourceId: 'case-1',
+        signature: 'sig-123',
+      };
+      const baseCtx = makeCtx({
+        actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'], sessionId: 'session-1' },
+        action: {
+          type: 'proposal.publish',
+          name: 'proposal.publish',
+          target: { resourceType: 'proposal', resourceId: 'case-1' },
+        },
+        environment: { stage: 'prod', nowIso },
+      });
+
+      const permutations: Array<{ name: string; approval: Record<string, unknown> }> = [
+        { name: 'missing signature', approval: { ...baseApproval, signature: undefined } },
+        { name: 'empty signature', approval: { ...baseApproval, signature: '' } },
+        { name: 'unsupported approvalSchemaVersion', approval: { ...baseApproval, approvalSchemaVersion: '' } },
+        { name: 'tenantId mismatch', approval: { ...baseApproval, tenantId: 'tenant-OTHER' } },
+        { name: 'resourceType mismatch', approval: { ...baseApproval, resourceType: 'value_model' } },
+        { name: 'resourceId mismatch', approval: { ...baseApproval, resourceId: 'case-OTHER' } },
+        { name: 'actionName mismatch', approval: { ...baseApproval, actionName: 'commitment.publish' } },
+        { name: 'requestId mismatch', approval: { ...baseApproval, requestId: 'session-OTHER' } },
+        { name: 'invalid approvedAt format', approval: { ...baseApproval, approvedAt: 'not-a-date' } },
+        { name: 'expired approvedAt', approval: { ...baseApproval, approvedAt: expiredIso } },
+        { name: 'stage mismatch non-prod approval in prod', approval: { ...baseApproval, issuedStage: 'staging' } },
+      ];
+
+      for (const permutation of permutations) {
+        const result = await enforceRulesDetailed({
+          ...baseCtx,
+          workflow: { approvals: [permutation.approval] },
+        });
+        expect(result.allowed, permutation.name).toBe(false);
+        expect(result.reasonCode, permutation.name).toBe('DENY_MISSING_APPROVAL');
+        expect(result.audit.matchedRules, permutation.name).toEqual(expect.arrayContaining(['prod-approval-required']));
+      }
+    });
   });
 
   describe('Layer 6 — anti-drift', () => {

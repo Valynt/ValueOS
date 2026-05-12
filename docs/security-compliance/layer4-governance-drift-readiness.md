@@ -16,6 +16,8 @@ This document defines the production readiness contract for governance **Layer 4
 | High-severity drift fail-closed     | Any high-severity detected drift blocks action execution.                                                           | `packages/backend/src/lib/rules.ts` (Layer 6 drift check + deny path)                                                                                  | Deny with `DENY_POLICY`, increment drift denied counter.                                                                                       |
 | Drift telemetry integrity           | Every drift event is counted and labeled by type, severity, remediation action, stage, and action name.             | `packages/backend/src/lib/rules.ts` (`createCounter`, `emitDriftTelemetry`) and `packages/backend/src/workers/GovernanceDriftReconciliationWorker.ts`  | Missing telemetry is treated as observability defect; release readiness fails under evidence requirements below.                               |
 
+Layer 4 adversarial approval-contract coverage is enforced in `packages/backend/src/lib/__tests__/rules.test.ts` via table-driven permutations that assert deterministic `DENY_MISSING_APPROVAL` outcomes and matched-rule tracing (`prod-approval-required`) for malformed/inconsistent approvals (signature presence, schema version validity, tenant/resource/action/request correlation, timestamp validity/freshness, and stage alignment).
+
 ## 2) Drift taxonomy map (type -> checks -> remediation)
 
 The current runtime drift types are implemented as:

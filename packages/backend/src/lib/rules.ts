@@ -238,6 +238,7 @@ export interface ApprovalContract {
   actionName: string;
   approvalSchemaVersion: string;
   sourceSystemId: string;
+  issuedStage?: string;
   approvedAt: string;
   requestId: string;
   sessionId?: string;
@@ -307,6 +308,7 @@ const ApprovalContractSchema = z.object({
   actionName: z.string().min(1),
   approvalSchemaVersion: z.string().min(1),
   sourceSystemId: z.string().min(1),
+  issuedStage: z.string().min(1).optional(),
   approvedAt: z.string().datetime(),
   requestId: z.string().min(1),
   sessionId: z.string().min(1).optional(),
@@ -384,6 +386,7 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
     const isFresh = Number.isFinite(approvedAtMs) && now - approvedAtMs <= APPROVAL_FRESHNESS_WINDOW_MS && approvedAtMs <= now;
     const requestMatches = !ctx.actor.sessionId || contract.requestId === ctx.actor.sessionId;
     const sessionMatches = !ctx.actor.sessionId || !contract.sessionId || contract.sessionId === ctx.actor.sessionId;
+    const stageMatches = !contract.issuedStage || contract.issuedStage === ctx.environment.stage;
     const tenantMatches = contract.tenantId === ctx.actor.tenantId;
     const resourceTypeMatches = !!targetResourceType && contract.resourceType === targetResourceType;
     const resourceIdMatches = !!targetResourceId && contract.resourceId === targetResourceId;
@@ -394,6 +397,7 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
       isFresh &&
       requestMatches &&
       sessionMatches &&
+      stageMatches &&
       tenantMatches &&
       resourceTypeMatches &&
       resourceIdMatches &&
@@ -413,6 +417,7 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
         isFresh,
         requestMatches,
         sessionMatches,
+        stageMatches,
         tenantMatches,
         resourceTypeMatches,
         resourceIdMatches,
