@@ -187,7 +187,10 @@ export interface DriftAssessment {
   driftType?:
     | 'ROLE_PERMISSION_STALENESS'
     | 'WORKFLOW_APPROVAL_INCONSISTENCY'
-    | 'CRITICAL_CONFIG_INVARIANT';
+    | 'CRITICAL_CONFIG_INVARIANT'
+    | 'SCHEMA_CONTRACT_DRIFT'
+    | 'MIGRATION_HEAD_DRIFT'
+    | 'VALIDATION_CONTRACT_DRIFT';
   severity?: 'low' | 'medium' | 'high';
   remediationAction?: 'REQUIRE_APPROVAL' | 'READ_ONLY' | 'REFRESH_PERMISSIONS';
   details?: string;

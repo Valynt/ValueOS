@@ -13,8 +13,13 @@ function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): b
   });
 }
 
+function getPayload(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+}
+
 export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[]): DriftAssessment[] {
   const assessments: DriftAssessment[] = [];
+  const payload = getPayload(ctx.action.payload);
 
   if (ctx.actor.roles.length > 0 && granted.length === 0) {
     assessments.push({
@@ -47,6 +52,42 @@ export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[
       severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
       remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
       details: `Missing required stage-sensitive fields: ${requiredFields.join(', ')}`,
+    });
+  }
+
+  const schemaHashExpected = process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED;
+  const schemaHashObserved = typeof payload.schema_manifest_hash === 'string' ? payload.schema_manifest_hash : undefined;
+  if (schemaHashExpected && schemaHashObserved && schemaHashObserved !== schemaHashExpected) {
+    assessments.push({
+      driftDetected: true,
+      driftType: 'SCHEMA_CONTRACT_DRIFT',
+      severity: 'high',
+      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
+      details: `Schema contract drift: observed ${schemaHashObserved} expected ${schemaHashExpected}`,
+    });
+  }
+
+  const expectedMigrationHead = process.env.APP_MIGRATION_HEAD;
+  const runtimeMigrationHead = typeof payload.runtime_migration_head === 'string' ? payload.runtime_migration_head : undefined;
+  if (expectedMigrationHead && runtimeMigrationHead && runtimeMigrationHead !== expectedMigrationHead) {
+    assessments.push({
+      driftDetected: true,
+      driftType: 'MIGRATION_HEAD_DRIFT',
+      severity: 'high',
+      remediationAction: 'REQUIRE_APPROVAL',
+      details: `Migration head drift: runtime ${runtimeMigrationHead} expected ${expectedMigrationHead}`,
+    });
+  }
+
+  const expectedContractVersion = process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
+  const runtimeContractVersion = typeof payload.contract_version === 'string' ? payload.contract_version : undefined;
+  if (expectedContractVersion && runtimeContractVersion && runtimeContractVersion !== expectedContractVersion) {
+    assessments.push({
+      driftDetected: true,
+      driftType: 'VALIDATION_CONTRACT_DRIFT',
+      severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
+      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
+      details: `Validation contract drift: runtime ${runtimeContractVersion} expected ${expectedContractVersion}`,
     });
   }
 

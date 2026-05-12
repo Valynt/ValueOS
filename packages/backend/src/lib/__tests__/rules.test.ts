@@ -691,7 +691,57 @@ describe('enforceRulesDetailed', () => {
       expect(result.audit.matchedRules).toContain('layer6-refresh-failed-closed');
     });
 
-    it('emits observability markers and reason-code mapping for anti-drift denials', async () => {
+    
+    it('denies on schema contract drift in prod (fail closed)', async () => {
+      process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED = 'hash-expected';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'prod', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: { schema_manifest_hash: 'hash-runtime' },
+        },
+      }));
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(mockDriftCounters.driftDenied.inc).toHaveBeenCalled();
+      delete process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED;
+    });
+
+    it('denies on migration head drift in prod', async () => {
+      process.env.APP_MIGRATION_HEAD = '20260512090000';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'prod', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: { runtime_migration_head: '20260512080000' },
+        },
+      }));
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      delete process.env.APP_MIGRATION_HEAD;
+    });
+
+    it('adds remediation obligations for payload contract drift outside prod', async () => {
+      process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION = 'v3';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: { contract_version: 'v2' },
+        },
+      }));
+      expect(result.allowed).toBe(true);
+      expect(result.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
+      expect(mockDriftCounters.driftUnresolved.inc).toHaveBeenCalled();
+      delete process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
+    });
+it('emits observability markers and reason-code mapping for anti-drift denials', async () => {
       mockActiveMember(['viewer']);
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.audit.matchedRules).toContain('rbac');
