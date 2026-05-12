@@ -8,6 +8,24 @@ export interface DriftGuardConfig {
   reconciliationIntervalMs: number;
 }
 
+export interface DriftEvaluationArtifact {
+  evaluatedAt: string;
+  reasons: string[];
+  correctionApplied: boolean;
+  correctionType: DriftCorrectionType;
+  policyFingerprint: string;
+  requestedRiskTier: string;
+  appliedRiskTier: string;
+  requestedSchemaFingerprint: string;
+  appliedSchemaFingerprint: string;
+}
+
+export interface DriftSharedStateAdapter {
+  acquireReconciliationLock(lockKey: string, ttlMs: number): Promise<boolean>;
+  readLatestArtifact(cacheKey: string): Promise<DriftEvaluationArtifact | null>;
+  writeLatestArtifact(cacheKey: string, artifact: DriftEvaluationArtifact, ttlMs: number): Promise<void>;
+}
+
 export interface DriftCheckInput {
   agentName: string;
   riskTier: string;
@@ -26,6 +44,9 @@ export interface DriftCheckResult {
   appliedRiskTier: string;
   requestedSchemaFingerprint: string;
   appliedSchemaFingerprint: string;
+  evaluatedAt: string;
+  policyFingerprint: string;
+  source: "local" | "shared_cache";
 }
 
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
@@ -57,8 +78,21 @@ export class AgentDriftGuard {
   private readonly baselineThresholdFingerprint = sha256(stableJson(CONFIDENCE_THRESHOLDS));
   private readonly baselineVersion = new Date().toISOString();
   private lastCheckedAt = 0;
+  private readonly cacheKey: string;
+  private readonly lockKey: string;
+  private readonly lockTtlMs: number;
+  private readonly artifactTtlMs: number;
 
-  constructor(private readonly config: DriftGuardConfig) {}
+  constructor(
+    private readonly config: DriftGuardConfig,
+    private readonly sharedState?: DriftSharedStateAdapter,
+    sharedKeyPrefix = "agent-drift-guard"
+  ) {
+    this.cacheKey = `${sharedKeyPrefix}:latest-artifact`;
+    this.lockKey = `${sharedKeyPrefix}:reconcile-lock`;
+    this.lockTtlMs = Math.max(1_000, Math.min(this.config.reconciliationIntervalMs, 30_000));
+    this.artifactTtlMs = Math.max(this.config.reconciliationIntervalMs * 2, 60_000);
+  }
 
   public shouldRun(now: number = Date.now()): boolean {
     if (!this.config.enabled) return false;
@@ -120,6 +154,8 @@ export class AgentDriftGuard {
       });
     }
 
+    const evaluatedAt = new Date().toISOString();
+
     return {
       driftDetected,
       reasons,
@@ -130,7 +166,54 @@ export class AgentDriftGuard {
       appliedRiskTier,
       requestedSchemaFingerprint,
       appliedSchemaFingerprint,
+      evaluatedAt,
+      policyFingerprint: this.baselineThresholdFingerprint,
+      source: "local",
     };
+  }
+
+  public async reconcile(input: DriftCheckInput): Promise<DriftCheckResult> {
+    if (!this.sharedState) return this.check(input);
+
+    const lockAcquired = await this.sharedState.acquireReconciliationLock(this.lockKey, this.lockTtlMs);
+    if (!lockAcquired) {
+      const artifact = await this.sharedState.readLatestArtifact(this.cacheKey);
+      if (artifact) {
+        this.lastCheckedAt = Date.now();
+        return {
+          driftDetected: artifact.reasons.length > 0,
+          reasons: artifact.reasons,
+          correctionApplied: artifact.correctionApplied,
+          correctionType: artifact.correctionType,
+          baselineVersion: this.baselineVersion,
+          requestedRiskTier: artifact.requestedRiskTier,
+          appliedRiskTier: artifact.appliedRiskTier,
+          requestedSchemaFingerprint: artifact.requestedSchemaFingerprint,
+          appliedSchemaFingerprint: artifact.appliedSchemaFingerprint,
+          evaluatedAt: artifact.evaluatedAt,
+          policyFingerprint: artifact.policyFingerprint,
+          source: "shared_cache",
+        };
+      }
+    }
+
+    const result = this.check(input);
+    await this.sharedState.writeLatestArtifact(
+      this.cacheKey,
+      {
+        evaluatedAt: result.evaluatedAt,
+        reasons: result.reasons,
+        correctionApplied: result.correctionApplied,
+        correctionType: result.correctionType,
+        policyFingerprint: result.policyFingerprint,
+        requestedRiskTier: result.requestedRiskTier,
+        appliedRiskTier: result.appliedRiskTier,
+        requestedSchemaFingerprint: result.requestedSchemaFingerprint,
+        appliedSchemaFingerprint: result.appliedSchemaFingerprint,
+      },
+      this.artifactTtlMs
+    );
+    return result;
   }
 
   public isStrictMode(): boolean {
