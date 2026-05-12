@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---------------------------------------------------------------------------
 vi.mock('@shared/lib/permissions', () => ({
   USER_ROLE_PERMISSIONS: {
-    member: ['projects:view', 'projects:create', 'value_trees:view', 'value_trees:edit'],
+    member: ['projects:view', 'projects:create', 'value_trees:view', 'value_trees:edit', 'proposal.publish'],
     admin: [
       'projects:view',
       'projects:create',
@@ -21,6 +21,9 @@ vi.mock('@shared/lib/permissions', () => ({
       'value_trees:edit',
       'value_trees:delete',
       'proposal.publish',
+      'value_model.finalize',
+      'commitment.publish',
+      'ops.config.write',
       'value_model.delete',
       'case.delete',
     ],
@@ -425,6 +428,55 @@ describe('enforceRulesDetailed', () => {
     });
   });
 
+
+
+  describe('Layer 3 — workflow-state validation (expanded workflow mutations)', () => {
+    function mockMutationState(state: Record<string, unknown> | null): void {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        if (table === 'user_roles') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }) }) }) };
+        if (table === 'user_permissions') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        if (table === 'value_cases') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: state, error: null }) }) }) }) };
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+    }
+
+    it('enforces per-action transition checks for value_model.finalize', async () => {
+      const base = makeCtx({ actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'] }, action: { type: 'value_model.finalize', name: 'value_model.finalize', target: { resourceType: 'value_model', resourceId: 'case-2' } } });
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'draft', integrity_status: 'passed', evidence_count: 3, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).allowed).toBe(true);
+
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'published', integrity_status: 'passed', evidence_count: 3, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_INVALID_STATE');
+
+      const missingTarget = await enforceRulesDetailed({ ...base, action: { type: 'value_model.finalize', name: 'value_model.finalize' } });
+      expect(missingTarget.reasonCode).toBe('DENY_INVALID_STATE');
+
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'draft', integrity_status: 'passed', evidence_count: 1, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      mockMutationState({ tenant_id: 'tenant-2', workflow_state: 'draft', integrity_status: 'passed', evidence_count: 3, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_INVALID_STATE');
+    });
+
+    it('enforces per-action transition checks for commitment.publish', async () => {
+      const base = makeCtx({ actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'] }, action: { type: 'commitment.publish', name: 'commitment.publish', target: { resourceType: 'commitment', resourceId: 'case-3' } } });
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'approved', integrity_status: 'passed', evidence_count: 5, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).allowed).toBe(true);
+
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'draft', integrity_status: 'passed', evidence_count: 5, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_INVALID_STATE');
+
+      const missingTarget = await enforceRulesDetailed({ ...base, action: { type: 'commitment.publish', name: 'commitment.publish' } });
+      expect(missingTarget.reasonCode).toBe('DENY_INVALID_STATE');
+
+      mockMutationState({ tenant_id: 'tenant-1', workflow_state: 'approved', integrity_status: 'pending', evidence_count: 5, required_evidence_count: 2, approval_status: 'pending' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      mockMutationState({ tenant_id: 'tenant-2', workflow_state: 'approved', integrity_status: 'passed', evidence_count: 5, required_evidence_count: 2, approval_status: 'approved' });
+      expect((await enforceRulesDetailed(base)).reasonCode).toBe('DENY_INVALID_STATE');
+    });
+  });
   // -------------------------------------------------------------------------
   // Layer 4: Environment controls
   // -------------------------------------------------------------------------

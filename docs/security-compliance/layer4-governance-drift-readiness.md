@@ -109,3 +109,8 @@ Readiness package **must** include the following automated checks and artifacts:
 > **Readiness is NOT claimed unless every required evidence artifact is present and every required automated check is passing.**
 
 If any item is missing, stale, or failing, status is **NOT READY** and production promotion is blocked.
+
+
+## Related controls
+
+- Layer 3 workflow mutation state contract: `docs/security-compliance/layer3-workflow-state-contract.md`.
