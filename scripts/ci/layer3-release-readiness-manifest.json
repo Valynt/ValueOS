@@ -12,7 +12,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/workflow-state-tests.json"
       ]
@@ -25,7 +29,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/drift-primitive-tests.json"
       ]
@@ -35,8 +43,14 @@
       "name": "Migration head check",
       "required": true,
       "validator": "text-markers",
-      "successMarkers": ["CHECK: PASS"],
-      "failureMarkers": ["CHECK: FAIL", "ERROR", "FAILED"],
+      "successMarkers": [
+        "CHECK: PASS"
+      ],
+      "failureMarkers": [
+        "CHECK: FAIL",
+        "ERROR",
+        "FAILED"
+      ],
       "artifacts": [
         "artifacts/layer3/migration-head-check.log"
       ]
@@ -49,7 +63,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "contractsValidated", "breakingChanges"],
+      "requiredPaths": [
+        "success",
+        "contractsValidated",
+        "breakingChanges"
+      ],
       "artifacts": [
         "artifacts/layer3/schema-contract-check.json"
       ]
@@ -62,7 +80,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "routesValidated", "incompatibleRoutes"],
+      "requiredPaths": [
+        "success",
+        "routesValidated",
+        "incompatibleRoutes"
+      ],
       "artifacts": [
         "artifacts/layer3/route-compatibility-check.json"
       ]
@@ -75,7 +97,12 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "suite", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "suite",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/tenant-isolation-tests.json"
       ]
@@ -85,11 +112,84 @@
       "name": "Tenant migration readiness checklist artifact",
       "required": true,
       "validator": "text-markers",
-      "successMarkers": ["Layer 3 Tenant Migration Readiness Checklist", "Post-migration verification"],
-      "failureMarkers": ["TODO", "TBD", "MISSING"],
+      "successMarkers": [
+        "Layer 3 Tenant Migration Readiness Checklist",
+        "Post-migration verification"
+      ],
+      "failureMarkers": [
+        "TODO",
+        "TBD",
+        "MISSING"
+      ],
       "artifacts": [
         "artifacts/layer3/tenant-migration-readiness-checklist.md"
       ]
     }
-  ]
+  ],
+  "controlOwnership": {
+    "workflow-state-tests": {
+      "paths": [
+        "packages/backend/src/runtime/",
+        "packages/backend/src/data/lifecycleWorkflows.ts"
+      ],
+      "interfaces": [
+        "workflow-state-contract-v1"
+      ]
+    },
+    "drift-primitive-tests": {
+      "paths": [
+        "packages/backend/src/runtime/",
+        "packages/backend/src/services/realtime/"
+      ],
+      "interfaces": [
+        "drift-primitives-v1"
+      ]
+    },
+    "migration-head-check": {
+      "paths": [
+        "supabase/migrations/",
+        "scripts/db/"
+      ],
+      "interfaces": [
+        "migration-head"
+      ]
+    },
+    "schema-contract-check": {
+      "paths": [
+        "packages/shared/src/domain/",
+        "packages/backend/src/types/"
+      ],
+      "interfaces": [
+        "schema-contract-v1"
+      ]
+    },
+    "route-compatibility-check": {
+      "paths": [
+        "packages/backend/src/routes/",
+        "packages/backend/src/api/"
+      ],
+      "interfaces": [
+        "http-route-contract-v1"
+      ]
+    },
+    "tenant-isolation-tests": {
+      "paths": [
+        "packages/backend/src/lib/supabase/",
+        "packages/backend/src/services/tenant/",
+        "supabase/migrations/"
+      ],
+      "interfaces": [
+        "tenant-isolation-policy-v1"
+      ]
+    },
+    "tenant-migration-readiness-checklist": {
+      "paths": [
+        "docs/cicd/",
+        "scripts/ci/"
+      ],
+      "interfaces": [
+        "tenant-migration-readiness-v1"
+      ]
+    }
+  }
 }
