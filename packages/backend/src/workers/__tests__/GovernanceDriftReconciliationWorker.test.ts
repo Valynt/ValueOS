@@ -88,7 +88,51 @@ describe('GovernanceDriftReconciliationWorker', () => {
     expect(tenantB).toEqual([]);
   });
 
-  it.skip('runs producer mode and enqueues per tenant/workflow context', async () => {});
+  it('producer includes actor roles so scheduled evaluator jobs can detect ROLE_PERMISSION_STALENESS', async () => {
+    vi.resetModules();
+    const queueAdd = vi.fn().mockResolvedValue(undefined);
+
+    const membershipsQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data: [{ tenant_id: 'tenant-1', user_id: 'user-1' }], error: null }) };
+    const userRolesQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userRolesQuery.eq.mockReturnValueOnce(userRolesQuery).mockReturnValueOnce(Promise.resolve({ data: [{ role: 'admin' }], error: null }));
+    const userPermsQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userPermsQuery.eq.mockReturnValueOnce(userPermsQuery).mockReturnValueOnce(Promise.resolve({ data: [], error: null }));
+    const workflowQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data: [{ workflow_id: 'wf-1', current_stage: 'review' }], error: null }) };
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'user_tenants') return membershipsQuery;
+        if (table === 'user_roles') return userRolesQuery;
+        if (table === 'user_permissions') return userPermsQuery;
+        if (table === 'workflow_executions') return workflowQuery;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    vi.doMock('../../lib/supabase/privileged/index.js', () => ({ createWorkerServiceSupabaseClient: vi.fn(() => supabase) }));
+    vi.doMock('bullmq', () => ({ Queue: vi.fn(() => ({ add: queueAdd })), Worker: vi.fn() }));
+    vi.doMock('ioredis', () => ({ default: vi.fn(() => ({ on: vi.fn(), quit: vi.fn() })) }));
+
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    await module.produceGovernanceDriftReconciliationJobs(1);
+
+    const evaluateJobPayload = queueAdd.mock.calls.find((call) => call[0] === 'evaluate-governance-drift')?.[1];
+    expect(evaluateJobPayload?.context.actor.roles).toEqual(['admin']);
+
+    const result = await module.runGovernanceDriftReconciliationJob({
+      id: 'scheduled-job-1',
+      attemptsMade: 0,
+      data: {
+        kind: 'evaluate',
+        idempotencyKey: 'scheduled-k1',
+        context: evaluateJobPayload.context,
+        grantedPermissions: [],
+        remediationMode: 'approval-gated',
+      },
+    });
+
+    expect(result.some((record) => record.driftType === 'ROLE_PERMISSION_STALENESS')).toBe(true);
+  });
 });
 
 describe('producer failure hardening', () => {

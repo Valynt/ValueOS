@@ -76,7 +76,12 @@ export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> 
   }, { repeat: { every: INTERVAL_MINUTES * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
 }
 
-async function resolveGrantedPermissions(userId: string, tenantId: string): Promise<string[]> {
+interface ResolvedActorAccess {
+  roles: string[];
+  grantedPermissions: string[];
+}
+
+async function resolveActorAccess(userId: string, tenantId: string): Promise<ResolvedActorAccess> {
   const supabase = createWorkerServiceSupabaseClient({ justification: 'service-role:justified governance reconciliation requires tenant-scoped permission resolution' });
   const [{ data: roles, error: userRolesError }, { data: permissions, error: userPermissionsError }] = await Promise.all([
     supabase.from('user_roles').select('role').eq('user_id', userId).eq('tenant_id', tenantId),
@@ -102,7 +107,10 @@ async function resolveGrantedPermissions(userId: string, tenantId: string): Prom
   for (const row of permissions ?? []) {
     if (row.permission) granted.add(row.permission as string);
   }
-  return [...granted];
+  return {
+    roles: [...new Set((roles ?? []).map((row) => String(row.role)).filter((role) => role.length > 0))],
+    grantedPermissions: [...granted],
+  };
 }
 
 export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
@@ -122,7 +130,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
   for (const membership of activeMemberships ?? []) {
     const tenantId = membership.tenant_id as string;
     const userId = membership.user_id as string;
-    const grantedPermissions = await resolveGrantedPermissions(userId, tenantId);
+    const { roles, grantedPermissions } = await resolveActorAccess(userId, tenantId);
 
     const { data: workflowRows } = await supabase
       .from('workflow_executions')
@@ -145,7 +153,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
         remediationMode,
         grantedPermissions,
         context: {
-          actor: { userId, tenantId, roles: [] },
+          actor: { userId, tenantId, roles },
           action: { type: c.actionName, name: c.actionName },
           environment: { stage: 'prod', nowIso },
           workflow: { workflowId: c.workflowId, step: c.workflowStep, approvals: [] },
