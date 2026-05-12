@@ -872,8 +872,9 @@ export async function enforceRulesDetailed(
       }
 
       for (const drift of detectedDrift) {
-        const outcome = drift.remediationAction === 'REFRESH_PERMISSIONS' ? 'remediated' : 'unresolved';
-        emitDriftTelemetry(drift, telemetryContext, outcome);
+        // Any drift remaining here was not cleared by the refresh remediation path,
+        // so it is unresolved regardless of its remediationAction.
+        emitDriftTelemetry(drift, telemetryContext, 'unresolved');
       }
 
       return allow(evaluatedAt, matchedRules, obligations);
