@@ -11,6 +11,7 @@ Related readiness standard: `docs/security-compliance/layer4-governance-drift-re
 - `drift_remediated_total`
 - `drift_unresolved_total`
 - `drift_denied_total`
+- `drift_suppressed_duplicate_remediation_total`
 
 ## Alert thresholds
 
@@ -41,4 +42,5 @@ Escalation path:
 2. For `DENY_POLICY` spikes, validate whether a policy/config rollout occurred.
 3. For unresolved drift spikes, check approval workflows and stage-sensitive payload fields.
 4. For tenant-specific patterns, page tenant support + security owner.
-5. Record incident notes and link impacted request/session IDs.
+5. For suppressed duplicate remediation spikes, treat as retry-storm precursor: inspect repeated evaluations for the same `tenantId:userId:actionName`, confirm permission propagation latency, and verify only one refresh executes per dedupe TTL window.
+6. Record incident notes and link impacted request/session IDs.

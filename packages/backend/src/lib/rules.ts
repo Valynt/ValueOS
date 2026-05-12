@@ -22,6 +22,7 @@ import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
 import { createCounter } from './observability/index.js';
 import { evaluateGovernanceDrift } from './governance/driftPrimitives.js';
+import { getRedisClient } from './redis.js';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,11 @@ const driftUnresolvedTotal = createCounter(
 const driftDeniedTotal = createCounter(
   'drift_denied_total',
   'Total governance drift events resulting in denied decisions',
+  ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
+);
+const driftSuppressedDuplicateRemediationTotal = createCounter(
+  'drift_suppressed_duplicate_remediation_total',
+  'Total duplicate refresh-permissions remediations suppressed by dedupe lock',
   ['drift_type', 'severity', 'remediation_action', 'stage', 'action_name']
 );
 
@@ -617,7 +623,35 @@ async function loadWorkflowMutationState(resourceId: string, tenantId: string): 
 }
 
 interface EnforcementAttemptState {
-  refreshAttempted: boolean;
+  refreshAttempts: number;
+}
+
+const MAX_REFRESH_REMEDIATION_ATTEMPTS_PER_EVALUATION = 1;
+const REMEDIATION_DEDUPE_TTL_SECONDS = 15;
+const localRemediationDedupe = new Map<string, number>();
+
+export function __resetRemediationDedupeForTests(): void {
+  localRemediationDedupe.clear();
+}
+
+function buildRemediationDedupeKey(ctx: GovernanceContext): string {
+  return `governance:remediation:refresh:${ctx.actor.tenantId}:${ctx.actor.userId}:${ctx.action.name}`;
+}
+
+async function acquireRemediationDedupeLock(key: string): Promise<boolean> {
+  const client = await getRedisClient('control-plane');
+  if (client) {
+    const result = await client.set(key, '1', 'EX', REMEDIATION_DEDUPE_TTL_SECONDS, 'NX');
+    return result === 'OK';
+  }
+
+  const now = Date.now();
+  const existingExpiry = localRemediationDedupe.get(key);
+  if (typeof existingExpiry === 'number' && existingExpiry > now) {
+    return false;
+  }
+  localRemediationDedupe.set(key, now + REMEDIATION_DEDUPE_TTL_SECONDS * 1000);
+  return true;
 }
 
 async function tryRefreshPermissionsRemediation(
@@ -627,9 +661,9 @@ async function tryRefreshPermissionsRemediation(
   matchedRules: string[],
   telemetryContext: DriftTelemetryContext
 ): Promise<GovernanceDecision | null> {
-  if (attempt.refreshAttempted) {
+  if (attempt.refreshAttempts >= MAX_REFRESH_REMEDIATION_ATTEMPTS_PER_EVALUATION) {
     logger.warn('governance.drift.refresh.skipped', {
-      reason: 'retry_guard_already_attempted',
+      reason: 'retry_budget_exhausted',
       tenantId: ctx.actor.tenantId,
       userId: ctx.actor.userId,
       action: ctx.action.name,
@@ -639,7 +673,41 @@ async function tryRefreshPermissionsRemediation(
     return null;
   }
 
-  attempt.refreshAttempted = true;
+  attempt.refreshAttempts += 1;
+  const remediationDedupeKey = buildRemediationDedupeKey(ctx);
+  const remediationLockAcquired = await acquireRemediationDedupeLock(remediationDedupeKey);
+  if (!remediationLockAcquired) {
+    const duplicateAssessment: DriftAssessment = {
+      driftDetected: true,
+      driftType: 'ROLE_PERMISSION_STALENESS',
+      severity: 'medium',
+      remediationAction: 'REFRESH_PERMISSIONS',
+      details: 'Suppressed duplicate permission refresh remediation within lock window.',
+    };
+    driftSuppressedDuplicateRemediationTotal.inc({
+      drift_type: duplicateAssessment.driftType ?? 'UNKNOWN',
+      severity: duplicateAssessment.severity ?? 'unknown',
+      remediation_action: duplicateAssessment.remediationAction ?? 'NONE',
+      stage: telemetryContext.stage,
+      action_name: telemetryContext.actionName,
+    });
+    logger.warn('governance.drift.refresh.suppressed_duplicate', {
+      tenantId: ctx.actor.tenantId,
+      userId: ctx.actor.userId,
+      action: ctx.action.name,
+      stage: ctx.environment.stage,
+      requestId: ctx.actor.sessionId ?? 'unknown',
+      dedupeKey: remediationDedupeKey,
+      ttlSeconds: REMEDIATION_DEDUPE_TTL_SECONDS,
+    });
+    return deny(
+      'DENY_POLICY',
+      'Permission refresh remediation already in progress; duplicate remediation suppressed.',
+      evaluatedAt,
+      [...matchedRules, 'layer6-refresh-suppressed-duplicate']
+    );
+  }
+
   invalidatePermissionCache(ctx.actor.userId, ctx.actor.tenantId);
 
   const refreshedGranted = await resolvePermissions(
@@ -707,7 +775,7 @@ async function tryRefreshPermissionsRemediation(
 export async function enforceRulesDetailed(
   ctx: GovernanceContext
 ): Promise<GovernanceDecision> {
-  return evaluateRulesDetailed(ctx, { refreshAttempted: false });
+  return evaluateRulesDetailed(ctx, { refreshAttempts: 0 });
 }
 
 async function evaluateRulesDetailed(

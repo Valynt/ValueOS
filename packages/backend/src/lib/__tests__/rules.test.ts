@@ -71,6 +71,7 @@ const { mockDriftCounters } = vi.hoisted(() => ({
     driftRemediated: { inc: vi.fn(), add: vi.fn() },
     driftUnresolved: { inc: vi.fn(), add: vi.fn() },
     driftDenied: { inc: vi.fn(), add: vi.fn() },
+    driftSuppressedDuplicate: { inc: vi.fn(), add: vi.fn() },
   },
 }));
 
@@ -80,12 +81,22 @@ vi.mock('../observability/index.js', () => ({
     if (name === 'drift_remediated_total') return mockDriftCounters.driftRemediated;
     if (name === 'drift_unresolved_total') return mockDriftCounters.driftUnresolved;
     if (name === 'drift_denied_total') return mockDriftCounters.driftDenied;
+    if (name === 'drift_suppressed_duplicate_remediation_total') return mockDriftCounters.driftSuppressedDuplicate;
     return { inc: vi.fn(), add: vi.fn() };
   },
 }));
 
+const { mockRedisSet } = vi.hoisted(() => ({
+  mockRedisSet: vi.fn(),
+}));
+
+vi.mock('../redis.js', () => ({
+  getRedisClient: vi.fn(async () => ({ set: mockRedisSet })),
+}));
+
 import {
   __resetPermissionCacheForTests,
+  __resetRemediationDedupeForTests,
   enforceRules,
   enforceRulesDetailed,
   GovernanceContext,
@@ -214,6 +225,9 @@ describe('enforceRulesDetailed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __resetPermissionCacheForTests();
+    __resetRemediationDedupeForTests();
+    mockRedisSet.mockReset();
+    mockRedisSet.mockResolvedValue('OK');
   });
 
   // -------------------------------------------------------------------------
@@ -746,6 +760,43 @@ describe('enforceRulesDetailed', () => {
         'governance.drift.refresh.failed_closed',
         expect.objectContaining({ action: 'value_trees:edit' })
       );
+    });
+
+    it('suppresses duplicate refresh remediation attempts inside lock window', async () => {
+      let lockAttempts = 0;
+      mockRedisSet.mockImplementation(async () => {
+        lockAttempts += 1;
+        return lockAttempts === 1 ? 'OK' : null;
+      });
+      let roleCallCount = 0;
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          roleCallCount += 1;
+          const role = roleCallCount === 1 ? 'member' : 'ghost';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const baselineResult = await enforceRulesDetailed(makeCtx());
+      const staleCtx = makeCtx({ actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['ghost'] } });
+      const firstResult = await enforceRulesDetailed(staleCtx);
+      const secondResult = await enforceRulesDetailed(staleCtx);
+
+      expect(baselineResult.allowed).toBe(true);
+      expect(secondResult.audit.matchedRules).toContain('layer6-refresh-suppressed-duplicate');
+      expect(mockDriftCounters.driftSuppressedDuplicate.inc).toHaveBeenCalledTimes(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.refresh.suppressed_duplicate',
+        expect.objectContaining({ action: 'value_trees:edit' })
+      );
+      expect(mockRedisSet).toHaveBeenCalledTimes(2);
     });
 
     it('concurrent role change during refresh still fails closed', async () => {
