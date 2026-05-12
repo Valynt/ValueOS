@@ -4,6 +4,21 @@ import type { GovernanceContext, DriftAssessment } from '../rules.js';
 const governanceConfig = loadGovernanceConfig();
 const PROD_APPROVAL_REQUIRED_ACTIONS = governanceConfig.prodApprovalRequiredActions;
 
+const DRIFT_POLICIES = {
+  schema: {
+    prod: { severity: 'high', remediationAction: 'REQUIRE_APPROVAL' },
+    nonProd: { severity: 'medium', remediationAction: 'READ_ONLY' },
+  },
+  migration: {
+    prod: { severity: 'high', remediationAction: 'REQUIRE_APPROVAL' },
+    nonProd: { severity: 'medium', remediationAction: 'READ_ONLY' },
+  },
+  validationContract: {
+    prod: { severity: 'high', remediationAction: 'REQUIRE_APPROVAL' },
+    nonProd: { severity: 'medium', remediationAction: 'READ_ONLY' },
+  },
+} as const;
+
 function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): boolean {
   if (requiredFields.length === 0) return true;
   if (!payload || typeof payload !== 'object') return false;
@@ -63,36 +78,39 @@ export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[
   const schemaHashExpected = process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED;
   const schemaHashObserved = typeof payload.schema_manifest_hash === 'string' ? payload.schema_manifest_hash : undefined;
   if (schemaHashExpected && schemaHashObserved && schemaHashObserved !== schemaHashExpected) {
+    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.schema.prod : DRIFT_POLICIES.schema.nonProd;
     assessments.push({
       driftDetected: true,
       driftType: 'SCHEMA_CONTRACT_DRIFT',
-      severity: 'high',
-      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
-      details: `Schema contract drift: observed ${schemaHashObserved} expected ${schemaHashExpected}`,
+      severity: policy.severity,
+      remediationAction: policy.remediationAction,
+      details: `Schema contract drift: observed ${schemaHashObserved} expected ${schemaHashExpected}; policy=${policy.severity}/${policy.remediationAction}`,
     });
   }
 
   const expectedMigrationHead = process.env.APP_MIGRATION_HEAD;
   const runtimeMigrationHead = typeof payload.runtime_migration_head === 'string' ? payload.runtime_migration_head : undefined;
   if (expectedMigrationHead && runtimeMigrationHead && runtimeMigrationHead !== expectedMigrationHead) {
+    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.migration.prod : DRIFT_POLICIES.migration.nonProd;
     assessments.push({
       driftDetected: true,
       driftType: 'MIGRATION_HEAD_DRIFT',
-      severity: 'high',
-      remediationAction: 'REQUIRE_APPROVAL',
-      details: `Migration head drift: runtime ${runtimeMigrationHead} expected ${expectedMigrationHead}`,
+      severity: policy.severity,
+      remediationAction: policy.remediationAction,
+      details: `Migration head drift: runtime ${runtimeMigrationHead} expected ${expectedMigrationHead}; policy=${policy.severity}/${policy.remediationAction}`,
     });
   }
 
   const expectedContractVersion = process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
   const runtimeContractVersion = typeof payload.contract_version === 'string' ? payload.contract_version : undefined;
   if (expectedContractVersion && runtimeContractVersion && runtimeContractVersion !== expectedContractVersion) {
+    const policy = ctx.environment.stage === 'prod' ? DRIFT_POLICIES.validationContract.prod : DRIFT_POLICIES.validationContract.nonProd;
     assessments.push({
       driftDetected: true,
       driftType: 'VALIDATION_CONTRACT_DRIFT',
-      severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
-      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
-      details: `Validation contract drift: runtime ${runtimeContractVersion} expected ${expectedContractVersion}`,
+      severity: policy.severity,
+      remediationAction: policy.remediationAction,
+      details: `Validation contract drift: runtime ${runtimeContractVersion} expected ${expectedContractVersion}; policy=${policy.severity}/${policy.remediationAction}`,
     });
   }
 
