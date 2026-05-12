@@ -12,6 +12,20 @@ export const GOVERNANCE_DRIFT_RECONCILIATION_QUEUE = 'governance-drift-reconcili
 const INTERVAL_MINUTES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES ?? 15);
 const DEFAULT_BATCH_SIZE = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE ?? 250);
 const MAX_RETRIES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES ?? 5);
+const REMEDIATION_MODE_ENV_KEY = 'GOVERNANCE_DRIFT_RECONCILIATION_MODE';
+
+const ALLOWED_REMEDIATION_MODES = ['auto-safe', 'approval-gated'] as const;
+type GovernanceDriftRemediationMode = (typeof ALLOWED_REMEDIATION_MODES)[number];
+
+function getGovernanceDriftRemediationModeFromEnv(env: NodeJS.ProcessEnv = process.env): GovernanceDriftRemediationMode {
+  const configuredMode = env[REMEDIATION_MODE_ENV_KEY] ?? 'approval-gated';
+  if ((ALLOWED_REMEDIATION_MODES as readonly string[]).includes(configuredMode)) {
+    return configuredMode as GovernanceDriftRemediationMode;
+  }
+  throw new Error(
+    `${REMEDIATION_MODE_ENV_KEY} must be one of ${ALLOWED_REMEDIATION_MODES.join('|')}; received ${configuredMode}`,
+  );
+}
 
 const GOVERNANCE_DRIFT_RECONCILIATION_DLQ = 'governance-drift-reconciliation-dlq';
 
@@ -37,7 +51,7 @@ export interface GovernanceDriftReconciliationEvalJobPayload {
   kind: 'evaluate';
   context: GovernanceContext;
   grantedPermissions: string[];
-  remediationMode: 'auto-safe' | 'approval-gated';
+  remediationMode: GovernanceDriftRemediationMode;
   idempotencyKey: string;
 }
 
@@ -92,6 +106,7 @@ async function resolveGrantedPermissions(userId: string, tenantId: string): Prom
 }
 
 export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+  const remediationMode = getGovernanceDriftRemediationModeFromEnv();
   const supabase = createWorkerServiceSupabaseClient({ justification: 'service-role:justified governance reconciliation producer discovers tenant workflow contexts' });
   const nowIso = new Date().toISOString();
 
@@ -127,7 +142,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
       await queue.add('evaluate-governance-drift', {
         kind: 'evaluate',
         idempotencyKey,
-        remediationMode: 'approval-gated',
+        remediationMode,
         grantedPermissions,
         context: {
           actor: { userId, tenantId, roles: [] },

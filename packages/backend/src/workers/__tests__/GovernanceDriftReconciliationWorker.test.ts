@@ -116,4 +116,64 @@ describe('producer failure hardening', () => {
     const module = await import('../GovernanceDriftReconciliationWorker.js');
     await expect(module.produceGovernanceDriftReconciliationJobs(1)).rejects.toThrow('tenant=tenant-1 user=user-1');
   });
+
+  it.each([
+    ['approval-gated' as const],
+    ['auto-safe' as const],
+  ])('producer enqueues evaluate jobs with remediation mode %s', async (mode) => {
+    vi.resetModules();
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_MODE = mode;
+
+    const queueAdd = vi.fn().mockResolvedValue(undefined);
+    const userTenantsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ tenant_id: 'tenant-1', user_id: 'user-1' }], error: null }),
+    };
+    const userRolesQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userRolesQuery.eq.mockReturnValueOnce(userRolesQuery).mockReturnValueOnce(Promise.resolve({ data: [], error: null }));
+    const userPermsQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userPermsQuery.eq.mockReturnValueOnce(userPermsQuery).mockReturnValueOnce(Promise.resolve({ data: [], error: null }));
+    const workflowExecutionsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ workflow_id: 'wf-1', current_stage: 'approve' }], error: null }),
+    };
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'user_tenants') return userTenantsQuery;
+        if (table === 'user_roles') return userRolesQuery;
+        if (table === 'user_permissions') return userPermsQuery;
+        if (table === 'workflow_executions') return workflowExecutionsQuery;
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+
+    vi.doMock('../../lib/supabase/privileged/index.js', () => ({ createWorkerServiceSupabaseClient: vi.fn(() => supabase) }));
+    vi.doMock('bullmq', () => ({ Queue: vi.fn(() => ({ add: queueAdd })), Worker: vi.fn() }));
+    vi.doMock('ioredis', () => ({ default: vi.fn(() => ({ on: vi.fn(), quit: vi.fn() })) }));
+
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    await module.produceGovernanceDriftReconciliationJobs(1);
+    expect(queueAdd).toHaveBeenCalledWith(
+      'evaluate-governance-drift',
+      expect.objectContaining({ remediationMode: mode }),
+      expect.any(Object),
+    );
+  });
+
+  it('producer fails fast on invalid remediation mode env var', async () => {
+    vi.resetModules();
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_MODE = 'unsafe-mode';
+
+    vi.doMock('../../lib/supabase/privileged/index.js', () => ({ createWorkerServiceSupabaseClient: vi.fn() }));
+    vi.doMock('bullmq', () => ({ Queue: vi.fn(() => ({ add: vi.fn() })), Worker: vi.fn() }));
+    vi.doMock('ioredis', () => ({ default: vi.fn(() => ({ on: vi.fn(), quit: vi.fn() })) }));
+
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    await expect(module.produceGovernanceDriftReconciliationJobs(1)).rejects.toThrow(
+      'GOVERNANCE_DRIFT_RECONCILIATION_MODE must be one of auto-safe|approval-gated; received unsafe-mode',
+    );
+  });
 });
