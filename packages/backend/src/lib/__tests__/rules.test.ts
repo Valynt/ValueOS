@@ -490,7 +490,21 @@ describe('enforceRulesDetailed', () => {
           target: { resourceType: 'proposal', resourceId: 'case-1' },
         },
         environment: { stage: 'prod', nowIso: new Date().toISOString() },
-        workflow: { approvals: ['proposal.publish'] },
+        workflow: {
+          approvals: [
+            {
+              actionName: 'proposal.publish',
+              approvalSchemaVersion: 'v1',
+              sourceSystemId: 'rules.test',
+              approvedAt: new Date().toISOString(),
+              requestId: 'session-1',
+              tenantId: 'tenant-1',
+              resourceType: 'proposal',
+              resourceId: 'case-1',
+              signature: 'sig-123',
+            },
+          ],
+        },
       });
       const result = await enforceRulesDetailed(ctx);
       expect(result.allowed).toBe(true);
@@ -543,7 +557,21 @@ describe('enforceRulesDetailed', () => {
 
       const withApproval = await enforceRulesDetailed({
         ...baseCtx,
-        workflow: { approvals: ['proposal.publish', 'drift-reviewed'] },
+        workflow: {
+          approvals: [
+            {
+              actionName: 'proposal.publish',
+              approvalSchemaVersion: 'v1',
+              sourceSystemId: 'rules.test',
+              approvedAt: new Date().toISOString(),
+              requestId: 'session-1',
+              tenantId: 'tenant-1',
+              resourceType: 'proposal',
+              resourceId: 'case-1',
+              signature: 'sig-123',
+            },
+          ],
+        },
       });
       expect(withApproval.allowed).toBe(true);
     });

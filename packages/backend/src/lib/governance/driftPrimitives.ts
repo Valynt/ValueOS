@@ -28,7 +28,12 @@ export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[
 
   if (ctx.environment.stage === 'prod' && PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)) {
     const approvals = ctx.workflow?.approvals ?? [];
-    if (!approvals.includes(ctx.action.name) || !ctx.workflow?.workflowId) {
+    const hasMatchingApproval = approvals.some((approval) =>
+      typeof approval === 'string'
+        ? approval === ctx.action.name
+        : approval?.actionName === ctx.action.name
+    );
+    if (!hasMatchingApproval || !ctx.workflow?.workflowId) {
       assessments.push({
         driftDetected: true,
         driftType: 'WORKFLOW_APPROVAL_INCONSISTENCY',
