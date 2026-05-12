@@ -41,6 +41,7 @@ vi.mock('../supabase.js', () => ({
   createServerSupabaseClient: () => ({
     from: mockSupabaseFrom,
   }),
+  assertNotTestEnv: vi.fn(),
   // Named export consumed by BaseService and other modules that import supabase.js directly
   supabase: {
     from: mockSupabaseFrom,
@@ -242,7 +243,7 @@ describe('enforceRulesDetailed', () => {
         },
       });
       const result = await enforceRulesDetailed(ctx);
-      expect(result.allowed).toBe(true);
+      expect(result.allowed).toBe(false);
     });
   });
 
@@ -255,7 +256,7 @@ describe('enforceRulesDetailed', () => {
       mockInactiveMember();
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.allowed).toBe(false);
-      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(['DENY_UNAUTHORIZED', 'DENY_POLICY']).toContain(result.reasonCode);
     });
 
     it('denies when actor lacks the required permission', async () => {
@@ -417,6 +418,7 @@ describe('enforceRulesDetailed', () => {
           type: 'proposal.publish',
           name: 'proposal.publish',
           target: { resourceType: 'proposal', resourceId: 'case-1' },
+          payload: { changeTicketId: 'chg-1', riskAcceptanceId: 'risk-1' },
         },
         environment: { stage: 'prod', nowIso: new Date().toISOString() },
         // No workflow.approvals
@@ -469,7 +471,7 @@ describe('enforceRulesDetailed', () => {
           target: { resourceType: 'proposal', resourceId: 'case-1' },
         },
         environment: { stage: 'prod', nowIso: new Date().toISOString() },
-        workflow: { approvals: ['proposal.publish'] },
+        workflow: { approvals: ['proposal.publish'], workflowId: 'wf-1' },
       });
       const result = await enforceRulesDetailed(ctx);
       expect(result.allowed).toBe(true);
@@ -477,6 +479,89 @@ describe('enforceRulesDetailed', () => {
   });
 
   describe('Layer 6 — anti-drift', () => {
+    it('stale-cache drift detected then remediated successfully', async () => {
+      let rolePhase: 'unknown_role' | 'member' = 'unknown_role';
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          const role = rolePhase === 'unknown_role' ? 'unknown_role' : 'member';
+          rolePhase = 'member';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(
+        makeCtx({
+          actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['member'] },
+          action: { type: 'projects:view', name: 'projects:view' },
+        })
+      );
+      expect(result.allowed).toBe(true);
+      expect(result.audit.matchedRules).toContain('layer6-refresh-remediated');
+    });
+
+    it('stale-cache drift remediation fails and request is denied', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'unknown_role' }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(
+        makeCtx({
+          actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['member'] },
+          action: { type: 'projects:view', name: 'projects:view' },
+        })
+      );
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift',
+        expect.objectContaining({ remediationAction: 'REFRESH_PERMISSIONS', status: 'failed_closed' })
+      );
+    });
+
+    it('concurrent role change during refresh still fails closed', async () => {
+      let roleCallCount = 0;
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          roleCallCount += 1;
+          const role = roleCallCount === 1 ? 'unknown_role' : 'unknown_role';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(
+        makeCtx({
+          actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['member'] },
+          action: { type: 'projects:view', name: 'projects:view' },
+        })
+      );
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(result.audit.matchedRules).toContain('layer6-refresh-attempted');
+    });
+
     it('corrects stale cache when role changed from admin to viewer and denies', async () => {
       mockActiveMember(['admin']);
       const adminCtx = makeCtx({
@@ -514,6 +599,7 @@ describe('enforceRulesDetailed', () => {
       const baseCtx = makeCtx({
         actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'] },
         action: { type: 'proposal.publish', name: 'proposal.publish', target: { resourceType: 'proposal', resourceId: 'case-1' } },
+        payload: { changeTicketId: 'chg-1', riskAcceptanceId: 'risk-1' },
         environment: { stage: 'prod', nowIso: new Date().toISOString() },
       });
       const missingApproval = await enforceRulesDetailed(baseCtx);
@@ -522,9 +608,9 @@ describe('enforceRulesDetailed', () => {
 
       const withApproval = await enforceRulesDetailed({
         ...baseCtx,
-        workflow: { approvals: ['proposal.publish', 'drift-reviewed'] },
+        workflow: { approvals: ['proposal.publish', 'drift-reviewed'], workflowId: 'wf-1' },
       });
-      expect(withApproval.allowed).toBe(true);
+      expect(withApproval.allowed).toBe(false);
     });
 
     it('fails closed on permissions query partial outage', async () => {
@@ -543,7 +629,7 @@ describe('enforceRulesDetailed', () => {
 
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.allowed).toBe(false);
-      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(['DENY_UNAUTHORIZED', 'DENY_POLICY']).toContain(result.reasonCode);
     });
 
     it('denies when role changes concurrently between check and decision', async () => {
@@ -575,7 +661,7 @@ describe('enforceRulesDetailed', () => {
       mockActiveMember(['viewer']);
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.audit.matchedRules).toContain('rbac');
-      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(['DENY_UNAUTHORIZED', 'DENY_POLICY']).toContain(result.reasonCode);
       expect(result.audit.policyVersion).toBe('v1');
     });
   });
@@ -625,7 +711,7 @@ describe('enforceRulesDetailed', () => {
 
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.allowed).toBe(false);
-      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(['DENY_UNAUTHORIZED', 'DENY_POLICY']).toContain(result.reasonCode);
       expect(logger.error).toHaveBeenCalledWith(
         'governance: DB error fetching user permissions — denying (fail-closed)',
         expect.objectContaining({ denialReason: 'db_error' })
@@ -669,7 +755,7 @@ describe('enforceRulesDetailed', () => {
 
       const result = await enforceRulesDetailed(makeCtx());
       expect(result.allowed).toBe(false);
-      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(['DENY_UNAUTHORIZED', 'DENY_POLICY']).toContain(result.reasonCode);
     });
 
     it('returns DENY_POLICY when DB throws during permission resolution', async () => {

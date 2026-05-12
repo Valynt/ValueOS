@@ -476,6 +476,58 @@ async function runDriftChecks(
   return assessments;
 }
 
+interface DriftRemediationResult {
+  remediated: boolean;
+  granted: string[];
+  reason?: string;
+}
+
+async function remediatePermissionDrift(
+  ctx: GovernanceContext,
+  initialGranted: string[],
+  options: { attempted: boolean }
+): Promise<DriftRemediationResult> {
+  if (options.attempted) {
+    return {
+      remediated: false,
+      granted: initialGranted,
+      reason: 'refresh_already_attempted',
+    };
+  }
+
+  invalidatePermissionCache(ctx.actor.userId, ctx.actor.tenantId);
+
+  const refreshedGranted = await resolvePermissions(
+    ctx.actor.userId,
+    ctx.actor.tenantId,
+    ctx.actor.sessionId
+  );
+
+  if (refreshedGranted.length === 0) {
+    return {
+      remediated: false,
+      granted: refreshedGranted,
+      reason: 'refresh_failed_no_permissions',
+    };
+  }
+
+  const postRefreshDrift = await runDriftChecks(ctx, refreshedGranted);
+  const staleDriftPersists = postRefreshDrift.some(
+    (assessment) =>
+      assessment.driftDetected && assessment.driftType === 'ROLE_PERMISSION_STALENESS'
+  );
+
+  if (staleDriftPersists) {
+    return {
+      remediated: false,
+      granted: refreshedGranted,
+      reason: 'staleness_persists_after_refresh',
+    };
+  }
+
+  return { remediated: true, granted: refreshedGranted };
+}
+
 // ============================================================================
 // Core evaluation engine
 // ============================================================================
@@ -546,13 +598,14 @@ export async function enforceRulesDetailed(
       });
     }
 
-    const granted = await resolvePermissions(
+    let granted = await resolvePermissions(
       ctx.actor.userId,
       ctx.actor.tenantId,
       ctx.actor.sessionId
     );
 
-    if (granted.length === 0) {
+    const deferRbacUntilDriftRemediation = granted.length === 0 && ctx.actor.roles.length > 0;
+    if (granted.length === 0 && !deferRbacUntilDriftRemediation) {
       // resolvePermissions returns [] on inactive membership or DB error — deny.
       return deny(
         'DENY_UNAUTHORIZED',
@@ -571,7 +624,7 @@ export async function enforceRulesDetailed(
       (g) => g === actionPermission || g === `${actionPermission}:*` || g === '*:*'
     );
 
-    if (!hasActionPermission) {
+    if (!deferRbacUntilDriftRemediation && !hasActionPermission) {
       logger.warn('governance: RBAC deny', {
         userId: ctx.actor.userId,
         tenantId: ctx.actor.tenantId,
@@ -587,7 +640,7 @@ export async function enforceRulesDetailed(
     matchedRules.push('rbac');
 
     // Destructive actions require an elevated role regardless of explicit grants.
-    if (isDestructiveAction(ctx.action.name)) {
+    if (!deferRbacUntilDriftRemediation && isDestructiveAction(ctx.action.name)) {
       if (!hasElevatedRole(ctx.actor.roles)) {
         return deny(
           'DENY_UNAUTHORIZED',
@@ -673,11 +726,69 @@ export async function enforceRulesDetailed(
     // ------------------------------------------------------------------
     // Layer 6: Drift checks
     // ------------------------------------------------------------------
-    const driftAssessments = await runDriftChecks(ctx, granted);
-    const detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
+    let driftAssessments = await runDriftChecks(ctx, granted);
+    let detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
 
     if (detectedDrift.length > 0) {
       matchedRules.push('layer6-drift-check');
+
+      const requiresPermissionRefresh = detectedDrift.some(
+        (d) => d.remediationAction === 'REFRESH_PERMISSIONS'
+      );
+      if (requiresPermissionRefresh) {
+        const remediationResult = await remediatePermissionDrift(ctx, granted, {
+          attempted: matchedRules.includes('layer6-refresh-attempted'),
+        });
+        matchedRules.push('layer6-refresh-attempted');
+
+        if (remediationResult.remediated) {
+          granted = remediationResult.granted;
+          matchedRules.push('layer6-refresh-remediated');
+          driftAssessments = await runDriftChecks(ctx, granted);
+          detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
+          logger.info('governance.drift.remediation', {
+            requestId: ctx.actor.sessionId ?? 'unknown',
+            tenantId: ctx.actor.tenantId,
+            userId: ctx.actor.userId,
+            action: ctx.action.name,
+            remediationAction: 'REFRESH_PERMISSIONS',
+            status: 'succeeded',
+          });
+        } else {
+          logger.warn('governance.drift', {
+            requestId: ctx.actor.sessionId ?? 'unknown',
+            tenantId: ctx.actor.tenantId,
+            userId: ctx.actor.userId,
+            action: ctx.action.name,
+            remediationAction: 'REFRESH_PERMISSIONS',
+            status: 'failed_closed',
+            reason: remediationResult.reason ?? 'unknown',
+          });
+          return deny(
+            'DENY_POLICY',
+            'Permission refresh remediation failed or drift persists.',
+            evaluatedAt,
+            matchedRules
+          );
+        }
+      }
+
+      if (detectedDrift.length === 0) {
+        if (deferRbacUntilDriftRemediation) {
+          const remediatedHasPermission = granted.some(
+            (g) => g === actionPermission || g === `${actionPermission}:*` || g === '*:*'
+          );
+          if (!remediatedHasPermission) {
+            return deny(
+              'DENY_POLICY',
+              'Permission refresh remediation completed but required action grant is still missing.',
+              evaluatedAt,
+              matchedRules
+            );
+          }
+        }
+        return allow(evaluatedAt, matchedRules);
+      }
 
       const highSeverityDrift = detectedDrift.find((d) => d.severity === 'high');
       if (highSeverityDrift) {
