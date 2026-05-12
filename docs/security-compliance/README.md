@@ -19,6 +19,7 @@
 - [Audit Exceptions Policy](./audit-exceptions-policy.md)
 - [Observability Controls and Evidence](./observability-controls-and-evidence.md)
 - [ISO27001 Applicability Profile](./iso27001-applicability-profile.md)
+- [Layer 4 Governance Drift Readiness Standard](./layer4-governance-drift-readiness.md)
 - [Production Contract](./production-contract.md)
 - [Public Browser Telemetry Standard](./public-browser-telemetry.md)
 - [Public Telemetry Retention and Privacy Standard](./public-telemetry-retention-and-privacy.md)
