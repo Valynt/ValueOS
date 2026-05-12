@@ -5,6 +5,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
+import { invalidatePermissionCache } from "../../lib/rules.js"
 import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js"
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from "../../lib/supabase.js"
@@ -296,6 +297,7 @@ export class AdminUserService {
     if (insertRoleError) {
       throw new ValidationError(`Failed to assign role: ${insertRoleError.message}`);
     }
+    invalidatePermissionCache(user.id, payload.tenantId);
 
     await this.updateUserMetadata(user.id, role, payload.tenantId);
 
@@ -397,6 +399,7 @@ export class AdminUserService {
     if (insertRoleError) {
       throw new ValidationError(`Failed to assign role: ${insertRoleError.message}`);
     }
+    invalidatePermissionCache(payload.userId, payload.tenantId);
 
     await this.updateUserMetadata(payload.userId, role, payload.tenantId);
     await userProfileDirectoryService.syncProfile(payload.userId, payload.tenantId);
@@ -442,6 +445,7 @@ export class AdminUserService {
     if (deleteRoleError) {
       throw new ValidationError(`Failed to remove role: ${deleteRoleError.message}`);
     }
+    invalidatePermissionCache(payload.userId, payload.tenantId);
 
     await this.getSupabase().auth.admin.signOut(payload.userId);
     await userProfileDirectoryService.syncProfile(payload.userId, payload.tenantId);

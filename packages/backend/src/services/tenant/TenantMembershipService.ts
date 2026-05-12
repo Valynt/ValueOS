@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../../lib/logger.js'
+import { invalidatePermissionCache } from '../../lib/rules.js'
 import { supabase } from '../../lib/supabase.js';
 
 import { AuditLogService } from './AuditLogService.js'
@@ -77,12 +78,14 @@ export class TenantMembershipService extends TenantAwareService {
       },
       status: 'success',
     });
+    invalidatePermissionCache(targetUserId, tenantId);
 
     logger.info('User added to tenant successfully', {
       adminUserId,
       targetUserId,
       tenantId,
     });
+    invalidatePermissionCache(targetUserId, tenantId);
 
     return {
       success: true,
@@ -120,6 +123,7 @@ export class TenantMembershipService extends TenantAwareService {
       details: { tenantId },
       status: 'success',
     });
+    invalidatePermissionCache(targetUserId, tenantId);
 
     return {
       success: true,
