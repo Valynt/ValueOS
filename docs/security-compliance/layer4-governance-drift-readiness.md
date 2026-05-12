@@ -37,6 +37,8 @@ To operationalize the broader taxonomy used by security/compliance reviews, map 
 
 ## 3) Alerting and SLO expectations (using existing drift counters)
 
+> Enforcement sources: `packages/backend/src/lib/rules.ts` (request-path counters) and `packages/backend/src/workers/GovernanceDriftReconciliationWorker.ts` (reconciliation counters + escalation telemetry).
+
 ### Counters (required)
 
 - `drift_detected_total`
@@ -66,9 +68,10 @@ Adopt and maintain thresholds from `docs/observability/governance-drift-alerts.m
 
 ### Reconciliation cadence
 
-- Run governance drift reconciliation worker continuously for asynchronous recovery opportunities.
-- Perform daily review of unresolved drift by `driftType`, `stage`, and `actionName`.
-- Perform weekly trend review for drift ratios (detected vs remediated vs denied) and open corrective actions for regressions.
+- Run governance drift reconciliation worker continuously for asynchronous recovery opportunities (default schedule every 15 minutes).
+- Perform **daily** review of unresolved drift by `driftType`, `stage`, and `actionName`.
+- Perform **weekly** trend review for drift ratios (detected vs remediated vs denied) and open corrective actions for regressions.
+- Perform **monthly** control-owner sign-off that drift alerts, labels, runbooks, and remediation ownership mappings are still accurate.
 
 ### Incident response
 
@@ -111,13 +114,13 @@ Readiness package **must** include the following automated checks and artifacts:
 
 ### Readiness assertion checklist (hard gate)
 
-- [ ] All required evidence artifacts listed above are present.
-- [ ] All required automated checks are passing in CI artifacts for the candidate revision.
+- [ ] All required evidence artifacts listed above are present **for this exact candidate revision**.
+- [ ] All required automated checks are passing in CI artifacts **for this exact candidate revision**.
 - [ ] No critical/high unresolved drift incidents are open for production scope.
 - [ ] Alert thresholds and ownership are configured for on-call routing.
 - [ ] Runbook links resolve and are actionable by on-call responders.
 
-> **Readiness is NOT claimed unless every required evidence artifact is present and every required automated check is passing.**
+> **Readiness is NOT claimed unless every required evidence artifact is present and every required automated check is passing for the same candidate revision. Any missing artifact, stale artifact, skipped check, or failing check means NOT READY.**
 
 
 ### Automated CI readiness gate

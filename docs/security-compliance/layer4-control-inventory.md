@@ -13,3 +13,10 @@ This inventory captures the Layer 4 environment-control checks and adjacent gove
 ## Source of truth
 
 The canonical readiness contract remains `docs/security-compliance/layer4-governance-drift-readiness.md`; this file is a focused extract for control-inventory reviews.
+
+
+## Cross-links
+
+- Readiness and operations: `docs/security-compliance/layer4-governance-drift-readiness.md`
+- Alerts: `docs/observability/governance-drift-alerts.md`
+- Incident runbook: `docs/operations/runbooks/governance-drift.md`
