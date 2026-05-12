@@ -17,8 +17,9 @@ const projectRoot = path.resolve(__dirname, "../..");
 
 // Validate required environment variables (fail fast)
 validateEnvOrThrow();
+validateGovernanceConfigOrThrow();
 
-logger.info("[Instrumentation] Environment validation passed");
+logger.info("[Instrumentation] Environment + governance validation passed");
 
 // Now safe to import modules that depend on env vars
 logger.info("[Instrumentation] Starting module imports...");
@@ -92,6 +93,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { validateGovernanceConfigOrThrow } from "./config/governance.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import { appTrpcMiddleware } from "./api/trpc/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
