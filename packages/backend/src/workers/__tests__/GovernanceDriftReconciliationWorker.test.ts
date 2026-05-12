@@ -13,7 +13,7 @@ function ctx(overrides: Partial<GovernanceContext> = {}): GovernanceContext {
 }
 
 describe('GovernanceDriftReconciliationWorker', () => {
-  it('detects drift and emits unresolved records in approval-gated mode', async () => {
+  it('detects ROLE_PERMISSION_STALENESS for scheduled evaluator-style jobs when actor roles are present', async () => {
     const result = await worker.runGovernanceDriftReconciliationJob({
       id: '1',
       attemptsMade: 0,
@@ -27,6 +27,7 @@ describe('GovernanceDriftReconciliationWorker', () => {
     });
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]?.escalatedForApproval).toBe(true);
+    expect(result.some((record) => record.driftType === 'ROLE_PERMISSION_STALENESS')).toBe(true);
   });
 
   it('no-ops when context is clean', async () => {

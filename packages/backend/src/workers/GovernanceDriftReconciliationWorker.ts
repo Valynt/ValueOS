@@ -62,22 +62,28 @@ export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> 
   }, { repeat: { every: INTERVAL_MINUTES * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
 }
 
-async function resolveGrantedPermissions(userId: string, tenantId: string): Promise<string[]> {
-  const supabase = createWorkerServiceSupabaseClient({ justification: 'service-role:justified governance reconciliation requires tenant-scoped permission resolution' });
+interface ResolvedGovernanceActorAccess {
+  roles: string[];
+  grantedPermissions: string[];
+}
+
+async function resolveActorAccess(userId: string, tenantId: string): Promise<ResolvedGovernanceActorAccess> {
+  const supabase = createWorkerServiceSupabaseClient({ justification: 'service-role:justified governance reconciliation requires tenant-scoped role and permission resolution' });
   const [{ data: roles }, { data: permissions }] = await Promise.all([
     supabase.from('user_roles').select('role').eq('user_id', userId).eq('tenant_id', tenantId),
     supabase.from('user_permissions').select('permission').eq('user_id', userId).eq('tenant_id', tenantId),
   ]);
   const { USER_ROLE_PERMISSIONS } = await import('@shared/lib/permissions');
+  const roleNames = Array.from(new Set((roles ?? []).map((row) => String(row.role)).filter(Boolean)));
   const granted = new Set<string>();
-  for (const row of roles ?? []) {
-    const rolePerms = USER_ROLE_PERMISSIONS[row.role as keyof typeof USER_ROLE_PERMISSIONS] ?? [];
-    for (const p of rolePerms as string[]) granted.add(p);
+  for (const role of roleNames) {
+    const rolePerms = USER_ROLE_PERMISSIONS[role as keyof typeof USER_ROLE_PERMISSIONS] ?? [];
+    for (const permission of rolePerms as string[]) granted.add(permission);
   }
   for (const row of permissions ?? []) {
     if (row.permission) granted.add(row.permission as string);
   }
-  return [...granted];
+  return { roles: roleNames, grantedPermissions: [...granted] };
 }
 
 export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
@@ -96,7 +102,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
   for (const membership of activeMemberships ?? []) {
     const tenantId = membership.tenant_id as string;
     const userId = membership.user_id as string;
-    const grantedPermissions = await resolveGrantedPermissions(userId, tenantId);
+    const { roles, grantedPermissions } = await resolveActorAccess(userId, tenantId);
 
     const { data: workflowRows } = await supabase
       .from('workflow_executions')
@@ -119,7 +125,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
         remediationMode: 'approval-gated',
         grantedPermissions,
         context: {
-          actor: { userId, tenantId, roles: [] },
+          actor: { userId, tenantId, roles },
           action: { type: c.actionName, name: c.actionName },
           environment: { stage: 'prod', nowIso },
           workflow: { workflowId: c.workflowId, step: c.workflowStep, approvals: [] },
