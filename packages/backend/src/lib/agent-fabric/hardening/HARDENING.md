@@ -253,6 +253,16 @@ interface HardenedInvokeOptions {
 type RiskTier = "financial" | "commitment" | "discovery" | "narrative" | "compliance";
 ```
 
+### Strict contract-check invariant
+
+`HardenedAgentRunner.run()` treats output schema validation as a hard release contract.
+If `outputScan.schema_valid === false`, execution **must terminate before confidence scoring and governance evaluation**:
+
+- execution status is emitted as `failure` with error code `OUTPUT_SCHEMA_INVALID`
+- `AuditLogger` records `agent.security.output_schema_contract_violation`
+- the runner throws `OutputSchemaContractError` (typed terminal failure)
+- invalid output is never released and never sent to HITL as if valid
+
 Every hardened result carries:
 
 ```typescript

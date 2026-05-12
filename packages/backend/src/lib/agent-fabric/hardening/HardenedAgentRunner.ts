@@ -38,7 +38,12 @@ import type {
   RequestEnvelope,
   TokenUsage,
 } from "./AgentHardeningTypes.js";
-import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES, GovernanceVetoError } from "./AgentHardeningTypes.js";
+import {
+  CONFIDENCE_THRESHOLDS,
+  FAILURE_RESPONSES,
+  GovernanceVetoError,
+  OutputSchemaContractError,
+} from "./AgentHardeningTypes.js";
 import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv } from "./AgentDriftGuard.js";
 import { safetyLayer } from "./AgentSafetyLayer.js";
 import {
@@ -340,6 +345,31 @@ export class HardenedAgentRunner {
         errors: outputScan.schema_errors,
         request_id: envelope.request_id,
       });
+
+      await this.auditLogger.logSchemaContractViolation({
+        agentName: this.config.agentName,
+        tenantId: envelope.organization_id,
+        userId: envelope.user_id,
+        details: {
+          request_id: envelope.request_id,
+          trace_id: envelope.trace_id,
+          session_id: envelope.session_id,
+          schema_errors: outputScan.schema_errors ?? [],
+        },
+      });
+
+      const log = logBuilder.complete("failure", {
+        code: "OUTPUT_SCHEMA_INVALID",
+        message: `Output schema contract failed: ${(outputScan.schema_errors ?? []).join("; ") || "schema mismatch"}`,
+        retryable: false,
+      });
+      observabilityLayer.emit(log);
+
+      throw new OutputSchemaContractError(
+        this.config.agentName,
+        outputScan.schema_errors ?? ["Output did not satisfy declared schema"],
+        envelope.trace_id
+      );
     }
 
     // ── Build confidence breakdown ───────────────────────────────────────

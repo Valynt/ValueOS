@@ -26,6 +26,7 @@ import type { LifecycleContext, AgentOutput } from "../../../../types/agent.js";
 vi.mock("../../AuditLogger.js", () => ({
   AuditLogger: vi.fn().mockImplementation(() => ({
     logAgentSecurity: vi.fn().mockResolvedValue(undefined),
+    logSchemaContractViolation: vi.fn().mockResolvedValue(undefined),
     logLLMInvocation: vi.fn().mockResolvedValue(undefined),
     logLifecycleEvent: vi.fn().mockResolvedValue(undefined),
   })),
@@ -548,6 +549,59 @@ describe("GovernanceVetoError", () => {
     const err = new GovernanceVetoError("TestAgent", "vetoed", "Low confidence");
     expect(err.checkpointId).toBeUndefined();
     expect(err.message).not.toContain("checkpoint");
+  });
+});
+
+
+describe("Output schema contract enforcement", () => {
+  it("fails terminally before governance when output schema is invalid", async () => {
+    const { observabilityLayer } = await import("../AgentObservabilityLayer.js");
+    (observabilityLayer.emit as ReturnType<typeof vi.fn>).mockClear();
+
+    const runner = makeRunner();
+    const executeFn = vi.fn().mockResolvedValue(
+      makeSuccessOutput({
+        result: {
+          result: "Missing required fields",
+          hallucination_check: true,
+        } as unknown as AgentOutput["result"],
+      })
+    );
+
+    await expect(runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, BASE_OPTIONS)).rejects.toThrow(
+      /Output schema contract violation/
+    );
+
+    const log = (observabilityLayer.emit as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(log.status).toBe("failure");
+    expect(log.error.code).toBe("OUTPUT_SCHEMA_INVALID");
+  });
+
+  it("never routes invalid schema outputs to HITL as if valid", async () => {
+    const createCheckpoint = vi.fn();
+    const runner = makeRunner({
+      hitlPort: {
+        createCheckpoint,
+      },
+    });
+
+    const executeFn = vi.fn().mockResolvedValue(
+      makeSuccessOutput({
+        confidence: "low",
+        result: {
+          result: "invalid payload",
+        } as unknown as AgentOutput["result"],
+      })
+    );
+
+    await expect(
+      runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, {
+        ...BASE_OPTIONS,
+        requiresHumanApproval: true,
+      })
+    ).rejects.toThrow(/Output schema contract violation/);
+
+    expect(createCheckpoint).not.toHaveBeenCalled();
   });
 });
 
