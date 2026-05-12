@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '../../lib/logger.js';
 import { loadGovernanceConfig, validateGovernanceConfigEnv } from '../governance.js';
 
 describe('governance config', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('uses backward-compatible defaults when env vars are absent', () => {
-    const config = loadGovernanceConfig({});
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    const config = loadGovernanceConfig({ NODE_ENV: 'development' });
 
     expect(config.permissionCacheTtlMs).toBe(30_000);
     expect(config.permissionCacheMax).toBe(2_000);
@@ -15,6 +21,10 @@ describe('governance config', () => {
       staging: ['changeTicketId'],
       prod: ['changeTicketId', 'riskAcceptanceId'],
     });
+    expect(warnSpy).toHaveBeenCalledWith(
+      'governance.config.fallback_applied',
+      expect.objectContaining({ event: 'governance_config_fallback' }),
+    );
   });
 
   it('parses env overrides', () => {
@@ -54,12 +64,16 @@ describe('governance config', () => {
     expect(errors.join(' ')).toContain('GOVERNANCE_PERMISSION_CACHE_MAX');
   });
 
-  it('reports schema errors for malformed stage required fields config', () => {
+  it('fails validation in prod when stage required fields are missing', () => {
+    const errors = validateGovernanceConfigEnv({ NODE_ENV: 'production' });
+    expect(errors).toContain('Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage');
+  });
+
+  it('reports deterministic malformed JSON error path', () => {
     const errors = validateGovernanceConfigEnv({
       GOVERNANCE_STAGE_REQUIRED_FIELDS: '{bad json}',
     });
 
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors.join(' ')).toContain('GOVERNANCE_STAGE_REQUIRED_FIELDS');
+    expect(errors).toEqual(['Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: malformed JSON']);
   });
 });

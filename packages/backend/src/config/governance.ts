@@ -41,6 +41,30 @@ const governanceEnvSchema = z.object({
   GOVERNANCE_STAGE_REQUIRED_FIELDS: z.string().optional(),
 });
 
+type RuntimeStage = 'dev' | 'staging' | 'prod';
+
+type GovernanceFallbackWarning = {
+  envVar: string;
+  reason: 'missing_or_empty';
+  fallbackValue: string;
+};
+
+function resolveRuntimeStage(env: NodeJS.ProcessEnv): RuntimeStage {
+  const nodeEnv = (env.NODE_ENV ?? '').toLowerCase();
+  const runtimeStage = (env.RUNTIME_STAGE ?? env.STAGE ?? '').toLowerCase();
+  if (runtimeStage === 'prod' || runtimeStage === 'production' || nodeEnv === 'production') {
+    return 'prod';
+  }
+  if (runtimeStage === 'staging') {
+    return 'staging';
+  }
+  return 'dev';
+}
+
+function isStrictProductionMode(env: NodeJS.ProcessEnv): boolean {
+  return resolveRuntimeStage(env) === 'prod';
+}
+
 export type GovernanceConfig = {
   permissionCacheTtlMs: number;
   permissionCacheMax: number;
@@ -55,20 +79,7 @@ export type GovernanceConfig = {
 };
 
 function parseStageRequiredFields(raw: string | undefined): GovernanceConfig['stageRequiredFields'] {
-  if (!raw || raw.trim().length === 0) {
-    logger.warn('governance.stage_required_fields.fallback_default', {
-      deprecated: true,
-      envVar: 'GOVERNANCE_STAGE_REQUIRED_FIELDS',
-      message: 'Using hardcoded stage-sensitive required fields. Set GOVERNANCE_STAGE_REQUIRED_FIELDS to remove fallback behavior.',
-    });
-    return {
-      dev: [...DEFAULT_STAGE_REQUIRED_FIELDS.dev],
-      staging: [...DEFAULT_STAGE_REQUIRED_FIELDS.staging],
-      prod: [...DEFAULT_STAGE_REQUIRED_FIELDS.prod],
-    };
-  }
-
-  const parsed = stageRequiredFieldsSchema.parse(JSON.parse(raw));
+  const parsed = stageRequiredFieldsSchema.parse(JSON.parse(raw ?? ''));
   return {
     dev: parsed.dev,
     staging: parsed.staging,
@@ -89,8 +100,38 @@ function parseCsv(raw: string | undefined, fallback: readonly string[]): Set<str
   return new Set(parsed.length > 0 ? parsed : fallback);
 }
 
+function buildNonProdFallbackWarnings(parsed: z.infer<typeof governanceEnvSchema>): GovernanceFallbackWarning[] {
+  const warnings: GovernanceFallbackWarning[] = [];
+  if (!parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS?.trim()) {
+    warnings.push({
+      envVar: 'GOVERNANCE_STAGE_REQUIRED_FIELDS',
+      reason: 'missing_or_empty',
+      fallbackValue: JSON.stringify(DEFAULT_STAGE_REQUIRED_FIELDS),
+    });
+  }
+  return warnings;
+}
+
 export function loadGovernanceConfig(env: NodeJS.ProcessEnv = process.env): GovernanceConfig {
   const parsed = governanceEnvSchema.parse(env);
+  const strictMode = isStrictProductionMode(env);
+
+  if (!strictMode) {
+    for (const warning of buildNonProdFallbackWarnings(parsed)) {
+      logger.warn('governance.config.fallback_applied', {
+        event: 'governance_config_fallback',
+        envVar: warning.envVar,
+        reason: warning.reason,
+        runtimeStage: resolveRuntimeStage(env),
+        fallbackValue: warning.fallbackValue,
+        metric: {
+          name: 'governance.config.fallback_applied',
+          value: 1,
+          labels: { envVar: warning.envVar, runtimeStage: resolveRuntimeStage(env) },
+        },
+      });
+    }
+  }
 
   return {
     permissionCacheTtlMs: parsed.GOVERNANCE_PERMISSION_CACHE_TTL_MS,
@@ -101,7 +142,13 @@ export function loadGovernanceConfig(env: NodeJS.ProcessEnv = process.env): Gove
       parsed.GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS,
       DEFAULT_PROD_APPROVAL_REQUIRED_ACTIONS,
     ),
-    stageRequiredFields: parseStageRequiredFields(parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS),
+    stageRequiredFields: parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS?.trim()
+      ? parseStageRequiredFields(parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS)
+      : {
+          dev: [...DEFAULT_STAGE_REQUIRED_FIELDS.dev],
+          staging: [...DEFAULT_STAGE_REQUIRED_FIELDS.staging],
+          prod: [...DEFAULT_STAGE_REQUIRED_FIELDS.prod],
+        },
   };
 }
 
@@ -114,21 +161,24 @@ export function validateGovernanceConfigEnv(env: NodeJS.ProcessEnv = process.env
     });
   }
 
+  const strictMode = isStrictProductionMode(env);
   const stageValue = parsed.data.GOVERNANCE_STAGE_REQUIRED_FIELDS;
+
   if (!stageValue || stageValue.trim().length === 0) {
+    if (strictMode) {
+      return ['Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage'];
+    }
     return [];
   }
 
-  const stageParsed = stageRequiredFieldsSchema.safeParse(
-    (() => {
-      try {
-        return JSON.parse(stageValue);
-      } catch {
-        return undefined;
-      }
-    })(),
-  );
+  let jsonValue: unknown;
+  try {
+    jsonValue = JSON.parse(stageValue);
+  } catch {
+    return ['Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: malformed JSON'];
+  }
 
+  const stageParsed = stageRequiredFieldsSchema.safeParse(jsonValue);
   if (stageParsed.success) {
     return [];
   }
