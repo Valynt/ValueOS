@@ -87,6 +87,17 @@ export interface GovernanceAudit {
   matchedRules: string[];
 }
 
+export interface DriftAssessment {
+  driftDetected: boolean;
+  driftType?:
+    | 'ROLE_PERMISSION_STALENESS'
+    | 'WORKFLOW_APPROVAL_INCONSISTENCY'
+    | 'CRITICAL_CONFIG_INVARIANT';
+  severity?: 'low' | 'medium' | 'high';
+  remediationAction?: 'REQUIRE_APPROVAL' | 'READ_ONLY' | 'REFRESH_PERMISSIONS';
+  details?: string;
+}
+
 export interface GovernanceDecision {
   allowed: boolean;
   reasonCode: GovernanceReasonCode;
@@ -359,6 +370,67 @@ async function getProposalGovernanceStatus(
   };
 }
 
+function stageSensitiveFields(stage: GovernanceContext['environment']['stage']): string[] {
+  if (stage === 'prod') return ['changeTicketId', 'riskAcceptanceId'];
+  if (stage === 'staging') return ['changeTicketId'];
+  return [];
+}
+
+function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): boolean {
+  if (requiredFields.length === 0) return true;
+  if (!payload || typeof payload !== 'object') return false;
+  return requiredFields.every((field) => {
+    const value = (payload as Record<string, unknown>)[field];
+    return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
+  });
+}
+
+async function runDriftChecks(
+  ctx: GovernanceContext,
+  granted: string[]
+): Promise<DriftAssessment[]> {
+  const assessments: DriftAssessment[] = [];
+
+  // 1) Actor role/permission freshness vs cached grants.
+  if (ctx.actor.roles.length > 0 && granted.length === 0) {
+    assessments.push({
+      driftDetected: true,
+      driftType: 'ROLE_PERMISSION_STALENESS',
+      severity: 'high',
+      remediationAction: 'REFRESH_PERMISSIONS',
+      details: 'Actor roles are present but resolved permissions are empty.',
+    });
+  }
+
+  // 2) Workflow approval consistency for prod-gated actions.
+  if (ctx.environment.stage === 'prod' && PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)) {
+    const approvals = ctx.workflow?.approvals ?? [];
+    if (!approvals.includes(ctx.action.name) || !ctx.workflow?.workflowId) {
+      assessments.push({
+        driftDetected: true,
+        driftType: 'WORKFLOW_APPROVAL_INCONSISTENCY',
+        severity: 'high',
+        remediationAction: 'REQUIRE_APPROVAL',
+        details: 'Prod-gated action missing matching workflow approval context.',
+      });
+    }
+  }
+
+  // 3) Critical config invariants (stage-sensitive required fields).
+  const requiredFields = stageSensitiveFields(ctx.environment.stage);
+  if (!hasRequiredPayloadFields(ctx.action.payload, requiredFields)) {
+    assessments.push({
+      driftDetected: true,
+      driftType: 'CRITICAL_CONFIG_INVARIANT',
+      severity: ctx.environment.stage === 'prod' ? 'high' : 'medium',
+      remediationAction: ctx.environment.stage === 'prod' ? 'REQUIRE_APPROVAL' : 'READ_ONLY',
+      details: `Missing required stage-sensitive fields: ${requiredFields.join(', ')}`,
+    });
+  }
+
+  return assessments;
+}
+
 // ============================================================================
 // Core evaluation engine
 // ============================================================================
@@ -534,6 +606,37 @@ export async function enforceRulesDetailed(
     // ------------------------------------------------------------------
     // Layer 5: Allow with obligations
     // ------------------------------------------------------------------
+    matchedRules.push('layer5-allow-precheck');
+
+    // ------------------------------------------------------------------
+    // Layer 6: Drift checks
+    // ------------------------------------------------------------------
+    const driftAssessments = await runDriftChecks(ctx, granted);
+    const detectedDrift = driftAssessments.filter((assessment) => assessment.driftDetected);
+
+    if (detectedDrift.length > 0) {
+      matchedRules.push('layer6-drift-check');
+
+      const highSeverityDrift = detectedDrift.find((d) => d.severity === 'high');
+      if (highSeverityDrift) {
+        return deny(
+          'DENY_POLICY',
+          highSeverityDrift.details ?? 'Governance drift detected at high severity.',
+          evaluatedAt,
+          matchedRules
+        );
+      }
+
+      const obligations: GovernanceObligation[] = [];
+      if (detectedDrift.some((d) => d.remediationAction === 'REQUIRE_APPROVAL')) {
+        obligations.push({ type: 'REQUIRE_APPROVAL', approvalType: 'drift-remediation' });
+      }
+      if (detectedDrift.some((d) => d.remediationAction === 'READ_ONLY')) {
+        obligations.push({ type: 'READ_ONLY' });
+      }
+
+      return allow(evaluatedAt, matchedRules, obligations);
+    }
 
     return allow(evaluatedAt, matchedRules);
   } catch (err) {
