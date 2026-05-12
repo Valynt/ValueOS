@@ -361,6 +361,16 @@ async function resolvePermissions(
     return [];
   }
 
+  if (permissionsResult.error) {
+    logger.error('governance: DB error fetching user permissions — denying (fail-closed)', {
+      userId,
+      tenantId,
+      error: permissionsResult.error.message,
+      denialReason: 'db_error',
+    });
+    return [];
+  }
+
   // Expand system roles into their permission sets using the shared role map.
   // Dynamic import avoids a circular dependency with middleware/rbac.
   const { USER_ROLE_PERMISSIONS } = await import('@shared/lib/permissions');
