@@ -244,6 +244,7 @@ export interface ApprovalContract {
   resourceType: string;
   resourceId: string;
   signature?: string;
+  signatureHash?: string;
 }
 
 export type WorkflowApproval = string | ApprovalContract;
@@ -312,7 +313,59 @@ const ApprovalContractSchema = z.object({
   resourceType: z.string().min(1),
   resourceId: z.string().min(1),
   signature: z.string().min(1).optional(),
+  signatureHash: z.string().min(1).optional(),
+}).superRefine((contract, validationCtx) => {
+  if (!contract.sessionId && !contract.requestId) {
+    validationCtx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Either requestId or sessionId is required for correlation.',
+      path: ['requestId'],
+    });
+  }
 });
+
+function parseApprovalContractEntry(entry: WorkflowApproval, ctx: GovernanceContext): ApprovalContract | null {
+  if (typeof entry === 'string') {
+    if (entry === ctx.action.name) {
+      logger.warn('governance.approval_contract.legacy_format', {
+        action: ctx.action.name,
+        tenantId: ctx.actor.tenantId,
+        workflowId: ctx.workflow?.workflowId ?? 'unknown',
+        requestId: ctx.actor.sessionId ?? 'unknown',
+        legacyApproval: entry,
+        deprecation: 'workflow.approvals string[] support will be removed after migration window',
+      });
+      return {
+        actionName: entry,
+        approvalSchemaVersion: 'legacy/v0',
+        sourceSystemId: 'legacy',
+        approvedAt: ctx.environment.nowIso,
+        requestId: ctx.actor.sessionId ?? 'legacy-request',
+        sessionId: ctx.actor.sessionId,
+        tenantId: ctx.actor.tenantId,
+        resourceType: ctx.action.target?.resourceType ?? 'unknown',
+        resourceId: ctx.action.target?.resourceId ?? 'legacy-unknown',
+      };
+    }
+    return null;
+  }
+
+  const parsed = ApprovalContractSchema.safeParse(entry);
+  if (!parsed.success) {
+    logger.warn('governance.approval_contract.invalid_shape', {
+      action: ctx.action.name,
+      tenantId: ctx.actor.tenantId,
+      workflowId: ctx.workflow?.workflowId ?? 'unknown',
+      requestId: ctx.actor.sessionId ?? 'unknown',
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
+    });
+    return null;
+  }
+  return parsed.data;
+}
 
 function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | null {
   const approvals = ctx.workflow?.approvals ?? [];
@@ -322,54 +375,18 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
   const targetResourceId = ctx.action.target?.resourceId;
 
   for (const entry of approvals) {
-    if (typeof entry === 'string') {
-      if (entry === ctx.action.name) {
-        logger.warn('governance.approval_contract.legacy_format', {
-          action: ctx.action.name,
-          tenantId: ctx.actor.tenantId,
-          workflowId: ctx.workflow?.workflowId ?? 'unknown',
-          requestId: ctx.actor.sessionId ?? 'unknown',
-          legacyApproval: entry,
-          deprecation: 'workflow.approvals string[] support will be removed after migration window',
-        });
-        return {
-          actionName: entry,
-          approvalSchemaVersion: 'legacy/v0',
-          sourceSystemId: 'legacy',
-          approvedAt: ctx.environment.nowIso,
-          requestId: ctx.actor.sessionId ?? 'legacy-request',
-          sessionId: ctx.actor.sessionId,
-          tenantId: ctx.actor.tenantId,
-          resourceType: targetResourceType ?? 'unknown',
-          resourceId: targetResourceId ?? 'legacy-unknown',
-        };
-      }
+    const contract = parseApprovalContractEntry(entry, ctx);
+    if (!contract) {
       continue;
     }
-
-    const parsed = ApprovalContractSchema.safeParse(entry);
-    if (!parsed.success) {
-      logger.warn('governance.approval_contract.invalid_shape', {
-        action: ctx.action.name,
-        tenantId: ctx.actor.tenantId,
-        workflowId: ctx.workflow?.workflowId ?? 'unknown',
-        requestId: ctx.actor.sessionId ?? 'unknown',
-        issues: parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.'),
-          message: issue.message,
-        })),
-      });
-      continue;
-    }
-
-    const contract = parsed.data;
     const approvedAtMs = Date.parse(contract.approvedAt);
     const isFresh = Number.isFinite(approvedAtMs) && now - approvedAtMs <= APPROVAL_FRESHNESS_WINDOW_MS && approvedAtMs <= now;
-    const requestMatches = contract.requestId === (ctx.actor.sessionId ?? contract.requestId);
-    const sessionMatches = !contract.sessionId || contract.sessionId === ctx.actor.sessionId;
+    const requestMatches = !ctx.actor.sessionId || contract.requestId === ctx.actor.sessionId;
+    const sessionMatches = !ctx.actor.sessionId || !contract.sessionId || contract.sessionId === ctx.actor.sessionId;
     const tenantMatches = contract.tenantId === ctx.actor.tenantId;
     const resourceTypeMatches = !!targetResourceType && contract.resourceType === targetResourceType;
     const resourceIdMatches = !!targetResourceId && contract.resourceId === targetResourceId;
+    const hasTamperDetectionField = typeof contract.signature === 'string' || typeof contract.signatureHash === 'string';
 
     if (
       contract.actionName === ctx.action.name &&
@@ -378,10 +395,29 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
       sessionMatches &&
       tenantMatches &&
       resourceTypeMatches &&
-      resourceIdMatches
+      resourceIdMatches &&
+      hasTamperDetectionField
     ) {
       return contract;
     }
+
+    logger.warn('governance.approval_contract.validation_failed', {
+      action: ctx.action.name,
+      tenantId: ctx.actor.tenantId,
+      workflowId: ctx.workflow?.workflowId ?? 'unknown',
+      requestId: ctx.actor.sessionId ?? 'unknown',
+      approvalSchemaVersion: contract.approvalSchemaVersion,
+      sourceSystemId: contract.sourceSystemId,
+      failure: {
+        isFresh,
+        requestMatches,
+        sessionMatches,
+        tenantMatches,
+        resourceTypeMatches,
+        resourceIdMatches,
+        hasTamperDetectionField,
+      },
+    });
   }
 
   return null;
@@ -987,7 +1023,24 @@ export async function enforceRules(
           step: context.workflowStep as string | undefined,
           approvals: Array.isArray(context.approvals)
             ? (context.approvals as WorkflowApproval[])
-            : [],
+            : [
+                context.approvalContract &&
+                typeof context.approvalContract === 'object'
+                  ? ({
+                      actionName: (context.action as string) ?? (context.actionType as string) ?? '',
+                      approvalSchemaVersion: (context.approvalSchemaVersion as string) ?? 'v1',
+                      sourceSystemId: (context.approvalSourceSystemId as string) ?? 'action-router',
+                      approvedAt: (context.approvedAt as string) ?? new Date().toISOString(),
+                      requestId: (context.requestId as string) ?? ((context.sessionId as string) ?? ''),
+                      sessionId: context.sessionId as string | undefined,
+                      tenantId: (context.tenantId as string) ?? '',
+                      resourceType: (context.targetResourceType as string) ?? 'unknown',
+                      resourceId: (context.targetResourceId as string) ?? 'unknown',
+                      signature: (context.approvalSignature as string) ?? undefined,
+                      signatureHash: (context.approvalSignatureHash as string) ?? undefined,
+                    } satisfies ApprovalContract)
+                  : ((context.action as string) ?? (context.actionType as string) ?? ''),
+              ],
         }
       : undefined,
   };
