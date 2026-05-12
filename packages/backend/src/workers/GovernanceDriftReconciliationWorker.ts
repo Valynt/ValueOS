@@ -8,7 +8,33 @@ import type { DriftAssessment, GovernanceContext } from '../lib/rules.js';
 
 const logger = createLogger({ component: 'GovernanceDriftReconciliationWorker' });
 export const GOVERNANCE_DRIFT_RECONCILIATION_QUEUE = 'governance-drift-reconciliation';
-const INTERVAL_MINUTES = Number(process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES ?? 15);
+const DEFAULT_INTERVAL_MINUTES = 15;
+const MIN_INTERVAL_MINUTES = 1;
+const MAX_INTERVAL_MINUTES = 1440;
+
+export function getGovernanceDriftReconciliationIntervalMinutes(): number {
+  const rawValue = process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES;
+  const parsedValue = rawValue === undefined ? DEFAULT_INTERVAL_MINUTES : Number(rawValue);
+  const isValid = Number.isFinite(parsedValue) && parsedValue > 0 && parsedValue >= MIN_INTERVAL_MINUTES && parsedValue <= MAX_INTERVAL_MINUTES;
+
+  if (isValid) return parsedValue;
+
+  const context = {
+    configuredValue: rawValue,
+    defaultIntervalMinutes: DEFAULT_INTERVAL_MINUTES,
+    minIntervalMinutes: MIN_INTERVAL_MINUTES,
+    maxIntervalMinutes: MAX_INTERVAL_MINUTES,
+    nodeEnv: process.env.NODE_ENV ?? 'development',
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    logger.error('governance.drift.reconciliation.interval.invalid', context);
+    throw new Error('Invalid GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES configuration in production.');
+  }
+
+  logger.warn('governance.drift.reconciliation.interval.fallback', context);
+  return DEFAULT_INTERVAL_MINUTES;
+}
 
 const driftDetected = createCounter('governance_drift_reconciliation_detected_total', 'Detected drift events during reconciliation', ['drift_type', 'severity']);
 const driftRemediated = createCounter('governance_drift_reconciliation_remediated_total', 'Auto-remediated drift events during reconciliation', ['drift_type', 'severity']);
@@ -36,6 +62,10 @@ let _queue: Queue<GovernanceDriftReconciliationJobPayload> | null = null;
 export const getGovernanceDriftReconciliationQueue = () => (_queue ??= new Queue(GOVERNANCE_DRIFT_RECONCILIATION_QUEUE, { connection: getRedis() }));
 
 export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> {
+  const intervalMinutes = getGovernanceDriftReconciliationIntervalMinutes();
+
+  logger.info('governance.drift.reconciliation.schedule', { intervalMinutes });
+
   await getGovernanceDriftReconciliationQueue().add('reconcile-governance-drift', {
     context: {
       actor: { userId: 'system', tenantId: 'system', roles: [] },
@@ -44,7 +74,7 @@ export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> 
     },
     grantedPermissions: [],
     remediationMode: 'approval-gated',
-  }, { repeat: { every: INTERVAL_MINUTES * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
+  }, { repeat: { every: intervalMinutes * 60 * 1000 }, jobId: 'governance-drift-reconciliation-repeatable' });
 }
 
 function toRecord(ctx: GovernanceContext, d: DriftAssessment, remediated: boolean, escalatedForApproval: boolean): ReconciliationDriftRecord {

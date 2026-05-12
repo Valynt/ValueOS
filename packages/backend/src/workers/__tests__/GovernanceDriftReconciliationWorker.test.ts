@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { runGovernanceDriftReconciliationJob } from '../GovernanceDriftReconciliationWorker.js';
+import { getGovernanceDriftReconciliationIntervalMinutes, runGovernanceDriftReconciliationJob } from '../GovernanceDriftReconciliationWorker.js';
 import type { GovernanceContext } from '../../lib/rules.js';
 
 function ctx(overrides: Partial<GovernanceContext> = {}): GovernanceContext {
@@ -11,6 +11,58 @@ function ctx(overrides: Partial<GovernanceContext> = {}): GovernanceContext {
     ...overrides,
   };
 }
+
+
+
+describe('getGovernanceDriftReconciliationIntervalMinutes', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalInterval = process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES;
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+
+    if (originalInterval === undefined) delete process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES;
+    else process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = originalInterval;
+  });
+
+  it('returns the configured interval when valid', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = '30';
+
+    expect(getGovernanceDriftReconciliationIntervalMinutes()).toBe(30);
+  });
+
+  it('falls back in non-production when interval is an invalid string', () => {
+    process.env.NODE_ENV = 'test';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = 'abc';
+
+    expect(getGovernanceDriftReconciliationIntervalMinutes()).toBe(15);
+  });
+
+  it('falls back in non-production when interval is zero or negative', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = '0';
+    expect(getGovernanceDriftReconciliationIntervalMinutes()).toBe(15);
+
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = '-10';
+    expect(getGovernanceDriftReconciliationIntervalMinutes()).toBe(15);
+  });
+
+  it('fails fast in production when interval is invalid', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = 'not-a-number';
+
+    expect(() => getGovernanceDriftReconciliationIntervalMinutes()).toThrowError(/Invalid GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES/);
+  });
+
+  it('uses fallback behavior in non-production for out-of-bounds values', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES = '2000';
+
+    expect(getGovernanceDriftReconciliationIntervalMinutes()).toBe(15);
+  });
+});
 
 describe('GovernanceDriftReconciliationWorker', () => {
   it('detects drift and emits unresolved records in approval-gated mode', async () => {
