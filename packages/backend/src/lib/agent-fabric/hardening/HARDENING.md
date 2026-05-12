@@ -79,9 +79,13 @@ Production-grade reliability, governance, and auditability for the ValueOS agent
 ║                                                                              ║
 ║  Step 2 — Confidence Threshold Policy                                        ║
 ║                                                                              ║
-║  Anti-drift safeguard: risk tier must match a canonical key in              ║
-║  CONFIDENCE_THRESHOLDS. Unknown tiers are explicitly vetoed with            ║
-║  reason `invalid risk tier` (no fallback to discovery).                     ║
+║  Anti-drift safeguard: runtime drift guard compares requested runtime values ║
+║  against canonical policy. In strict mode, detected drift blocks execution.  ║
+║  In non-strict mode, concrete remediations are applied and reported:         ║
+║    • unknown risk tier -> discovery fallback (risk_tier_fallback)            ║
+║    • invalid schema fingerprint -> regenerated fingerprint                    ║
+║      (schema_fingerprint_regenerated)                                         ║
+║  Drift logs include requested vs applied values (agent.drift_detected).      ║
 ║                                                                              ║
 ║  Risk Tier   │ accept │ review │ block   Verdict                            ║
 ║  ────────────┼────────┼────────┼──────   ──────────────────────────────     ║

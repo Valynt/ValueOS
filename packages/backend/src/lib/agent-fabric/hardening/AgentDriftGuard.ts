@@ -14,11 +14,18 @@ export interface DriftCheckInput {
   outputSchemaFingerprint: string;
 }
 
+export type DriftCorrectionType = "none" | "risk_tier_fallback" | "schema_fingerprint_regenerated";
+
 export interface DriftCheckResult {
   driftDetected: boolean;
   reasons: string[];
   correctionApplied: boolean;
+  correctionType: DriftCorrectionType;
   baselineVersion: string;
+  requestedRiskTier: string;
+  appliedRiskTier: string;
+  requestedSchemaFingerprint: string;
+  appliedSchemaFingerprint: string;
 }
 
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
@@ -62,17 +69,39 @@ export class AgentDriftGuard {
     this.lastCheckedAt = Date.now();
 
     const reasons: string[] = [];
+    let correctionType: DriftCorrectionType = "none";
+    let correctionApplied = false;
+
     const runtimeThresholdFingerprint = sha256(stableJson(CONFIDENCE_THRESHOLDS));
     if (runtimeThresholdFingerprint !== this.baselineThresholdFingerprint) {
       reasons.push("confidence_thresholds_drift");
     }
 
-    if (!Object.prototype.hasOwnProperty.call(CONFIDENCE_THRESHOLDS, input.riskTier)) {
+    const requestedRiskTier = input.riskTier;
+    const fallbackRiskTier: keyof typeof CONFIDENCE_THRESHOLDS = "discovery";
+    const riskTierKnown = Object.prototype.hasOwnProperty.call(CONFIDENCE_THRESHOLDS, input.riskTier);
+    const appliedRiskTier = riskTierKnown ? input.riskTier : (this.config.strictMode ? input.riskTier : fallbackRiskTier);
+
+    if (!riskTierKnown) {
       reasons.push("unknown_risk_tier");
+      if (!this.config.strictMode) {
+        correctionType = "risk_tier_fallback";
+        correctionApplied = true;
+      }
     }
 
-    if (!input.outputSchemaFingerprint || input.outputSchemaFingerprint.length < 16) {
+    const requestedSchemaFingerprint = input.outputSchemaFingerprint;
+    const schemaFingerprintValid = Boolean(input.outputSchemaFingerprint && input.outputSchemaFingerprint.length >= 16);
+    const appliedSchemaFingerprint = schemaFingerprintValid
+      ? input.outputSchemaFingerprint
+      : sha256(`regenerated:${input.agentName}:${this.baselineVersion}`);
+
+    if (!schemaFingerprintValid) {
       reasons.push("schema_fingerprint_missing_or_invalid");
+      if (!this.config.strictMode && !correctionApplied) {
+        correctionType = "schema_fingerprint_regenerated";
+        correctionApplied = true;
+      }
     }
 
     const driftDetected = reasons.length > 0;
@@ -80,17 +109,27 @@ export class AgentDriftGuard {
     if (driftDetected) {
       logger.warn("agent.drift_detected", {
         agent: input.agentName,
-        risk_tier: input.riskTier,
         reasons,
         drift_guard_strict: this.config.strictMode,
+        requested_risk_tier: requestedRiskTier,
+        applied_risk_tier: appliedRiskTier,
+        requested_schema_fingerprint: requestedSchemaFingerprint,
+        applied_schema_fingerprint: appliedSchemaFingerprint,
+        correction_applied: correctionApplied,
+        correction_type: correctionType,
       });
     }
 
     return {
       driftDetected,
       reasons,
-      correctionApplied: reasons.includes("unknown_risk_tier"),
+      correctionApplied,
+      correctionType,
       baselineVersion: this.baselineVersion,
+      requestedRiskTier,
+      appliedRiskTier,
+      requestedSchemaFingerprint,
+      appliedSchemaFingerprint,
     };
   }
 
