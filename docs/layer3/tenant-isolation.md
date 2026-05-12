@@ -4,141 +4,87 @@
 
 The Layer 3 tenant isolation model is governed by two non-negotiable rules:
 
-- **All tenant-scoped nodes must use `tenant_id` (snake_case).**
+- **All tenant-scoped records must use `tenant_id` (snake_case).**
 - **No API query path may execute without resolved tenant context.**
 
-These rules apply to schema design, migrations, API dependencies, and Cypher query authoring.
+These rules apply to schema design, migrations, API dependencies, and query authoring.
 
 ## 2) Enforcement layers with code pointers
 
-Tenant isolation is enforced across three layers.
+Tenant isolation is enforced across three canonical layers.
 
-### A. Schema constraints and indexes
+### A. Schema constraints and indexes (canonical source)
 
-Tenant-scoped graph entities must have constraint/index support that includes `tenant_id`:
+Tenant-scoped table constraints/indexes are enforced in the Supabase SQL lineage:
 
-- `value_fabric/layer3/schema/constraints.py`
-- `value_fabric/layer3/schema/initializer.py`
+- `infra/supabase/sql/ops/rls-tenant-isolation-fixes.sql`
+- `infra/supabase/supabase/migrations/20260303000001_harden_tenant_rls_service_role_exceptions.sql`
+- `infra/supabase/supabase/migrations/20260326050000_value_tree_atomic_tenant_scope.sql`
 
-These files are the schema-level enforcement points for ensuring tenant-qualified lookup and uniqueness behavior are materialized in the graph.
+These files are the schema-level enforcement points for tenant-qualified lookup and uniqueness behavior.
 
 ### B. Runtime guard and session behavior
 
-Tenant context must be resolved and attached before route/service logic runs:
+Tenant context is resolved and attached before route/service logic runs in backend middleware:
 
-- `value_fabric/layer3/api/dependencies_tenant.py`
-- `services/layer3-knowledge/src/api/dependencies_tenant.py`
+- `packages/backend/src/middleware/tenantContext.ts`
+- `packages/backend/src/middleware/tenantDbContext.ts`
+- `packages/backend/src/api/tenantContext.ts`
 
-These dependencies are responsible for rejecting unresolved tenant context and for ensuring request/session execution is tenant-scoped.
+These modules reject unresolved tenant context and ensure request/session execution is tenant-scoped.
 
 ### C. Migration lineage
 
-Tenant standardization and backfill lineage must be preserved and reviewable in:
+Tenant standardization and backfill lineage is preserved in:
 
-- `services/layer3-knowledge/src/migrations/migrate_tenant_ids.py`
-- `services/layer3-knowledge/src/migrations/028_l3_tenant_standardization.py`
-- `services/layer3-knowledge/src/migrations/create_composite_tenant_indexes.py`
+- `infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql`
+- `infra/supabase/supabase/migrations/20260304000000_tenant_provisioning_workflow.sql`
+- `infra/supabase/supabase/migrations/20260326050000_value_tree_atomic_tenant_scope.sql`
 
 Any new migration affecting tenant-scoped data must be compatible with this lineage and maintain invariant continuity.
 
 ## 3) Query authoring rules
 
-### Required Cypher patterns
+### Required SQL patterns
 
-All node lookup and mutation statements must explicitly scope by `tenant_id`.
-
-**Lookup pattern (required):**
-
-```cypher
-MATCH (n:Entity {tenant_id: $tenant_id, id: $id})
-RETURN n
-```
-
-**Scoped match with predicate (required):**
-
-```cypher
-MATCH (n:Entity)
-WHERE n.tenant_id = $tenant_id
-  AND n.status = $status
-RETURN n
-```
-
-**Mutation pattern (required):**
-
-```cypher
-MATCH (n:Entity {tenant_id: $tenant_id, id: $id})
-SET n.name = $name,
-    n.updated_at = datetime()
-RETURN n
-```
-
-**Create pattern (required):**
-
-```cypher
-CREATE (n:Entity {
-  id: $id,
-  tenant_id: $tenant_id,
-  created_at: datetime(),
-  updated_at: datetime()
-})
-RETURN n
-```
+All tenant-scoped lookup and mutation statements must explicitly scope by `tenant_id`.
 
 ### Disallowed patterns
 
 The following are prohibited:
 
-- **Unscoped `MATCH`** on tenant-scoped labels (for example `MATCH (n:Entity) RETURN n` without tenant predicate).
-- **Implicit tenant inference** (for example deriving tenant from email/domain/path metadata without validated tenant dependency resolution).
-- **Mutation by global identifier only** when entity is tenant-scoped (for example `MATCH (n:Entity {id: $id}) SET ...`).
+- Unscoped SELECT/UPDATE/DELETE on tenant-scoped tables.
+- Implicit tenant inference from unverified metadata.
+- Mutation by global identifier only when entity is tenant-scoped.
 
 ## 4) Test requirements
 
 Tenant isolation regressions are validated in:
 
-- `services/layer3-knowledge/tests/test_tenant_isolation.py`
-- `services/layer3-knowledge/tests/test_entities_route_tenant_scoped_regression.py`
+- `infra/supabase/tests/tenant_rls_isolation.test.sql`
+- `tests/security/tenant-isolation-e2e.test.ts`
 
-### Minimum test cases for any new entity or route
+### Minimum test cases for any new tenant-scoped endpoint/table
 
-For each new tenant-scoped entity type or API route, include at least:
-
-1. **Positive in-tenant access:** same-tenant read/write succeeds.
-2. **Cross-tenant denial:** other-tenant read/write is rejected or returns no data.
-3. **Missing tenant context rejection:** request/query path fails fast when tenant context is absent.
-4. **Tenant-qualified mutation safety:** update/delete operations require tenant-qualified match criteria.
-5. **List/query scoping:** collection/list endpoints return only records for requesting tenant.
+1. Positive in-tenant access.
+2. Cross-tenant denial.
+3. Missing tenant context rejection.
+4. Tenant-qualified mutation safety.
+5. List/query scoping.
 
 ## 5) Operational checklist
 
-### Steps for adding a new entity type
+### Steps for adding a new tenant-scoped entity
 
 1. **Schema contract**
-   - Add/confirm `tenant_id` property in entity model.
-   - Add required constraints/indexes in `value_fabric/layer3/schema/constraints.py` and initialize via `initializer.py`.
-2. **Cypher query safety**
-   - Ensure all CRUD queries include explicit `tenant_id` predicates or maps.
+   - Add/confirm `tenant_id`.
+   - Add required constraints/indexes in canonical `infra/supabase/supabase/migrations/*.sql` files.
+2. **Query safety**
+   - Ensure all CRUD statements include explicit `tenant_id` predicates.
 3. **Migration impact**
-   - Evaluate whether existing records require backfill/normalization.
-   - Add migration(s) aligned with the existing tenant migration lineage.
+   - Evaluate backfill/normalization needs.
+   - Add migration(s) aligned with tenant migration lineage.
 4. **Route guard integration**
-   - Ensure route/service path uses tenant dependency guard (`dependencies_tenant.py`) before query execution.
+   - Ensure route/service paths use tenant middleware before query execution.
 5. **Regression tests**
-   - Add/extend tenant isolation tests for entity routes and service-level query behavior.
-
-### Pre-production migration verification checklist (staging)
-
-Before promoting tenant-related migrations to production:
-
-1. Run migration in staging against production-like data volume.
-2. Verify all touched tenant-scoped nodes contain non-null `tenant_id`.
-3. Verify composite tenant indexes/constraints are present and healthy.
-4. Execute tenant isolation regression suites:
-   - `services/layer3-knowledge/tests/test_tenant_isolation.py`
-   - `services/layer3-knowledge/tests/test_entities_route_tenant_scoped_regression.py`
-5. Validate API behavior:
-   - unresolved tenant context is rejected,
-   - cross-tenant access is denied,
-   - same-tenant access continues to succeed.
-6. Confirm rollback procedure and data repair plan are documented for the migration set.
-7. Capture staging evidence (logs/test output/index checks) in release artifacts.
+   - Add/extend tenant isolation tests for API and DB behavior.
