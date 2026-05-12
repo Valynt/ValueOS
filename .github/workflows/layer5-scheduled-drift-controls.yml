@@ -1,0 +1,138 @@
+name: Layer 5 Scheduled Drift Controls
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: layer5-scheduled-drift-controls
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  layer5-drift-controls:
+    name: layer5/scheduled-drift-controls
+    runs-on: ubuntu-latest
+    outputs:
+      drift_detected: ${{ steps.drift.outcome == 'failure' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.x
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare evidence directories
+        run: |
+          mkdir -p artifacts/operations
+          mkdir -p artifacts/security
+
+      - name: Run Layer 5 scheduled drift controls
+        id: drift
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            echo "# Layer 5 Scheduled Drift Controls"
+            echo "- Run ID: $GITHUB_RUN_ID"
+            echo "- Timestamp (UTC): $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo ""
+
+            echo "## check-layer5-readiness-gate (--baseline)"
+            node scripts/ci/check-layer5-readiness-gate.mjs --baseline
+            echo ""
+
+            echo "## check-architecture-doc-drift"
+            node scripts/ci/check-architecture-doc-drift.mjs
+            echo ""
+
+            echo "## check-infra-readiness-contract"
+            node scripts/ci/check-infra-readiness-contract.mjs
+            echo ""
+
+            echo "## check-slo-rule-metrics-contract"
+            node scripts/ci/check-slo-rule-metrics-contract.mjs
+          } 2>&1 | tee artifacts/operations/layer5-scheduled-drift-controls.log
+
+      - name: Write drift summary
+        if: always()
+        run: |
+          cat > artifacts/operations/layer5-scheduled-drift-summary.json <<JSON
+          {
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_attempt": "${GITHUB_RUN_ATTEMPT}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "ref": "${GITHUB_REF}",
+            "sha": "${GITHUB_SHA}",
+            "timestamp_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "drift_detected": "${{ steps.drift.outcome == 'failure' }}"
+          }
+          JSON
+          cp artifacts/operations/layer5-scheduled-drift-summary.json artifacts/security/layer5-scheduled-drift-summary.json
+
+      - name: Upload operations evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layer5-scheduled-operations-evidence-${{ github.run_id }}
+          path: artifacts/operations/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload security evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layer5-scheduled-security-evidence-${{ github.run_id }}
+          path: artifacts/security/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Fail workflow when drift is detected
+        if: steps.drift.outcome == 'failure'
+        run: |
+          echo "Layer 5 scheduled drift controls detected drift. See artifacts for details."
+          exit 1
+
+  notify-on-drift:
+    name: layer5/notify-on-drift
+    runs-on: ubuntu-latest
+    needs: layer5-drift-controls
+    if: needs.layer5-drift-controls.result == 'failure'
+    steps:
+      - name: Create drift incident issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `[Layer 5 Drift] Scheduled controls failed (${new Date().toISOString().slice(0, 10)})`;
+            const body = [
+              'Scheduled Layer 5 drift controls failed and require triage.',
+              '',
+              `- Workflow run: ${runUrl}`,
+              `- Commit: ${context.sha}`,
+              '- Required actions:',
+              '  1. Follow docs/operations/layer5-production-readiness.md Drift Alert Triage steps.',
+              '  2. Assign owning team (platform / observability / quality).',
+              '  3. Escalate via PagerDuty if unresolved after 30 minutes.',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['incident', 'layer5', 'drift-detection']
+            });

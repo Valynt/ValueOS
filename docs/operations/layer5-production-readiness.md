@@ -68,6 +68,28 @@ Strict mode actions:
 4. Create incident ticket with commit SHA, failing control, and expected vs actual.
 5. If unresolved after 30 minutes, escalate via PagerDuty primary and `#incident-response`.
 
+
+### Scheduled Drift Failures (GitHub Actions)
+The `Layer 5 Scheduled Drift Controls` workflow runs every 6 hours (`0 */6 * * *`) and executes baseline integrity + drift contracts independent of PR/release triggers.
+
+Operator procedure when scheduled run fails:
+1. Open the failed run and download evidence artifacts:
+   - `layer5-scheduled-operations-evidence-<run_id>`
+   - `layer5-scheduled-security-evidence-<run_id>`
+2. Review `artifacts/operations/layer5-scheduled-drift-controls.log` to identify the first failing control:
+   - `check-layer5-readiness-gate.mjs --baseline`
+   - `check-architecture-doc-drift.mjs`
+   - `check-infra-readiness-contract.mjs`
+   - `check-slo-rule-metrics-contract.mjs`
+3. Confirm incident issue auto-created by workflow (`[Layer 5 Drift] Scheduled controls failed (...)`). If not present, create one manually with run URL, SHA, and failing check.
+4. Assign escalation ownership immediately:
+   - **Primary owner:** `team-platform` (workflow health + infra drift)
+   - **Secondary owner:** `team-observability` (SLO/metrics contract drift)
+   - **Secondary owner:** `team-quality` (architecture/documentation drift)
+   - **Security partner:** `team-security` (security artifact evidence + compliance posture)
+5. Apply remediation or rollback (see Safe Remediation / Rollback Path) and re-run the workflow manually (`workflow_dispatch`) to verify closure.
+6. If unresolved after 30 minutes, escalate to PagerDuty primary and post status in `#incident-response` with artifact links.
+
 ### Safe Remediation / Rollback Path
 1. Revert offending commit(s) using standard git revert flow.
 2. Re-run PR Fast and release-candidate readiness jobs.
