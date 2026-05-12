@@ -677,6 +677,7 @@ describe('enforceRulesDetailed', () => {
       const allowed = await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [valid] } });
       expect(allowed.allowed).toBe(true);
     });
+  });
   describe('Layer 6 — anti-drift', () => {
     it('corrects stale cache when role changed from admin to viewer and denies', async () => {
       mockActiveMember(['admin']);
@@ -941,6 +942,73 @@ describe('enforceRulesDetailed', () => {
     });
 
     
+
+    it('denies in prod when expected schema hash is configured but runtime signal is missing', async () => {
+      process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED = 'hash-expected';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'prod', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: {},
+        },
+      }));
+
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_POLICY');
+      expect(result.audit.matchedRules).toContain('anti-drift');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.detected',
+        expect.objectContaining({ details: expect.stringContaining('[MISSING] Schema contract drift signal missing') })
+      );
+      delete process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED;
+    });
+
+    it('adds read-only obligation outside prod when migration signal is missing', async () => {
+      process.env.APP_MIGRATION_HEAD = '20260512090000';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: {},
+        },
+      }));
+
+      expect(result.allowed).toBe(true);
+      expect(result.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
+      expect(result.audit.matchedRules).toContain('anti-drift');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.detected',
+        expect.objectContaining({ details: expect.stringContaining('[MISSING] Migration head drift signal missing') })
+      );
+      delete process.env.APP_MIGRATION_HEAD;
+    });
+
+    it('adds approval obligation outside prod when payload contract signal is missing for prod-gated action', async () => {
+      process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION = 'v3';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        action: {
+          type: 'proposal.publish',
+          name: 'proposal.publish',
+          payload: {},
+        },
+      }));
+
+      expect(result.allowed).toBe(true);
+      expect(result.obligations).toEqual(expect.arrayContaining([{ type: 'REQUIRE_APPROVAL', approvalType: 'drift-remediation' }]));
+      expect(result.audit.matchedRules).toContain('anti-drift');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.detected',
+        expect.objectContaining({ details: expect.stringContaining('[MISSING] Validation contract drift signal missing') })
+      );
+      delete process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
+    });
+
     it('denies on schema contract drift in prod (fail closed)', async () => {
       process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED = 'hash-expected';
       mockActiveMember(['member']);
