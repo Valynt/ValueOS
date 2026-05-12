@@ -19,6 +19,7 @@
 // service-role:justified worker/service requires elevated DB access for background processing
 import { createServerSupabaseClient } from './supabase.js';
 import { logger } from './logger.js';
+import { loadGovernanceConfig } from '../config/governance.js';
 
 // ---------------------------------------------------------------------------
 // Permission cache
@@ -32,8 +33,9 @@ interface CacheEntry {
 // Simple in-process LRU-style cache: max 2000 entries, 30 s TTL.
 // Avoids a hard dependency on an external cache library while still
 // eliminating the majority of repeated DB round-trips on the hot path.
-const PERMISSION_CACHE_TTL_MS = 30_000;
-const PERMISSION_CACHE_MAX = 2000;
+const governanceConfig = loadGovernanceConfig();
+const PERMISSION_CACHE_TTL_MS = governanceConfig.permissionCacheTtlMs;
+const PERMISSION_CACHE_MAX = governanceConfig.permissionCacheMax;
 const permissionCache = new Map<string, CacheEntry>();
 
 export function __resetPermissionCacheForTests(): void {
@@ -164,30 +166,16 @@ const POLICY_VERSION = 'v1';
  * Action names that require elevated roles (admin/owner) to execute.
  * Destructive = irreversible data mutations or deletions.
  */
-const DESTRUCTIVE_ACTIONS = new Set([
-  'value_model.delete',
-  'case.delete',
-  'tenant.delete',
-  'user.delete',
-  'artifact.delete',
-  'commitment.delete',
-  'value_tree.delete',
-  'integration.delete',
-  'api_key.delete',
-]);
+const DESTRUCTIVE_ACTIONS = governanceConfig.destructiveActions;
 
 /** Roles considered elevated for destructive action checks. */
-const ELEVATED_ROLES = new Set(['admin', 'owner']);
+const ELEVATED_ROLES = governanceConfig.elevatedRoles;
 
 /**
  * Actions that require an explicit approval entry in workflow.approvals
  * when running in the prod environment.
  */
-const PROD_APPROVAL_REQUIRED_ACTIONS = new Set([
-  'proposal.publish',
-  'value_model.finalize',
-  'commitment.publish',
-]);
+const PROD_APPROVAL_REQUIRED_ACTIONS = governanceConfig.prodApprovalRequiredActions;
 
 // ============================================================================
 // Internal helpers

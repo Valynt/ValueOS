@@ -11,6 +11,7 @@ import { logger } from "../lib/logger.js";
 import { validateAuditLogEncryptionConfig } from "../services/agents/AuditLogEncryptionConfig.js";
 import { getSensitiveEnvKeys } from "./secrets/RuntimeSecretStore.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { validateGovernanceConfigEnv } from "./governance.js";
 
 export interface ValidationResult {
   valid: boolean;
@@ -596,6 +597,7 @@ export function validateEnv(): ValidationResult {
   validateAuthFallbackConfig(nodeEnv, errors);
   validateLogLevel(nodeEnv, errors);
   errors.push(...validateAuditLogEncryptionConfig(process.env));
+  errors.push(...validateGovernanceConfigEnv(process.env));
 
   return {
     valid: errors.length === 0,
