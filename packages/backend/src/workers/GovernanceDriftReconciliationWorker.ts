@@ -64,10 +64,21 @@ export async function scheduleGovernanceDriftReconciliationJob(): Promise<void> 
 
 async function resolveGrantedPermissions(userId: string, tenantId: string): Promise<string[]> {
   const supabase = createWorkerServiceSupabaseClient({ justification: 'service-role:justified governance reconciliation requires tenant-scoped permission resolution' });
-  const [{ data: roles }, { data: permissions }] = await Promise.all([
+  const [{ data: roles, error: userRolesError }, { data: permissions, error: userPermissionsError }] = await Promise.all([
     supabase.from('user_roles').select('role').eq('user_id', userId).eq('tenant_id', tenantId),
     supabase.from('user_permissions').select('permission').eq('user_id', userId).eq('tenant_id', tenantId),
   ]);
+
+  if (userRolesError || userPermissionsError) {
+    const parts = [
+      userRolesError ? `user_roles=${userRolesError.message}` : null,
+      userPermissionsError ? `user_permissions=${userPermissionsError.message}` : null,
+    ].filter((part): part is string => Boolean(part));
+
+    throw new Error(
+      `governance permission resolution failed tenant=${tenantId} user=${userId} details=${parts.join(';')}`,
+    );
+  }
   const { USER_ROLE_PERMISSIONS } = await import('@shared/lib/permissions');
   const granted = new Set<string>();
   for (const row of roles ?? []) {

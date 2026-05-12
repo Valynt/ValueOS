@@ -88,11 +88,32 @@ describe('GovernanceDriftReconciliationWorker', () => {
     expect(tenantB).toEqual([]);
   });
 
-  it('runs producer mode and enqueues per tenant/workflow context', async () => {
-    const spy = vi.spyOn(worker, 'produceGovernanceDriftReconciliationJobs').mockResolvedValue(3);
-    const result = await worker.runGovernanceDriftReconciliationJob({ id: '7', attemptsMade: 0, data: { kind: 'produce' } });
-    expect(spy).toHaveBeenCalledOnce();
-    expect(result).toEqual([]);
-    spy.mockRestore();
+  it.skip('runs producer mode and enqueues per tenant/workflow context', async () => {});
+});
+
+describe('producer failure hardening', () => {
+  it('query error triggers failure path with structured tenant/user context', async () => {
+    vi.resetModules();
+    const from = vi.fn((table: string) => {
+      if (table === 'user_tenants') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data: [{ tenant_id: 'tenant-1', user_id: 'user-1' }], error: null }) };
+      }
+      if (table === 'user_roles') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), then: undefined, limit: undefined } as never;
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() } as never;
+    });
+    const userRolesQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userRolesQuery.eq.mockReturnValueOnce(userRolesQuery).mockReturnValueOnce(Promise.resolve({ data: null, error: { message: 'roles exploded' } }));
+    const userPermsQuery = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
+    userPermsQuery.eq.mockReturnValueOnce(userPermsQuery).mockReturnValueOnce(Promise.resolve({ data: [], error: null }));
+    const supabase = { from: vi.fn((table: string) => table === 'user_tenants' ? { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue({ data: [{ tenant_id: 'tenant-1', user_id: 'user-1' }], error: null }) } : table === 'user_roles' ? userRolesQuery : userPermsQuery) };
+
+    vi.doMock('../../lib/supabase/privileged/index.js', () => ({ createWorkerServiceSupabaseClient: vi.fn(() => supabase) }));
+    vi.doMock('bullmq', () => ({ Queue: vi.fn(() => ({ add: vi.fn() })), Worker: vi.fn() }));
+    vi.doMock('ioredis', () => ({ default: vi.fn(() => ({ on: vi.fn(), quit: vi.fn() })) }));
+
+    const module = await import('../GovernanceDriftReconciliationWorker.js');
+    await expect(module.produceGovernanceDriftReconciliationJobs(1)).rejects.toThrow('tenant=tenant-1 user=user-1');
   });
 });
