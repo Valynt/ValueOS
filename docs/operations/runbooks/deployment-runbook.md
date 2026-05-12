@@ -48,9 +48,13 @@ Authoritative operational runbook for production deployments. This runbook is th
 4. Execute a single deterministic overlay rollout command for the target environment (security policies are included automatically via overlay dependencies):
    - Staging: `kustomize build infra/k8s/overlays/staging | kubectl apply -f -`
    - Production: `kustomize build infra/k8s/overlays/production | kubectl apply -f -`
-5. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, workflow execution, and at least one protected internal route using per-request service assertions.
+5. Run pre-traffic startup validation checks for Layer 4 governance configuration:
+   - Verify environment values match `docs/operations/runbooks/layer4-governance-env-vars.md`.
+   - Confirm startup executes `validateGovernanceConfigOrThrow()` successfully in the target environment.
+   - Block promotion if any pod fails startup due to governance configuration validation errors.
+6. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, workflow execution, and at least one protected internal route using per-request service assertions.
    - Include blocking chaos/smoke release suite: `node scripts/chaos/launch-chaos-smoke.mjs`.
-6. Monitor error rate, p95 latency, queue depth, and `Service identity verification failed` / `Service principal revoked` log volume for 15 minutes.
+7. Monitor error rate, p95 latency, queue depth, and `Service identity verification failed` / `Service principal revoked` log volume for 15 minutes.
 
 ## Rollback Procedure
 
@@ -69,7 +73,6 @@ Authoritative operational runbook for production deployments. This runbook is th
   - `cluster.local/ns/valueos-agents/sa/<agent-name>-agent`
   - `cluster.local/ns/valueos/sa/valueos-backend`
 - If the cluster trust domain is not `cluster.local`, update `infra/k8s/security/mesh-authentication.yaml` and re-run validation prior to deployment.
-
 
 ## Ingress TLS and WAF annotation policy (required)
 
@@ -123,6 +126,5 @@ Policy requirements:
 Detailed command catalogs and deep background are maintained in the generated reference:
 
 - [Deployment Reference (Generated)](../reference/deployment-reference.generated.md)
-
 
 > **Legacy section (`[legacy-id]`):** historical mesh policies may still show `valynt-*` principals. Keep those strings only in archived evidence or migration notes.

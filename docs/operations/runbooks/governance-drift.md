@@ -1,5 +1,7 @@
 # Runbook: Governance Drift
 
+Authoritative Layer 4 env var contract: `docs/operations/runbooks/layer4-governance-env-vars.md`.
+
 ## Scheduled reconciliation
 
 - Worker: `GovernanceDriftReconciliationWorker` (BullMQ queue `governance-drift-reconciliation`).
@@ -90,7 +92,6 @@ Rollout order (must be followed):
 - File RCA with policy and payload examples.
 - Add/extend tests under `packages/backend/src/workers/__tests__/GovernanceDriftReconciliationWorker.test.ts` and `packages/backend/src/lib/__tests__/rules.test.ts`.
 
-
 ## Backlog handling
 
 1. Inspect `governance-drift-reconciliation` waiting/active/failed counts and isolate whether producer or evaluator jobs are accumulating.
@@ -104,7 +105,6 @@ Rollout order (must be followed):
 - Validate tenant isolation by sampling records: every record in a run must carry the source `tenantId`; no cross-tenant workflow IDs should appear in a single job context.
 - Validate permission correctness by checking the evaluated actor against current `user_roles` + `user_permissions` rows for the same tenant.
 - If Redis is degraded, pause producer scheduling first, keep evaluator retries enabled, and alert platform on-call if DLQ rate exceeds normal baseline for two consecutive intervals.
-
 
 ## Agent drift guard env range (operations)
 
