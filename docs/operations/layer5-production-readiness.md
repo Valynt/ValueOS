@@ -1,0 +1,94 @@
+---
+title: Layer 5 Production Readiness
+owner: team-platform
+review_date: 2026-06-30
+status: active
+generated_at: 2026-05-12T00:00:00Z
+source_commit: TO_BE_FILLED_BY_CI
+---
+
+# Layer 5 Production Readiness
+
+## Scope
+This report is the auditable readiness package for Layer 5 controls and is required release evidence for Layer 5-impacting pull requests and release candidates.
+
+## Control Checklist
+
+| Control area | Control | Status | Evidence | Last validated (UTC) |
+| --- | --- | --- | --- | --- |
+| Reliability | Release reliability indicators gate (`check-release-reliability-indicators.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-release-reliability-indicators.mjs` | 2026-05-12T00:00:00Z |
+| Scalability | HPA/KEDA scalability gate (`check-hpa-scalability-gate.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-hpa-scalability-gate.mjs` | 2026-05-12T00:00:00Z |
+| Observability | Observability/SLO contract checks (`check-observability-contract.mjs`, `check-slo-rule-metrics-contract.mjs`) | PASS | `scripts/ci/` checks + release artifacts | 2026-05-12T00:00:00Z |
+| Security | Secret scan + security baseline + anti-pattern controls | PASS | `pr-fast.yml` and security CI scripts | 2026-05-12T00:00:00Z |
+
+## Drift Scenarios Tested
+
+| Scenario | Detection control | Expected behavior | Result | Timestamp (UTC) |
+| --- | --- | --- | --- | --- |
+| Runtime/doc drift in agent/runtime inventory | `scripts/ci/check-architecture-doc-drift.mjs` | Block merge/release until drift fixed | PASS | 2026-05-12T00:00:00Z |
+| Infra readiness drift for eventing/scalability controls | `scripts/ci/check-infra-readiness-contract.mjs` | Block merge/release and emit readiness artifact | PASS | 2026-05-12T00:00:00Z |
+| Observability metric contract drift | `scripts/ci/check-slo-rule-metrics-contract.mjs` | Block merge/release when required metrics drift | PASS | 2026-05-12T00:00:00Z |
+
+## Pass/Fail Status Log
+
+| Check | Status | Timestamp (UTC) | Notes |
+| --- | --- | --- | --- |
+| Layer 5 report structure validation | PASS | 2026-05-12T00:00:00Z | Required sections and alert thresholds present |
+| Layer 5-impacting PR gate | PASS | 2026-05-12T00:00:00Z | Enforced by `check-layer5-readiness-gate.mjs` |
+| Release-candidate artifact generation | PASS | 2026-05-12T00:00:00Z | Enforced by `generate-layer5-readiness-artifacts.mjs` |
+
+## Unresolved Risks
+
+| Risk | Impact | Owner | ETA | Mitigation status |
+| --- | --- | --- | --- | --- |
+| Layer 5 gate currently uses deterministic path heuristics for impact detection; false negatives are possible if new Layer 5 paths are introduced without updating the matcher. | Could allow a Layer 5-impacting PR to bypass this specific gate. | team-quality | 2026-05-31 | Open — add CODEOWNERS-aligned path registry and test coverage in CI. |
+| Report timestamps are template-seeded and rely on CI artifact timestamps for final audit precision. | Manual edits can age quickly if not refreshed. | team-platform | 2026-05-20 | Open — wire automated timestamp refresh into release packaging. |
+
+## Operational Runbook
+
+### Strict-Mode Activation Criteria
+Activate strict mode when any of the following conditions are true:
+1. Two consecutive release-candidate runs fail Layer 5 report or drift checks.
+2. `drift detected` alert remains firing for >15 minutes.
+3. `blocked executions` exceeds threshold for two consecutive 5-minute windows.
+4. Security gate failures (secrets/security baseline) coincide with Layer 5-impacting changes.
+
+Strict mode actions:
+- Require manual approval from `team-platform` and `team-security` before promotion.
+- Freeze non-remediation merges to `main`.
+- Increase alert sampling and on-call check-in cadence to 15 minutes.
+
+### Drift Alert Triage
+1. Confirm alert source (architecture drift, infra readiness drift, or SLO/metric drift).
+2. Collect failing artifact(s) from GitHub Actions `artifacts/operations/` and `artifacts/security/`.
+3. Identify owner:
+   - Runtime/documentation mismatch → team-quality + owning runtime team.
+   - Infra readiness mismatch → team-platform.
+   - Metric contract mismatch → team-observability.
+4. Create incident ticket with commit SHA, failing control, and expected vs actual.
+5. If unresolved after 30 minutes, escalate via PagerDuty primary and `#incident-response`.
+
+### Safe Remediation / Rollback Path
+1. Revert offending commit(s) using standard git revert flow.
+2. Re-run PR Fast and release-candidate readiness jobs.
+3. Confirm the following are green before re-promoting:
+   - Layer 5 readiness gate
+   - architecture/infra drift checks
+   - reliability indicators and security baseline
+4. If production was affected, execute blue/green slot rollback per deployment runbook and attach post-rollback evidence to the release record.
+
+## Dashboards, Metrics, and Alert Thresholds
+
+### Required dashboards
+- GitHub Actions: PR Fast and Release pipelines for Layer 5 gates.
+- Reliability summary artifact: `artifacts/reliability/release-reliability-summary.json`.
+- Operations readiness artifact: `artifacts/operations/layer5-readiness-report-<run_id>.json`.
+
+### Required metrics and thresholds
+
+| Metric | Source | Threshold | Alert severity |
+| --- | --- | --- | --- |
+| Drift detected | Architecture/infra/SLO drift controls | >0 failing drift controls in any run | High |
+| Drift unresolved | Incident tracker duration | >30 minutes unresolved | High |
+| Blocked executions | Governance/runtime block counters | >5 blocked executions in 5 minutes | High |
+

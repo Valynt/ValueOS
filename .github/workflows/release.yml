@@ -457,6 +457,18 @@ jobs:
           pnpm run check:telemetry-completeness
           pnpm run check:observability-deployment-gates
 
+      - name: Generate Layer 5 readiness artifacts (release candidate evidence)
+        run: node scripts/ci/generate-layer5-readiness-artifacts.mjs
+
+      - name: Upload Layer 5 readiness artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: layer5-readiness-${{ github.run_id }}
+          path: |
+            artifacts/operations/layer5-readiness-report-*.json
+            artifacts/operations/layer5-readiness-report-*.md
+          if-no-files-found: error
+
       - name: Generate release manifest artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
