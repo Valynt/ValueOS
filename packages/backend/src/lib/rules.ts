@@ -22,6 +22,7 @@ import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
 import { createCounter } from './observability/index.js';
 import { evaluateGovernanceDrift } from './governance/driftPrimitives.js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -246,6 +247,8 @@ export interface ApprovalContract {
   resourceId: string;
   signature?: string;
   signatureHash?: string;
+  nonce?: string;
+  approvalSequence?: number;
 }
 
 export type WorkflowApproval = string | ApprovalContract;
@@ -302,6 +305,7 @@ const ELEVATED_ROLES = governanceConfig.elevatedRoles;
  */
 const PROD_APPROVAL_REQUIRED_ACTIONS = governanceConfig.prodApprovalRequiredActions;
 const APPROVAL_FRESHNESS_WINDOW_MS = 15 * 60 * 1000;
+const APPROVAL_SIGNATURE_SECRET = process.env.TCT_SECRET ?? '';
 
 const ApprovalContractSchema = z.object({
   actionName: z.string().min(1),
@@ -315,6 +319,8 @@ const ApprovalContractSchema = z.object({
   resourceId: z.string().min(1),
   signature: z.string().min(1).optional(),
   signatureHash: z.string().min(1).optional(),
+  nonce: z.string().min(1).optional(),
+  approvalSequence: z.number().int().positive().optional(),
 }).superRefine((contract, validationCtx) => {
   if (!contract.sessionId && !contract.requestId) {
     validationCtx.addIssue({
@@ -368,12 +374,40 @@ function parseApprovalContractEntry(entry: WorkflowApproval, ctx: GovernanceCont
   return parsed.data;
 }
 
-function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | null {
+function safeEqualHex(left: string, right: string): boolean {
+  const leftBuf = Buffer.from(left, 'utf8');
+  const rightBuf = Buffer.from(right, 'utf8');
+  return leftBuf.length === rightBuf.length && timingSafeEqual(leftBuf, rightBuf);
+}
+
+function extractRequestCorrelationId(ctx: GovernanceContext): string | null {
+  const payload = ctx.action.payload;
+  if (payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).requestId === 'string') {
+    return (payload as Record<string, string>).requestId;
+  }
+  return ctx.actor.sessionId ?? null;
+}
+
+async function findValidApprovalContract(ctx: GovernanceContext): Promise<ApprovalContract | null> {
   const approvals = ctx.workflow?.approvals ?? [];
   if (approvals.length === 0) return null;
   const now = Date.parse(ctx.environment.nowIso);
   const targetResourceType = ctx.action.target?.resourceType;
   const targetResourceId = ctx.action.target?.resourceId;
+
+  const correlationId = extractRequestCorrelationId(ctx);
+  if (!correlationId || !targetResourceType || !targetResourceId || !APPROVAL_SIGNATURE_SECRET) {
+    logger.warn('governance.approval_contract.provenance_unavailable', {
+      action: ctx.action.name,
+      tenantId: ctx.actor.tenantId,
+      correlationId: correlationId ?? 'missing',
+      resourceType: targetResourceType ?? 'missing',
+      resourceId: targetResourceId ?? 'missing',
+      hasSecret: Boolean(APPROVAL_SIGNATURE_SECRET),
+    });
+    return null;
+  }
+  const supabase = createServerSupabaseClient();
 
   for (const entry of approvals) {
     const contract = parseApprovalContractEntry(entry, ctx);
@@ -388,6 +422,22 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
     const resourceTypeMatches = !!targetResourceType && contract.resourceType === targetResourceType;
     const resourceIdMatches = !!targetResourceId && contract.resourceId === targetResourceId;
     const hasTamperDetectionField = typeof contract.signature === 'string' || typeof contract.signatureHash === 'string';
+    const expectedHash = createHmac('sha256', APPROVAL_SIGNATURE_SECRET)
+      .update(
+        JSON.stringify({
+          tenantId: contract.tenantId,
+          actionName: contract.actionName,
+          resourceType: contract.resourceType,
+          resourceId: contract.resourceId,
+          requestId: contract.requestId,
+          sessionId: contract.sessionId ?? null,
+          approvedAt: contract.approvedAt,
+          nonce: contract.nonce ?? null,
+          approvalSequence: contract.approvalSequence ?? null,
+        })
+      )
+      .digest('hex');
+    const signatureHashMatches = typeof contract.signatureHash === 'string' && safeEqualHex(contract.signatureHash, expectedHash);
 
     if (
       contract.actionName === ctx.action.name &&
@@ -397,8 +447,32 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
       tenantMatches &&
       resourceTypeMatches &&
       resourceIdMatches &&
-      hasTamperDetectionField
+      hasTamperDetectionField &&
+      signatureHashMatches
     ) {
+      const { data: persisted, error } = await supabase
+        .from('workflow_approvals')
+        .select('tenant_id, action_name, resource_type, resource_id, request_id, session_id, signature_hash, nonce, approval_sequence, consumed_request_id')
+        .eq('tenant_id', ctx.actor.tenantId)
+        .eq('action_name', ctx.action.name)
+        .eq('resource_type', targetResourceType)
+        .eq('resource_id', targetResourceId)
+        .eq('request_id', correlationId)
+        .maybeSingle();
+      if (error || !persisted) return null;
+      const persistedMatches =
+        persisted.tenant_id === contract.tenantId &&
+        persisted.action_name === contract.actionName &&
+        persisted.resource_type === contract.resourceType &&
+        persisted.resource_id === contract.resourceId &&
+        (persisted.session_id === null || persisted.session_id === contract.sessionId) &&
+        typeof persisted.signature_hash === 'string' &&
+        signatureHashMatches &&
+        safeEqualHex(persisted.signature_hash, expectedHash) &&
+        (persisted.nonce === null || persisted.nonce === contract.nonce) &&
+        (persisted.approval_sequence === null || persisted.approval_sequence === contract.approvalSequence) &&
+        !persisted.consumed_request_id;
+      if (!persistedMatches) return null;
       return contract;
     }
 
@@ -417,6 +491,7 @@ function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | n
         resourceTypeMatches,
         resourceIdMatches,
         hasTamperDetectionField,
+        signatureHashMatches,
       },
     });
   }
@@ -877,7 +952,7 @@ async function evaluateRulesDetailed(
       ctx.environment.stage === 'prod' &&
       PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)
     ) {
-      const approvalContract = findValidApprovalContract(ctx);
+      const approvalContract = await findValidApprovalContract(ctx);
       if (!approvalContract) {
         return deny(
           'DENY_MISSING_APPROVAL',

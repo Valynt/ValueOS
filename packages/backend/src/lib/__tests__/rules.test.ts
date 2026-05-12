@@ -7,6 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHmac } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Mock: @shared/lib/permissions
@@ -115,6 +116,12 @@ function makeCtx(overrides: Partial<GovernanceContext> = {}): GovernanceContext 
   };
 }
 
+function buildApprovalHash(payload: Record<string, unknown>): string {
+  return createHmac('sha256', process.env.TCT_SECRET ?? 'test-secret')
+    .update(JSON.stringify(payload))
+    .digest('hex');
+}
+
 /**
  * Configure the Supabase mock to return an active membership, the given
  * roles, and no explicit per-user permissions.
@@ -214,6 +221,7 @@ describe('enforceRulesDetailed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __resetPermissionCacheForTests();
+    process.env.TCT_SECRET = 'test-secret';
   });
 
   // -------------------------------------------------------------------------
@@ -518,6 +526,18 @@ describe('enforceRulesDetailed', () => {
     });
 
     it('allows proposal.publish in prod with explicit approval', async () => {
+      const approvedAt = new Date().toISOString();
+      const signatureHash = buildApprovalHash({
+        tenantId: 'tenant-1',
+        actionName: 'proposal.publish',
+        resourceType: 'proposal',
+        resourceId: 'case-1',
+        requestId: 'session-1',
+        sessionId: 'session-1',
+        approvedAt,
+        nonce: 'nonce-1',
+        approvalSequence: 1,
+      });
       mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === 'user_tenants') {
           return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
@@ -530,6 +550,9 @@ describe('enforceRulesDetailed', () => {
         }
         if (table === 'value_cases') {
           return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 5, required_evidence_count: 3 }, error: null }) }) }) }) };
+        }
+        if (table === 'workflow_approvals') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null }, error: null }) }) }) }) }) }) }) };
         }
         return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
       });
@@ -548,18 +571,84 @@ describe('enforceRulesDetailed', () => {
               actionName: 'proposal.publish',
               approvalSchemaVersion: 'v1',
               sourceSystemId: 'rules.test',
-              approvedAt: new Date().toISOString(),
+              approvedAt,
               requestId: 'session-1',
+              sessionId: 'session-1',
               tenantId: 'tenant-1',
               resourceType: 'proposal',
               resourceId: 'case-1',
-              signature: 'sig-123',
+              signatureHash,
+              nonce: 'nonce-1',
+              approvalSequence: 1,
             },
           ],
         },
       });
       const result = await enforceRulesDetailed(ctx);
       expect(result.allowed).toBe(true);
+    });
+
+    it('denies tampered approval payload, stale approval, wrong tenant/resource, and replayed approval', async () => {
+      const baseNow = new Date();
+      const makeApproval = (overrides: Record<string, unknown> = {}) => {
+        const approvedAt = (overrides.approvedAt as string) ?? baseNow.toISOString();
+        const payload = {
+          tenantId: (overrides.tenantId as string) ?? 'tenant-1',
+          actionName: 'proposal.publish',
+          resourceType: (overrides.resourceType as string) ?? 'proposal',
+          resourceId: (overrides.resourceId as string) ?? 'case-1',
+          requestId: 'session-1',
+          sessionId: 'session-1',
+          approvedAt,
+          nonce: 'nonce-1',
+          approvalSequence: 1,
+        };
+        return { ...payload, signatureHash: buildApprovalHash(payload) };
+      };
+      const mockCommon = (persisted: Record<string, unknown> | null) => {
+        mockSupabaseFrom.mockImplementation((table: string) => {
+          if (table === 'user_tenants') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+          if (table === 'user_roles') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }) }) }) };
+          if (table === 'user_permissions') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+          if (table === 'value_cases') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 5, required_evidence_count: 3 }, error: null }) }) }) }) };
+          if (table === 'workflow_approvals') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    eq: () => ({
+                      eq: () => ({
+                        eq: () => ({
+                          maybeSingle: () => Promise.resolve({ data: persisted, error: null }),
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        });
+      };
+      const baseCtx = makeCtx({ actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'], sessionId: 'session-1' }, action: { type: 'proposal.publish', name: 'proposal.publish', target: { resourceType: 'proposal', resourceId: 'case-1' } }, environment: { stage: 'prod', nowIso: baseNow.toISOString() } });
+
+      const valid = makeApproval();
+      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: valid.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
+      const tampered = await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [{ ...valid, resourceId: 'case-2' }] } });
+      expect(tampered.reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      const staleApprovedAt = new Date(baseNow.getTime() - 16 * 60 * 1000).toISOString();
+      const stale = makeApproval({ approvedAt: staleApprovedAt });
+      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: stale.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
+      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [stale] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      const wrongTenant = makeApproval({ tenantId: 'tenant-2' });
+      mockCommon({ tenant_id: 'tenant-2', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: wrongTenant.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null });
+      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [wrongTenant] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      mockCommon({ tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: valid.signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: 'already-used' });
+      expect((await enforceRulesDetailed({ ...baseCtx, workflow: { approvals: [valid] } })).reasonCode).toBe('DENY_MISSING_APPROVAL');
     });
   });
 
@@ -595,6 +684,36 @@ describe('enforceRulesDetailed', () => {
         if (table === 'value_cases') {
           return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 7, required_evidence_count: 3 }, error: null }) }) }) }) };
         }
+        if (table === 'workflow_approvals') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    eq: () => ({
+                      eq: () => ({
+                        maybeSingle: () => Promise.resolve({
+                          data: {
+                            tenant_id: 'tenant-1',
+                            action_name: 'proposal.publish',
+                            resource_type: 'proposal',
+                            resource_id: 'case-1',
+                            request_id: 'session-1',
+                            session_id: 'session-1',
+                            signature_hash: 'persisted-hash',
+                            nonce: 'nonce-1',
+                            approval_sequence: 1,
+                            consumed_request_id: null,
+                          }, error: null
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
         return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
       });
 
@@ -607,6 +726,28 @@ describe('enforceRulesDetailed', () => {
       expect(missingApproval.allowed).toBe(false);
       expect(missingApproval.reasonCode).toBe('DENY_MISSING_APPROVAL');
 
+      const approvedAt = new Date().toISOString();
+      const signatureHash = buildApprovalHash({
+        tenantId: 'tenant-1',
+        actionName: 'proposal.publish',
+        resourceType: 'proposal',
+        resourceId: 'case-1',
+        requestId: 'session-1',
+        sessionId: 'session-1',
+        approvedAt,
+        nonce: 'nonce-1',
+        approvalSequence: 1,
+      });
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'workflow_approvals') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { tenant_id: 'tenant-1', action_name: 'proposal.publish', resource_type: 'proposal', resource_id: 'case-1', request_id: 'session-1', session_id: 'session-1', signature_hash: signatureHash, nonce: 'nonce-1', approval_sequence: 1, consumed_request_id: null }, error: null }) }) }) }) }) }) }) };
+        }
+        if (table === 'user_tenants') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        if (table === 'user_roles') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }) }) }) };
+        if (table === 'user_permissions') return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ permission: 'drift:detected' }], error: null }) }) }) };
+        if (table === 'value_cases') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 7, required_evidence_count: 3 }, error: null }) }) }) }) };
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
       const withApproval = await enforceRulesDetailed({
         ...baseCtx,
         workflow: {
@@ -615,12 +756,15 @@ describe('enforceRulesDetailed', () => {
               actionName: 'proposal.publish',
               approvalSchemaVersion: 'v1',
               sourceSystemId: 'rules.test',
-              approvedAt: new Date().toISOString(),
+              approvedAt,
               requestId: 'session-1',
+              sessionId: 'session-1',
               tenantId: 'tenant-1',
               resourceType: 'proposal',
               resourceId: 'case-1',
-              signature: 'sig-123',
+              signatureHash,
+              nonce: 'nonce-1',
+              approvalSequence: 1,
             },
           ],
         },
