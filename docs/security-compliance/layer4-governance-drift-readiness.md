@@ -119,6 +119,16 @@ Readiness package **must** include the following automated checks and artifacts:
 
 > **Readiness is NOT claimed unless every required evidence artifact is present and every required automated check is passing.**
 
+
+### Automated CI readiness gate
+
+The release workflow now enforces an automated Layer 4 evidence gate:
+
+- Command: `node scripts/ci/check-layer4-readiness-evidence.mjs`
+- Machine-readable output: single-line JSON with `{"gate":"layer4-readiness-evidence","status":"PASS"|"FAIL",...}`.
+- Pipeline contract: the command must emit `"status":"PASS"`; any `"status":"FAIL"` exits non-zero and blocks promotion.
+
+
 If any item is missing, stale, or failing, status is **NOT READY** and production promotion is blocked.
 
 
