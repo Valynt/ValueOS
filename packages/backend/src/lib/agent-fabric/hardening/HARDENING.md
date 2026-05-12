@@ -531,3 +531,21 @@ The following issues were identified and corrected during the hardening audit:
 **Before:** No unit tests existed for any of the five hardening layers.
 
 **After:** Three test files added covering safety, governance, and the full runner stack (see section 10).
+
+## Layer 5 Governance Ops — IntegrityVeto degradation remediation
+
+When `IntegrityVetoService` becomes unstable, governance now emits a structured signal:
+`governance.integrity_veto.degraded` with `agent`, `organization_id`, `trace_id`, `session_id`, `outage_mode`, and `failures_in_window`.
+
+Policy during degradation:
+- Transient failures (short-window blips): fail open with confidence penalty.
+- Sustained failures (repeated window failures):
+  - `financial` / `compliance` risk tiers => `vetoed`
+  - other risk tiers => `pending_human`
+
+Remediation steps:
+1. Inspect degradation event rate by tenant + agent and confirm outage mode.
+2. Validate IntegrityVeto upstreams (auth secret, benchmark source, network route).
+3. If sustained, page governance on-call and route impacted flows through HITL.
+4. Recover service and confirm degraded signals stop for at least one full failure window.
+5. Re-run a representative hardened workflow in each risk tier and verify baseline verdict behavior.
