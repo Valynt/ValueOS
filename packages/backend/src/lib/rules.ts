@@ -415,12 +415,6 @@ async function getProposalGovernanceStatus(
   };
 }
 
-function stageSensitiveFields(stage: GovernanceContext['environment']['stage']): string[] {
-  if (stage === 'prod') return ['changeTicketId', 'riskAcceptanceId'];
-  if (stage === 'staging') return ['changeTicketId'];
-  return [];
-}
-
 function hasRequiredPayloadFields(payload: unknown, requiredFields: string[]): boolean {
   if (requiredFields.length === 0) return true;
   if (!payload || typeof payload !== 'object') return false;
@@ -462,7 +456,7 @@ async function runDriftChecks(
   }
 
   // 3) Critical config invariants (stage-sensitive required fields).
-  const requiredFields = stageSensitiveFields(ctx.environment.stage);
+  const requiredFields = governanceConfig.stageRequiredFields[ctx.environment.stage] ?? [];
   if (!hasRequiredPayloadFields(ctx.action.payload, requiredFields)) {
     assessments.push({
       driftDetected: true,
