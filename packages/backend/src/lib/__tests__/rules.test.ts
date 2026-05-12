@@ -753,6 +753,22 @@ describe('enforceRulesDetailed', () => {
       delete process.env.APP_MIGRATION_HEAD;
     });
 
+    it('applies read-only remediation for migration drift outside prod', async () => {
+      process.env.APP_MIGRATION_HEAD = '20260512090000';
+      mockActiveMember(['member']);
+      const result = await enforceRulesDetailed(makeCtx({
+        environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: { runtime_migration_head: '20260512080000' },
+        },
+      }));
+      expect(result.allowed).toBe(true);
+      expect(result.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
+      delete process.env.APP_MIGRATION_HEAD;
+    });
+
     it('adds remediation obligations for payload contract drift outside prod', async () => {
       process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION = 'v3';
       mockActiveMember(['member']);
@@ -767,6 +783,26 @@ describe('enforceRulesDetailed', () => {
       expect(result.allowed).toBe(true);
       expect(result.obligations).toEqual(expect.arrayContaining([{ type: 'READ_ONLY' }]));
       expect(mockDriftCounters.driftUnresolved.inc).toHaveBeenCalled();
+      delete process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
+    });
+
+    it('logs tenant/session/request correlation for drift events', async () => {
+      process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION = 'v3';
+      mockActiveMember(['member']);
+      await enforceRulesDetailed(makeCtx({
+        actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['member'], sessionId: 'session-abc' },
+        environment: { stage: 'staging', nowIso: new Date().toISOString() },
+        action: {
+          type: 'value_trees:edit',
+          name: 'value_trees:edit',
+          payload: { contract_version: 'v2', request_id: 'req-xyz' },
+        },
+      }));
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'governance.drift.detected',
+        expect.objectContaining({ tenantId: 'tenant-1', sessionId: 'session-abc', requestId: 'req-xyz' })
+      );
       delete process.env.REQUIRED_PAYLOAD_CONTRACT_VERSION;
     });
 it('emits observability markers and reason-code mapping for anti-drift denials', async () => {

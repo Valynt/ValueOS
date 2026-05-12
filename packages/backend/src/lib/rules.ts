@@ -65,6 +65,7 @@ interface DriftTelemetryContext {
   actionName: string;
   tenantId?: string;
   sessionId?: string;
+  requestId?: string;
 }
 
 function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryContext, outcome: 'detected' | 'remediated' | 'unresolved' | 'denied'): void {
@@ -89,7 +90,7 @@ function emitDriftTelemetry(assessment: DriftAssessment, ctx: DriftTelemetryCont
     stage: ctx.stage,
     actionName: ctx.actionName,
     sessionId: ctx.sessionId ?? 'unknown',
-    requestId: ctx.sessionId ?? 'unknown',
+    requestId: ctx.requestId ?? 'unknown',
     ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
   });
 }
@@ -860,11 +861,18 @@ async function evaluateRulesDetailed(
     if (detectedDrift.length > 0) {
       matchedRules.push('layer6-drift-check');
 
+      const payload = (ctx.action.payload && typeof ctx.action.payload === 'object'
+        ? (ctx.action.payload as Record<string, unknown>)
+        : {}) as Record<string, unknown>;
       const telemetryContext: DriftTelemetryContext = {
         stage: ctx.environment.stage,
         actionName: ctx.action.name,
         tenantId: ctx.actor.tenantId,
         sessionId: ctx.actor.sessionId,
+        requestId:
+          typeof payload.request_id === 'string'
+            ? payload.request_id
+            : ctx.actor.sessionId,
       };
 
       const highSeverityDrift = detectedDrift.find((d) => d.severity === 'high');
@@ -913,6 +921,17 @@ async function evaluateRulesDetailed(
       }
 
       for (const drift of detectedDrift) {
+        logger.warn('governance.drift.detected', {
+          driftType: drift.driftType ?? 'UNKNOWN',
+          severity: drift.severity ?? 'unknown',
+          remediationAction: drift.remediationAction ?? 'NONE',
+          details: drift.details,
+          tenantId: telemetryContext.tenantId ?? 'unknown',
+          sessionId: telemetryContext.sessionId ?? 'unknown',
+          requestId: telemetryContext.requestId ?? 'unknown',
+          action: telemetryContext.actionName,
+          stage: telemetryContext.stage,
+        });
         emitDriftTelemetry(drift, telemetryContext, 'unresolved');
       }
 
