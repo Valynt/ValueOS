@@ -51,6 +51,14 @@
       "artifacts": [
         "artifacts/layer3/tenant-isolation-tests.json"
       ]
+    },
+    {
+      "id": "tenant-migration-readiness-checklist",
+      "name": "Tenant migration readiness checklist artifact",
+      "required": true,
+      "artifacts": [
+        "artifacts/layer3/tenant-migration-readiness-checklist.md"
+      ]
     }
   ]
 }

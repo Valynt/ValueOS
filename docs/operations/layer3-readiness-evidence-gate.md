@@ -16,6 +16,7 @@ It requires these check artifacts:
 4. schema-contract check
 5. route compatibility check
 6. tenant-isolation tests
+7. tenant migration readiness checklist artifact
 
 ## Operator procedure
 
@@ -36,3 +37,18 @@ The gate report always includes:
 - Changed controls
 - Open risks
 - Production-ready verdict
+
+
+## Layer 3 tenant migration artifact requirement
+
+For any deployment PR/release that includes Layer 3 graph tenant-field/index/constraint changes, attach:
+
+- `artifacts/layer3/tenant-migration-readiness-checklist.md`
+
+The artifact must include staging query outputs and logs proving:
+
+- pre-migration inventory counts by label and tenant property state
+- post-migration zero `tenantId` and zero missing `tenant_id` for scoped labels
+- constraint/index existence for all `ENTITY_TYPES`
+
+Use `docs/runbooks/layer3-tenant-migration-readiness.md` as the canonical checklist/runbook.
