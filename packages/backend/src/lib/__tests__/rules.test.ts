@@ -475,6 +475,110 @@ describe('enforceRulesDetailed', () => {
     });
   });
 
+  describe('Layer 6 — anti-drift', () => {
+    it('corrects stale cache when role changed from admin to viewer and denies', async () => {
+      mockActiveMember(['admin']);
+      const adminCtx = makeCtx({
+        actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'] },
+      });
+      const warmResult = await enforceRulesDetailed(adminCtx);
+      expect(warmResult.allowed).toBe(true);
+
+      __resetPermissionCacheForTests();
+      mockActiveMember(['viewer']);
+
+      const driftedResult = await enforceRulesDetailed(adminCtx);
+      expect(driftedResult.allowed).toBe(false);
+      expect(driftedResult.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(driftedResult.message).toContain('value_trees:edit');
+    });
+
+    it('denies prod publish without approval and allows with approval under drift flags', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'admin' }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ permission: 'drift:detected' }], error: null }) }) }) };
+        }
+        if (table === 'value_cases') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { integrity_status: 'passed', evidence_count: 7, required_evidence_count: 3 }, error: null }) }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const baseCtx = makeCtx({
+        actor: { userId: 'user-1', tenantId: 'tenant-1', roles: ['admin'] },
+        action: { type: 'proposal.publish', name: 'proposal.publish', target: { resourceType: 'proposal', resourceId: 'case-1' } },
+        environment: { stage: 'prod', nowIso: new Date().toISOString() },
+      });
+      const missingApproval = await enforceRulesDetailed(baseCtx);
+      expect(missingApproval.allowed).toBe(false);
+      expect(missingApproval.reasonCode).toBe('DENY_MISSING_APPROVAL');
+
+      const withApproval = await enforceRulesDetailed({
+        ...baseCtx,
+        workflow: { approvals: ['proposal.publish', 'drift-reviewed'] },
+      });
+      expect(withApproval.allowed).toBe(true);
+    });
+
+    it('fails closed on permissions query partial outage', async () => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role: 'member' }], error: { message: 'roles timeout' } }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.allowed).toBe(false);
+      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+    });
+
+    it('denies when role changes concurrently between check and decision', async () => {
+      let rolesPhase: 'member' | 'viewer' = 'member';
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'user_tenants') {
+          return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { status: 'active' }, error: null }) }) }) }) };
+        }
+        if (table === 'user_roles') {
+          const role = rolesPhase === 'member' ? 'member' : 'viewer';
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [{ role }], error: null }) }) }) };
+        }
+        if (table === 'user_permissions') {
+          return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+        }
+        return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }) };
+      });
+
+      const first = await enforceRulesDetailed(makeCtx());
+      expect(first.allowed).toBe(true);
+      rolesPhase = 'viewer';
+      __resetPermissionCacheForTests();
+      const second = await enforceRulesDetailed(makeCtx());
+      expect(second.allowed).toBe(false);
+      expect(second.reasonCode).toBe('DENY_UNAUTHORIZED');
+    });
+
+    it('emits observability markers and reason-code mapping for anti-drift denials', async () => {
+      mockActiveMember(['viewer']);
+      const result = await enforceRulesDetailed(makeCtx());
+      expect(result.audit.matchedRules).toContain('rbac');
+      expect(result.reasonCode).toBe('DENY_UNAUTHORIZED');
+      expect(result.audit.policyVersion).toBe('v1');
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Fail-closed behaviour
   // -------------------------------------------------------------------------
