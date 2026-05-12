@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { logger } from "../../logger.js";
 import { CONFIDENCE_THRESHOLDS } from "./AgentHardeningTypes.js";
 
@@ -22,13 +23,54 @@ export interface DriftCheckResult {
 }
 
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
+const DRIFT_GUARD_INTERVAL_MIN_MS = 1_000;
+const DRIFT_GUARD_INTERVAL_MAX_MS = 3_600_000;
+
+const driftGuardEnvConfigSchema = z.object({
+  enabled: z.boolean(),
+  strictMode: z.boolean(),
+  reconciliationIntervalMs: z
+    .number()
+    .int()
+    .min(DRIFT_GUARD_INTERVAL_MIN_MS)
+    .max(DRIFT_GUARD_INTERVAL_MAX_MS),
+});
+
+export function parseDriftGuardConfig(rawConfig: unknown): DriftGuardConfig {
+  return driftGuardEnvConfigSchema.parse(rawConfig);
+}
 
 export function readDriftGuardConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DriftGuardConfig {
-  return {
+  const rawInterval = env.AGENT_DRIFT_GUARD_INTERVAL_MS;
+  const parsedInterval = Number(rawInterval ?? DEFAULT_RECONCILIATION_MS);
+  const validatedInterval = z
+    .number()
+    .finite()
+    .int()
+    .min(DRIFT_GUARD_INTERVAL_MIN_MS)
+    .max(DRIFT_GUARD_INTERVAL_MAX_MS)
+    .safeParse(parsedInterval);
+
+  if (!validatedInterval.success) {
+    logger.warn("agent.drift_guard_config_invalid", {
+      field: "AGENT_DRIFT_GUARD_INTERVAL_MS",
+      raw_value: rawInterval,
+      fallback_value: DEFAULT_RECONCILIATION_MS,
+      min_ms: DRIFT_GUARD_INTERVAL_MIN_MS,
+      max_ms: DRIFT_GUARD_INTERVAL_MAX_MS,
+      reason: validatedInterval.error.issues.map((issue) => issue.message).join("; "),
+    });
+  }
+
+  const candidateConfig = {
     enabled: env.AGENT_DRIFT_GUARD_ENABLED !== "false",
     strictMode: env.AGENT_DRIFT_GUARD_STRICT === "true",
-    reconciliationIntervalMs: Number(env.AGENT_DRIFT_GUARD_INTERVAL_MS ?? DEFAULT_RECONCILIATION_MS),
+    reconciliationIntervalMs: validatedInterval.success
+      ? validatedInterval.data
+      : DEFAULT_RECONCILIATION_MS,
   };
+
+  return parseDriftGuardConfig(candidateConfig);
 }
 
 function stableJson(value: unknown): string {

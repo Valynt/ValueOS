@@ -384,7 +384,8 @@ When drift is detected:
 Environment configuration:
 - `AGENT_DRIFT_GUARD_ENABLED` (default: `true`)
 - `AGENT_DRIFT_GUARD_STRICT` (default: `false`)
-- `AGENT_DRIFT_GUARD_INTERVAL_MS` (default: `300000`)
+- `AGENT_DRIFT_GUARD_INTERVAL_MS` (default: `300000`, valid range: integer `1000` to `3600000`)
+  - invalid values (non-numeric, non-integer, <1000, >3600000, NaN/Infinity) fall back to `300000` and emit `agent.drift_guard_config_invalid` with the raw value
 
 This gives Layer 5 a deterministic anti-drift control loop with optional
 automated remediation (unknown tier correction fallback in non-strict mode).

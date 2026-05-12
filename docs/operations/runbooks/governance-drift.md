@@ -52,3 +52,19 @@
 
 - File RCA with policy and payload examples.
 - Add/extend tests under `packages/backend/src/workers/__tests__/GovernanceDriftReconciliationWorker.test.ts` and `packages/backend/src/lib/__tests__/rules.test.ts`.
+
+
+## Agent drift guard env validation (Layer 5)
+
+- `AGENT_DRIFT_GUARD_INTERVAL_MS` must be a finite positive integer between **1000** and **3600000** milliseconds (1s to 60m).
+- Default is **300000** milliseconds (5m).
+- Invalid values are automatically clamped by fallback behavior to `300000`, and a structured warning is emitted:
+  - event: `agent.drift_guard_config_invalid`
+  - fields: `field`, `raw_value`, `fallback_value`, `min_ms`, `max_ms`, `reason`
+
+### Operator actions
+
+1. Search logs for `event=agent.drift_guard_config_invalid`.
+2. Correct `AGENT_DRIFT_GUARD_INTERVAL_MS` in environment config to an integer in range `[1000, 3600000]`.
+3. Restart backend worker/runtime if required by deployment platform.
+4. Verify warnings stop and drift guard still executes on expected cadence.
