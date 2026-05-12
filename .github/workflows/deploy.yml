@@ -1152,7 +1152,25 @@ jobs:
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     steps:
       - uses: actions/checkout@v6
+      - name: Compute Layer 3 changed-file context
+        id: layer3-changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          CHANGED_FILES="$(git diff --name-only "$RANGE" || true)"
+          {
+            echo 'changed_files<<EOF'
+            echo "$CHANGED_FILES"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Validate Layer 3 readiness evidence manifest
+        env:
+          LAYER3_CHANGED_FILES: ${{ steps.layer3-changes.outputs.changed_files }}
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report
         if: always()

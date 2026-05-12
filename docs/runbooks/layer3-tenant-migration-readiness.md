@@ -10,6 +10,8 @@ This runbook defines migration readiness, execution controls, and acceptance cri
 
 Use this runbook for staging and production approvals whenever a release changes Layer 3 graph tenant identity fields, constraints, or indexes.
 
+**Conditional gate note:** In deploy CI, checklist evidence is enforced only when those Layer 3 tenant graph/migration changes are in scope. When out of scope, the checklist check is marked `skipped (not applicable)` in the Layer 3 readiness report.
+
 ---
 
 ## Scope and risks
@@ -186,7 +188,7 @@ Recommended initial thresholds (update with environment baselines):
 
 ## Release process integration (required)
 
-For **every deployment PR/release containing Layer 3 graph changes**, attach a required checklist artifact:
+For **every deployment PR/release containing Layer 3 graph changes**, attach a required checklist artifact (this is conditionally enforced by CI applicability detection):
 
 - `artifacts/layer3/tenant-migration-readiness-checklist.md`
 

@@ -12,7 +12,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/workflow-state-tests.json"
       ]
@@ -25,7 +29,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/drift-primitive-tests.json"
       ]
@@ -35,8 +43,14 @@
       "name": "Migration head check",
       "required": true,
       "validator": "text-markers",
-      "successMarkers": ["CHECK: PASS"],
-      "failureMarkers": ["CHECK: FAIL", "ERROR", "FAILED"],
+      "successMarkers": [
+        "CHECK: PASS"
+      ],
+      "failureMarkers": [
+        "CHECK: FAIL",
+        "ERROR",
+        "FAILED"
+      ],
       "artifacts": [
         "artifacts/layer3/migration-head-check.log"
       ]
@@ -49,7 +63,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "contractsValidated", "breakingChanges"],
+      "requiredPaths": [
+        "success",
+        "contractsValidated",
+        "breakingChanges"
+      ],
       "artifacts": [
         "artifacts/layer3/schema-contract-check.json"
       ]
@@ -62,7 +80,11 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "routesValidated", "incompatibleRoutes"],
+      "requiredPaths": [
+        "success",
+        "routesValidated",
+        "incompatibleRoutes"
+      ],
       "artifacts": [
         "artifacts/layer3/route-compatibility-check.json"
       ]
@@ -75,7 +97,12 @@
       "formatVersion": 1,
       "successPath": "success",
       "expectedValue": true,
-      "requiredPaths": ["success", "suite", "summary.passed", "summary.failed"],
+      "requiredPaths": [
+        "success",
+        "suite",
+        "summary.passed",
+        "summary.failed"
+      ],
       "artifacts": [
         "artifacts/layer3/tenant-isolation-tests.json"
       ]
@@ -85,11 +112,22 @@
       "name": "Tenant migration readiness checklist artifact",
       "required": true,
       "validator": "text-markers",
-      "successMarkers": ["Layer 3 Tenant Migration Readiness Checklist", "Post-migration verification"],
-      "failureMarkers": ["TODO", "TBD", "MISSING"],
+      "successMarkers": [
+        "Layer 3 Tenant Migration Readiness Checklist",
+        "Post-migration verification"
+      ],
+      "failureMarkers": [
+        "TODO",
+        "TBD",
+        "MISSING"
+      ],
       "artifacts": [
         "artifacts/layer3/tenant-migration-readiness-checklist.md"
-      ]
+      ],
+      "requiredWhen": {
+        "contextFlag": "layer3TenantMigrationChanged",
+        "description": "Required only when Layer 3 tenant graph/migration files change in release scope."
+      }
     }
   ]
 }

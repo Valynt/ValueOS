@@ -8,15 +8,16 @@ The canonical machine-readable manifest is:
 
 - `scripts/ci/layer3-release-readiness-manifest.json`
 
-Each check now declares a validator contract:
+Each check now declares a validator contract and optional applicability contract:
 
 - `validator`: semantic validator type (`json-path-equals` or `text-markers`)
 - `formatVersion`: expected artifact schema version (JSON checks)
 - `successPath` + `expectedValue`: explicit success assertion (JSON checks)
 - `requiredPaths`: required JSON fields (JSON checks)
 - `successMarkers` + `failureMarkers`: required/forbidden strings (text/log checks)
+- `requiredWhen`: optional conditional requirement block. Example: checklist evidence is only required when Layer 3 tenant graph/migration files changed in release scope.
 
-It requires these check artifacts:
+It evaluates these check artifacts:
 
 1. workflow-state tests (JSON)
 2. drift primitive tests (JSON)
@@ -46,6 +47,23 @@ The gate fails closed on:
 - missing required payload fields
 - unknown validator type
 - schema/format version mismatch
+
+
+## Conditional enforcement (applicability)
+
+The readiness gate now supports conditional checks via `requiredWhen`.
+
+For `tenant-migration-readiness-checklist`:
+
+- If Layer 3 tenant graph/migration changes are detected, the check is **required** and full artifact existence + semantic validation are enforced.
+- If no such changes are detected, the check is reported as **`skipped (not applicable)`** and does not block promotion.
+
+Applicability inputs (in order of precedence):
+
+1. `LAYER3_TENANT_MIGRATION_APPLICABLE` (`true`/`false`) explicit CI override.
+2. `LAYER3_CHANGED_FILES` (newline/comma-delimited changed files) auto-detection source.
+
+The generated report records the applicability source and decision for auditability.
 
 ## Operator procedure
 
