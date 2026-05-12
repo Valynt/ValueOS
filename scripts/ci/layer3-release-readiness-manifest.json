@@ -111,6 +111,9 @@
       "id": "tenant-migration-readiness-checklist",
       "name": "Tenant migration readiness checklist artifact",
       "required": true,
+      "requiredWhen": {
+        "condition": "layer3-tenant-migration-changed"
+      },
       "validator": "text-markers",
       "successMarkers": [
         "Layer 3 Tenant Migration Readiness Checklist",
