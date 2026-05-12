@@ -22,6 +22,7 @@ import { logger } from './logger.js';
 import { loadGovernanceConfig } from '../config/governance.js';
 import { createCounter } from './observability/index.js';
 import { evaluateGovernanceDrift } from './governance/driftPrimitives.js';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Permission cache
@@ -228,9 +229,24 @@ export interface GovernanceContext {
   workflow?: {
     workflowId?: string;
     step?: string;
-    approvals?: string[];
+    approvals?: WorkflowApproval[];
   };
 }
+
+export interface ApprovalContract {
+  actionName: string;
+  approvalSchemaVersion: string;
+  sourceSystemId: string;
+  approvedAt: string;
+  requestId: string;
+  sessionId?: string;
+  tenantId: string;
+  resourceType: string;
+  resourceId: string;
+  signature?: string;
+}
+
+export type WorkflowApproval = string | ApprovalContract;
 
 // ============================================================================
 // Legacy types — kept for backward compatibility with ActionRouter
@@ -283,6 +299,93 @@ const ELEVATED_ROLES = governanceConfig.elevatedRoles;
  * when running in the prod environment.
  */
 const PROD_APPROVAL_REQUIRED_ACTIONS = governanceConfig.prodApprovalRequiredActions;
+const APPROVAL_FRESHNESS_WINDOW_MS = 15 * 60 * 1000;
+
+const ApprovalContractSchema = z.object({
+  actionName: z.string().min(1),
+  approvalSchemaVersion: z.string().min(1),
+  sourceSystemId: z.string().min(1),
+  approvedAt: z.string().datetime(),
+  requestId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
+  tenantId: z.string().min(1),
+  resourceType: z.string().min(1),
+  resourceId: z.string().min(1),
+  signature: z.string().min(1).optional(),
+});
+
+function findValidApprovalContract(ctx: GovernanceContext): ApprovalContract | null {
+  const approvals = ctx.workflow?.approvals ?? [];
+  if (approvals.length === 0) return null;
+  const now = Date.parse(ctx.environment.nowIso);
+  const targetResourceType = ctx.action.target?.resourceType;
+  const targetResourceId = ctx.action.target?.resourceId;
+
+  for (const entry of approvals) {
+    if (typeof entry === 'string') {
+      if (entry === ctx.action.name) {
+        logger.warn('governance.approval_contract.legacy_format', {
+          action: ctx.action.name,
+          tenantId: ctx.actor.tenantId,
+          workflowId: ctx.workflow?.workflowId ?? 'unknown',
+          requestId: ctx.actor.sessionId ?? 'unknown',
+          legacyApproval: entry,
+          deprecation: 'workflow.approvals string[] support will be removed after migration window',
+        });
+        return {
+          actionName: entry,
+          approvalSchemaVersion: 'legacy/v0',
+          sourceSystemId: 'legacy',
+          approvedAt: ctx.environment.nowIso,
+          requestId: ctx.actor.sessionId ?? 'legacy-request',
+          sessionId: ctx.actor.sessionId,
+          tenantId: ctx.actor.tenantId,
+          resourceType: targetResourceType ?? 'unknown',
+          resourceId: targetResourceId ?? 'legacy-unknown',
+        };
+      }
+      continue;
+    }
+
+    const parsed = ApprovalContractSchema.safeParse(entry);
+    if (!parsed.success) {
+      logger.warn('governance.approval_contract.invalid_shape', {
+        action: ctx.action.name,
+        tenantId: ctx.actor.tenantId,
+        workflowId: ctx.workflow?.workflowId ?? 'unknown',
+        requestId: ctx.actor.sessionId ?? 'unknown',
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      });
+      continue;
+    }
+
+    const contract = parsed.data;
+    const approvedAtMs = Date.parse(contract.approvedAt);
+    const isFresh = Number.isFinite(approvedAtMs) && now - approvedAtMs <= APPROVAL_FRESHNESS_WINDOW_MS && approvedAtMs <= now;
+    const requestMatches = contract.requestId === (ctx.actor.sessionId ?? contract.requestId);
+    const sessionMatches = !contract.sessionId || contract.sessionId === ctx.actor.sessionId;
+    const tenantMatches = contract.tenantId === ctx.actor.tenantId;
+    const resourceTypeMatches = !!targetResourceType && contract.resourceType === targetResourceType;
+    const resourceIdMatches = !!targetResourceId && contract.resourceId === targetResourceId;
+
+    if (
+      contract.actionName === ctx.action.name &&
+      isFresh &&
+      requestMatches &&
+      sessionMatches &&
+      tenantMatches &&
+      resourceTypeMatches &&
+      resourceIdMatches
+    ) {
+      return contract;
+    }
+  }
+
+  return null;
+}
 
 // ============================================================================
 // Internal helpers
@@ -731,11 +834,11 @@ async function evaluateRulesDetailed(
       ctx.environment.stage === 'prod' &&
       PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)
     ) {
-      const approvals = ctx.workflow?.approvals ?? [];
-      if (!approvals.includes(ctx.action.name)) {
+      const approvalContract = findValidApprovalContract(ctx);
+      if (!approvalContract) {
         return deny(
           'DENY_MISSING_APPROVAL',
-          `Action "${ctx.action.name}" requires an explicit approval in production.`,
+          `Action "${ctx.action.name}" requires a valid explicit approval contract in production.`,
           evaluatedAt,
           ['prod-approval-required']
         );
@@ -883,7 +986,7 @@ export async function enforceRules(
           workflowId: context.workflowId as string,
           step: context.workflowStep as string | undefined,
           approvals: Array.isArray(context.approvals)
-            ? (context.approvals as string[])
+            ? (context.approvals as WorkflowApproval[])
             : [],
         }
       : undefined,
