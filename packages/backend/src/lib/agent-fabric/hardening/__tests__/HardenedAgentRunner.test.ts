@@ -576,15 +576,30 @@ describe("Drift guard", () => {
     expect(executeFn).not.toHaveBeenCalled();
   });
 
-  it("allows execution in non-strict mode while logging drift", async () => {
+  it("applies unknown risk tier fallback in non-strict mode and continues execution", async () => {
     process.env.AGENT_DRIFT_GUARD_STRICT = "false";
     const runner = makeRunner();
     const executeFn = vi.fn().mockResolvedValue(makeSuccessOutput());
 
-    await expect(
-      runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, { ...BASE_OPTIONS, riskTier: "not_a_tier" as never })
-    ).rejects.toThrow(/invalid risk tier/i);
+    const result = await runner.run<TestOutput>(
+      ENVELOPE,
+      CONTEXT,
+      executeFn,
+      { ...BASE_OPTIONS, riskTier: "not_a_tier" as never }
+    );
 
+    expect(result.governance.verdict).toBe("approved");
+    expect(executeFn).toHaveBeenCalledOnce();
+  });
+
+  it("does not apply correction when there is no drift", async () => {
+    process.env.AGENT_DRIFT_GUARD_STRICT = "false";
+    const runner = makeRunner();
+    const executeFn = vi.fn().mockResolvedValue(makeSuccessOutput());
+
+    const result = await runner.run<TestOutput>(ENVELOPE, CONTEXT, executeFn, { ...BASE_OPTIONS, riskTier: "discovery" });
+
+    expect(result.governance.verdict).toBe("approved");
     expect(executeFn).toHaveBeenCalledOnce();
   });
 });

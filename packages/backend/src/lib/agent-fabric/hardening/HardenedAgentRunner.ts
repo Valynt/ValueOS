@@ -170,17 +170,22 @@ export class HardenedAgentRunner {
   ): Promise<HardenedInvokeResult<T>> {
     const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs;
     const maxRetries = options.maxRetries ?? this.retryConfig.maxRetries;
-    const riskTier = options.riskTier ?? this.config.riskTier;
+    const requestedRiskTier = options.riskTier ?? this.config.riskTier;
+    let riskTier = requestedRiskTier;
 
     if (this.driftGuard.shouldRun()) {
       const drift = this.driftGuard.check({
         agentName: this.config.agentName,
-        riskTier,
+        riskTier: requestedRiskTier,
         outputSchemaFingerprint: fingerprintSchema(options.outputSchema._def),
       });
 
       if (drift.driftDetected && this.driftGuard.isStrictMode()) {
         throw new Error(`[${this.config.agentName}] Drift guard blocked execution: ${drift.reasons.join(", ")}`);
+      }
+
+      if (drift.correctionApplied) {
+        riskTier = drift.appliedRiskTier as keyof typeof CONFIDENCE_THRESHOLDS;
       }
     }
 
@@ -433,7 +438,8 @@ export class HardenedAgentRunner {
         trace_id: envelope.trace_id,
         session_id: envelope.session_id,
         organization_id: envelope.organization_id,
-        governance_risk_tier: riskTier,
+        governance_risk_tier_requested: requestedRiskTier,
+        governance_risk_tier_applied: riskTier,
         governance_invalid_risk_tier: invalidRiskTier,
       });
 
@@ -446,7 +452,8 @@ export class HardenedAgentRunner {
           request_id: envelope.request_id,
           trace_id: envelope.trace_id,
           session_id: envelope.session_id,
-          risk_tier: riskTier,
+          risk_tier_requested: requestedRiskTier,
+          risk_tier_applied: riskTier,
           verdict: governanceResult.decision.verdict,
           reason: governanceResult.decision.reason ?? "",
         },
