@@ -6,6 +6,7 @@ export interface DriftGuardConfig {
   enabled: boolean;
   strictMode: boolean;
   reconciliationIntervalMs: number;
+  baselineVersion: string;
 }
 
 export interface DriftCheckInput {
@@ -31,10 +32,18 @@ export interface DriftCheckResult {
 const DEFAULT_RECONCILIATION_MS = 5 * 60_000;
 
 export function readDriftGuardConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DriftGuardConfig {
+  const baselineVersion = env.AGENT_DRIFT_GUARD_BASELINE_VERSION ?? env.RELEASE_VERSION ?? env.GIT_SHA;
+  if (!baselineVersion || baselineVersion.trim().length < 7) {
+    throw new Error(
+      "AgentDriftGuard requires AGENT_DRIFT_GUARD_BASELINE_VERSION, RELEASE_VERSION, or GIT_SHA with at least 7 characters"
+    );
+  }
+
   return {
     enabled: env.AGENT_DRIFT_GUARD_ENABLED !== "false",
     strictMode: env.AGENT_DRIFT_GUARD_STRICT === "true",
     reconciliationIntervalMs: Number(env.AGENT_DRIFT_GUARD_INTERVAL_MS ?? DEFAULT_RECONCILIATION_MS),
+    baselineVersion: baselineVersion.trim(),
   };
 }
 
@@ -55,10 +64,16 @@ function sha256(value: string): string {
 
 export class AgentDriftGuard {
   private readonly baselineThresholdFingerprint = sha256(stableJson(CONFIDENCE_THRESHOLDS));
-  private readonly baselineVersion = new Date().toISOString();
+  private readonly baselineVersion: string;
   private lastCheckedAt = 0;
 
-  constructor(private readonly config: DriftGuardConfig) {}
+  constructor(private readonly config: DriftGuardConfig) {
+    if (!config.baselineVersion || config.baselineVersion.trim().length < 7) {
+      throw new Error("AgentDriftGuard baselineVersion must be a non-empty deterministic identifier with at least 7 characters");
+    }
+
+    this.baselineVersion = config.baselineVersion.trim();
+  }
 
   public shouldRun(now: number = Date.now()): boolean {
     if (!this.config.enabled) return false;
@@ -94,7 +109,7 @@ export class AgentDriftGuard {
     const schemaFingerprintValid = Boolean(input.outputSchemaFingerprint && input.outputSchemaFingerprint.length >= 16);
     const appliedSchemaFingerprint = schemaFingerprintValid
       ? input.outputSchemaFingerprint
-      : sha256(`regenerated:${input.agentName}:${this.baselineVersion}`);
+      : sha256(`regenerated:${input.agentName}:${this.baselineVersion}:${this.baselineThresholdFingerprint}`);
 
     if (!schemaFingerprintValid) {
       reasons.push("schema_fingerprint_missing_or_invalid");

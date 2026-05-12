@@ -389,6 +389,14 @@ Environment configuration:
 - `AGENT_DRIFT_GUARD_ENABLED` (default: `true`)
 - `AGENT_DRIFT_GUARD_STRICT` (default: `false`)
 - `AGENT_DRIFT_GUARD_INTERVAL_MS` (default: `300000`)
+- `AGENT_DRIFT_GUARD_BASELINE_VERSION` (recommended, deterministic release/build identity)
+  - fallback resolution order: `AGENT_DRIFT_GUARD_BASELINE_VERSION` → `RELEASE_VERSION` → `GIT_SHA`
+  - validation: resolved value must be present and at least 7 characters, otherwise startup throws
+
+Schema fingerprint regeneration uses deterministic inputs only:
+- `agentName`
+- resolved baseline version (`AGENT_DRIFT_GUARD_BASELINE_VERSION` / `RELEASE_VERSION` / `GIT_SHA`)
+- canonical confidence-threshold schema hash
 
 This gives Layer 5 a deterministic anti-drift control loop with optional
 automated remediation (unknown tier correction fallback in non-strict mode).
