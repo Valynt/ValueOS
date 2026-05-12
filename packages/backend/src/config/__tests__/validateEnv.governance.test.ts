@@ -36,4 +36,21 @@ describe('validateEnv governance config validation', () => {
     const result = validateEnv();
     expect(result.errors.some((error) => error.includes('GOVERNANCE_'))).toBe(false);
   });
+
+  it('fails in production when GOVERNANCE_STAGE_REQUIRED_FIELDS is missing', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.GOVERNANCE_STAGE_REQUIRED_FIELDS;
+
+    const result = validateEnv();
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage');
+  });
+
+  it('allows missing GOVERNANCE_STAGE_REQUIRED_FIELDS in non-prod with fallback path', () => {
+    process.env.NODE_ENV = 'staging';
+    delete process.env.GOVERNANCE_STAGE_REQUIRED_FIELDS;
+
+    const result = validateEnv();
+    expect(result.errors.some((error) => error.includes('GOVERNANCE_STAGE_REQUIRED_FIELDS'))).toBe(false);
+  });
 });
