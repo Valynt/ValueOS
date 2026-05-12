@@ -65,8 +65,27 @@ describe('governance config', () => {
   });
 
   it('fails validation in prod when stage required fields are missing', () => {
-    const errors = validateGovernanceConfigEnv({ NODE_ENV: 'production' });
+    const errors = validateGovernanceConfigEnv({
+      NODE_ENV: 'production',
+      GOVERNANCE_DESTRUCTIVE_ACTIONS: 'value_model.delete',
+      GOVERNANCE_ELEVATED_ROLES: 'admin',
+      GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS: 'proposal.publish',
+    });
     expect(errors).toContain('Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage');
+  });
+
+
+  it('rejects fallback defaults in prod strict mode for critical governance env vars', () => {
+    expect(() =>
+      loadGovernanceConfig({
+        NODE_ENV: 'production',
+        GOVERNANCE_STAGE_REQUIRED_FIELDS: JSON.stringify({
+          dev: [],
+          staging: ['changeTicketId'],
+          prod: ['changeTicketId', 'riskAcceptanceId'],
+        }),
+      }),
+    ).toThrowError(/GOVERNANCE_DESTRUCTIVE_ACTIONS/);
   });
 
   it('reports deterministic malformed JSON error path', () => {

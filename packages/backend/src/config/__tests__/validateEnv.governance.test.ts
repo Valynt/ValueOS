@@ -39,6 +39,9 @@ describe('validateEnv governance config validation', () => {
 
   it('fails in production when GOVERNANCE_STAGE_REQUIRED_FIELDS is missing', () => {
     process.env.NODE_ENV = 'production';
+    process.env.GOVERNANCE_DESTRUCTIVE_ACTIONS = 'value_model.delete';
+    process.env.GOVERNANCE_ELEVATED_ROLES = 'admin';
+    process.env.GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS = 'proposal.publish';
     delete process.env.GOVERNANCE_STAGE_REQUIRED_FIELDS;
 
     const result = validateEnv();

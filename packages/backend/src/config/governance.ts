@@ -49,6 +49,13 @@ type GovernanceFallbackWarning = {
   fallbackValue: string;
 };
 
+const STRICT_REQUIRED_GOVERNANCE_VARS = [
+  'GOVERNANCE_STAGE_REQUIRED_FIELDS',
+  'GOVERNANCE_DESTRUCTIVE_ACTIONS',
+  'GOVERNANCE_ELEVATED_ROLES',
+  'GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS',
+] as const;
+
 function resolveRuntimeStage(env: NodeJS.ProcessEnv): RuntimeStage {
   const nodeEnv = (env.NODE_ENV ?? '').toLowerCase();
   const runtimeStage = (env.RUNTIME_STAGE ?? env.STAGE ?? '').toLowerCase();
@@ -87,8 +94,15 @@ function parseStageRequiredFields(raw: string | undefined): GovernanceConfig['st
   };
 }
 
-function parseCsv(raw: string | undefined, fallback: readonly string[]): Set<string> {
+function parseCsv(
+  raw: string | undefined,
+  fallback: readonly string[],
+  options?: { strict: boolean; envVar: string },
+): Set<string> {
   if (!raw || raw.trim().length === 0) {
+    if (options?.strict) {
+      throw new Error(`Invalid ${options.envVar}: required in production/prod runtime stage`);
+    }
     return new Set(fallback);
   }
 
@@ -97,7 +111,14 @@ function parseCsv(raw: string | undefined, fallback: readonly string[]): Set<str
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
 
-  return new Set(parsed.length > 0 ? parsed : fallback);
+  if (parsed.length === 0) {
+    if (options?.strict) {
+      throw new Error(`Invalid ${options.envVar}: must include at least one value`);
+    }
+    return new Set(fallback);
+  }
+
+  return new Set(parsed);
 }
 
 function buildNonProdFallbackWarnings(parsed: z.infer<typeof governanceEnvSchema>): GovernanceFallbackWarning[] {
@@ -136,11 +157,18 @@ export function loadGovernanceConfig(env: NodeJS.ProcessEnv = process.env): Gove
   return {
     permissionCacheTtlMs: parsed.GOVERNANCE_PERMISSION_CACHE_TTL_MS,
     permissionCacheMax: parsed.GOVERNANCE_PERMISSION_CACHE_MAX,
-    destructiveActions: parseCsv(parsed.GOVERNANCE_DESTRUCTIVE_ACTIONS, DEFAULT_DESTRUCTIVE_ACTIONS),
-    elevatedRoles: parseCsv(parsed.GOVERNANCE_ELEVATED_ROLES, DEFAULT_ELEVATED_ROLES),
+    destructiveActions: parseCsv(parsed.GOVERNANCE_DESTRUCTIVE_ACTIONS, DEFAULT_DESTRUCTIVE_ACTIONS, {
+      strict: strictMode,
+      envVar: 'GOVERNANCE_DESTRUCTIVE_ACTIONS',
+    }),
+    elevatedRoles: parseCsv(parsed.GOVERNANCE_ELEVATED_ROLES, DEFAULT_ELEVATED_ROLES, {
+      strict: strictMode,
+      envVar: 'GOVERNANCE_ELEVATED_ROLES',
+    }),
     prodApprovalRequiredActions: parseCsv(
       parsed.GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS,
       DEFAULT_PROD_APPROVAL_REQUIRED_ACTIONS,
+      { strict: strictMode, envVar: 'GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS' },
     ),
     stageRequiredFields: parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS?.trim()
       ? parseStageRequiredFields(parsed.GOVERNANCE_STAGE_REQUIRED_FIELDS)
@@ -162,12 +190,23 @@ export function validateGovernanceConfigEnv(env: NodeJS.ProcessEnv = process.env
   }
 
   const strictMode = isStrictProductionMode(env);
+
+  if (strictMode) {
+    const missingStrictVars = STRICT_REQUIRED_GOVERNANCE_VARS.filter((key) => {
+      const value = parsed.data[key];
+      return typeof value !== 'string' || value.trim().length === 0;
+    });
+
+    if (missingStrictVars.length > 0) {
+      return missingStrictVars.map(
+        (key) => `Invalid ${key}: required in production/prod runtime stage`,
+      );
+    }
+  }
+
   const stageValue = parsed.data.GOVERNANCE_STAGE_REQUIRED_FIELDS;
 
   if (!stageValue || stageValue.trim().length === 0) {
-    if (strictMode) {
-      return ['Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage'];
-    }
     return [];
   }
 
@@ -187,4 +226,16 @@ export function validateGovernanceConfigEnv(env: NodeJS.ProcessEnv = process.env
     const key = issue.path.join('.') || 'governance';
     return `Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS.${key}: ${issue.message}`;
   });
+}
+
+
+export function validateGovernanceConfigOrThrow(env: NodeJS.ProcessEnv = process.env): void {
+  const errors = validateGovernanceConfigEnv(env);
+  if (errors.length > 0) {
+    throw new Error(
+      `Governance configuration validation failed:\n${errors
+        .map((error) => `  - ${error}`)
+        .join('\n')}`,
+    );
+  }
 }
