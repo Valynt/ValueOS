@@ -1,8 +1,9 @@
 import { loadGovernanceConfig } from '../../config/governance.js';
 import type { GovernanceContext, DriftAssessment } from '../rules.js';
 
-const governanceConfig = loadGovernanceConfig();
-const PROD_APPROVAL_REQUIRED_ACTIONS = governanceConfig.prodApprovalRequiredActions;
+function getGovernanceConfig() {
+  return loadGovernanceConfig();
+}
 
 const DRIFT_POLICIES = {
   schema: {
@@ -46,7 +47,9 @@ export function evaluateGovernanceDrift(ctx: GovernanceContext, granted: string[
     });
   }
 
-  if (ctx.environment.stage === 'prod' && PROD_APPROVAL_REQUIRED_ACTIONS.has(ctx.action.name)) {
+  const governanceConfig = getGovernanceConfig();
+
+  if (ctx.environment.stage === 'prod' && governanceConfig.prodApprovalRequiredActions.has(ctx.action.name)) {
     const approvals = ctx.workflow?.approvals ?? [];
     const hasMatchingApproval = approvals.some((approval) =>
       typeof approval === 'string'
