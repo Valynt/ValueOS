@@ -184,6 +184,29 @@ Recommended initial thresholds (update with environment baselines):
 
 ---
 
+## Release process integration (required)
+
+For **every deployment PR/release containing Layer 3 graph changes**, attach a required checklist artifact:
+
+- `artifacts/layer3/tenant-migration-readiness-checklist.md`
+
+The artifact must contain:
+
+1. Link to this runbook.
+2. Release SHA + environment (staging/production) + execution timestamps.
+3. Pre-migration inventory query outputs.
+4. Post-migration verification outputs proving:
+   - `legacy_tenantId_count = 0` for all scoped labels.
+   - `missing_tenant_id_count = 0` for all scoped labels.
+5. Constraint/index verification outputs for all `ENTITY_TYPES`.
+6. Migration logs for the three migration units.
+7. Rollback/mitigation log section (or explicit `Not required`).
+8. Sign-off lines for release owner + reviewer.
+
+**Production approval gate:** staging query outputs/log evidence must be attached and reviewed before production deployment is approved.
+
+---
+
 ## Required evidence artifacts
 
 Attach all artifacts in deployment PR/release evidence bundle:
@@ -193,10 +216,7 @@ Attach all artifacts in deployment PR/release evidence bundle:
 - Constraint/index check output for all `ENTITY_TYPES`.
 - Migration execution logs with timestamps and durations.
 - Mitigation/rollback log if partial outcomes occurred.
-
-Suggested artifact path:
-
-- `artifacts/layer3/tenant-migration-readiness-checklist.md`
+- Final checklist artifact at `artifacts/layer3/tenant-migration-readiness-checklist.md`.
 
 ---
 
