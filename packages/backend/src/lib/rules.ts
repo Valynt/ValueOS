@@ -527,6 +527,78 @@ async function runDriftChecks(
   return assessments;
 }
 
+
+interface EnforcementAttemptState {
+  refreshAttempted: boolean;
+}
+
+async function tryRefreshPermissionsRemediation(
+  ctx: GovernanceContext,
+  attempt: EnforcementAttemptState,
+  evaluatedAt: string,
+  matchedRules: string[],
+  telemetryContext: DriftTelemetryContext
+): Promise<GovernanceDecision | null> {
+  if (attempt.refreshAttempted) {
+    logger.warn('governance.drift.refresh.skipped', {
+      reason: 'retry_guard_already_attempted',
+      tenantId: ctx.actor.tenantId,
+      userId: ctx.actor.userId,
+      action: ctx.action.name,
+      stage: ctx.environment.stage,
+      requestId: ctx.actor.sessionId ?? 'unknown',
+    });
+    return null;
+  }
+
+  attempt.refreshAttempted = true;
+  invalidatePermissionCache(ctx.actor.userId, ctx.actor.tenantId);
+
+  const refreshedGranted = await resolvePermissions(
+    ctx.actor.userId,
+    ctx.actor.tenantId,
+    ctx.actor.sessionId
+  );
+
+  const refreshDrift = await runDriftChecks(ctx, refreshedGranted);
+  const hasRefreshDrift = refreshDrift.some(
+    (assessment) => assessment.driftDetected && assessment.remediationAction === 'REFRESH_PERMISSIONS'
+  );
+
+  if (hasRefreshDrift || !refreshedGranted.includes(ctx.action.type)) {
+    logger.warn('governance.drift.refresh.failed_closed', {
+      tenantId: ctx.actor.tenantId,
+      userId: ctx.actor.userId,
+      action: ctx.action.name,
+      stage: ctx.environment.stage,
+      driftCleared: !hasRefreshDrift,
+      permissionPresent: refreshedGranted.includes(ctx.action.type),
+      requestId: ctx.actor.sessionId ?? 'unknown',
+    });
+    return deny(
+      'DENY_POLICY',
+      'Permission refresh remediation failed or drift persists.',
+      evaluatedAt,
+      [...matchedRules, 'layer6-refresh-failed-closed']
+    );
+  }
+
+  matchedRules.push('layer6-refresh-remediated');
+  emitDriftTelemetry(
+    {
+      driftDetected: true,
+      driftType: 'ROLE_PERMISSION_STALENESS',
+      severity: 'medium',
+      remediationAction: 'REFRESH_PERMISSIONS',
+      details: 'Permission refresh remediation succeeded and drift cleared.',
+    },
+    telemetryContext,
+    'remediated'
+  );
+
+  return allow(evaluatedAt, matchedRules);
+}
+
 // ============================================================================
 // Core evaluation engine
 // ============================================================================
@@ -546,6 +618,13 @@ async function runDriftChecks(
  */
 export async function enforceRulesDetailed(
   ctx: GovernanceContext
+): Promise<GovernanceDecision> {
+  return evaluateRulesDetailed(ctx, { refreshAttempted: false });
+}
+
+async function evaluateRulesDetailed(
+  ctx: GovernanceContext,
+  attempt: EnforcementAttemptState
 ): Promise<GovernanceDecision> {
   const evaluatedAt = new Date().toISOString();
   const matchedRules: string[] = [];
@@ -748,6 +827,32 @@ export async function enforceRulesDetailed(
         );
       }
 
+      if (detectedDrift.some((d) => d.remediationAction === 'REFRESH_PERMISSIONS')) {
+        const remediationResult = await tryRefreshPermissionsRemediation(
+          ctx,
+          attempt,
+          evaluatedAt,
+          matchedRules,
+          telemetryContext
+        );
+        if (remediationResult) return remediationResult;
+
+        logger.warn('governance.drift.event', {
+          event: 'refresh_permissions_unresolved',
+          tenantId: ctx.actor.tenantId,
+          userId: ctx.actor.userId,
+          action: ctx.action.name,
+          stage: ctx.environment.stage,
+          requestId: ctx.actor.sessionId ?? 'unknown',
+        });
+        return deny(
+          'DENY_POLICY',
+          'Refresh-permissions remediation could not be completed safely.',
+          evaluatedAt,
+          [...matchedRules, 'layer6-refresh-failed-closed']
+        );
+      }
+
       const obligations: GovernanceObligation[] = [];
       if (detectedDrift.some((d) => d.remediationAction === 'REQUIRE_APPROVAL')) {
         obligations.push({ type: 'REQUIRE_APPROVAL', approvalType: 'drift-remediation' });
@@ -757,8 +862,7 @@ export async function enforceRulesDetailed(
       }
 
       for (const drift of detectedDrift) {
-        const outcome = drift.remediationAction === 'REFRESH_PERMISSIONS' ? 'remediated' : 'unresolved';
-        emitDriftTelemetry(drift, telemetryContext, outcome);
+        emitDriftTelemetry(drift, telemetryContext, 'unresolved');
       }
 
       return allow(evaluatedAt, matchedRules, obligations);
