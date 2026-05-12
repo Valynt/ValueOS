@@ -1184,10 +1184,24 @@ process.stdout.write(JSON.stringify(Array.from(interfaces).sort()));
 
           RELEASE_DIFF_JSON="$(jq -cn --argjson changedFiles "${CHANGED_FILES_JSON}" --argjson changedChecks "[]" --argjson changedInterfaces "${CHANGED_INTERFACES_JSON}" '{changedFiles: $changedFiles, changedChecks: $changedChecks, changedInterfaces: $changedInterfaces}')"
 
+          LAYER3_TENANT_MIGRATION_CHANGED="$(node -e '
+const files = JSON.parse(process.argv[1]);
+const patterns = [
+  /^scripts\/db\/migrate_tenant_ids\.py$/,
+  /^scripts\/db\/create_composite_tenant_indexes\.py$/,
+  /^supabase\/migrations\/.*(?:layer3|tenant).*\.(?:sql|py)$/i,
+  /^packages\/backend\/src\/services\/tenant\//,
+  /^packages\/backend\/src\/lib\/supabase\//
+];
+process.stdout.write(files.some((file) => patterns.some((pattern) => pattern.test(file))) ? "true" : "false");
+' "${CHANGED_FILES_JSON}")"
+
           echo "release_diff_json=${RELEASE_DIFF_JSON}" >> "$GITHUB_OUTPUT"
+          echo "layer3_tenant_migration_changed=${LAYER3_TENANT_MIGRATION_CHANGED}" >> "$GITHUB_OUTPUT"
       - name: Validate Layer 3 readiness evidence manifest
         env:
           LAYER3_RELEASE_DIFF_JSON: ${{ steps.layer3-release-diff.outputs.release_diff_json }}
+          LAYER3_TENANT_MIGRATION_CHANGED: ${{ steps.layer3-release-diff.outputs.layer3_tenant_migration_changed }}
         run: node scripts/ci/check-layer3-readiness-evidence.mjs
       - name: Upload Layer 3 readiness report
         if: always()

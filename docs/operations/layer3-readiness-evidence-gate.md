@@ -24,7 +24,24 @@ It requires these check artifacts:
 4. schema-contract check (JSON)
 5. route compatibility check (JSON)
 6. tenant-isolation tests (JSON)
-7. tenant migration readiness checklist artifact (markdown/text)
+7. tenant migration readiness checklist artifact (markdown/text, conditionally required)
+
+
+## Conditional enforcement for tenant migration checklist
+
+The `tenant-migration-readiness-checklist` control is required only when Layer 3 tenant migration scope is present in the release.
+
+- Manifest mechanism: `requiredWhen: { "condition": "layer3-tenant-migration-changed" }`
+- Detection sources (in priority order):
+  1. `LAYER3_TENANT_MIGRATION_CHANGED` env var from CI (`true`/`false`)
+  2. `LAYER3_RELEASE_DIFF_JSON.changedFiles` pattern detection in `scripts/ci/check-layer3-readiness-evidence.mjs`
+- When false: report entry is `skipped (not applicable)` and does not block promotion.
+- When true: artifact presence, freshness, and semantic markers are fully enforced.
+
+This behavior is auditable in `artifacts/ci/layer3-readiness-report.md` via:
+
+- `Layer 3 tenant migration changed: yes|no`
+- `## Skipped checks` section
 
 ## Semantic validation behavior
 

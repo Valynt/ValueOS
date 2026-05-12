@@ -122,15 +122,64 @@ function validateArtifactSemantics({ check, artifactPath, artifact }) {
   throw new Error(`unknown validator type: ${check.validator}`);
 }
 
+function normalizeChangedFilesInput(changedFilesInput = []) {
+  if (Array.isArray(changedFilesInput)) return changedFilesInput.filter((entry) => typeof entry === 'string' && entry.length > 0);
+  if (typeof changedFilesInput === 'string') {
+    return changedFilesInput.split(/[\n,]/).map((entry) => entry.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function inferLayer3TenantMigrationChanged(releaseDiff = {}) {
+  const explicitOverride = process.env.LAYER3_TENANT_MIGRATION_CHANGED;
+  if (typeof explicitOverride === 'string' && explicitOverride.trim() !== '') {
+    return ['1', 'true', 'yes', 'on'].includes(explicitOverride.trim().toLowerCase());
+  }
+
+  const changedFiles = normalizeChangedFilesInput(releaseDiff.changedFiles);
+  const includePatterns = [
+    /^scripts\/db\/migrate_tenant_ids\.py$/,
+    /^scripts\/db\/create_composite_tenant_indexes\.py$/,
+    /^supabase\/migrations\/.*(?:layer3|tenant).*\.(?:sql|py)$/i,
+    /^packages\/backend\/src\/services\/tenant\//,
+    /^packages\/backend\/src\/lib\/supabase\//
+  ];
+
+  return changedFiles.some((file) => includePatterns.some((pattern) => pattern.test(file)));
+}
+
+function isCheckRequired(check, conditionContext) {
+  if (!check.required) return false;
+  if (!check.requiredWhen) return true;
+
+  if (check.requiredWhen.condition === 'layer3-tenant-migration-changed') {
+    return Boolean(conditionContext.layer3TenantMigrationChanged);
+  }
+
+  throw new Error(`unknown requiredWhen condition: ${check.requiredWhen.condition}`);
+}
+
 export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs(), releaseDiff = {} }) {
   const maxArtifactAgeHours = Number(manifest.maxArtifactAgeHours ?? 24);
   const maxArtifactAgeMs = maxArtifactAgeHours * 60 * 60 * 1000;
 
   const passedChecks = [];
   const failedChecks = [];
+  const skippedChecks = [];
   const openRisks = [];
+  const conditionContext = {
+    layer3TenantMigrationChanged: inferLayer3TenantMigrationChanged(releaseDiff),
+  };
 
   for (const check of manifest.checks ?? []) {
+    if (!isCheckRequired(check, conditionContext)) {
+      skippedChecks.push({
+        id: check.id,
+        name: check.name,
+        reason: 'not applicable',
+      });
+      continue;
+    }
     const failures = [];
     const staleArtifacts = [];
 
@@ -186,10 +235,12 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     maxArtifactAgeHours,
     passedChecks,
     failedChecks,
+    skippedChecks,
     controlsImpacted,
     controlsUnchanged,
     controlsMissingEvidenceDespiteImpact: failedImpacted,
     openRisks,
+    conditionContext,
     productionReady: failedChecks.length === 0,
   };
 }
@@ -201,6 +252,7 @@ export function buildLayer3ReadinessReport(result) {
   lines.push(`- Generated at: ${new Date().toISOString()}`);
   lines.push(`- Max artifact age (hours): ${result.maxArtifactAgeHours}`);
   lines.push(`- Production-ready verdict: ${result.productionReady ? 'PASS' : 'FAIL'}`);
+  lines.push(`- Layer 3 tenant migration changed: ${result.conditionContext.layer3TenantMigrationChanged ? 'yes' : 'no'}`);
   lines.push('');
 
   lines.push('## Passed checks');
@@ -209,6 +261,16 @@ export function buildLayer3ReadinessReport(result) {
   } else {
     for (const check of result.passedChecks) {
       lines.push(`- ✅ ${check.id} (${check.name})`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Skipped checks');
+  if (result.skippedChecks.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const check of result.skippedChecks) {
+      lines.push(`- ⏭️ ${check.id} (${check.name}) — skipped (${check.reason})`);
     }
   }
   lines.push('');
