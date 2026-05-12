@@ -368,6 +368,27 @@ Prometheus metrics also track cumulative cost:
 - `agent_fabric_cost_usd_total{agent, tenant, model}`
 - `agent_fabric_token_usage_total{agent, tenant, model, type}`
 
+### Layer 5 anti-drift guard
+
+`AgentDriftGuard` now runs a periodic reconciliation pass before execution to
+detect runtime drift in governance-critical controls:
+
+- confidence threshold fingerprint drift
+- unknown or invalid risk tiers
+- invalid schema fingerprint state
+
+When drift is detected:
+- **non-strict mode** (`AGENT_DRIFT_GUARD_STRICT=false`) logs warnings and continues
+- **strict mode** (`AGENT_DRIFT_GUARD_STRICT=true`) blocks execution before LLM calls
+
+Environment configuration:
+- `AGENT_DRIFT_GUARD_ENABLED` (default: `true`)
+- `AGENT_DRIFT_GUARD_STRICT` (default: `false`)
+- `AGENT_DRIFT_GUARD_INTERVAL_MS` (default: `300000`)
+
+This gives Layer 5 a deterministic anti-drift control loop with optional
+automated remediation (unknown tier correction fallback in non-strict mode).
+
 ---
 
 ## 6. Safety

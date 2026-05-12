@@ -80,3 +80,7 @@ export {
   DiscoveryOutputSchema,
 } from "./HardenedDiscoveryAgent.js";
 export type { DiscoveryOutput, HardenedDiscoveryAgentDeps } from "./HardenedDiscoveryAgent.js";
+
+// Drift guard
+export { AgentDriftGuard, readDriftGuardConfigFromEnv, fingerprintSchema } from "./AgentDriftGuard.js";
+export type { DriftGuardConfig, DriftCheckInput, DriftCheckResult } from "./AgentDriftGuard.js";

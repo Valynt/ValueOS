@@ -39,6 +39,7 @@ import type {
   TokenUsage,
 } from "./AgentHardeningTypes.js";
 import { CONFIDENCE_THRESHOLDS, FAILURE_RESPONSES, GovernanceVetoError } from "./AgentHardeningTypes.js";
+import { AgentDriftGuard, fingerprintSchema, readDriftGuardConfigFromEnv } from "./AgentDriftGuard.js";
 import { safetyLayer } from "./AgentSafetyLayer.js";
 import {
   GovernanceLayer,
@@ -135,6 +136,7 @@ export class HardenedAgentRunner {
   private readonly retryConfig: RetryConfig;
   private readonly auditLogger: AuditLogger;
   private readonly defaultTimeoutMs: number;
+  private readonly driftGuard: AgentDriftGuard;
 
   constructor(private readonly config: HardenedAgentRunnerConfig) {
     this.governance = new GovernanceLayer(
@@ -144,6 +146,7 @@ export class HardenedAgentRunner {
     this.retryConfig = { ...DEFAULT_RETRY, ...config.retry };
     this.auditLogger = new AuditLogger();
     this.defaultTimeoutMs = config.defaultTimeoutMs ?? 30_000;
+    this.driftGuard = new AgentDriftGuard(readDriftGuardConfigFromEnv());
   }
 
   /**
@@ -168,6 +171,18 @@ export class HardenedAgentRunner {
     const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs;
     const maxRetries = options.maxRetries ?? this.retryConfig.maxRetries;
     const riskTier = options.riskTier ?? this.config.riskTier;
+
+    if (this.driftGuard.shouldRun()) {
+      const drift = this.driftGuard.check({
+        agentName: this.config.agentName,
+        riskTier,
+        outputSchemaFingerprint: fingerprintSchema(options.outputSchema._def),
+      });
+
+      if (drift.driftDetected && this.driftGuard.isStrictMode()) {
+        throw new Error(`[${this.config.agentName}] Drift guard blocked execution: ${drift.reasons.join(", ")}`);
+      }
+    }
 
     const logBuilder = new ExecutionLogBuilder({
       request_id: envelope.request_id,
