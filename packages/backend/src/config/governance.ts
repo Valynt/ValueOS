@@ -39,6 +39,9 @@ const governanceEnvSchema = z.object({
   GOVERNANCE_ELEVATED_ROLES: z.string().optional(),
   GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS: z.string().optional(),
   GOVERNANCE_STAGE_REQUIRED_FIELDS: z.string().optional(),
+  GOVERNANCE_SCHEMA_HASH_EXPECTED: z.string().trim().min(1).optional(),
+  APP_MIGRATION_HEAD: z.string().trim().min(1).optional(),
+  REQUIRED_PAYLOAD_CONTRACT_VERSION: z.string().trim().min(1).optional(),
 });
 
 type RuntimeStage = 'dev' | 'staging' | 'prod';
@@ -54,6 +57,9 @@ const STRICT_REQUIRED_GOVERNANCE_VARS = [
   'GOVERNANCE_DESTRUCTIVE_ACTIONS',
   'GOVERNANCE_ELEVATED_ROLES',
   'GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS',
+  'GOVERNANCE_SCHEMA_HASH_EXPECTED',
+  'APP_MIGRATION_HEAD',
+  'REQUIRED_PAYLOAD_CONTRACT_VERSION',
 ] as const;
 
 function resolveRuntimeStage(env: NodeJS.ProcessEnv): RuntimeStage {
@@ -83,6 +89,9 @@ export type GovernanceConfig = {
     staging: string[];
     prod: string[];
   };
+  schemaHashExpected?: string;
+  appMigrationHead?: string;
+  requiredPayloadContractVersion?: string;
 };
 
 function parseStageRequiredFields(raw: string | undefined): GovernanceConfig['stageRequiredFields'] {
@@ -177,6 +186,9 @@ export function loadGovernanceConfig(env: NodeJS.ProcessEnv = process.env): Gove
           staging: [...DEFAULT_STAGE_REQUIRED_FIELDS.staging],
           prod: [...DEFAULT_STAGE_REQUIRED_FIELDS.prod],
         },
+    schemaHashExpected: parsed.GOVERNANCE_SCHEMA_HASH_EXPECTED,
+    appMigrationHead: parsed.APP_MIGRATION_HEAD,
+    requiredPayloadContractVersion: parsed.REQUIRED_PAYLOAD_CONTRACT_VERSION,
   };
 }
 
