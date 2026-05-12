@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { runGovernanceDriftReconciliationJob } from '../GovernanceDriftReconciliationWorker.js';
+import * as worker from '../GovernanceDriftReconciliationWorker.js';
 import type { GovernanceContext } from '../../lib/rules.js';
 
 function ctx(overrides: Partial<GovernanceContext> = {}): GovernanceContext {
@@ -14,9 +14,12 @@ function ctx(overrides: Partial<GovernanceContext> = {}): GovernanceContext {
 
 describe('GovernanceDriftReconciliationWorker', () => {
   it('detects drift and emits unresolved records in approval-gated mode', async () => {
-    const result = await runGovernanceDriftReconciliationJob({
+    const result = await worker.runGovernanceDriftReconciliationJob({
       id: '1',
+      attemptsMade: 0,
       data: {
+        kind: 'evaluate',
+        idempotencyKey: 'k1',
         context: ctx(),
         grantedPermissions: [],
         remediationMode: 'approval-gated',
@@ -27,17 +30,21 @@ describe('GovernanceDriftReconciliationWorker', () => {
   });
 
   it('no-ops when context is clean', async () => {
-    const result = await runGovernanceDriftReconciliationJob({
+    const result = await worker.runGovernanceDriftReconciliationJob({
       id: '2',
-      data: { context: ctx(), grantedPermissions: ['value_trees:edit'], remediationMode: 'approval-gated' },
+      attemptsMade: 0,
+      data: { kind: 'evaluate', idempotencyKey: 'k2', context: ctx(), grantedPermissions: ['value_trees:edit'], remediationMode: 'approval-gated' },
     });
     expect(result).toEqual([]);
   });
 
   it('auto-remediates safe drift in auto-safe mode', async () => {
-    const result = await runGovernanceDriftReconciliationJob({
+    const result = await worker.runGovernanceDriftReconciliationJob({
       id: '3',
+      attemptsMade: 0,
       data: {
+        kind: 'evaluate',
+        idempotencyKey: 'k3',
         context: ctx(),
         grantedPermissions: [],
         remediationMode: 'auto-safe',
@@ -47,9 +54,12 @@ describe('GovernanceDriftReconciliationWorker', () => {
   });
 
   it('escalates unresolved high-risk drift path', async () => {
-    const result = await runGovernanceDriftReconciliationJob({
+    const result = await worker.runGovernanceDriftReconciliationJob({
       id: '4',
+      attemptsMade: 0,
       data: {
+        kind: 'evaluate',
+        idempotencyKey: 'k4',
         context: ctx({
           environment: { stage: 'prod', nowIso: new Date().toISOString() },
           action: { type: 'proposal.publish', name: 'proposal.publish', payload: {} },
@@ -60,5 +70,29 @@ describe('GovernanceDriftReconciliationWorker', () => {
       },
     });
     expect(result.some((r) => r.escalatedForApproval)).toBe(true);
+  });
+
+  it('isolates tenant evaluation contexts with no cross-tenant bleed', async () => {
+    const tenantA = await worker.runGovernanceDriftReconciliationJob({
+      id: '5',
+      attemptsMade: 0,
+      data: { kind: 'evaluate', idempotencyKey: 'k5', context: ctx({ actor: { userId: 'ua', tenantId: 'tenant-a', roles: ['member'] } }), grantedPermissions: [], remediationMode: 'approval-gated' },
+    });
+    const tenantB = await worker.runGovernanceDriftReconciliationJob({
+      id: '6',
+      attemptsMade: 0,
+      data: { kind: 'evaluate', idempotencyKey: 'k6', context: ctx({ actor: { userId: 'ub', tenantId: 'tenant-b', roles: ['member'] } }), grantedPermissions: ['value_trees:edit'], remediationMode: 'approval-gated' },
+    });
+
+    expect(tenantA.every((record) => record.tenantId === 'tenant-a')).toBe(true);
+    expect(tenantB).toEqual([]);
+  });
+
+  it('runs producer mode and enqueues per tenant/workflow context', async () => {
+    const spy = vi.spyOn(worker, 'produceGovernanceDriftReconciliationJobs').mockResolvedValue(3);
+    const result = await worker.runGovernanceDriftReconciliationJob({ id: '7', attemptsMade: 0, data: { kind: 'produce' } });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(result).toEqual([]);
+    spy.mockRestore();
   });
 });
