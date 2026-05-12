@@ -120,6 +120,21 @@
       ],
       "owner": "team-security",
       "remediation": "Populate required docs/security-compliance evidence files and rerun main-verify staging deploy gates."
+    },
+    {
+      "id": "layer4-contract-compatibility-gate",
+      "description": "Validates Layer 4 interface contract compatibility (payload shape, required fields, approval schema version, workflow metadata dependencies) against adjacent layer producers/consumers.",
+      "workflow": ".github/workflows/main-verify.yml",
+      "jobId": "critical-workflows-gate",
+      "script": "pnpm run test:layer4-contract-compatibility",
+      "coverage": [
+        "payload shape contract",
+        "required stage/layer6 drift fields",
+        "approval contract schema version",
+        "workflow metadata dependencies"
+      ],
+      "owner": "team-backend",
+      "remediation": "Fix Layer 4 contract fixture/schema drift and rerun pnpm run test:layer4-contract-compatibility."
     }
   ],
   "externalRequiredChecks": [

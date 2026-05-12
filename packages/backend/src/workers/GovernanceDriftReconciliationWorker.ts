@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { createLogger } from '../lib/logger.js';
 import { createCounter } from '../lib/observability/index.js';
 import { createWorkerServiceSupabaseClient } from '../lib/supabase/privileged/index.js';
+import { buildLayer4DriftPayload } from '../lib/governance/contracts/buildLayer4Payload.js';
 import { evaluateGovernanceDrift } from '../lib/governance/driftPrimitives.js';
 import type { DriftAssessment, GovernanceContext } from '../lib/rules.js';
 
@@ -181,6 +182,13 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
 
     for (const c of contexts) {
       const idempotencyKey = `gov-drift:${tenantId}:${userId}:${c.actionName}:${c.workflowId ?? 'none'}`;
+      const layer4Payload = buildLayer4DriftPayload({
+        requestId: idempotencyKey,
+        schemaManifestHash: process.env.GOVERNANCE_SCHEMA_HASH_EXPECTED ?? 'schema-hash-v1',
+        runtimeMigrationHead: process.env.APP_MIGRATION_HEAD ?? '20260512000100_layer6',
+        changeTicketId: `reconcile-${tenantId}`,
+        riskAcceptanceId: `auto-${tenantId}`,
+      });
       await queue.add('evaluate-governance-drift', {
         kind: 'evaluate',
         idempotencyKey,
@@ -188,7 +196,7 @@ export async function produceGovernanceDriftReconciliationJobs(batchSize = DEFAU
         grantedPermissions,
         context: {
           actor: { userId, tenantId, roles },
-          action: { type: c.actionName, name: c.actionName },
+          action: { type: c.actionName, name: c.actionName, payload: layer4Payload },
           environment: { stage: 'prod', nowIso },
           workflow: { workflowId: c.workflowId, step: c.workflowStep, approvals: [] },
         },
