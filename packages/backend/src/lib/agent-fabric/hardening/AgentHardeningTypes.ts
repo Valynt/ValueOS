@@ -276,6 +276,21 @@ export interface FailureResponse {
 }
 
 /** Canonical failure response map — used by tests and documentation. */
+
+export class OutputSchemaContractError extends Error {
+  readonly name = "OutputSchemaContractError";
+
+  constructor(
+    public readonly agentName: string,
+    public readonly schemaErrors: string[],
+    public readonly traceId?: string
+  ) {
+    super(
+      `[${agentName}] Output schema contract violation${traceId ? ` (trace: ${traceId})` : ""}: ${schemaErrors.join("; ")}`
+    );
+  }
+}
+
 export const FAILURE_RESPONSES: Record<FailureScenario, FailureResponse> = {
   llm_timeout: {
     scenario: "llm_timeout",

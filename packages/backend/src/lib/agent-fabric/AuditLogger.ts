@@ -89,11 +89,38 @@ export interface AgentSecurityAuditParams {
   details: Record<string, unknown>;
 }
 
+export interface SchemaContractViolationAuditParams {
+  agentName: string;
+  tenantId: string;
+  userId: string;
+  details: Record<string, unknown>;
+}
 export class AuditLogger {
   private readonly auditLogService: AuditLogService;
 
   constructor(auditLogService?: AuditLogService) {
     this.auditLogService = auditLogService ?? new AuditLogService();
+  }
+
+  async logSchemaContractViolation(params: SchemaContractViolationAuditParams): Promise<void> {
+    try {
+      await this.auditLogService.logAudit({
+        userId: params.userId,
+        userName: params.agentName,
+        userEmail: `agent:${params.agentName}`,
+        action: "agent.security.output_schema_contract_violation",
+        resourceType: "agent",
+        resourceId: params.agentName,
+        tenantId: params.tenantId,
+        details: redactDetails(params.details),
+        status: "failed",
+      });
+    } catch (err) {
+      logger.warn("AuditLogger: failed to log schema contract violation", {
+        agent: params.agentName,
+        err,
+      });
+    }
   }
 
   async logAgentSecurity(params: AgentSecurityAuditParams): Promise<void> {
