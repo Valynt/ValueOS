@@ -545,38 +545,38 @@ async function resolvePermissions(
   return granted;
 }
 
-/**
- * Fetch proposal governance state for proposal.publish checks.
- * Returns null when the resource is not found or the query fails.
- */
-async function getProposalGovernanceStatus(
-  resourceId: string,
-  tenantId: string
-): Promise<{ integrityPassed: boolean; hasRequiredEvidence: boolean } | null> {
-  const supabase = createServerSupabaseClient();
+type WorkflowMutationAction = 'proposal.publish' | 'value_model.finalize' | 'commitment.publish';
 
+interface WorkflowMutationState {
+  workflowState: string | null;
+  integrityStatus: string | null;
+  evidenceCount: number;
+  requiredEvidenceCount: number;
+  approvalStatus: string | null;
+  recordTenantId: string | null;
+}
+
+async function loadWorkflowMutationState(resourceId: string, tenantId: string): Promise<WorkflowMutationState | null> {
+  const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('value_cases')
-    .select('integrity_status, evidence_count, required_evidence_count')
+    .select('tenant_id, workflow_state, integrity_status, evidence_count, required_evidence_count, approval_status')
     .eq('id', resourceId)
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
   if (error || !data) {
-    logger.warn('governance: failed to fetch proposal governance status', {
-      resourceId,
-      tenantId,
-      error: error?.message,
-    });
+    logger.warn('governance: failed to load workflow mutation state', { resourceId, tenantId, error: error?.message });
     return null;
   }
 
   return {
-    integrityPassed: data.integrity_status === 'passed',
-    hasRequiredEvidence:
-      typeof data.evidence_count === 'number' &&
-      typeof data.required_evidence_count === 'number' &&
-      data.evidence_count >= data.required_evidence_count,
+    workflowState: typeof data.workflow_state === 'string' ? data.workflow_state : null,
+    integrityStatus: typeof data.integrity_status === 'string' ? data.integrity_status : null,
+    evidenceCount: typeof data.evidence_count === 'number' ? data.evidence_count : 0,
+    requiredEvidenceCount: typeof data.required_evidence_count === 'number' ? data.required_evidence_count : 0,
+    approvalStatus: typeof data.approval_status === 'string' ? data.approval_status : null,
+    recordTenantId: typeof data.tenant_id === 'string' ? data.tenant_id : null,
   };
 }
 
@@ -785,46 +785,52 @@ async function evaluateRulesDetailed(
     // Layer 3: Workflow-state validation
     // ------------------------------------------------------------------
 
-    if (ctx.action.name === 'proposal.publish') {
-      const resourceId = ctx.action.target?.resourceId;
-      if (!resourceId) {
-        return deny(
-          'DENY_INVALID_STATE',
-          'proposal.publish requires a target resourceId.',
-          evaluatedAt,
-          ['proposal-integrity']
-        );
-      }
+    const workflowMutationValidators: Partial<Record<WorkflowMutationAction, () => Promise<GovernanceDecision | null>>> = {
+      'proposal.publish': async () => {
+        const resourceId = ctx.action.target?.resourceId;
+        if (!resourceId) {
+          return deny('DENY_INVALID_STATE', 'proposal.publish requires a target resourceId.', evaluatedAt, ['proposal-integrity']);
+        }
 
-      const status = await getProposalGovernanceStatus(resourceId, ctx.actor.tenantId);
-      if (!status) {
-        return deny(
-          'DENY_INVALID_STATE',
-          'Proposal not found or governance state unavailable.',
-          evaluatedAt,
-          ['proposal-integrity']
-        );
-      }
+        const state = await loadWorkflowMutationState(resourceId, ctx.actor.tenantId);
+        if (!state || (state.recordTenantId && state.recordTenantId !== ctx.actor.tenantId)) {
+          return deny('DENY_INVALID_STATE', 'Proposal not found or governance state unavailable.', evaluatedAt, ['proposal-integrity']);
+        }
+        if (state.integrityStatus !== 'passed') {
+          return deny('DENY_INVALID_STATE', 'Proposal cannot be published before integrity review passes.', evaluatedAt, ['proposal-integrity']);
+        }
+        if (state.evidenceCount < state.requiredEvidenceCount) {
+          return deny('DENY_MISSING_APPROVAL', 'Required evidence threshold is not met.', evaluatedAt, ['evidence-threshold']);
+        }
+        matchedRules.push('proposal-integrity', 'evidence-threshold');
+        return null;
+      },
+      'value_model.finalize': async () => {
+        const resourceId = ctx.action.target?.resourceId;
+        if (!resourceId) return deny('DENY_INVALID_STATE', 'value_model.finalize requires a target resourceId.', evaluatedAt, ['value-model-state']);
+        const state = await loadWorkflowMutationState(resourceId, ctx.actor.tenantId);
+        if (!state || (state.recordTenantId && state.recordTenantId !== ctx.actor.tenantId)) return deny('DENY_INVALID_STATE', 'Value model target not found for tenant-scoped finalization.', evaluatedAt, ['value-model-state']);
+        if (state.workflowState !== 'draft') return deny('DENY_INVALID_STATE', 'value_model.finalize requires current workflow_state=draft.', evaluatedAt, ['value-model-state']);
+        if (state.evidenceCount < state.requiredEvidenceCount) return deny('DENY_MISSING_APPROVAL', 'value_model.finalize requires required evidence to be complete.', evaluatedAt, ['value-model-evidence']);
+        matchedRules.push('value-model-state', 'value-model-evidence');
+        return null;
+      },
+      'commitment.publish': async () => {
+        const resourceId = ctx.action.target?.resourceId;
+        if (!resourceId) return deny('DENY_INVALID_STATE', 'commitment.publish requires a target resourceId.', evaluatedAt, ['commitment-state']);
+        const state = await loadWorkflowMutationState(resourceId, ctx.actor.tenantId);
+        if (!state || (state.recordTenantId && state.recordTenantId !== ctx.actor.tenantId)) return deny('DENY_INVALID_STATE', 'Commitment target not found for tenant-scoped publication.', evaluatedAt, ['commitment-state']);
+        if (state.workflowState !== 'approved') return deny('DENY_INVALID_STATE', 'commitment.publish requires current workflow_state=approved.', evaluatedAt, ['commitment-state']);
+        if (state.integrityStatus !== 'passed' || state.approvalStatus !== 'approved') return deny('DENY_MISSING_APPROVAL', 'commitment.publish requires approved integrity and approval status.', evaluatedAt, ['commitment-approval']);
+        matchedRules.push('commitment-state', 'commitment-approval');
+        return null;
+      },
+    };
 
-      if (!status.integrityPassed) {
-        return deny(
-          'DENY_INVALID_STATE',
-          'Proposal cannot be published before integrity review passes.',
-          evaluatedAt,
-          ['proposal-integrity']
-        );
-      }
-
-      if (!status.hasRequiredEvidence) {
-        return deny(
-          'DENY_MISSING_APPROVAL',
-          'Required evidence threshold is not met.',
-          evaluatedAt,
-          ['evidence-threshold']
-        );
-      }
-
-      matchedRules.push('proposal-integrity', 'evidence-threshold');
+    const workflowValidator = workflowMutationValidators[ctx.action.name as WorkflowMutationAction];
+    if (workflowValidator) {
+      const validationResult = await workflowValidator();
+      if (validationResult) return validationResult;
     }
 
     // ------------------------------------------------------------------
