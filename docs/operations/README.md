@@ -20,6 +20,7 @@ status: active
 - [Troubleshooting Runbook](./runbooks/troubleshooting-runbook.md)
 - [Incident Response](./incident-response.md)
 - [Launch Readiness](./launch-readiness.md)
+- [Layer 5 Production Readiness](./layer5-production-readiness.md)
 - [Query Performance Runbook](./runbooks/query-performance-runbook.md)
 
 ## Generated References

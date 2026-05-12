@@ -357,6 +357,12 @@ jobs:
       - name: Launch-readiness audit markdown lint
         run: pnpm run check:launch-readiness-audit-markdown
 
+      - name: Layer 5 readiness gate for Layer 5-impacting PRs
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci/check-layer5-readiness-gate.mjs
+
       - name: Ownership metadata guard
         run: node scripts/ci/check-ownership-metadata.mjs
       - name: Waiver ownership metadata guard
