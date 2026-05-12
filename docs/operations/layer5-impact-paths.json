@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 1,
+  "description": "Canonical Layer 5 impact path manifest for readiness gate routing.",
+  "include": {
+    "exact": [
+      "docs/operations/runbooks/governance-drift.md"
+    ],
+    "prefixes": [
+      "packages/backend/src/lib/agent-fabric/",
+      "packages/backend/src/runtime/",
+      "packages/backend/src/services/realtime/",
+      "infra/k8s/"
+    ]
+  },
+  "exclude": {
+    "exact": [],
+    "prefixes": []
+  }
+}
