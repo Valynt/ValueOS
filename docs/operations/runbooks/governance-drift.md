@@ -6,7 +6,12 @@
 - Schedule: every `GOVERNANCE_DRIFT_RECONCILIATION_INTERVAL_MINUTES` (default **15 minutes**).
 - Runs independently from user-traffic request paths and continuously samples for Layer 6 drift signatures.
 - Producer/evaluator pattern: each interval first runs a producer pass that discovers active tenant + workflow contexts, then enqueues one evaluator job per tenant/workflow/action scope (no synthetic system actor context).
-- Bounded fan-out: producer discovery is capped by `GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE` (default **250 tenant memberships** per schedule tick).
+- Bounded fan-out: producer discovery uses cursor-based tenant sampling and is capped by `GOVERNANCE_DRIFT_RECONCILIATION_BATCH_SIZE` (default **250**) and hard-clamped by `GOVERNANCE_DRIFT_RECONCILIATION_MAX_BATCH_SIZE` (default **500**) per schedule tick.
+
+- Sampling mode semantics:
+  - `produce` jobs can run with explicit `scan` payload (`cursor`, `batchSize`) or defaults.
+  - Cursor is an exclusive `tenant_id` lower bound (`tenant_id > cursor`) sorted ascending; this prevents re-reading already scanned tenants during a single pass.
+  - If one tenant/user sample fails (permission lookup or workflow fetch), the producer logs `governance.drift.reconciliation.sample_failed`, increments failure telemetry, and continues with remaining tenants (partial-failure isolation).
 - Remediation mode:
   - Controlled by `GOVERNANCE_DRIFT_RECONCILIATION_MODE`.
   - Default: `approval-gated` (when unset).
@@ -67,8 +72,8 @@ Rollout order (must be followed):
 
 ## Failure handling
 
-- Retry guardrails: evaluator and producer jobs use exponential backoff with jitter and bounded attempts (`GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES`, default **5**).
-- Idempotency: evaluator job IDs are deterministic per tenant/user/action/workflow scope to prevent duplicate replay amplification during Redis outages or scheduler retries.
+- Retry guardrails: evaluator and producer jobs use exponential backoff with jitter, bounded attempts (`GOVERNANCE_DRIFT_RECONCILIATION_MAX_RETRIES`, default **5**), and per-job timeout (`GOVERNANCE_DRIFT_RECONCILIATION_JOB_TIMEOUT_MS`, default **30000ms**).
+- Idempotency: evaluator job IDs are deterministic per tenant/user/action/workflow scope (`gov-drift:<tenant>:<user>:<action>:<workflow|none>`) to prevent duplicate replay amplification during Redis outages or scheduler retries.
 - Dead-letter path: exhausted jobs are forwarded to `governance-drift-reconciliation-dlq` and must emit `governance.drift.reconciliation.dead_lettered` for incident routing.
 - If scheduling fails at startup, `workerMain` logs a warning and continues serving other workers; restart worker deployment after env/config correction.
 - If reconciliation repeatedly escalates unresolved high-risk drift, force `approval-gated` mode and pause risky rollout actions.
