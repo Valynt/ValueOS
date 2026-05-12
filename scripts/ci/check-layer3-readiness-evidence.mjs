@@ -15,10 +15,35 @@ function loadManifest(manifestPath) {
   return JSON.parse(payload);
 }
 
-function changedControlsFromManifest(manifest) {
-  return manifest.checks
-    .map((check) => check.id)
-    .sort();
+function normalizeReleaseDiff(releaseDiff = {}) {
+  return {
+    changedFiles: Array.isArray(releaseDiff.changedFiles) ? releaseDiff.changedFiles : [],
+    changedChecks: Array.isArray(releaseDiff.changedChecks) ? releaseDiff.changedChecks : [],
+    changedInterfaces: Array.isArray(releaseDiff.changedInterfaces) ? releaseDiff.changedInterfaces : [],
+  };
+}
+
+function changedControlsFromManifest(manifest, releaseDiff = {}) {
+  const { changedFiles, changedChecks, changedInterfaces } = normalizeReleaseDiff(releaseDiff);
+  const changedCheckSet = new Set(changedChecks);
+  const changedInterfaceSet = new Set(changedInterfaces);
+
+  const impacted = [];
+  for (const check of manifest.checks ?? []) {
+    const ownership = manifest.controlOwnership?.[check.id] ?? {};
+    const ownedPaths = Array.isArray(ownership.paths) ? ownership.paths : [];
+    const ownedInterfaces = Array.isArray(ownership.interfaces) ? ownership.interfaces : [];
+
+    const hasChangedPath = changedFiles.some((changedFile) => ownedPaths.some((ownedPath) => changedFile.startsWith(ownedPath)));
+    const hasChangedInterface = ownedInterfaces.some((entry) => changedInterfaceSet.has(entry));
+    const hasChangedCheck = changedCheckSet.has(check.id);
+
+    if (hasChangedPath || hasChangedInterface || hasChangedCheck) {
+      impacted.push(check.id);
+    }
+  }
+
+  return impacted.sort();
 }
 
 function readPathValue(source, dottedPath) {
@@ -97,7 +122,7 @@ function validateArtifactSemantics({ check, artifactPath, artifact }) {
   throw new Error(`unknown validator type: ${check.validator}`);
 }
 
-export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs() }) {
+export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now = nowMs(), releaseDiff = {} }) {
   const maxArtifactAgeHours = Number(manifest.maxArtifactAgeHours ?? 24);
   const maxArtifactAgeMs = maxArtifactAgeHours * 60 * 60 * 1000;
 
@@ -148,11 +173,22 @@ export function evaluateLayer3Readiness({ manifest, baseDir = process.cwd(), now
     passedChecks.push({ id: check.id, name: check.name });
   }
 
+  const controlsImpacted = changedControlsFromManifest(manifest, releaseDiff);
+  const allControls = (manifest.checks ?? []).map((check) => check.id).sort();
+  const controlsImpactedSet = new Set(controlsImpacted);
+  const controlsUnchanged = allControls.filter((checkId) => !controlsImpactedSet.has(checkId));
+  const failedImpacted = failedChecks
+    .filter((check) => controlsImpactedSet.has(check.id))
+    .map((check) => check.id)
+    .sort();
+
   return {
     maxArtifactAgeHours,
     passedChecks,
     failedChecks,
-    changedControls: changedControlsFromManifest(manifest),
+    controlsImpacted,
+    controlsUnchanged,
+    controlsMissingEvidenceDespiteImpact: failedImpacted,
     openRisks,
     productionReady: failedChecks.length === 0,
   };
@@ -190,9 +226,33 @@ export function buildLayer3ReadinessReport(result) {
   }
   lines.push('');
 
-  lines.push('## Changed controls');
-  for (const control of result.changedControls) {
-    lines.push(`- ${control}`);
+  lines.push('## Controls impacted by this release');
+  if (result.controlsImpacted.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.controlsImpacted) {
+      lines.push(`- ${control}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Controls unchanged');
+  if (result.controlsUnchanged.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.controlsUnchanged) {
+      lines.push(`- ${control}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## Controls with missing evidence despite impact');
+  if (result.controlsMissingEvidenceDespiteImpact.length === 0) {
+    lines.push('- None');
+  } else {
+    for (const control of result.controlsMissingEvidenceDespiteImpact) {
+      lines.push(`- ${control}`);
+    }
   }
   lines.push('');
 
@@ -224,7 +284,8 @@ function main() {
   const reportPath = process.env.LAYER3_READINESS_REPORT_PATH ?? DEFAULT_REPORT_PATH;
 
   const manifest = loadManifest(manifestPath);
-  const result = evaluateLayer3Readiness({ manifest });
+  const releaseDiff = JSON.parse(process.env.LAYER3_RELEASE_DIFF_JSON ?? "{}");
+  const result = evaluateLayer3Readiness({ manifest, releaseDiff });
   const report = buildLayer3ReadinessReport(result);
 
   writeReport(reportPath, report);

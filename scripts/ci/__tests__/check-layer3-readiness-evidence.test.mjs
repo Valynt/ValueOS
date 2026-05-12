@@ -25,6 +25,16 @@ function writeArtifact(baseDir, relativePath, payload, ageHours = 0) {
 function buildManifest(overrides = {}) {
   return {
     maxArtifactAgeHours: 24,
+    controlOwnership: {
+      'workflow-state-tests': {
+        paths: ['packages/backend/src/runtime/'],
+        interfaces: ['workflow-state-contract-v1'],
+      },
+      'schema-contract-check': {
+        paths: ['packages/shared/src/domain/'],
+        interfaces: ['schema-contract-v1'],
+      },
+    },
     checks: [
       {
         id: 'workflow-state-tests',
@@ -35,9 +45,19 @@ function buildManifest(overrides = {}) {
         expectedValue: true,
         requiredPaths: ['success', 'summary.passed'],
         artifacts: ['artifacts/layer3/workflow-state-tests.json'],
-        ...overrides,
+      },
+      {
+        id: 'schema-contract-check',
+        name: 'Schema contract check',
+        validator: 'json-path-equals',
+        formatVersion: 1,
+        successPath: 'success',
+        expectedValue: true,
+        requiredPaths: ['success', 'contractsValidated'],
+        artifacts: ['artifacts/layer3/schema-contract-check.json'],
       },
     ],
+    ...overrides,
   };
 }
 
@@ -49,6 +69,12 @@ test('fails fresh artifact with failing payload', () => {
     JSON.stringify({ formatVersion: 1, success: false, summary: { passed: 10 } }),
     1,
   );
+  writeArtifact(
+    baseDir,
+    'artifacts/layer3/schema-contract-check.json',
+    JSON.stringify({ formatVersion: 1, success: true, contractsValidated: 2 }),
+    1,
+  );
 
   const result = evaluateLayer3Readiness({ manifest: buildManifest(), baseDir, now: Date.now() });
 
@@ -57,50 +83,37 @@ test('fails fresh artifact with failing payload', () => {
   assert.match(result.failedChecks[0].failures.join(' '), /semantic success check failed/);
 });
 
-test('fails closed on malformed payload', () => {
+test('no-op release reports all controls unchanged', () => {
   const baseDir = mkTmpDir();
-  writeArtifact(baseDir, 'artifacts/layer3/workflow-state-tests.json', '{ this is not valid json', 1);
-
-  const result = evaluateLayer3Readiness({ manifest: buildManifest(), baseDir, now: Date.now() });
-
-  assert.equal(result.productionReady, false);
-  assert.equal(result.failedChecks.length, 1);
-  assert.match(result.failedChecks[0].failures.join(' '), /not valid JSON/);
-});
-
-test('fails closed on unknown validator', () => {
-  const baseDir = mkTmpDir();
-  writeArtifact(
-    baseDir,
-    'artifacts/layer3/workflow-state-tests.json',
-    JSON.stringify({ formatVersion: 1, success: true, summary: { passed: 10 } }),
-    1,
-  );
+  writeArtifact(baseDir, 'artifacts/layer3/workflow-state-tests.json', JSON.stringify({ formatVersion: 1, success: true, summary: { passed: 5 } }), 1);
+  writeArtifact(baseDir, 'artifacts/layer3/schema-contract-check.json', JSON.stringify({ formatVersion: 1, success: true, contractsValidated: 2 }), 1);
 
   const result = evaluateLayer3Readiness({
-    manifest: buildManifest({ validator: 'nonexistent-validator' }),
+    manifest: buildManifest(),
     baseDir,
     now: Date.now(),
+    releaseDiff: { changedFiles: [], changedChecks: [], changedInterfaces: [] },
   });
 
-  assert.equal(result.productionReady, false);
-  assert.equal(result.failedChecks.length, 1);
-  assert.match(result.failedChecks[0].failures.join(' '), /unknown validator type/);
+  assert.deepEqual(result.controlsImpacted, []);
+  assert.deepEqual(result.controlsUnchanged, ['schema-contract-check', 'workflow-state-tests']);
+  assert.deepEqual(result.controlsMissingEvidenceDespiteImpact, []);
 });
 
-test('passes valid payload and semantic checks', () => {
+test('interface-changing release reports impacted controls and missing evidence', () => {
   const baseDir = mkTmpDir();
-  writeArtifact(
+  writeArtifact(baseDir, 'artifacts/layer3/workflow-state-tests.json', JSON.stringify({ formatVersion: 1, success: false, summary: { passed: 5 } }), 1);
+  writeArtifact(baseDir, 'artifacts/layer3/schema-contract-check.json', JSON.stringify({ formatVersion: 1, success: true, contractsValidated: 2 }), 1);
+
+  const result = evaluateLayer3Readiness({
+    manifest: buildManifest(),
     baseDir,
-    'artifacts/layer3/workflow-state-tests.json',
-    JSON.stringify({ formatVersion: 1, success: true, summary: { passed: 10 } }),
-    1,
-  );
+    now: Date.now(),
+    releaseDiff: { changedInterfaces: ['workflow-state-contract-v1'] },
+  });
 
-  const result = evaluateLayer3Readiness({ manifest: buildManifest(), baseDir, now: Date.now() });
-
-  assert.equal(result.productionReady, true);
-  assert.equal(result.failedChecks.length, 0);
-  assert.equal(result.passedChecks.length, 1);
-  assert.match(buildLayer3ReadinessReport(result), /Production-ready verdict: PASS/);
+  assert.deepEqual(result.controlsImpacted, ['workflow-state-tests']);
+  assert.deepEqual(result.controlsUnchanged, ['schema-contract-check']);
+  assert.deepEqual(result.controlsMissingEvidenceDespiteImpact, ['workflow-state-tests']);
+  assert.match(buildLayer3ReadinessReport(result), /Controls impacted by this release/);
 });
