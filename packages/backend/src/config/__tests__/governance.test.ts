@@ -39,6 +39,9 @@ describe('governance config', () => {
         staging: ['changeTicketId', 'releaseId'],
         prod: ['changeTicketId', 'riskAcceptanceId', 'releaseId'],
       }),
+      GOVERNANCE_SCHEMA_HASH_EXPECTED: 'schema-v3',
+      APP_MIGRATION_HEAD: '20260512000000_add_layer6',
+      REQUIRED_PAYLOAD_CONTRACT_VERSION: '2.4.0',
     });
 
     expect(config.permissionCacheTtlMs).toBe(45_000);
@@ -51,6 +54,9 @@ describe('governance config', () => {
       'riskAcceptanceId',
       'releaseId',
     ]);
+    expect(config.schemaHashExpected).toBe('schema-v3');
+    expect(config.appMigrationHead).toBe('20260512000000_add_layer6');
+    expect(config.requiredPayloadContractVersion).toBe('2.4.0');
   });
 
   it('reports schema errors for malformed env values', () => {
@@ -72,6 +78,23 @@ describe('governance config', () => {
       GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS: 'proposal.publish',
     });
     expect(errors).toContain('Invalid GOVERNANCE_STAGE_REQUIRED_FIELDS: required in production/prod runtime stage');
+  });
+
+  it('fails validation in prod when layer-6 drift env vars are missing', () => {
+    const errors = validateGovernanceConfigEnv({
+      NODE_ENV: 'production',
+      GOVERNANCE_DESTRUCTIVE_ACTIONS: 'value_model.delete',
+      GOVERNANCE_ELEVATED_ROLES: 'admin',
+      GOVERNANCE_PROD_APPROVAL_REQUIRED_ACTIONS: 'proposal.publish',
+      GOVERNANCE_STAGE_REQUIRED_FIELDS: JSON.stringify({
+        dev: [],
+        staging: ['changeTicketId'],
+        prod: ['changeTicketId', 'riskAcceptanceId'],
+      }),
+    });
+    expect(errors).toContain('Invalid GOVERNANCE_SCHEMA_HASH_EXPECTED: required in production/prod runtime stage');
+    expect(errors).toContain('Invalid APP_MIGRATION_HEAD: required in production/prod runtime stage');
+    expect(errors).toContain('Invalid REQUIRED_PAYLOAD_CONTRACT_VERSION: required in production/prod runtime stage');
   });
 
 

@@ -11,6 +11,26 @@
   - `auto-safe`: automatically remediates safe cases (`REFRESH_PERMISSIONS`, `READ_ONLY` style state/cache refresh constraints).
   - `approval-gated`: records drift and escalates unresolved/high-risk items for explicit approval.
 
+## Layer 6 drift environment contract
+
+Set the following variables using plain non-empty strings (no surrounding quotes, no whitespace-only values):
+
+- `GOVERNANCE_SCHEMA_HASH_EXPECTED` — canonical schema manifest hash expected at runtime (example: `sha256:8d90...`).
+- `APP_MIGRATION_HEAD` — expected backend migration head identifier (example: `20260512000100_layer6_drift`).
+- `REQUIRED_PAYLOAD_CONTRACT_VERSION` — required governance payload contract version (example: `2.4.0`).
+
+Stage strictness:
+
+- `prod`: all three variables are **required**; startup validation fails when any is missing/empty/malformed.
+- `dev` / `staging`: optional; when omitted, drift checks for that dimension are skipped.
+
+Rollout order (must be followed):
+
+1. Set `REQUIRED_PAYLOAD_CONTRACT_VERSION` in all environments first, then deploy producers that emit `contract_version`.
+2. Set `APP_MIGRATION_HEAD` after migration pipeline confirms the new head in the target stage.
+3. Set `GOVERNANCE_SCHEMA_HASH_EXPECTED` last, after schema artifact publication and hash verification.
+4. Promote the same three values from `staging` to `prod` in one release window; do not mix versions across stages.
+
 ## Signals and telemetry
 
 - Counters:
