@@ -3,8 +3,8 @@ title: Layer 5 Production Readiness
 owner: team-platform
 review_date: 2026-06-30
 status: active
-generated_at: 2026-05-12T00:00:00Z
-source_commit: TO_BE_FILLED_BY_CI
+generated_at: CI_GENERATED_UTC
+source_commit: CI_SOURCE_COMMIT
 ---
 
 # Layer 5 Production Readiness
@@ -16,33 +16,33 @@ This report is the auditable readiness package for Layer 5 controls and is requi
 
 | Control area | Control | Status | Evidence | Last validated (UTC) |
 | --- | --- | --- | --- | --- |
-| Reliability | Release reliability indicators gate (`check-release-reliability-indicators.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-release-reliability-indicators.mjs` | 2026-05-12T00:00:00Z |
-| Scalability | HPA/KEDA scalability gate (`check-hpa-scalability-gate.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-hpa-scalability-gate.mjs` | 2026-05-12T00:00:00Z |
-| Observability | Observability/SLO contract checks (`check-observability-contract.mjs`, `check-slo-rule-metrics-contract.mjs`) | PASS | `scripts/ci/` checks + release artifacts | 2026-05-12T00:00:00Z |
-| Security | Secret scan + security baseline + anti-pattern controls | PASS | `pr-fast.yml` and security CI scripts | 2026-05-12T00:00:00Z |
+| Reliability | Release reliability indicators gate (`check-release-reliability-indicators.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-release-reliability-indicators.mjs` | CI_GENERATED_UTC |
+| Scalability | HPA/KEDA scalability gate (`check-hpa-scalability-gate.mjs`) | PASS | `.github/workflows/release.yml` + `scripts/ci/check-hpa-scalability-gate.mjs` | CI_GENERATED_UTC |
+| Observability | Observability/SLO contract checks (`check-observability-contract.mjs`, `check-slo-rule-metrics-contract.mjs`) | PASS | `scripts/ci/` checks + release artifacts | CI_GENERATED_UTC |
+| Security | Secret scan + security baseline + anti-pattern controls | PASS | `pr-fast.yml` and security CI scripts | CI_GENERATED_UTC |
 
 ## Drift Scenarios Tested
 
 | Scenario | Detection control | Expected behavior | Result | Timestamp (UTC) |
 | --- | --- | --- | --- | --- |
-| Runtime/doc drift in agent/runtime inventory | `scripts/ci/check-architecture-doc-drift.mjs` | Block merge/release until drift fixed | PASS | 2026-05-12T00:00:00Z |
-| Infra readiness drift for eventing/scalability controls | `scripts/ci/check-infra-readiness-contract.mjs` | Block merge/release and emit readiness artifact | PASS | 2026-05-12T00:00:00Z |
-| Observability metric contract drift | `scripts/ci/check-slo-rule-metrics-contract.mjs` | Block merge/release when required metrics drift | PASS | 2026-05-12T00:00:00Z |
+| Runtime/doc drift in agent/runtime inventory | `scripts/ci/check-architecture-doc-drift.mjs` | Block merge/release until drift fixed | PASS | CI_GENERATED_UTC |
+| Infra readiness drift for eventing/scalability controls | `scripts/ci/check-infra-readiness-contract.mjs` | Block merge/release and emit readiness artifact | PASS | CI_GENERATED_UTC |
+| Observability metric contract drift | `scripts/ci/check-slo-rule-metrics-contract.mjs` | Block merge/release when required metrics drift | PASS | CI_GENERATED_UTC |
 
 ## Pass/Fail Status Log
 
 | Check | Status | Timestamp (UTC) | Notes |
 | --- | --- | --- | --- |
-| Layer 5 report structure validation | PASS | 2026-05-12T00:00:00Z | Required sections and alert thresholds present |
-| Layer 5-impacting PR gate | PASS | 2026-05-12T00:00:00Z | Enforced by `check-layer5-readiness-gate.mjs` |
-| Release-candidate artifact generation | PASS | 2026-05-12T00:00:00Z | Enforced by `generate-layer5-readiness-artifacts.mjs` |
+| Layer 5 report structure validation | PASS | CI_GENERATED_UTC | Required sections and alert thresholds present |
+| Layer 5-impacting PR gate | PASS | CI_GENERATED_UTC | Enforced by `check-layer5-readiness-gate.mjs` |
+| Release-candidate artifact generation | PASS | CI_GENERATED_UTC | Enforced by `generate-layer5-readiness-artifacts.mjs` |
 
 ## Unresolved Risks
 
 | Risk | Impact | Owner | ETA | Mitigation status |
 | --- | --- | --- | --- | --- |
 | Layer 5 gate currently uses deterministic path heuristics for impact detection; false negatives are possible if new Layer 5 paths are introduced without updating the matcher. | Could allow a Layer 5-impacting PR to bypass this specific gate. | team-quality | 2026-05-31 | Open — add CODEOWNERS-aligned path registry and test coverage in CI. |
-| Report timestamps are template-seeded and rely on CI artifact timestamps for final audit precision. | Manual edits can age quickly if not refreshed. | team-platform | 2026-05-20 | Open — wire automated timestamp refresh into release packaging. |
+| Report timestamps and commit metadata are template placeholders injected at CI packaging time. | If injection is skipped, artifacts fail placeholder guard checks. | team-platform | 2026-05-20 | Closed — CI metadata injection and placeholder guard enforce deterministic UTC evidence fields. |
 
 ## Operational Runbook
 
