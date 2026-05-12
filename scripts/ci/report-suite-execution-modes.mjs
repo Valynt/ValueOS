@@ -20,6 +20,9 @@ const hasSupabaseUrl = hasEnv('VITE_SUPABASE_URL', 'SUPABASE_URL');
 const hasSupabaseServiceKey = hasEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY');
 const realIntegrationFlag = truthy(process.env.VALUEOS_TEST_REAL_INTEGRATION);
 const trustedContext = truthy(process.env.VALUEOS_TRUSTED_CONTEXT);
+const hasOidcExport =
+  hasEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'GITHUB_ACTIONS_ID_TOKEN_REQUEST_URL') &&
+  hasEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'GITHUB_ACTIONS_ID_TOKEN_REQUEST_TOKEN');
 
 const rlsTenantMode = hasSupabaseUrl && hasSupabaseServiceKey
   ? 'real_supabase'
@@ -59,6 +62,7 @@ const markdown = [
   `- real_integration_flag: ${realIntegrationFlag}`,
   `- supabase_url_present: ${hasSupabaseUrl}`,
   `- supabase_service_key_present: ${hasSupabaseServiceKey}`,
+  `- oidc_export_present: ${hasOidcExport}`,
   '',
   '| Suite | Classification | Observed execution mode |',
   '| --- | --- | --- |',
@@ -78,6 +82,7 @@ const payload = {
   real_integration_flag: realIntegrationFlag,
   supabase_url_present: hasSupabaseUrl,
   supabase_service_key_present: hasSupabaseServiceKey,
+  oidc_export_present: hasOidcExport,
   suites,
 };
 
