@@ -2,7 +2,7 @@
 title: On-Call Drill Scorecard
 owner: team-sre
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
-review_date: 2026-10-04
+review_date: 2026-10-11
 status: active
 ---
 
