@@ -228,7 +228,54 @@ console.log('\n6. Billing alert metric contract');
       [...metrics.matchAll(/name:\s*["']([a-zA-Z_:][a-zA-Z0-9_:]*)["']/g)].map((m) => m[1]),
     );
 
-    const exprBlocks = [...alerts.matchAll(/expr:\s*\|([\s\S]*?)(?=\n\s*(?:-\s*alert:|#|$))/g)].map((m) => m[1]);
+    const extractAlertExpressions = (source) => {
+      const lines = source.split(/\r?\n/);
+      const expressions = [];
+
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+        const match = line.match(/^(\s*)expr:\s*(.*)$/);
+        if (!match) continue;
+
+        const baseIndent = match[1].length;
+        const value = match[2].trim();
+
+        if (value === '|' || value === '>' || value === '|-' || value === '>-') {
+          const blockLines = [];
+          for (let j = i + 1; j < lines.length; j += 1) {
+            const blockLine = lines[j];
+            const indent = blockLine.match(/^\s*/)?.[0].length ?? 0;
+
+            if (blockLine.trim().length > 0 && indent <= baseIndent) {
+              i = j - 1;
+              break;
+            }
+
+            if (blockLine.trim().length === 0) {
+              blockLines.push('');
+              continue;
+            }
+
+            blockLines.push(blockLine.slice(baseIndent + 2));
+
+            if (j === lines.length - 1) {
+              i = j;
+            }
+          }
+
+          expressions.push(blockLines.join('\n'));
+          continue;
+        }
+
+        if (value.length > 0) {
+          expressions.push(value);
+        }
+      }
+
+      return expressions;
+    };
+
+    const exprBlocks = extractAlertExpressions(alerts);
 
     const promQlKeywords = new Set([
       'and', 'or', 'unless', 'by', 'without', 'on', 'ignoring', 'group_left', 'group_right',
