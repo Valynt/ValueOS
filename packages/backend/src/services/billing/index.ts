@@ -1,4 +1,5 @@
 export * from "./AlertingService.js";
+export * from "./CreditLedgerService.js";
 export * from "./BillingApprovalService.js";
 export * from "./BillingExecutionControlService.js";
 export * from "./BillingMetersCatalog.js";

@@ -9,7 +9,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 
 import { BillingMetric } from '../../config/billing.js';
 import { createLogger } from '../../lib/logger.js';
-import { CreditsLedgerService } from './CreditsLedgerService.js';
+import { CreditLedgerService } from './CreditLedgerService.js';
 
 const logger = createLogger({ component: 'InvoiceMathEngine' });
 
@@ -60,6 +60,12 @@ export interface InvoiceCalculation {
   applied_credits: number;
   amount_due: number;
   calculation_hash: string; // For determinism verification
+  /**
+   * The invoice ID used when credits were consumed. Stored so that
+   * verifyCalculation can re-run with the same ID and get the idempotent
+   * debit amount rather than the current live balance.
+   */
+  invoice_id?: string;
 }
 
 export interface InvoiceCalculationInput {
@@ -68,11 +74,20 @@ export interface InvoiceCalculationInput {
   period_start: string;
   period_end: string;
   currency?: string;
+  /**
+   * When provided, credits are atomically debited against this invoice ID via
+   * the billing_credit_ledger. The debit is idempotent: re-running with the
+   * same invoice_id returns the previously recorded debit amount.
+   *
+   * When omitted (e.g. preview/estimate calls), the credit balance is read
+   * but NOT consumed — no ledger row is written.
+   */
+  invoice_id?: string;
 }
 
 export class InvoiceMathEngine {
   private supabase: SupabaseClient;
-  private creditsLedger: CreditsLedgerService;
+  private creditLedger: CreditLedgerService;
 
   // Singleton for static-style access used by tests.
   private static _instance: InvoiceMathEngine | null = null;
@@ -104,9 +119,9 @@ export class InvoiceMathEngine {
     );
   }
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, creditLedger?: CreditLedgerService) {
     this.supabase = supabase;
-    this.creditsLedger = new CreditsLedgerService(supabase);
+    this.creditLedger = creditLedger ?? new CreditLedgerService(supabase);
   }
 
   // For testing: allow setting a custom instance with mocked dependencies
@@ -120,12 +135,20 @@ export class InvoiceMathEngine {
   }
 
   /**
-   * Calculate invoice deterministically
+   * Calculate invoice deterministically.
+   *
+   * When `invoice_id` is present in the input, credits are atomically debited
+   * from the billing_credit_ledger via the `consume_invoice_credits` RPC.
+   * The debit is idempotent — re-running with the same invoice_id returns the
+   * same result without double-charging.
+   *
+   * When `invoice_id` is absent (preview/estimate), the current credit balance
+   * is read for display purposes but no ledger row is written.
    */
   async calculateInvoice(input: InvoiceCalculationInput): Promise<InvoiceCalculation> {
-    const { tenant_id, subscription_id, period_start, period_end, currency = 'usd' } = input;
+    const { tenant_id, subscription_id, period_start, period_end, currency = 'usd', invoice_id } = input;
 
-    logger.info('Starting invoice calculation', { tenant_id, subscription_id, period_start, period_end });
+    logger.info('Starting invoice calculation', { tenant_id, subscription_id, period_start, period_end, invoice_id });
 
     // Get rated ledger entries for the period
     const ledgerEntries = await this.getRatedLedgerEntries(
@@ -141,17 +164,14 @@ export class InvoiceMathEngine {
     // Calculate totals
     const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
-    // Apply credits from the ledger (idempotent debit — safe to call on every calculation)
-    const { appliedDollars: appliedCredits } = await this.creditsLedger.applyCreditsToInvoice({
-      tenantId: tenant_id,
-      subscriptionId: subscription_id,
-      periodStart: period_start,
-      periodEnd: period_end,
-      invoiceSubtotalDollars: subtotal,
-    });
-
-    // Fetch tenant settings for tax derivation only
+    // Fetch tenant settings for tax derivation only (credits now come from the ledger).
     const tenantSettings = await this.fetchTenantSettings(tenant_id);
+
+    // Apply credits from the ledger.
+    // - With invoice_id: atomically debit the ledger (idempotent).
+    // - Without invoice_id: read balance for preview, do not write.
+    const appliedCredits = await this.applyCreditsFromLedger(tenant_id, invoice_id, subtotal);
+
     const taxAmount = this.calculateTaxAmount(subtotal - appliedCredits, tenant_id, tenantSettings);
 
     const totalAmount = subtotal - appliedCredits + taxAmount;
@@ -159,6 +179,10 @@ export class InvoiceMathEngine {
 
     // Hash only stable scalar inputs — floating-point line item amounts are
     // excluded to avoid non-determinism across CPU/runtime versions.
+    // credits_finalised distinguishes a finalised invoice (credits consumed via
+    // the ledger RPC) from a preview (balance read only, no debit written).
+    // Without this flag, a preview and a finalised calculation for the same
+    // period could produce the same hash when the balance equals the debit.
     const calculationHash = this.generateCalculationHash({
       tenant_id,
       subscription_id,
@@ -169,6 +193,7 @@ export class InvoiceMathEngine {
       applied_credits: Math.round(appliedCredits * 100),
       tax_amount: Math.round(taxAmount * 100),
       total_amount: Math.round(totalAmount * 100),
+      credits_finalised: invoice_id !== undefined,
     });
 
     const calculation: InvoiceCalculation = {
@@ -183,7 +208,8 @@ export class InvoiceMathEngine {
       total_amount: totalAmount,
       applied_credits: appliedCredits,
       amount_due: amountDue,
-      calculation_hash: calculationHash
+      calculation_hash: calculationHash,
+      ...(invoice_id ? { invoice_id } : {}),
     };
 
     logger.info('Invoice calculation completed', {
@@ -324,8 +350,8 @@ export class InvoiceMathEngine {
   }
 
   /**
-   * Fetch tenant settings from organizations for tax derivation.
-   * Returns null on any error — callers treat null as "no settings".
+   * Fetch tenant settings from organizations once per invoice calculation.
+   * Used for tax derivation only. Returns null on any error.
    */
   private async fetchTenantSettings(tenantId: string): Promise<Record<string, unknown> | null> {
     try {
@@ -339,6 +365,52 @@ export class InvoiceMathEngine {
       return (data.settings as Record<string, unknown> | null) ?? null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Apply credits from the billing_credit_ledger.
+   *
+   * When `invoiceId` is provided, the RPC atomically debits the lesser of
+   * (subtotal_cents, available_balance_cents) and returns the actual debit.
+   * The UNIQUE(invoice_id) constraint in the database prevents the same
+   * invoice from being debited twice, even under concurrent execution.
+   *
+   * When `invoiceId` is absent (preview), the current balance is read without
+   * writing any ledger row.
+   *
+   * Errors are re-thrown so the caller (calculateInvoice) fails loudly rather
+   * than silently issuing an invoice that omits the customer's credits.
+   *
+   * Returns the applied credit amount in dollars.
+   */
+  private async applyCreditsFromLedger(
+    tenantId: string,
+    invoiceId: string | undefined,
+    subtotal: number
+  ): Promise<number> {
+    if (invoiceId) {
+      // Atomic consume — writes a debit row, idempotent on invoice_id.
+      // Errors propagate: a failed debit must block the invoice rather than
+      // silently overcharge the customer.
+      const subtotalCents = Math.round(subtotal * 100);
+      const { debited_cents } = await this.creditLedger.consumeCreditsForInvoice(
+        tenantId,
+        invoiceId,
+        subtotalCents
+      );
+      return debited_cents / 100;
+    } else {
+      // Preview only — read balance without consuming.
+      // Errors here are non-fatal: a preview with missing credits is acceptable.
+      try {
+        const balanceCents = await this.creditLedger.getBalanceCents(tenantId);
+        const applicableCents = Math.min(balanceCents, Math.round(subtotal * 100));
+        return applicableCents / 100;
+      } catch (err) {
+        logger.warn('Failed to read credit balance for preview — showing zero credits', err);
+        return 0;
+      }
     }
   }
 
@@ -390,6 +462,11 @@ export class InvoiceMathEngine {
 
   /**
    * Verify invoice calculation determinism
+   *
+   * Re-runs the calculation with the same inputs as the original, including
+   * the original invoice_id so the idempotent RPC returns the recorded debit
+   * amount rather than the current live balance. Without this, any invoice
+   * that had credits applied would always produce a hash mismatch.
    */
   async verifyCalculation(
     originalCalculation: InvoiceCalculation,
@@ -399,13 +476,15 @@ export class InvoiceMathEngine {
     periodEnd: string
   ): Promise<boolean> {
     try {
-      // Recalculate with same inputs
+      // Recalculate with same inputs, including the original invoice_id so
+      // credit application is idempotent and produces the same applied_credits.
       const newCalculation = await this.calculateInvoice({
         tenant_id: tenantId,
         subscription_id: subscriptionId,
         period_start: periodStart,
         period_end: periodEnd,
-        currency: originalCalculation.currency
+        currency: originalCalculation.currency,
+        invoice_id: originalCalculation.invoice_id,
       });
 
       // Compare hashes
@@ -433,7 +512,7 @@ export class InvoiceMathEngine {
   async calculateUpcomingInvoice(
     tenantId: string,
     subscriptionId: string,
-    previewDate?: string
+    _previewDate?: string
   ): Promise<InvoiceCalculation | null> {
     try {
       // Get subscription details to determine billing period
