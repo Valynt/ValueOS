@@ -239,7 +239,7 @@ NATS JetStream, the Prometheus scraping configuration for the billing worker, an
   - Effort: Low-Medium — add `tenantContextStorage.run(tctPayload, handler)` at the top of each BullMQ job processor. Requires `tenantContext` to be serialized into job payload at enqueue time.
 
 - [x] **Wire billing alert metrics to actual instrumentation** ✅ Resolved 2026-04-08
-  - Resolution evidence: CI contract check now parses `infra/k8s/monitoring/billing-alerts.yaml` and `packages/backend/src/metrics/billingMetrics.ts`, and fails when an alert references a non-existent metric (`scripts/ci/check-infra-readiness-contract.mjs`, commit `df6d56f`).
+  - Resolution evidence: CI contract check now parses `infra/k8s/monitoring/billing-alerts.yaml` and `packages/backend/src/metrics/billingMetrics.ts`, and fails when an alert references a non-existent metric (`scripts/ci/check-infra-readiness-contract.mjs`, commit `61f976a`, validated on `2026-04-08`).
   - Why it mattered: `billing-alerts.yaml` references metric names (`billing_usage_records_unaggregated`, `billing_stripe_submission_errors_total`, etc.) that must exist in backend instrumentation, otherwise alerts are silent.
   - Prior risk if ignored: A billing pipeline failure could produce no alert; on-call would get no signal until customer impact.
 

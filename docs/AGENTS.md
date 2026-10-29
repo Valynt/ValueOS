@@ -451,6 +451,7 @@ A CI guard (`scripts/ci/check-psp-references.mjs`) rejects any new `PodSecurityP
 | RLS test count        | `pr-fast.yml` asserts ≥10 RLS tests passed (not silently skipped)                     |
 | UsageEmitter buffer   | `failedEventsBuffer` has a drain method and is bounded                                |
 | BullMQ tenant context | Workers call `tenantContextStorage.run()` before processing                           |
+| Billing alert metrics | `billing-alerts.yaml` expressions only reference metrics emitted by billing instrumentation |
 
 ### Architecture doc / runtime drift
 
