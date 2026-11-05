@@ -1,0 +1,48 @@
+name: Production backend bundle security regression
+
+on:
+  pull_request:
+    paths:
+      - "packages/backend/esbuild.config.mjs"
+      - "packages/backend/src/routes/devRoutes.ts"
+      - "packages/backend/src/server.ts"
+      - "scripts/ci/check-backend-dev-routes-excluded.mjs"
+      - ".github/workflows/production-bundle-dev-route-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/backend/esbuild.config.mjs"
+      - "packages/backend/src/routes/devRoutes.ts"
+      - "packages/backend/src/server.ts"
+      - "scripts/ci/check-backend-dev-routes-excluded.mjs"
+      - ".github/workflows/production-bundle-dev-route-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  no-dev-code-in-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prove missing artifacts cannot pass
+        run: |
+          if node scripts/ci/check-backend-dev-routes-excluded.mjs /tmp/does-not-exist-valueos; then
+            echo "Missing backend artifact incorrectly passed the security gate" >&2
+            exit 1
+          fi
+      - name: Build production backend
+        env:
+          NODE_ENV: production
+        run: pnpm --filter @valueos/backend build
+      - name: Verify no dev routes or child_process in production bundle
+        run: node scripts/ci/check-backend-dev-routes-excluded.mjs packages/backend/dist

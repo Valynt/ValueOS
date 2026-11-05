@@ -40,10 +40,8 @@ console.log('\nBackend Dev Routes Exclusion Gate\n');
 
 // ── Check 1: Build directory exists ─────────────────────────────────────────
 if (!existsSync(buildDir)) {
-  warn(`Build directory not found: ${buildDir} — skipping bundle scan (run build first)`);
-  console.log('\nResult: SKIP (no build output to scan)');
-  console.log('Run `pnpm build` before this check in CI.\n');
-  process.exit(0);
+  fail(`Build directory not found: ${buildDir} — cannot certify production bundle`);
+  process.exit(1);
 }
 
 pass(`Build directory found: ${relative(ROOT, buildDir)}`);
@@ -68,7 +66,7 @@ const jsFiles = walkJs(buildDir);
 console.log(`\nScanning ${jsFiles.length} JS files in build output...\n`);
 
 if (jsFiles.length === 0) {
-  warn('No JS files found in build output — build may be empty');
+  fail('No JS files found in build output — refusing an empty production artifact');
 }
 
 // ── Check 2: No child_process import in production bundle ───────────────────

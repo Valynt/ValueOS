@@ -42,6 +42,24 @@ await build({
   keepNames: true,
   // Mark node_modules as external — don't bundle dependencies
   packages: 'external',
+  // This is the deployable backend artifact, never the development runner.
+  // Compile-time production mode lets esbuild eliminate the guarded /api/dev
+  // route and its dynamic child_process dependency from the output graph.
+  define: { 'process.env.NODE_ENV': '"production"' },
+  // A runtime flag cannot remove a dynamically imported dev router from a
+  // bundled artifact. Resolve the deployable server's import to a dedicated,
+  // fail-closed production implementation before dependency graph traversal.
+  plugins: [{
+    name: 'exclude-dev-routes-from-production',
+    setup(build) {
+      build.onResolve({ filter: /^\.\/routes\/devRoutes\.js$/ }, (args) => {
+        if (!args.importer.endsWith('/src/server.ts')) {
+          throw new Error('Unexpected devRoutes import from ' + args.importer);
+        }
+        return { path: resolve(__dirname, 'src/routes/devRoutes.production.ts') };
+      });
+    },
+  }],
   alias,
   banner: {
     // ESM compat shim for __dirname / __filename / require
