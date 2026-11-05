@@ -64,6 +64,9 @@ for (const file of markdownFiles) {
 
     for (const pattern of knownSecretPatterns) {
       for (const match of line.matchAll(pattern)) {
+        // This exact, non-runnable placeholder is used in setup examples.
+        // No other password-bearing connection string is exempt.
+        if (match[0].includes('://<USER>:<PASSWORD>@')) continue;
         findings.push({ file, line: i + 1, type: 'Known key pattern', value: match[0] });
       }
     }
