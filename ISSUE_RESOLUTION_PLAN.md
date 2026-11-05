@@ -2,7 +2,7 @@
 
 ## Repo understanding summary
 
-- **Architecture:** pnpm monorepo with the production frontend in `apps/ValyntApp` and the primary API runtime in `packages/backend`. Runtime orchestration is centered on six backend runtime services and an eight-agent fabric. The canonical domain model lives in `packages/shared/src/domain/`. 
+- **Architecture:** pnpm monorepo with the production frontend in `apps/ValyntApp` and the primary API runtime in `packages/backend`. Runtime orchestration is centered on six backend runtime services and a 12-agent fabric. The canonical domain model lives in `packages/shared/src/domain/`. 
 - **Primary constraints:** tenant isolation on every data access, no direct agent LLM calls outside `secureInvoke`, no `req as any` casts in backend request handling, and strict TypeScript/no-`any` expectations. 
 - **Operational lanes:** `pnpm run lint`, `pnpm run check`, `pnpm test`, `pnpm run test:rls`, targeted Vitest commands, and CI guard scripts under `scripts/ci/`. 
 - **Safety-critical surfaces relevant to the current issue set:** migration rollback governance, health-check/degraded-state signaling, service de-duplication policy, CI coverage thresholds, DR validation workflow, load/chaos validation artifacts, and ADR/documentation consistency.
