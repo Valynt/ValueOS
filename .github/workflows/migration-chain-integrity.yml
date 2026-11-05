@@ -7,16 +7,18 @@ name: Migration chain integrity
 #   - RLS policies that reference missing functions
 #   - Any SQL syntax error in a migration file
 #
-# Runs on every PR and push that touches migrations, and nightly on main.
+# Runs on PRs and pushes that touch migrations or this workflow, and nightly on main.
 
 on:
   pull_request:
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - ".github/workflows/migration-chain-integrity.yml"
   push:
     branches: [main, develop]
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - ".github/workflows/migration-chain-integrity.yml"
   schedule:
     # Nightly at 03:00 UTC — catches drift even when no migration PRs are open.
     - cron: "0 3 * * *"
@@ -33,16 +35,18 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        # The pgvector extension must be installed inside the DB container,
+        # not merely in the runner. Use the PG15-compatible pgvector image.
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: valueos_test
-          # Required for pgvector and other extensions
-          POSTGRES_HOST_AUTH_METHOD: trust
+          PGUSER: postgres
+          PGDATABASE: valueos_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd=pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -54,20 +58,39 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Postgres client and pgvector
+      - name: Install Postgres client and required extensions
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
-          # Install pgvector extension into the test database
-          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
-          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" || true
-          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" || true
+          # This must fail when the database server lacks an extension.
+          # Suppressing this error would mask a broken migration environment.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE EXTENSION IF NOT EXISTS pgcrypto;
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          SQL
 
-      - name: Stub auth schema
-        # Supabase provides auth.uid() and auth.jwt() in hosted environments.
-        # Stub them here so migrations that call these functions don't fail.
+      - name: Stub Supabase auth roles and functions
+        # Bare Postgres has no Supabase roles or auth schema. Recreate only
+        # the compatibility surface referenced by the active migrations.
         run: |
-          PGPASSWORD=postgres psql "$DATABASE_URL" <<'SQL'
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+            DO $$
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                CREATE ROLE anon NOLOGIN;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                CREATE ROLE authenticated NOLOGIN;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+                CREATE ROLE service_role NOLOGIN;
+              END IF;
+            END
+            $$;
+
             CREATE SCHEMA IF NOT EXISTS auth;
 
             CREATE OR REPLACE FUNCTION auth.uid()
