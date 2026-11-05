@@ -114,6 +114,9 @@ jobs:
       - name: Verify active-migration seed guard against bypass fixtures
         run: node --test scripts/ci/__tests__/check-active-migration-seeds.test.mjs
 
+      - name: Verify local seed destination cannot be redirected remotely
+        run: bash scripts/db/__tests__/seed-local-demo.test.sh
+
       - name: Reject development seeds in active migrations
         run: node scripts/ci/check-active-migration-seeds.mjs
 
