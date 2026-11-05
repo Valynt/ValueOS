@@ -52,19 +52,26 @@ filename order; there is no two-file allowlist or separate manifest.
 The earliest migrations are:
 
 1. `00000000000000_initial_release_baseline.sql`
-2. `20260213000004_tenant_identity_prerequisites.sql` — creates
-   `tenants` and `user_tenants` with RLS enabled before their first
-   dependent migration
-3. `20260213000005_organizations_table.sql`, followed by other
-   `2026021300000*` prerequisites
-4. `20260213000010_canonical_identity_baseline.sql` — installs the
-   membership-aware tenant access helpers and canonical policies
-5. All subsequent active timestamp-ordered migrations
+2. `20260213000004_tenant_identity_prerequisites.sql` — atomically
+   creates `tenants`, `user_tenants`, `teams` and
+   `security_audit_log` with RLS enabled before any dependents
+3. The original `20260213000005`–`20260213000010` migrations
+   install organizations, team access, security telemetry and canonical
+   membership-backed RLS
+4. `20260317010000_canonical_public_users_identity.sql` — creates an
+   Auth UUID-linked `public.users` profile, home organization/tenant
+   integrity and least-privilege own-row access before value-modeling FKs
+5. Remaining timestamp-ordered active migrations (historical duplicate
+   version prefixes still block Supabase CLI deployment certification)
 
 **Security boundary:** Demo Auth accounts and passwords are not schema
 migrations. The former `00000000000001_initial_seed_minimal.sql`
 contained a fixed development login, ran before its required tables
 existed, and is no longer in the active schema chain.
+
+The identity schema contract and negative-test requirements are documented in
+`docs/db/canonical-identity-contract.md`. The bare-Postgres CI Auth schema is a
+test-only compatibility fixture, not a substitute for a live Supabase Auth test.
 
 The migration gate executes `scripts/ci/check-active-migration-seeds.mjs`
 before applying SQL and fails if a demo seed or static Auth-user
