@@ -42,6 +42,10 @@ await build({
   keepNames: true,
   // Mark node_modules as external — don't bundle dependencies
   packages: 'external',
+  // This is the deployable backend artifact, never the development runner.
+  // Compile-time production mode lets esbuild eliminate the guarded /api/dev
+  // route and its dynamic child_process dependency from the output graph.
+  define: { 'process.env.NODE_ENV': '"production"' },
   alias,
   banner: {
     // ESM compat shim for __dirname / __filename / require
