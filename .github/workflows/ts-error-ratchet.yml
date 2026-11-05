@@ -89,7 +89,7 @@ jobs:
               '| Change | +' + diff + ' |',
               '',
               'Run pnpm run check locally to resolve all new TypeScript errors.',
-            ].join('\\n');
+            ].join('\n');
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
