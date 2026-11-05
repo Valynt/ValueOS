@@ -61,7 +61,7 @@ Design rules enforced:
 ### One-command apply (generic runner)
 
 ```bash
-DIRECT_DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<db> pnpm db:migrate
+DIRECT_DATABASE_URL=postgresql://<USER>:<PASSWORD>@<host>:<port>/<db> pnpm db:migrate
 ```
 
 ### Supabase path
