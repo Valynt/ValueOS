@@ -32,6 +32,14 @@ EXPECTED_FILE_BINDINGS = {
     'core-lifecycle-hpa.yaml': {'target-agent', 'expansion-agent', 'integrity-agent'},
     'low-frequency-keda-scaledobjects.yaml': LOW_FREQUENCY_AGENTS,
     'remaining-agents-hpa-part2.yaml': {'research-agent'},
+    # Sprint 5 workloads are included by infra/k8s/base/agents/kustomization.yaml.
+    # Keep their exact bindings enforced, rather than allowing unknown manifests.
+    'sprint5-agents-hpa.yaml': {
+        'discovery-agent',
+        'context-extraction-agent',
+        'deal-assembly-agent',
+        'compliance-auditor-agent',
+    },
     'opportunity/hpa.yaml': {'opportunity-agent'},
     'realization/hpa.yaml': {'realization-agent'},
 }
