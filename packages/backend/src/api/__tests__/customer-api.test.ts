@@ -303,6 +303,32 @@ describe('Customer Portal API', () => {
 
       expect(summary.overall_achievement).toBe(50);
     });
+    it('averages zero and nonzero actuals while excluding missing and non-finite data', () => {
+      const common = {
+        metric_name: 'Revenue',
+        metric_type: 'revenue',
+        predicted_date: '2026-01-01',
+        actual_date: '2026-01-15',
+        variance: null,
+        variance_pct: null,
+        created_at: '2026-01-01',
+        updated_at: '2026-01-15',
+      };
+      const summary = calculateMetricsSummary([
+        { ...common, id: 'zero', predicted_value: 100, actual_value: 0, status: 'off_track' },
+        { ...common, id: 'complete', predicted_value: 100, actual_value: 100, status: 'on_track' },
+        { ...common, id: 'missing', predicted_value: 50, actual_value: null, status: 'pending' },
+        { ...common, id: 'invalid', predicted_value: 50, actual_value: Number.NaN, status: 'at_risk' },
+      ]);
+      expect(summary).toMatchObject({
+        total_metrics: 4,
+        off_track: 1,
+        on_track: 1,
+        pending: 1,
+        at_risk: 1,
+        overall_achievement: 50,
+      });
+    });
   });
 
   describe('GET /api/customer/value-case', () => {
