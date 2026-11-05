@@ -15,9 +15,13 @@ if [[ ! -f "$ROOT_PNPM_CJS" ]]; then
   exit 1
 fi
 
-while IFS= read -r pkg_json; do
+# Use Git's tracked manifest inventory rather than ripgrep: minimal CI images
+# need not install rg, and only checked-in workspaces should receive shims.
+# NUL delimiting avoids misparsing whitespace in manifest paths.
+while IFS= read -r -d '' pkg_json; do
+  [[ "$pkg_json" == "package.json" ]] && continue
   pkg_dir="$(dirname "$pkg_json")"
-  bin_dir="$pkg_dir/node_modules/.bin"
+  bin_dir="$ROOT_DIR/$pkg_dir/node_modules/.bin"
   shim="$bin_dir/pnpm"
 
   mkdir -p "$bin_dir"
@@ -26,6 +30,4 @@ while IFS= read -r pkg_json; do
 exec node "$ROOT_PNPM_CJS" "\$@"
 SHIM
   chmod +x "$shim"
-done < <(cd "$ROOT_DIR" && rg --files -g 'package.json' \
-  | rg -v '(^|/)node_modules/' \
-  | rg -v '^package.json$')
+done < <(cd "$ROOT_DIR" && git ls-files -z -- ':(glob)**/package.json')
