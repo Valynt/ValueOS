@@ -40,16 +40,29 @@ const vitestArgs = [
   `--outputFile.json=${reportPath}`,
 ];
 
+// Never accept a stale report from an earlier invocation as test evidence.
+fs.rmSync(reportPath, { force: true });
 const vitest = spawnSync('npx', vitestArgs, { stdio: 'inherit', env: process.env });
 
 if (!fs.existsSync(reportPath)) {
   console.error(`ERROR: RLS test report not found at ${reportPath}`);
-  process.exit(vitest.status ?? 1);
+  process.exit(1);
 }
 
-const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+} catch (error) {
+  console.error(`ERROR: RLS test report is invalid JSON: ${error?.message || error}`);
+  process.exit(1);
+}
 const executed = Number(report.numTotalTests ?? 0);
 const passed = Number(report.numPassedTests ?? 0);
+const failed = Number(report.numFailedTests ?? 0);
+if (![executed, passed, failed].every((n) => Number.isSafeInteger(n) && n >= 0)) {
+  console.error('ERROR: invalid RLS test counts in Vitest JSON report');
+  process.exit(1);
+}
 const summaryLine = `RLS_EXECUTION_SUMMARY suite=${suiteLabel} expected_min=${minimumExecuted} actual_executed=${executed} passed=${passed}`;
 
 console.log(summaryLine);
@@ -62,11 +75,11 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   );
 }
 
-if (executed < minimumExecuted) {
-  console.error(`ERROR: ${suiteLabel} executed test count ${executed} is below required minimum ${minimumExecuted}.`);
+if (executed < minimumExecuted || passed < minimumExecuted || failed > 0) {
+  console.error(`ERROR: ${suiteLabel} requires at least ${minimumExecuted} passing tests, zero failed tests (executed=${executed}, passed=${passed}, failed=${failed}).`);
   process.exit(1);
 }
 
-if ((vitest.status ?? 0) !== 0) {
+if ((vitest.status ?? 1) !== 0) {
   process.exit(vitest.status ?? 1);
 }
