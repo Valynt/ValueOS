@@ -63,11 +63,17 @@ if [[ "$mode" == diff ]]; then
   options+=(--log-opts="refs/remotes/origin/$GITHUB_BASE_REF..HEAD")
 fi
 
-# A nonzero scan exit is an actual CI failure. Never mask findings or errors.
-"$download_dir/gitleaks" "${options[@]}"
+# Preserve the scan's failing exit code, but still emit the separate JSON
+# evidence for full-history findings. Do not convert a positive scan to success.
+scan_status=0
+"$download_dir/gitleaks" "${options[@]}" || scan_status=$?
 if [[ "$mode" == history ]]; then
-  # Preserve the JSON evidence bundle produced by the original full-history scan.
+  # JSON generation must be attempted even when SARIF found a real secret.
   "$download_dir/gitleaks" detect \
     --config=.gitleaks.toml --redact --exit-code=0 \
-    --report-format=json --report-path="${report%.sarif}.json" --log-level=warn
+    --report-format=json --report-path="${report%.sarif}.json" --log-level=warn || {
+      echo "Failed to generate Gitleaks JSON evidence" >&2
+      exit 1
+    }
 fi
+exit "$scan_status"
