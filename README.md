@@ -1,6 +1,6 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an 11-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an 12-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
@@ -219,11 +219,12 @@ ValueOS is a modular monolith deployed to Kubernetes.
 |    RecommendationEngine — next-best-action generation     |
 +-----------------------------------------------------------+
 |  Agent Fabric (packages/backend/src/lib/agent-fabric/)    |
-|  11 agents · BaseAgent · secureInvoke                     |
+|  12 agents · BaseAgent · secureInvoke                     |
 |  OpportunityAgent · TargetAgent · FinancialModelingAgent  |
 |  IntegrityAgent · RealizationAgent · ExpansionAgent       |
 |  NarrativeAgent · ComplianceAuditorAgent                  |
 |  ContextExtractionAgent · DealAssemblyAgent · DiscoveryAgent |
+|  IntegrationAssistantAgent                                    |
 +-----------------------------------------------------------+
 |  Domain Model (packages/shared/src/domain/)               |
 |  9 Zod-typed objects: Account, Opportunity, Stakeholder,  |
