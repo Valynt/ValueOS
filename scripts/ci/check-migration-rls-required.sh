@@ -182,28 +182,35 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
       continue
     fi
 
-    # These *exact* prereq migrations restore already-canonical tables that
-    # predate the organization_id UUID standard. Requiring an additional UUID
-    # column on tenants/user_tenants/teams or audit_log would break the existing
-    # TEXT tenant-id contract. Exemption is name-scoped AND shape-checked
-    # against the canonical identity baseline; all RLS/timeout checks still run.
+    # Exact legacy schema reconciliation only. Existing identity/team/audit
+    # tables and the historical DSR request ledger predate the UUID
+    # organization_id standard; adding a fake UUID field would break their
+    # established TEXT tenant identity contract. Require canonical table
+    # provenance, legacy type, and explicit RLS. No general exemption.
     prereq_shape=""
+    canonical=""
     case "$(basename "$mfile"):$table" in
       20260213000004_tenant_identity_prerequisites.sql:tenants)
-        prereq_shape="id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
+        prereq_shape="id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
       20260213000004_tenant_identity_prerequisites.sql:user_tenants)
-        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
-      20260213000005_teams_prerequisite.sql:teams)
-        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
-      20260213000007_security_audit_log_prerequisite.sql:security_audit_log)
-        prereq_shape="tenant_id[[:space:]]+uuid" ;;
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:teams)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000007_teams_roles_tables.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:security_audit_log)
+        prereq_shape="tenant_id[[:space:]]+uuid"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260321010000_dsr_erase_user_pii_rpc.sql:dsr_erasure_requests)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260321010000_dsr_erase_user_pii_rpc.sql" ;;
     esac
     if [ -n "$prereq_shape" ]; then
-      canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
       if ! grep -qiE "CREATE[[:space:]]+TABLE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+public\\.$table[[:space:]]*\\(" "$canonical" \
          || ! grep -qiE "$prereq_shape" "$mfile" \
          || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile"; then
-        echo "FAIL $mfile: canonical prerequisite table public.$table has incorrect shape or RLS guard"
+        echo "FAIL $mfile: legacy table public.$table missing canonical type/provenance or RLS"
         EXIT_CODE=1
       fi
       continue
