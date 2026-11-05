@@ -42,34 +42,62 @@ Ground truth snapshot is committed at:
 
 The snapshot is the canonical initial-release schema artifact and is derived from the deterministic baseline plan.
 
-## Phase 2 — New initial-release migration set
+## Phase 2 — Active migration set and dependency ordering
 
-Active deterministic plan:
+The production schema path is every top-level `.sql` file in
+`infra/supabase/supabase/migrations/`, **excluding** `*.rollback.sql`.
+The fail-closed runner enumerates these files and applies them in lexical
+filename order; there is no two-file allowlist or separate manifest.
+
+The earliest migrations are:
 
 1. `00000000000000_initial_release_baseline.sql`
-2. `00000000000001_initial_seed_minimal.sql`
+2. `20260213000004_tenant_identity_prerequisites.sql` — creates
+   `tenants` and `user_tenants` with RLS enabled before their first
+   dependent migration
+3. `20260213000005_organizations_table.sql`, followed by other
+   `2026021300000*` prerequisites
+4. `20260213000010_canonical_identity_baseline.sql` — installs the
+   membership-aware tenant access helpers and canonical policies
+5. All subsequent active timestamp-ordered migrations
 
-Design rules enforced:
+**Security boundary:** Demo Auth accounts and passwords are not schema
+migrations. The former `00000000000001_initial_seed_minimal.sql`
+contained a fixed development login, ran before its required tables
+existed, and is no longer in the active schema chain.
 
-- explicit ordering by filename + script-level ordered manifest
-- strict error handling (`set -euo pipefail`, `psql -v ON_ERROR_STOP=1 -X`)
-- explicit `search_path` and session defaults in the baseline header
-- pre-release history archived (auditability preserved)
+The migration gate executes `scripts/ci/check-active-migration-seeds.mjs`
+before applying SQL and fails if a demo seed or static Auth-user
+insertion is put back into the active migration directory.
 
-## Phase 3 — Applying migrations
+## Phase 3 — Applying migrations and local development seeding
 
-### One-command apply (generic runner)
+Apply the schema on a clean Supabase-equivalent PostgreSQL database with
+the expected roles/extensions/Auth functions:
 
 ```bash
-DIRECT_DATABASE_URL=postgresql://<USER>:<PASSWORD>@<host>:<port>/<db> pnpm db:migrate
+DATABASE_URL=postgresql://<USER>:<PASSWORD>@<host>:<port>/<db> \
+  pnpm db:migrate
 ```
 
-### Supabase path
+Use `infra/supabase/supabase` with the Supabase CLI for hosted/local
+Supabase-managed migration deployment; it provides the real Auth schema.
+
+Local development demo data is **opt-in**, after a real local Supabase
+Auth user has been created through the Auth API or dashboard. Do not
+commit that user's password:
 
 ```bash
-cd infra/supabase/supabase
-npx supabase db push
+APP_ENV=local \
+ALLOW_LOCAL_DEMO_SEED=true \
+DEMO_AUTH_USER_ID=<local-auth-user-uuid> \
+DATABASE_URL=postgresql://postgres:<PASSWORD>@localhost:54322/postgres \
+bash scripts/db/seed-local-demo.sh
 ```
+
+The local-only script checks the hostname and requires an existing Auth
+user, then seeds tenant/membership records without creating passwords.
+Production and remote database URLs are refused.
 
 ## Phase 4 — Verification checklist
 
@@ -77,7 +105,7 @@ Run these after applying to an empty database.
 
 ```bash
 # 1) migration records
-SELECT * FROM public.schema_migrations ORDER BY applied_at;
+SELECT * FROM public.app_schema_migrations ORDER BY applied_at;
 
 # 2) key tables
 SELECT to_regclass('public.tenants'), to_regclass('public.user_tenants'), to_regclass('public.user_profile_directory');
@@ -107,11 +135,9 @@ Expected: no meaningful schema diff (ignoring environment comments).
 
 ## Adding future migrations
 
-1. Add a new file in `infra/supabase/supabase/migrations/` with a strictly increasing numeric prefix.
-2. Append the filename to explicit migration plans in:
-   - `scripts/migrate.sh`
-   - `infra/supabase/supabase/scripts/apply_migrations.sh`
-3. Re-run migration verification and refresh `docs/db/schema_snapshot.sql`.
+1. Add a new, uniquely named top-level `.sql` file in `infra/supabase/supabase/migrations/` with a strictly increasing numeric prefix, preserving already-applied filenames.
+2. Include any required rollback and prove a clean apply plus rollback/reapply in a Supabase-equivalent environment. Never put demo user/password data in schema migrations.
+3. Re-run migration integrity verification and refresh `docs/db/schema_snapshot.sql` using a verified schema dump.
 
 ## Risk notes
 
