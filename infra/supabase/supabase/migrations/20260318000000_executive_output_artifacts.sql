@@ -1,6 +1,8 @@
 -- Migration: Create case_artifacts and artifact_edits tables for Executive Output Generation
 -- Tasks: 1.1, 1.2, 1.3
 
+SET lock_timeout = '5s';
+SET statement_timeout = '120s';
 SET search_path = public, pg_temp;
 
 -- 1. Create case_artifacts table
