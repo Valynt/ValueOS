@@ -831,19 +831,7 @@ jobs:
       - name: DAST high-severity fail policy guard
         run: node scripts/ci/check-dast-high-severity-gate.mjs
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          GITLEAKS_VERSION: "8.18.2"
-        with:
-          args: >-
-            detect
-            --config=.gitleaks.toml
-            --redact
-            --exit-code=1
-            --report-format=sarif
-            --report-path=gitleaks.sarif
+        run: bash scripts/ci/run-gitleaks-scan.sh history gitleaks.sarif
       - name: SAST — Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
