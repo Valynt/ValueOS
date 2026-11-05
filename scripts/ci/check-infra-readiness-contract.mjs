@@ -133,10 +133,23 @@ console.log('\n3. RLS test suite cannot be silently skipped');
   if (!prFast) {
     fail('.github/workflows/pr-fast.yml is missing');
   } else {
-    if (!/Assert RLS test count|numPassedTests|PASSED.*-lt/m.test(prFast)) {
-      fail('.github/workflows/pr-fast.yml: no assertion that RLS tests actually ran — describe.skipIf can silently pass the gate');
+    // The workflow delegates the assertion to a checked-in fail-closed runner;
+    // verify both ends of that contract instead of matching a comment string.
+    const suiteRunner = read('scripts/ci/run-tenant-isolation-rls-suite.mjs');
+    const invokesSuite = /node\\s+scripts\\/ci\\/run-tenant-isolation-rls-suite\\.mjs/.test(prFast);
+    const verifiesReport = suiteRunner && /existsSync\\(reportPath\\)/.test(suiteRunner);
+    const verifiesCounts = suiteRunner &&
+      /numTotalTests/.test(suiteRunner) &&
+      /numPassedTests/.test(suiteRunner) &&
+      /numFailedTests/.test(suiteRunner) &&
+      /executed\\s*<\\s*minimumExecuted/.test(suiteRunner) &&
+      /passed\\s*<\\s*minimumExecuted/.test(suiteRunner) &&
+      /failed\\s*>\\s*0/.test(suiteRunner);
+    const propagatesStatus = suiteRunner && /vitest\\.status/.test(suiteRunner);
+    if (!invokesSuite || !verifiesReport || !verifiesCounts || !propagatesStatus) {
+      fail('pr-fast.yml RLS gate must invoke the checked-in runner and assert valid report, minimum passing test count, zero failures and Vitest exit status');
     } else {
-      pass('pr-fast.yml asserts minimum RLS test count');
+      pass('pr-fast.yml invokes fail-closed RLS runner with minimum passing test count');
     }
   }
 
