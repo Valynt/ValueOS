@@ -63,11 +63,18 @@ BEGIN
         ('tenant_id', 'text'),
         ('organization_id', 'uuid'),
         ('email', 'text'),
+        ('name', 'text'),
         ('full_name', 'text'),
         ('display_name', 'text'),
         ('avatar_url', 'text'),
         ('metadata', 'jsonb'),
-        ('last_signed_in', 'timestamp with time zone')
+        ('last_signed_in', 'timestamp with time zone'),
+        ('maturity_level', 'integer'),
+        ('vos_role', 'text'),
+        ('role', 'text'),
+        ('tier', 'text'),
+        ('created_at', 'timestamp with time zone'),
+        ('updated_at', 'timestamp with time zone')
       ) AS required(column_name, type_name)
     LOOP
       SELECT a.atttypid INTO actual_type
@@ -82,6 +89,16 @@ BEGIN
           USING ERRCODE = '42804';
       END IF;
     END LOOP;
+    IF EXISTS (
+      SELECT 1
+      FROM pg_attribute a
+      WHERE a.attrelid = 'public.users'::regclass
+        AND a.attname IN ('id', 'tenant_id', 'organization_id')
+        AND NOT a.attisdropped AND NOT a.attnotnull
+    ) THEN
+      RAISE EXCEPTION 'Existing public.users contains nullable canonical identity/tenant fields'
+        USING ERRCODE = '23502';
+    END IF;
     IF NOT EXISTS (
       SELECT 1 FROM pg_constraint c
       WHERE c.conrelid = 'public.users'::regclass
