@@ -230,10 +230,10 @@ GRANT ALL ON public.secret_audit_logs_2026 TO service_role;
 GRANT ALL ON public.secret_audit_logs_default TO service_role;
 
 -- ============================================================================
--- 13. users (public.users) — own-row access
---     App-owned user mirror table (distinct from auth.users). No tenant_id;
---     scoped by user identity. Each authenticated user may read/update only
---     their own row. Service_role manages provisioning.
+-- 13. users (public.users) — UUID Auth mirror, own-row access
+--     App-owned profile home tenant/organization never authorize membership.
+--     Service role alone provisions and changes tenancy, role and metadata.
+--     The authenticated subject may edit only non-security profile fields.
 -- ============================================================================
 
 DO $$
@@ -254,17 +254,21 @@ BEGIN
 
     CREATE POLICY users_own_row_select ON public.users
       FOR SELECT TO authenticated
-      USING (id = auth.uid()::text);
+      USING (id = auth.uid());
 
     CREATE POLICY users_own_row_update ON public.users
       FOR UPDATE TO authenticated
-      USING (id = auth.uid()::text)
-      WITH CHECK (id = auth.uid()::text);
+      USING (id = auth.uid())
+      WITH CHECK (id = auth.uid());
 
     CREATE POLICY users_service_role ON public.users
       FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-    GRANT SELECT, UPDATE ON public.users TO authenticated;
+    -- PostgreSQL column privileges are additive: revoke table-wide UPDATE
+    -- before granting only non-security profile fields.
+    REVOKE UPDATE ON public.users FROM authenticated;
+    GRANT SELECT ON public.users TO authenticated;
+    GRANT UPDATE (name, display_name, avatar_url) ON public.users TO authenticated;
     GRANT ALL ON public.users TO service_role;
     REVOKE ALL ON public.users FROM anon;
   END IF;
