@@ -26,7 +26,7 @@ function listFrontendFiles() {
     throw new Error('Missing apps directory; cannot validate browser keys');
   }
 
-  const extensions = /\\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
+  const extensions = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
   const files = [];
   function collect(dir) {
     if (!existsSync(dir)) return;
