@@ -49,6 +49,10 @@ options=(
   --report-format=sarif
   --report-path="$report"
 )
+if [[ "$mode" == history && "$(git rev-parse --is-shallow-repository)" != "false" ]]; then
+  echo "Full history scan requires a non-shallow checkout" >&2
+  exit 1
+fi
 if [[ "$mode" == diff ]]; then
   if [[ -z "${GITHUB_BASE_REF:-}" ]]; then
     echo "GITHUB_BASE_REF is required for a PR diff scan" >&2
@@ -61,3 +65,9 @@ fi
 
 # A nonzero scan exit is an actual CI failure. Never mask findings or errors.
 "$download_dir/gitleaks" "${options[@]}"
+if [[ "$mode" == history ]]; then
+  # Preserve the JSON evidence bundle produced by the original full-history scan.
+  "$download_dir/gitleaks" detect \
+    --config=.gitleaks.toml --redact --exit-code=0 \
+    --report-format=json --report-path="${report%.sarif}.json" --log-level=warn
+fi
