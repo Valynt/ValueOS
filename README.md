@@ -1,6 +1,6 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an 12-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a 12-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
