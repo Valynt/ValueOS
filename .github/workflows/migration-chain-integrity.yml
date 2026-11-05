@@ -157,6 +157,19 @@ jobs:
               FAILED=1
               break
             fi
+
+            # Verify the canonical identity boundary on the actual migrated
+            # schema before applying downstream user-FK migrations. Transaction
+            # fixtures roll back; any negative RLS/FK assertion is fatal.
+            if [[ "$filename" == "20260317010000_canonical_public_users_identity.sql" ]]; then
+              echo "  verifying: canonical identity UUID/FK/RLS negative tests"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-canonical-users.sql; then
+                echo "FAILED: canonical users identity contract"
+                FAILED=1
+                break
+              fi
+            fi
           done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -name "*.sql" -print0 | sort -z)
 
           if [ "$FAILED" -eq 1 ]; then
