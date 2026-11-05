@@ -11,10 +11,10 @@ if (files.length === 0) {
   process.exit(1);
 }
 const forbidden = [
-  { name: 'seed-named migration', test: (filename) => /(?:^|[_-])seed(?:[_-]|\\.)/i.test(filename) },
-  { name: 'Auth user insertion', test: (_, sql) => /\\bINSERT\\s+INTO\\s+(?:auth\\.)?users\\b/i.test(sql) && /\\bauth\\.users\\b/i.test(sql) },
-  { name: 'Auth identity insertion', test: (_, sql) => /\\bINSERT\\s+INTO\\s+auth\\.identities\\b/i.test(sql) },
-  { name: 'hardcoded demo password', test: (_, sql) => /\\bpassword123\\b|\\bdev@valueos\\.local\\b/i.test(sql) },
+  { name: 'seed-named migration', test: (filename) => /(?:^|[_-])seed(?:[_-]|\.)/i.test(filename) },
+  { name: 'Auth user insertion', test: (_, sql) => /\bINSERT\s+INTO\s+auth\.users\b/i.test(sql) },
+  { name: 'Auth identity insertion', test: (_, sql) => /\bINSERT\s+INTO\s+auth\.identities\b/i.test(sql) },
+  { name: 'hardcoded demo password', test: (_, sql) => /\bpassword123\b|\bdev@valueos\.local\b/i.test(sql) },
 ];
 let findings = 0;
 for (const filename of files) {
