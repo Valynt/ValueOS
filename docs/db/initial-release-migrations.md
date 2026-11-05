@@ -91,13 +91,13 @@ commit that user's password:
 APP_ENV=local \
 ALLOW_LOCAL_DEMO_SEED=true \
 DEMO_AUTH_USER_ID=<local-auth-user-uuid> \
-DATABASE_URL=postgresql://postgres:<PASSWORD>@localhost:54322/postgres \
+DATABASE_URL="$LOCAL_SUPABASE_DATABASE_URL" \
 bash scripts/db/seed-local-demo.sh
 ```
 
 The local-only script checks the hostname and requires an existing Auth
 user, then seeds tenant/membership records without creating passwords.
-Production and remote database URLs are refused.
+Set `LOCAL_SUPABASE_DATABASE_URL` from a trusted local Supabase CLI status/configuration (never commit the URL). Production and remote database URLs are refused.
 
 ## Phase 4 — Verification checklist
 
