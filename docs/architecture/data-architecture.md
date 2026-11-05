@@ -1079,7 +1079,7 @@ supabase db reset
 supabase db push
 
 # Verify
-psql postgresql://postgres:postgres@localhost:54322/postgres -c "\d+ new_table"
+psql postgresql://<USER>:<PASSWORD>@localhost:54322/postgres -c "\d+ new_table"
 
 # Test app
 pnpm run dev

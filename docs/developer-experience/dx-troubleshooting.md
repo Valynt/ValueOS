@@ -185,7 +185,7 @@ export PGSSLMODE=disable
 # Run migrations with explicit sslmode
 supabase db push \
   --workdir infra/supabase \
-  --db-url "postgresql://postgres:dev_password@localhost:5432/valuecanvas_dev?sslmode=disable" \
+  --db-url "postgresql://<USER>:<PASSWORD>@localhost:5432/valuecanvas_dev?sslmode=disable" \
   --debug
 ```
 

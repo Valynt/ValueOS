@@ -509,7 +509,7 @@ services:
       SUPABASE_URL: http://kong:8000
       # CRITICAL: sslmode=disable required - container postgres has no TLS
       # LOCAL DEV ONLY: replace <password> with your PGPASSWORD from .devcontainer/.env
-      DATABASE_URL: postgresql://postgres:<password>@db:5432/postgres?sslmode=disable
+      DATABASE_URL: postgresql://<USER>:<PASSWORD>@db:5432/postgres?sslmode=disable
       REDIS_URL: redis://redis:6379
 
   db:

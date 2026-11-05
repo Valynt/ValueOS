@@ -30,7 +30,7 @@
 
 **Result:** 3 findings in the current working tree.
 
-- `packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts` (`api_key: 'sk-live-abc123'`) — synthetic secret-like test fixture.
+- `packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts` (`api_key: '[REDACTED_TEST_OPENAI_TOKEN]'`) — synthetic secret-like test fixture.
 - `packages/backend/src/services/crm/__tests__/SalesforceProvider.test.ts` (`tokens, ...`) — unit-test token fixture.
 - `ops/env/.env.base` (`CACHE_ENCRYPTION_KEY=`) — empty env template key placeholder.
 
@@ -49,14 +49,14 @@
 - `SUPABASE_URL`: `https://wfhdrrpijqygytvoaafc.supabase.co`
 - `SUPABASE_ANON_KEY`: JWT with `ref: wfhdrrpijqygytvoaafc`, role `anon`
 - `SUPABASE_SERVICE_ROLE_KEY`: JWT with `ref: wfhdrrpijqygytvoaafc`, role `service_role`
-- `DATABASE_URL`: `postgresql://postgres:ZqD8dvJih0JXahU6@db.wfhdrrpijqygytvoaafc.supabase.co:5432/postgres`
+- `DATABASE_URL`: `[REDACTED_DATABASE_URL]`
 
 **Also committed in:** `.devcontainer/devcontainer.json` — commit `aca8a1627b66` (same project, same keys)
 
 **Required actions:**
 - [ ] Rotate Supabase anon key for project `wfhdrrpijqygytvoaafc`
 - [ ] Rotate Supabase service role key for project `wfhdrrpijqygytvoaafc`
-- [ ] Rotate database password (`ZqD8dvJih0JXahU6`) via Supabase dashboard → Database → Reset password
+- [ ] Rotate database password (value redacted) via Supabase dashboard → Database → Reset password
 - [ ] Audit Supabase access logs for unauthorized use since 2026-02-15
 - [ ] Purge commits `76f85346e121` and `aca8a1627b66` from history with `git filter-repo`
 
@@ -85,7 +85,7 @@
 **Severity:** HIGH  
 **Committed in:** `.env.dev` — commit `6d4d6f157341`  
 **Date committed:** early 2026  
-**Credential exposed:** `VITE_LLM_API_KEY=tgp_v1_jxFhlcyLLtjE0-FSSnzwIIHAv9DimgEhFoGsUV3OvkA`
+**Credential exposed:** `VITE_LLM_API_KEY=[REDACTED_TOGETHER_API_KEY]`
 
 **Required actions:**
 - [ ] Revoke this Together AI API key immediately at [api.together.ai](https://api.together.ai)
@@ -99,11 +99,11 @@
 
 **Severity:** CRITICAL  
 **Committed in:** `.devcontainer/scripts/remove-secrets.sh` and `.devcontainer/SECURITY_INCIDENT_REPORT.md` — commit `b50778cffbac`  
-**Credential exposed:** `sbp_4d0537d35652d74db73f08ea849883070e8e9a21`  
+**Credential exposed:** `[REDACTED_SUPABASE_ACCESS_TOKEN]`  
 **Context:** This token was identified in a prior security incident report within the repo itself. The incident report states it was "verified as valid by TruffleHog" at time of discovery.
 
 **Required actions:**
-- [ ] Revoke token `sbp_4d0537d35652d74db73f08ea849883070e8e9a21` at Supabase dashboard → Account → Access Tokens
+- [ ] Revoke token `[REDACTED_SUPABASE_ACCESS_TOKEN]` at Supabase dashboard → Account → Access Tokens
 - [ ] Verify token is no longer active (attempt API call should return 401)
 - [ ] Purge commit `b50778cffbac` from history
 - [ ] Remove `.devcontainer/SECURITY_INCIDENT_REPORT.md` and `.devcontainer/scripts/remove-secrets.sh` from history (they contain the token value)
@@ -114,7 +114,7 @@
 
 **Rule triggered:** `aws-access-token`  
 **Committed in:** `.devcontainer/scripts/install-git-hooks.sh` — commit `32c6d99f9d7f`  
-**Value:** `AKIA1234567890ABCDEF`  
+**Value:** `[REDACTED_TEST_AWS_TOKEN]`  
 **Classification:** FALSE POSITIVE — this is a synthetic test value used to verify the pre-commit hook detects secrets. It is not a real AWS credential.  
 **Action:** Add to `.gitleaks.toml` allowlist with justification comment.
 
@@ -126,7 +126,7 @@ All 218 remaining findings fall into one of these categories:
 
 | Category | Examples | Count |
 |----------|----------|-------|
-| Well-known Supabase local-dev demo keys | `eyJpc3MiOiJzdXBhYmFzZS1kZW1vIi...` in `.env.test`, `supabase-factory.ts` | ~74 |
+| Well-known Supabase local-dev demo keys | `[REDACTED_JWT]` in `.env.test`, `supabase-factory.ts` | ~74 |
 | Curl examples in documentation | `Authorization: Bearer <placeholder>` in `QUICKSTART.md`, `PRE_PRODUCTION_CHECKLIST.md` | ~96 |
 | Test fixture JWTs | Synthetic JWTs in `InputSanitization.test.ts`, `webhook-security.test.ts` | ~24 |
 | Well-known local compose defaults | `super-secret-jwt-token-with-at-least-32-characters-long` in `compose.yml` | ~24 |
@@ -146,18 +146,18 @@ pip install git-filter-repo
 # Create a replacements file
 cat > /tmp/secret-replacements.txt <<'EOF'
 # TP-1: wfhdrrpijqygytvoaafc project keys
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaGRycnBpanF5Z3l0dm9hYWZjIiwicm9sZSI6ImFub24i==>REDACTED_SUPABASE_ANON_KEY
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaGRycnBpanF5Z3l0dm9hYWZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSI==>REDACTED_SUPABASE_SERVICE_ROLE_KEY
+[REDACTED_JWT]==>REDACTED_SUPABASE_ANON_KEY
+[REDACTED_JWT]==>REDACTED_SUPABASE_SERVICE_ROLE_KEY
 ZqD8dvJih0JXahU6==>REDACTED_DB_PASSWORD
 wfhdrrpijqygytvoaafc==>REDACTED_PROJECT_REF
 # TP-2: bxaiabnqalurloblfwua project keys
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4YWlhYm5xYWx1cmxvYmxmd3VhIiwicm9sZSI6ImFub24i==>REDACTED_SUPABASE_ANON_KEY_2
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4YWlhYm5xYWx1cmxvYmxmd3VhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSI==>REDACTED_SUPABASE_SERVICE_ROLE_KEY_2
+[REDACTED_JWT]==>REDACTED_SUPABASE_ANON_KEY_2
+[REDACTED_JWT]==>REDACTED_SUPABASE_SERVICE_ROLE_KEY_2
 bxaiabnqalurloblfwua==>REDACTED_PROJECT_REF_2
 # TP-3: Together AI key
-tgp_v1_jxFhlcyLLtjE0-FSSnzwIIHAv9DimgEhFoGsUV3OvkA==>REDACTED_TOGETHER_AI_KEY
+[REDACTED_TOGETHER_API_KEY]==>REDACTED_TOGETHER_AI_KEY
 # TP-4: Supabase access token
-sbp_4d0537d35652d74db73f08ea849883070e8e9a21==>REDACTED_SUPABASE_ACCESS_TOKEN
+[REDACTED_SUPABASE_ACCESS_TOKEN]==>REDACTED_SUPABASE_ACCESS_TOKEN
 EOF
 
 # Run filter-repo (rewrites all matching content across all history)
@@ -197,7 +197,7 @@ Add the following to `.gitleaks.toml` to suppress confirmed false positives:
 # TP-5: Synthetic AWS key used in pre-commit hook self-test
 [[rules.allowlist]]
 # This is a fake key used to verify the hook detects secrets
-regexes = ['''AKIA1234567890ABCDEF''']
+regexes = ['''[REDACTED_TEST_AWS_TOKEN]''']
 
 # Documentation curl examples — not real credentials
 [allowlist]

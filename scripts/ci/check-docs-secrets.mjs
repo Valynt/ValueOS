@@ -1,11 +1,24 @@
 #!/usr/bin/env node
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
-const markdownFiles = execSync("rg --files docs -g '**/*.md'", { encoding: 'utf8' })
-  .split('\n')
-  .map((file) => file.trim())
-  .filter(Boolean);
+function listMarkdownFiles(dir, root = '.') {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listMarkdownFiles(full, root));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(relative(root, full).replaceAll('\\\\', '/'));
+    }
+  }
+  return files.sort();
+}
+
+const markdownFiles = listMarkdownFiles('docs');
+if (markdownFiles.length === 0) {
+  throw new Error('Refusing to pass docs secret scan with zero Markdown files');
+}
 
 const knownSecretPatterns = [
   /\bAKIA[0-9A-Z]{16}\b/g,
@@ -14,6 +27,9 @@ const knownSecretPatterns = [
   /\bghp_[A-Za-z0-9]{36}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
   /\bAIza[0-9A-Za-z\-_]{35}\b/g,
+  /\bsbp_[A-Za-z0-9_-]{20,}\b/g,
+  /\btgp_v1_[A-Za-z0-9_-]{20,}\b/g,
+  /postgres(?:ql)?:\/\/[^\s:@`]+:[^@\s`]+@/g,
 ];
 
 const sensitiveNameRegex = /(api[_-]?key|secret|token|password|client_secret|private_key|service_role_key)/i;
@@ -48,6 +64,9 @@ for (const file of markdownFiles) {
 
     for (const pattern of knownSecretPatterns) {
       for (const match of line.matchAll(pattern)) {
+        // This exact, non-runnable placeholder is used in setup examples.
+        // No other password-bearing connection string is exempt.
+        if (match[0].includes('://<USER>:<PASSWORD>@')) continue;
         findings.push({ file, line: i + 1, type: 'Known key pattern', value: match[0] });
       }
     }
@@ -76,7 +95,7 @@ for (const file of markdownFiles) {
 if (findings.length) {
   console.error('❌ Potential secret-like literals detected in markdown docs.');
   for (const f of findings) {
-    console.error(`${f.file}:${f.line} [${f.type}] ${f.value}`);
+    console.error(`${f.file}:${f.line} [${f.type}] (value redacted)`);
   }
   console.error('Use <REDACTED>, <EXAMPLE_ONLY_NOT_A_SECRET>, or sm:// secret-manager paths.');
   process.exit(1);

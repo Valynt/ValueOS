@@ -184,35 +184,35 @@ Result: 3 findings, triaged as non-production credentials/test fixtures/placehol
 
 ---
 
-### 2026-03-26 stripe-access-token — `sk_live_abc123def456` in SettingsPage.tsx
+### 2026-03-26 stripe-access-token — `[REDACTED_TEST_STRIPE_TOKEN]` in SettingsPage.tsx
 
 - **Status:** False positive (no rotation required)
 - **Severity:** Low
 - **Exposure:** Working tree + git history (commit `57a0512b`)
 - **Files:** `apps/ValyntApp/src/views/SettingsPage.tsx:132`
-- **Classification:** This is a UI display placeholder rendered as `${k.prefix}sk_live_abc123def456` in a masked API key display component. It is not a real Stripe key — it is a hardcoded example string shown when the user toggles key visibility. The `sk_live_` prefix is 8 chars shorter than any real Stripe key.
+- **Classification:** This is a UI display placeholder rendered as `${k.prefix}[REDACTED_TEST_STRIPE_TOKEN]` in a masked API key display component. It is not a real Stripe key — it is a hardcoded example string shown when the user toggles key visibility. The `sk_live_` prefix is 8 chars shorter than any real Stripe key.
 - **Action taken:** File added to path allowlist. Consider replacing with a clearly fake string like `sk_live_EXAMPLE_PLACEHOLDER` to reduce future false-positive noise.
 
 ---
 
-### 2026-03-26 stripe-access-token — `sk_live_abcdef123456` in MemorySystem.test.ts
+### 2026-03-26 stripe-access-token — `[REDACTED_TEST_STRIPE_TOKEN]` in MemorySystem.test.ts
 
 - **Status:** False positive (no rotation required)
 - **Severity:** Low
 - **Exposure:** Working tree + git history (commit `4d7c0f46`)
 - **Files:** `packages/backend/src/lib/agent-fabric/__tests__/MemorySystem.test.ts:645,652`
-- **Classification:** Test input used to assert that the MemorySystem redacts `sk_live_` patterns from stored content. The test explicitly asserts `expect(stored.content).not.toContain("sk_live_abcdef123456")`.
+- **Classification:** Test input used to assert that the MemorySystem redacts `sk_live_` patterns from stored content. The test explicitly asserts `expect(stored.content).not.toContain("[REDACTED_TEST_STRIPE_TOKEN]")`.
 - **Action taken:** File added to path allowlist. No rotation required.
 
 ---
 
-### 2026-03-26 aws-access-token — `AKIACANARYTEST123456` in red-team-canary-tokens.ts
+### 2026-03-26 aws-access-token — `[REDACTED_TEST_AWS_TOKEN]` in red-team-canary-tokens.ts
 
 - **Status:** False positive (no rotation required)
 - **Severity:** Low
 - **Exposure:** Working tree + git history
 - **Files:** `scripts/red-team-canary-tokens.ts:16`
-- **Classification:** Intentional canary token. The file is a red-team test harness that verifies the secret detection and redaction pipeline catches known-bad patterns. `AKIACANARYTEST123456` is not a valid AWS access key (fails AWS key format validation).
+- **Classification:** Intentional canary token. The file is a red-team test harness that verifies the secret detection and redaction pipeline catches known-bad patterns. `[REDACTED_TEST_AWS_TOKEN]` is not a valid AWS access key (fails AWS key format validation).
 - **Action taken:** File added to path allowlist with a rotation notice comment. No rotation required.
 
 ---
@@ -234,7 +234,7 @@ Result: 3 findings, triaged as non-production credentials/test fixtures/placehol
 - **Severity:** Low
 - **Exposure:** Working tree + git history (commit `0c32e48d`)
 - **Files:** `packages/backend/src/services/middleware/__tests__/PrivacyScrubber.test.ts:31,69`
-- **Classification:** Test inputs to the `PrivacyScrubber.scrubText()` function. The GitHub PAT (`ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ...`) and Slack bot token (`xoxb-123456789012-...`) are synthetic strings used to assert that the scrubber replaces them with `[API_KEY]`. Neither has ever been a real credential.
+- **Classification:** Test inputs to the `PrivacyScrubber.scrubText()` function. The GitHub PAT (`ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ...`) and Slack bot token (`[REDACTED_TEST_SLACK_TOKEN]-...`) are synthetic strings used to assert that the scrubber replaces them with `[API_KEY]`. Neither has ever been a real credential.
 - **Action taken:** File added to path allowlist. No rotation required.
 
 ---
@@ -254,7 +254,7 @@ Result: 3 findings, triaged as non-production credentials/test fixtures/placehol
 
 | Item | Owner | Due |
 |------|-------|-----|
-| Replace `sk_live_abc123def456` placeholder in SettingsPage.tsx with `sk_live_EXAMPLE_PLACEHOLDER` | Frontend team | Next sprint |
+| Replace `[REDACTED_TEST_STRIPE_TOKEN]` placeholder in SettingsPage.tsx with `sk_live_EXAMPLE_PLACEHOLDER` | Frontend team | Next sprint |
 | Replace hardcoded dev Terraform RDS password with `random_password` resource | Platform team | Next sprint |
 | Run `git filter-repo` to purge any non-demo Supabase JWTs from history (if any are found on closer inspection) | Security team | Before next external audit |
 | Confirm all Supabase project keys in `.env.dev` (commit `6d4d6f15`) were local-dev demo keys | Security team | This sprint |
