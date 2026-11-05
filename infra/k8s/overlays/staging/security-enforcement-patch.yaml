@@ -9,12 +9,12 @@
 # confirms that deny-by-default is active in this environment.
 #
 # Production overlay applies the same policies after Phase 1 exit criteria
-# are met (all 11 agents assigned SPIFFE IDs, CI gates green, evidence schema approved).
+# are met (all canonical agents assigned SPIFFE IDs, CI gates green, evidence schema approved).
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: deny-all-agents
+  name: agents-default-deny
   namespace: valynt-agents
   labels:
     environment: staging
@@ -23,14 +23,13 @@ metadata:
   annotations:
     valueos.io/enabled-in: "staging"
     valueos.io/production-promotion: "pending-phase-1-exit-criteria"
-spec:
-  action: DENY
+# Preserve the existing base AuthorizationPolicy spec (empty ALLOW = deny-all).
 
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: deny-all-valynt-agents
+  name: deny-all-by-default
   namespace: valynt
   labels:
     environment: staging
@@ -39,11 +38,7 @@ metadata:
   annotations:
     valueos.io/enabled-in: "staging"
     valueos.io/production-promotion: "pending-phase-1-exit-criteria"
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/part-of: valueos-agents
-  action: DENY
+# Preserve the existing base AuthorizationPolicy spec (empty ALLOW = deny-all).
 
 ---
 # Confirm PeerAuthentication STRICT is active in staging.
