@@ -17,8 +17,18 @@ const manifest = JSON.parse(read("scripts/ci/security-tool-versions.json"));
 const failures = [];
 const workflowToExpectedRefs = new Map();
 
-for (const { workflow, uses } of manifest.scannerActions) {
-  if (workflow.endsWith("codeql.yml")) {
+for (const { workflow, uses, script, mode, version } of manifest.scannerActions) {
+  if (workflow.endsWith("codeql.yml")) continue;
+  if (script) {
+    if (!mode || !version || !read(workflow).includes(`bash ${script} ${mode} `)) {
+      failures.push(`- Missing verified CLI scanner invocation in ${workflow}: ${script} ${mode}`);
+    }
+    if (!read(script).includes(`GITLEAKS_VERSION="${version}"`)) {
+      failures.push(`- Scanner CLI version mismatch: ${script} must pin ${version}`);
+    }
+    if (read(workflow).includes('gitleaks/gitleaks-action@')) {
+      failures.push(`- Retired licensed gitleaks action is still referenced in ${workflow}`);
+    }
     continue;
   }
   const refs = workflowToExpectedRefs.get(workflow) ?? new Set();

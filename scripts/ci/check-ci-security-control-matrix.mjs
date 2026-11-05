@@ -14,10 +14,11 @@ function readToolManifest() {
 }
 
 const toolManifest = readToolManifest();
-const requiredScannerActions = toolManifest.scannerActions.map(({ workflow, uses }) => ({
-  file: workflow,
-  action: uses,
-}));
+const requiredScannerActions = toolManifest.scannerActions
+  .filter(({ uses }) => uses)
+  .map(({ workflow, uses }) => ({ file: workflow, action: uses }));
+const requiredCliScans = toolManifest.scannerActions
+  .filter(({ script }) => script);
 
 const failures = [];
 
@@ -25,6 +26,15 @@ for (const { file, action } of requiredScannerActions) {
   const content = read(file);
   if (!content.includes(action)) {
     failures.push(`- Missing required scanner action \`${action}\` in ${file}`);
+  }
+}
+
+for (const { workflow, script, mode, version } of requiredCliScans) {
+  if (!read(workflow).includes(`bash ${script} ${mode} `)) {
+    failures.push(`- Missing CLI secret scanner invocation in ${workflow}: ${script} ${mode}`);
+  }
+  if (!read(script).includes(`GITLEAKS_VERSION="${version}"`)) {
+    failures.push(`- CLI secret scanner version mismatch in ${script}: ${version}`);
   }
 }
 

@@ -73,8 +73,11 @@ for (const scannerAction of toolManifest.scannerActions.filter(({ workflow }) =>
   checks.push({
     id: `${scannerAction.workflow}:${scannerAction.id}`,
     file: scannerAction.workflow,
-    test: (content) => content.includes(scannerAction.uses),
-    error: `Expected ${scannerAction.uses} in ${scannerAction.workflow}`,
+    test: (content) => scannerAction.uses
+      ? content.includes(scannerAction.uses)
+      : content.includes(`bash ${scannerAction.script} ${scannerAction.mode} `) &&
+        read(scannerAction.script).includes(`GITLEAKS_VERSION="${scannerAction.version}"`),
+    error: `Expected ${scannerAction.uses || `${scannerAction.script} ${scannerAction.mode}`} in ${scannerAction.workflow}`,
   });
 }
 

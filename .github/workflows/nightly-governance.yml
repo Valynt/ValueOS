@@ -218,11 +218,15 @@ jobs:
       - name: SCA — pnpm audit (fail on high/critical)
         run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
       - name: Secret scan — gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          GITLEAKS_VERSION: "8.18.2"
+        run: bash scripts/ci/run-gitleaks-scan.sh history artifacts/secret-scan/gitleaks-nightly.sarif
+      - name: Upload nightly Gitleaks evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-gitleaks-${{ github.run_id }}
+          path: artifacts/secret-scan/gitleaks-nightly.*
+          if-no-files-found: error
+          retention-days: 90
       - name: SAST — Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
