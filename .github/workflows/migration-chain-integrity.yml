@@ -180,6 +180,16 @@ jobs:
                 break
               fi
             fi
+            if [[ "$filename" == "20261105000000_canonical_identity_security_reconciliation.sql" ]]; then
+              echo "  verifying: final UUID/RLS and DSR authorization after forward reconciliation"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-canonical-users.sql \
+                  -f scripts/ci/verify-dsr-authorization.sql; then
+                echo "FAILED: final canonical identity security contract"
+                FAILED=1
+                break
+              fi
+            fi
           done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -name "*.sql" -print0 | sort -z)
 
           if [ "$FAILED" -eq 1 ]; then
