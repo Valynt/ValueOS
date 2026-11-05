@@ -26,6 +26,10 @@ jobs:
       - name: Run gitleaks on PR diff
         run: bash scripts/ci/run-gitleaks-scan.sh diff gitleaks-pr.sarif
 
+      - name: Guard incident evidence against plaintext credentials
+        if: always()
+        run: node scripts/ci/check-docs-secrets.mjs
+
       - name: Upload SARIF
         if: always()
         uses: actions/upload-artifact@v4
