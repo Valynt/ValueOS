@@ -119,8 +119,13 @@ RUN set -eux; \
     chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.vscode-server; \
     mkdir -p /home/${USERNAME}/.windsurf-server/bin; \
     chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.windsurf-server; \
-    rm -rf /tmp/* /var/tmp/*; \
-    corepack enable
+    rm -rf /tmp/* /var/tmp/*
+
+# The pinned pnpm release was installed globally with npm in an earlier layer.
+# Do not run "corepack enable" here: it replaces the pnpm launcher with a
+# Corepack shim, which can resolve to an unavailable package-manager version
+# inside the devcontainer (observed module-not-found during CI healthcheck).
+RUN pnpm --version | grep -Fx "${PNPM_VERSION}"
 
 # Health check for container readiness
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
