@@ -145,7 +145,7 @@ console.log('\n3. RLS test suite cannot be silently skipped');
       /executed\s*<\s*minimumExecuted/.test(suiteRunner) &&
       /passed\s*<\s*minimumExecuted/.test(suiteRunner) &&
       /failed\s*>\s*0/.test(suiteRunner);
-    const propagatesStatus = suiteRunner && /vitest\\.status/.test(suiteRunner);
+    const propagatesStatus = suiteRunner && /vitest\.status/.test(suiteRunner);
     if (!invokesSuite || !verifiesReport || !verifiesCounts || !propagatesStatus) {
       fail('pr-fast.yml RLS gate must invoke the checked-in runner and assert valid report, minimum passing test count, zero failures and Vitest exit status');
     } else {
