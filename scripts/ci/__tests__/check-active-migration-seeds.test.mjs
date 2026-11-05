@@ -35,3 +35,20 @@ test('does not treat commented-out Auth inserts as executable', () => {
 test('does not confuse a similarly named table with Auth users', () => {
   assert.deepEqual(findForbiddenMigrationRules('20261105120000_good.sql', 'INSERT INTO auth.users_legacy VALUES (1);'), []);
 });
+
+test('does not hide Auth provisioning after escaped E-string quotes', () => {
+  const sql = String.raw`SELECT E'it\'s -- still a string'; INSERT INTO auth.users (id) VALUES (gen_random_uuid());`;
+  assert.ok(findForbiddenMigrationRules('20261105120000_safe.sql', sql)
+    .includes('direct Auth user/identity provisioning'));
+});
+
+test('strips executable comments inside dollar-quoted DO bodies', () => {
+  const sql = 'DO $$ BEGIN INSERT /* comment */ INTO auth.users (id) VALUES (gen_random_uuid()); END $$;';
+  assert.ok(findForbiddenMigrationRules('20261105120000_safe.sql', sql)
+    .includes('direct Auth user/identity provisioning'));
+});
+
+test('ignores non-executable Auth provisioning comments in a DO body', () => {
+  const sql = 'DO $block$ BEGIN /* INSERT INTO auth.users (id) VALUES (1); */ PERFORM auth.uid(); END $block$;';
+  assert.deepEqual(findForbiddenMigrationRules('20261105120000_safe.sql', sql), []);
+});
