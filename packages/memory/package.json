@@ -14,10 +14,11 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json --outDir dist",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm --filter @valueos/shared build && tsc --noEmit",
     "test": "vitest run packages/memory/**/*.test.ts"
   },
   "dependencies": {
+    "@valueos/shared": "workspace:*",
     "zod": "^3.25.76"
   },
   "peerDependencies": {

@@ -1,0 +1,41 @@
+name: Memory package boundary regression
+
+on:
+  pull_request:
+    paths:
+      - "packages/memory/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/memory-boundary-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/memory/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/memory-boundary-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-boundary:
+    name: Memory boundary typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10.4.1
+      - name: Install frozen dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Compile shared types and verify memory TypeScript boundary
+        run: pnpm --filter @valueos/memory run typecheck
+      - name: Execute memory package tests from clean checkout
+        run: pnpm --filter @valueos/memory exec vitest run --config vitest.config.ts
+      - name: Execute root memory project context-ledger regression
+        run: pnpm exec vitest run --config vitest.config.ts --project memory packages/memory/context-ledger/context-ledger.test.ts
