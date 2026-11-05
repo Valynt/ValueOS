@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 export function stripSqlComments(sql) {
   let output = '';
   let state = 'code';
-  let delimiter = '';
+  let blockDepth = 0;
+  let escapeString = false;
   for (let i = 0; i < sql.length; i++) {
     const c = sql[i];
     const n = sql[i + 1];
@@ -16,38 +17,51 @@ export function stripSqlComments(sql) {
       if (c === '\n') { output += '\n'; state = 'code'; }
       else output += ' ';
     } else if (state === 'block-comment') {
-      if (c === '*' && n === '/') { output += '  '; i++; state = 'code'; }
-      else output += c === '\n' ? '\n' : ' ';
+      if (c === '/' && n === '*') {
+        output += '  '; i++; blockDepth++;
+      } else if (c === '*' && n === '/') {
+        output += '  '; i++;
+        if (--blockDepth === 0) state = 'code';
+      } else output += c === '\n' ? '\n' : ' ';
     } else if (state === 'single') {
       output += c;
-      if (c === "'" && n === "'") { output += n; i++; }
-      else if (c === "'") state = 'code';
+      // PostgreSQL E'...' and U&'...' backslash escapes must not close
+      // the string before a real subsequent SQL statement.
+      if (escapeString && c === '\\' && n !== undefined) {
+        output += n; i++;
+      } else if (c === "'" && n === "'") {
+        output += n; i++;
+      } else if (c === "'") state = 'code';
     } else if (state === 'double') {
       output += c;
       if (c === '"' && n === '"') { output += n; i++; }
       else if (c === '"') state = 'code';
-    } else if (state === 'dollar') {
-      if (sql.startsWith(delimiter, i)) {
-        output += delimiter;
-        i += delimiter.length - 1;
-        state = 'code';
-      } else output += c;
     } else if (c === '-' && n === '-') {
       output += '  '; i++; state = 'line-comment';
     } else if (c === '/' && n === '*') {
-      output += '  '; i++; state = 'block-comment';
+      output += '  '; i++; blockDepth = 1; state = 'block-comment';
     } else if (c === "'") {
+      escapeString = ((/[Ee]/.test(sql[i - 1] ?? '') &&
+        (i < 2 || !/[a-zA-Z_0-9]/.test(sql[i - 2]))) ||
+        (sql.slice(i - 2, i).toUpperCase() === 'U&'));
       output += c; state = 'single';
     } else if (c === '"') {
       output += c; state = 'double';
     } else if (c === '$') {
       const match = sql.slice(i).match(/^\$[A-Za-z0-9_]*\$/);
-      if (match) {
-        delimiter = match[0];
-        output += delimiter;
-        i += delimiter.length - 1;
-        state = 'dollar';
-      } else output += c;
+      if (!match) { output += c; continue; }
+      const tag = match[0];
+      const end = sql.indexOf(tag, i + tag.length);
+      if (end < 0) {
+        // Leave malformed SQL unsuppressed; PostgreSQL will reject it.
+        output += sql.slice(i);
+        break;
+      }
+      // A DO/function dollar-quoted body contains executable SQL.
+      // Strip its own comments instead of blindly preserving them.
+      const body = sql.slice(i + tag.length, end);
+      output += tag + stripSqlComments(body) + tag;
+      i = end + tag.length - 1;
     } else output += c;
   }
   return output;
