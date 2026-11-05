@@ -22,7 +22,7 @@ Use a clean database, apply migrations in deterministic order, and then dump sch
 ```bash
 # From repo root
 export MIGRATIONS_DIR="infra/supabase/supabase/migrations"
-export DIRECT_DATABASE_URL="postgresql://<user>:<pass>@<host>:<port>/<db>"
+export DIRECT_DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<db>"
 
 # Apply deterministic migration plan (same order every run)
 pnpm db:migrate
@@ -48,7 +48,7 @@ During release validation, create a fresh database, apply the same deterministic
 
 ```bash
 # Apply migrations to a fresh release-check DB
-export DIRECT_DATABASE_URL="postgresql://<user>:<pass>@<host>:<port>/<release_check_db>"
+export DIRECT_DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<release_check_db>"
 pnpm db:migrate
 
 # Dump post-migration schema for comparison
