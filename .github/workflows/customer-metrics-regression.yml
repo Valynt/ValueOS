@@ -1,0 +1,38 @@
+name: Customer metrics compilation regression
+
+on:
+  pull_request:
+    paths:
+      - "packages/backend/src/api/customer/metrics.ts"
+      - "packages/backend/src/api/__tests__/customer-api.test.ts"
+      - "packages/shared/tsconfig.json"
+      - ".github/workflows/customer-metrics-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/backend/src/api/customer/metrics.ts"
+      - "packages/backend/src/api/__tests__/customer-api.test.ts"
+      - "packages/shared/tsconfig.json"
+      - ".github/workflows/customer-metrics-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  metrics-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Parse customer metrics TypeScript
+        run: pnpm exec esbuild packages/backend/src/api/customer/metrics.ts --outfile="$RUNNER_TEMP/customer-metrics.mjs" --format=esm --platform=node
+      - name: Verify backend customer API behavioral regressions
+        run: pnpm --filter @valueos/backend exec vitest run src/api/__tests__/customer-api.test.ts
