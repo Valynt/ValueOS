@@ -66,6 +66,7 @@ const inlineProjects = {
     },
     resolve: {
       alias: {
+        "@valueos/shared/lib/redisClient": path.resolve(root, "packages/shared/src/lib/redisClient.ts"),
         "@shared": path.resolve(root, "packages/shared/src"),
       },
     },
