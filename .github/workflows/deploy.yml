@@ -1166,35 +1166,34 @@ jobs:
             BASE_SHA="$(git rev-list --max-count=1 HEAD^)"
           fi
 
-          CHANGED_FILES_JSON="$(git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}" | jq -R -s -c 'split("
-") | map(select(length > 0))')"
+          CHANGED_FILES_JSON="$(git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}" | jq -R -s -c 'split("\n") | map(select(length > 0))')"
 
           CHANGED_INTERFACES_JSON="$(node -e '
-const files = JSON.parse(process.argv[1]);
-const interfaces = new Set();
-for (const file of files) {
-  if (file.startsWith("packages/backend/src/routes/") || file.startsWith("packages/backend/src/api/")) interfaces.add("http-route-contract-v1");
-  if (file.startsWith("packages/shared/src/domain/") || file.startsWith("packages/backend/src/types/")) interfaces.add("schema-contract-v1");
-  if (file.startsWith("supabase/migrations/")) interfaces.add("migration-head");
-  if (file.startsWith("packages/backend/src/runtime/")) interfaces.add("workflow-state-contract-v1");
-  if (file.startsWith("packages/backend/src/lib/supabase/") || file.startsWith("packages/backend/src/services/tenant/")) interfaces.add("tenant-isolation-policy-v1");
-}
-process.stdout.write(JSON.stringify(Array.from(interfaces).sort()));
-' "${CHANGED_FILES_JSON}")"
+          const files = JSON.parse(process.argv[1]);
+          const interfaces = new Set();
+          for (const file of files) {
+            if (file.startsWith("packages/backend/src/routes/") || file.startsWith("packages/backend/src/api/")) interfaces.add("http-route-contract-v1");
+            if (file.startsWith("packages/shared/src/domain/") || file.startsWith("packages/backend/src/types/")) interfaces.add("schema-contract-v1");
+            if (file.startsWith("infra/supabase/supabase/migrations/")) interfaces.add("migration-head");
+            if (file.startsWith("packages/backend/src/runtime/")) interfaces.add("workflow-state-contract-v1");
+            if (file.startsWith("packages/backend/src/lib/supabase/") || file.startsWith("packages/backend/src/services/tenant/")) interfaces.add("tenant-isolation-policy-v1");
+          }
+          process.stdout.write(JSON.stringify(Array.from(interfaces).sort()));
+          ' "${CHANGED_FILES_JSON}")"
 
           RELEASE_DIFF_JSON="$(jq -cn --argjson changedFiles "${CHANGED_FILES_JSON}" --argjson changedChecks "[]" --argjson changedInterfaces "${CHANGED_INTERFACES_JSON}" '{changedFiles: $changedFiles, changedChecks: $changedChecks, changedInterfaces: $changedInterfaces}')"
 
           LAYER3_TENANT_MIGRATION_CHANGED="$(node -e '
-const files = JSON.parse(process.argv[1]);
-const patterns = [
-  /^scripts\/db\/migrate_tenant_ids\.py$/,
-  /^scripts\/db\/create_composite_tenant_indexes\.py$/,
-  /^supabase\/migrations\/.*(?:layer3|tenant).*\.(?:sql|py)$/i,
-  /^packages\/backend\/src\/services\/tenant\//,
-  /^packages\/backend\/src\/lib\/supabase\//
-];
-process.stdout.write(files.some((file) => patterns.some((pattern) => pattern.test(file))) ? "true" : "false");
-' "${CHANGED_FILES_JSON}")"
+          const files = JSON.parse(process.argv[1]);
+          const patterns = [
+            /^scripts\/db\/migrate_tenant_ids\.py$/,
+            /^scripts\/db\/create_composite_tenant_indexes\.py$/,
+            /^infra\/supabase\/supabase\/migrations\/.*(?:layer3|tenant).*\.(?:sql|py)$/i,
+            /^packages\/backend\/src\/services\/tenant\//,
+            /^packages\/backend\/src\/lib\/supabase\//
+          ];
+          process.stdout.write(files.some((file) => patterns.some((pattern) => pattern.test(file))) ? "true" : "false");
+          ' "${CHANGED_FILES_JSON}")"
 
           echo "release_diff_json=${RELEASE_DIFF_JSON}" >> "$GITHUB_OUTPUT"
           echo "layer3_tenant_migration_changed=${LAYER3_TENANT_MIGRATION_CHANGED}" >> "$GITHUB_OUTPUT"
