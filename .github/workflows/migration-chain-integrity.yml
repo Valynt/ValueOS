@@ -95,20 +95,27 @@ jobs:
 
             CREATE SCHEMA IF NOT EXISTS auth;
 
+            -- Test-only minimal Supabase Auth *schema* contract; production
+            -- migrations must never create/fabricate auth identities.
+            -- Real Supabase integration tests remain a separate release gate.
+            CREATE TABLE auth.users (
+              id uuid PRIMARY KEY
+            );
+
             CREATE OR REPLACE FUNCTION auth.uid()
             RETURNS uuid
             LANGUAGE sql STABLE
-            AS $$ SELECT NULL::uuid $$;
+            AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 
             CREATE OR REPLACE FUNCTION auth.jwt()
             RETURNS jsonb
             LANGUAGE sql STABLE
-            AS $$ SELECT '{}'::jsonb $$;
+            AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
 
             CREATE OR REPLACE FUNCTION auth.role()
             RETURNS text
             LANGUAGE sql STABLE
-            AS $$ SELECT 'anon'::text $$;
+            AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), 'anon')::text $$;
           SQL
 
       - name: Verify active-migration seed guard against bypass fixtures
