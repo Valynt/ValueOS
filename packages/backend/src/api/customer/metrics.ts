@@ -220,18 +220,17 @@ export function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse[
     return acc;
   }, {} as Record<string, number>);
 
-  // Calculate overall achievement
-  const achievementRatios = metrics.flatMap((metric) => {
-    const { predicted_value, actual_value } = metric;
-
-    if (!Number.isFinite(predicted_value) || !Number.isFinite(actual_value) || predicted_value === 0) {
+  // Only finite actuals with finite, nonzero predictions contribute.
+  // A true actual value of zero is a valid observation and must count.
+  const achievementRatios = metrics.flatMap(({ predicted_value, actual_value }) => {
+    if (
+      !Number.isFinite(predicted_value) ||
+      predicted_value === 0 ||
+      actual_value === null ||
+      !Number.isFinite(actual_value)
+    ) {
       return [];
-  const metricsWithActuals = metrics.filter(m => Number.isFinite(m.actual_value));
-  const totalAchievement = metricsWithActuals.reduce((sum, m) => {
-    if (Number.isFinite(m.predicted_value) && m.predicted_value !== 0) {
-      return sum + ((m.actual_value as number) / m.predicted_value);
     }
-
     return [actual_value / predicted_value];
   });
 
