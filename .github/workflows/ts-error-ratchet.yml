@@ -30,8 +30,16 @@ jobs:
         id: count
         run: |
           echo "Running typecheck..."
-          ERROR_COUNT=$(pnpm run typecheck:full 2>&1 | grep -c "error TS" || true)
-          echo "count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          set -o pipefail
+          status=0
+          pnpm run check > "$RUNNER_TEMP/typecheck.log" 2>&1 || status=$?
+          ERROR_COUNT=$(grep -c "error TS" "$RUNNER_TEMP/typecheck.log" || true)
+          if [ "$status" -ne 0 ] && [ "$ERROR_COUNT" -eq 0 ]; then
+            echo "Typecheck failed without TypeScript diagnostics; refusing a false zero" >&2
+            cat "$RUNNER_TEMP/typecheck.log" >&2
+            exit "$status"
+          fi
+          echo "count=$ERROR_COUNT" >> "$GITHUB_OUTPUT"
           echo "Current TypeScript errors: $ERROR_COUNT"
           
       - name: Load baseline
@@ -68,23 +76,25 @@ jobs:
           script: |
             const current = '${{ steps.count.outputs.count }}';
             const baseline = '${{ steps.baseline.outputs.baseline }}';
-            const diff = parseInt(current) - parseInt(baseline);
-            
-            github.rest.issues.createComment({
+            const diff = Number(current) - Number(baseline);
+            const body = [
+              '## TypeScript Error Ratchet Failed',
+              '',
+              'This PR increased the TypeScript error count by ' + diff + ' errors.',
+              '',
+              '| Metric | Value |',
+              '| --- | --- |',
+              '| Baseline | ' + baseline + ' |',
+              '| Current | ' + current + ' |',
+              '| Change | +' + diff + ' |',
+              '',
+              'Run pnpm run check locally to resolve all new TypeScript errors.',
+            ].join('\\n');
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ⚠️ TypeScript Error Ratchet Failed
-              
-This PR increases the TypeScript error count by ${diff} errors.
-
-| Metric | Value |
-|--------|-------|
-| Baseline | ${baseline} |
-| Current | ${current} |
-| Change | +${diff} |
-
-Please run \`pnpm run typecheck:full\` locally to identify and fix these errors before merging.`
+              body,
             });
 
   package-ratchet:
@@ -115,7 +125,14 @@ Please run \`pnpm run typecheck:full\` locally to identify and fix these errors 
       - name: Check package errors
         run: |
           echo "Checking ${{ matrix.package.name }}..."
-          ERROR_COUNT=$(pnpm --filter ${{ matrix.package.name }} exec tsc --noEmit 2>&1 | grep -c "error TS" || echo "0")
+          status=0
+          pnpm --filter "${{ matrix.package.name }}" exec tsc --noEmit > "$RUNNER_TEMP/package-typecheck.log" 2>&1 || status=$?
+          ERROR_COUNT=$(grep -c "error TS" "$RUNNER_TEMP/package-typecheck.log" || true)
+          if [ "$status" -ne 0 ] && [ "$ERROR_COUNT" -eq 0 ]; then
+            echo "Package typecheck failed without TS diagnostics; refusing false zero" >&2
+            cat "$RUNNER_TEMP/package-typecheck.log" >&2
+            exit "$status"
+          fi
           BASELINE=${{ matrix.package.baseline }}
           
           echo "Package: ${{ matrix.package.name }}"
