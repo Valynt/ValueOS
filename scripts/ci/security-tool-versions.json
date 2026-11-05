@@ -3,12 +3,23 @@
     {
       "id": "gitleaks-secret-scan-diff",
       "workflow": ".github/workflows/secret-scan.yml",
-      "uses": "gitleaks/gitleaks-action@v2"
+      "script": "scripts/ci/run-gitleaks-scan.sh",
+      "version": "8.21.2",
+      "mode": "diff"
     },
     {
       "id": "gitleaks-pr-fast",
       "workflow": ".github/workflows/pr-fast.yml",
-      "uses": "gitleaks/gitleaks-action@v2"
+      "script": "scripts/ci/run-gitleaks-scan.sh",
+      "version": "8.21.2",
+      "mode": "diff"
+    },
+    {
+      "id": "gitleaks-pr-fast-security",
+      "workflow": ".github/workflows/pr-fast.yml",
+      "script": "scripts/ci/run-gitleaks-scan.sh",
+      "version": "8.21.2",
+      "mode": "history"
     },
     {
       "id": "semgrep-pr-fast",
@@ -23,7 +34,9 @@
     {
       "id": "gitleaks-main-verify",
       "workflow": ".github/workflows/main-verify.yml",
-      "uses": "gitleaks/gitleaks-action@v2"
+      "script": "scripts/ci/run-gitleaks-scan.sh",
+      "version": "8.21.2",
+      "mode": "history"
     },
     {
       "id": "semgrep-main-verify",
@@ -38,7 +51,9 @@
     {
       "id": "gitleaks-nightly",
       "workflow": ".github/workflows/nightly-governance.yml",
-      "uses": "gitleaks/gitleaks-action@v2"
+      "script": "scripts/ci/run-gitleaks-scan.sh",
+      "version": "8.21.2",
+      "mode": "history"
     },
     {
       "id": "semgrep-nightly",
