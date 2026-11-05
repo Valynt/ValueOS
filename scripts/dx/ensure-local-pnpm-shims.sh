@@ -15,13 +15,19 @@ if [[ ! -f "$ROOT_PNPM_CJS" ]]; then
   exit 1
 fi
 
-# Use Git's tracked manifest inventory rather than ripgrep: minimal CI images
-# need not install rg, and only checked-in workspaces should receive shims.
-# NUL delimiting avoids misparsing whitespace in manifest paths.
-while IFS= read -r -d '' pkg_json; do
-  [[ "$pkg_json" == "package.json" ]] && continue
+# Enumerate only the package locations declared by pnpm-workspace.yaml.
+# Shell globbing works both in checkouts and in Docker build stages without .git
+# metadata or ripgrep; all expected directory shapes are explicit here.
+manifest_count=0
+for pkg_json in \
+  "$ROOT_DIR"/packages/*/package.json \
+  "$ROOT_DIR"/packages/services/*/package.json \
+  "$ROOT_DIR"/packages/mcp/{ground-truth,crm,common}/package.json \
+  "$ROOT_DIR"/apps/*/package.json \
+  "$ROOT_DIR"/apps/*/packages/*/package.json; do
+  [[ -f "$pkg_json" ]] || continue
   pkg_dir="$(dirname "$pkg_json")"
-  bin_dir="$ROOT_DIR/$pkg_dir/node_modules/.bin"
+  bin_dir="$pkg_dir/node_modules/.bin"
   shim="$bin_dir/pnpm"
 
   mkdir -p "$bin_dir"
@@ -30,4 +36,10 @@ while IFS= read -r -d '' pkg_json; do
 exec node "$ROOT_PNPM_CJS" "\$@"
 SHIM
   chmod +x "$shim"
-done < <(cd "$ROOT_DIR" && git ls-files -z -- ':(glob)**/package.json')
+  manifest_count=$((manifest_count + 1))
+done
+
+if (( manifest_count == 0 )); then
+  echo "no package manifests found in pnpm-workspace.yaml locations" >&2
+  exit 1
+fi
