@@ -173,7 +173,7 @@ GRANT ALL ON public.artifact_edits TO service_role;
 -- These table IDs are UUIDs using gen_random_uuid(), not serial columns.
 -- Older deployments may still contain legacy ID sequences; retain grants
 -- where such sequences actually exist without failing fresh installations.
-DO $
+DO $$
 BEGIN
   IF to_regclass('public.case_artifacts_id_seq') IS NOT NULL THEN
     GRANT USAGE, SELECT ON SEQUENCE public.case_artifacts_id_seq TO authenticated, service_role;
@@ -181,4 +181,4 @@ BEGIN
   IF to_regclass('public.artifact_edits_id_seq') IS NOT NULL THEN
     GRANT USAGE, SELECT ON SEQUENCE public.artifact_edits_id_seq TO authenticated, service_role;
   END IF;
-END $;
+END $$;
