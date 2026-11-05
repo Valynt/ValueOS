@@ -83,7 +83,7 @@
 | Detail | Value |
 |---|---|
 | **File** | `ops/compose/compose.yml:31,74-76` |
-| **Risk** | `PGUSER` defaults to `postgres`, `PGPASSWORD` uses `?:` (required) but `DATABASE_URL` line at `:31` has inline fallback `postgresql://postgres:postgres@postgres:5432/valueos` |
+| **Risk** | `PGUSER` defaults to `postgres`, `PGPASSWORD` uses `?:` (required) but `DATABASE_URL` line at `:31` has inline fallback `postgresql://<USER>:<PASSWORD>@postgres:5432/valueos` |
 | **Impact** | If `DATABASE_URL` env is unset, the backend connects with `postgres:postgres` credentials |
 | **Mitigation** | Remove the inline fallback from `DATABASE_URL`. Make it required: `DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}`. |
 
