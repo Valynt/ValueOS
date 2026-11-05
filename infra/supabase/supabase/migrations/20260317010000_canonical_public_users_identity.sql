@@ -10,8 +10,14 @@ BEGIN;
 
 -- Composite FK guarantees the optional "home" organization and TEXT tenant
 -- refer to the same organization. It is not used to authorize membership.
-CREATE UNIQUE INDEX IF NOT EXISTS organizations_id_tenant_id_unique
-  ON public.organizations (id, tenant_id);
+DO $identity_index$
+BEGIN
+  IF to_regclass('public.organizations_id_tenant_id_unique') IS NULL THEN
+    CREATE UNIQUE INDEX organizations_id_tenant_id_unique
+      ON public.organizations (id, tenant_id);
+    COMMENT ON INDEX public.organizations_id_tenant_id_unique IS 'valueos-canonical-users:20260317010000';
+  END IF;
+END $identity_index$;
 
 DO $identity$
 DECLARE
