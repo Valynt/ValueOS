@@ -30,7 +30,7 @@
 
 **Result:** 3 findings in the current working tree.
 
-- `packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts` (`api_key: 'sk-live-abc123'`) — synthetic secret-like test fixture.
+- `packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.secureInvoke.security.test.ts` (`api_key: '[REDACTED_TEST_OPENAI_TOKEN]'`) — synthetic secret-like test fixture.
 - `packages/backend/src/services/crm/__tests__/SalesforceProvider.test.ts` (`tokens, ...`) — unit-test token fixture.
 - `ops/env/.env.base` (`CACHE_ENCRYPTION_KEY=`) — empty env template key placeholder.
 
@@ -114,7 +114,7 @@
 
 **Rule triggered:** `aws-access-token`  
 **Committed in:** `.devcontainer/scripts/install-git-hooks.sh` — commit `32c6d99f9d7f`  
-**Value:** `AKIA1234567890ABCDEF`  
+**Value:** `[REDACTED_TEST_AWS_TOKEN]`  
 **Classification:** FALSE POSITIVE — this is a synthetic test value used to verify the pre-commit hook detects secrets. It is not a real AWS credential.  
 **Action:** Add to `.gitleaks.toml` allowlist with justification comment.
 
@@ -197,7 +197,7 @@ Add the following to `.gitleaks.toml` to suppress confirmed false positives:
 # TP-5: Synthetic AWS key used in pre-commit hook self-test
 [[rules.allowlist]]
 # This is a fake key used to verify the hook detects secrets
-regexes = ['''AKIA1234567890ABCDEF''']
+regexes = ['''[REDACTED_TEST_AWS_TOKEN]''']
 
 # Documentation curl examples — not real credentials
 [allowlist]
