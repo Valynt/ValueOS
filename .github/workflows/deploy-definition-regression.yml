@@ -1,0 +1,45 @@
+name: Deploy workflow definition regression
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/deploy-definition-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/deploy-definition-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-deploy-definition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install safe YAML parser
+        run: python -m pip install --disable-pip-version-check PyYAML==6.0.2
+      - name: Parse full deployment workflow and require release gates
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          path = Path(".github/workflows/deploy.yml")
+          source = path.read_text(encoding="utf-8")
+          workflow = yaml.safe_load(source)
+          assert isinstance(workflow, dict)
+          jobs = workflow.get("jobs")
+          assert isinstance(jobs, dict) and len(jobs) > 5, "Deployment workflow lost its release gates"
+          for name in ("release-manager-signoff-gate", "layer3-readiness-evidence-gate"):
+              assert name in jobs, f"Missing deploy protection: {name}"
+          steps = jobs["layer3-readiness-evidence-gate"]["steps"]
+          collector = next(step["run"] for step in steps if step.get("id") == "layer3-release-diff")
+          assert "infra/supabase/supabase/migrations/" in collector
+          assert "CHANGED_FILES_JSON" in collector and "LAYER3_TENANT_MIGRATION_CHANGED" in collector
+          print(f"Validated {len(jobs)} deploy jobs and mandatory release evidence gates")
+          PY
