@@ -192,7 +192,7 @@ Source of truth: `infra/supabase/audits/early_adopter_subscription_price_version
 1. Export a privileged database connection string:
 
    ```bash
-   export DATABASE_URL="postgresql://<user>:<password>@<host>:5432/postgres"
+   export DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:5432/postgres"
    ```
 
 2. Execute the audit wrapper:
