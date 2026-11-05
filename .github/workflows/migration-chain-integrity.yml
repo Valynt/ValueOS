@@ -94,6 +94,7 @@ jobs:
             $$;
 
             CREATE SCHEMA IF NOT EXISTS auth;
+            GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 
             -- Test-only minimal Supabase Auth *schema* contract; production
             -- migrations must never create/fabricate auth identities.
