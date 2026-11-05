@@ -25,7 +25,7 @@ fi
 GITLEAKS_VERSION="8.21.2"
 archive_name="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
 download_dir="$(mktemp -d)"
-trap 'rm -rf "$download_dir"' EXIT
+trap 'rm -f "$archive" "$download_dir/checksums.txt" "$download_dir/gitleaks"; rmdir "$download_dir" 2>/dev/null || true' EXIT
 archive="$download_dir/$archive_name"
 url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
 
