@@ -182,6 +182,33 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
       continue
     fi
 
+    # These *exact* prereq migrations restore already-canonical tables that
+    # predate the organization_id UUID standard. Requiring an additional UUID
+    # column on tenants/user_tenants/teams or audit_log would break the existing
+    # TEXT tenant-id contract. Exemption is name-scoped AND shape-checked
+    # against the canonical identity baseline; all RLS/timeout checks still run.
+    prereq_shape=""
+    case "$(basename "$mfile"):$table" in
+      20260213000004_tenant_identity_prerequisites.sql:tenants)
+        prereq_shape="id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
+      20260213000004_tenant_identity_prerequisites.sql:user_tenants)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
+      20260213000005_teams_prerequisite.sql:teams)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL" ;;
+      20260213000007_security_audit_log_prerequisite.sql:security_audit_log)
+        prereq_shape="tenant_id[[:space:]]+uuid" ;;
+    esac
+    if [ -n "$prereq_shape" ]; then
+      canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
+      if ! grep -qiE "CREATE[[:space:]]+TABLE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+public\\.$table[[:space:]]*\\(" "$canonical" \
+         || ! grep -qiE "$prereq_shape" "$mfile" \
+         || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile"; then
+        echo "FAIL $mfile: canonical prerequisite table public.$table has incorrect shape or RLS guard"
+        EXIT_CODE=1
+      fi
+      continue
+    fi
+
     # Check that organization_id UUID NOT NULL appears in the file
     # Accept: "organization_id UUID NOT NULL" or "organization_id uuid not null"
     if ! grep -qiE "organization_id[[:space:]]+UUID[[:space:]]+NOT[[:space:]]+NULL" "$mfile" 2>/dev/null; then
