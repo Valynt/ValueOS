@@ -41,10 +41,16 @@ comparison and column-level grants rather than broadening UPDATE.
 ## Privacy and analytics compatibility
 
 The DSR function now uses the UUID profile key and the TEXT home tenant
-when matching a user, and refuses a tenant-local erase that would
-anonymize a user with active memberships in other tenants. Such requests
-require coordinated, documented privacy handling rather than silently
-scrubbing a globally shared Auth identity.
+when matching a user, requires an active tenant owner/admin or trusted
+service role before executing its elevated mutation, and refuses a
+tenant-local erase that would anonymize a user with active memberships
+in other tenants. Such requests require coordinated, documented privacy
+handling rather than silently scrubbing a globally shared Auth identity.
+Both the SQL RPC and backend privacy admin service clear the new
+`name` field as well as full/display names, and the latter refuses
+to report success if the profile update affected no user. DSR negative
+authorization tests live at `scripts/ci/verify-dsr-authorization.sql`
+and run at the DSR migration boundary.
 
 Academy rollups that use `public.users.organization_id` reflect **home
 organization** membership, not all users with multi-tenant memberships.
