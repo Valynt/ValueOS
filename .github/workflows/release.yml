@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify browser key governance scanner
+        run: node --test scripts/security/__tests__/validate-browser-api-key-governance.test.mjs
+
       - name: Build backend and frontend packaged artifacts
         run: pnpm run build
 

@@ -1,0 +1,32 @@
+name: Browser key governance regression
+
+on:
+  pull_request:
+    paths:
+      - "scripts/security/validate-browser-api-key-governance.mjs"
+      - "scripts/security/__tests__/validate-browser-api-key-governance.test.mjs"
+      - ".github/workflows/browser-key-governance-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/security/validate-browser-api-key-governance.mjs"
+      - "scripts/security/__tests__/validate-browser-api-key-governance.test.mjs"
+      - ".github/workflows/browser-key-governance-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  browser-key-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Verify scanner source parses
+        run: node --check scripts/security/validate-browser-api-key-governance.mjs
+      - name: Run deterministic security regression cases
+        run: node --test scripts/security/__tests__/validate-browser-api-key-governance.test.mjs
+      - name: Verify active frontend source policy without dependencies
+        run: node scripts/security/validate-browser-api-key-governance.mjs --app=ValyntApp

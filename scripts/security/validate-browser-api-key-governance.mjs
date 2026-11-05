@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const policyPath = resolve(ROOT, 'config/security/browser-key-policy.json');
@@ -15,34 +14,48 @@ const parsedArgs = Object.fromEntries(process.argv.slice(2).map((arg) => {
 const appFilter = parsedArgs.app;
 
 function listFrontendFiles() {
-  const globs = [
-    'apps/*/src/**/*.{ts,tsx,js,jsx,mjs,cjs}',
-    'apps/*/client/src/**/*.{ts,tsx,js,jsx,mjs,cjs}',
-  ];
-
-  try {
-    const output = execSync(`rg --files ${globs.map((glob) => `-g '${glob}'`).join(' ')}`, {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true,
-    }).trim();
-
-    const files = output ? output.split('\n').filter(Boolean) : [];
-    if (!appFilter) {
-      return files;
-    }
-
-    return files.filter((file) => file.startsWith(`apps/${appFilter}/`));
-  } catch (error) {
-    if (error?.status === 1) {
-      return [];
-    }
-
-    console.error('❌ Failed to enumerate frontend source files for key governance checks');
-    console.error(error?.stderr?.toString?.() || error?.message || String(error));
-    process.exit(1);
+  // Run in minimal CI and Docker images, which are not required to have rg
+  // or a .git directory. Scan exactly the frontend source roots that the
+  // previous ripgrep glob covered; do not fall back to a successful empty scan.
+  if (appFilter && !/^[A-Za-z0-9_-]+$/.test(appFilter)) {
+    throw new Error('Invalid app name for browser-key governance scan');
   }
+
+  const appsDir = resolve(ROOT, 'apps');
+  if (!existsSync(appsDir)) {
+    throw new Error('Missing apps directory; cannot validate browser keys');
+  }
+
+  const extensions = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
+  const files = [];
+  function collect(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        collect(full);
+      } else if (entry.isFile() && extensions.test(entry.name)) {
+        files.push(relative(ROOT, full).split(sep).join('/'));
+      }
+    }
+  }
+
+  const apps = readdirSync(appsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && (!appFilter || entry.name === appFilter));
+  if (apps.length === 0) {
+    throw new Error(`No matching frontend app found: ${appFilter ?? '(all)'}`);
+  }
+
+  for (const app of apps) {
+    const appDir = join(appsDir, app.name);
+    collect(join(appDir, 'src'));
+    collect(join(appDir, 'client', 'src'));
+  }
+
+  if (files.length === 0) {
+    throw new Error('No frontend source files found; refusing an empty key governance scan');
+  }
+  return files.sort();
 }
 
 function findViteApiKeyUsages(files) {
@@ -81,7 +94,14 @@ function isExactOrigin(origin) {
   return /^https:\/\/[a-zA-Z0-9.-]+(?::\d+)?$/.test(origin) && !origin.includes('*');
 }
 
-const files = listFrontendFiles();
+let files;
+try {
+  files = listFrontendFiles();
+} catch (error) {
+  console.error('❌ Failed to enumerate frontend source files for key governance checks');
+  console.error(error?.message || String(error));
+  process.exit(1);
+}
 const usages = findViteApiKeyUsages(files);
 const policy = loadPolicy();
 const rules = policy?.keys ?? {};
