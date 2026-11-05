@@ -13,11 +13,13 @@ on:
   pull_request:
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - "scripts/ci/check-active-migration-seeds.mjs"
       - ".github/workflows/migration-chain-integrity.yml"
   push:
     branches: [main, develop]
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - "scripts/ci/check-active-migration-seeds.mjs"
       - ".github/workflows/migration-chain-integrity.yml"
   schedule:
     # Nightly at 03:00 UTC — catches drift even when no migration PRs are open.
@@ -108,6 +110,9 @@ jobs:
             LANGUAGE sql STABLE
             AS $$ SELECT 'anon'::text $$;
           SQL
+
+      - name: Reject development seeds in active migrations
+        run: node scripts/ci/check-active-migration-seeds.mjs
 
       - name: Apply active migrations in order
         run: |
