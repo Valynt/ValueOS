@@ -155,6 +155,7 @@ BEGIN
 
   UPDATE public.users
   SET email = v_placeholder_email,
+      name = NULL,
       full_name = NULL,
       display_name = NULL,
       avatar_url = NULL,
