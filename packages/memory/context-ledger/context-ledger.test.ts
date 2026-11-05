@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 // Prevent the real `redis` package from being loaded — the tests inject
 // InMemoryRedis directly via the `redis` constructor option.
-vi.mock('../../shared/src/lib/redisClient.js', () => ({
+vi.mock('@valueos/shared/lib/redisClient', () => ({
   getRedisClient: () => Promise.resolve(null),
 }));
 
