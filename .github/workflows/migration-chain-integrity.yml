@@ -171,6 +171,15 @@ jobs:
                 break
               fi
             fi
+            if [[ "$filename" == "20260321010000_dsr_erase_user_pii_rpc.sql" ]]; then
+              echo "  verifying: privileged DSR negative authorization tests"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-dsr-authorization.sql; then
+                echo "FAILED: tenant-scoped DSR authorization contract"
+                FAILED=1
+                break
+              fi
+            fi
           done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -name "*.sql" -print0 | sort -z)
 
           if [ "$FAILED" -eq 1 ]; then
