@@ -52,7 +52,7 @@ await build({
   plugins: [{
     name: 'exclude-dev-routes-from-production',
     setup(build) {
-      build.onResolve({ filter: /^\\.\\/routes\\/devRoutes\\.js$/ }, (args) => {
+      build.onResolve({ filter: /^\.\/routes\/devRoutes\.js$/ }, (args) => {
         if (!args.importer.endsWith('/src/server.ts')) {
           throw new Error('Unexpected devRoutes import from ' + args.importer);
         }
