@@ -64,12 +64,12 @@ describe("XSS / unsafe HTML rendering", () => {
     expect(sanitized).toContain("&lt;svg onload=");
   });
 
-  it("escapes template injection payloads", () => {
+  it("encodes text quotes but leaves template syntax (not template protection)", () => {
     const malicious = '{{constructor.constructor("return this")()}}';
     const sanitized = sanitizeHtml(malicious);
-    // Template injection doesn't involve HTML chars, so should pass through
-    // but the key test is that HTML chars are escaped
-    expect(sanitized).toBe(malicious); // No HTML to escape
+    // HTML text encoding does not make a template expression safe for a
+    // template engine. The quotes are encoded, but curly braces remain.
+    expect(sanitized).toBe('{{constructor.constructor(&quot;return this&quot;)()}}');
   });
 
   it("escapes mixed HTML and script content", () => {
@@ -98,6 +98,12 @@ describe("SSRF prevention on fetch/export paths", () => {
       return { allowed: false, reason: "Invalid URL format" };
     }
 
+    // Protocol allowlist comes first, even for local/private addresses.
+    // This is still an illustrative helper, not DNS-aware SSRF protection.
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
+    }
+
     // Block internal/metadata endpoints
     const blockedHosts = [
       "localhost",
@@ -116,11 +122,6 @@ describe("SSRF prevention on fetch/export paths", () => {
     const privateIpRegex = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
     if (privateIpRegex.test(parsed.hostname)) {
       return { allowed: false, reason: `Blocked private IP: ${parsed.hostname}` };
-    }
-
-    // Block non-HTTP(S) protocols
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
     }
 
     return { allowed: true };
@@ -456,7 +457,7 @@ describe("prompt injection / unsafe agent-input handling", () => {
 
     // Common prompt injection patterns
     const injectionPatterns = [
-      { regex: /ignore (previous|all) (instructions|rules|prompts)/i, name: "ignore-previous-instructions" },
+      { regex: /ignore (?:all )?(?:previous )?(?:instructions|rules|prompts)/i, name: "ignore-previous-instructions" },
       { regex: /you are now (in |)(developer|system|admin) mode/i, name: "developer-mode-escalation" },
       { regex: /disregard (the |)(above|previous) (instructions|rules|context)/i, name: "disregard-instructions" },
       { regex: /system:|<\|system\|>|<\|im_start\|>/i, name: "system-prompt-spoofing" },
