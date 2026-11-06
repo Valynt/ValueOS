@@ -10,6 +10,7 @@ on:
       - "packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts"
       - "packages/backend/src/services/__tests__/kafkaConfig.test.ts"
       - "tests/security/owasp-behavioral-security.test.ts"
+      - "tests/security/vitest.fixtures.config.ts"
       - "scripts/ci/check-security-test-syntax.mjs"
       - "scripts/ci/__tests__/check-security-test-syntax.test.mjs"
       - ".github/workflows/security-test-integrity.yml"
@@ -19,6 +20,7 @@ on:
       - "packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts"
       - "packages/backend/src/services/__tests__/kafkaConfig.test.ts"
       - "tests/security/owasp-behavioral-security.test.ts"
+      - "tests/security/vitest.fixtures.config.ts"
       - "scripts/ci/check-security-test-syntax.mjs"
       - "scripts/ci/__tests__/check-security-test-syntax.test.mjs"
       - ".github/workflows/security-test-integrity.yml"
@@ -54,5 +56,5 @@ jobs:
           packages/backend/src/services/__tests__/kafkaConfig.test.ts
       - name: Execute OWASP illustrative fixtures in security Vitest lane
         run: >-
-          pnpm exec vitest run --config tests/security/vitest.security.config.ts
+          pnpm exec vitest run --config tests/security/vitest.fixtures.config.ts
           tests/security/owasp-behavioral-security.test.ts
