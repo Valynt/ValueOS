@@ -16,6 +16,7 @@ on:
       - "scripts/ci/check-active-migration-seeds.mjs"
       - "scripts/ci/*migration-versions*"
       - "scripts/ci/*value-modeling-scope*"
+      - "scripts/ci/*billing-scope*"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
@@ -26,6 +27,7 @@ on:
       - "scripts/ci/check-active-migration-seeds.mjs"
       - "scripts/ci/*migration-versions*"
       - "scripts/ci/*value-modeling-scope*"
+      - "scripts/ci/*billing-scope*"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
@@ -155,6 +157,9 @@ jobs:
 
       - name: Verify fresh and populated value-modeling scope repairs
         run: node scripts/ci/test-value-modeling-scope.mjs
+
+      - name: Verify fresh and populated billing compatibility, RLS, and rollback
+        run: node scripts/ci/test-billing-scope.mjs
 
       - name: Apply active migrations in order
         run: |
