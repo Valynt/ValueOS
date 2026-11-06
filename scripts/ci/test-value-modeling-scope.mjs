@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireDisposableLocalDatabaseUrl, sanitizedPsqlEnvironment } from './local-postgres-safety.mjs';
 const root = resolve(import.meta.dirname, '../..');
 const read = path => readFileSync(resolve(root, path), 'utf8');
 const migration = name => read(`infra/supabase/supabase/migrations/${name}.sql`);
@@ -128,15 +129,11 @@ export async function runScopeRegressionSuite(createDatabase) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   // The runner creates databases only on an explicit LOCAL disposable PG service.
-  const url = new URL(process.env.DATABASE_URL ?? '');
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-    || url.search || url.hash || !['postgres:', 'postgresql:'].includes(url.protocol)) {
-    throw new Error('A local disposable DATABASE_URL without routing overrides is required');
-  }
+  const url = requireDisposableLocalDatabaseUrl(process.env.DATABASE_URL);
   const execute = (databaseUrl, sql) => {
     try {
       execFileSync('psql', ['-X', '--no-password', '-v', 'ON_ERROR_STOP=1', databaseUrl],
-        { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+        { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env: sanitizedPsqlEnvironment() });
     } catch (error) {
       throw new Error(String(error.stderr ?? 'psql execution failed'));
     }
