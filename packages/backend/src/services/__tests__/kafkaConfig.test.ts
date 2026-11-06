@@ -166,3 +166,4 @@ describe('kafkaConfig', () => {
       expect(config.sasl).toBeUndefined();
     });
   });
+});
