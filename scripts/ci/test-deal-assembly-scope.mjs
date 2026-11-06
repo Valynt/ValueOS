@@ -125,7 +125,20 @@ function visible(u, tenant, jwtTenant) {
   apply(u, before); apply(u, newer); apply(u, after);
   preserved(u);
   assert.equal(visible(u, TEN_A, TEN_A), 1);
-  assert.equal(visible(u, TEN_B, TEN_B), 0);
+  // A foreign TEN_B row must ACTUALLY exist during the read. Otherwise
+  // count=0 would pass even with RLS disabled and the test would be vacuous.
+  const forgedTenantRead = [
+    'BEGIN;',
+    "INSERT INTO public.deal_contexts(id,tenant_id,organization_id,opportunity_id,case_id) VALUES (" +
+      "'77777777-7777-4777-8777-777777777777','" + TEN_B + "','" + ORG_B + "','" + OPP + "',NULL);",
+    'SET LOCAL ROLE authenticated;',
+    "SET LOCAL request.jwt.claim.sub='" + USER + "';",
+    "SET LOCAL request.jwt.claims='{\\\"tenant_id\\\":\\\"" + TEN_B + "\\\"}';",
+    "SELECT count(*) FROM public.deal_contexts WHERE tenant_id='" + TEN_B + "';",
+    'ROLLBACK;',
+  ].join('\\n');
+  assert.equal(count(u, forgedTenantRead), 0, 'member of A must never read a real B row by forging JWT tenant claim');
+  assert.equal(count(u, "SELECT count(*) FROM public.deal_contexts;"), 1, 'foreign row must be rolled back');
   assert.equal(count(u, "SELECT count(*) FROM pg_trigger WHERE tgrelid='public.deal_contexts'::regclass " +
     "AND tgname IN ('update_deal_contexts_updated_at','legacy_deal_deal_contexts_updated_at');"), 1);
   assert.equal(sql(u, "SELECT atttypid::regtype::text FROM pg_attribute " +
