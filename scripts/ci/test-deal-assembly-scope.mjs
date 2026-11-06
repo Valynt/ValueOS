@@ -68,11 +68,11 @@ function disposableDb() {
     'CREATE TABLE public.user_tenants (tenant_id text NOT NULL, user_id text NOT NULL);',
     'CREATE FUNCTION security.user_has_tenant_access(t uuid) RETURNS boolean ' +
       'LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public ' +
-      '$fn$ SELECT EXISTS(SELECT 1 FROM public.user_tenants ' +
+      'AS $fn$ SELECT EXISTS(SELECT 1 FROM public.user_tenants ' +
       'WHERE tenant_id=t::text AND user_id=auth.uid()::text) $fn$;',
     'CREATE FUNCTION security.user_has_tenant_access(t text) RETURNS boolean ' +
       'LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public ' +
-      '$fn$ SELECT EXISTS(SELECT 1 FROM public.user_tenants ' +
+      'AS $fn$ SELECT EXISTS(SELECT 1 FROM public.user_tenants ' +
       'WHERE tenant_id=t AND user_id=auth.uid()::text) $fn$;',
     'GRANT USAGE ON SCHEMA auth, security TO authenticated;',
     'GRANT SELECT ON public.organizations, public.value_cases TO authenticated;',
