@@ -140,4 +140,25 @@ function verifyIsolation(u) {
   assert.equal(scalar(u,'SELECT count(*) FROM public.billing_price_versions WHERE tenant_id IS NULL'),3);
   console.log('PASS: ambiguous global price rejected atomically');
 }
+{
+  // A separate, empty disposable DB models the historical org-only shape.
+  // Do NOT DROP any populated table/column to simulate it.
+  const name='valueos_billing_orgonly_'+randomBytes(8).toString('hex');
+  sql(base.href,'CREATE DATABASE '+name+';');
+  const u=new URL(base); u.pathname='/'+name;
+  sql(u.href, [
+    'CREATE SCHEMA security;',
+    "CREATE FUNCTION security.user_has_tenant_access(text) RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;",
+    'CREATE TABLE public.organizations(id uuid PRIMARY KEY, tenant_id text NOT NULL);'
+  ].join('\n'));
+  run(u.href,old);
+  sql(u.href,"INSERT INTO public.organizations VALUES ('"+OA+"','"+A+"');"+
+    "INSERT INTO public.billing_price_versions(organization_id,version_tag,plan_tier,definition) "+
+    "VALUES ('"+OA+"','org-only','free','{}');");
+  reject(u.href,m(post),/Organization-first billing schema is incompatible/i);
+  assert.equal(scalar(u.href,'SELECT count(*) FROM public.billing_price_versions'),1);
+  assert.equal(scalar(u.href,
+    "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='billing_price_versions' AND column_name='tenant_id'"),0);
+  console.log('PASS: organization-only incompatible pricing/approval shape rejects without mutation');
+}
 console.log('BILLING_SCOPE_TARGETED_PASSED; real Supabase Auth and full history remain separate gates');
