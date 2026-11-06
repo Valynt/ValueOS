@@ -41,7 +41,7 @@ sql(u,[
 'CREATE SCHEMA auth;',
 'CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS '+
   "$fn$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $fn$;",
-'GRANT USAGE ON SCHEMA auth TO authenticated;',
+'GRANT USAGE ON SCHEMA auth TO authenticated, service_role;',
 'CREATE TABLE public.user_tenants (tenant_id text NOT NULL,user_id text NOT NULL,'+
   "role text DEFAULT 'member', status text DEFAULT 'active', created_at timestamptz DEFAULT now(),"+
   'updated_at timestamptz DEFAULT now(), PRIMARY KEY(tenant_id,user_id));',
