@@ -342,6 +342,12 @@ BEGIN
   END LOOP;
 END $duplicate_triggers$;
 
+-- SECURITY INVOKER trigger helpers require these parent lookups as the
+-- service role; their grant must not depend on external default privileges.
+-- Only key/scope columns are granted, not full profile or case contents.
+GRANT SELECT (id, tenant_id) ON public.organizations TO service_role;
+GRANT SELECT (id, organization_id, tenant_id) ON public.value_cases TO service_role;
+
 GRANT ALL ON public.deal_contexts, public.deal_context_sources,
   public.stakeholders, public.use_cases TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.deal_contexts,
