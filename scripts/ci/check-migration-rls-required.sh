@@ -239,13 +239,13 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
     continue
   fi
 
-  if ! grep -qiE "SET[[:space:]]+lock_timeout" "$mfile" 2>/dev/null; then
+  if ! grep -qiE "SET[[:space:]]+(LOCAL[[:space:]]+)?lock_timeout" "$mfile" 2>/dev/null; then
     echo "::error file=${mfile}::Migration is missing 'SET lock_timeout = ...' declaration. Add it at the top of the file to prevent long table locks during deployment."
     echo "FAIL ${mfile}: missing SET lock_timeout declaration"
     EXIT_CODE=1
   fi
 
-  if ! grep -qiE "SET[[:space:]]+statement_timeout" "$mfile" 2>/dev/null; then
+  if ! grep -qiE "SET[[:space:]]+(LOCAL[[:space:]]+)?statement_timeout" "$mfile" 2>/dev/null; then
     echo "::error file=${mfile}::Migration is missing 'SET statement_timeout = ...' declaration. Add it at the top of the file to cap runaway statements."
     echo "FAIL ${mfile}: missing SET statement_timeout declaration"
     EXIT_CODE=1
