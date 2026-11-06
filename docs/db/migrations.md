@@ -10,10 +10,18 @@ All schema changes must originate from the same migration source directory:
 
 - `infra/supabase/supabase/migrations`
 
-Only the canonical top-level migration files in that directory are used for the baseline release plan:
+Active migrations are all top-level `.sql` files, excluding
+`*.rollback.sql`, applied in ascending filename order. The first files
+include `00000000000000_initial_release_baseline.sql`,
+`20260213000004_tenant_identity_prerequisites.sql` and
+`20260213000005_organizations_table.sql`; canonical identity follows at
+`20260213000010_canonical_identity_baseline.sql`.
 
-1. `00000000000000_initial_release_baseline.sql`
-2. `00000000000001_initial_seed_minimal.sql`
+Do not put demo users or hardcoded passwords in the active migration path.
+`scripts/ci/check-active-migration-seeds.mjs` enforces that invariant.
+Optional local development tenant/membership data is created separately
+through `scripts/db/seed-local-demo.sh`, requiring explicit opt-in and an
+existing local Auth user.
 
 ## 1) Generate `docs/db/schema_snapshot.sql` from staging/canonical DB
 
@@ -22,13 +30,13 @@ Use a clean database, apply migrations in deterministic order, and then dump sch
 ```bash
 # From repo root
 export MIGRATIONS_DIR="infra/supabase/supabase/migrations"
-export DIRECT_DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<db>"
+export DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<db>"
 
 # Apply deterministic migration plan (same order every run)
 pnpm db:migrate
 
 # Export canonical schema snapshot (deterministic pg_dump flags)
-pg_dump "$DIRECT_DATABASE_URL" \
+pg_dump "$DATABASE_URL" \
   --schema-only \
   --no-owner \
   --no-privileges \
@@ -38,7 +46,7 @@ pg_dump "$DIRECT_DATABASE_URL" \
 
 Determinism requirements:
 
-- Always apply migrations using the explicit plan in `scripts/migrate.sh` (no globbing).
+- Apply migrations with `scripts/db/apply-migrations.sh`; it sorts the active top-level SQL files and excludes rollbacks.
 - Always use the same migration source directory: `infra/supabase/supabase/migrations`.
 - Keep snapshot generation flags consistent (`--schema-only --no-owner --no-privileges --quote-all-identifiers`).
 
@@ -48,11 +56,11 @@ During release validation, create a fresh database, apply the same deterministic
 
 ```bash
 # Apply migrations to a fresh release-check DB
-export DIRECT_DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<release_check_db>"
+export DATABASE_URL="postgresql://<USER>:<PASSWORD>@<host>:<port>/<release_check_db>"
 pnpm db:migrate
 
 # Dump post-migration schema for comparison
-pg_dump "$DIRECT_DATABASE_URL" \
+pg_dump "$DATABASE_URL" \
   --schema-only \
   --no-owner \
   --no-privileges \

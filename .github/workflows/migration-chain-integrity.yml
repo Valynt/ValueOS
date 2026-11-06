@@ -13,11 +13,21 @@ on:
   pull_request:
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - "scripts/ci/check-active-migration-seeds.mjs"
+      - "scripts/ci/*migration-versions*"
+      - "scripts/ci/*value-modeling-scope*"
+      - "scripts/ci/fixtures/value-modeling-scope.sql"
+      - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
   push:
     branches: [main, develop]
     paths:
       - "infra/supabase/supabase/migrations/**"
+      - "scripts/ci/check-active-migration-seeds.mjs"
+      - "scripts/ci/*migration-versions*"
+      - "scripts/ci/*value-modeling-scope*"
+      - "scripts/ci/fixtures/value-modeling-scope.sql"
+      - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
   schedule:
     # Nightly at 03:00 UTC — catches drift even when no migration PRs are open.
@@ -29,6 +39,23 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  version-integrity:
+    name: Unique Supabase migration versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify version collision detector
+        run: node --test scripts/ci/__tests__/check-migration-versions.test.mjs
+      - name: Reject duplicate versions and capture exact inventory
+        run: node scripts/ci/check-migration-versions.mjs --inventory > migration-version-inventory.json
+      - name: Retain inventory even when the gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-version-inventory
+          path: migration-version-inventory.json
+          if-no-files-found: error
+
   clean-apply:
     name: Clean apply from zero
     runs-on: ubuntu-latest
@@ -92,22 +119,42 @@ jobs:
             $$;
 
             CREATE SCHEMA IF NOT EXISTS auth;
+            GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+
+            -- Test-only minimal Supabase Auth *schema* contract; production
+            -- migrations must never create/fabricate auth identities.
+            -- Real Supabase integration tests remain a separate release gate.
+            CREATE TABLE auth.users (
+              id uuid PRIMARY KEY
+            );
 
             CREATE OR REPLACE FUNCTION auth.uid()
             RETURNS uuid
             LANGUAGE sql STABLE
-            AS $$ SELECT NULL::uuid $$;
+            AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 
             CREATE OR REPLACE FUNCTION auth.jwt()
             RETURNS jsonb
             LANGUAGE sql STABLE
-            AS $$ SELECT '{}'::jsonb $$;
+            AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
 
             CREATE OR REPLACE FUNCTION auth.role()
             RETURNS text
             LANGUAGE sql STABLE
-            AS $$ SELECT 'anon'::text $$;
+            AS $$ SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), 'anon')::text $$;
           SQL
+
+      - name: Verify active-migration seed guard against bypass fixtures
+        run: node --test scripts/ci/__tests__/check-active-migration-seeds.test.mjs
+
+      - name: Verify local seed destination cannot be redirected remotely
+        run: bash scripts/db/__tests__/seed-local-demo.test.sh
+
+      - name: Reject development seeds in active migrations
+        run: node scripts/ci/check-active-migration-seeds.mjs
+
+      - name: Verify fresh and populated value-modeling scope repairs
+        run: node scripts/ci/test-value-modeling-scope.mjs
 
       - name: Apply active migrations in order
         run: |
@@ -138,6 +185,38 @@ jobs:
               cat /tmp/migration_output.txt
               FAILED=1
               break
+            fi
+
+            # Verify the canonical identity boundary on the actual migrated
+            # schema before applying downstream user-FK migrations. Transaction
+            # fixtures roll back; any negative RLS/FK assertion is fatal.
+            if [[ "$filename" == "20260317010000_canonical_public_users_identity.sql" ]]; then
+              echo "  verifying: canonical identity UUID/FK/RLS negative tests"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-canonical-users.sql; then
+                echo "FAILED: canonical users identity contract"
+                FAILED=1
+                break
+              fi
+            fi
+            if [[ "$filename" == "20260321010000_dsr_erase_user_pii_rpc.sql" ]]; then
+              echo "  verifying: privileged DSR negative authorization tests"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-dsr-authorization.sql; then
+                echo "FAILED: tenant-scoped DSR authorization contract"
+                FAILED=1
+                break
+              fi
+            fi
+            if [[ "$filename" == "20261105000000_canonical_identity_security_reconciliation.sql" ]]; then
+              echo "  verifying: final UUID/RLS and DSR authorization after forward reconciliation"
+              if ! PGPASSWORD=postgres psql "$DB" -X -v ON_ERROR_STOP=1 \
+                  -f scripts/ci/verify-canonical-users.sql \
+                  -f scripts/ci/verify-dsr-authorization.sql; then
+                echo "FAILED: final canonical identity security contract"
+                FAILED=1
+                break
+              fi
             fi
           done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -name "*.sql" -print0 | sort -z)
 

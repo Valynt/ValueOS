@@ -95,6 +95,35 @@ BEGIN
     RAISE EXCEPTION 'request_token is required' USING ERRCODE = '22023';
   END IF;
 
+  -- SECURITY DEFINER bypasses ordinary RLS. Never let a plain
+  -- authenticated member invoke this RPC to erase another user's PII:
+  -- only active tenant owners/admins (or trusted service_role) can perform
+  -- the tenant-scoped erasure, irrespective of caller-supplied tenant ID.
+  IF COALESCE(auth.role(), '') <> 'service_role'
+     AND NOT EXISTS (
+       SELECT 1 FROM public.user_tenants AS actor_membership
+       WHERE actor_membership.user_id = auth.uid()::text
+         AND actor_membership.tenant_id = p_tenant_id
+         AND actor_membership.status = 'active'
+         AND actor_membership.role IN ('owner', 'admin')
+     ) THEN
+    RAISE EXCEPTION 'Tenant administrator authorization required for DSR erasure'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- A public.users row is a global Auth identity with ONE home tenant.
+  -- An erasure for one tenant must not anonymize a profile still used by
+  -- other active tenants. Fail closed and require coordinated DSR review.
+  IF EXISTS (
+    SELECT 1 FROM public.user_tenants AS ut
+    WHERE ut.user_id = p_user_id::text
+      AND ut.status = 'active'
+      AND ut.tenant_id <> p_tenant_id
+  ) THEN
+    RAISE EXCEPTION 'Cross-tenant identity erasure requires coordinated review'
+      USING ERRCODE = '42501';
+  END IF;
+
   INSERT INTO public.dsr_erasure_requests (
     tenant_id,
     user_id,
@@ -126,13 +155,14 @@ BEGIN
 
   UPDATE public.users
   SET email = v_placeholder_email,
+      name = NULL,
       full_name = NULL,
       display_name = NULL,
       avatar_url = NULL,
       metadata = COALESCE(metadata, '{}'::jsonb)
         || jsonb_build_object('anonymized', true, 'anonymized_at', p_redacted_ts)
-  WHERE id::text = p_user_id::text
-    AND tenant_id::text = p_tenant_id;
+  WHERE id = p_user_id
+    AND tenant_id = p_tenant_id;
   GET DIAGNOSTICS v_users_updated = ROW_COUNT;
 
   IF v_users_updated = 0 THEN

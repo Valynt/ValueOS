@@ -182,6 +182,40 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
       continue
     fi
 
+    # Exact legacy schema reconciliation only. Existing identity/team/audit
+    # tables and the historical DSR request ledger predate the UUID
+    # organization_id standard; adding a fake UUID field would break their
+    # established TEXT tenant identity contract. Require canonical table
+    # provenance, legacy type, and explicit RLS. No general exemption.
+    prereq_shape=""
+    canonical=""
+    case "$(basename "$mfile"):$table" in
+      20260213000004_tenant_identity_prerequisites.sql:tenants)
+        prereq_shape="id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:user_tenants)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:teams)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000007_teams_roles_tables.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:security_audit_log)
+        prereq_shape="tenant_id[[:space:]]+uuid"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260321010000_dsr_erase_user_pii_rpc.sql:dsr_erasure_requests)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260321010000_dsr_erase_user_pii_rpc.sql" ;;
+    esac
+    if [ -n "$prereq_shape" ]; then
+      if ! grep -qiE "CREATE[[:space:]]+TABLE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+public\\.$table[[:space:]]*\\(" "$canonical" \
+         || ! grep -qiE "$prereq_shape" "$mfile" \
+         || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile"; then
+        echo "FAIL $mfile: legacy table public.$table missing canonical type/provenance or RLS"
+        EXIT_CODE=1
+      fi
+      continue
+    fi
+
     # Check that organization_id UUID NOT NULL appears in the file
     # Accept: "organization_id UUID NOT NULL" or "organization_id uuid not null"
     if ! grep -qiE "organization_id[[:space:]]+UUID[[:space:]]+NOT[[:space:]]+NULL" "$mfile" 2>/dev/null; then
