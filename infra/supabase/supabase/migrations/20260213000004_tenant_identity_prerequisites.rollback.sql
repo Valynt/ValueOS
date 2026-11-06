@@ -26,6 +26,12 @@ BEGIN
       RAISE EXCEPTION 'Unexpected identity prerequisite object type: %', target;
     END IF;
 
+    -- Lock BEFORE checking emptiness: ACCESS SHARE is not sufficient since
+    -- a concurrent INSERT could commit between the check and DROP.
+    -- The ACCESS EXCLUSIVE lock is held through COMMIT, or the rollback
+    -- fails closed on lock_timeout without deleting any data.
+    EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', target);
+
     -- Dynamic SQL is limited to four static, validated identifiers above.
     IF target = 'security_audit_log' THEN
       IF EXISTS (SELECT 1 FROM public.security_audit_log LIMIT 1) THEN
