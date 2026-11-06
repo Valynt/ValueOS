@@ -22,6 +22,34 @@ DECLARE
   uuid_pattern constant text :=
     '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 BEGIN
+  -- The organization-first billing DDL is NOT yet a compatible replacement
+  -- for the initial-release contract: it forbids global price rows, uses a
+  -- different approvals PK and lacks the tenant/action upsert constraint.
+  -- Reject this observed shape rather than claim a silent upgrade succeeded.
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute
+      WHERE attrelid = 'public.billing_price_versions'::regclass
+        AND attname = 'organization_id' AND attnotnull AND NOT attisdropped
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'billing_price_versions'
+        AND indexname = 'idx_billing_price_versions_global_tag_tier_unique'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_attribute
+      WHERE attrelid = 'public.billing_approval_requests'::regclass
+        AND attname = 'approval_id' AND atttypid = 'uuid'::regtype
+        AND NOT attisdropped
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+      WHERE conrelid = 'public.billing_approval_policies'::regclass
+        AND conname = 'billing_approval_policies_tenant_action_unique'
+        AND contype = 'u'
+  ) THEN
+    RAISE EXCEPTION 'Organization-first billing schema is incompatible with global pricing and legacy approval callers; reviewed forward repair required'
+      USING ERRCODE = '23514';
+  END IF;
+
   -- Create only missing scope columns. Existing types are never rewritten.
   FOREACH tbl IN ARRAY ARRAY[
     'billing_price_versions', 'usage_policies', 'billing_approval_policies',
