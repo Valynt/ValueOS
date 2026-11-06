@@ -81,6 +81,16 @@ assert.equal(count("SELECT count(*) FROM public.user_tenants WHERE role='member'
 assert.equal(count("SELECT count(*) FROM public.user_tenants WHERE role='admin';"),0);
 sql(u,m(after));
 assert.equal(count("SELECT count(*) FROM pg_policy WHERE NOT polpermissive AND polname LIKE 'user_tenants_authenticated_%_deny';"),3);
+const asService = [
+  'BEGIN;',
+  'SET LOCAL ROLE service_role;',
+  "UPDATE public.user_tenants SET role='admin' WHERE user_id='"+USER+"';",
+  "SELECT count(*) FROM public.user_tenants WHERE role='admin' AND user_id='"+USER+"';",
+  'ROLLBACK;',
+].join('\n');
+assert.equal(count(asService),1,'authorized service-role path must remain functional');
+assert.equal(count("SELECT count(*) FROM public.user_tenants WHERE role='member';"),1,
+  'service-role test mutation must roll back');
 sql(u,m(after+'.rollback'));
 assert.throws(()=>sql(u,asMember("UPDATE public.user_tenants SET role='admin';")),/permission denied|row-level security policy/i);
 console.log('MEMBERSHIP_SCOPE_TARGETED_PASSED: self-promote/enroll/delete denied; existing rows and service-managed path preserved');
