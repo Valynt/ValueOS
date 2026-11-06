@@ -133,10 +133,10 @@ function visible(u, tenant, jwtTenant) {
       "'77777777-7777-4777-8777-777777777777','" + TEN_B + "','" + ORG_B + "','" + OPP + "',NULL);",
     'SET LOCAL ROLE authenticated;',
     "SET LOCAL request.jwt.claim.sub='" + USER + "';",
-    "SET LOCAL request.jwt.claims='{\\\"tenant_id\\\":\\\"" + TEN_B + "\\\"}';",
+    "SET LOCAL request.jwt.claims='{\"tenant_id\":\"" + TEN_B + "\"}';",
     "SELECT count(*) FROM public.deal_contexts WHERE tenant_id='" + TEN_B + "';",
     'ROLLBACK;',
-  ].join('\\n');
+  ].join('\n');
   assert.equal(count(u, forgedTenantRead), 0, 'member of A must never read a real B row by forging JWT tenant claim');
   assert.equal(count(u, "SELECT count(*) FROM public.deal_contexts;"), 1, 'foreign row must be rolled back');
   assert.equal(count(u, "SELECT count(*) FROM pg_trigger WHERE tgrelid='public.deal_contexts'::regclass " +
