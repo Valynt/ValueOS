@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { requireDisposableLocalDatabaseUrl, sanitizedPsqlEnvironment } from './local-postgres-safety.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const m = name => readFileSync(resolve(root, 'infra/supabase/supabase/migrations', name + '.sql'), 'utf8');
@@ -14,16 +15,13 @@ const old = '20260318160751_billing_v2_core_tables';
 assert.equal(m(pre), m(post), 'Fresh/replay and forward repairs must be identical');
 assert.equal(m(pre + '.rollback'), m(post + '.rollback'));
 
-const base = new URL(process.env.DATABASE_URL ?? '');
-if (!['localhost','127.0.0.1','[::1]'].includes(base.hostname) ||
-    !['postgres:','postgresql:'].includes(base.protocol) || base.search || base.hash)
-  throw new Error('Refusing remote database: require disposable localhost DATABASE_URL');
+const base = requireDisposableLocalDatabaseUrl(process.env.DATABASE_URL);
 
 function sql(url, script) {
   try {
     return execFileSync('psql',
       ['-X','--no-password','-A','-t','-v','ON_ERROR_STOP=1',url],
-      { input: script, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }).trim();
+      { input: script, encoding: 'utf8', stdio: ['pipe','pipe','pipe'], env: sanitizedPsqlEnvironment() }).trim();
   } catch (error) { throw new Error(String(error.stderr ?? 'psql failed')); }
 }
 const run = (url,name) => sql(url,m(name));
