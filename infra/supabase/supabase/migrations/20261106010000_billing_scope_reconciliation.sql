@@ -18,6 +18,7 @@ DECLARE
   col text;
   observed regtype;
   incompatible boolean;
+  had_tenant_column boolean;
   uuid_pattern constant text :=
     '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 BEGIN
@@ -26,6 +27,10 @@ BEGIN
     'billing_price_versions', 'usage_policies', 'billing_approval_policies',
     'billing_approval_requests', 'entitlement_snapshots'
   ] LOOP
+    SELECT EXISTS (SELECT 1 FROM pg_attribute
+      WHERE attrelid = format('public.%I', tbl)::regclass
+        AND attname = 'tenant_id' AND NOT attisdropped)
+      INTO had_tenant_column;
     EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS tenant_id uuid', tbl);
     EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS organization_id uuid', tbl);
     FOREACH col IN ARRAY ARRAY['tenant_id', 'organization_id'] LOOP
@@ -37,6 +42,17 @@ BEGIN
           tbl, col USING ERRCODE = '42804';
       END IF;
     END LOOP;
+
+    -- If an earlier tenant_id column existed, NULL pricing rows were global.
+    -- Do not convert one into a tenant price merely because an org is present.
+    IF tbl = 'billing_price_versions' AND had_tenant_column THEN
+      EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.billing_price_versions WHERE tenant_id IS NULL AND organization_id IS NOT NULL)'
+        INTO incompatible;
+      IF incompatible THEN
+        RAISE EXCEPTION 'Global billing price has an organization without tenant scope; ownership decision required'
+          USING ERRCODE = '23514';
+      END IF;
+    END IF;
 
     -- An organization-only row can be given a tenant only from an explicit,
     -- existing organizations.id -> organizations.tenant_id relationship.
