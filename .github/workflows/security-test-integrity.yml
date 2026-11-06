@@ -47,9 +47,12 @@ jobs:
         run: node --test scripts/ci/__tests__/check-security-test-syntax.test.mjs
       - name: Parse security-relevant TypeScript files
         run: node scripts/ci/check-security-test-syntax.mjs
-      - name: Execute security-related test fixtures
+      - name: Execute backend billing and eventing test fixtures
         run: >-
           pnpm exec vitest run
           packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts
           packages/backend/src/services/__tests__/kafkaConfig.test.ts
+      - name: Execute OWASP illustrative fixtures in security Vitest lane
+        run: >-
+          pnpm exec vitest run --config tests/security/vitest.security.config.ts
           tests/security/owasp-behavioral-security.test.ts
