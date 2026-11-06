@@ -50,7 +50,7 @@ from a partial installation.
 Run against an explicitly disposable local PostgreSQL service:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/valueos_test \
+DATABASE_URL="$DISPOSABLE_LOCAL_DATABASE_URL" \
   node scripts/ci/test-value-modeling-scope.mjs
 node --test scripts/ci/__tests__/check-migration-versions.test.mjs
 node scripts/ci/check-migration-versions.mjs --inventory > migration-version-inventory.json

@@ -76,9 +76,28 @@ export async function runScopeRegressionSuite(createDatabase) {
     console.log('PASS: populated backfill, forward replay, RLS collision/negative writes, rollback/reapply; destructive historical upgrade blocked');
   } finally { await db.close(); }
 
+  db = await setup();
+  try {
+    // Exercise the actual historical organization-only schema on an EMPTY
+    // installation, then populate it before the new forward reconciliation.
+    await db.exec(migration(bridge));
+    await db.exec(migration(historical));
+    await db.exec(migration('20260923000000_value_modeling_schema_consolidation'));
+    const fixture = read('scripts/ci/fixtures/value-modeling-scope.sql');
+    const split = fixture.indexOf('INSERT INTO public.assumptions');
+    const organizationRows = fixture.slice(split).replaceAll('tenant_id', 'organization_id')
+      .replaceAll('aaaaaaaa-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000111')
+      .replaceAll('bbbbbbbb-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000222');
+    await db.exec(fixture.slice(0, split) + organizationRows);
+    await db.exec(migration(forward));
+    await db.exec(stripMeta(read('scripts/ci/verify-value-modeling-scope.sql')));
+    console.log('PASS: populated historical organization-only schema upgrades without data loss');
+  } finally { await db.close(); }
+
   for (const mutation of [
     "UPDATE public.value_cases SET organization_id = NULL WHERE id = '40000000-0000-4000-8000-000000000111'",
     "UPDATE public.value_cases SET tenant_id = 'scope-text-tenant' WHERE id = '40000000-0000-4000-8000-000000000111'",
+    "UPDATE public.scenarios SET tenant_id = 'aaaaaaaa-0000-4000-8000-000000000001' WHERE id = '60000000-0000-4000-8000-000000000222'",
   ]) {
     db = await setup();
     try {
