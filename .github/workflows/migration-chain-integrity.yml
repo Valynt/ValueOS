@@ -19,6 +19,7 @@ on:
       - "scripts/ci/*billing-scope*"
       - "scripts/ci/*deal-assembly-scope*"
       - "scripts/ci/local-postgres-safety.mjs"
+      - "scripts/ci/test-membership-authorization.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
@@ -32,6 +33,7 @@ on:
       - "scripts/ci/*billing-scope*"
       - "scripts/ci/*deal-assembly-scope*"
       - "scripts/ci/local-postgres-safety.mjs"
+      - "scripts/ci/test-membership-authorization.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
       - ".github/workflows/migration-chain-integrity.yml"
@@ -158,6 +160,9 @@ jobs:
 
       - name: Reject development seeds in active migrations
         run: node scripts/ci/check-active-migration-seeds.mjs
+
+      - name: Verify authenticated membership self-promotion and enrollment are denied
+        run: node scripts/ci/test-membership-authorization.mjs
 
       - name: Reject libpq routing overrides in disposable database runners
         run: node --test scripts/ci/__tests__/local-postgres-safety.test.mjs
