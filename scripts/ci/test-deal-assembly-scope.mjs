@@ -131,6 +131,11 @@ function visible(u, tenant, jwtTenant) {
     'BEGIN;',
     "INSERT INTO public.deal_contexts(id,tenant_id,organization_id,opportunity_id,case_id) VALUES (" +
       "'77777777-7777-4777-8777-777777777777','" + TEN_B + "','" + ORG_B + "','" + OPP + "',NULL);",
+    // Model the dangerous UUID collision: subject is a member of a tenant whose
+    // tenant_id matches ORG_B UUID, NOT the true TEN_B row tenant.
+    // If the later permissive organization_id::text policy OR-grants access,
+    // this real foreign row becomes visible when restrictive guards disappear.
+    "INSERT INTO public.user_tenants(tenant_id,user_id) VALUES ('" + ORG_B + "','" + USER + "');",
     'SET LOCAL ROLE authenticated;',
     "SET LOCAL request.jwt.claim.sub='" + USER + "';",
     "SET LOCAL request.jwt.claims='{\"tenant_id\":\"" + TEN_B + "\"}';",
