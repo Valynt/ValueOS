@@ -148,7 +148,7 @@ function verifyIsolation(u) {
   const u=new URL(base); u.pathname='/'+name;
   sql(u.href, [
     'CREATE SCHEMA security;',
-    "CREATE FUNCTION security.user_has_tenant_access(text) RETURNS boolean LANGUAGE sql STABLE AS $ SELECT false $;",
+    "CREATE FUNCTION security.user_has_tenant_access(text) RETURNS boolean LANGUAGE sql STABLE AS 'SELECT false';",
     'CREATE TABLE public.organizations(id uuid PRIMARY KEY, tenant_id text NOT NULL);'
   ].join('\n'));
   run(u.href,old);
