@@ -17,6 +17,7 @@ on:
       - "scripts/ci/*migration-versions*"
       - "scripts/ci/*value-modeling-scope*"
       - "scripts/ci/*billing-scope*"
+      - "scripts/ci/*deal-assembly-scope*"
       - "scripts/ci/local-postgres-safety.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
@@ -29,6 +30,7 @@ on:
       - "scripts/ci/*migration-versions*"
       - "scripts/ci/*value-modeling-scope*"
       - "scripts/ci/*billing-scope*"
+      - "scripts/ci/*deal-assembly-scope*"
       - "scripts/ci/local-postgres-safety.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
       - "scripts/ci/__tests__/**"
@@ -165,6 +167,9 @@ jobs:
 
       - name: Verify fresh and populated billing compatibility, RLS, and rollback
         run: node scripts/ci/test-billing-scope.mjs
+
+      - name: Verify deal assembly historical contracts, populated upgrade, RLS and rollback
+        run: node scripts/ci/test-deal-assembly-scope.mjs
 
       - name: Apply active migrations in order
         run: |
