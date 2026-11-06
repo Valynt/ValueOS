@@ -9,6 +9,9 @@ BEGIN
   IF to_regclass('public.users') IS NOT NULL
      AND obj_description(to_regclass('public.users'), 'pg_class')
        LIKE 'valueos-canonical-users:20260317010000%' THEN
+    -- Prevent concurrent inserts after the emptiness check but before DROP.
+    -- Held to transaction commit; lock_timeout fails closed.
+    LOCK TABLE public.users IN ACCESS EXCLUSIVE MODE;
     IF EXISTS (SELECT 1 FROM public.users LIMIT 1) THEN
       RAISE EXCEPTION 'Refusing identity rollback: users data exists';
     END IF;
