@@ -1,0 +1,55 @@
+name: Security test integrity
+
+# Separate from CodeQL because the repository's default-vs-advanced
+# code-scanning configuration conflict requires an authorized settings fix.
+# This gate checks parseability AND executes the examples; neither replaces
+# real production-bound security integration tests.
+on:
+  pull_request:
+    paths:
+      - "packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts"
+      - "packages/backend/src/services/__tests__/kafkaConfig.test.ts"
+      - "tests/security/owasp-behavioral-security.test.ts"
+      - "scripts/ci/check-security-test-syntax.mjs"
+      - "scripts/ci/__tests__/check-security-test-syntax.test.mjs"
+      - ".github/workflows/security-test-integrity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts"
+      - "packages/backend/src/services/__tests__/kafkaConfig.test.ts"
+      - "tests/security/owasp-behavioral-security.test.ts"
+      - "scripts/ci/check-security-test-syntax.mjs"
+      - "scripts/ci/__tests__/check-security-test-syntax.test.mjs"
+      - ".github/workflows/security-test-integrity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-integrity:
+    name: Parse and execute security test fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install frozen dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Regression-test the fail-closed parser
+        run: node --test scripts/ci/__tests__/check-security-test-syntax.test.mjs
+      - name: Parse security-relevant TypeScript files
+        run: node scripts/ci/check-security-test-syntax.mjs
+      - name: Execute security-related test fixtures
+        run: >-
+          pnpm exec vitest run
+          packages/backend/src/services/billing/__tests__/BillingOverridesService.test.ts
+          packages/backend/src/services/__tests__/kafkaConfig.test.ts
+          tests/security/owasp-behavioral-security.test.ts
