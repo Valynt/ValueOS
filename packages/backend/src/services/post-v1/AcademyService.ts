@@ -64,14 +64,14 @@ class AcademyService {
             quiz_config
           )
         `)
-        .eq('pillar', pillar.toString())
+        .eq('pillar', pillar)
         .order('display_order');
 
       if (error) throw error;
 
       return (data || []).map(m => ({
         id: m.id,
-        pillar: parseInt(m.pillar) as AcademyPillar,
+        pillar: Number(m.pillar) as AcademyPillar,
         title: m.title,
         description: m.description,
         order: m.display_order,

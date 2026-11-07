@@ -16,6 +16,8 @@
 SET search_path = public, pg_temp;
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '120s';
 
 -- =============================================================================
 -- PART 1: value_hypotheses
@@ -83,10 +85,31 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.value_hypotheses TO authenticated
 -- The 20260318160647 migration created yet another version with organization_id
 -- but no sensitivity_analysis table.
 --
--- Strategy: drop and recreate with the canonical definition.
--- Data loss is acceptable — the legacy table schema is incompatible with the
--- application code and no valid data can exist in it.
+-- Historical fresh-install strategy: recreate empty tables only.
+-- Never infer that a deployed table contains no valid data. The locked preflight
+-- below refuses populated upgrades; those require an audited forward-only plan.
 -- =============================================================================
+
+-- #2665: do not unlock the March chain by exposing populated databases to
+-- this historical destructive consolidation. Check ALL affected tables before
+-- the first DROP; keep locks until COMMIT to exclude concurrent inserts.
+DO $no_data_loss$
+DECLARE target text; populated boolean;
+BEGIN
+  FOREACH target IN ARRAY ARRAY[
+    'assumptions', 'scenarios', 'sensitivity_analysis', 'promise_baselines',
+    'promise_kpi_targets', 'promise_checkpoints', 'promise_handoff_notes'
+  ] LOOP
+    IF to_regclass(format('public.%I', target)) IS NOT NULL THEN
+      EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', target);
+      EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I LIMIT 1)', target) INTO populated;
+      IF populated THEN
+        RAISE EXCEPTION 'Refusing destructive value-modeling consolidation: public.% contains data; a reviewed forward-only upgrade is required', target
+          USING ERRCODE = '23514';
+      END IF;
+    END IF;
+  END LOOP;
+END $no_data_loss$;
 
 DROP TABLE IF EXISTS public.sensitivity_analysis CASCADE;
 DROP TABLE IF EXISTS public.scenarios CASCADE;

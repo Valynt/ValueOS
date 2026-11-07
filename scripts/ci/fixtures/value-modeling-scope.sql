@@ -1,0 +1,26 @@
+-- Disposable test data only. User UUIDs and organization UUIDs deliberately differ
+-- from tenant IDs. One membership collides with another organization's UUID.
+INSERT INTO auth.users(id) VALUES ('00000000-0000-4000-8000-000000000111'), ('00000000-0000-4000-8000-000000000222');
+INSERT INTO public.tenants(id,name) VALUES
+ ('aaaaaaaa-0000-4000-8000-000000000001','Scope A'),
+ ('bbbbbbbb-0000-4000-8000-000000000002','Scope B'),
+ ('20000000-0000-4000-8000-000000000222','Collision tenant'),
+ ('scope-text-tenant','Text tenant');
+INSERT INTO public.organizations(id,tenant_id,name) VALUES
+ ('10000000-0000-4000-8000-000000000111','aaaaaaaa-0000-4000-8000-000000000001','Scope A'),
+ ('20000000-0000-4000-8000-000000000222','bbbbbbbb-0000-4000-8000-000000000002','Scope B'),
+ ('30000000-0000-4000-8000-000000000333','scope-text-tenant','Scope Text');
+INSERT INTO public.user_tenants(tenant_id,user_id,role,status) VALUES
+ ('aaaaaaaa-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000111','member','active'),
+ ('20000000-0000-4000-8000-000000000222','00000000-0000-4000-8000-000000000111','member','active'),
+ ('bbbbbbbb-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000222','member','active');
+INSERT INTO public.value_cases(id,organization_id,tenant_id,name) VALUES
+ ('40000000-0000-4000-8000-000000000111','10000000-0000-4000-8000-000000000111','aaaaaaaa-0000-4000-8000-000000000001','Case A'),
+ ('40000000-0000-4000-8000-000000000222','20000000-0000-4000-8000-000000000222','bbbbbbbb-0000-4000-8000-000000000002','Case B'),
+ ('40000000-0000-4000-8000-000000000333','30000000-0000-4000-8000-000000000333','scope-text-tenant','Case Text');
+INSERT INTO public.assumptions(id,tenant_id,case_id,name,value,unit,source_type,confidence_score) VALUES
+ ('50000000-0000-4000-8000-000000000111','aaaaaaaa-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000111','Assumption A',42,'USD','inferred',0.8),
+ ('50000000-0000-4000-8000-000000000222','bbbbbbbb-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000222','Assumption B',84,'USD','inferred',0.9);
+INSERT INTO public.scenarios(id,tenant_id,case_id,scenario_type) VALUES
+ ('60000000-0000-4000-8000-000000000111','aaaaaaaa-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000111','base'),
+ ('60000000-0000-4000-8000-000000000222','bbbbbbbb-0000-4000-8000-000000000002','40000000-0000-4000-8000-000000000222','base');

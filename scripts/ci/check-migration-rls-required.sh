@@ -182,6 +182,64 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
       continue
     fi
 
+    # Exact legacy schema reconciliation only. Existing identity/team/audit
+    # tables and the historical DSR request ledger predate the UUID
+    # organization_id standard; adding a fake UUID field would break their
+    # established TEXT tenant identity contract. Require canonical table
+    # provenance, legacy type, and explicit RLS. No general exemption.
+    prereq_shape=""
+    canonical=""
+    case "$(basename "$mfile"):$table" in
+      20260213000004_tenant_identity_prerequisites.sql:tenants)
+        prereq_shape="id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:user_tenants)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:teams)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260213000007_teams_roles_tables.sql" ;;
+      20260213000004_tenant_identity_prerequisites.sql:security_audit_log)
+        prereq_shape="tenant_id[[:space:]]+uuid"
+        canonical="infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql" ;;
+      20260321010000_dsr_erase_user_pii_rpc.sql:dsr_erasure_requests)
+        prereq_shape="tenant_id[[:space:]]+text[[:space:]]+NOT[[:space:]]+NULL"
+        canonical="infra/supabase/supabase/migrations/20260321010000_dsr_erase_user_pii_rpc.sql" ;;
+    esac
+    if [ -n "$prereq_shape" ]; then
+      if ! grep -qiE "CREATE[[:space:]]+TABLE[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS[[:space:]]+public\\.$table[[:space:]]*\\(" "$canonical" \
+         || ! grep -qiE "$prereq_shape" "$mfile" \
+         || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile"; then
+        echo "FAIL $mfile: legacy table public.$table missing canonical type/provenance or RLS"
+        EXIT_CODE=1
+      fi
+      continue
+    fi
+
+    # Two exact Academy global reference migrations have NO tenant-owned
+    # records. Requiring a fabricated organization_id would break the public
+    # curriculum contract. This is NOT a general exemption: only these
+    # two files AND two tables qualify, and all global read-only/RLS
+    # declarations must still be present in the migration.
+    case "$(basename "$mfile"):$table" in
+      20260318180001_academy_reference_bridge.sql:academy_modules|\
+      20260318180001_academy_reference_bridge.sql:academy_lessons|\
+      20261107010000_academy_reference_reconciliation.sql:academy_modules|\
+      20261107010000_academy_reference_reconciliation.sql:academy_lessons)
+        if ! grep -q 'rls-classification: public_read' "$mfile" \
+           || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile" \
+           || ! grep -qiE "CREATE[[:space:]]+POLICY.*reference_authenticated_read|reference_authenticated_read" "$mfile" \
+           || ! grep -q 'REVOKE ALL ON public.academy_modules, public.academy_lessons' "$mfile" \
+           || ! grep -q 'GRANT SELECT ON public.academy_modules, public.academy_lessons TO authenticated' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (false)' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR UPDATE TO authenticated USING (false) WITH CHECK (false)' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR DELETE TO authenticated USING (false)' "$mfile"; then
+          echo "FAIL $mfile: Academy global reference $table needs RLS, authenticated read, no writes, and explicit denial policies"
+          EXIT_CODE=1
+        fi
+        continue ;;
+    esac
+
     # Check that organization_id UUID NOT NULL appears in the file
     # Accept: "organization_id UUID NOT NULL" or "organization_id uuid not null"
     if ! grep -qiE "organization_id[[:space:]]+UUID[[:space:]]+NOT[[:space:]]+NULL" "$mfile" 2>/dev/null; then
@@ -205,13 +263,13 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
     continue
   fi
 
-  if ! grep -qiE "SET[[:space:]]+lock_timeout" "$mfile" 2>/dev/null; then
+  if ! grep -qiE "SET[[:space:]]+(LOCAL[[:space:]]+)?lock_timeout" "$mfile" 2>/dev/null; then
     echo "::error file=${mfile}::Migration is missing 'SET lock_timeout = ...' declaration. Add it at the top of the file to prevent long table locks during deployment."
     echo "FAIL ${mfile}: missing SET lock_timeout declaration"
     EXIT_CODE=1
   fi
 
-  if ! grep -qiE "SET[[:space:]]+statement_timeout" "$mfile" 2>/dev/null; then
+  if ! grep -qiE "SET[[:space:]]+(LOCAL[[:space:]]+)?statement_timeout" "$mfile" 2>/dev/null; then
     echo "::error file=${mfile}::Migration is missing 'SET statement_timeout = ...' declaration. Add it at the top of the file to cap runaway statements."
     echo "FAIL ${mfile}: missing SET statement_timeout declaration"
     EXIT_CODE=1

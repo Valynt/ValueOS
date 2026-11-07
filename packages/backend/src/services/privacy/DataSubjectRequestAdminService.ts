@@ -146,20 +146,42 @@ export class DataSubjectRequestAdminService {
       return { notFound: true as const };
     }
 
+    // One global Auth identity can have memberships in several tenants.
+    // A tenant-local DSR must never redact profile PII for another tenant.
+    const { data: otherMemberships, error: membershipError } = await this.supabase
+      .from("user_tenants")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .neq("tenant_id", tenantId)
+      .limit(1);
+
+    if (membershipError) {
+      throw new Error(`DSR membership verification failed: ${membershipError.message}`);
+    }
+    if (otherMemberships?.length) {
+      throw new Error("Cross-tenant identity erasure requires coordinated review");
+    }
+
     const placeholderEmail = `deleted+${userId}@redacted.local`;
     const redactedTs = new Date().toISOString();
 
-    await this.supabase
+    const { data: updatedProfiles, error: userEraseError } = await this.supabase
       .from("users")
       .update({
         email: placeholderEmail,
+        name: null,
         full_name: null,
         display_name: null,
         avatar_url: null,
         metadata: { anonymized: true, anonymized_at: redactedTs },
       })
       .eq("id", userId)
-      .eq("tenant_id", tenantId);
+      .eq("tenant_id", tenantId)
+      .select("id");
+    if (userEraseError || updatedProfiles?.length !== 1) {
+      throw new Error(`DSR profile erasure failed or affected unexpected row count: ${userEraseError?.message ?? "expected one row"}`);
+    }
 
     const scrubbed = { content: "[redacted]", metadata: { anonymized: true, redacted_at: redactedTs } };
     await this.supabase.from("messages").update(scrubbed).eq("user_id", userId).eq("tenant_id", tenantId);

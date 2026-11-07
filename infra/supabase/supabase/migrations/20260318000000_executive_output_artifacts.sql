@@ -1,6 +1,8 @@
 -- Migration: Create case_artifacts and artifact_edits tables for Executive Output Generation
 -- Tasks: 1.1, 1.2, 1.3
 
+SET lock_timeout = '5s';
+SET statement_timeout = '120s';
 SET search_path = public, pg_temp;
 
 -- 1. Create case_artifacts table
@@ -170,5 +172,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.case_artifacts TO authenticated;
 GRANT SELECT, INSERT ON public.artifact_edits TO authenticated;
 GRANT ALL ON public.case_artifacts TO service_role;
 GRANT ALL ON public.artifact_edits TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.case_artifacts_id_seq TO authenticated, service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.artifact_edits_id_seq TO authenticated, service_role;
+-- These table IDs are UUIDs using gen_random_uuid(), not serial columns.
+-- Older deployments may still contain legacy ID sequences; retain grants
+-- where such sequences actually exist without failing fresh installations.
+DO $$
+BEGIN
+  IF to_regclass('public.case_artifacts_id_seq') IS NOT NULL THEN
+    GRANT USAGE, SELECT ON SEQUENCE public.case_artifacts_id_seq TO authenticated, service_role;
+  END IF;
+  IF to_regclass('public.artifact_edits_id_seq') IS NOT NULL THEN
+    GRANT USAGE, SELECT ON SEQUENCE public.artifact_edits_id_seq TO authenticated, service_role;
+  END IF;
+END $$;
