@@ -181,7 +181,7 @@ export const pillarsRouter = router({
             quiz_config
           )
         `)
-        .eq("pillar", input.pillarId.toString())
+        .eq("pillar", input.pillarId)
         .order("display_order");
 
       if (modulesError) {
@@ -220,7 +220,7 @@ export const pillarsRouter = router({
       // Transform modules with lessons and progress
       const modules = (modulesData || []).map((m) => ({
         id: m.id,
-        pillar: parseInt(m.pillar),
+        pillar: Number(m.pillar),
         title: m.title,
         description: m.description,
         order: m.display_order,
