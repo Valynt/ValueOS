@@ -131,6 +131,12 @@ export async function fetchUserTenants(
     return { data: null, error: userError ?? new Error("Authenticated user is required") };
   }
 
+  // Authentication resolution does not narrow the module-level optional client.
+  // Fail closed if configuration changes or the client is unavailable.
+  if (!supabase) {
+    return { data: null, error: new Error("Database connection unavailable") };
+  }
+
   try {
     const { data, error } = await supabase
       .from("user_tenants")
