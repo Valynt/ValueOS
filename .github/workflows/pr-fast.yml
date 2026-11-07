@@ -765,7 +765,7 @@ jobs:
 
   accessibility-audit:
     name: accessibility-audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -878,7 +878,7 @@ jobs:
 
   e2e-critical:
     name: e2e-critical
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
@@ -1284,7 +1284,7 @@ jobs:
   # ── Performance smoke (REQ-C4) ───────────────────────────────────────────
   performance-smoke:
     name: performance-smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
