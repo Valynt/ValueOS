@@ -43,9 +43,10 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
 
       mediaQuery.addEventListener("change", handler);
       return () => mediaQuery.removeEventListener("change", handler);
-    } else {
-      applyTheme(theme);
     }
+
+    applyTheme(theme);
+    return undefined;
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
