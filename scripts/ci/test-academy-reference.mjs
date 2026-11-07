@@ -41,7 +41,8 @@ const MOD='11111111-1111-4111-8111-111111111111';
 const LES='22222222-2222-4222-8222-222222222222';
 {
  const u=disposable();
- deny(()=>apply(u,historic),/relation "public.academy_modules" does not exist/i);
+ deny(()=>sql(u,'BEGIN;\n'+file(historic)+'\nROLLBACK;'),/relation "public.academy_modules" does not exist/i);
+ assert.equal(count(u,"SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='academy_pillars';"),0,'failed historical DDL must leave no partial objects');
  apply(u,before);apply(u,historic);apply(u,after);
  assert.equal(count(u,'SELECT count(*) FROM public.academy_pillars;'),10);
  sql(u,"INSERT INTO public.academy_modules(id,pillar,title) VALUES ('"+MOD+"',8,'Advanced module');"+
