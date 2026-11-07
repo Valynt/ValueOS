@@ -57,7 +57,7 @@ export interface Database {
       academy_modules: {
         Row: {
           id: string;
-          pillar: string; // academy_pillar enum
+          pillar: number; // active ten-pillar integer schema; legacy enum requires approved conversion
           title: string;
           description: string;
           display_order: number;
@@ -67,7 +67,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          pillar: string;
+          pillar: number;
           title: string;
           description?: string;
           display_order?: number;
@@ -77,7 +77,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          pillar?: string;
+          pillar?: number;
           title?: string;
           description?: string;
           display_order?: number;
