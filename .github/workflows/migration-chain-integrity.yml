@@ -18,6 +18,7 @@ on:
       - "scripts/ci/*value-modeling-scope*"
       - "scripts/ci/*billing-scope*"
       - "scripts/ci/*deal-assembly-scope*"
+      - "scripts/ci/test-academy-reference.mjs"
       - "scripts/ci/local-postgres-safety.mjs"
       - "scripts/ci/test-membership-authorization.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
@@ -32,6 +33,7 @@ on:
       - "scripts/ci/*value-modeling-scope*"
       - "scripts/ci/*billing-scope*"
       - "scripts/ci/*deal-assembly-scope*"
+      - "scripts/ci/test-academy-reference.mjs"
       - "scripts/ci/local-postgres-safety.mjs"
       - "scripts/ci/test-membership-authorization.mjs"
       - "scripts/ci/fixtures/value-modeling-scope.sql"
@@ -175,6 +177,9 @@ jobs:
 
       - name: Verify deal assembly historical contracts, populated upgrade, RLS and rollback
         run: node scripts/ci/test-deal-assembly-scope.mjs
+
+      - name: Verify academy reference schema, RLS, legacy enum rejection and rollback
+        run: node scripts/ci/test-academy-reference.mjs
 
       - name: Apply active migrations in order
         run: |
