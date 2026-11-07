@@ -216,6 +216,30 @@ for mfile in "${NEW_CHECK_FILES[@]}"; do
       continue
     fi
 
+    # Two exact Academy global reference migrations have NO tenant-owned
+    # records. Requiring a fabricated organization_id would break the public
+    # curriculum contract. This is NOT a general exemption: only these
+    # two files AND two tables qualify, and all global read-only/RLS
+    # declarations must still be present in the migration.
+    case "$(basename "$mfile"):$table" in
+      20260318180001_academy_reference_bridge.sql:academy_modules|\
+      20260318180001_academy_reference_bridge.sql:academy_lessons|\
+      20261107010000_academy_reference_reconciliation.sql:academy_modules|\
+      20261107010000_academy_reference_reconciliation.sql:academy_lessons)
+        if ! grep -q 'rls-classification: public_read' "$mfile" \
+           || ! grep -qiE "ALTER[[:space:]]+TABLE[[:space:]]+public\\.$table[[:space:]]+ENABLE[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY" "$mfile" \
+           || ! grep -qiE "CREATE[[:space:]]+POLICY.*reference_authenticated_read|reference_authenticated_read" "$mfile" \
+           || ! grep -q 'REVOKE ALL ON public.academy_modules, public.academy_lessons' "$mfile" \
+           || ! grep -q 'GRANT SELECT ON public.academy_modules, public.academy_lessons TO authenticated' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (false)' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR UPDATE TO authenticated USING (false) WITH CHECK (false)' "$mfile" \
+           || ! grep -q 'AS RESTRICTIVE FOR DELETE TO authenticated USING (false)' "$mfile"; then
+          echo "FAIL $mfile: Academy global reference $table needs RLS, authenticated read, no writes, and explicit denial policies"
+          EXIT_CODE=1
+        fi
+        continue ;;
+    esac
+
     # Check that organization_id UUID NOT NULL appears in the file
     # Accept: "organization_id UUID NOT NULL" or "organization_id uuid not null"
     if ! grep -qiE "organization_id[[:space:]]+UUID[[:space:]]+NOT[[:space:]]+NULL" "$mfile" 2>/dev/null; then
