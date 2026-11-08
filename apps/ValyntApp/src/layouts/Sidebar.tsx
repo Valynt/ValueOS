@@ -215,4 +215,3 @@ export function Sidebar({ onClose }: SidebarProps) {
   );
 }
 
-export { Sidebar };
