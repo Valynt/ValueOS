@@ -247,4 +247,3 @@ export function useCanvasState(
   };
 }
 
-export { useCanvasState };

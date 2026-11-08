@@ -224,4 +224,3 @@ export function useAgentOrchestrator(
   };
 }
 
-export { useAgentOrchestrator };
